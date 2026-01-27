@@ -18,7 +18,17 @@ export class LeadsService {
     ) { }
 
     async create(dto: CreateLeadDto, tenantId: string) {
-        const status = await this.statusRepo.findOneByOrFail({ id: dto.status_id });
+        let status;
+        if (dto.status_id) {
+            status = await this.statusRepo.findOneByOrFail({ id: dto.status_id });
+        } else {
+            // Use default 'new' status if none provided
+            status = await this.statusRepo.findOneBy({ code: 'new' });
+            if (!status) {
+                // Fallback to first available status
+                status = await this.statusRepo.findOne({});
+            }
+        }
 
         return this.leadRepo.save({
             ...dto,
