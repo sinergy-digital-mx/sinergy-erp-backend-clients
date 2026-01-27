@@ -55,6 +55,18 @@ export class LeadsController {
         return this.leadsService.update(id, dto, req.user.tenantId);
     }
 
+    @Get('debug')
+    @UseGuards(JwtAuthGuard)
+    @ApiOperation({ summary: 'Debug endpoint to test JWT authentication' })
+    @ApiResponse({ status: 200, description: 'Debug info returned successfully' })
+    debugAuth(@Req() req: any) {
+        return {
+            message: 'JWT Auth working',
+            user: req.user,
+            timestamp: new Date().toISOString()
+        };
+    }
+
     @Get()
     @RequirePermissions({ entityType: 'Lead', action: 'Read' })
     @ApiOperation({ summary: 'Get paginated leads with search functionality' })
