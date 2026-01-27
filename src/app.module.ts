@@ -7,6 +7,7 @@ import { UsersModule } from './api/users/users.module';
 import { LeadsModule } from './api/leads/leads.module';
 import { CustomersModule } from './api/customers/customers.module';
 import { AuthModule } from './api/auth/auth.module';
+import { RBACModule } from './api/rbac/rbac.module';
 
 @Module({
   imports: [
@@ -15,7 +16,8 @@ import { AuthModule } from './api/auth/auth.module';
     UsersModule,
     LeadsModule,
     CustomersModule,
-    AuthModule
+    AuthModule,
+    RBACModule
   ],
 })
 export class AppModule { }

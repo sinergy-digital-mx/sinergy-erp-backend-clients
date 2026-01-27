@@ -4,20 +4,26 @@ import {
     PrimaryGeneratedColumn,
     Column,
     ManyToOne,
+    OneToMany,
     JoinColumn,
     CreateDateColumn,
 } from 'typeorm';
 import { LeadStatus } from './lead-status.entity';
-import { Tenant } from '../tenant/tenant.entity';
+import { LeadAddress } from './lead-address.entity';
+import { LeadActivity } from './lead-activity.entity';
+import { RBACTenant } from '../rbac/tenant.entity';
 
 @Entity('leads')
 export class Lead {
     @PrimaryGeneratedColumn()
     id: number;
 
-    @ManyToOne(() => Tenant)
+    @ManyToOne(() => RBACTenant)
     @JoinColumn({ name: 'tenant_id' })
-    tenant: Tenant;
+    tenant: RBACTenant;
+
+    @Column({ name: 'tenant_id' })
+    tenant_id: string;
 
     @ManyToOne(() => LeadStatus)
     @JoinColumn({ name: 'status_id' })
@@ -43,6 +49,12 @@ export class Lead {
 
     @Column({ nullable: true })
     source: string;
+
+    @OneToMany(() => LeadAddress, address => address.lead)
+    addresses: LeadAddress[];
+
+    @OneToMany(() => LeadActivity, activity => activity.lead)
+    activities: LeadActivity[];
 
     @CreateDateColumn()
     created_at: Date;

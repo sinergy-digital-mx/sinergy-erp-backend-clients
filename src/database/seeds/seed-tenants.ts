@@ -1,21 +1,21 @@
 // src/database/seeds/seed-tenants.ts
 import 'dotenv/config';
 import { AppDataSource } from '../data-source';
-import { Tenant } from '../../entities/tenant/tenant.entity';
+import { RBACTenant } from '../../entities/rbac/tenant.entity';
 
 async function seed() {
     await AppDataSource.initialize();
 
-    const repo = AppDataSource.getRepository(Tenant);
+    const repo = AppDataSource.getRepository(RBACTenant);
 
     await repo.save([
         {
-            code: 'papito-test',
+            subdomain: 'papito-test',
             name: 'Papito Test',
             is_active: true,
         },
         {
-            code: 'valdetierra',
+            subdomain: 'valdetierra',
             name: 'Valdetierra',
             is_active: true,
         },

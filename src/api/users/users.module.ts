@@ -3,12 +3,16 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
-import { Tenant } from 'src/entities/tenant/tenant.entity';
+import { RBACTenant } from 'src/entities/rbac/tenant.entity';
 import { UserStatus } from 'src/entities/users/user-status.entity';
 import { User } from 'src/entities/users/user.entity';
+import { RBACModule } from '../rbac/rbac.module';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([User, Tenant, UserStatus])],
+    imports: [
+        TypeOrmModule.forFeature([User, RBACTenant, UserStatus]),
+        RBACModule,
+    ],
     controllers: [UsersController],
     providers: [UsersService],
 })

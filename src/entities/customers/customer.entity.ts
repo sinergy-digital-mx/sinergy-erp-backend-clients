@@ -4,20 +4,25 @@ import {
     PrimaryGeneratedColumn,
     Column,
     ManyToOne,
+    OneToMany,
     JoinColumn,
     CreateDateColumn,
 } from 'typeorm';
 import { CustomerStatus } from './customer-status.entity';
-import { Tenant } from '../tenant/tenant.entity';
+import { CustomerAddress } from './customer-address.entity';
+import { RBACTenant } from '../rbac/tenant.entity';
 
 @Entity('customers')
 export class Customer {
     @PrimaryGeneratedColumn()
     id: number;
 
-    @ManyToOne(() => Tenant)
+    @ManyToOne(() => RBACTenant)
     @JoinColumn({ name: 'tenant_id' })
-    tenant: Tenant;
+    tenant: RBACTenant;
+
+    @Column({ name: 'tenant_id' })
+    tenant_id: string;
 
     @ManyToOne(() => CustomerStatus)
     @JoinColumn({ name: 'status_id' })
@@ -25,6 +30,9 @@ export class Customer {
 
     @Column()
     name: string;
+
+    @OneToMany(() => CustomerAddress, address => address.customer)
+    addresses: CustomerAddress[];
 
     @CreateDateColumn()
     created_at: Date;

@@ -7,46 +7,53 @@ import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { LeadStatus } from 'src/entities/leads/lead-status.entity';
 import { Lead } from 'src/entities/leads/lead.entity';
-import { Tenant } from 'src/entities/tenant/tenant.entity';
+import { RBACTenant } from 'src/entities/rbac/tenant.entity';
 
 @Injectable()
 export class LeadsService {
     constructor(
         @InjectRepository(Lead) private leadRepo: Repository<Lead>,
-        @InjectRepository(Tenant) private tenantRepo: Repository<Tenant>,
         @InjectRepository(LeadStatus) private statusRepo: Repository<LeadStatus>,
+        @InjectRepository(RBACTenant) private tenantRepo: Repository<RBACTenant>,
     ) { }
 
-    async create(dto: CreateLeadDto) {
-        const tenant = await this.tenantRepo.findOneByOrFail({ id: dto.tenant_id });
+    async create(dto: CreateLeadDto, tenantId: string) {
         const status = await this.statusRepo.findOneByOrFail({ id: dto.status_id });
 
         return this.leadRepo.save({
             ...dto,
-            tenant,
+            tenant: { id: tenantId },
+            tenant_id: tenantId,
             status,
         });
     }
 
-    async update(id: number, dto: UpdateLeadDto) {
+    async update(id: number, dto: UpdateLeadDto, tenantId: string) {
+        const lead = await this.leadRepo.findOneByOrFail({
+            id,
+            tenant_id: tenantId,
+        });
+
         if (dto.status_id) {
             const status = await this.statusRepo.findOneByOrFail({ id: dto.status_id });
-            await this.leadRepo.update(id, { ...dto, status });
-            return this.findOne(id);
+            lead.status = status;
         }
 
-        await this.leadRepo.update(id, dto);
-        return this.findOne(id);
+        Object.assign(lead, dto);
+        return this.leadRepo.save(lead);
     }
 
-    findAll() {
-        return this.leadRepo.find({ relations: ['tenant', 'status'] });
+    findAll(tenantId: string) {
+        return this.leadRepo.find({
+            where: { tenant_id: tenantId },
+            relations: ['status', 'tenant'],
+        });
     }
 
-    findOne(id: number) {
+    findOne(id: number, tenantId: string) {
         return this.leadRepo.findOne({
-            where: { id },
-            relations: ['tenant', 'status'],
+            where: { id, tenant_id: tenantId },
+            relations: ['status', 'tenant'],
         });
     }
 }

@@ -4,21 +4,25 @@ import {
     PrimaryGeneratedColumn,
     Column,
     ManyToOne,
+    OneToMany,
     JoinColumn,
     CreateDateColumn,
     UpdateDateColumn,
 } from 'typeorm';
-import { Tenant } from '../tenant/tenant.entity';
+import { RBACTenant } from '../rbac/tenant.entity';
 import { UserStatus } from './user-status.entity';
 
 @Entity('users')
 export class User {
-    @PrimaryGeneratedColumn()
-    id: number;
+    @PrimaryGeneratedColumn('uuid')
+    id: string;
 
-    @ManyToOne(() => Tenant)
+    @ManyToOne(() => RBACTenant)
     @JoinColumn({ name: 'tenant_id' })
-    tenant: Tenant;
+    tenant: RBACTenant;
+
+    @Column({ name: 'tenant_id' })
+    tenant_id: string;
 
     @ManyToOne(() => UserStatus)
     @JoinColumn({ name: 'status_id' })

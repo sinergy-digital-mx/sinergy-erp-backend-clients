@@ -5,10 +5,14 @@ import { CustomersController } from './customers.controller';
 import { CustomersService } from './customers.service';
 import { CustomerStatus } from 'src/entities/customers/customer-status.entity';
 import { Customer } from 'src/entities/customers/customer.entity';
-import { Tenant } from 'src/entities/tenant/tenant.entity';
+import { RBACTenant } from 'src/entities/rbac/tenant.entity';
+import { RBACModule } from '../rbac/rbac.module';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Customer, CustomerStatus, Tenant])],
+    imports: [
+        TypeOrmModule.forFeature([Customer, CustomerStatus, RBACTenant]),
+        RBACModule,
+    ],
     controllers: [CustomersController],
     providers: [CustomersService],
 })

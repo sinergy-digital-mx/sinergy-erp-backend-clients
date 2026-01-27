@@ -1,0 +1,483 @@
+/**
+ * RBAC Error Handling Usage Examples
+ * 
+ * This file demonstrates how to use the comprehensive RBAC error handling system
+ * in various scenarios including controllers, services, and middleware.
+ */
+
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  UseGuards,
+  UseFilters,
+  Request,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { PermissionGuard } from '../guards/permission.guard';
+import { RequirePermissions } from '../decorators/require-permissions.decorator';
+import { RBACExceptionFilter } from '../filters/rbac-exception.filter';
+import {
+  RBACErrorUtils,
+  RBACErrorCode,
+  RBACErrorHandlerService,
+  createPermissionDeniedException,
+  createInvalidEntityTypeException,
+} from '../errors';
+import { PermissionService } from '../services/permission.service';
+import { RoleService } from '../services/role.service';
+
+/**
+ * Example controller demonstrating RBAC error handling
+ */
+@Controller('examples/rbac-errors')
+@UseGuards(JwtAuthGuard, PermissionGuard)
+@UseFilters(RBACExceptionFilter) // Apply RBAC exception filter
+export class RBACErrorExampleController {
+  private readonly logger = new Logger(RBACErrorExampleController.name);
+
+  constructor(
+    private readonly permissionService: PermissionService,
+    private readonly roleService: RoleService,
+    private readonly errorHandler: RBACErrorHandlerService,
+  ) {}
+
+  /**
+   * Example 1: Using permission decorator with automatic error handling
+   * The PermissionGuard will automatically throw appropriate RBAC exceptions
+   */
+  @Get('customers')
+  @RequirePermissions({ entityType: 'Customer', action: 'Read' })
+  async getCustomers() {
+    // If user lacks permission, PermissionGuard throws RBACAuthorizationException
+    // which is caught by RBACExceptionFilter and formatted appropriately
+    return { message: 'Customers retrieved successfully' };
+  }
+
+  /**
+   * Example 2: Manual permission checking with custom error handling
+   */
+  @Get('customers/:id/sensitive-data')
+  async getSensitiveCustomerData(@Param('id') customerId: string, @Request() req: any) {
+    const userId = req.user.user_id;
+    const tenantId = req.headers['x-tenant-id'];
+
+    // Manual permission check with detailed error context
+    const hasPermission = await this.permissionService.hasPermission(
+      userId,
+      tenantId,
+      'Customer',
+      'Read_Sensitive_Data',
+    );
+
+    if (!hasPermission) {
+      // Get user's current permissions for context
+      const userPermissions = await this.permissionService.getUserPermissions(userId, tenantId);
+      const permissionStrings = userPermissions.map(p => `${p.entity_type}:${p.action}`);
+
+      // Throw detailed permission denied exception
+      throw createPermissionDeniedException(
+        'Customer',
+        'Read_Sensitive_Data',
+        userId,
+        tenantId,
+        permissionStrings,
+      );
+    }
+
+    return { message: 'Sensitive customer data retrieved', customerId };
+  }
+
+  /**
+   * Example 3: Validation with custom error handling
+   */
+  @Post('permissions')
+  async createPermission(@Body() createPermissionDto: {
+    entityType: string;
+    action: string;
+    description?: string;
+  }) {
+    const { entityType, action, description } = createPermissionDto;
+
+    // Validate entity type with detailed error
+    const availableEntities = await this.permissionService.getAvailableEntityTypes();
+    if (!availableEntities.includes(entityType)) {
+      throw createInvalidEntityTypeException(entityType, availableEntities);
+    }
+
+    // Validate action
+    const supportedActions = this.permissionService.getSupportedActions();
+    if (!supportedActions.includes(action)) {
+      RBACErrorUtils.throwInvalidActionType(action, supportedActions);
+    }
+
+    try {
+      const permission = await this.permissionService.createPermission(
+        entityType,
+        action,
+        description,
+      );
+      return { message: 'Permission created successfully', permission };
+    } catch (error) {
+      // If it's already an RBAC exception, let it bubble up
+      if (RBACErrorUtils.isRBACException(error)) {
+        throw error;
+      }
+
+      // Convert unexpected errors to system errors
+      RBACErrorUtils.throwSystemError(
+        'RBACErrorExampleController',
+        'createPermission',
+        error as Error,
+      );
+    }
+  }
+
+  /**
+   * Example 4: Role management with conflict handling
+   */
+  @Post('roles')
+  async createRole(@Body() createRoleDto: {
+    name: string;
+    description?: string;
+  }, @Request() req: any) {
+    const { name, description } = createRoleDto;
+    const tenantId = req.headers['x-tenant-id'];
+
+    // Validate input
+    if (!name || name.trim().length === 0) {
+      RBACErrorUtils.throwValidationError([
+        {
+          field: 'name',
+          message: 'Role name is required and cannot be empty',
+          value: name,
+        },
+      ]);
+    }
+
+    try {
+      const role = await this.roleService.createRole(tenantId, name, description);
+      return { message: 'Role created successfully', role };
+    } catch (error) {
+      // Handle specific database constraint errors
+      if (error.code === '23505') { // PostgreSQL unique constraint violation
+        RBACErrorUtils.throwRoleAlreadyExists(name, tenantId);
+      }
+
+      // Re-throw RBAC exceptions
+      if (RBACErrorUtils.isRBACException(error)) {
+        throw error;
+      }
+
+      // Convert other errors to system errors
+      RBACErrorUtils.throwSystemError('RoleService', 'createRole', error as Error);
+    }
+  }
+
+  /**
+   * Example 5: Cross-tenant access prevention
+   */
+  @Get('tenants/:tenantId/roles')
+  async getTenantRoles(@Param('tenantId') requestedTenantId: string, @Request() req: any) {
+    const currentTenantId = req.headers['x-tenant-id'];
+    const userId = req.user.user_id;
+
+    // Prevent cross-tenant access
+    if (requestedTenantId !== currentTenantId) {
+      RBACErrorUtils.throwCrossTenantAccessDenied(
+        requestedTenantId,
+        currentTenantId,
+        userId,
+      );
+    }
+
+    const roles = await this.roleService.getTenantRoles(requestedTenantId);
+    return { roles };
+  }
+
+  /**
+   * Example 6: Error handling with retry logic
+   */
+  @Get('permissions/with-retry')
+  async getPermissionsWithRetry(@Request() req: any) {
+    const userId = req.user.user_id;
+    const tenantId = req.headers['x-tenant-id'];
+
+    let attempt = 0;
+    const maxAttempts = 3;
+
+    while (attempt < maxAttempts) {
+      try {
+        const permissions = await this.permissionService.getUserPermissions(userId, tenantId);
+        return { permissions };
+      } catch (error) {
+        attempt++;
+
+        // Only retry system errors, not user/validation errors
+        if (RBACErrorUtils.isErrorCategory(error, 'SYSTEM') && attempt < maxAttempts) {
+          this.logger.warn(`Attempt ${attempt} failed, retrying...`, error);
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
+          continue;
+        }
+
+        // Re-throw the error if not retryable or max attempts reached
+        throw error;
+      }
+    }
+  }
+
+  /**
+   * Example 7: Graceful error handling with fallbacks
+   */
+  @Get('permissions/with-fallback')
+  async getPermissionsWithFallback(@Request() req: any) {
+    const userId = req.user.user_id;
+    const tenantId = req.headers['x-tenant-id'];
+
+    try {
+      // Try to get permissions from cache first
+      const permissions = await this.permissionService.getUserPermissions(userId, tenantId);
+      return { permissions, source: 'cache' };
+    } catch (error) {
+      // If cache fails, try direct database query
+      if (RBACErrorUtils.isErrorCode(error, RBACErrorCode.CACHE_SERVICE_UNAVAILABLE)) {
+        this.logger.warn('Cache unavailable, falling back to database');
+        
+        try {
+          // This would be a direct database query method
+          const permissions = await this.permissionService.getUserPermissions(userId, tenantId);
+          return { permissions, source: 'database' };
+        } catch (dbError) {
+          // If database also fails, return minimal permissions
+          this.logger.error('Both cache and database failed, returning minimal permissions');
+          return { 
+            permissions: [], 
+            source: 'fallback',
+            warning: 'Limited functionality due to system issues'
+          };
+        }
+      }
+
+      // For other errors, re-throw
+      throw error;
+    }
+  }
+}
+
+/**
+ * Example service demonstrating error handling patterns
+ */
+@Injectable()
+export class RBACErrorExampleService {
+  private readonly logger = new Logger(RBACErrorExampleService.name);
+
+  constructor(
+    private readonly permissionService: PermissionService,
+    private readonly roleService: RoleService,
+  ) {}
+
+  /**
+   * Example of wrapping operations with automatic error handling
+   */
+  async safeCreateRole(tenantId: string, name: string, description?: string) {
+    return RBACErrorUtils.wrapWithErrorHandling(
+      async () => {
+        return await this.roleService.createRole(tenantId, name, description);
+      },
+      'RBACErrorExampleService',
+      'safeCreateRole',
+    );
+  }
+
+  /**
+   * Example of bulk operations with partial failure handling
+   */
+  async bulkCreateRoles(tenantId: string, roles: Array<{ name: string; description?: string }>) {
+    const results = {
+      successful: [] as any[],
+      failed: [] as any[],
+    };
+
+    for (const roleData of roles) {
+      try {
+        const role = await this.roleService.createRole(
+          tenantId,
+          roleData.name,
+          roleData.description,
+        );
+        results.successful.push({ role, name: roleData.name });
+      } catch (error) {
+        const errorDetails = RBACErrorUtils.extractErrorDetails(error);
+        results.failed.push({
+          name: roleData.name,
+          error: errorDetails,
+        });
+
+        // Log the error but continue with other roles
+        this.logger.warn(`Failed to create role ${roleData.name}:`, errorDetails);
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Example of error aggregation and reporting
+   */
+  async validateMultiplePermissions(
+    userId: string,
+    tenantId: string,
+    requiredPermissions: Array<{ entityType: string; action: string }>,
+  ) {
+    const validationResults = {
+      valid: [] as any[],
+      invalid: [] as any[],
+      errors: [] as any[],
+    };
+
+    for (const permission of requiredPermissions) {
+      try {
+        const hasPermission = await this.permissionService.hasPermission(
+          userId,
+          tenantId,
+          permission.entityType,
+          permission.action,
+        );
+
+        if (hasPermission) {
+          validationResults.valid.push(permission);
+        } else {
+          validationResults.invalid.push(permission);
+        }
+      } catch (error) {
+        const errorDetails = RBACErrorUtils.extractErrorDetails(error);
+        validationResults.errors.push({
+          permission,
+          error: errorDetails,
+        });
+      }
+    }
+
+    return validationResults;
+  }
+}
+
+/**
+ * Example middleware demonstrating error handling
+ */
+@Injectable()
+export class RBACErrorExampleMiddleware {
+  private readonly logger = new Logger(RBACErrorExampleMiddleware.name);
+
+  constructor(private readonly errorHandler: RBACErrorHandlerService) {}
+
+  use(req: any, res: any, next: Function) {
+    try {
+      // Validate tenant context
+      const tenantId = req.headers['x-tenant-id'];
+      if (!tenantId) {
+        RBACErrorUtils.throwAuthenticationRequired('X-Tenant-ID header is required');
+      }
+
+      // Validate tenant ID format
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(tenantId)) {
+        RBACErrorUtils.throwValidationError([
+          {
+            field: 'x-tenant-id',
+            message: 'Tenant ID must be a valid UUID',
+            value: tenantId,
+          },
+        ]);
+      }
+
+      next();
+    } catch (error) {
+      // Handle errors in middleware
+      if (RBACErrorUtils.isRBACException(error)) {
+        const errorResponse = this.errorHandler.handleException(error, req);
+        return res.status(errorResponse.statusCode).json(errorResponse);
+      }
+
+      // Handle unexpected errors
+      const systemError = RBACErrorUtils.createSystemErrorException(
+        'RBACErrorExampleMiddleware',
+        'use',
+        error as Error,
+      );
+      const errorResponse = this.errorHandler.handleException(systemError, req);
+      return res.status(errorResponse.statusCode).json(errorResponse);
+    }
+  }
+}
+
+/**
+ * Example of custom error handling for specific business logic
+ */
+export class CustomRBACErrorHandler {
+  /**
+   * Handle permission denied with custom business logic
+   */
+  static handlePermissionDenied(
+    entityType: string,
+    action: string,
+    userId: string,
+    tenantId: string,
+  ) {
+    // Custom business logic - e.g., check if user can request access
+    const canRequestAccess = ['Customer', 'Lead'].includes(entityType);
+    
+    const context = {
+      requiredPermission: { entityType, action },
+      userId,
+      tenantId,
+      canRequestAccess,
+      requestAccessUrl: canRequestAccess ? `/request-access?entity=${entityType}&action=${action}` : undefined,
+    };
+
+    throw createPermissionDeniedException(
+      entityType,
+      action,
+      userId,
+      tenantId,
+      undefined, // userPermissions
+      undefined, // correlationId
+    );
+  }
+
+  /**
+   * Handle role conflicts with suggestions
+   */
+  static handleRoleConflict(
+    roleName: string,
+    tenantId: string,
+    existingRoles: string[],
+  ) {
+    const suggestions = [
+      `Use existing role: ${existingRoles[0]}`,
+      `Modify existing role permissions instead`,
+      `Choose a different role name like: ${roleName}_v2`,
+    ];
+
+    const exception = RBACErrorUtils.createRoleAlreadyExistsException(
+      roleName,
+      tenantId,
+    );
+
+    // Add custom suggestions to the exception
+    (exception as any).customSuggestions = suggestions;
+    
+    throw exception;
+  }
+}
+
+export {
+  RBACErrorExampleController,
+  RBACErrorExampleService,
+  RBACErrorExampleMiddleware,
+  CustomRBACErrorHandler,
+};

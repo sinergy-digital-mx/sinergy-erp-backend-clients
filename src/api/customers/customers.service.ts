@@ -7,46 +7,53 @@ import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { CustomerStatus } from 'src/entities/customers/customer-status.entity';
 import { Customer } from 'src/entities/customers/customer.entity';
-import { Tenant } from 'src/entities/tenant/tenant.entity';
+import { RBACTenant } from 'src/entities/rbac/tenant.entity';
 
 @Injectable()
 export class CustomersService {
     constructor(
         @InjectRepository(Customer) private customerRepo: Repository<Customer>,
-        @InjectRepository(Tenant) private tenantRepo: Repository<Tenant>,
+        @InjectRepository(RBACTenant) private tenantRepo: Repository<RBACTenant>,
         @InjectRepository(CustomerStatus) private statusRepo: Repository<CustomerStatus>,
     ) { }
 
-    async create(dto: CreateCustomerDto) {
-        const tenant = await this.tenantRepo.findOneByOrFail({ id: dto.tenant_id });
+    async create(dto: CreateCustomerDto, tenantId: string) {
         const status = await this.statusRepo.findOneByOrFail({ id: dto.status_id });
 
         return this.customerRepo.save({
-            name: dto.name,
-            tenant,
+            ...dto,
+            tenant: { id: tenantId },
+            tenant_id: tenantId,
             status,
         });
     }
 
-    async update(id: number, dto: UpdateCustomerDto) {
+    async update(id: number, dto: UpdateCustomerDto, tenantId: string) {
+        const customer = await this.customerRepo.findOneByOrFail({
+            id,
+            tenant_id: tenantId,
+        });
+
         if (dto.status_id) {
             const status = await this.statusRepo.findOneByOrFail({ id: dto.status_id });
-            await this.customerRepo.update(id, { ...dto, status });
-            return this.findOne(id);
+            customer.status = status;
         }
 
-        await this.customerRepo.update(id, dto);
-        return this.findOne(id);
+        Object.assign(customer, dto);
+        return this.customerRepo.save(customer);
     }
 
-    findAll() {
-        return this.customerRepo.find({ relations: ['tenant', 'status'] });
+    findAll(tenantId: string) {
+        return this.customerRepo.find({
+            where: { tenant_id: tenantId },
+            relations: ['status', 'tenant'],
+        });
     }
 
-    findOne(id: number) {
+    findOne(id: number, tenantId: string) {
         return this.customerRepo.findOne({
-            where: { id },
-            relations: ['tenant', 'status'],
+            where: { id, tenant_id: tenantId },
+            relations: ['status', 'tenant'],
         });
     }
 }
