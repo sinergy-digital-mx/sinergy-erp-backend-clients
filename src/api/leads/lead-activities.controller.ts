@@ -27,7 +27,7 @@ export class LeadActivitiesController {
     constructor(private readonly activitiesService: LeadActivitiesService) {}
 
     @Post()
-    @RequirePermissions({ entityType: 'Lead', action: 'Update' }, { entityType: 'Activity', action: 'Create' })
+    @RequirePermissions({ entityType: 'Lead', action: 'Activity:Create' })
     async create(
         @Param('leadId', ParseIntPipe) leadId: number,
         @Body() createActivityDto: CreateLeadActivityDto,
@@ -42,7 +42,7 @@ export class LeadActivitiesController {
     }
 
     @Get()
-    @RequirePermissions({ entityType: 'Lead', action: 'Read' }, { entityType: 'Activity', action: 'Read' })
+    @RequirePermissions({ entityType: 'Lead', action: 'Activity:Read' })
     async findAll(
         @Param('leadId', ParseIntPipe) leadId: number,
         @Query() query: QueryLeadActivityDto,
@@ -52,7 +52,7 @@ export class LeadActivitiesController {
     }
 
     @Get('summary')
-    @RequirePermissions({ entityType: 'Lead', action: 'Read' }, { entityType: 'Activity', action: 'Read' })
+    @RequirePermissions({ entityType: 'Lead', action: 'Activity:Read' })
     async getActivitySummary(
         @Param('leadId', ParseIntPipe) leadId: number,
         @Request() req: any,
@@ -61,7 +61,7 @@ export class LeadActivitiesController {
     }
 
     @Get(':id')
-    @RequirePermissions({ entityType: 'Lead', action: 'Read' }, { entityType: 'Activity', action: 'Read' })
+    @RequirePermissions({ entityType: 'Lead', action: 'Activity:Read' })
     async findOne(
         @Param('leadId', ParseIntPipe) leadId: number,
         @Param('id', ParseUUIDPipe) id: string,
@@ -71,7 +71,7 @@ export class LeadActivitiesController {
     }
 
     @Patch(':id')
-    @RequirePermissions({ entityType: 'Lead', action: 'Update' }, { entityType: 'Activity', action: 'Update' })
+    @RequirePermissions({ entityType: 'Lead', action: 'Activity:Update' })
     async update(
         @Param('leadId', ParseIntPipe) leadId: number,
         @Param('id', ParseUUIDPipe) id: string,
@@ -88,7 +88,7 @@ export class LeadActivitiesController {
     }
 
     @Delete(':id')
-    @RequirePermissions({ entityType: 'Lead', action: 'Delete' }, { entityType: 'Activity', action: 'Delete' })
+    @RequirePermissions({ entityType: 'Lead', action: 'Activity:Delete' })
     async remove(
         @Param('leadId', ParseIntPipe) leadId: number,
         @Param('id', ParseUUIDPipe) id: string,
