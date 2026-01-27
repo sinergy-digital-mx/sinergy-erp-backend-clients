@@ -6,9 +6,10 @@ import {
     ManyToOne,
     JoinColumn,
     CreateDateColumn,
+    UpdateDateColumn,
 } from 'typeorm';
-import { UserStatus } from './user-status.entity';
 import { Tenant } from '../tenant/tenant.entity';
+import { UserStatus } from './user-status.entity';
 
 @Entity('users')
 export class User {
@@ -29,6 +30,12 @@ export class User {
     @Column()
     password: string;
 
+    @Column({ type: 'datetime', nullable: true })
+    last_login_at: Date | null;
+
     @CreateDateColumn()
     created_at: Date;
+
+    @UpdateDateColumn()
+    updated_at: Date;
 }
