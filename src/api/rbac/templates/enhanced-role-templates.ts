@@ -16,7 +16,11 @@ export const BUSINESS_ROLE_TEMPLATES: RoleTemplate[] = [
     permissions: [
       {
         entityType: 'Lead',
-        actions: ['Create', 'Read', 'Update', 'Delete', 'Convert', 'Assign', 'Export', 'Download_Report', 'Activity:Create', 'Activity:Read', 'Activity:Update', 'Activity:Delete', 'Activity:Export', 'Activity:View_All'],
+        actions: ['Create', 'Read', 'Update', 'Delete', 'Convert', 'Assign', 'Export', 'Download_Report'],
+      },
+      {
+        entityType: 'Lead:Activity',
+        actions: ['Create', 'Read', 'Update', 'Delete', 'Export', 'View_All'],
       },
       {
         entityType: 'Customer',
@@ -39,7 +43,11 @@ export const BUSINESS_ROLE_TEMPLATES: RoleTemplate[] = [
     permissions: [
       {
         entityType: 'Lead',
-        actions: ['Create', 'Read', 'Update', 'Convert', 'Export', 'Activity:Create', 'Activity:Read', 'Activity:Update', 'Activity:Delete'],
+        actions: ['Create', 'Read', 'Update', 'Convert', 'Export'],
+      },
+      {
+        entityType: 'Lead:Activity',
+        actions: ['Create', 'Read', 'Update', 'Delete'],
       },
       {
         entityType: 'Customer',
@@ -85,7 +93,11 @@ export const BUSINESS_ROLE_TEMPLATES: RoleTemplate[] = [
       },
       {
         entityType: 'Lead',
-        actions: ['Read', 'Update', 'Activity:Create', 'Activity:Read', 'Activity:Update'], // Can update lead status but not create/delete
+        actions: ['Read', 'Update'],
+      },
+      {
+        entityType: 'Lead:Activity',
+        actions: ['Create', 'Read', 'Update'], // Can update lead status but not create/delete
       },
       {
         entityType: 'Report',

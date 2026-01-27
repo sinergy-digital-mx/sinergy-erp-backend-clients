@@ -65,7 +65,8 @@ export class AuthService {
                 name: role.name,
                 isSystemRole: role.is_system_role,
             })),
-            // Include basic permission info in JWT for quick checks
+            // Include permissions in JWT for client-side checks
+            permissions: userPermissions.map(permission => `${permission.entity_type}:${permission.action}`),
             hasAdminRole: userRoles.some(role => role.name === 'Admin'),
             permissionCount: userPermissions.length,
             iat: Math.floor(Date.now() / 1000),
@@ -116,6 +117,7 @@ export class AuthService {
                 name: role.name,
                 isSystemRole: role.is_system_role,
             })),
+            permissions: userPermissions.map(permission => `${permission.entity_type}:${permission.action}`),
             hasAdminRole: userRoles.some(role => role.name === 'Admin'),
             permissionCount: userPermissions.length,
             iat: Math.floor(Date.now() / 1000),

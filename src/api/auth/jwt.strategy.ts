@@ -23,11 +23,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
             email: payload.email,
             status: payload.status,
             roles: payload.roles || [],
+            permissions: payload.permissions || [],
             hasAdminRole: payload.hasAdminRole || false,
             permissionCount: payload.permissionCount || 0,
         };
 
-        this.logger.debug(`JWT validation successful for user ${payload.sub} in tenant ${payload.tenant_id}`);
+        this.logger.debug(`JWT validation successful for user ${payload.sub} in tenant ${payload.tenant_id} with ${payload.permissions?.length || 0} permissions`);
 
         return user;
     }
