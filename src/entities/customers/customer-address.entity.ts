@@ -51,9 +51,9 @@ export class CustomerAddress {
     @Column({ default: false })
     is_primary: boolean;
 
-    @CreateDateColumn()
+    @CreateDateColumn({ type: 'timestamp' })
     created_at: Date;
 
-    @UpdateDateColumn()
+    @UpdateDateColumn({ type: 'timestamp' })
     updated_at: Date;
 }

@@ -65,6 +65,6 @@ export class Lead {
     @OneToMany(() => LeadActivity, activity => activity.lead)
     activities: LeadActivity[];
 
-    @CreateDateColumn()
+    @CreateDateColumn({ type: 'timestamp' })
     created_at: Date;
 }

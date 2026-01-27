@@ -49,9 +49,9 @@ export class Role {
     @OneToMany('RolePermission', 'role')
     role_permissions: any[];
 
-    @CreateDateColumn()
+    @CreateDateColumn({ type: 'timestamp' })
     created_at: Date;
 
-    @UpdateDateColumn()
+    @UpdateDateColumn({ type: 'timestamp' })
     updated_at: Date;
 }

@@ -79,7 +79,7 @@ export class LeadActivity {
     @Column({ type: 'text', nullable: true })
     description: string;
 
-    @Column({ type: 'datetime' })
+    @Column({ type: 'timestamp' })
     activity_date: Date;
 
     @Column({ type: 'int', nullable: true, comment: 'Duration in minutes' })
@@ -88,7 +88,7 @@ export class LeadActivity {
     @Column({ length: 100, nullable: true })
     outcome: string; // 'interested', 'not_interested', 'callback_requested', 'meeting_scheduled', etc.
 
-    @Column({ type: 'datetime', nullable: true })
+    @Column({ type: 'timestamp', nullable: true })
     follow_up_date: Date;
 
     @Column({ type: 'text', nullable: true })
@@ -97,9 +97,9 @@ export class LeadActivity {
     @Column({ type: 'json', nullable: true })
     metadata: Record<string, any>; // For additional custom fields
 
-    @CreateDateColumn()
+    @CreateDateColumn({ type: 'timestamp' })
     created_at: Date;
 
-    @UpdateDateColumn()
+    @UpdateDateColumn({ type: 'timestamp' })
     updated_at: Date;
 }

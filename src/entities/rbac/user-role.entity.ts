@@ -43,6 +43,6 @@ export class UserRole {
     @IsUUID()
     tenant_id: string;
 
-    @CreateDateColumn()
+    @CreateDateColumn({ type: 'timestamp' })
     created_at: Date;
 }

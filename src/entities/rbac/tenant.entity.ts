@@ -43,9 +43,9 @@ export class RBACTenant {
     @OneToMany('UserRole', 'tenant')
     user_roles: any[];
 
-    @CreateDateColumn()
+    @CreateDateColumn({ type: 'timestamp' })
     created_at: Date;
 
-    @UpdateDateColumn()
+    @UpdateDateColumn({ type: 'timestamp' })
     updated_at: Date;
 }

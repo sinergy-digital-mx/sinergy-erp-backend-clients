@@ -34,6 +34,6 @@ export class RolePermission {
     @IsUUID()
     permission_id: string;
 
-    @CreateDateColumn()
+    @CreateDateColumn({ type: 'timestamp' })
     created_at: Date;
 }

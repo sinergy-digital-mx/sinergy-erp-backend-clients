@@ -34,6 +34,6 @@ export class Customer {
     @OneToMany(() => CustomerAddress, address => address.customer)
     addresses: CustomerAddress[];
 
-    @CreateDateColumn()
+    @CreateDateColumn({ type: 'timestamp' })
     created_at: Date;
 }

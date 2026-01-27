@@ -37,14 +37,14 @@ export class LeadActivitiesService {
             status: dto.status,
             title: dto.title,
             description: dto.description,
+            notes: dto.notes,
             duration_minutes: dto.duration_minutes,
             outcome: dto.outcome,
-            notes: dto.notes,
             metadata: dto.metadata,
             lead_id: leadId,
             user_id: userId,
             tenant_id: tenantId,
-            activity_date: new Date(dto.activity_date),
+            activity_date: new Date(), // Auto-generated current timestamp in UTC
             follow_up_date: dto.follow_up_date ? new Date(dto.follow_up_date) : undefined,
         });
 
@@ -165,7 +165,7 @@ export class LeadActivitiesService {
         if (dto.outcome !== undefined) updateData.outcome = dto.outcome;
         if (dto.notes !== undefined) updateData.notes = dto.notes;
         if (dto.metadata !== undefined) updateData.metadata = dto.metadata;
-        if (dto.activity_date !== undefined) updateData.activity_date = new Date(dto.activity_date);
+        // Note: activity_date is not updatable - it's set automatically when created
         if (dto.follow_up_date !== undefined) updateData.follow_up_date = new Date(dto.follow_up_date);
 
         await this.activityRepo.update(activityId, updateData);

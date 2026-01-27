@@ -32,19 +32,10 @@ export class CreateLeadActivityDto {
 
     @ApiProperty({ 
         description: 'Detailed description of the activity', 
-        example: 'Discussed pricing and next steps',
-        required: false 
+        example: 'Discussed pricing and next steps'
     })
     @IsString()
-    @IsOptional()
-    description?: string;
-
-    @ApiProperty({ 
-        description: 'Date and time when the activity occurred', 
-        example: '2024-01-27T14:30:00Z' 
-    })
-    @IsDateString()
-    activity_date: string;
+    description: string;
 
     @ApiProperty({ 
         description: 'Duration of the activity in minutes', 
@@ -79,12 +70,10 @@ export class CreateLeadActivityDto {
 
     @ApiProperty({ 
         description: 'Additional notes about the activity', 
-        example: 'Customer seemed very interested, send proposal by Friday',
-        required: false 
+        example: 'Customer seemed very interested, send proposal by Friday'
     })
     @IsString()
-    @IsOptional()
-    notes?: string;
+    notes: string;
 
     @ApiProperty({ 
         description: 'Additional metadata as key-value pairs', 
