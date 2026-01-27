@@ -50,6 +50,15 @@ export class Lead {
     @Column({ nullable: true })
     source: string;
 
+    @Column({ nullable: true })
+    company_name: string;
+
+    @Column({ nullable: true })
+    company_phone: string;
+
+    @Column({ nullable: true })
+    website: string;
+
     @OneToMany(() => LeadAddress, address => address.lead)
     addresses: LeadAddress[];
 

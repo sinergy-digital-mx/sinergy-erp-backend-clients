@@ -10,11 +10,14 @@ import {
     UseGuards,
     Delete,
     ParseIntPipe,
+    Query,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { LeadsService } from './leads.service';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
+import { QueryLeadsDto } from './dto/query-leads.dto';
+import { PaginatedLeadsDto } from './dto/paginated-leads.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionGuard } from '../rbac/guards/permission.guard';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator';
@@ -34,7 +37,7 @@ export class LeadsController {
     @ApiResponse({ status: 400, description: 'Bad request - Invalid input data' })
     @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing token' })
     @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
-    create(@Body() dto: CreateLeadDto, @Req() req) {
+    create(@Body() dto: CreateLeadDto, @Req() req: any) {
         return this.leadsService.create(dto, req.user.tenantId);
     }
 
@@ -48,29 +51,33 @@ export class LeadsController {
     @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing token' })
     @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
     @ApiResponse({ status: 404, description: 'Not found - Lead does not exist' })
-    update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateLeadDto, @Req() req) {
+    update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateLeadDto, @Req() req: any) {
         return this.leadsService.update(id, dto, req.user.tenantId);
     }
 
     @Get()
     @RequirePermissions({ entityType: 'Lead', action: 'Read' })
-    @ApiOperation({ summary: 'Get all leads for the current tenant' })
-    @ApiResponse({ status: 200, description: 'List of leads retrieved successfully' })
+    @ApiOperation({ summary: 'Get paginated leads with search functionality' })
+    @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (1-based)', example: 1 })
+    @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (max 100)', example: 20 })
+    @ApiQuery({ name: 'search', required: false, type: String, description: 'Search term for name, email, phone, or company' })
+    @ApiQuery({ name: 'status_id', required: false, type: Number, description: 'Filter by status ID' })
+    @ApiResponse({ status: 200, description: 'Paginated list of leads retrieved successfully', type: PaginatedLeadsDto })
     @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing token' })
     @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
-    findAll(@Req() req) {
-        return this.leadsService.findAll(req.user.tenantId);
+    findAll(@Query() query: QueryLeadsDto, @Req() req: any) {
+        return this.leadsService.findAll(req.user.tenantId, query);
     }
 
     @Get(':id')
     @RequirePermissions({ entityType: 'Lead', action: 'Read' })
-    @ApiOperation({ summary: 'Get a specific lead by ID' })
+    @ApiOperation({ summary: 'Get a specific lead by ID with addresses and activities' })
     @ApiParam({ name: 'id', type: 'number', description: 'Lead ID' })
-    @ApiResponse({ status: 200, description: 'Lead retrieved successfully' })
+    @ApiResponse({ status: 200, description: 'Lead with addresses and activities retrieved successfully' })
     @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing token' })
     @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
     @ApiResponse({ status: 404, description: 'Not found - Lead does not exist' })
-    findOne(@Param('id', ParseIntPipe) id: number, @Req() req) {
+    findOne(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
         return this.leadsService.findOne(id, req.user.tenantId);
     }
 
@@ -83,7 +90,7 @@ export class LeadsController {
     @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
     @ApiResponse({ status: 404, description: 'Not found - Lead does not exist' })
     @ApiResponse({ status: 501, description: 'Not implemented - Delete functionality not yet available' })
-    remove(@Param('id', ParseIntPipe) id: number, @Req() req) {
+    remove(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
         // Note: This assumes you'll add a remove method to LeadsService
         // return this.leadsService.remove(id, req.user.tenantId);
         throw new Error('Delete functionality not yet implemented in service');

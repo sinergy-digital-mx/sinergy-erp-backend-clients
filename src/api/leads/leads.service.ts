@@ -1,10 +1,12 @@
 // src/leads/leads.service.ts
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Like, ILike } from 'typeorm';
 
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
+import { QueryLeadsDto } from './dto/query-leads.dto';
+import { PaginatedLeadsDto } from './dto/paginated-leads.dto';
 import { LeadStatus } from 'src/entities/leads/lead-status.entity';
 import { Lead } from 'src/entities/leads/lead.entity';
 import { RBACTenant } from 'src/entities/rbac/tenant.entity';
@@ -53,17 +55,57 @@ export class LeadsService {
         return this.leadRepo.save(lead);
     }
 
-    findAll(tenantId: string) {
-        return this.leadRepo.find({
-            where: { tenant_id: tenantId },
-            relations: ['status', 'tenant'],
-        });
+    async findAll(tenantId: string, query: QueryLeadsDto): Promise<PaginatedLeadsDto> {
+        const { page = 1, limit = 20, search, status_id } = query;
+        const skip = (page - 1) * limit;
+
+        const queryBuilder = this.leadRepo.createQueryBuilder('lead')
+            .leftJoinAndSelect('lead.status', 'status')
+            .leftJoinAndSelect('lead.tenant', 'tenant')
+            .where('lead.tenant_id = :tenantId', { tenantId });
+
+        // Add search functionality
+        if (search) {
+            queryBuilder.andWhere(
+                '(lead.name ILIKE :search OR lead.lastname ILIKE :search OR lead.email ILIKE :search OR lead.phone ILIKE :search OR lead.company_name ILIKE :search)',
+                { search: `%${search}%` }
+            );
+        }
+
+        // Add status filter
+        if (status_id) {
+            queryBuilder.andWhere('lead.status_id = :status_id', { status_id });
+        }
+
+        // Add ordering
+        queryBuilder.orderBy('lead.created_at', 'DESC');
+
+        // Get total count
+        const total = await queryBuilder.getCount();
+
+        // Get paginated results
+        const leads = await queryBuilder
+            .skip(skip)
+            .take(limit)
+            .getMany();
+
+        const totalPages = Math.ceil(total / limit);
+
+        return {
+            data: leads,
+            total,
+            page,
+            limit,
+            totalPages,
+            hasNext: page < totalPages,
+            hasPrev: page > 1,
+        };
     }
 
     findOne(id: number, tenantId: string) {
         return this.leadRepo.findOne({
             where: { id, tenant_id: tenantId },
-            relations: ['status', 'tenant'],
+            relations: ['status', 'tenant', 'addresses', 'activities'],
         });
     }
 }

@@ -8,12 +8,13 @@ import { LeadActivitiesService } from './lead-activities.service';
 import { Lead } from 'src/entities/leads/lead.entity';
 import { LeadStatus } from 'src/entities/leads/lead-status.entity';
 import { LeadActivity } from 'src/entities/leads/lead-activity.entity';
+import { LeadAddress } from 'src/entities/leads/lead-address.entity';
 import { RBACTenant } from 'src/entities/rbac/tenant.entity';
 import { RBACModule } from '../rbac/rbac.module';
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([Lead, LeadStatus, LeadActivity, RBACTenant]),
+        TypeOrmModule.forFeature([Lead, LeadStatus, LeadActivity, LeadAddress, RBACTenant]),
         RBACModule,
     ],
     controllers: [LeadsController, LeadActivitiesController],

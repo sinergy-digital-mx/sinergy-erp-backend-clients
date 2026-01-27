@@ -42,4 +42,19 @@ export class UpdateLeadDto {
     @IsString()
     @IsOptional()
     source?: string;
+
+    @ApiProperty({ description: 'Company name', example: 'Acme Corporation', required: false })
+    @IsString()
+    @IsOptional()
+    company_name?: string;
+
+    @ApiProperty({ description: 'Company phone number', example: '+1234567890', required: false })
+    @IsString()
+    @IsOptional()
+    company_phone?: string;
+
+    @ApiProperty({ description: 'Company website', example: 'https://example.com', required: false })
+    @IsString()
+    @IsOptional()
+    website?: string;
 }
