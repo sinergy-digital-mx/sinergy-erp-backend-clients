@@ -1,6 +1,7 @@
 // src/leads/dto/update-lead.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsString, IsNumber, IsEmail } from 'class-validator';
+import { IsOptional, IsString, IsNumber, IsEmail, IsBoolean } from 'class-validator';
+import { IsPhone } from '../../../common/decorators/is-phone.decorator';
 
 export class UpdateLeadDto {
     @ApiProperty({ description: 'Lead status ID', example: 1, required: false })
@@ -23,17 +24,21 @@ export class UpdateLeadDto {
     @IsOptional()
     email?: string;
 
-    @ApiProperty({ description: 'Lead phone number', example: '+1234567890', required: false })
-    @IsString()
+    @ApiProperty({ 
+        description: 'Lead phone number in E.164 format. Must include country code. Examples: +1 2025551234 (USA), +52 6647945661 (Mexico), +44 2071838750 (UK)', 
+        example: '+52 6647945661', 
+        required: false
+    })
+    @IsPhone()
     @IsOptional()
     phone?: string;
 
-    @ApiProperty({ description: 'Phone country', example: 'US', required: false })
+    @ApiProperty({ description: 'Phone country', example: 'Mexico', required: false })
     @IsString()
     @IsOptional()
     phone_country?: string;
 
-    @ApiProperty({ description: 'Phone country code', example: '+1', required: false })
+    @ApiProperty({ description: 'Phone country code', example: '+52', required: false })
     @IsString()
     @IsOptional()
     phone_code?: string;
@@ -48,8 +53,12 @@ export class UpdateLeadDto {
     @IsOptional()
     company_name?: string;
 
-    @ApiProperty({ description: 'Company phone number', example: '+1234567890', required: false })
-    @IsString()
+    @ApiProperty({ 
+        description: 'Company phone number in E.164 format. Must include country code. Examples: +1 2025551234 (USA), +52 6647945661 (Mexico), +44 2071838750 (UK)', 
+        example: '+52 6647945661', 
+        required: false 
+    })
+    @IsPhone()
     @IsOptional()
     company_phone?: string;
 
@@ -57,4 +66,19 @@ export class UpdateLeadDto {
     @IsString()
     @IsOptional()
     website?: string;
+
+    @ApiProperty({ description: 'Whether lead was contacted via email', example: true, required: false })
+    @IsBoolean()
+    @IsOptional()
+    email_contacted?: boolean;
+
+    @ApiProperty({ description: 'Whether customer has responded', example: true, required: false })
+    @IsBoolean()
+    @IsOptional()
+    customer_answered?: boolean;
+
+    @ApiProperty({ description: 'Lead group ID', example: 'uuid-here', required: false })
+    @IsString()
+    @IsOptional()
+    group_id?: string;
 }

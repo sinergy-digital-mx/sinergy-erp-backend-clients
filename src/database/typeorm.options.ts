@@ -10,6 +10,7 @@ export const typeOrmOptions: DataSourceOptions = {
     password: process.env.DB_PASS,
     database: process.env.DB_NAME,
     synchronize: false,
+    migrationsRun: true,
     logging: true,
     timezone: 'Z', // Force UTC timezone
     entities: [__dirname + '/../entities/**/*.entity.{ts,js}'],

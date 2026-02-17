@@ -29,6 +29,7 @@
     "rbac:simple-complete": "ts-node -r tsconfig-paths/register src/api/rbac/scripts/simple-complete-setup.script.ts",
     "rbac:users": "ts-node -r tsconfig-paths/register src/api/rbac/scripts/create-users.script.ts",
     "rbac:migrate-users": "ts-node -r tsconfig-paths/register src/api/rbac/scripts/migrate-users.script.ts",
+    "rbac:assign-modules": "ts-node -r tsconfig-paths/register src/database/scripts/assign-modules-to-tenants.ts",
     "import:leads": "ts-node -r tsconfig-paths/register src/database/scripts/import-leads-excel.ts"
   },
   "dependencies": {
@@ -46,6 +47,7 @@
     "class-validator": "^0.14.3",
     "commander": "^12.0.0",
     "dotenv": "^17.2.3",
+    "googleapis": "^171.4.0",
     "jsonwebtoken": "^9.0.3",
     "mysql": "^2.18.1",
     "passport": "^0.7.0",

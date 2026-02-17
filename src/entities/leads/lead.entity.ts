@@ -11,7 +11,9 @@ import {
 import { LeadStatus } from './lead-status.entity';
 import { LeadAddress } from './lead-address.entity';
 import { LeadActivity } from './lead-activity.entity';
+import { LeadGroup } from './lead-group.entity';
 import { RBACTenant } from '../rbac/tenant.entity';
+import { EmailThread } from '../email/email-thread.entity';
 
 @Entity('leads')
 export class Lead {
@@ -28,6 +30,13 @@ export class Lead {
     @ManyToOne(() => LeadStatus)
     @JoinColumn({ name: 'status_id' })
     status: LeadStatus;
+
+    @ManyToOne(() => LeadGroup, group => group.leads)
+    @JoinColumn({ name: 'group_id' })
+    group: LeadGroup;
+
+    @Column({ name: 'group_id', nullable: true })
+    group_id: string;
 
     @Column()
     name: string;
@@ -64,6 +73,33 @@ export class Lead {
 
     @OneToMany(() => LeadActivity, activity => activity.lead)
     activities: LeadActivity[];
+
+    @OneToMany(() => EmailThread, thread => thread.lead)
+    emailThreads: EmailThread[];
+
+    @Column({ nullable: true })
+    assigned_rep_id: string;
+
+    @Column({ default: false })
+    email_contacted: boolean;
+
+    @Column({ type: 'timestamp', nullable: true })
+    first_email_sent_at: Date;
+
+    @Column({ default: false })
+    customer_answered: boolean;
+
+    @Column({ type: 'timestamp', nullable: true })
+    customer_answered_at: Date;
+
+    @Column({ nullable: true })
+    last_email_thread_status: 'draft' | 'sent' | 'replied' | 'closed' | 'archived';
+
+    @Column({ nullable: true })
+    last_email_thread_id: string;
+
+    @Column({ default: 0 })
+    email_thread_count: number;
 
     @CreateDateColumn({ type: 'timestamp' })
     created_at: Date;

@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import 'dotenv/config';
 import { setupSwagger } from './config/swagger/swagger.setup';
@@ -6,11 +7,22 @@ import { setupSwagger } from './config/swagger/swagger.setup';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Global validation and transformation pipe
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+    }),
+  );
+
   // Configure CORS
   app.enableCors({
     origin: [
       'http://localhost:4200',
       'http://localhost:3000',
+      'http://localhost:3001',
       'http://localhost:8080',
       'https://divino.sinergydigital.mx',
       'https://*.sinergydigital.mx',
@@ -31,8 +43,17 @@ async function bootstrap() {
     optionsSuccessStatus: 204
   });
 
+  // Set global API prefix
+  app.setGlobalPrefix('api');
+
   setupSwagger(app);
 
-  await app.listen(Number(process.env.APP_PORT) || 3000);
+  const port = Number(process.env.APP_PORT) || 3000;
+  console.log(`[BOOTSTRAP] Starting server on port ${port}...`);
+  await app.listen(port);
+  console.log(`[BOOTSTRAP] Server is running on port ${port}`);
 }
-bootstrap();
+bootstrap().catch(err => {
+  console.error('[BOOTSTRAP] Error starting server:', err);
+  process.exit(1);
+});

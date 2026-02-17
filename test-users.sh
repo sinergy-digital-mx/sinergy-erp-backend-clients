@@ -1,0 +1,8 @@
+#!/bin/bash
+
+TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3NjNiNjkyNi1mYjU3LTExZjAtYTUyZS0wNmU3ZWE3ODczODUiLCJlbWFpbCI6ImNocmlzdG9waGVyLnNhbmRvdmFsQHRlc3QuY29tIiwidGVuYW50X2lkIjoiNTQ0ODFiNjMtNTUxNi00NThkLTliYjMtZDRlNWNiMDI4ODY0Iiwic3RhdHVzIjoiYWN0aXZlIiwicm9sZXMiOlt7ImlkIjoiMGI5NjRmYjgtZjhmZC00ZGNhLWE3YmEtYzIyOTFlZmFjNDE2IiwibmFtZSI6IlNhbGVzIFJlcHJlc2VudGF0aXZlIiwiaXNTeXN0ZW1Sb2xlIjpmYWxzZX1dLCJwZXJtaXNzaW9ucyI6WyJ1c2VyczpSZWFkIl0sImhhc0FkbWluUm9sZSI6ZmFsc2UsInBlcm1pc3Npb25Db3VudCI6MSwiaWF0IjoxNzcwNDg3NjI3LCJleHAiOjE3NzMwNzk2Mjd9.k7_HLkCSU9ZvVycJCzu6o4JZlcvvsIQE20_ImfjWwyE"
+
+curl -X GET http://localhost:3001/api/tenant/users \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "X-Tenant-ID: 54481b63-5516-458d-9bb3-d4e5cb028864" \
+  -H "Content-Type: application/json"

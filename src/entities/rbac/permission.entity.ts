@@ -3,26 +3,38 @@ import {
     Entity,
     PrimaryGeneratedColumn,
     Column,
+    ManyToOne,
     OneToMany,
+    JoinColumn,
     CreateDateColumn,
     UpdateDateColumn,
     Index,
 } from 'typeorm';
 import { IsNotEmpty, IsString, Length, IsBoolean, IsOptional } from 'class-validator';
+import { EntityRegistry } from '../entity-registry/entity-registry.entity';
 
 @Entity('rbac_permissions')
-@Index('entity_action_index', ['entity_type', 'action'], { unique: true })
-@Index('entity_type_index', ['entity_type'])
+@Index('module_action_index', ['module_id', 'action'], { unique: true })
 @Index('action_index', ['action'])
+@Index('module_index', ['module_id'])
+@Index('entity_registry_index', ['entity_registry_id'])
 export class Permission {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
+    @ManyToOne('Module', 'permissions', { onDelete: 'CASCADE', nullable: true })
+    @JoinColumn({ name: 'module_id' })
+    module: any;
+
+    @Column({ nullable: true })
+    module_id: string;
+
+    @ManyToOne(() => EntityRegistry, { onDelete: 'RESTRICT', nullable: false })
+    @JoinColumn({ name: 'entity_registry_id' })
+    entity_registry: EntityRegistry;
+
     @Column()
-    @IsNotEmpty()
-    @IsString()
-    @Length(1, 100)
-    entity_type: string;
+    entity_registry_id: number;
 
     @Column()
     @IsNotEmpty()
@@ -48,4 +60,12 @@ export class Permission {
 
     @UpdateDateColumn({ type: 'timestamp' })
     updated_at: Date;
+
+    /**
+     * Computed property: Get entity_type from entity_registry
+     * This ensures consistency - entity_type is always derived from the registry
+     */
+    get entity_type(): string {
+        return this.entity_registry?.code || '';
+    }
 }

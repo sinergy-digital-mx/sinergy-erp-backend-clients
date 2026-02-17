@@ -209,7 +209,8 @@ describe('PermissionService - Bulk Operations', () => {
         {
           user_id: 'user-1',
           id: 'perm-1',
-          entity_type: 'Customer',
+          entity_code: 'Customer',
+          entity_registry_id: 1,
           action: 'Read',
           description: 'Read customers',
           is_system_permission: false,
@@ -219,7 +220,8 @@ describe('PermissionService - Bulk Operations', () => {
         {
           user_id: 'user-2',
           id: 'perm-2',
-          entity_type: 'Lead',
+          entity_code: 'Lead',
+          entity_registry_id: 2,
           action: 'Create',
           description: 'Create leads',
           is_system_permission: false,

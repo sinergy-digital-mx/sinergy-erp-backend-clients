@@ -34,6 +34,18 @@ export class User {
     @Column()
     password: string;
 
+    @Column({ nullable: true })
+    first_name: string;
+
+    @Column({ nullable: true })
+    last_name: string;
+
+    @Column({ nullable: true })
+    phone: string;
+
+    @Column({ nullable: true })
+    language_code: string;
+
     @Column({ type: 'timestamp', nullable: true })
     last_login_at: Date | null;
 

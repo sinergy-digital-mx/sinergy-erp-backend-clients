@@ -189,10 +189,12 @@ describe('Permission Cache Consistency - Property Tests', () => {
           jest.clearAllMocks();
 
           // Setup: Mock database query to return specific permissions
+          // The actual query returns entity_code and entity_registry_id, not entity_type
           permissionRepository.query.mockResolvedValue(
-            cacheOp.permissions.map(p => ({
+            cacheOp.permissions.map((p, idx) => ({
               id: p.id,
-              entity_type: p.entity_type,
+              entity_code: p.entity_type,
+              entity_registry_id: idx + 1,
               action: p.action,
               description: p.description,
               is_system_permission: p.is_system_permission,

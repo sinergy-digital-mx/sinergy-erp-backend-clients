@@ -18,6 +18,7 @@ import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { QueryLeadsDto } from './dto/query-leads.dto';
 import { PaginatedLeadsDto } from './dto/paginated-leads.dto';
+import { LeadsStatsDto } from './dto/leads-stats.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionGuard } from '../rbac/guards/permission.guard';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator';
@@ -30,7 +31,7 @@ export class LeadsController {
     constructor(private readonly leadsService: LeadsService) { }
 
     @Post()
-    @RequirePermissions({ entityType: 'Lead', action: 'Create' })
+    @RequirePermissions({ entityType: 'leads', action: 'Create' })
     @ApiOperation({ summary: 'Create a new lead' })
     @ApiBody({ type: CreateLeadDto })
     @ApiResponse({ status: 201, description: 'Lead created successfully' })
@@ -42,7 +43,7 @@ export class LeadsController {
     }
 
     @Put(':id')
-    @RequirePermissions({ entityType: 'Lead', action: 'Update' })
+    @RequirePermissions({ entityType: 'leads', action: 'Update' })
     @ApiOperation({ summary: 'Update an existing lead' })
     @ApiParam({ name: 'id', type: 'number', description: 'Lead ID' })
     @ApiBody({ type: UpdateLeadDto })
@@ -67,8 +68,18 @@ export class LeadsController {
         };
     }
 
+    @Get('stats/overview')
+    @RequirePermissions({ entityType: 'leads', action: 'Read' })
+    @ApiOperation({ summary: 'Get leads statistics overview' })
+    @ApiResponse({ status: 200, description: 'Leads statistics retrieved successfully', type: LeadsStatsDto })
+    @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing token' })
+    @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
+    getStats(@Req() req: any) {
+        return this.leadsService.getStats(req.user.tenantId);
+    }
+
     @Get()
-    @RequirePermissions({ entityType: 'Lead', action: 'Read' })
+    @RequirePermissions({ entityType: 'leads', action: 'Read' })
     @ApiOperation({ summary: 'Get paginated leads with search functionality' })
     @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (1-based)', example: 1 })
     @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (max 100)', example: 20 })
@@ -82,7 +93,7 @@ export class LeadsController {
     }
 
     @Get(':id')
-    @RequirePermissions({ entityType: 'Lead', action: 'Read' })
+    @RequirePermissions({ entityType: 'leads', action: 'Read' })
     @ApiOperation({ summary: 'Get a specific lead by ID with addresses and activities' })
     @ApiParam({ name: 'id', type: 'number', description: 'Lead ID' })
     @ApiResponse({ status: 200, description: 'Lead with addresses and activities retrieved successfully' })
@@ -94,7 +105,7 @@ export class LeadsController {
     }
 
     @Delete(':id')
-    @RequirePermissions({ entityType: 'Lead', action: 'Delete' })
+    @RequirePermissions({ entityType: 'leads', action: 'Delete' })
     @ApiOperation({ summary: 'Delete a lead by ID' })
     @ApiParam({ name: 'id', type: 'number', description: 'Lead ID' })
     @ApiResponse({ status: 200, description: 'Lead deleted successfully' })

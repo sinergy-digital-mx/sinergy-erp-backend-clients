@@ -6,6 +6,7 @@ import { PermissionGuard } from '../permission.guard';
 import { PermissionService } from '../../services/permission.service';
 import { TenantContextService } from '../../services/tenant-context.service';
 import { PERMISSIONS_KEY } from '../../decorators/require-permissions.decorator';
+import { RBACAuthenticationException, RBACAuthorizationException } from '../../errors/rbac-exceptions';
 
 describe('PermissionGuard', () => {
   let guard: PermissionGuard;
@@ -93,7 +94,7 @@ describe('PermissionGuard', () => {
       mockRequest.user = null;
 
       await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(
-        UnauthorizedException,
+        RBACAuthenticationException,
       );
     });
 
@@ -104,7 +105,7 @@ describe('PermissionGuard', () => {
       mockRequest.user = { user_id: 'user-123' }; // No tenant_id
 
       await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(
-        UnauthorizedException,
+        RBACAuthenticationException,
       );
     });
 
@@ -134,7 +135,7 @@ describe('PermissionGuard', () => {
       permissionService.hasPermission.mockResolvedValue(false);
 
       await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(
-        ForbiddenException,
+        RBACAuthorizationException,
       );
     });
 
@@ -170,7 +171,7 @@ describe('PermissionGuard', () => {
         .mockResolvedValueOnce(false); // Second permission fails
 
       await expect(guard.canActivate(mockExecutionContext)).rejects.toThrow(
-        ForbiddenException,
+        RBACAuthorizationException,
       );
 
       expect(permissionService.hasPermission).toHaveBeenCalledTimes(2);

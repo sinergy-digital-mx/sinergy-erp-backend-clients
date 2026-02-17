@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Fix Angular API Endpoints",
+  "description": "Update Angular components to use correct /api/tenant/ prefixed endpoints instead of /api/ paths",
+  "version": "1",
+  "when": {
+    "type": "userTriggered"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Find and update all Angular service files that call /api/customer-groups to use /api/tenant/customer-groups instead. Search for: customer-group-fetch.service.ts, customer-group-dropdown.component.ts, customer-edit-modal.component.ts and any other files making API calls to /api/customer-groups. Replace all instances with /api/tenant/customer-groups"
+  }
+}

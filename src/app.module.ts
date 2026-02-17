@@ -1,4 +1,3 @@
-// app.module.ts
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
@@ -8,6 +7,11 @@ import { LeadsModule } from './api/leads/leads.module';
 import { CustomersModule } from './api/customers/customers.module';
 import { AuthModule } from './api/auth/auth.module';
 import { RBACModule } from './api/rbac/rbac.module';
+import { EmailModule } from './api/email/email.module';
+import { PropertiesModule } from './api/properties/properties.module';
+import { ContractsModule } from './api/contracts/contracts.module';
+import { TransactionsModule } from './api/transactions/transactions.module';
+import { CatalogsModule } from './api/catalogs/catalogs.module';
 
 @Module({
   imports: [
@@ -17,7 +21,12 @@ import { RBACModule } from './api/rbac/rbac.module';
     LeadsModule,
     CustomersModule,
     AuthModule,
-    RBACModule
+    RBACModule,
+    EmailModule,
+    PropertiesModule,
+    ContractsModule,
+    TransactionsModule,
+    CatalogsModule,
   ],
 })
 export class AppModule { }

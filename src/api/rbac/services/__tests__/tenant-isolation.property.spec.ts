@@ -116,6 +116,7 @@ describe('Tenant Isolation - Property Tests', () => {
       create: jest.fn(),
       save: jest.fn(),
       createQueryBuilder: jest.fn(),
+      query: jest.fn().mockResolvedValue([]),
     };
 
     const mockTenantRepository = {

@@ -8,3 +8,4 @@ export { TenantService } from './tenant.service';
 export { AuditLogService } from './audit-log.service';
 export { DataCleanupService } from './data-cleanup.service';
 export { MigrationService } from './migration.service';
+export { ModuleService } from './module.service';

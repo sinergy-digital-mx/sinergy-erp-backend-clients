@@ -272,7 +272,7 @@ describe('RBAC Error Handling System', () => {
       );
 
       expect(response.statusCode).toBe(500);
-      expect(response.message).toContain('unexpected error');
+      expect(response.message).toContain('internal server error');
     });
 
     it('should sanitize sensitive information from context', () => {

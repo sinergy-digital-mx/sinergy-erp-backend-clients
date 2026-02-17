@@ -1,7 +1,7 @@
 // src/leads/leads.service.ts
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, ILike } from 'typeorm';
+import { Repository } from 'typeorm';
 
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
@@ -9,14 +9,12 @@ import { QueryLeadsDto } from './dto/query-leads.dto';
 import { PaginatedLeadsDto } from './dto/paginated-leads.dto';
 import { LeadStatus } from 'src/entities/leads/lead-status.entity';
 import { Lead } from 'src/entities/leads/lead.entity';
-import { RBACTenant } from 'src/entities/rbac/tenant.entity';
 
 @Injectable()
 export class LeadsService {
     constructor(
         @InjectRepository(Lead) private leadRepo: Repository<Lead>,
         @InjectRepository(LeadStatus) private statusRepo: Repository<LeadStatus>,
-        @InjectRepository(RBACTenant) private tenantRepo: Repository<RBACTenant>,
     ) { }
 
     async create(dto: CreateLeadDto, tenantId: string) {
@@ -56,7 +54,15 @@ export class LeadsService {
     }
 
     async findAll(tenantId: string, query: QueryLeadsDto): Promise<PaginatedLeadsDto> {
-        const { page = 1, limit = 20, search, status_id } = query;
+        // Ensure page and limit are numbers
+        let page = Number(query.page) || 1;
+        let limit = Number(query.limit) || 20;
+        
+        // Validate ranges
+        if (page < 1) page = 1;
+        if (limit < 1) limit = 1;
+        if (limit > 100) limit = 100;
+        
         const skip = (page - 1) * limit;
 
         const queryBuilder = this.leadRepo.createQueryBuilder('lead')
@@ -65,16 +71,51 @@ export class LeadsService {
             .where('lead.tenant_id = :tenantId', { tenantId });
 
         // Add search functionality
-        if (search) {
+        if (query.search) {
             queryBuilder.andWhere(
-                '(lead.name ILIKE :search OR lead.lastname ILIKE :search OR lead.email ILIKE :search OR lead.phone ILIKE :search OR lead.company_name ILIKE :search)',
-                { search: `%${search}%` }
+                '(LOWER(lead.name) LIKE LOWER(:search) OR LOWER(lead.lastname) LIKE LOWER(:search) OR LOWER(lead.email) LIKE LOWER(:search) OR LOWER(lead.phone) LIKE LOWER(:search) OR LOWER(lead.company_name) LIKE LOWER(:search))',
+                { search: `%${query.search}%` }
             );
         }
 
         // Add status filter
-        if (status_id) {
-            queryBuilder.andWhere('lead.status_id = :status_id', { status_id });
+        if (query.status_id) {
+            queryBuilder.andWhere('lead.status_id = :status_id', { status_id: query.status_id });
+        }
+
+        // Add email contact filter
+        if (query.email_contacted !== undefined) {
+            queryBuilder.andWhere('lead.email_contacted = :email_contacted', { email_contacted: query.email_contacted });
+        }
+
+        // Add customer answered filter
+        if (query.customer_answered !== undefined) {
+            queryBuilder.andWhere('lead.customer_answered = :customer_answered', { customer_answered: query.customer_answered });
+        }
+
+        // Add contacted but no reply filter
+        if (query.contacted_no_reply) {
+            queryBuilder.andWhere('lead.email_contacted = true AND lead.customer_answered = false');
+        }
+
+        // Add group filter
+        if (query.group_id) {
+            queryBuilder.andWhere('lead.group_id = :group_id', { group_id: query.group_id });
+        }
+
+        // Add email thread status filter
+        if (query.last_email_thread_status) {
+            queryBuilder.andWhere('lead.last_email_thread_status = :status', { status: query.last_email_thread_status });
+        }
+
+        // Add no email threads filter
+        if (query.no_email_threads) {
+            queryBuilder.andWhere('lead.email_thread_count = 0');
+        }
+
+        // Add has unread threads filter
+        if (query.has_unread_threads) {
+            queryBuilder.andWhere('lead.email_thread_count > 0 AND lead.last_email_thread_status IS NOT NULL');
         }
 
         // Add ordering
@@ -105,7 +146,42 @@ export class LeadsService {
     findOne(id: number, tenantId: string) {
         return this.leadRepo.findOne({
             where: { id, tenant_id: tenantId },
-            relations: ['status', 'tenant', 'addresses', 'activities'],
+            relations: ['status', 'tenant', 'addresses', 'activities', 'emailThreads'],
         });
+    }
+
+    async getStats(tenantId: string) {
+        const baseQuery = this.leadRepo.createQueryBuilder('lead')
+            .where('lead.tenant_id = :tenantId', { tenantId });
+
+        const total_leads = await baseQuery.getCount();
+
+        const contacted_via_email = await baseQuery
+            .clone()
+            .andWhere('lead.email_contacted = true')
+            .getCount();
+
+        const customer_responded = await baseQuery
+            .clone()
+            .andWhere('lead.customer_answered = true')
+            .getCount();
+
+        const customer_responded_no_reply = await baseQuery
+            .clone()
+            .andWhere('lead.email_contacted = true AND lead.customer_answered = false')
+            .getCount();
+
+        const not_contacted = await baseQuery
+            .clone()
+            .andWhere('lead.email_contacted = false')
+            .getCount();
+
+        return {
+            total_leads,
+            contacted_via_email,
+            customer_responded,
+            customer_responded_no_reply,
+            not_contacted,
+        };
     }
 }

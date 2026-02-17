@@ -43,6 +43,7 @@ export class PermissionService {
   /**
    * Check if a user has a specific permission for an entity type and action
    * Uses cache-first approach for optimal performance with graceful degradation
+   * Admin roles automatically have all permissions
    * @param userId - The user ID to check permissions for
    * @param tenantId - The tenant context
    * @param entityType - The entity type (e.g., 'Customer', 'Lead')
@@ -59,6 +60,13 @@ export class PermissionService {
       // Validate tenant context matches current context
       this.validateTenantContext(tenantId, userId);
 
+      // Check if user has an admin role - if so, grant all permissions
+      const hasAdminRole = await this.userHasAdminRole(userId, tenantId);
+      if (hasAdminRole) {
+        this.logger.debug(`User ${userId} has admin role - granting all permissions`);
+        return true;
+      }
+
       // Validate entity type against Entity Registry with graceful degradation
       const isValidEntity = await this.validateEntityTypeWithFallback(entityType);
       if (!isValidEntity) {
@@ -68,9 +76,9 @@ export class PermissionService {
       // Cache-first approach with graceful degradation for cache failures
       let userPermissions = await this.getUserPermissionsWithFallback(userId, tenantId);
 
-      // Check if the user has the required permission
+      // Check if the user has the required permission (case-insensitive comparison)
       return userPermissions?.some(
-        permission => permission?.entity_type === entityType && permission?.action === action
+        permission => permission?.entity_type?.toLowerCase() === entityType.toLowerCase() && permission?.action === action
       ) || false;
     } catch (error) {
       this.logger.error(`Error checking permission for user ${userId} in tenant ${tenantId}:`, error);
@@ -139,6 +147,14 @@ export class PermissionService {
     try {
       // Validate tenant context matches current context
       this.validateTenantContext(tenantId, userId);
+
+      // Log cross-user access if accessing another user's data
+      const currentUserId = this.tenantContextService.getCurrentUserId();
+      if (userId !== currentUserId) {
+        this.logger.debug(
+          `Cross-user access: User ${currentUserId} accessing permissions for user ${userId} in tenant ${tenantId}`,
+        );
+      }
 
       // Use cache-first approach with graceful degradation
       return await this.getUserPermissionsWithFallback(userId, tenantId);
@@ -212,6 +228,32 @@ export class PermissionService {
     });
 
     return await this.permissionRepository.save(permission);
+  }
+
+  /**
+   * Check if user has an admin role
+   * Admin roles automatically grant all permissions
+   * @param userId - The user ID
+   * @param tenantId - The tenant ID
+   * @returns Promise<boolean> - True if user has an admin role
+   */
+  private async userHasAdminRole(userId: string, tenantId: string): Promise<boolean> {
+    try {
+      const userRole = await this.userRoleRepository
+        .createQueryBuilder('ur')
+        .innerJoin('ur.role', 'r')
+        .select('r.is_admin')
+        .where('ur.user_id = :userId', { userId })
+        .andWhere('ur.tenant_id = :tenantId', { tenantId })
+        .andWhere('r.is_admin = :isAdmin', { isAdmin: true })
+        .limit(1)
+        .getRawOne();
+
+      return !!userRole;
+    } catch (error) {
+      this.logger.warn(`Error checking admin role for user ${userId}:`, error);
+      return false;
+    }
   }
 
   /**
@@ -293,13 +335,15 @@ export class PermissionService {
 
   /**
    * Validate tenant context matches current request context
+   * Note: User ID validation has been removed to allow permission-based access control.
+   * The PermissionGuard enforces permission-based access control (e.g., User:Read permission)
+   * instead of blocking cross-user access at the validation layer.
    * @param tenantId - The tenant ID to validate
-   * @param userId - The user ID to validate
-   * @throws UnauthorizedException if context doesn't match
+   * @param userId - The user ID (kept for backward compatibility, no longer used for validation)
+   * @throws UnauthorizedException if tenant context doesn't match
    */
   private validateTenantContext(tenantId: string, userId?: string): void {
     const currentTenantId = this.tenantContextService.getCurrentTenantId();
-    const currentUserId = this.tenantContextService.getCurrentUserId();
 
     if (currentTenantId && currentTenantId !== tenantId) {
       throw new UnauthorizedException(
@@ -307,11 +351,8 @@ export class PermissionService {
       );
     }
 
-    if (userId && currentUserId && currentUserId !== userId) {
-      throw new UnauthorizedException(
-        'Cross-user access denied: User context mismatch',
-      );
-    }
+    // User ID validation removed - permission-based access control is enforced by PermissionGuard
+    // This allows users with appropriate permissions (e.g., User:Read) to access other users' data
   }
 
   /**
@@ -904,12 +945,15 @@ export class PermissionService {
   ): Promise<Permission[]> {
     const permissions = await this.permissionRepository
       .createQueryBuilder('p')
+      .leftJoinAndSelect('p.module', 'm')
       .innerJoin('p.role_permissions', 'rp')
       .innerJoin('rp.role', 'r')
       .innerJoin('r.user_roles', 'ur')
       .where('ur.user_id = :userId', { userId })
       .andWhere('ur.tenant_id = :tenantId', { tenantId })
       .distinct(true)
+      .orderBy('m.name', 'ASC')
+      .addOrderBy('p.action', 'ASC')
       .getMany();
 
     return permissions;
@@ -928,13 +972,15 @@ export class PermissionService {
   ): Promise<Permission[]> {
     // Use a more efficient query that leverages indexes
     const query = `
-      SELECT DISTINCT p.id, p.entity_type, p.action, p.description, p.is_system_permission, p.created_at, p.updated_at
+      SELECT DISTINCT p.id, p.action, p.description, p.is_system_permission, p.created_at, p.updated_at, 
+             p.entity_registry_id, er.code as entity_code, p.module_id
       FROM rbac_permissions p
+      INNER JOIN entity_registry er ON p.entity_registry_id = er.id
       INNER JOIN rbac_role_permissions rp ON p.id = rp.permission_id
       INNER JOIN rbac_roles r ON rp.role_id = r.id
       INNER JOIN rbac_user_roles ur ON r.id = ur.role_id
       WHERE ur.user_id = ? AND ur.tenant_id = ?
-      ORDER BY p.entity_type, p.action
+      ORDER BY er.code, p.action
     `;
 
     const rawResults = await this.permissionRepository.query(query, [userId, tenantId]);
@@ -943,12 +989,18 @@ export class PermissionService {
     return rawResults.map(row => {
       const permission = new Permission();
       permission.id = row.id;
-      permission.entity_type = row.entity_type;
       permission.action = row.action;
       permission.description = row.description;
       permission.is_system_permission = row.is_system_permission;
       permission.created_at = row.created_at;
       permission.updated_at = row.updated_at;
+      permission.entity_registry_id = row.entity_registry_id;
+      permission.module_id = row.module_id;
+      // Set entity_registry so the getter can compute entity_type
+      permission.entity_registry = {
+        id: row.entity_registry_id,
+        code: row.entity_code,
+      } as any;
       return permission;
     });
   }
@@ -970,13 +1022,15 @@ export class PermissionService {
 
     // Use optimized query with IN clause
     const query = `
-      SELECT DISTINCT ur.user_id, p.id, p.entity_type, p.action, p.description, p.is_system_permission, p.created_at, p.updated_at
+      SELECT DISTINCT ur.user_id, p.id, p.action, p.description, p.is_system_permission, p.created_at, p.updated_at,
+             p.entity_registry_id, er.code as entity_code
       FROM rbac_permissions p
+      INNER JOIN entity_registry er ON p.entity_registry_id = er.id
       INNER JOIN rbac_role_permissions rp ON p.id = rp.permission_id
       INNER JOIN rbac_roles r ON rp.role_id = r.id
       INNER JOIN rbac_user_roles ur ON r.id = ur.role_id
-      WHERE ur.user_id = ANY(?) AND ur.tenant_id = ?
-      ORDER BY ur.user_id, p.entity_type, p.action
+      WHERE ur.user_id IN (?) AND ur.tenant_id = ?
+      ORDER BY ur.user_id, er.code, p.action
     `;
 
     const rawResults = await this.permissionRepository.query(query, [userIds, tenantId]);
@@ -993,12 +1047,17 @@ export class PermissionService {
     rawResults.forEach(row => {
       const permission = new Permission();
       permission.id = row.id;
-      permission.entity_type = row.entity_type;
       permission.action = row.action;
       permission.description = row.description;
       permission.is_system_permission = row.is_system_permission;
       permission.created_at = row.created_at;
       permission.updated_at = row.updated_at;
+      permission.entity_registry_id = row.entity_registry_id;
+      // Set entity_registry so the getter can compute entity_type
+      permission.entity_registry = {
+        id: row.entity_registry_id,
+        code: row.entity_code,
+      } as any;
 
       const userPermissions = permissionsByUser.get(row.user_id) || [];
       userPermissions.push(permission);
@@ -1036,7 +1095,8 @@ export class PermissionService {
             r.is_system_role,
             COUNT(DISTINCT ur.user_id) as user_count,
             p.id as permission_id,
-            p.entity_type,
+            er.id as entity_registry_id,
+            er.code as entity_code,
             p.action,
             p.description as permission_description,
             p.is_system_permission
@@ -1044,9 +1104,10 @@ export class PermissionService {
           LEFT JOIN rbac_user_roles ur ON r.id = ur.role_id AND ur.tenant_id = ?
           LEFT JOIN rbac_role_permissions rp ON r.id = rp.role_id
           LEFT JOIN rbac_permissions p ON rp.permission_id = p.id
+          LEFT JOIN entity_registry er ON p.entity_registry_id = er.id
           WHERE r.tenant_id = ?
-          GROUP BY r.id, r.name, r.description, r.is_system_role, p.id, p.entity_type, p.action, p.description, p.is_system_permission
-          ORDER BY r.name, p.entity_type, p.action
+          GROUP BY r.id, r.name, r.description, r.is_system_role, p.id, er.id, er.code, p.action, p.description, p.is_system_permission
+          ORDER BY r.name, er.code, p.action
         `;
 
         const rawResults = await this.permissionRepository.query(query, [tenantId]);
@@ -1081,7 +1142,11 @@ export class PermissionService {
           if (row.permission_id) {
             const permission = new Permission();
             permission.id = row.permission_id;
-            permission.entity_type = row.entity_type;
+            permission.entity_registry_id = row.entity_registry_id;
+            permission.entity_registry = {
+              id: row.entity_registry_id,
+              code: row.entity_code,
+            } as any;
             permission.action = row.action;
             permission.description = row.permission_description;
             permission.is_system_permission = row.is_system_permission;
@@ -1119,24 +1184,29 @@ export class PermissionService {
       async () => {
         const query = `
           SELECT 
-            p.id, p.entity_type, p.action, p.description, p.is_system_permission, p.created_at, p.updated_at,
+            p.id, p.entity_registry_id, er.code as entity_code, p.action, p.description, p.is_system_permission, p.created_at, p.updated_at,
             COUNT(DISTINCT ur.user_id) as usage_count,
             COUNT(DISTINCT rp.role_id) as role_count
           FROM rbac_permissions p
+          LEFT JOIN entity_registry er ON p.entity_registry_id = er.id
           LEFT JOIN rbac_role_permissions rp ON p.id = rp.permission_id
           LEFT JOIN rbac_roles r ON rp.role_id = r.id AND r.tenant_id = ?
           LEFT JOIN rbac_user_roles ur ON r.id = ur.role_id AND ur.tenant_id = ?
-          GROUP BY p.id, p.entity_type, p.action, p.description, p.is_system_permission, p.created_at, p.updated_at
+          GROUP BY p.id, p.entity_registry_id, er.code, p.action, p.description, p.is_system_permission, p.created_at, p.updated_at
           ORDER BY usage_count DESC, role_count DESC
           LIMIT ?
         `;
 
-        const rawResults = await this.permissionRepository.query(query, [tenantId, limit]);
+        const rawResults = await this.permissionRepository.query(query, [tenantId, tenantId, limit]);
         
         return rawResults.map(row => {
           const permission = new Permission();
           permission.id = row.id;
-          permission.entity_type = row.entity_type;
+          permission.entity_registry_id = row.entity_registry_id;
+          permission.entity_registry = {
+            id: row.entity_registry_id,
+            code: row.entity_code,
+          } as any;
           permission.action = row.action;
           permission.description = row.description;
           permission.is_system_permission = row.is_system_permission;
@@ -1338,30 +1408,50 @@ export class PermissionService {
 
   /**
    * Validate entity type with graceful degradation for Entity Registry failures
+   * Uses case-insensitive comparison to handle both capitalized and lowercase entity types
    * @param entityType - The entity type to validate
    * @returns Promise<boolean> - True if valid, false otherwise
    */
   private async validateEntityTypeWithFallback(entityType: string): Promise<boolean> {
     try {
-      return await this.validateEntityType(entityType);
-    } catch (registryError) {
-      this.logger.warn(`Entity Registry unavailable, using fallback validation for entity type: ${entityType}`, registryError);
+      // First try case-insensitive search in entity registry
+      const entity = await this.entityRegistryRepository.query(`
+        SELECT id FROM entity_registry 
+        WHERE LOWER(code) = LOWER(?)
+        LIMIT 1
+      `, [entityType]);
       
-      // Graceful degradation: Use a predefined list of known entity types
-      const knownEntityTypes = [
-        'User', 'Customer', 'Lead', 'Order', 'Product', 'Invoice', 'Report',
-        'Tenant', 'Role', 'Permission', 'UserRole', 'RolePermission'
-      ];
-      
-      const isKnownEntity = knownEntityTypes.includes(entityType);
-      
-      if (isKnownEntity) {
-        this.logger.debug(`Entity type ${entityType} validated using fallback list`);
+      const isValid = entity && entity.length > 0;
+      if (isValid) {
+        this.logger.debug(`Entity type ${entityType} validated from entity_registry`);
       } else {
-        this.logger.warn(`Unknown entity type ${entityType} - Entity Registry unavailable for validation`);
+        this.logger.debug(`Entity type ${entityType} not found in entity_registry`);
       }
+      return isValid;
+    } catch (registryError) {
+      this.logger.warn(`Entity Registry query failed for entity type: ${entityType}`, registryError);
       
-      return isKnownEntity;
+      // Graceful degradation: Use a predefined list of known entity types (case-insensitive)
+      try {
+        const knownEntityTypes = [
+          'user', 'customer', 'lead', 'order', 'product', 'invoice', 'report',
+          'tenant', 'role', 'permission', 'userrole', 'rolepermission',
+          'activity', 'auditlog', 'activities', 'customers', 'leads'
+        ];
+        
+        const isKnownEntity = knownEntityTypes.includes(entityType.toLowerCase());
+        
+        if (isKnownEntity) {
+          this.logger.debug(`Entity type ${entityType} validated using fallback list`);
+        } else {
+          this.logger.warn(`Unknown entity type ${entityType} - not in fallback list`);
+        }
+        
+        return isKnownEntity;
+      } catch (fallbackError) {
+        this.logger.error(`All entity validation methods failed for ${entityType}:`, fallbackError);
+        return false;
+      }
     }
   }
 

@@ -43,10 +43,25 @@ export class AuthService {
         // Load user roles and permissions for the tenant
         let userRoles: any[] = [];
         let userPermissions: any[] = [];
+        let permissionsByModule: any = {};
         
         try {
             userRoles = await this.roleService.getUserRoles(user.id, user.tenant.id.toString());
             userPermissions = await this.permissionService.getUserPermissions(user.id, user.tenant.id.toString());
+            
+            // Group permissions by module
+            permissionsByModule = userPermissions.reduce((acc: any, perm: any) => {
+                const moduleName = perm.module?.name || 'System';
+                if (!acc[moduleName]) {
+                    acc[moduleName] = [];
+                }
+                acc[moduleName].push({
+                    id: perm.id,
+                    action: perm.action,
+                    description: perm.description,
+                });
+                return acc;
+            }, {});
             
             this.logger.debug(`User ${user.id} has ${userRoles.length} roles and ${userPermissions.length} permissions in tenant ${user.tenant.id}`);
         } catch (error) {
@@ -55,6 +70,11 @@ export class AuthService {
         }
 
         // Create JWT payload with RBAC context
+        // Format permissions as entity:Action (e.g., "customers:Create")
+        const permissionsForJwt = userPermissions.map(permission => 
+            `${permission.entity_type.toLowerCase()}:${permission.action}`
+        );
+
         const payload = {
             sub: user.id,
             email: user.email,
@@ -66,7 +86,7 @@ export class AuthService {
                 isSystemRole: role.is_system_role,
             })),
             // Include permissions in JWT for client-side checks
-            permissions: userPermissions.map(permission => `${permission.entity_type}:${permission.action}`),
+            permissions: permissionsForJwt,
             hasAdminRole: userRoles.some(role => role.name === 'Admin'),
             permissionCount: userPermissions.length,
             iat: Math.floor(Date.now() / 1000),
@@ -84,6 +104,9 @@ export class AuthService {
                 tenant_id: user.tenant.id,
                 status: user.status.code,
                 roles: userRoles.map(role => role.name),
+                permissions: permissionsByModule,
+                // Also include flat permissions array for UI convenience
+                permissions_flat: permissionsForJwt,
                 last_login_at: user.last_login_at,
             },
         };
@@ -107,6 +130,11 @@ export class AuthService {
         const userRoles = await this.roleService.getUserRoles(userId, tenantId);
         const userPermissions = await this.permissionService.getUserPermissions(userId, tenantId);
 
+        // Format permissions as entity:Action for JWT
+        const permissionsForJwt = userPermissions.map(permission => 
+            `${permission.entity_type.toLowerCase()}:${permission.action}`
+        );
+
         const payload = {
             sub: user.id,
             email: user.email,
@@ -117,7 +145,7 @@ export class AuthService {
                 name: role.name,
                 isSystemRole: role.is_system_role,
             })),
-            permissions: userPermissions.map(permission => `${permission.entity_type}:${permission.action}`),
+            permissions: permissionsForJwt,
             hasAdminRole: userRoles.some(role => role.name === 'Admin'),
             permissionCount: userPermissions.length,
             iat: Math.floor(Date.now() / 1000),
@@ -131,6 +159,7 @@ export class AuthService {
                 tenant_id: user.tenant.id,
                 status: user.status.code,
                 roles: userRoles.map(role => role.name),
+                permissions_flat: permissionsForJwt,
             },
         };
     }

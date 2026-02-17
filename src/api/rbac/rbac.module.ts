@@ -9,13 +9,17 @@ import { UserRole } from '../../entities/rbac/user-role.entity';
 import { RolePermission } from '../../entities/rbac/role-permission.entity';
 import { RBACTenant } from '../../entities/rbac/tenant.entity';
 import { AuditLog } from '../../entities/rbac/audit-log.entity';
+import { Module as ModuleEntity } from '../../entities/rbac/module.entity';
+import { TenantModule } from '../../entities/rbac/tenant-module.entity';
 import { EntityRegistry } from '../../entities/entity-registry/entity-registry.entity';
 import { User } from '../../entities/users/user.entity';
+import { UserStatus } from '../../entities/users/user-status.entity';
 import { PermissionService } from './services/permission.service';
 import { RoleService } from './services/role.service';
 import { RoleTemplateService } from './services/role-template.service';
 import { TenantContextService } from './services/tenant-context.service';
 import { TenantService } from './services/tenant.service';
+import { ModuleService } from './services/module.service';
 import { PermissionCacheService } from './services/permission-cache.service';
 import { QueryCacheService } from './services/query-cache.service';
 import { AuditLogService } from './services/audit-log.service';
@@ -25,6 +29,8 @@ import { PermissionGuard } from './guards/permission.guard';
 import { TenantController } from './controllers/tenant.controller';
 import { AuditLogController } from './controllers/audit-log.controller';
 import { DataCleanupController } from './controllers/data-cleanup.controller';
+import { ModulesController } from './controllers/modules.controller';
+import { RolesController } from './controllers/roles.controller';
 import { RBACErrorHandlerService } from './errors/error-handler.service';
 import { RBACExceptionFilter } from './filters/rbac-exception.filter';
 import { TenantContextMiddleware } from './middleware/tenant-context.middleware';
@@ -71,8 +77,11 @@ import rbacConfig from './config/rbac.config';
       RolePermission,
       RBACTenant,
       AuditLog,
+      ModuleEntity,
+      TenantModule,
       EntityRegistry,
       User,
+      UserStatus,
     ]),
     JwtModule.register({}), // Import JwtModule to make JwtService available
     ConfigModule.forFeature(rbacConfig),
@@ -82,6 +91,8 @@ import rbacConfig from './config/rbac.config';
     TenantController,
     AuditLogController,
     DataCleanupController,
+    ModulesController,
+    RolesController,
   ],
   providers: [
     // Core Services
@@ -90,6 +101,7 @@ import rbacConfig from './config/rbac.config';
     RoleTemplateService,
     TenantContextService,
     TenantService,
+    ModuleService,
     
     // Caching Services
     PermissionCacheService,
@@ -119,6 +131,7 @@ import rbacConfig from './config/rbac.config';
     RoleTemplateService,
     TenantContextService,
     TenantService,
+    ModuleService,
     
     // Caching Services
     PermissionCacheService,

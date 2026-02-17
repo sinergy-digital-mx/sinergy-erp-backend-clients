@@ -137,13 +137,17 @@ describe('PermissionService - Graceful Degradation', () => {
       const mockPermissions = [
         {
           id: '1',
-          entity_type: 'Customer',
           action: 'Read',
           description: 'Read customers',
           is_system_permission: false,
           created_at: new Date(),
           updated_at: new Date(),
           role_permissions: [],
+          entity_registry: {
+            id: 1,
+            code: 'Customer',
+            name: 'Customer',
+          },
         },
       ];
       
@@ -182,13 +186,17 @@ describe('PermissionService - Graceful Degradation', () => {
       const mockPermissions = [
         {
           id: '1',
-          entity_type: 'Customer',
           action: 'Read',
           description: 'Read customers',
           is_system_permission: false,
           created_at: new Date(),
           updated_at: new Date(),
           role_permissions: [],
+          entity_registry: {
+            id: 1,
+            code: 'Customer',
+            name: 'Customer',
+          },
         },
       ];
       
@@ -460,13 +468,17 @@ describe('PermissionService - Graceful Degradation', () => {
       jest.spyOn(cacheService, 'getUserPermissions').mockResolvedValue([
         {
           id: '1',
-          entity_type: 'Customer',
           action: 'Read',
           description: 'Read customers',
           is_system_permission: false,
           created_at: new Date(),
           updated_at: new Date(),
           role_permissions: [],
+          entity_registry: {
+            id: 1,
+            code: 'Customer',
+            name: 'Customer',
+          },
         },
       ]);
 
@@ -503,13 +515,17 @@ describe('PermissionService - Graceful Degradation', () => {
       queryBuilder.getMany.mockResolvedValue([
         {
           id: '1',
-          entity_type: 'Customer',
           action: 'Read',
           description: 'Read customers',
           is_system_permission: false,
           created_at: new Date(),
           updated_at: new Date(),
           role_permissions: [],
+          entity_registry: {
+            id: 1,
+            code: 'Customer',
+            name: 'Customer',
+          },
         },
       ]);
 
@@ -541,13 +557,17 @@ describe('PermissionService - Graceful Degradation', () => {
       queryBuilder.getMany.mockResolvedValue([
         {
           id: '1',
-          entity_type: 'Customer',
           action: 'Read',
           description: 'Read customers',
           is_system_permission: false,
           created_at: new Date(),
           updated_at: new Date(),
           role_permissions: [],
+          entity_registry: {
+            id: 1,
+            code: 'Customer',
+            name: 'Customer',
+          },
         },
       ]);
 
@@ -609,9 +629,13 @@ describe('PermissionService - Graceful Degradation', () => {
         {}, // Empty permission object
         {
           id: '1',
-          entity_type: 'Customer',
           action: 'Read',
           // Missing other required fields
+          entity_registry: {
+            id: 1,
+            code: 'Customer',
+            name: 'Customer',
+          },
         },
       ]);
 

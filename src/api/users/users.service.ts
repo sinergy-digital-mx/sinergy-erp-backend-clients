@@ -4,9 +4,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { UserStatus } from 'src/entities/users/user-status.entity';
-import { RBACTenant } from 'src/entities/rbac/tenant.entity';
-import { User } from 'src/entities/users/user.entity';
+import { UserStatus } from '../../entities/users/user-status.entity';
+import { RBACTenant } from '../../entities/rbac/tenant.entity';
+import { User } from '../../entities/users/user.entity';
 
 @Injectable()
 export class UsersService {

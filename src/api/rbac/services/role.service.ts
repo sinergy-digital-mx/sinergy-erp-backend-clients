@@ -156,6 +156,7 @@ export class RoleService {
   async assignPermissionToRole(
     roleId: string,
     permissionId: string,
+    tenantId?: string,
   ): Promise<RolePermission> {
     // Validate role exists
     const role = await this.roleRepository.findOne({
@@ -173,6 +174,25 @@ export class RoleService {
 
     if (!permission) {
       throw new NotFoundException(`Permission with ID ${permissionId} not found`);
+    }
+
+    // If tenantId provided, validate permission belongs to an enabled module for this tenant
+    if (tenantId && permission.module_id) {
+      const tenantModule = await this.permissionRepository.manager
+        .getRepository('TenantModule')
+        .findOne({
+          where: {
+            tenant_id: tenantId,
+            module_id: permission.module_id,
+            is_enabled: true,
+          },
+        });
+
+      if (!tenantModule) {
+        throw new BadRequestException(
+          `Permission belongs to a module that is not enabled for this tenant`,
+        );
+      }
     }
 
     // Check if role already has this permission
@@ -482,7 +502,6 @@ export class RoleService {
    */
   private validateTenantContext(tenantId: string, userId?: string): void {
     const currentTenantId = this.tenantContextService.getCurrentTenantId();
-    const currentUserId = this.tenantContextService.getCurrentUserId();
 
     if (currentTenantId && currentTenantId !== tenantId) {
       throw new UnauthorizedException(
@@ -490,11 +509,8 @@ export class RoleService {
       );
     }
 
-    if (userId && currentUserId && currentUserId !== userId) {
-      throw new UnauthorizedException(
-        'Cross-user access denied: User context mismatch',
-      );
-    }
+    // User ID validation removed - permission-based access control is enforced by PermissionGuard
+    // This allows users with appropriate permissions (e.g., User:Read) to access other users' data
   }
 
   /**
@@ -559,5 +575,33 @@ export class RoleService {
     });
 
     return !!userRole;
+  }
+
+  /**
+   * Get enabled modules/entities for a tenant
+   * @param tenantId - The tenant ID
+   * @returns Promise<TenantModule[]> - Array of enabled modules for the tenant
+   */
+  async getEnabledModulesForTenant(tenantId: string): Promise<any[]> {
+    const tenantModuleRepository = this.roleRepository.manager.getRepository('TenantModule');
+    
+    return tenantModuleRepository.find({
+      where: { 
+        tenant_id: tenantId,
+        is_enabled: true 
+      },
+      relations: ['module'],
+    });
+  }
+
+  /**
+   * Get all permissions in the system
+   * @returns Promise<Permission[]> - Array of all permissions
+   */
+  async getAllPermissions(): Promise<Permission[]> {
+    return await this.permissionRepository.find({
+      relations: ['entity_registry'],
+      order: { entity_type: 'ASC', action: 'ASC' },
+    });
   }
 }

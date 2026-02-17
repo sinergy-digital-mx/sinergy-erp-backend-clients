@@ -36,6 +36,10 @@ export class Role {
     @IsBoolean()
     is_system_role: boolean;
 
+    @Column({ default: false })
+    @IsBoolean()
+    is_admin: boolean;
+
     @ManyToOne('RBACTenant', 'roles', { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'tenant_id' })
     tenant: any;

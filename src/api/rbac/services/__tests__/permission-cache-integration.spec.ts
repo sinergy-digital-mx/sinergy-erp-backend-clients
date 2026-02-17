@@ -111,6 +111,20 @@ describe('PermissionService Cache Integration', () => {
             find: jest.fn().mockResolvedValue(mockEntityRegistry),
           },
         },
+        {
+          provide: 'QueryCacheService',
+          useValue: {
+            get: jest.fn(),
+            set: jest.fn(),
+            invalidate: jest.fn(),
+            invalidatePattern: jest.fn(),
+            invalidateTenantQueries: jest.fn(),
+            invalidateUserQueries: jest.fn(),
+            cacheQuery: jest.fn(),
+            generateTenantQueryKey: jest.fn(),
+            generateUserQueryKey: jest.fn(),
+          },
+        },
       ],
     }).compile();
 

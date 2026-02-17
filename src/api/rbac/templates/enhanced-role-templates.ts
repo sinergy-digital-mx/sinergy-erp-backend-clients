@@ -54,6 +54,14 @@ export const BUSINESS_ROLE_TEMPLATES: RoleTemplate[] = [
         actions: ['Read', 'Update', 'Export'],
       },
       {
+        entityType: 'EmailThread',
+        actions: ['Create', 'Read', 'Update'],
+      },
+      {
+        entityType: 'EmailMessage',
+        actions: ['Create', 'Read'],
+      },
+      {
         entityType: 'Report',
         actions: ['Read', 'Export'],
       },
@@ -308,6 +316,18 @@ export const PERMISSION_SETS = {
   AUDIT_ACCESS: {
     entityType: 'AuditLog',
     actions: ['Read', 'Export'],
+  },
+  EMAIL_THREAD_MANAGEMENT: {
+    entityType: 'EmailThread',
+    actions: ['Create', 'Read', 'Update'],
+  },
+  EMAIL_MESSAGE_MANAGEMENT: {
+    entityType: 'EmailMessage',
+    actions: ['Create', 'Read', 'Update'],
+  },
+  EMAIL_READ_ONLY: {
+    entityType: 'EmailThread',
+    actions: ['Read'],
   },
 };
 

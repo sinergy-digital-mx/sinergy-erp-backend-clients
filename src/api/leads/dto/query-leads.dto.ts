@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsOptional, IsInt, Min, Max, IsString } from 'class-validator';
+import { IsOptional, IsInt, Min, Max, IsString, IsNumber, IsBoolean, IsUUID } from 'class-validator';
 
 export class QueryLeadsDto {
     @ApiPropertyOptional({
@@ -11,9 +11,10 @@ export class QueryLeadsDto {
     })
     @IsOptional()
     @Type(() => Number)
+    @IsNumber()
     @IsInt()
     @Min(1)
-    page?: number = 1;
+    page?: number;
 
     @ApiPropertyOptional({
         description: 'Number of items per page',
@@ -24,13 +25,14 @@ export class QueryLeadsDto {
     })
     @IsOptional()
     @Type(() => Number)
+    @IsNumber()
     @IsInt()
     @Min(1)
     @Max(100)
-    limit?: number = 20;
+    limit?: number;
 
     @ApiPropertyOptional({
-        description: 'Search term to filter leads by name, lastname, email, phone, or company_name',
+        description: 'Search term for name, lastname, email, phone, or company_name',
         example: 'john'
     })
     @IsOptional()
@@ -43,6 +45,69 @@ export class QueryLeadsDto {
     })
     @IsOptional()
     @Type(() => Number)
+    @IsNumber()
     @IsInt()
     status_id?: number;
+
+    @ApiPropertyOptional({
+        description: 'Filter by email contact status',
+        example: true
+    })
+    @IsOptional()
+    @Type(() => Boolean)
+    @IsBoolean()
+    email_contacted?: boolean;
+
+    @ApiPropertyOptional({
+        description: 'Filter by customer response status',
+        example: true
+    })
+    @IsOptional()
+    @Type(() => Boolean)
+    @IsBoolean()
+    customer_answered?: boolean;
+
+    @ApiPropertyOptional({
+        description: 'Filter for leads contacted but not yet replied by customer',
+        example: true
+    })
+    @IsOptional()
+    @Type(() => Boolean)
+    @IsBoolean()
+    contacted_no_reply?: boolean;
+
+    @ApiPropertyOptional({
+        description: 'Filter by lead group ID',
+        example: 'uuid-here'
+    })
+    @IsOptional()
+    @IsString()
+    group_id?: string;
+
+    @ApiPropertyOptional({
+        description: 'Filter by last email thread status',
+        enum: ['draft', 'sent', 'replied', 'closed', 'archived'],
+        example: 'replied'
+    })
+    @IsOptional()
+    @IsString()
+    last_email_thread_status?: 'draft' | 'sent' | 'replied' | 'closed' | 'archived';
+
+    @ApiPropertyOptional({
+        description: 'Filter for leads with no email threads',
+        example: true
+    })
+    @IsOptional()
+    @Type(() => Boolean)
+    @IsBoolean()
+    no_email_threads?: boolean;
+
+    @ApiPropertyOptional({
+        description: 'Filter for leads with unread email threads',
+        example: true
+    })
+    @IsOptional()
+    @Type(() => Boolean)
+    @IsBoolean()
+    has_unread_threads?: boolean;
 }

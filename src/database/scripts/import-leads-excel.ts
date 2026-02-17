@@ -6,6 +6,7 @@ import { LeadStatus } from '../../entities/leads/lead-status.entity';
 import { RBACTenant } from '../../entities/rbac/tenant.entity';
 import { typeOrmOptions } from '../typeorm.options';
 import * as path from 'path';
+import { parsePhoneNumber, extractCountryCode, getCountryName } from '../../common/utils/phone.validator';
 
 interface ExcelRow {
     name?: string;
@@ -88,41 +89,43 @@ class LeadsImporter {
         }
     }
 
-    cleanPhone(phone: string | undefined): { phone: string; phone_country: string; phone_code: string } {
-        if (!phone) return { phone: '', phone_country: 'US', phone_code: '+1' };
-
-        // Remove all non-digit characters
-        const digits = phone.replace(/\D/g, '');
-        
-        // If starts with 1 and has 11 digits, it's US format
-        if (digits.startsWith('1') && digits.length === 11) {
-            return {
-                phone: `+1${digits.substring(1)}`,
-                phone_country: 'US',
-                phone_code: '+1'
-            };
-        }
-        
-        // If has 10 digits, assume US
-        if (digits.length === 10) {
-            return {
-                phone: `+1${digits}`,
-                phone_country: 'US',
-                phone_code: '+1'
+    cleanPhone(phone: string | undefined, defaultCountryCode: string = '+1'): { phone: string; phone_country: string; phone_code: string } {
+        if (!phone) {
+            const countryName = getCountryName(defaultCountryCode) || 'Unknown';
+            return { 
+                phone: '', 
+                phone_country: countryName, 
+                phone_code: defaultCountryCode 
             };
         }
 
-        // Default format
+        // Try to parse the phone number with default country code
+        const result = parsePhoneNumber(phone, defaultCountryCode);
+        
+        if (!result.isValid) {
+            console.warn(`⚠️  Invalid phone number: ${phone} - ${result.error}`);
+            // Return empty phone but preserve country code
+            const countryName = getCountryName(defaultCountryCode) || 'Unknown';
+            return { 
+                phone: '', 
+                phone_country: countryName, 
+                phone_code: defaultCountryCode 
+            };
+        }
+
+        const countryName = result.countryName || getCountryName(result.countryCode) || 'Unknown';
+        
         return {
-            phone: digits ? `+1${digits}` : '',
-            phone_country: 'US',
-            phone_code: '+1'
+            phone: result.e164,
+            phone_country: countryName,
+            phone_code: result.countryCode
         };
     }
 
-    async importFromExcel(filePath: string, tenantId: string) {
+    async importFromExcel(filePath: string, tenantId: string, defaultCountryCode: string = '+1') {
         console.log(`🚀 Starting import from ${filePath}`);
         console.log(`📋 Target tenant: ${tenantId}`);
+        console.log(`🌍 Default country code: ${defaultCountryCode}`);
 
         // Verify tenant exists
         const tenant = await this.tenantRepo.findOne({ where: { id: tenantId } });
@@ -179,8 +182,8 @@ class LeadsImporter {
                     }
                 }
 
-                // Clean phone data
-                const phoneData = this.cleanPhone(row.phone);
+                // Clean phone data with default country code
+                const phoneData = this.cleanPhone(row.phone, defaultCountryCode);
 
                 // Create lead
                 const lead = this.leadRepo.create({

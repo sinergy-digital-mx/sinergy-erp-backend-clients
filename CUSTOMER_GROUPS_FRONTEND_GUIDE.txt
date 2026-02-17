@@ -1,0 +1,115 @@
+CUSTOMER GROUPS - FRONTEND IMPLEMENTATION GUIDE
+
+=== ENDPOINTS ===
+
+1. GET /api/tenant/customer-groups
+   - Obtiene todos los grupos de clientes
+   - Respuesta: Array de grupos con customer_count
+
+2. GET /api/tenant/customer-groups/stats
+   - Obtiene estadísticas de grupos (nombre, descripción, cantidad de clientes)
+   - Respuesta: Array con {id, name, description, customer_count, created_at}
+
+3. GET /api/tenant/customer-groups/:id
+   - Obtiene un grupo específico con sus clientes
+
+4. POST /api/tenant/customer-groups
+   - Crea un nuevo grupo
+   - Body: {name: string, description?: string}
+
+5. PUT /api/tenant/customer-groups/:id
+   - Actualiza un grupo
+   - Body: {name?: string, description?: string}
+
+6. DELETE /api/tenant/customer-groups/:id
+   - Elimina un grupo
+
+=== TABLA DE GRUPOS ===
+
+Usa el endpoint GET /api/tenant/customer-groups/stats para llenar una tabla con:
+- Nombre del grupo
+- Descripción
+- Cantidad de clientes (customer_count)
+- Fecha de creación
+
+Ejemplo de respuesta:
+[
+  {
+    "id": "uuid-1",
+    "name": "Divino Living",
+    "description": "Premium residential development with luxury amenities",
+    "customer_count": 45,
+    "created_at": "2026-02-10T20:00:00Z"
+  },
+  {
+    "id": "uuid-2",
+    "name": "Campestre",
+    "description": "Rural and countryside residential community",
+    "customer_count": 32,
+    "created_at": "2026-02-10T20:00:00Z"
+  }
+]
+
+=== FILTRAR CLIENTES POR GRUPO ===
+
+Cuando el usuario hace click en un grupo en la tabla, llama a:
+GET /api/tenant/customers?group_id=uuid-del-grupo
+
+Esto devuelve todos los clientes de ese grupo.
+
+=== CREAR/EDITAR GRUPO ===
+
+Para crear:
+POST /api/tenant/customer-groups
+{
+  "name": "Nombre del grupo",
+  "description": "Descripción opcional"
+}
+
+Para editar:
+PUT /api/tenant/customer-groups/:id
+{
+  "name": "Nuevo nombre",
+  "description": "Nueva descripción"
+}
+
+=== ASIGNAR CLIENTE A GRUPO ===
+
+Cuando edites un cliente, envía:
+PUT /api/tenant/customers/:id
+{
+  "group_id": "uuid-del-grupo"
+}
+
+O envía null para remover del grupo:
+{
+  "group_id": null
+}
+
+=== PASOS PARA IMPLEMENTAR ===
+
+1. Ejecuta la migración:
+   npm run typeorm migration:run -- -d src/database/data-source.ts
+
+2. Crea los 5 grupos de ejemplo:
+   npx ts-node src/database/scripts/create-customer-groups.ts
+
+3. En tu frontend:
+   - Crea una página/componente para mostrar la tabla de grupos
+   - Usa GET /api/tenant/customer-groups/stats para llenar la tabla
+   - Agrega botones para crear, editar, eliminar grupos
+   - Cuando hagas click en un grupo, filtra clientes con ?group_id=
+
+4. En el formulario de clientes:
+   - Agrega un dropdown/select con los grupos disponibles
+   - Cuando guardes el cliente, incluye el group_id
+
+=== PERMISOS REQUERIDOS ===
+
+Los usuarios necesitan permisos para:
+- CustomerGroup:Read (para ver grupos)
+- CustomerGroup:Create (para crear)
+- CustomerGroup:Update (para editar)
+- CustomerGroup:Delete (para eliminar)
+
+Estos se asignan automáticamente si tienes el rol correcto.
