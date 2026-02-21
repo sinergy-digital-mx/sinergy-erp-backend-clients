@@ -86,9 +86,9 @@ POST   /api/tenant/document-types                           - Create custom type
 
 ### .env Updates
 ```env
-AWS_ACCESS_KEY_ID=AKIAXKF5DHHRRZSH6TPU
-AWS_SECRET_ACCESS_KEY=sx+g69ohRH2LvgOuXTnLWYUTWBTiVE5x9SOiwod+
-AWS_REGION=us-east-2                    # ✅ Updated from us-east-1
+AWS_ACCESS_KEY_ID=your_access_key_here
+AWS_SECRET_ACCESS_KEY=your_secret_key_here
+AWS_REGION=us-east-2
 AWS_S3_BUCKET=sin-customer-documents
 ```
 
