@@ -67,6 +67,12 @@ export class Contract {
   @Column({ type: 'date' })
   first_payment_date: Date;
 
+  @Column({ type: 'int', nullable: true })
+  payment_due_day: number; // Días límite de pago (ej: 5 días después de la fecha de vencimiento)
+
+  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+  interest_rate: number; // Porcentaje de interés moratorio (ej: 0.10 = 10%)
+
   @Column({ length: 10, default: 'MXN' })
   currency: string;
 

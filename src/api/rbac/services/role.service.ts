@@ -6,6 +6,7 @@ import { UserRole } from '../../../entities/rbac/user-role.entity';
 import { RolePermission } from '../../../entities/rbac/role-permission.entity';
 import { Permission } from '../../../entities/rbac/permission.entity';
 import { RBACTenant } from '../../../entities/rbac/tenant.entity';
+import { TenantModule } from '../../../entities/rbac/tenant-module.entity';
 import { TenantContextService } from './tenant-context.service';
 import { PermissionCacheService } from './permission-cache.service';
 
@@ -22,6 +23,8 @@ export class RoleService {
     private permissionRepository: Repository<Permission>,
     @InjectRepository(RBACTenant)
     private tenantRepository: Repository<RBACTenant>,
+    @InjectRepository(TenantModule)
+    private tenantModuleRepository: Repository<TenantModule>,
     private tenantContextService: TenantContextService,
     private permissionCacheService: PermissionCacheService,
   ) {}
@@ -223,6 +226,67 @@ export class RoleService {
     }
 
     return savedRolePermission;
+  }
+
+  /**
+   * Replace all permissions for a role (remove old, add new) in a single operation
+   * @param roleId - The role ID
+   * @param permissionIds - Array of new permission IDs
+   * @param tenantId - The tenant ID for validation
+   * @returns Promise<void>
+   */
+  async replaceRolePermissions(
+    roleId: string,
+    permissionIds: string[],
+    tenantId: string,
+  ): Promise<void> {
+    // Single query: Get role and check it exists
+    const role = await this.roleRepository.findOne({
+      where: { id: roleId, tenant_id: tenantId },
+    });
+
+    if (!role) {
+      throw new NotFoundException(
+        `Role with ID ${roleId} not found in tenant ${tenantId}`,
+      );
+    }
+
+    // Single DELETE query: Remove all existing permissions
+    await this.rolePermissionRepository
+      .createQueryBuilder()
+      .delete()
+      .where('role_id = :roleId', { roleId })
+      .execute();
+
+    if (permissionIds.length === 0) {
+      // Invalidate cache (async, don't wait)
+      this.permissionCacheService
+        .invalidateRolePermissions(roleId, tenantId, [])
+        .catch(error => {
+          console.warn(`Failed to invalidate role permissions cache for role ${roleId}:`, error.message);
+        });
+      return;
+    }
+
+    // Single INSERT query: Insert all new permissions at once
+    await this.rolePermissionRepository
+      .createQueryBuilder()
+      .insert()
+      .into(RolePermission)
+      .values(
+        permissionIds.map(permissionId => ({
+          role_id: roleId,
+          permission_id: permissionId,
+        })),
+      )
+      .execute();
+
+    // Invalidate cache (async, don't wait)
+    this.permissionCacheService
+      .invalidateRolePermissions(roleId, tenantId, [])
+      .catch(error => {
+        console.warn(`Failed to invalidate role permissions cache for role ${roleId}:`, error.message);
+      });
   }
 
   /**
@@ -582,10 +646,8 @@ export class RoleService {
    * @param tenantId - The tenant ID
    * @returns Promise<TenantModule[]> - Array of enabled modules for the tenant
    */
-  async getEnabledModulesForTenant(tenantId: string): Promise<any[]> {
-    const tenantModuleRepository = this.roleRepository.manager.getRepository('TenantModule');
-    
-    return tenantModuleRepository.find({
+  async getEnabledModulesForTenant(tenantId: string): Promise<TenantModule[]> {
+    return this.tenantModuleRepository.find({
       where: { 
         tenant_id: tenantId,
         is_enabled: true 
@@ -601,7 +663,7 @@ export class RoleService {
   async getAllPermissions(): Promise<Permission[]> {
     return await this.permissionRepository.find({
       relations: ['entity_registry'],
-      order: { entity_type: 'ASC', action: 'ASC' },
+      order: { action: 'ASC' },
     });
   }
 }

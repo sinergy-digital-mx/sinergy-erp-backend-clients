@@ -1,152 +1,136 @@
 import { DataSource } from 'typeorm';
 import { typeOrmOptions } from '../typeorm.options';
-import { User } from '../../entities/users/user.entity';
-import { Permission } from '../../entities/rbac/permission.entity';
-import { UserRole } from '../../entities/rbac/user-role.entity';
-import { Role } from '../../entities/rbac/role.entity';
-import { RolePermission } from '../../entities/rbac/role-permission.entity';
 
-class PermissionChecker {
-    private dataSource: DataSource;
+async function checkUserPermissions(userId?: string) {
+  const dataSource = new DataSource(typeOrmOptions);
+  
+  try {
+    await dataSource.initialize();
+    console.log('✅ Database connection established');
 
-    constructor() {
-        this.dataSource = new DataSource(typeOrmOptions);
+    // If no userId provided, show all users
+    if (!userId) {
+      console.log('📋 Available users:');
+      const users = await dataSource.query(`
+        SELECT id, email, first_name, last_name 
+        FROM users 
+        WHERE tenant_id = '54481b63-5516-458d-9bb3-d4e5cb028864'
+        LIMIT 10
+      `);
+      
+      users.forEach((user: any) => {
+        console.log(`   • ${user.email} (${user.first_name} ${user.last_name}) - ID: ${user.id}`);
+      });
+      
+      console.log('\n💡 Run again with: npx ts-node check-user-permissions.ts USER_ID');
+      return;
     }
 
-    async initialize() {
-        await this.dataSource.initialize();
-        console.log('✅ Database connection established');
-    }
-
-    async destroy() {
-        await this.dataSource.destroy();
-    }
-
-    async checkUserPermissions(userEmail: string, tenantId?: string) {
-        const userRepo = this.dataSource.getRepository(User);
-        const userRoleRepo = this.dataSource.getRepository(UserRole);
-
-        // Find user
-        const user = await userRepo.findOne({
-            where: { email: userEmail },
-            relations: ['tenant', 'status']
-        });
-
-        if (!user) {
-            console.log(`❌ User not found: ${userEmail}`);
-            return;
-        }
-
-        console.log(`\n👤 User: ${user.email}`);
-        console.log(`🏢 Tenant: ${user.tenant?.name || 'N/A'} (${user.tenant_id})`);
-        console.log(`📧 Status: ${user.status?.name || 'N/A'}`);
-
-        if (tenantId && user.tenant_id !== tenantId) {
-            console.log(`⚠️  Warning: User belongs to different tenant (${user.tenant_id}) than requested (${tenantId})`);
-        }
-
-        // Find user roles
-        const userRoles = await userRoleRepo.find({
-            where: { 
-                user_id: user.id,
-                tenant_id: user.tenant_id 
-            },
-            relations: ['role', 'role.role_permissions', 'role.role_permissions.permission']
-        });
-
-        // Check roles and permissions
-        console.log(`\n🔐 Roles and Permissions:`);
-        
-        if (!userRoles || userRoles.length === 0) {
-            console.log(`❌ No roles assigned to user`);
-            return;
-        }
-
-        const allPermissions = new Set<string>();
-
-        for (const userRole of userRoles) {
-            const role = userRole.role;
-            console.log(`\n📋 Role: ${role.name} (${role.code})`);
-            console.log(`   Status: ${role.is_system_role ? 'System Role' : 'Custom Role'}`);
-            
-            if (role.role_permissions && role.role_permissions.length > 0) {
-                console.log(`   Permissions:`);
-                for (const rolePermission of role.role_permissions) {
-                    const permission = rolePermission.permission;
-                    const permissionKey = `${permission.entity_type}:${permission.action}`;
-                    allPermissions.add(permissionKey);
-                    console.log(`     - ${permissionKey} (${permission.description})`);
-                }
-            } else {
-                console.log(`     - No permissions assigned to this role`);
-            }
-        }
-
-        // Check specifically for Lead:Read permission
-        console.log(`\n🔍 Lead Permission Check:`);
-        const hasLeadRead = allPermissions.has('Lead:Read');
-        console.log(`   Lead:Read: ${hasLeadRead ? '✅ GRANTED' : '❌ DENIED'}`);
-
-        // List all Lead permissions
-        const leadPermissions = Array.from(allPermissions).filter(p => p.startsWith('Lead:'));
-        if (leadPermissions.length > 0) {
-            console.log(`   All Lead permissions:`);
-            leadPermissions.forEach(p => console.log(`     - ${p}`));
-        } else {
-            console.log(`   No Lead permissions found`);
-        }
-
-        return {
-            user,
-            hasLeadRead,
-            allPermissions: Array.from(allPermissions),
-            leadPermissions
-        };
-    }
-
-    async listAllLeadPermissions() {
-        const permissionRepo = this.dataSource.getRepository(Permission);
-        
-        const leadPermissions = await permissionRepo.find({
-            where: { entity_type: 'Lead' }
-        });
-
-        console.log(`\n📋 All available Lead permissions in database:`);
-        leadPermissions.forEach(p => {
-            console.log(`   - ${p.entity_type}:${p.action} - ${p.description}`);
-        });
-
-        return leadPermissions;
-    }
-}
-
-async function main() {
-    const checker = new PermissionChecker();
+    // Get user info
+    const userQuery = `
+      SELECT u.id, u.email, u.first_name, u.last_name, u.tenant_id
+      FROM users u
+      WHERE u.id = ?
+    `;
+    const users = await dataSource.query(userQuery, [userId]);
     
-    try {
-        await checker.initialize();
-        
-        // You can change this email to check different users
-        const userEmail = process.argv[2] || 'admin@example.com';
-        const tenantId = process.argv[3];
-        
-        console.log(`🔍 Checking permissions for user: ${userEmail}`);
-        if (tenantId) {
-            console.log(`🏢 For tenant: ${tenantId}`);
-        }
-        
-        await checker.listAllLeadPermissions();
-        await checker.checkUserPermissions(userEmail, tenantId);
-        
-    } catch (error) {
-        console.error('💥 Error checking permissions:', error);
-        process.exit(1);
-    } finally {
-        await checker.destroy();
+    if (users.length === 0) {
+      console.log('❌ User not found');
+      return;
     }
+
+    const user = users[0];
+    console.log(`👤 User: ${user.email} (${user.first_name} ${user.last_name})`);
+    console.log(`🏢 Tenant: ${user.tenant_id}`);
+
+    // Get user roles and permissions
+    const permissionsQuery = `
+      SELECT 
+        r.name as role_name,
+        p.action,
+        er.entity_name,
+        p.description,
+        m.name as module_name
+      FROM rbac_user_roles ur
+      JOIN rbac_roles r ON ur.role_id = r.id
+      JOIN rbac_role_permissions rp ON r.id = rp.role_id
+      JOIN rbac_permissions p ON rp.permission_id = p.id
+      LEFT JOIN rbac_entity_registry er ON p.entity_registry_id = er.id
+      LEFT JOIN rbac_modules m ON p.module_id = m.id
+      WHERE ur.user_id = ?
+      ORDER BY r.name, m.name, er.entity_name, p.action
+    `;
+
+    const permissions = await dataSource.query(permissionsQuery, [userId]);
+
+    if (permissions.length === 0) {
+      console.log('❌ User has no permissions assigned');
+      return;
+    }
+
+    console.log(`\n📋 User has ${permissions.length} permissions:`);
+
+    // Group by role
+    const permissionsByRole = permissions.reduce((acc: any, perm: any) => {
+      if (!acc[perm.role_name]) {
+        acc[perm.role_name] = [];
+      }
+      acc[perm.role_name].push(perm);
+      return acc;
+    }, {});
+
+    Object.entries(permissionsByRole).forEach(([roleName, rolePermissions]: [string, any]) => {
+      console.log(`\n🎭 Role: ${roleName} (${rolePermissions.length} permissions)`);
+      
+      // Group by module
+      const permissionsByModule = rolePermissions.reduce((acc: any, perm: any) => {
+        const module = perm.module_name || 'No Module';
+        if (!acc[module]) {
+          acc[module] = [];
+        }
+        acc[module].push(perm);
+        return acc;
+      }, {});
+
+      Object.entries(permissionsByModule).forEach(([moduleName, modulePermissions]: [string, any]) => {
+        console.log(`   📦 ${moduleName}:`);
+        modulePermissions.forEach((perm: any) => {
+          const entity = perm.entity_name || 'Unknown';
+          const description = perm.description ? ` - ${perm.description}` : '';
+          console.log(`      ✓ ${entity}.${perm.action}${description}`);
+        });
+      });
+    });
+
+    // Check specifically for Lead permissions
+    const leadPermissions = permissions.filter((p: any) => 
+      p.entity_name === 'Lead' || p.entity_name === 'lead'
+    );
+
+    console.log(`\n🎯 Lead Permissions: ${leadPermissions.length}`);
+    leadPermissions.forEach((perm: any) => {
+      console.log(`   ✓ Lead.${perm.action} - ${perm.description || 'No description'}`);
+    });
+
+    // Check for Role/RBAC permissions
+    const rbacPermissions = permissions.filter((p: any) => 
+      p.entity_name?.toLowerCase().includes('role') || 
+      p.entity_name?.toLowerCase().includes('rbac') ||
+      p.entity_name?.toLowerCase().includes('user')
+    );
+
+    console.log(`\n🔐 RBAC/Role Permissions: ${rbacPermissions.length}`);
+    rbacPermissions.forEach((perm: any) => {
+      console.log(`   ✓ ${perm.entity_name}.${perm.action} - ${perm.description || 'No description'}`);
+    });
+
+  } catch (error) {
+    console.error('❌ Error checking user permissions:', error);
+  } finally {
+    await dataSource.destroy();
+  }
 }
 
-// Run the checker
-if (require.main === module) {
-    main();
-}
+// Get userId from command line argument
+const userId = process.argv[2];
+checkUserPermissions(userId);

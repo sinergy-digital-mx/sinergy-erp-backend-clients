@@ -13,6 +13,7 @@ import { CustomerAddress } from './customer-address.entity';
 import { CustomerGroup } from './customer-group.entity';
 import { CustomerActivity } from './customer-activity.entity';
 import { RBACTenant } from '../rbac/tenant.entity';
+import { Contract } from '../contracts/contract.entity';
 
 @Entity('customers')
 export class Customer {
@@ -42,7 +43,10 @@ export class Customer {
     @Column({ nullable: true })
     phone: string;
 
-    @Column({ nullable: true })
+    @Column({ length: 2, nullable: true })
+    phone_country: string;
+
+    @Column({ length: 5, nullable: true })
     phone_code: string;
 
     @Column({ nullable: true })
@@ -66,6 +70,9 @@ export class Customer {
 
     @OneToMany(() => CustomerActivity, activity => activity.customer)
     activities: CustomerActivity[];
+
+    @OneToMany(() => Contract, contract => contract.customer)
+    contracts: Contract[];
 
     @CreateDateColumn({ type: 'timestamp' })
     created_at: Date;

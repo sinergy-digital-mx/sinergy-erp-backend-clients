@@ -1,78 +1,102 @@
-import { AppDataSource } from '../data-source';
+import { DataSource } from 'typeorm';
+import { typeOrmOptions } from '../typeorm.options';
 
-async function assignAdminRole() {
+async function assignAdminRole(userId: string) {
+  const dataSource = new DataSource(typeOrmOptions);
+  
   try {
-    if (!AppDataSource.isInitialized) {
-      await AppDataSource.initialize();
-    }
+    await dataSource.initialize();
+    console.log('✅ Database connection established');
 
-    const userId = '763b6ebe-fb57-11f0-a52e-06e7ea787385';
-
-    console.log('🔍 Finding Admin role...');
-    const adminRole = await AppDataSource.query(`
-      SELECT id, name FROM rbac_roles WHERE name = 'Admin' LIMIT 1
-    `);
-
-    if (adminRole.length === 0) {
-      console.log('❌ Admin role not found. Creating it...');
-      const roleId = await AppDataSource.query(`
-        INSERT INTO rbac_roles (id, name, description, is_system_role, created_at, updated_at)
-        VALUES (UUID(), 'Admin', 'System Administrator', true, NOW(), NOW())
-      `);
-      console.log('✅ Admin role created');
-    }
-
-    const role = adminRole.length > 0 ? adminRole[0] : await AppDataSource.query(`
-      SELECT id FROM rbac_roles WHERE name = 'Admin' LIMIT 1
-    `)[0];
-
-    console.log(`\n📋 Admin Role ID: ${role.id}`);
-    console.log(`👤 User ID: ${userId}`);
-
-    // Check if user already has this role
-    const existingRole = await AppDataSource.query(`
-      SELECT id FROM rbac_user_roles 
-      WHERE user_id = ? AND role_id = ?
-    `, [userId, role.id]);
-
-    if (existingRole.length > 0) {
-      console.log('⏭️  User already has Admin role');
+    // Verify user exists
+    const userQuery = `
+      SELECT id, email, first_name, last_name, tenant_id
+      FROM users
+      WHERE id = ?
+    `;
+    const users = await dataSource.query(userQuery, [userId]);
+    
+    if (users.length === 0) {
+      console.log('❌ User not found');
       return;
     }
 
-    // Assign role to user
-    console.log('\n🔗 Assigning Admin role to user...');
-    await AppDataSource.query(`
-      INSERT INTO rbac_user_roles (id, user_id, role_id, tenant_id, created_at)
-      VALUES (UUID(), ?, ?, ?, NOW())
-    `, [userId, role.id, '54481b63-5516-458d-9bb3-d4e5cb028864']);
+    const user = users[0];
+    console.log(`👤 User: ${user.email} (${user.first_name} ${user.last_name})`);
 
-    console.log('✅ Admin role assigned successfully!\n');
+    // Find Admin role for this tenant
+    const adminRoleQuery = `
+      SELECT id, name
+      FROM rbac_roles
+      WHERE name = 'Admin' AND tenant_id = ?
+    `;
+    const adminRoles = await dataSource.query(adminRoleQuery, [user.tenant_id]);
+    
+    if (adminRoles.length === 0) {
+      console.log('❌ Admin role not found for this tenant');
+      return;
+    }
 
-    // Verify
-    const userRoles = await AppDataSource.query(`
-      SELECT r.id, r.name, r.description
+    const adminRole = adminRoles[0];
+    console.log(`🎭 Admin Role: ${adminRole.name} (${adminRole.id})`);
+
+    // Check if user already has Admin role
+    const existingRoleQuery = `
+      SELECT id
+      FROM rbac_user_roles
+      WHERE user_id = ? AND role_id = ?
+    `;
+    const existingRoles = await dataSource.query(existingRoleQuery, [userId, adminRole.id]);
+    
+    if (existingRoles.length > 0) {
+      console.log('⚠️  User already has Admin role');
+      return;
+    }
+
+    // Assign Admin role
+    const assignRoleQuery = `
+      INSERT INTO rbac_user_roles (id, user_id, role_id, tenant_id)
+      VALUES (UUID(), ?, ?, ?)
+    `;
+    
+    await dataSource.query(assignRoleQuery, [userId, adminRole.id, user.tenant_id]);
+    
+    console.log('✅ Admin role assigned successfully!');
+    
+    // Verify assignment
+    const verifyQuery = `
+      SELECT 
+        r.name as role_name,
+        COUNT(rp.permission_id) as permission_count
       FROM rbac_user_roles ur
       JOIN rbac_roles r ON ur.role_id = r.id
+      LEFT JOIN rbac_role_permissions rp ON r.id = rp.role_id
       WHERE ur.user_id = ?
-    `, [userId]);
-
-    console.log('📊 User roles after assignment:');
-    userRoles.forEach((r: any) => {
-      console.log(`  ✅ ${r.name} - ${r.description}`);
+      GROUP BY r.id, r.name
+      ORDER BY r.name
+    `;
+    
+    const userRoles = await dataSource.query(verifyQuery, [userId]);
+    
+    console.log(`\n📋 User now has ${userRoles.length} roles:`);
+    userRoles.forEach((role: any) => {
+      console.log(`   • ${role.role_name}: ${role.permission_count} permissions`);
     });
 
   } catch (error) {
-    console.error('❌ Error:', error);
-    throw error;
+    console.error('❌ Error assigning admin role:', error);
   } finally {
-    if (AppDataSource.isInitialized) {
-      await AppDataSource.destroy();
-    }
+    await dataSource.destroy();
   }
 }
 
-assignAdminRole().catch((error) => {
-  console.error('Fatal error:', error);
-  process.exit(1);
-});
+// Get userId from command line argument
+const userId = process.argv[2];
+
+if (!userId) {
+  console.log('❌ Please provide a user ID');
+  console.log('💡 Usage: npx ts-node assign-admin-role.ts USER_ID');
+  console.log('💡 Christopher ID: 763b6926-fb57-11f0-a52e-06e7ea787385');
+} else {
+  assignAdminRole(userId);
+}

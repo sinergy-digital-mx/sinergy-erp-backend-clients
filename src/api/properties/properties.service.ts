@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Property } from '../../entities/properties/property.entity';
 import { PropertyGroup } from '../../entities/properties/property-group.entity';
+import { MeasurementUnit } from '../../entities/properties/measurement-unit.entity';
 import { CreatePropertyDto } from './dto/create-property.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
 
@@ -13,6 +14,8 @@ export class PropertiesService {
     private propertyRepo: Repository<Property>,
     @InjectRepository(PropertyGroup)
     private groupRepo: Repository<PropertyGroup>,
+    @InjectRepository(MeasurementUnit)
+    private measurementUnitRepo: Repository<MeasurementUnit>,
   ) {}
 
   async create(tenantId: string, dto: CreatePropertyDto): Promise<Property> {
@@ -29,29 +32,46 @@ export class PropertiesService {
     return saved;
   }
 
-  async findAll(tenantId: string, groupId?: string): Promise<Property[]> {
+  async findAll(tenantId: string, groupId?: string, search?: string): Promise<Property[]> {
     const query = this.propertyRepo
       .createQueryBuilder('p')
+      .leftJoinAndSelect('p.group', 'g')
+      .leftJoinAndSelect('p.measurement_unit', 'mu')
+      .leftJoin('p.contracts', 'contracts', 'contracts.status = :contractStatus', { contractStatus: 'activo' })
+      .leftJoin('contracts.customer', 'customer')
+      .addSelect(['contracts.id', 'contracts.status', 'customer.id', 'customer.name', 'customer.lastname'])
       .where('p.tenant_id = :tenantId', { tenantId });
 
     if (groupId) {
       query.andWhere('p.group_id = :groupId', { groupId });
     }
 
+    if (search) {
+      query.andWhere(
+        '(LOWER(p.code) LIKE LOWER(:search) OR LOWER(p.name) LIKE LOWER(:search) OR LOWER(p.block) LIKE LOWER(:search) OR LOWER(p.location) LIKE LOWER(:search) OR LOWER(p.description) LIKE LOWER(:search) OR LOWER(customer.name) LIKE LOWER(:search) OR LOWER(customer.lastname) LIKE LOWER(:search) OR LOWER(CONCAT(customer.name, " ", customer.lastname)) LIKE LOWER(:search))',
+        { search: `%${search}%` }
+      );
+    }
+
     return query.orderBy('p.code', 'ASC').getMany();
   }
 
   async findOne(tenantId: string, id: string): Promise<Property | null> {
-    return this.propertyRepo.findOne({
-      where: { id, tenant_id: tenantId },
-      relations: ['group'],
-    });
+    return this.propertyRepo
+      .createQueryBuilder('p')
+      .leftJoinAndSelect('p.group', 'g')
+      .leftJoinAndSelect('p.measurement_unit', 'mu')
+      .leftJoinAndSelect('p.contracts', 'contracts', 'contracts.status = :contractStatus', { contractStatus: 'activo' })
+      .leftJoinAndSelect('contracts.customer', 'customer')
+      .where('p.id = :id', { id })
+      .andWhere('p.tenant_id = :tenantId', { tenantId })
+      .getOne();
   }
 
   async findByCode(tenantId: string, code: string): Promise<Property | null> {
     return this.propertyRepo.findOne({
       where: { code, tenant_id: tenantId },
-      relations: ['group'],
+      relations: ['group', 'measurement_unit'],
     });
   }
 
@@ -112,5 +132,11 @@ export class PropertiesService {
         sold_properties: stats.sold,
       },
     );
+  }
+
+  async getMeasurementUnits(): Promise<MeasurementUnit[]> {
+    return this.measurementUnitRepo.find({
+      order: { system: 'ASC', name: 'ASC' },
+    });
   }
 }

@@ -77,6 +77,24 @@ export class QueryLeadsDto {
     contacted_no_reply?: boolean;
 
     @ApiPropertyOptional({
+        description: 'Filter for leads where customer replied but agent has not replied back',
+        example: true
+    })
+    @IsOptional()
+    @Type(() => Boolean)
+    @IsBoolean()
+    awaiting_agent_reply?: boolean;
+
+    @ApiPropertyOptional({
+        description: 'Filter by agent reply status',
+        example: true
+    })
+    @IsOptional()
+    @Type(() => Boolean)
+    @IsBoolean()
+    agent_replied_back?: boolean;
+
+    @ApiPropertyOptional({
         description: 'Filter by lead group ID',
         example: 'uuid-here'
     })

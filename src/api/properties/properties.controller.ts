@@ -36,14 +36,10 @@ export class PropertiesController {
     return this.propertiesService.create(tenantId, dto);
   }
 
-  @Get()
+  @Get('measurement-units/all')
   @RequirePermissions({ entityType: 'Property', action: 'Read' })
-  async findAll(@Req() req: any, @Query('groupId') groupId?: string) {
-    const tenantId = this.tenantContext.getCurrentTenantId();
-    if (!tenantId) {
-      throw new Error('Tenant context is required');
-    }
-    return this.propertiesService.findAll(tenantId, groupId);
+  async getMeasurementUnits() {
+    return this.propertiesService.getMeasurementUnits();
   }
 
   @Get('by-code/:code')
@@ -54,6 +50,16 @@ export class PropertiesController {
       throw new Error('Tenant context is required');
     }
     return this.propertiesService.findByCode(tenantId, code);
+  }
+
+  @Get()
+  @RequirePermissions({ entityType: 'Property', action: 'Read' })
+  async findAll(@Req() req: any, @Query('groupId') groupId?: string, @Query('search') search?: string) {
+    const tenantId = this.tenantContext.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+    return this.propertiesService.findAll(tenantId, groupId, search);
   }
 
   @Get(':id')

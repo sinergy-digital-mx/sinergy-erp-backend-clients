@@ -77,6 +77,11 @@ export class UpdateLeadDto {
     @IsOptional()
     customer_answered?: boolean;
 
+    @ApiProperty({ description: 'Whether agent has replied back to customer', example: true, required: false })
+    @IsBoolean()
+    @IsOptional()
+    agent_replied_back?: boolean;
+
     @ApiProperty({ description: 'Lead group ID', example: 'uuid-here', required: false })
     @IsString()
     @IsOptional()

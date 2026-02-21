@@ -92,6 +92,12 @@ export class Lead {
     @Column({ type: 'timestamp', nullable: true })
     customer_answered_at: Date;
 
+    @Column({ default: false })
+    agent_replied_back: boolean;
+
+    @Column({ type: 'timestamp', nullable: true })
+    agent_replied_back_at: Date;
+
     @Column({ nullable: true })
     last_email_thread_status: 'draft' | 'sent' | 'replied' | 'closed' | 'archived';
 

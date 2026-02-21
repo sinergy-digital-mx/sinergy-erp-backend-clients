@@ -33,6 +33,11 @@ export class CreateCustomerDto {
     @IsOptional()
     phone?: string;
 
+    @ApiProperty({ description: 'Phone country ISO code (2 letters)', example: 'MX', required: false })
+    @IsString()
+    @IsOptional()
+    phone_country?: string;
+
     @ApiProperty({ description: 'Phone country code', example: '+52', required: false })
     @IsString()
     @IsOptional()

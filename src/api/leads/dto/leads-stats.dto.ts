@@ -14,16 +14,28 @@ export class LeadsStatsDto {
     contacted_via_email: number;
 
     @ApiProperty({
-        description: 'Number of leads where customer responded but we havent replied',
-        example: 75
+        description: 'Number of leads where customer responded',
+        example: 200
+    })
+    customer_responded: number;
+
+    @ApiProperty({
+        description: 'Number of leads contacted but customer has not replied',
+        example: 250
     })
     customer_responded_no_reply: number;
 
     @ApiProperty({
-        description: 'Number of leads with customer response',
-        example: 200
+        description: 'Number of leads where customer replied but agent has not replied back (awaiting agent response)',
+        example: 75
     })
-    customer_responded: number;
+    awaiting_agent_reply: number;
+
+    @ApiProperty({
+        description: 'Number of leads with active conversation (both parties have exchanged messages)',
+        example: 125
+    })
+    conversation_active: number;
 
     @ApiProperty({
         description: 'Number of leads not yet contacted',

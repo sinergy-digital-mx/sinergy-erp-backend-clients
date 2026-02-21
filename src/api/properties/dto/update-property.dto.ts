@@ -3,6 +3,16 @@ import { IsString, IsNumber, IsOptional, Length, IsEnum } from 'class-validator'
 export class UpdatePropertyDto {
   @IsOptional()
   @IsString()
+  @Length(1, 50)
+  code?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 50)
+  block?: string;
+
+  @IsOptional()
+  @IsString()
   @Length(1, 150)
   name?: string;
 
@@ -17,6 +27,10 @@ export class UpdatePropertyDto {
   @IsOptional()
   @IsNumber()
   total_area?: number;
+
+  @IsOptional()
+  @IsString()
+  measurement_unit_id?: string;
 
   @IsOptional()
   @IsNumber()

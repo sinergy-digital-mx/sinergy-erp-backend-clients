@@ -68,6 +68,7 @@ export class LeadsService {
         const queryBuilder = this.leadRepo.createQueryBuilder('lead')
             .leftJoinAndSelect('lead.status', 'status')
             .leftJoinAndSelect('lead.tenant', 'tenant')
+            .leftJoinAndSelect('lead.group', 'group')
             .where('lead.tenant_id = :tenantId', { tenantId });
 
         // Add search functionality
@@ -96,6 +97,16 @@ export class LeadsService {
         // Add contacted but no reply filter
         if (query.contacted_no_reply) {
             queryBuilder.andWhere('lead.email_contacted = true AND lead.customer_answered = false');
+        }
+
+        // Add awaiting agent reply filter (customer replied but agent hasn't replied back)
+        if (query.awaiting_agent_reply) {
+            queryBuilder.andWhere('lead.email_contacted = true AND lead.customer_answered = true AND lead.agent_replied_back = false');
+        }
+
+        // Add agent replied back filter
+        if (query.agent_replied_back !== undefined) {
+            queryBuilder.andWhere('lead.agent_replied_back = :agent_replied_back', { agent_replied_back: query.agent_replied_back });
         }
 
         // Add group filter
@@ -146,7 +157,7 @@ export class LeadsService {
     findOne(id: number, tenantId: string) {
         return this.leadRepo.findOne({
             where: { id, tenant_id: tenantId },
-            relations: ['status', 'tenant', 'addresses', 'activities', 'emailThreads'],
+            relations: ['status', 'tenant', 'group', 'addresses', 'activities', 'emailThreads'],
         });
     }
 
@@ -171,6 +182,16 @@ export class LeadsService {
             .andWhere('lead.email_contacted = true AND lead.customer_answered = false')
             .getCount();
 
+        const awaiting_agent_reply = await baseQuery
+            .clone()
+            .andWhere('lead.email_contacted = true AND lead.customer_answered = true AND lead.agent_replied_back = false')
+            .getCount();
+
+        const conversation_active = await baseQuery
+            .clone()
+            .andWhere('lead.email_contacted = true AND lead.customer_answered = true AND lead.agent_replied_back = true')
+            .getCount();
+
         const not_contacted = await baseQuery
             .clone()
             .andWhere('lead.email_contacted = false')
@@ -181,6 +202,8 @@ export class LeadsService {
             contacted_via_email,
             customer_responded,
             customer_responded_no_reply,
+            awaiting_agent_reply,
+            conversation_active,
             not_contacted,
         };
     }

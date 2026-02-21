@@ -5,6 +5,11 @@ export class CreatePropertyDto {
   @Length(1, 50)
   code: string;
 
+  @IsOptional()
+  @IsString()
+  @Length(1, 50)
+  block?: string;
+
   @IsString()
   @Length(1, 150)
   name: string;
@@ -22,6 +27,9 @@ export class CreatePropertyDto {
 
   @IsNumber()
   total_area: number;
+
+  @IsString()
+  measurement_unit_id: string;
 
   @IsNumber()
   total_price: number;

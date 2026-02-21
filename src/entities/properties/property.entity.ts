@@ -10,7 +10,9 @@ import {
   Index,
 } from 'typeorm';
 import { PropertyGroup } from './property-group.entity';
+import { MeasurementUnit } from './measurement-unit.entity';
 import { RBACTenant } from '../rbac/tenant.entity';
+import { Contract } from '../contracts/contract.entity';
 
 @Entity('properties')
 @Index('tenant_index', ['tenant_id'])
@@ -37,6 +39,9 @@ export class Property {
   @Column({ length: 50 })
   code: string;
 
+  @Column({ length: 50, nullable: true })
+  block: string;
+
   @Column({ length: 150 })
   name: string;
 
@@ -48,6 +53,13 @@ export class Property {
 
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   total_area: number;
+
+  @ManyToOne(() => MeasurementUnit, (unit) => unit.properties, { onDelete: 'RESTRICT', nullable: false })
+  @JoinColumn({ name: 'measurement_unit_id' })
+  measurement_unit: MeasurementUnit;
+
+  @Column()
+  measurement_unit_id: string;
 
   @Column({ type: 'decimal', precision: 15, scale: 2 })
   total_price: number;
@@ -64,6 +76,9 @@ export class Property {
 
   @Column({ type: 'json', nullable: true })
   metadata: Record<string, any>;
+
+  @OneToMany(() => Contract, contract => contract.property)
+  contracts: Contract[];
 
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;

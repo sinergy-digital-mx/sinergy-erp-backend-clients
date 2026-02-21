@@ -85,6 +85,75 @@ export class UsersRolesController {
       })),
     };
   }
+  @Get(':userId')
+  @RequirePermissions({ entityType: 'User', action: 'Read' })
+  @ApiOperation({
+    summary: 'Get user details',
+    description: 'Returns details of a specific user in the current tenant',
+  })
+  @ApiParam({ name: 'userId', description: 'User ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'User details',
+  })
+  async getUserById(@Param('userId') userId: string) {
+    const tenantId = this.tenantContextService.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+    const user = await this.usersService.findOne(userId, tenantId);
+    
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    return {
+      id: user.id,
+      email: user.email,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      phone: user.phone,
+      status: user.status,
+      language_code: user.language_code,
+      last_login_at: user.last_login_at,
+      created_at: user.created_at,
+    };
+  }
+
+  @Put(':userId')
+  @RequirePermissions({ entityType: 'User', action: 'Update' })
+  @ApiOperation({
+    summary: 'Update user',
+    description: 'Updates user information in the current tenant',
+  })
+  @ApiParam({ name: 'userId', description: 'User ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'User updated successfully',
+  })
+  async updateUser(
+    @Param('userId') userId: string,
+    @Body() updateData: any,
+  ) {
+    const tenantId = this.tenantContextService.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+    const user = await this.usersService.update(userId, updateData, tenantId);
+
+    return {
+      message: 'User updated successfully',
+      user: {
+        id: user.id,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        phone: user.phone,
+        status: user.status,
+        language_code: user.language_code,
+      },
+    };
+  }
 
   @Get(':userId/permissions')
   @RequirePermissions({ entityType: 'User', action: 'Read' })

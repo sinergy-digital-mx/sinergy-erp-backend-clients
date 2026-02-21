@@ -1,0 +1,69 @@
+PROPERTIES Y GRUPOS - GUÍA ENDPOINTS
+
+=== GRUPOS DE PROPIEDADES (PROYECTOS) ===
+
+1. CREAR GRUPO
+POST /api/tenant/property-groups
+{
+  "name": "Campestre Divino",
+  "description": "Proyecto residencial",
+  "location": "Culiacán, Sinaloa"
+}
+
+2. LISTAR GRUPOS
+GET /api/tenant/property-groups
+
+3. OBTENER GRUPO
+GET /api/tenant/property-groups/:id
+
+4. ACTUALIZAR GRUPO
+PUT /api/tenant/property-groups/:id
+
+5. ELIMINAR GRUPO
+DELETE /api/tenant/property-groups/:id
+
+6. ESTADÍSTICAS DE GRUPO
+GET /api/tenant/property-groups/:id/stats
+
+=== PROPIEDADES ===
+
+7. OBTENER UNIDADES DE MEDIDA
+GET /api/tenant/properties/measurement-units/all
+
+8. CREAR PROPIEDAD
+POST /api/tenant/properties
+{
+  "code": "LOT-001",
+  "block": "A",
+  "name": "Lote Premium",
+  "group_id": "550e8400-e29b-41d4-a716-446655440100",
+  "total_area": 500,
+  "measurement_unit_id": "550e8400-e29b-41d4-a716-446655440001",
+  "total_price": 250000,
+  "currency": "MXN",
+  "status": "disponible"
+}
+
+9. LISTAR PROPIEDADES
+GET /api/tenant/properties
+GET /api/tenant/properties?groupId=550e8400-e29b-41d4-a716-446655440100
+
+10. OBTENER PROPIEDAD
+GET /api/tenant/properties/:id
+
+11. ACTUALIZAR PROPIEDAD
+PUT /api/tenant/properties/:id
+
+12. ELIMINAR PROPIEDAD
+DELETE /api/tenant/properties/:id
+
+13. OBTENER POR CODE
+GET /api/tenant/properties/by-code/:code
+
+GRUPO CREADO:
+- Nombre: Campestre Divino
+- ID: 550e8400-e29b-41d4-a716-446655440100
+- Tenant: 54481b63-5516-458d-9bb3-d4e5cb028864
+
+Status: disponible|vendido|reservado|cancelado
+Unidades: m², hectárea, km², pie cuadrado, yarda cuadrada, acres
