@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Payment } from '../../entities/contracts/payment.entity';
@@ -25,7 +25,7 @@ export class PaymentsService {
     });
 
     if (!contract) {
-      throw new Error('Contract not found');
+      throw new NotFoundException('Contract not found');
     }
 
     // Check if payments already exist
@@ -34,7 +34,7 @@ export class PaymentsService {
     });
 
     if (existingPayments > 0) {
-      throw new Error('Payments already generated for this contract');
+      throw new BadRequestException('Payments already generated for this contract');
     }
 
     const payments: Payment[] = [];
@@ -94,11 +94,11 @@ export class PaymentsService {
     const payment = await this.getPayment(tenantId, paymentId);
 
     if (!payment) {
-      throw new Error('Payment not found');
+      throw new NotFoundException('Payment not found');
     }
 
     if (payment.status === 'pagado') {
-      throw new Error('Cannot update a paid payment');
+      throw new BadRequestException('Cannot update a paid payment');
     }
 
     if (updates.amount !== undefined) {
@@ -129,17 +129,108 @@ export class PaymentsService {
     const payment = await this.getPayment(tenantId, paymentId);
 
     if (!payment) {
-      throw new Error('Payment not found');
+      throw new NotFoundException('Payment not found');
     }
 
     if (payment.status === 'pagado') {
-      throw new Error('Payment already marked as paid');
+      throw new BadRequestException('Payment already marked as paid');
     }
 
     payment.status = 'pagado';
     payment.paid_date = paidDate;
     payment.payment_method = paymentMethod;
     payment.reference_number = referenceNumber || null;
+    payment.amount_paid = payment.amount;
+    payment.amount_pending = 0;
+
+    const updatedPayment = await this.paymentRepo.save(payment);
+
+    // Update contract remaining balance
+    await this.updateContractBalance(tenantId, payment.contract_id);
+
+    return updatedPayment;
+  }
+
+  /**
+   * Record a partial payment
+   */
+  async recordPartialPayment(
+    tenantId: string,
+    paymentId: string,
+    amount: number,
+    paymentDate: Date,
+    paymentMethod: string,
+    referenceNumber?: string,
+    notes?: string,
+  ): Promise<Payment> {
+    const payment = await this.getPayment(tenantId, paymentId);
+
+    if (!payment) {
+      throw new NotFoundException('Payment not found');
+    }
+
+    if (payment.status === 'pagado') {
+      throw new BadRequestException('Payment already fully paid');
+    }
+
+    if (payment.status === 'cancelado') {
+      throw new BadRequestException('Cannot record payment on cancelled payment');
+    }
+
+    // Validar que no haya otro pago parcial en el contrato
+    if (payment.status !== 'parcial') {
+      const existingPartial = await this.paymentRepo.findOne({
+        where: {
+          contract_id: payment.contract_id,
+          tenant_id: tenantId,
+          status: 'parcial',
+        },
+      });
+
+      if (existingPartial) {
+        throw new BadRequestException(
+          `Ya existe un pago parcial (Pago #${existingPartial.payment_number}). Completa ese pago antes de crear otro parcial.`,
+        );
+      }
+    }
+
+    // Calcular el monto pendiente actual
+    const currentPending = Number(payment.amount) - Number(payment.amount_paid);
+
+    if (amount > currentPending) {
+      throw new BadRequestException(
+        `Amount exceeds pending balance. Pending: $${currentPending.toFixed(2)}, Attempted: $${amount.toFixed(2)}`,
+      );
+    }
+
+    // Actualizar montos
+    const newAmountPaid = Number(payment.amount_paid) + amount;
+    const newAmountPending = Number(payment.amount) - newAmountPaid;
+
+    payment.amount_paid = newAmountPaid;
+    payment.amount_pending = newAmountPending;
+    payment.paid_date = paymentDate;
+    payment.payment_method = paymentMethod;
+    payment.reference_number = referenceNumber || payment.reference_number;
+
+    // Si es el primer pago parcial, guardar la fecha
+    if (!payment.first_partial_payment_date) {
+      payment.first_partial_payment_date = paymentDate;
+    }
+
+    // Actualizar notas si se proporcionan
+    if (notes) {
+      payment.notes = payment.notes
+        ? `${payment.notes}\n[${paymentDate.toISOString().split('T')[0]}] ${notes}`
+        : notes;
+    }
+
+    // Determinar el estado
+    if (newAmountPending === 0) {
+      payment.status = 'pagado';
+    } else {
+      payment.status = 'parcial';
+    }
 
     const updatedPayment = await this.paymentRepo.save(payment);
 
@@ -156,11 +247,11 @@ export class PaymentsService {
     const payment = await this.getPayment(tenantId, paymentId);
 
     if (!payment) {
-      throw new Error('Payment not found');
+      throw new NotFoundException('Payment not found');
     }
 
     if (payment.status === 'pagado') {
-      throw new Error('Cannot cancel a paid payment');
+      throw new BadRequestException('Cannot cancel a paid payment');
     }
 
     payment.status = 'cancelado';
@@ -174,14 +265,18 @@ export class PaymentsService {
     const payment = await this.getPayment(tenantId, paymentId);
 
     if (!payment) {
-      throw new Error('Payment not found');
+      throw new NotFoundException('Payment not found');
     }
 
     if (payment.status === 'pagado') {
-      throw new Error('Cannot delete a paid payment');
+      throw new BadRequestException('Cannot delete a paid payment');
     }
 
+    const contractId = payment.contract_id;
     await this.paymentRepo.remove(payment);
+    
+    // Update contract balance after deletion
+    await this.updateContractBalance(tenantId, contractId);
   }
 
   /**
@@ -207,8 +302,27 @@ export class PaymentsService {
       },
     });
 
-    const totalPaid = paidPayments.reduce((sum, payment) => sum + Number(payment.amount), 0);
-    const remainingBalance = Number(contract.total_price) - Number(contract.down_payment) - totalPaid;
+    // Incluir pagos parciales en el cálculo
+    const partialPayments = await this.paymentRepo.find({
+      where: {
+        contract_id: contractId,
+        tenant_id: tenantId,
+        status: 'parcial',
+      },
+    });
+
+    const totalPaidFromComplete = paidPayments.reduce(
+      (sum, payment) => sum + Number(payment.amount_paid),
+      0,
+    );
+    const totalPaidFromPartial = partialPayments.reduce(
+      (sum, payment) => sum + Number(payment.amount_paid),
+      0,
+    );
+    const totalPaid = totalPaidFromComplete + totalPaidFromPartial;
+
+    const remainingBalance =
+      Number(contract.total_price) - Number(contract.down_payment) - totalPaid;
 
     contract.remaining_balance = Math.max(0, remainingBalance);
 
@@ -226,19 +340,72 @@ export class PaymentsService {
   async getContractPaymentStats(tenantId: string, contractId: string): Promise<any> {
     const payments = await this.getContractPayments(tenantId, contractId);
 
+    // Get contract to calculate total pending dynamically
+    const contract = await this.contractRepo.findOne({
+      where: { id: contractId, tenant_id: tenantId },
+    });
+
+    if (!contract) {
+      throw new NotFoundException('Contract not found');
+    }
+
+    // Find partial payment if exists
+    const partialPayment = payments.find(p => p.status === 'parcial');
+    let partialPaymentData: {
+      installment_number: number;
+      amount_paid: number;
+      remaining_amount: number;
+      status: string;
+    } | null = null;
+    
+    if (partialPayment) {
+      partialPaymentData = {
+        installment_number: partialPayment.payment_number,
+        amount_paid: Number(partialPayment.amount_paid),
+        remaining_amount: Number(partialPayment.amount_pending),
+        status: 'pending_completion'
+      };
+    }
+
+    // Calculate totals
+    const totalPaidFromComplete = payments
+      .filter(p => p.status === 'pagado')
+      .reduce((sum, p) => sum + Number(p.amount_paid), 0);
+    
+    const totalPaidFromPartial = payments
+      .filter(p => p.status === 'parcial')
+      .reduce((sum, p) => sum + Number(p.amount_paid), 0);
+
+    const totalPendingFromFull = payments
+      .filter(p => p.status === 'pendiente' || p.status === 'vencido')
+      .reduce((sum, p) => sum + Number(p.amount), 0);
+
+    const totalPendingFromPartial = partialPayment ? Number(partialPayment.amount_pending) : 0;
+
+    // Calculate total pending amount DYNAMICALLY from contract
+    const totalAfterDownPayment = Number(contract.total_price) - Number(contract.down_payment);
+    const totalPaidFromPayments = totalPaidFromComplete + totalPaidFromPartial;
+    const totalPendingAmountCalculated = totalAfterDownPayment - totalPaidFromPayments;
+
     const stats = {
       total_payments: payments.length,
       paid_count: payments.filter(p => p.status === 'pagado').length,
-      pending_count: payments.filter(p => p.status === 'pendiente').length,
+      partial_count: payments.filter(p => p.status === 'parcial').length,
+      pending_count: payments.filter(p => p.status === 'pendiente' || p.status === 'vencido').length,
       overdue_count: payments.filter(p => p.status === 'vencido').length,
       cancelled_count: payments.filter(p => p.status === 'cancelado').length,
-      total_paid: payments
-        .filter(p => p.status === 'pagado')
-        .reduce((sum, p) => sum + Number(p.amount), 0),
-      total_pending: payments
-        .filter(p => p.status === 'pendiente')
-        .reduce((sum, p) => sum + Number(p.amount), 0),
-      next_payment: payments.find(p => p.status === 'pendiente') || null,
+      
+      // Existing fields (rounded to 2 decimals)
+      total_paid: Math.round(totalPaidFromComplete * 100) / 100,
+      total_partial: Math.round(totalPaidFromPartial * 100) / 100,
+      total_pending: Math.round(totalPendingFromFull * 100) / 100,
+      
+      // New fields - calculated dynamically
+      pending_full_payments: payments.filter(p => p.status === 'pendiente' || p.status === 'vencido').length,
+      total_pending_amount: Math.round(totalPendingAmountCalculated * 100) / 100, // Calculado dinámicamente
+      partial_payment: partialPaymentData,
+      
+      next_payment: payments.find(p => p.status === 'pendiente' || p.status === 'parcial' || p.status === 'vencido') || null,
     };
 
     return stats;

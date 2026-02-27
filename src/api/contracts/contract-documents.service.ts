@@ -92,11 +92,19 @@ export class ContractDocumentsService {
       throw new Error('Document not found');
     }
 
-    // Delete from S3
-    await this.s3Service.deleteFile(document.s3_key);
+    try {
+      // Delete from S3
+      await this.s3Service.deleteFile(document.s3_key);
 
-    // Delete record
-    await this.documentRepo.remove(document);
+      // Delete record only if S3 deletion was successful
+      await this.documentRepo.remove(document);
+    } catch (error) {
+      // Log the error and provide clear feedback
+      console.error('Error deleting document:', error);
+      throw new Error(
+        `No se pudo eliminar el documento: ${error.message || 'Error desconocido'}`
+      );
+    }
   }
 
   async updateDocumentStatus(

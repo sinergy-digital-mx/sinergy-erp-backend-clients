@@ -12,7 +12,8 @@ export const typeOrmOptions: DataSourceOptions = {
     synchronize: false,
     migrationsRun: false, // Disabled - run migrations manually
     logging: true,
-    timezone: 'Z', // Force UTC timezone
+    timezone: 'local', // Use local timezone
+    dateStrings: true, // Return dates as strings to avoid timezone conversion
     entities: [__dirname + '/../entities/**/*.entity.{ts,js}'],
     migrations: [__dirname + '/migrations/*.{ts,js}'],
 };

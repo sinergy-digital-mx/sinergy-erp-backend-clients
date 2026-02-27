@@ -43,6 +43,8 @@ export class ContractsController {
     @Query('customerId') customerId?: string,
     @Query('propertyId') propertyId?: string,
     @Query('status') status?: string,
+    @Query('hasOverdue') hasOverdue?: string,
+    @Query('search') search?: string,
   ) {
     const tenantId = this.tenantContext.getCurrentTenantId();
     if (!tenantId) {
@@ -53,6 +55,8 @@ export class ContractsController {
       customerId ? parseInt(customerId) : undefined,
       propertyId,
       status,
+      hasOverdue === 'true',
+      search,
     );
   }
 

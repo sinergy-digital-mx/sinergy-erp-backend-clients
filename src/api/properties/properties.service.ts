@@ -32,14 +32,13 @@ export class PropertiesService {
     return saved;
   }
 
-  async findAll(tenantId: string, groupId?: string, search?: string): Promise<Property[]> {
+  async findAll(tenantId: string, groupId?: string, search?: string): Promise<any[]> {
     const query = this.propertyRepo
       .createQueryBuilder('p')
       .leftJoinAndSelect('p.group', 'g')
       .leftJoinAndSelect('p.measurement_unit', 'mu')
-      .leftJoin('p.contracts', 'contracts', 'contracts.status = :contractStatus', { contractStatus: 'activo' })
-      .leftJoin('contracts.customer', 'customer')
-      .addSelect(['contracts.id', 'contracts.status', 'customer.id', 'customer.name', 'customer.lastname'])
+      .leftJoinAndSelect('p.contracts', 'contracts')
+      .leftJoinAndSelect('contracts.customer', 'customer')
       .where('p.tenant_id = :tenantId', { tenantId });
 
     if (groupId) {
@@ -53,7 +52,31 @@ export class PropertiesService {
       );
     }
 
-    return query.orderBy('p.code', 'ASC').getMany();
+    const properties = await query.orderBy('p.code', 'ASC').getMany();
+
+    // Transform the response to include customer info at the property level
+    return properties.map(property => {
+      // Find the most relevant contract: prioritize 'activo', then 'completado', then any other
+      let relevantContract = property.contracts && property.contracts.length > 0
+        ? (property.contracts.find(c => c.status === 'activo') ||
+           property.contracts.find(c => c.status === 'completado') ||
+           property.contracts[0])
+        : null;
+      
+      const customer = relevantContract?.customer;
+
+      return {
+        ...property,
+        customer: customer ? {
+          id: customer.id,
+          name: customer.name,
+          lastname: customer.lastname,
+          fullName: `${customer.name} ${customer.lastname}`.trim()
+        } : null,
+        // Keep the original contracts array for backward compatibility
+        contracts: property.contracts
+      };
+    });
   }
 
   async findOne(tenantId: string, id: string): Promise<Property | null> {

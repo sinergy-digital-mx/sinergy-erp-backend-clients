@@ -38,17 +38,26 @@ export class Payment {
   payment_number: number; // 1, 2, 3, etc.
 
   @Column({ type: 'decimal', precision: 15, scale: 2 })
-  amount: number;
+  amount: number; // Monto total esperado del pago
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  amount_paid: number; // Monto realmente pagado (puede ser parcial)
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  amount_pending: number; // Diferencia pendiente (amount - amount_paid)
 
   @Column({ type: 'date' })
   due_date: Date;
 
   @Column({ type: 'date', nullable: true })
-  paid_date: Date | null;
+  paid_date: Date | null; // Fecha del último pago
+
+  @Column({ type: 'date', nullable: true })
+  first_partial_payment_date: Date | null; // Fecha del primer pago parcial
 
   @Column({
     type: 'enum',
-    enum: ['pendiente', 'pagado', 'vencido', 'cancelado'],
+    enum: ['pendiente', 'pagado', 'parcial', 'vencido', 'cancelado'],
     default: 'pendiente',
   })
   status: string;
@@ -71,3 +80,4 @@ export class Payment {
   @UpdateDateColumn({ type: 'timestamp' })
   updated_at: Date;
 }
+

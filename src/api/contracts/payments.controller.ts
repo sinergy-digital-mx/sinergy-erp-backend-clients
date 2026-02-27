@@ -14,6 +14,7 @@ import { PermissionGuard } from '../rbac/guards/permission.guard';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator';
 import { TenantContextService } from '../rbac/services/tenant-context.service';
 import { PaymentsService } from './payments.service';
+import { RecordPartialPaymentDto } from './dto/record-partial-payment.dto';
 
 @Controller('tenant/contracts/:contractId/payments')
 @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -89,15 +90,10 @@ export class PaymentsController {
 
   @Post(':paymentId/pay')
   @RequirePermissions({ entityType: 'Contract', action: 'Update' })
-  async markAsPaid(
+  async recordPayment(
     @Param('contractId') contractId: string,
     @Param('paymentId') paymentId: string,
-    @Body()
-    body: {
-      paid_date: Date;
-      payment_method: string;
-      reference_number?: string;
-    },
+    @Body() dto: RecordPartialPaymentDto,
     @Req() req: any,
   ) {
     const tenantId = this.tenantContext.getCurrentTenantId();
@@ -105,12 +101,14 @@ export class PaymentsController {
       throw new Error('Tenant context is required');
     }
 
-    return this.paymentsService.markAsPaid(
+    return this.paymentsService.recordPartialPayment(
       tenantId,
       paymentId,
-      body.paid_date,
-      body.payment_method,
-      body.reference_number,
+      dto.amount,
+      new Date(dto.payment_date),
+      dto.payment_method,
+      dto.reference_number,
+      dto.notes,
     );
   }
 

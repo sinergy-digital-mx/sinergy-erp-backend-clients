@@ -72,11 +72,21 @@ export class S3Service {
    * @param s3Key S3 key
    */
   async deleteFile(s3Key: string): Promise<void> {
-    const command = new DeleteObjectCommand({
-      Bucket: this.bucketName,
-      Key: s3Key,
-    });
+    try {
+      const command = new DeleteObjectCommand({
+        Bucket: this.bucketName,
+        Key: s3Key,
+      });
 
-    await this.s3Client.send(command);
+      await this.s3Client.send(command);
+    } catch (error) {
+      if (error.Code === 'AccessDenied') {
+        throw new Error(
+          `AWS S3 Access Denied: El usuario IAM no tiene permisos para eliminar objetos. ` +
+          `Verifica que la política IAM incluya "s3:DeleteObject" para el bucket ${this.bucketName}`
+        );
+      }
+      throw error;
+    }
   }
 }

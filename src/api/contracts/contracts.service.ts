@@ -27,7 +27,7 @@ export class ContractsService {
     return this.contractRepo.save(contract);
   }
 
-  async findAll(tenantId: string, customerId?: number, propertyId?: string, status?: string): Promise<Contract[]> {
+  async findAll(tenantId: string, customerId?: number, propertyId?: string, status?: string, hasOverdue?: boolean, search?: string): Promise<Contract[]> {
     const query = this.contractRepo
       .createQueryBuilder('c')
       .where('c.tenant_id = :tenantId', { tenantId })
@@ -46,21 +46,102 @@ export class ContractsService {
       query.andWhere('c.status = :status', { status });
     }
 
+    // Filter by contracts with overdue payments
+    if (hasOverdue === true) {
+      query
+        .innerJoin('payments', 'p', 'p.contract_id = c.id')
+        .andWhere('p.status = :paymentStatus', { paymentStatus: 'vencido' });
+    }
+
+    // Search by customer name, contract number, or property code
+    if (search) {
+      query.andWhere(
+        '(customer.name LIKE :search OR customer.lastname LIKE :search OR c.contract_number LIKE :search OR property.code LIKE :search)',
+        { search: `%${search}%` }
+      );
+    }
+
     return query.orderBy('c.contract_date', 'DESC').getMany();
   }
 
-  async findOne(tenantId: string, id: string): Promise<Contract | null> {
-    return this.contractRepo.findOne({
+  async findOne(tenantId: string, id: string): Promise<any> {
+    const contract = await this.contractRepo.findOne({
       where: { id, tenant_id: tenantId },
       relations: ['customer', 'property'],
     });
+
+    if (!contract) {
+      return null;
+    }
+
+    return this.enrichContractWithPaymentData(contract, tenantId);
   }
 
-  async findByContractNumber(tenantId: string, contractNumber: string): Promise<Contract | null> {
-    return this.contractRepo.findOne({
+  async findByContractNumber(tenantId: string, contractNumber: string): Promise<any> {
+    const contract = await this.contractRepo.findOne({
       where: { contract_number: contractNumber, tenant_id: tenantId },
       relations: ['customer', 'property'],
     });
+
+    if (!contract) {
+      return null;
+    }
+
+    return this.enrichContractWithPaymentData(contract, tenantId);
+  }
+
+  private async enrichContractWithPaymentData(contract: Contract, tenantId: string): Promise<any> {
+    // Get all payments for this contract
+    const allPayments = await this.contractRepo.manager.query(
+      'SELECT status, amount, amount_paid, amount_pending, payment_number FROM payments WHERE contract_id = ? AND tenant_id = ?',
+      [contract.id, tenantId]
+    );
+
+    // Calculate totals
+    let totalPaidFromPayments = 0;
+    let pendingFullPayments = 0;
+    let partialPayment: {
+      installment_number: number;
+      amount_paid: number;
+      remaining_amount: number;
+      status: string;
+    } | null = null;
+
+    for (const payment of allPayments) {
+      const status = payment.status;
+      const amountPaid = Number(payment.amount_paid);
+      const amount = Number(payment.amount);
+      const amountPending = Number(payment.amount_pending);
+
+      if (status === 'pagado') {
+        totalPaidFromPayments += amountPaid;
+      } else if (status === 'parcial') {
+        totalPaidFromPayments += amountPaid;
+        partialPayment = {
+          installment_number: payment.payment_number,
+          amount_paid: amountPaid,
+          remaining_amount: amountPending,
+          status: 'pending_completion'
+        };
+      } else if (status === 'pendiente' || status === 'vencido') {
+        pendingFullPayments++;
+      }
+    }
+
+    // Calculate total pending amount DYNAMICALLY (not from DB)
+    const totalAfterDownPayment = Number(contract.total_price) - Number(contract.down_payment);
+    const totalPaid = Number(contract.down_payment) + totalPaidFromPayments;
+    const totalPendingAmount = Number(contract.total_price) - totalPaid;
+
+    return {
+      ...contract,
+      total_paid: totalPaid, // Enganche + pagos mensuales
+      total_paid_from_payments: totalPaidFromPayments, // Solo pagos mensuales, sin enganche
+      total_pending_amount: Math.round(totalPendingAmount * 100) / 100, // Calculado dinámicamente
+      remaining_balance: Math.round(totalPendingAmount * 100) / 100, // Override con valor calculado
+      pending_full_payments: pendingFullPayments,
+      partial_payment: partialPayment,
+    };
   }
 
   async update(tenantId: string, id: string, dto: UpdateContractDto): Promise<Contract> {
@@ -100,24 +181,65 @@ export class ContractsService {
   }
 
   async getContractStats(tenantId: string): Promise<any> {
-    const stats = await this.contractRepo
+    // Total contracts (active + completed) - sum of total_price
+    const totalStats = await this.contractRepo
       .createQueryBuilder('c')
-      .select('COUNT(*)', 'total')
-      .addSelect("SUM(CASE WHEN c.status = 'activo' THEN 1 ELSE 0 END)", 'active')
-      .addSelect("SUM(CASE WHEN c.status = 'completado' THEN 1 ELSE 0 END)", 'completed')
-      .addSelect("SUM(CASE WHEN c.status = 'cancelado' THEN 1 ELSE 0 END)", 'cancelled')
-      .addSelect('SUM(c.total_price)', 'total_value')
-      .addSelect('SUM(c.remaining_balance)', 'pending_balance')
+      .select('COUNT(*)', 'count')
+      .addSelect('SUM(c.total_price)', 'value')
       .where('c.tenant_id = :tenantId', { tenantId })
+      .andWhere('c.status IN (:...statuses)', { statuses: ['activo', 'completado'] })
+      .getRawOne();
+
+    // Completed contracts - sum of total_price
+    const completedStats = await this.contractRepo
+      .createQueryBuilder('c')
+      .select('COUNT(*)', 'count')
+      .addSelect('SUM(c.total_price)', 'value')
+      .where('c.tenant_id = :tenantId', { tenantId })
+      .andWhere('c.status = :status', { status: 'completado' })
+      .getRawOne();
+
+    // Active contracts (pending) - sum of total_price and remaining_balance
+    const activeStats = await this.contractRepo
+      .createQueryBuilder('c')
+      .select('COUNT(*)', 'count')
+      .addSelect('SUM(c.total_price)', 'total_value')
+      .addSelect('SUM(c.remaining_balance)', 'pending_value')
+      .addSelect('SUM(c.total_price - c.remaining_balance)', 'paid_value')
+      .where('c.tenant_id = :tenantId', { tenantId })
+      .andWhere('c.status = :status', { status: 'activo' })
+      .getRawOne();
+
+    // Contracts with overdue payments - sum of total_price
+    const overdueStats = await this.contractRepo
+      .createQueryBuilder('c')
+      .leftJoin('payments', 'p', 'p.contract_id = c.id AND p.status = :vencido', { vencido: 'vencido' })
+      .select('COUNT(DISTINCT c.id)', 'count')
+      .addSelect('SUM(DISTINCT c.total_price)', 'value')
+      .where('c.tenant_id = :tenantId', { tenantId })
+      .andWhere('c.status = :status', { status: 'activo' })
+      .andWhere('p.id IS NOT NULL')
       .getRawOne();
 
     return {
-      total: parseInt(stats.total) || 0,
-      active: parseInt(stats.active) || 0,
-      completed: parseInt(stats.completed) || 0,
-      cancelled: parseInt(stats.cancelled) || 0,
-      total_value: parseFloat(stats.total_value) || 0,
-      pending_balance: parseFloat(stats.pending_balance) || 0,
+      total: {
+        count: parseInt(totalStats.count) || 0,
+        value: parseFloat(totalStats.value) || 0,
+      },
+      completed: {
+        count: parseInt(completedStats.count) || 0,
+        value: parseFloat(completedStats.value) || 0,
+      },
+      pending: {
+        count: parseInt(activeStats.count) || 0,
+        value: parseFloat(activeStats.total_value) || 0,
+        paid: parseFloat(activeStats.paid_value) || 0,
+        remaining: parseFloat(activeStats.pending_value) || 0,
+      },
+      overdue: {
+        count: parseInt(overdueStats.count) || 0,
+        value: parseFloat(overdueStats.value) || 0,
+      },
     };
   }
 }
