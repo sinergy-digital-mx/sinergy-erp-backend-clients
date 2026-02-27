@@ -27,7 +27,7 @@ export class ContractsService {
     return this.contractRepo.save(contract);
   }
 
-  async findAll(tenantId: string, customerId?: number, propertyId?: string, status?: string, hasOverdue?: boolean, search?: string): Promise<Contract[]> {
+  async findAll(tenantId: string, customerId?: number, propertyId?: string, status?: string, hasOverdue?: boolean, search?: string): Promise<any[]> {
     const query = this.contractRepo
       .createQueryBuilder('c')
       .where('c.tenant_id = :tenantId', { tenantId })
@@ -61,7 +61,55 @@ export class ContractsService {
       );
     }
 
-    return query.orderBy('c.contract_date', 'DESC').getMany();
+    const contracts = await query.orderBy('c.contract_date', 'DESC').getMany();
+
+    if (contracts.length === 0) {
+      return [];
+    }
+
+    // Get next payment for each contract (first payment that is not 'pagado')
+    const contractIds = contracts.map(c => c.id);
+    
+    const nextPaymentsQuery = `
+      SELECT p.*
+      FROM payments p
+      INNER JOIN (
+        SELECT contract_id, MIN(payment_number) as next_payment_number
+        FROM payments
+        WHERE contract_id IN (${contractIds.map(() => '?').join(',')})
+          AND tenant_id = ?
+          AND status != 'pagado'
+        GROUP BY contract_id
+      ) next_p ON p.contract_id = next_p.contract_id AND p.payment_number = next_p.next_payment_number
+      WHERE p.tenant_id = ?
+    `;
+
+    const nextPayments = await this.contractRepo.manager.query(
+      nextPaymentsQuery,
+      [...contractIds, tenantId, tenantId]
+    );
+
+    // Map next payments by contract_id
+    const nextPaymentMap = new Map();
+    nextPayments.forEach(payment => {
+      nextPaymentMap.set(payment.contract_id, {
+        next_payment_date: payment.due_date,
+        next_payment_status: payment.status,
+        next_payment_number: payment.payment_number,
+        next_payment_amount: payment.status === 'parcial' 
+          ? Number(payment.amount_pending) 
+          : Number(payment.amount),
+      });
+    });
+
+    // Add next payment info to each contract
+    return contracts.map(contract => ({
+      ...contract,
+      next_payment_date: nextPaymentMap.get(contract.id)?.next_payment_date || null,
+      next_payment_status: nextPaymentMap.get(contract.id)?.next_payment_status || null,
+      next_payment_number: nextPaymentMap.get(contract.id)?.next_payment_number || null,
+      next_payment_amount: nextPaymentMap.get(contract.id)?.next_payment_amount || null,
+    }));
   }
 
   async findOne(tenantId: string, id: string): Promise<any> {
