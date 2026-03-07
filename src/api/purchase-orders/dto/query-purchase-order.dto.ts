@@ -1,4 +1,5 @@
-import { IsOptional, IsUUID, IsEnum, IsDateString, Type, Min, Max } from 'class-validator';
+import { IsOptional, IsUUID, IsEnum, IsDateString, Min, Max } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class QueryPurchaseOrderDto {
   @IsOptional()

@@ -4,7 +4,7 @@ import {
   NotFoundException,
   ConflictException,
 } from '@nestjs/common';
-import type { Multer } from 'multer';
+import type { Express } from 'express';
 import { ProductPhotoRepository } from '../repositories/product-photo.repository';
 import { S3Service } from '../../../common/services/s3.service';
 import { ProductPhoto } from '../../../entities/products/product-photo.entity';
@@ -22,7 +22,7 @@ export class ProductPhotoService {
   async uploadPhoto(
     tenantId: string,
     productId: string,
-    file: Multer.File,
+    file: Express.Multer.File,
     altText?: string,
   ): Promise<ProductPhoto> {
     // Validate file

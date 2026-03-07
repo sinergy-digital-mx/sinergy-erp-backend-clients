@@ -13,7 +13,6 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Express } from 'express';
-import type { Multer } from 'multer';
 import { ProductPhotoService } from '../services/product-photo.service';
 import { UploadProductPhotoDto } from '../dto/upload-product-photo.dto';
 import { UpdateProductPhotoDto } from '../dto/update-product-photo.dto';
@@ -28,7 +27,7 @@ export class ProductPhotoController {
   @UseInterceptors(FileInterceptor('file'))
   async upload(
     @Param('productId') productId: string,
-    @UploadedFile() file: Multer.File,
+    @UploadedFile() file: Express.Multer.File,
     @Body() dto: UploadProductPhotoDto,
     @Req() req: any,
   ): Promise<ProductPhoto> {

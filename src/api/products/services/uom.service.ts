@@ -41,6 +41,10 @@ export class UoMService {
     });
   }
 
+  async listCatalogUoMs() {
+    return this.catalogRepository.findAll();
+  }
+
   async getUoM(id: string): Promise<UoM> {
     const uom = await this.uomRepository.findById(id);
     if (!uom) {

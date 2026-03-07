@@ -1,10 +1,14 @@
 import { Injectable, BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { ProductRepository } from '../repositories/product.repository';
+import { UoMCatalogRepository } from '../repositories/uom-catalog.repository';
 import { Product } from '../../../entities/products/product.entity';
 
 @Injectable()
 export class ProductService {
-  constructor(private productRepository: ProductRepository) {}
+  constructor(
+    private productRepository: ProductRepository,
+    private uomCatalogRepository: UoMCatalogRepository,
+  ) {}
 
   async createProduct(
     tenantId: string,
@@ -29,6 +33,14 @@ export class ProductService {
     const existingProduct = await this.productRepository.findBySku(sku, tenantId);
     if (existingProduct) {
       throw new ConflictException('A product with this SKU already exists');
+    }
+
+    // Validate base_uom_id exists if provided
+    if (baseUomId) {
+      const uom = await this.uomCatalogRepository.findById(baseUomId);
+      if (!uom) {
+        throw new BadRequestException(`Unit of Measure with ID ${baseUomId} not found`);
+      }
     }
 
     // Note: Category and subcategory validation is handled by database foreign key constraints
@@ -105,10 +117,15 @@ export class ProductService {
       }
     }
 
-    // Convert empty strings to null for base_uom_id
+    // Convert empty strings to null for base_uom_id and validate if provided
     if (updates.base_uom_id !== undefined) {
       if (updates.base_uom_id === '') {
         updates.base_uom_id = null;
+      } else if (updates.base_uom_id) {
+        const uom = await this.uomCatalogRepository.findById(updates.base_uom_id);
+        if (!uom) {
+          throw new BadRequestException(`Unit of Measure with ID ${updates.base_uom_id} not found`);
+        }
       }
     }
 

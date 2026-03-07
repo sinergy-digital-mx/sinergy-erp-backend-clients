@@ -11,34 +11,19 @@ export class UoMCatalogRepository {
   ) {}
 
   async findById(id: string): Promise<UoMCatalog | null> {
-    return this.repo.findOne({
-      where: { id },
-    });
-  }
-
-  async findAll(): Promise<UoMCatalog[]> {
-    return this.repo.find({
-      order: { name: 'ASC' },
-    });
+    return this.repo.findOne({ where: { id } });
   }
 
   async findByName(name: string): Promise<UoMCatalog | null> {
-    return this.repo.findOne({
-      where: { name },
-    });
+    return this.repo.findOne({ where: { name } });
   }
 
-  async create(data: Partial<UoMCatalog>): Promise<UoMCatalog> {
-    const catalog = this.repo.create(data);
-    return this.repo.save(catalog);
+  async findAll(): Promise<UoMCatalog[]> {
+    return this.repo.find();
   }
 
-  async update(id: string, data: Partial<UoMCatalog>): Promise<UoMCatalog | null> {
-    await this.repo.update(id, data);
-    return this.findById(id);
-  }
-
-  async delete(id: string): Promise<void> {
-    await this.repo.delete(id);
+  async create(name: string, description?: string): Promise<UoMCatalog> {
+    const uom = this.repo.create({ name, description });
+    return this.repo.save(uom);
   }
 }

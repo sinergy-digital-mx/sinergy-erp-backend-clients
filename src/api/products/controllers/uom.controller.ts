@@ -20,6 +20,11 @@ import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 export class UoMController {
   constructor(private uomService: UoMService) {}
 
+  @Get('catalog')
+  async listCatalog(): Promise<any[]> {
+    return this.uomService.listCatalogUoMs();
+  }
+
   @Post()
   async assignFromCatalog(
     @Param('productId') productId: string,

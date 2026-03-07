@@ -6,17 +6,8 @@ import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
 import { UpdatePurchaseOrderDto } from './dto/update-purchase-order.dto';
 import { QueryPurchaseOrderDto } from './dto/query-purchase-order.dto';
 import { CancelPurchaseOrderDto } from './dto/cancel-purchase-order.dto';
+import { PaginatedPurchaseOrderDto } from './dto/paginated-purchase-order.dto';
 import { TaxCalculationService } from './tax-calculation.service';
-
-interface PaginatedPurchaseOrderDto {
-  data: PurchaseOrder[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-  hasNext: boolean;
-  hasPrev: boolean;
-}
 
 @Injectable()
 export class PurchaseOrderService {
