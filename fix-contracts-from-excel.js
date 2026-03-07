@@ -100,7 +100,11 @@ async function fixContractsFromExcel() {
         continue;
       }
 
+      // La fecha del Excel ES:
+      // - Fecha de inicio del contrato
+      // - Fecha del primer pago (que ya está pagado)
       const formattedDate = contractDate.toISOString().split('T')[0];
+      const firstPaymentDateStr = formattedDate;
 
       // Find matching contract by property code
       // Find matching contract by customer name + property (lote/manzana)
@@ -145,17 +149,13 @@ async function fixContractsFromExcel() {
           console.log(`✅ Match: ${nombre} - Lote ${lotePart} Mz ${manzana}`);
           console.log(`   Contract: ${contract.contract_number}`);
           console.log(`   Property: ${contract.property_code}`);
-          console.log(`   Old date: ${contract.contract_date}`);
-          console.log(`   New date: ${formattedDate}`);
+          console.log(`   Old contract date: ${contract.contract_date}`);
+          console.log(`   New contract date: ${formattedDate}`);
+          console.log(`   First payment date: ${firstPaymentDateStr}`);
           console.log(`   Meses pagados: ${mesesPagados}`);
           console.log(`   Totalmente pagado: ${totalmentePagado ? 'SÍ' : 'NO'}`);
 
           // Update contract date and payment_due_day
-          const contractFirstPaymentDate = new Date(contractDate);
-          contractFirstPaymentDate.setMonth(contractFirstPaymentDate.getMonth() + 1);
-          contractFirstPaymentDate.setDate(diasLimite);
-          const firstPaymentDateStr = contractFirstPaymentDate.toISOString().split('T')[0];
-          
           await connection.query(
             'UPDATE contracts SET contract_date = ?, payment_due_day = ?, first_payment_date = ? WHERE id = ?',
             [formattedDate, diasLimite, firstPaymentDateStr, contract.id]
@@ -181,14 +181,14 @@ async function fixContractsFromExcel() {
           // Generate payments with correct dates
           const paymentMonths = contract.payment_months;
           const monthlyPayment = Number(contract.monthly_payment);
-          const firstPaymentDate = new Date(contractDate);
-          firstPaymentDate.setMonth(firstPaymentDate.getMonth() + 1);
-          firstPaymentDate.setDate(diasLimite); // Set to payment due day (e.g., 5th)
+          // Start from contract date (which is also first payment date)
+          const paymentStartDate = new Date(contractDate);
+          paymentStartDate.setDate(diasLimite);
 
           const tenantId = (await connection.query('SELECT tenant_id FROM contracts WHERE id = ?', [contract.id]))[0][0].tenant_id;
 
           for (let i = 1; i <= paymentMonths; i++) {
-            const dueDate = new Date(firstPaymentDate);
+            const dueDate = new Date(paymentStartDate);
             dueDate.setMonth(dueDate.getMonth() + (i - 1));
             const dueDateStr = dueDate.toISOString().split('T')[0];
 
@@ -200,6 +200,7 @@ async function fixContractsFromExcel() {
             if (i <= mesesPagados) {
               status = 'pagado';
               amountPaid = monthlyPayment;
+              // Use the actual due date as paid date
               paidDate = dueDateStr;
             } else {
               // Check if overdue

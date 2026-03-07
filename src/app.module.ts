@@ -12,6 +12,12 @@ import { PropertiesModule } from './api/properties/properties.module';
 import { ContractsModule } from './api/contracts/contracts.module';
 import { TransactionsModule } from './api/transactions/transactions.module';
 import { CatalogsModule } from './api/catalogs/catalogs.module';
+import { VendorModule } from './api/vendor/vendor.module';
+import { WarehouseModule } from './api/warehouse/warehouse.module';
+import { CategoriesModule } from './api/categories/categories.module';
+import { BillingModule } from './api/billing/billing.module';
+import { ProductsModule } from './api/products/products.module';
+import { UoMCatalogModule } from './api/uom-catalog/uom-catalog.module';
 
 @Module({
   imports: [
@@ -27,6 +33,12 @@ import { CatalogsModule } from './api/catalogs/catalogs.module';
     ContractsModule,
     TransactionsModule,
     CatalogsModule,
+    VendorModule,
+    WarehouseModule,
+    CategoriesModule,
+    BillingModule,
+    UoMCatalogModule,
+    ProductsModule,
   ],
 })
 export class AppModule { }

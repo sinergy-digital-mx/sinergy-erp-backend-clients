@@ -1,0 +1,37 @@
+{
+  "specName": "warehouse-management",
+  "displayName": "Warehouse Management System",
+  "description": "Complete warehouse/distribution center management module with tenant isolation, Mexican billing support, and RBAC integration",
+  "status": "ready",
+  "createdAt": "2024-01-15",
+  "version": "1.0.0",
+  "requirements": {
+    "total": 9,
+    "completed": 0
+  },
+  "design": {
+    "properties": 14,
+    "entities": 1,
+    "dtos": 3,
+    "services": 1,
+    "controllers": 1
+  },
+  "tasks": {
+    "total": 13,
+    "completed": 0,
+    "optional": 8
+  },
+  "tags": [
+    "warehouse",
+    "distribution-center",
+    "inventory",
+    "tenant-isolation",
+    "mexican-billing",
+    "rbac"
+  ],
+  "relatedModules": [
+    "vendor-management",
+    "rbac",
+    "customers"
+  ]
+}
