@@ -6,13 +6,16 @@ import {
   Delete,
   Body,
   Param,
+  UseGuards,
 } from '@nestjs/common';
 import { VendorProductPriceService } from '../services/vendor-product-price.service';
 import { CreateVendorProductPriceDto } from '../dto/create-vendor-product-price.dto';
 import { UpdateVendorProductPriceDto } from '../dto/update-vendor-product-price.dto';
 import { VendorProductPrice } from '../../../entities/products/vendor-product-price.entity';
+import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 
-@Controller('vendor-product-prices')
+@UseGuards(JwtAuthGuard)
+@Controller('tenant/vendor-product-prices')
 export class VendorProductPriceController {
   constructor(private vendorPriceService: VendorProductPriceService) {}
 
@@ -31,12 +34,12 @@ export class VendorProductPriceController {
     return this.vendorPriceService.getPrice(id);
   }
 
-  @Get('products/:productId/vendor-prices')
+  @Get('products/:productId')
   async getByProduct(@Param('productId') productId: string): Promise<VendorProductPrice[]> {
     return this.vendorPriceService.getPricesByProduct(productId);
   }
 
-  @Get('vendors/:vendorId/product-prices')
+  @Get('vendors/:vendorId')
   async getByVendor(@Param('vendorId') vendorId: string): Promise<VendorProductPrice[]> {
     return this.vendorPriceService.getPricesByVendor(vendorId);
   }

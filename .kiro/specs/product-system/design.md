@@ -2,7 +2,7 @@
 
 ## Overview
 
-A minimal, clean product management system with three core entities: Product, Unit of Measure (UoM), and Vendor Product Price. The system supports hierarchical UoM relationships that enable cascading conversions between units, and vendor-specific pricing tied to those units. The design prioritizes data integrity through referential constraints and cascade deletion.
+A minimal, clean product management system with tenant-specific units of measure and product-specific UoM relationships. The system features three core entities: Product, Unit of Measure (UoM), and Vendor Product Price. Each tenant defines their own UoMs, and products within that tenant can use those UoMs. Product-specific relationships enable cascading conversions between units, and vendor-specific pricing is tied to these units. The design prioritizes data integrity through referential constraints, cascade deletion, and vendor price constraints that prevent UoM deletion when prices exist.
 
 ## Architecture
 
@@ -38,16 +38,19 @@ The system follows a layered architecture:
 ```
 Product {
   id: UUID (primary key)
-  sku: string (unique, not null)
+  tenant_id: UUID (foreign key to Tenant, not null)
+  sku: string (not null)
   name: string (not null)
   description: string (nullable)
   created_at: timestamp
   updated_at: timestamp
+  
+  Constraint: UNIQUE(tenant_id, sku)
 }
 ```
 
 **Responsibilities:**
-- Represent a catalog item with unique SKU
+- Represent a catalog item with unique SKU per tenant
 - Maintain association with UoMs
 - Maintain association with UoM relationships
 - Maintain association with vendor prices
@@ -57,20 +60,21 @@ Product {
 ```
 UoM {
   id: UUID (primary key)
-  product_id: UUID (foreign key to Product, not null)
+  tenant_id: UUID (foreign key to Tenant, not null)
   code: string (not null)
   name: string (not null)
   created_at: timestamp
   updated_at: timestamp
   
-  Constraint: UNIQUE(product_id, code)
+  Constraint: UNIQUE(tenant_id, code)
 }
 ```
 
 **Responsibilities:**
-- Define a unit in which a product can be measured
-- Belong to exactly one product
+- Define a unit in which products can be measured (tenant-specific)
+- Belong to exactly one tenant
 - Participate in UoM relationships
+- Be referenced by vendor prices
 
 ### UoM Relationship Entity
 
@@ -81,19 +85,21 @@ UoM_Relationship {
   source_uom_id: UUID (foreign key to UoM, not null)
   target_uom_id: UUID (foreign key to UoM, not null)
   conversion_factor: decimal (not null, > 0)
+  is_calculated: boolean (default: false)
   created_at: timestamp
   updated_at: timestamp
   
   Constraints:
   - UNIQUE(product_id, source_uom_id, target_uom_id)
   - source_uom_id != target_uom_id
-  - Both UoMs must belong to the same product
+  - Both UoMs must belong to the same tenant as the product
 }
 ```
 
 **Responsibilities:**
-- Define hierarchical relationships between UoMs
+- Define hierarchical relationships between UoMs for a product
 - Enable conversion calculations
+- Track whether a relationship is explicit (user-created) or calculated (system-derived)
 - Maintain cascade deletion constraints
 
 ### Vendor Product Price Entity
@@ -110,14 +116,16 @@ Vendor_Product_Price {
   
   Constraints:
   - UNIQUE(vendor_id, product_id, uom_id)
-  - UoM must belong to the Product
+  - UoM must belong to the same tenant as the product
+  - Foreign key on uom_id uses ON DELETE RESTRICT (prevents UoM deletion)
 }
 ```
 
 **Responsibilities:**
 - Store vendor-specific pricing for products in specific UoMs
-- Reference valid UoMs from the product
+- Reference valid UoMs from the product's tenant
 - Enable pricing lookups for requisitions
+- Enforce UoM deletion constraints through RESTRICT foreign key
 
 ### Service Interfaces
 
@@ -125,12 +133,12 @@ Vendor_Product_Price {
 
 ```
 interface ProductService {
-  createProduct(sku: string, name: string, description?: string): Product
+  createProduct(tenantId: UUID, sku: string, name: string, description?: string): Product
   getProduct(id: UUID): Product
-  getProductBySku(sku: string): Product
+  getProductBySku(tenantId: UUID, sku: string): Product
   updateProduct(id: UUID, updates: Partial<Product>): Product
   deleteProduct(id: UUID): void
-  listProducts(filters?: ProductFilters): Product[]
+  listProducts(tenantId: UUID, filters?: ProductFilters): Product[]
 }
 ```
 
@@ -138,9 +146,9 @@ interface ProductService {
 
 ```
 interface UoMService {
-  createUoM(productId: UUID, code: string, name: string): UoM
+  createUoM(tenantId: UUID, code: string, name: string): UoM
   getUoM(id: UUID): UoM
-  getUoMsByProduct(productId: UUID): UoM[]
+  getUoMsByTenant(tenantId: UUID): UoM[]
   updateUoM(id: UUID, updates: Partial<UoM>): UoM
   deleteUoM(id: UUID): void
   
@@ -193,37 +201,44 @@ interface VendorProductPriceService {
 ### Database Schema
 
 ```sql
+-- Tenant-specific Products
 CREATE TABLE products (
   id UUID PRIMARY KEY,
-  sku VARCHAR(255) NOT NULL UNIQUE,
+  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  sku VARCHAR(255) NOT NULL,
   name VARCHAR(255) NOT NULL,
   description TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(tenant_id, sku)
 );
 
+-- Tenant-specific Units of Measure
 CREATE TABLE uoms (
   id UUID PRIMARY KEY,
-  product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   code VARCHAR(100) NOT NULL,
   name VARCHAR(255) NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(product_id, code)
+  UNIQUE(tenant_id, code)
 );
 
+-- Product-specific UoM relationships
 CREATE TABLE uom_relationships (
   id UUID PRIMARY KEY,
   product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
   source_uom_id UUID NOT NULL REFERENCES uoms(id) ON DELETE CASCADE,
   target_uom_id UUID NOT NULL REFERENCES uoms(id) ON DELETE CASCADE,
   conversion_factor DECIMAL(18, 6) NOT NULL CHECK (conversion_factor > 0),
+  is_calculated BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(product_id, source_uom_id, target_uom_id),
   CHECK (source_uom_id != target_uom_id)
 );
 
+-- Vendor product prices with RESTRICT on UoM deletion
 CREATE TABLE vendor_product_prices (
   id UUID PRIMARY KEY,
   vendor_id UUID NOT NULL REFERENCES vendors(id) ON DELETE CASCADE,
@@ -235,7 +250,9 @@ CREATE TABLE vendor_product_prices (
   UNIQUE(vendor_id, product_id, uom_id)
 );
 
-CREATE INDEX idx_uoms_product ON uoms(product_id);
+CREATE INDEX idx_products_tenant ON products(tenant_id);
+CREATE INDEX idx_products_sku ON products(sku);
+CREATE INDEX idx_uoms_tenant ON uoms(tenant_id);
 CREATE INDEX idx_uom_relationships_product ON uom_relationships(product_id);
 CREATE INDEX idx_vendor_prices_vendor ON vendor_product_prices(vendor_id);
 CREATE INDEX idx_vendor_prices_product ON vendor_product_prices(product_id);
@@ -245,30 +262,30 @@ CREATE INDEX idx_vendor_prices_product ON vendor_product_prices(product_id);
 
 **Product Creation:**
 - SKU must not be empty
-- SKU must be unique across all products
+- SKU must be unique within the tenant
 - Name must not be empty
 
 **UoM Creation:**
 - Code must not be empty
-- Code must be unique within the product
+- Code must be unique within the tenant
 - Name must not be empty
 
 **UoM Relationship Creation:**
 - Conversion factor must be greater than zero
-- Source and target UoMs must belong to the same product
+- Source and target UoMs must belong to the same tenant as the product
 - Source and target UoMs must be different
+- Relationship must not already exist
 
 **Vendor Product Price Creation:**
 - Price must be greater than or equal to zero
-- UoM must belong to the referenced product
+- UoM must belong to the same tenant as the product
 - Vendor, product, and UoM combination must be unique
 
 **UoM Deletion:**
-- Cannot delete if referenced by any vendor product price
-- Cannot delete if referenced by any UoM relationship
+- Cannot delete if referenced by any vendor product price (error: UOM_IN_USE_BY_PRICE)
+- Cannot delete if referenced by any UoM relationship (error: UOM_IN_USE_BY_RELATIONSHIP)
 
 **Product Deletion:**
-- Cascade delete all associated UoMs
 - Cascade delete all associated UoM relationships
 - Cascade delete all associated vendor product prices
 
@@ -338,12 +355,12 @@ A property is a characteristic or behavior that should hold true across all vali
 
 **Duplicate SKU:**
 - Error Code: `PRODUCT_SKU_DUPLICATE`
-- Message: "A product with this SKU already exists"
+- Message: "A product with this SKU already exists in this tenant"
 - HTTP Status: 409 Conflict
 
-**Invalid UoM Code:**
-- Error Code: `UOM_CODE_DUPLICATE`
-- Message: "A UoM with this code already exists for this product"
+**Invalid UoM Assignment:**
+- Error Code: `UOM_ALREADY_ASSIGNED`
+- Message: "This UoM is already assigned to this product"
 - HTTP Status: 409 Conflict
 
 **Invalid Conversion Factor:**
@@ -367,17 +384,34 @@ A property is a characteristic or behavior that should hold true across all vali
 - Error Code: `UOM_IN_USE_BY_PRICE`
 - Message: "Cannot delete UoM: it is referenced by vendor product prices"
 - HTTP Status: 409 Conflict
+- UI Guidance: "Delete all vendor prices for this UoM before removing it"
 
 **UoM in Use by Relationship:**
 - Error Code: `UOM_IN_USE_BY_RELATIONSHIP`
 - Message: "Cannot delete UoM: it is referenced by UoM relationships"
 - HTTP Status: 409 Conflict
+- UI Guidance: "Delete all relationships involving this UoM before removing it"
 
 **Not Found Errors:**
 - Error Code: `PRODUCT_NOT_FOUND`
 - Error Code: `UOM_NOT_FOUND`
+- Error Code: `UOM_CATALOG_NOT_FOUND`
 - Error Code: `VENDOR_PRICE_NOT_FOUND`
 - HTTP Status: 404 Not Found
+
+### UI Error Handling
+
+When a UoM deletion fails due to vendor prices:
+1. Display error message with code `UOM_IN_USE_BY_PRICE`
+2. Show list of vendor prices referencing the UoM
+3. Provide option to navigate to vendor prices section
+4. Suggest deleting vendor prices first
+
+When a UoM deletion fails due to relationships:
+1. Display error message with code `UOM_IN_USE_BY_RELATIONSHIP`
+2. Show list of relationships involving the UoM
+3. Provide option to delete relationships from the UI
+4. Suggest deleting relationships first
 
 ## Testing Strategy
 

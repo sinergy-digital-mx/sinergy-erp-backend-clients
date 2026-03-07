@@ -33,7 +33,8 @@ export class ProductController {
       dto.name,
       dto.description,
       dto.category_id,
-      dto.subcategory_id
+      dto.subcategory_id,
+      dto.base_uom_id,
     );
   }
 

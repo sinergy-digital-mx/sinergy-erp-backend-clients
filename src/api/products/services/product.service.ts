@@ -13,6 +13,7 @@ export class ProductService {
     description?: string,
     categoryId?: string,
     subcategoryId?: string,
+    baseUomId?: string,
   ): Promise<Product> {
     // Validate SKU is not empty
     if (!sku || sku.trim().length === 0) {
@@ -40,6 +41,7 @@ export class ProductService {
       description,
       category_id: categoryId || null,
       subcategory_id: subcategoryId || null,
+      base_uom_id: baseUomId || null,
     });
   }
 
@@ -67,6 +69,7 @@ export class ProductService {
       description: string;
       category_id: string | null;
       subcategory_id: string | null;
+      base_uom_id: string | null;
     }>,
     tenantId: string,
   ): Promise<Product | null> {
@@ -88,19 +91,24 @@ export class ProductService {
       throw new BadRequestException('Name cannot be empty');
     }
 
-    // Validate category if being updated
+    // Convert empty strings to null for category_id
     if (updates.category_id !== undefined) {
-      if (updates.category_id) {
-        // Just validate it exists - don't use AppDataSource.query
-        // The database will enforce the foreign key constraint
+      if (updates.category_id === '') {
+        updates.category_id = null;
       }
     }
 
-    // Validate subcategory if being updated
+    // Convert empty strings to null for subcategory_id
     if (updates.subcategory_id !== undefined) {
-      if (updates.subcategory_id) {
-        // Just validate it exists - don't use AppDataSource.query
-        // The database will enforce the foreign key constraint
+      if (updates.subcategory_id === '') {
+        updates.subcategory_id = null;
+      }
+    }
+
+    // Convert empty strings to null for base_uom_id
+    if (updates.base_uom_id !== undefined) {
+      if (updates.base_uom_id === '') {
+        updates.base_uom_id = null;
       }
     }
 

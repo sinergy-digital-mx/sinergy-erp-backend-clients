@@ -20,4 +20,8 @@ export class CreateProductDto {
   @IsUUID()
   @IsOptional()
   subcategory_id?: string;
+
+  @IsUUID()
+  @IsOptional()
+  base_uom_id?: string;
 }

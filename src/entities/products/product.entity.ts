@@ -16,6 +16,7 @@ import { UoM } from './uom.entity';
 import { UoMRelationship } from './uom-relationship.entity';
 import { VendorProductPrice } from './vendor-product-price.entity';
 import { ProductPhoto } from './product-photo.entity';
+import { UoMCatalog } from './uom-catalog.entity';
 
 @Entity('products')
 @Index('tenant_sku_index', ['tenant_id', 'sku'], { unique: true })
@@ -58,6 +59,13 @@ export class Product {
 
   @Column({ type: 'text', nullable: true })
   description: string;
+
+  @ManyToOne(() => UoMCatalog, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'base_uom_id' })
+  base_uom: UoMCatalog | null;
+
+  @Column({ nullable: true })
+  base_uom_id: string | null;
 
   @OneToMany(() => UoM, (uom) => uom.product, { cascade: true })
   uoms: UoM[];
