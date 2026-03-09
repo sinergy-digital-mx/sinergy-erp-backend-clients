@@ -18,7 +18,7 @@ export class ProductRepository {
   async findById(id: string): Promise<Product | null> {
     return this.repo.findOne({
       where: { id },
-      relations: ['uoms', 'uom_relationships', 'vendor_prices', 'photos'],
+      relations: ['uoms', 'uom_relationships', 'vendor_prices', 'photos', 'prices', 'prices.price_list'],
     });
   }
 
@@ -31,7 +31,7 @@ export class ProductRepository {
   async findByTenant(tenantId: string): Promise<Product[]> {
     return this.repo.find({
       where: { tenant_id: tenantId },
-      relations: ['uoms', 'uom_relationships', 'vendor_prices', 'photos'],
+      relations: ['uoms', 'uom_relationships', 'vendor_prices', 'photos', 'prices', 'prices.price_list'],
     });
   }
 
@@ -47,14 +47,14 @@ export class ProductRepository {
   async findByCategory(tenantId: string, categoryId: string): Promise<Product[]> {
     return this.repo.find({
       where: { tenant_id: tenantId, category_id: categoryId },
-      relations: ['uoms', 'uom_relationships', 'vendor_prices', 'photos'],
+      relations: ['uoms', 'uom_relationships', 'vendor_prices', 'photos', 'prices', 'prices.price_list'],
     });
   }
 
   async findBySubcategory(tenantId: string, subcategoryId: string): Promise<Product[]> {
     return this.repo.find({
       where: { tenant_id: tenantId, subcategory_id: subcategoryId },
-      relations: ['uoms', 'uom_relationships', 'vendor_prices', 'photos'],
+      relations: ['uoms', 'uom_relationships', 'vendor_prices', 'photos', 'prices', 'prices.price_list'],
     });
   }
 }

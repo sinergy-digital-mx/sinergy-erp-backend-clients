@@ -1,38 +1,87 @@
-import { Injectable, BadRequestException, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ConflictException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PurchaseOrder } from '../../entities/purchase-orders/purchase-order.entity';
+import { LineItem } from '../../entities/purchase-orders/line-item.entity';
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
 import { UpdatePurchaseOrderDto } from './dto/update-purchase-order.dto';
 import { QueryPurchaseOrderDto } from './dto/query-purchase-order.dto';
 import { CancelPurchaseOrderDto } from './dto/cancel-purchase-order.dto';
 import { PaginatedPurchaseOrderDto } from './dto/paginated-purchase-order.dto';
 import { TaxCalculationService } from './tax-calculation.service';
+import { InventoryService } from '../inventory/inventory.service';
 
 @Injectable()
 export class PurchaseOrderService {
+  private readonly logger = new Logger(PurchaseOrderService.name);
+
   constructor(
     @InjectRepository(PurchaseOrder)
     private repo: Repository<PurchaseOrder>,
+    @InjectRepository(LineItem)
+    private lineItemRepo: Repository<LineItem>,
     private taxCalculationService: TaxCalculationService,
+    private inventoryService: InventoryService,
   ) {}
 
   async create(dto: CreatePurchaseOrderDto, tenantId: string, creatorId: string): Promise<PurchaseOrder> {
     // Validate vendor_id and warehouse_id exist (in real implementation, call external services)
     // For now, we'll assume they're valid UUIDs
 
-    const po = this.repo.create({
-      ...dto,
-      tenant_id: tenantId,
-      creator_id: creatorId,
-      status: dto.status || 'En Proceso',
-      payment_status: 'No pagado',
+    // Calculate totals if line items are provided
+    let totals = {
       total_subtotal: 0,
       total_iva: 0,
       total_ieps: 0,
       grand_total: 0,
-      remaining_amount: 0,
-      line_items: [],
+    };
+
+    let processedLineItems: LineItem[] = [];
+
+    if (dto.line_items && dto.line_items.length > 0) {
+      // Calculate line item totals and create LineItem instances
+      processedLineItems = dto.line_items.map(item => {
+        const subtotal = Number(item.quantity) * Number(item.unit_price);
+        const iva_percentage = Number(item.iva_percentage || 0);
+        const ieps_percentage = Number(item.ieps_percentage || 0);
+        
+        const iva_amount = (subtotal * iva_percentage) / 100;
+        const ieps_amount = (subtotal * ieps_percentage) / 100;
+        const line_total = subtotal + iva_amount + ieps_amount;
+
+        return this.lineItemRepo.create({
+          product_id: item.product_id,
+          uom_id: item.uom_id,
+          quantity: Number(item.quantity),
+          unit_price: Number(item.unit_price),
+          subtotal: Number(subtotal.toFixed(2)),
+          iva_percentage: Number(iva_percentage),
+          iva_amount: Number(iva_amount.toFixed(2)),
+          ieps_percentage: Number(ieps_percentage),
+          ieps_amount: Number(ieps_amount.toFixed(2)),
+          line_total: Number(line_total.toFixed(2)),
+        });
+      });
+
+      // Calculate order totals
+      totals = this.taxCalculationService.calculateOrderTotals(processedLineItems);
+    }
+
+    const po = this.repo.create({
+      vendor_id: dto.vendor_id,
+      purpose: dto.purpose,
+      warehouse_id: dto.warehouse_id,
+      tentative_receipt_date: dto.tentative_receipt_date,
+      tenant_id: tenantId,
+      creator_id: creatorId,
+      status: dto.status || 'En Proceso',
+      payment_status: 'No pagado',
+      total_subtotal: Number(totals.total_subtotal.toFixed(2)),
+      total_iva: Number(totals.total_iva.toFixed(2)),
+      total_ieps: Number(totals.total_ieps.toFixed(2)),
+      grand_total: Number(totals.grand_total.toFixed(2)),
+      remaining_amount: Number(totals.grand_total.toFixed(2)),
+      line_items: processedLineItems,
       payments: [],
       documents: [],
     });
@@ -56,7 +105,11 @@ export class PurchaseOrderService {
     const queryBuilder = this.repo
       .createQueryBuilder('po')
       .where('po.tenant_id = :tenantId', { tenantId })
+      .leftJoinAndSelect('po.vendor', 'vendor')
+      .leftJoinAndSelect('po.warehouse', 'warehouse')
       .leftJoinAndSelect('po.line_items', 'line_items')
+      .leftJoinAndSelect('line_items.product', 'product')
+      .leftJoinAndSelect('line_items.uom', 'uom')
       .leftJoinAndSelect('po.payments', 'payments')
       .leftJoinAndSelect('po.documents', 'documents');
 
@@ -97,7 +150,15 @@ export class PurchaseOrderService {
   async findOne(id: string, tenantId: string): Promise<PurchaseOrder> {
     const po = await this.repo.findOne({
       where: { id, tenant_id: tenantId },
-      relations: ['line_items', 'payments', 'documents'],
+      relations: [
+        'vendor',
+        'warehouse',
+        'line_items',
+        'line_items.product',
+        'line_items.uom',
+        'payments',
+        'documents',
+      ],
     });
 
     if (!po) {
@@ -129,8 +190,9 @@ export class PurchaseOrderService {
     return this.repo.save(po);
   }
 
-  async updateStatus(id: string, newStatus: string, tenantId: string): Promise<PurchaseOrder> {
+  async updateStatus(id: string, newStatus: string, tenantId: string, userId?: string): Promise<PurchaseOrder> {
     const po = await this.findOne(id, tenantId);
+    const previousStatus = po.status;
 
     const validStatuses = ['En Proceso', 'Recibida', 'Cancelada'];
     if (!validStatuses.includes(newStatus)) {
@@ -138,7 +200,57 @@ export class PurchaseOrderService {
     }
 
     po.status = newStatus;
-    return this.repo.save(po);
+    const updatedPo = await this.repo.save(po);
+
+    // Handle inventory integration when purchase order is received
+    if (newStatus === 'Recibida' && previousStatus !== 'Recibida') {
+      await this.handlePurchaseReceipt(updatedPo, tenantId, userId);
+    }
+
+    return updatedPo;
+  }
+
+  /**
+   * Handle inventory movements when purchase order is received
+   * @param purchaseOrder - The purchase order
+   * @param tenantId - Tenant ID
+   * @param userId - User ID for inventory operations
+   */
+  private async handlePurchaseReceipt(
+    purchaseOrder: PurchaseOrder,
+    tenantId: string,
+    userId?: string,
+  ): Promise<void> {
+    try {
+      this.logger.log(`Creating inventory movements for purchase order ${purchaseOrder.id}`);
+
+      for (const lineItem of purchaseOrder.line_items) {
+        try {
+          await this.inventoryService.createInventoryMovement(
+            {
+              product_id: lineItem.product_id,
+              warehouse_id: purchaseOrder.warehouse_id,
+              uom_id: lineItem.uom_id,
+              movement_type: 'purchase_receipt',
+              quantity: lineItem.quantity,
+              unit_cost: lineItem.unit_price,
+              reference_type: 'purchase_order',
+              reference_id: purchaseOrder.id,
+              notes: `Purchase receipt from PO ${purchaseOrder.id}`,
+            },
+            tenantId,
+            userId || tenantId, // Fallback to tenantId if userId not provided
+          );
+          this.logger.log(`Created inventory movement for product ${lineItem.product_id}, quantity ${lineItem.quantity}`);
+        } catch (error) {
+          this.logger.error(`Failed to create inventory movement for line item ${lineItem.id}: ${error.message}`);
+          // Continue processing other line items even if one fails
+        }
+      }
+    } catch (error) {
+      this.logger.error(`Error handling purchase receipt for PO ${purchaseOrder.id}: ${error.message}`, error.stack);
+      // Don't throw - log error but allow status update to proceed
+    }
   }
 
   async cancelPurchaseOrder(

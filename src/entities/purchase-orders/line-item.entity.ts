@@ -9,9 +9,12 @@ import {
   Index,
 } from 'typeorm';
 import { PurchaseOrder } from './purchase-order.entity';
+import { Product } from '../products/product.entity';
+import { UoM } from '../products/uom.entity';
 
 @Entity('line_items')
 @Index('purchase_order_index', ['purchase_order_id'])
+@Index('product_index', ['product_id'])
 export class LineItem {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -26,8 +29,19 @@ export class LineItem {
   @Column()
   purchase_order_id: string;
 
+  @ManyToOne(() => Product, { onDelete: 'RESTRICT', nullable: false })
+  @JoinColumn({ name: 'product_id' })
+  product: Product;
+
   @Column()
   product_id: string;
+
+  @ManyToOne(() => UoM, { onDelete: 'RESTRICT', nullable: false })
+  @JoinColumn({ name: 'uom_id' })
+  uom: UoM;
+
+  @Column()
+  uom_id: string;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   quantity: number;
