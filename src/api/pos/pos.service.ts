@@ -194,7 +194,13 @@ export class POSService {
     }
 
     if (query.status) {
-      queryBuilder.andWhere('order.status = :status', { status: query.status });
+      // Support multiple statuses separated by comma
+      const statuses = query.status.split(',').map(s => s.trim());
+      if (statuses.length === 1) {
+        queryBuilder.andWhere('order.status = :status', { status: statuses[0] });
+      } else {
+        queryBuilder.andWhere('order.status IN (:...statuses)', { statuses });
+      }
     }
 
     if (query.waiter_id) {

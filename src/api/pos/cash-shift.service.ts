@@ -95,10 +95,13 @@ export class CashShiftService {
     // Calculate expected cash
     const expectedCash = await this.calculateExpectedCash(shiftId);
 
+    // Use closing_balance if final_cash is not provided
+    const finalCash = dto.final_cash ?? dto.closing_balance ?? 0;
+
     // Update shift
-    shift.final_cash = dto.final_cash;
+    shift.final_cash = finalCash;
     shift.expected_cash = expectedCash;
-    shift.difference = Number(dto.final_cash) - Number(expectedCash);
+    shift.difference = Number(finalCash) - Number(expectedCash);
     shift.status = 'closed';
     shift.closed_at = new Date();
     

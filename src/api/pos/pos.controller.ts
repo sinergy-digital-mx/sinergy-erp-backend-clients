@@ -238,12 +238,19 @@ export class POSController {
   @RequirePermissions({ entityType: 'pos', action: 'CashShift' })
   @ApiOperation({ summary: 'Get current open cash shift for user' })
   @ApiQuery({ name: 'warehouse_id', required: true, type: String, description: 'Warehouse ID' })
+  @ApiQuery({ name: 'cashier_id', required: false, type: String, description: 'Cashier ID (optional, defaults to current user)' })
   @ApiResponse({ status: 200, description: 'Current cash shift retrieved successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing token' })
   @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
   @ApiResponse({ status: 404, description: 'Not found - No open shift found' })
-  getCurrentShift(@Query('warehouse_id') warehouseId: string, @Req() req) {
-    return this.cashShiftService.getCurrentShift(req.user.id, warehouseId, req.user.tenantId);
+  getCurrentShift(
+    @Query('warehouse_id') warehouseId: string,
+    @Query('cashier_id') cashierId: string,
+    @Req() req,
+  ) {
+    // Use provided cashier_id or default to current user
+    const targetCashierId = cashierId || req.user.id;
+    return this.cashShiftService.getCurrentShift(targetCashierId, warehouseId, req.user.tenantId);
   }
 
   @Get('cash-shifts/:id/report')

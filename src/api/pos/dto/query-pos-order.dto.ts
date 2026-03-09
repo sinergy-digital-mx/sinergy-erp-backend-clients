@@ -33,12 +33,12 @@ export class QueryPOSOrderDto {
   warehouse_id?: string;
 
   @ApiPropertyOptional({
-    description: 'Order status',
+    description: 'Order status (can be comma-separated for multiple statuses)',
     enum: ['pending', 'in_progress', 'ready', 'paid', 'cancelled'],
-    example: 'pending',
+    example: 'pending,ready',
   })
   @IsOptional()
-  @IsEnum(['pending', 'in_progress', 'ready', 'paid', 'cancelled'])
+  @IsString()
   status?: string;
 
   @ApiPropertyOptional({ description: 'Waiter ID', example: 'uuid' })
