@@ -18,6 +18,11 @@ import { CategoriesModule } from './api/categories/categories.module';
 import { BillingModule } from './api/billing/billing.module';
 import { ProductsModule } from './api/products/products.module';
 import { UoMCatalogModule } from './api/uom-catalog/uom-catalog.module';
+import { SalesOrdersModule } from './api/sales-orders/sales-orders.module';
+import { PurchaseOrdersModule } from './api/purchase-orders/purchase-orders.module';
+import { InventoryModule } from './api/inventory/inventory.module';
+import { POSModule } from './api/pos/pos.module';
+import { PriceListModule } from './api/price-lists/price-list.module';
 
 @Module({
   imports: [
@@ -39,6 +44,11 @@ import { UoMCatalogModule } from './api/uom-catalog/uom-catalog.module';
     BillingModule,
     UoMCatalogModule,
     ProductsModule,
+    SalesOrdersModule,
+    PurchaseOrdersModule,
+    InventoryModule,
+    POSModule,
+    PriceListModule,
   ],
 })
 export class AppModule { }

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PurchaseOrderController } from './purchase-order.controller';
 import { LineItemController } from './line-item.controller';
@@ -14,11 +14,13 @@ import { LineItem } from '../../entities/purchase-orders/line-item.entity';
 import { Payment } from '../../entities/purchase-orders/payment.entity';
 import { Document } from '../../entities/purchase-orders/document.entity';
 import { RBACModule } from '../rbac/rbac.module';
+import { InventoryModule } from '../inventory/inventory.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([PurchaseOrder, LineItem, Payment, Document]),
     RBACModule,
+    forwardRef(() => InventoryModule),
   ],
   providers: [
     PurchaseOrderService,

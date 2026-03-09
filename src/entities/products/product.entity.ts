@@ -17,6 +17,7 @@ import { UoMRelationship } from './uom-relationship.entity';
 import { VendorProductPrice } from './vendor-product-price.entity';
 import { ProductPhoto } from './product-photo.entity';
 import { UoMCatalog } from './uom-catalog.entity';
+import { ProductPrice } from './product-price.entity';
 
 @Entity('products')
 @Index('tenant_sku_index', ['tenant_id', 'sku'], { unique: true })
@@ -78,6 +79,9 @@ export class Product {
 
   @OneToMany(() => ProductPhoto, (photo) => photo.product, { cascade: true })
   photos: ProductPhoto[];
+
+  @OneToMany(() => ProductPrice, (price) => price.product, { cascade: true })
+  prices: ProductPrice[];
 
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;

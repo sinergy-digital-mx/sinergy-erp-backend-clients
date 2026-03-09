@@ -4,6 +4,9 @@ export class CreateLineItemDto {
   @IsUUID()
   product_id: string;
 
+  @IsUUID()
+  uom_id: string;
+
   @IsNumber()
   @Min(0.01)
   quantity: number;

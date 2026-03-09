@@ -10,6 +10,8 @@ import {
   Index,
 } from 'typeorm';
 import { RBACTenant } from '../rbac/tenant.entity';
+import { Warehouse } from '../warehouse/warehouse.entity';
+import { Vendor } from '../vendor/vendor.entity';
 import { LineItem } from './line-item.entity';
 import { Payment } from './payment.entity';
 import { Document } from './document.entity';
@@ -31,6 +33,10 @@ export class PurchaseOrder {
   tenant_id: string;
 
   // Header Information
+  @ManyToOne(() => Vendor, { onDelete: 'RESTRICT', nullable: false })
+  @JoinColumn({ name: 'vendor_id' })
+  vendor: Vendor;
+
   @Column()
   vendor_id: string;
 
@@ -39,6 +45,10 @@ export class PurchaseOrder {
 
   @Column()
   purpose: string;
+
+  @ManyToOne(() => Warehouse, { onDelete: 'RESTRICT', nullable: false })
+  @JoinColumn({ name: 'warehouse_id' })
+  warehouse: Warehouse;
 
   @Column()
   warehouse_id: string;

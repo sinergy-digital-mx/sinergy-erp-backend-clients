@@ -1,4 +1,6 @@
-import { IsUUID, IsString, IsDateString, IsOptional, IsEnum } from 'class-validator';
+import { IsUUID, IsString, IsDateString, IsOptional, IsEnum, IsArray, ValidateNested, ArrayMinSize } from 'class-validator';
+import { Type } from 'class-transformer';
+import { CreateLineItemDto } from './create-line-item.dto';
 
 export class CreatePurchaseOrderDto {
   @IsUUID()
@@ -16,4 +18,11 @@ export class CreatePurchaseOrderDto {
   @IsOptional()
   @IsEnum(['En Proceso', 'Recibida', 'Cancelada'])
   status?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateLineItemDto)
+  @ArrayMinSize(0)
+  line_items?: CreateLineItemDto[];
 }
