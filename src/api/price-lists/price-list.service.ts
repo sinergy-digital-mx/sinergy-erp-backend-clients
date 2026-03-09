@@ -37,7 +37,14 @@ export class PriceListService {
       valid_to: dto.valid_to ? new Date(dto.valid_to) : null,
     });
 
-    return this.priceListRepository.save(priceList);
+    try {
+      return await this.priceListRepository.save(priceList);
+    } catch (error) {
+      if (error.code === 'ER_DUP_ENTRY' || error.errno === 1062) {
+        throw new BadRequestException('A price list with this name already exists');
+      }
+      throw error;
+    }
   }
 
   /**
@@ -132,7 +139,14 @@ export class PriceListService {
       valid_to: dto.valid_to ? new Date(dto.valid_to) : priceList.valid_to,
     });
 
-    return this.priceListRepository.save(priceList);
+    try {
+      return await this.priceListRepository.save(priceList);
+    } catch (error) {
+      if (error.code === 'ER_DUP_ENTRY' || error.errno === 1062) {
+        throw new BadRequestException('A price list with this name already exists');
+      }
+      throw error;
+    }
   }
 
   /**

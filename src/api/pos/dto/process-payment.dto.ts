@@ -1,5 +1,6 @@
 import { IsString, IsNumber, IsOptional, IsEnum, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 export class ProcessPaymentDto {
   @ApiProperty({
@@ -11,12 +12,14 @@ export class ProcessPaymentDto {
   payment_method: string;
 
   @ApiProperty({ description: 'Payment amount', example: 500 })
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
-  amount: number;
+  amount_paid: number;
 
   @ApiPropertyOptional({ description: 'Received amount (for cash)', example: 600 })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
   received_amount?: number;
@@ -28,6 +31,7 @@ export class ProcessPaymentDto {
 
   @ApiPropertyOptional({ description: 'Tip amount', example: 50 })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
   tip?: number;

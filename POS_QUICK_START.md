@@ -230,11 +230,13 @@ La orden se recalcula automáticamente:
 ```json
 {
   "payment_method": "cash",
-  "amount": 300.00,
+  "amount_paid": 300.00,
   "received_amount": 500.00,
   "tip": 20.00
 }
 ```
+
+**Nota:** El campo `amount_paid` acepta tanto números como strings (ej: `"300.00"` o `300.00`). El backend convierte automáticamente strings a números.
 
 **Respuesta:**
 ```json
@@ -264,7 +266,7 @@ La orden se recalcula automáticamente:
 ```json
 {
   "payment_method": "card",
-  "amount": 300.00,
+  "amount_paid": 300.00,
   "reference": "AUTH123456",
   "tip": 30.00
 }
@@ -279,12 +281,12 @@ La orden se recalcula automáticamente:
   "payments": [
     {
       "payment_method": "cash",
-      "amount": 150.00,
+      "amount_paid": 150.00,
       "received_amount": 200.00
     },
     {
       "payment_method": "card",
-      "amount": 150.00,
+      "amount_paid": 150.00,
       "reference": "AUTH789012"
     }
   ]

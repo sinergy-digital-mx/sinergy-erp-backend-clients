@@ -51,11 +51,14 @@ export class CashShiftService {
     // Validate no open shift exists for this cashier and warehouse
     await this.validateNoOpenShift(cashierId, dto.warehouse_id, tenantId);
 
+    // Use opening_balance if initial_cash is not provided
+    const initialCash = dto.initial_cash ?? dto.opening_balance ?? 0;
+
     const shift = this.cashShiftRepo.create({
       tenant_id: tenantId,
       warehouse_id: dto.warehouse_id,
       cashier_id: cashierId,
-      initial_cash: dto.initial_cash,
+      initial_cash: initialCash,
       status: 'open',
       opened_at: new Date(),
       notes: dto.notes,

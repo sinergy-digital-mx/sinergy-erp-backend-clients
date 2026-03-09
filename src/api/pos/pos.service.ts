@@ -116,6 +116,18 @@ export class POSService {
         await queryRunner.manager.save(table);
       }
 
+      // Add line items if provided
+      if (dto.line_items && dto.line_items.length > 0) {
+        for (const lineDto of dto.line_items) {
+          await this.addLineItemInTransaction(
+            queryRunner,
+            savedOrder.id,
+            lineDto,
+            tenantId,
+          );
+        }
+      }
+
       await queryRunner.commitTransaction();
 
       return this.findOrder(savedOrder.id, tenantId);
@@ -171,6 +183,7 @@ export class POSService {
       .leftJoinAndSelect('order.waiter', 'waiter')
       .leftJoinAndSelect('order.cashier', 'cashier')
       .leftJoinAndSelect('order.warehouse', 'warehouse')
+      .loadRelationCountAndMap('order.items_count', 'order.lines')
       .where('order.tenant_id = :tenantId', { tenantId });
 
     // Apply filters
@@ -401,6 +414,79 @@ export class POSService {
   }
 
   /**
+   * Helper method to add line item within an existing transaction
+   * Used by createOrder when line_items are provided
+   */
+  private async addLineItemInTransaction(
+    queryRunner: any,
+    orderId: string,
+    dto: AddLineItemDto,
+    tenantId: string,
+  ): Promise<void> {
+    // Validate order exists
+    const order = await queryRunner.manager.findOne(POSOrder, {
+      where: { id: orderId, tenant_id: tenantId },
+    });
+
+    if (!order) {
+      throw new NotFoundException(
+        `Order with ID ${orderId} not found for this tenant`,
+      );
+    }
+
+    // Validate product exists and belongs to tenant
+    const product = await this.productRepo.findOne({
+      where: { id: dto.product_id, tenant_id: tenantId },
+    });
+
+    if (!product) {
+      throw new NotFoundException(
+        `Product with ID ${dto.product_id} not found for this tenant`,
+      );
+    }
+
+    // Fetch product price (use first vendor price or default to 0)
+    let unitPrice = 0;
+    const vendorPrice = await this.vendorPriceRepo.findOne({
+      where: {
+        product_id: dto.product_id,
+        uom_id: dto.uom_id,
+      },
+      order: { created_at: 'DESC' },
+    });
+
+    if (vendorPrice) {
+      unitPrice = Number(vendorPrice.price);
+    }
+
+    // Calculate line totals
+    const subtotal = dto.quantity * unitPrice;
+    const discountPercentage = dto.discount_percentage || 0;
+    const discountAmount = subtotal * (discountPercentage / 100);
+    const lineTotal = subtotal - discountAmount;
+
+    // Create line item
+    const line = this.posOrderLineRepo.create({
+      pos_order_id: orderId,
+      product_id: dto.product_id,
+      uom_id: dto.uom_id,
+      quantity: dto.quantity,
+      unit_price: unitPrice,
+      subtotal: subtotal,
+      discount_percentage: discountPercentage,
+      discount_amount: discountAmount,
+      line_total: lineTotal,
+      notes: dto.notes,
+      status: 'pending',
+    });
+
+    await queryRunner.manager.save(line);
+
+    // Recalculate order totals
+    await this.calculateOrderTotals(order, queryRunner);
+  }
+
+  /**
    * Update a line item
    * Requirements: 8.1-8.6
    */
@@ -556,9 +642,9 @@ export class POSService {
       }
 
       // Validate payment amount
-      if (dto.amount < order.total) {
+      if (dto.amount_paid < order.total) {
         throw new BadRequestException(
-          `Payment amount (${dto.amount}) is less than order total (${order.total})`,
+          `Payment amount (${dto.amount_paid}) is less than order total (${order.total})`,
         );
       }
 
@@ -578,7 +664,7 @@ export class POSService {
       // Calculate change for cash payments
       let changeAmount = 0;
       if (dto.payment_method === 'cash' && dto.received_amount) {
-        changeAmount = Number(dto.received_amount) - Number(dto.amount);
+        changeAmount = Number(dto.received_amount) - Number(dto.amount_paid);
         if (changeAmount < 0) {
           throw new BadRequestException(
             'Received amount is less than payment amount',
@@ -590,7 +676,7 @@ export class POSService {
       const payment = this.posPaymentRepo.create({
         pos_order_id: orderId,
         payment_method: dto.payment_method,
-        amount: dto.amount,
+        amount: dto.amount_paid,
         received_amount: dto.received_amount,
         change_amount: changeAmount,
         reference: dto.reference,
@@ -669,7 +755,7 @@ export class POSService {
       await this.validateOrderNotPaid(order);
 
       // Validate sum of payments equals order total
-      const totalPayments = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+      const totalPayments = payments.reduce((sum, p) => sum + Number(p.amount_paid), 0);
       if (Math.abs(totalPayments - Number(order.total)) > 0.01) {
         throw new BadRequestException(
           `Sum of payments (${totalPayments}) does not equal order total (${order.total})`,
@@ -694,7 +780,7 @@ export class POSService {
       for (const paymentDto of payments) {
         let changeAmount = 0;
         if (paymentDto.payment_method === 'cash' && paymentDto.received_amount) {
-          changeAmount = Number(paymentDto.received_amount) - Number(paymentDto.amount);
+          changeAmount = Number(paymentDto.received_amount) - Number(paymentDto.amount_paid);
           if (changeAmount < 0) {
             throw new BadRequestException(
               'Received amount is less than payment amount',
@@ -705,7 +791,7 @@ export class POSService {
         const payment = this.posPaymentRepo.create({
           pos_order_id: orderId,
           payment_method: paymentDto.payment_method,
-          amount: paymentDto.amount,
+          amount: paymentDto.amount_paid,
           received_amount: paymentDto.received_amount,
           change_amount: changeAmount,
           reference: paymentDto.reference,

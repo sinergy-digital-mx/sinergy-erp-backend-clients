@@ -963,6 +963,89 @@ export class PriceService {
 
 ---
 
+## Integración con Inventario
+
+### Consultar Movimientos de Inventario por Producto
+
+Para ver el historial de movimientos de inventario de un producto específico:
+
+**Endpoint:** `GET /api/tenant/inventory/reports/by-product/:productId`
+
+**Ejemplo:**
+```typescript
+// En tu servicio de productos
+getProductInventoryMovements(productId: string): Observable<any> {
+  return this.http.get(`/api/tenant/inventory/reports/by-product/${productId}`);
+}
+```
+
+**Response:**
+```json
+{
+  "product": {
+    "id": "product-uuid",
+    "name": "Producto A",
+    "sku": "PROD-001"
+  },
+  "movements": [
+    {
+      "id": "movement-uuid",
+      "warehouse_name": "Almacén Principal",
+      "movement_type": "purchase_receipt",
+      "quantity": 100,
+      "unit_cost": 10.50,
+      "total_cost": 1050.00,
+      "movement_date": "2026-03-08T10:00:00.000Z",
+      "reference_type": "purchase_order",
+      "reference_id": "po-uuid"
+    }
+  ],
+  "summary": {
+    "total_movements": 50,
+    "total_quantity_in": 500,
+    "total_quantity_out": 200,
+    "net_quantity": 300
+  }
+}
+```
+
+### Consultar Stock Actual por Producto
+
+Para ver el stock disponible de un producto en todos los almacenes:
+
+**Endpoint:** `GET /api/tenant/inventory/items?product_id={productId}`
+
+**Ejemplo:**
+```typescript
+getProductStock(productId: string): Observable<any> {
+  return this.http.get(`/api/tenant/inventory/items?product_id=${productId}`);
+}
+```
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "id": "inventory-item-uuid",
+      "warehouse": {
+        "id": "warehouse-uuid",
+        "name": "Almacén Principal"
+      },
+      "quantity_on_hand": 100,
+      "quantity_reserved": 20,
+      "quantity_available": 80,
+      "unit_cost": 10.50,
+      "total_value": 1050.00
+    }
+  ]
+}
+```
+
+Para más información sobre el módulo de inventario, consulta `INVENTORY_COMPLETE_GUIDE.md`.
+
+---
+
 ## Troubleshooting
 
 ### Error: "A product with this SKU already exists"
