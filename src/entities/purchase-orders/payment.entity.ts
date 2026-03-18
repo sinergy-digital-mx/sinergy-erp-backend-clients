@@ -10,7 +10,7 @@ import {
 } from 'typeorm';
 import { PurchaseOrder } from './purchase-order.entity';
 
-@Entity('payments')
+@Entity('purchase_order_payments')
 @Index('purchase_order_index', ['purchase_order_id'])
 export class Payment {
   @PrimaryGeneratedColumn('uuid')

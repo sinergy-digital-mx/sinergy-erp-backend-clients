@@ -8,9 +8,10 @@ export class CreateContractDto {
   @IsString()
   property_id: string;
 
+  @IsOptional()
   @IsString()
   @Length(1, 50)
-  contract_number: string;
+  contract_number?: string;
 
   @IsDate()
   @Type(() => Date)

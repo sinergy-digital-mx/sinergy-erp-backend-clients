@@ -15,6 +15,7 @@ import { RBACTenant } from '../rbac/tenant.entity';
 @Index('tenant_index', ['tenant_id'])
 @Index('contract_index', ['contract_id'])
 @Index('payment_date_index', ['payment_date'])
+@Index('due_date_index', ['due_date'])
 @Index('status_index', ['status'])
 export class Payment {
   @PrimaryGeneratedColumn('uuid')
@@ -43,15 +44,34 @@ export class Payment {
   @Column({ type: 'decimal', precision: 15, scale: 2 })
   amount_paid: number;
 
+  // New fields for partial payments support
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  amount: number; // Total expected amount
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  amount_pending: number; // Remaining amount to pay
+
+  @Column({ type: 'date', nullable: true })
+  due_date: Date; // When payment is due (5th of each month)
+
+  @Column({ type: 'date', nullable: true })
+  paid_date: Date; // When payment was actually made
+
+  @Column({ type: 'date', nullable: true })
+  first_partial_payment_date: Date; // First partial payment date
+
   @Column({ length: 50, default: 'transferencia' })
   payment_method: string;
 
   @Column({
     type: 'enum',
-    enum: ['pagado', 'pendiente', 'atrasado', 'cancelado'],
-    default: 'pagado',
+    enum: ['pagado', 'pendiente', 'parcial', 'cancelado'],
+    default: 'pendiente',
   })
   status: string;
+
+  @Column({ type: 'boolean', default: false })
+  is_overdue: boolean;
 
   @Column({ type: 'text', nullable: true })
   notes: string;

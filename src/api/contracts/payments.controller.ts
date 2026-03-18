@@ -35,6 +35,17 @@ export class PaymentsController {
     return this.paymentsService.generatePaymentsForContract(tenantId, contractId);
   }
 
+  @Post('regenerate')
+  @RequirePermissions({ entityType: 'Contract', action: 'Create' })
+  async regeneratePayments(@Param('contractId') contractId: string, @Req() req: any) {
+    const tenantId = this.tenantContext.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+
+    return this.paymentsService.regeneratePaymentsForContract(tenantId, contractId);
+  }
+
   @Get()
   @RequirePermissions({ entityType: 'Contract', action: 'Read' })
   async getPayments(@Param('contractId') contractId: string, @Req() req: any) {
@@ -77,7 +88,14 @@ export class PaymentsController {
   async updatePayment(
     @Param('contractId') contractId: string,
     @Param('paymentId') paymentId: string,
-    @Body() body: { amount?: number; due_date?: Date; notes?: string },
+    @Body() body: { 
+      amount_paid?: number;  // How much was actually paid (not the expected amount)
+      due_date?: Date; 
+      paid_date?: Date;
+      payment_method?: string;
+      reference_number?: string;
+      notes?: string;
+    },
     @Req() req: any,
   ) {
     const tenantId = this.tenantContext.getCurrentTenantId();
@@ -101,11 +119,11 @@ export class PaymentsController {
       throw new Error('Tenant context is required');
     }
 
-    return this.paymentsService.recordPartialPayment(
+    return this.paymentsService.recordPayment(
       tenantId,
       paymentId,
       dto.amount,
-      new Date(dto.payment_date),
+      dto.payment_date,
       dto.payment_method,
       dto.reference_number,
       dto.notes,
@@ -127,6 +145,21 @@ export class PaymentsController {
     return this.paymentsService.cancelPayment(tenantId, paymentId);
   }
 
+  @Post(':paymentId/reset')
+  @RequirePermissions({ entityType: 'Contract', action: 'Update' })
+  async resetPayment(
+    @Param('contractId') contractId: string,
+    @Param('paymentId') paymentId: string,
+    @Req() req: any,
+  ) {
+    const tenantId = this.tenantContext.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+
+    return this.paymentsService.resetPayment(tenantId, paymentId);
+  }
+
   @Delete(':paymentId')
   @RequirePermissions({ entityType: 'Contract', action: 'Delete' })
   async deletePayment(
@@ -140,6 +173,24 @@ export class PaymentsController {
     }
 
     await this.paymentsService.deletePayment(tenantId, paymentId);
-    return { success: true };
+    return { message: 'Payment deleted successfully' };
+  }
+
+  @Post('mark-overdue')
+  @RequirePermissions({ entityType: 'Contract', action: 'Update' })
+  async markOverduePayments(
+    @Param('contractId') contractId: string,
+    @Req() req: any,
+  ) {
+    const tenantId = this.tenantContext.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+
+    const updatedCount = await this.paymentsService.markOverduePayments(tenantId);
+    return {
+      message: `Marked ${updatedCount} payments as overdue`,
+      updated_count: updatedCount,
+    };
   }
 }

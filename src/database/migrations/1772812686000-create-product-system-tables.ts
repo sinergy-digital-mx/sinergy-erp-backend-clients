@@ -75,10 +75,10 @@ export class CreateProductSystemTables1772812686000 implements MigrationInterfac
       })
     );
 
-    // Create uoms table
+    // Create product_uoms table
     await queryRunner.createTable(
       new Table({
-        name: 'uoms',
+        name: 'product_uoms',
         columns: [
           {
             name: 'id',
@@ -118,7 +118,7 @@ export class CreateProductSystemTables1772812686000 implements MigrationInterfac
         ],
         uniques: [
           {
-            name: 'UQ_uoms_product_code',
+            name: 'UQ_product_uoms_product_code',
             columnNames: ['product_id', 'code'],
           },
         ],
@@ -126,20 +126,20 @@ export class CreateProductSystemTables1772812686000 implements MigrationInterfac
       true
     );
 
-    // Create indexes on uoms
+    // Create indexes on product_uoms
     await queryRunner.createIndex(
-      'uoms',
+      'product_uoms',
       new TableIndex({
-        name: 'IDX_uoms_product_id',
+        name: 'IDX_product_uoms_product_id',
         columnNames: ['product_id'],
       })
     );
 
-    // Add foreign key for uoms -> products
+    // Add foreign key for product_uoms -> products
     await queryRunner.createForeignKey(
-      'uoms',
+      'product_uoms',
       new TableForeignKey({
-        name: 'FK_uoms_product_id',
+        name: 'FK_product_uoms_product_id',
         columnNames: ['product_id'],
         referencedTableName: 'products',
         referencedColumnNames: ['id'],
@@ -231,7 +231,7 @@ export class CreateProductSystemTables1772812686000 implements MigrationInterfac
       new TableForeignKey({
         name: 'FK_uom_relationships_source_uom_id',
         columnNames: ['source_uom_id'],
-        referencedTableName: 'uoms',
+        referencedTableName: 'product_uoms',
         referencedColumnNames: ['id'],
         onDelete: 'CASCADE',
       })
@@ -242,7 +242,7 @@ export class CreateProductSystemTables1772812686000 implements MigrationInterfac
       new TableForeignKey({
         name: 'FK_uom_relationships_target_uom_id',
         columnNames: ['target_uom_id'],
-        referencedTableName: 'uoms',
+        referencedTableName: 'product_uoms',
         referencedColumnNames: ['id'],
         onDelete: 'CASCADE',
       })
@@ -359,7 +359,7 @@ export class CreateProductSystemTables1772812686000 implements MigrationInterfac
       new TableForeignKey({
         name: 'FK_vendor_product_prices_uom_id',
         columnNames: ['uom_id'],
-        referencedTableName: 'uoms',
+        referencedTableName: 'product_uoms',
         referencedColumnNames: ['id'],
         onDelete: 'RESTRICT',
       })
@@ -373,8 +373,8 @@ export class CreateProductSystemTables1772812686000 implements MigrationInterfac
     // Drop uom_relationships table
     await queryRunner.dropTable('uom_relationships');
 
-    // Drop uoms table
-    await queryRunner.dropTable('uoms');
+    // Drop product_uoms table
+    await queryRunner.dropTable('product_uoms');
 
     // Drop products table
     await queryRunner.dropTable('products');

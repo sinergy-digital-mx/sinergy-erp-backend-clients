@@ -13,13 +13,13 @@ export class AddBaseUomToProducts1772812700000 implements MigrationInterface {
       }),
     );
 
-    // Add foreign key to uom_catalog
+    // Add foreign key to product_uoms
     await queryRunner.createForeignKey(
       'products',
       new TableForeignKey({
         columnNames: ['base_uom_id'],
         referencedColumnNames: ['id'],
-        referencedTableName: 'uom_catalog',
+        referencedTableName: 'product_uoms',
         onDelete: 'SET NULL',
       }),
     );

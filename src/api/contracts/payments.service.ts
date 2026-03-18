@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Payment } from '../../entities/contracts/payment.entity';
+import { Payment } from '../../entities/payments/payment.entity';
 import { Contract } from '../../entities/contracts/contract.entity';
 
 @Injectable()
@@ -12,6 +12,12 @@ export class PaymentsService {
     @InjectRepository(Contract)
     private contractRepo: Repository<Contract>,
   ) {}
+
+  /**
+   * TEMPORARILY SIMPLIFIED SERVICE
+   * This service needs to be updated to work with the original Payment structure
+   * Original structure: payment_number (VARCHAR), payment_date, amount_paid
+   */
 
   /**
    * Auto-generate all payments for a contract
@@ -37,22 +43,62 @@ export class PaymentsService {
       throw new BadRequestException('Payments already generated for this contract');
     }
 
+    return this.createPaymentsForContract(tenantId, contract);
+  }
+
+  /**
+   * Regenerate all payments for a contract (deletes existing ones first)
+   */
+  async regeneratePaymentsForContract(
+    tenantId: string,
+    contractId: string,
+  ): Promise<Payment[]> {
+    const contract = await this.contractRepo.findOne({
+      where: { id: contractId, tenant_id: tenantId },
+    });
+
+    if (!contract) {
+      throw new NotFoundException('Contract not found');
+    }
+
+    // Delete existing payments
+    await this.paymentRepo.delete({
+      contract_id: contractId,
+      tenant_id: tenantId,
+    });
+
+    return this.createPaymentsForContract(tenantId, contract);
+  }
+
+  /**
+   * Private method to create payments for a contract
+   */
+  private async createPaymentsForContract(
+    tenantId: string,
+    contract: any,
+  ): Promise<Payment[]> {
     const payments: Payment[] = [];
     const firstPaymentDate = new Date(contract.first_payment_date);
 
     for (let i = 0; i < contract.payment_months; i++) {
-      const dueDate = new Date(firstPaymentDate);
-      dueDate.setMonth(dueDate.getMonth() + i);
+      // Calculate due date: day 5 of each month starting from first payment date
+      const dueDate = new Date(firstPaymentDate.getFullYear(), firstPaymentDate.getMonth() + i, 5);
 
-      const payment = this.paymentRepo.create({
+      const paymentData = {
         tenant_id: tenantId,
-        contract_id: contractId,
-        payment_number: i + 1,
-        amount: contract.monthly_payment,
-        due_date: dueDate,
-        status: 'pendiente',
-      });
+        contract_id: contract.id,
+        payment_number: String(i + 1),
+        payment_date: dueDate, // Required field - use due date as default
+        due_date: dueDate, // VENCIMIENTO - día 5 de cada mes
+        amount: contract.monthly_payment, // MONTO - total mensual a pagar
+        amount_paid: 0, // PAGADO - $0 para pendientes
+        amount_pending: contract.monthly_payment, // PENDIENTE - monto completo
+        payment_method: 'transferencia',
+        status: 'pendiente' as const,
+        is_overdue: false,
+      };
 
+      const payment = this.paymentRepo.create(paymentData);
       payments.push(payment);
     }
 
@@ -60,13 +106,20 @@ export class PaymentsService {
   }
 
   /**
-   * Get all payments for a contract
+   * Get all payments for a contract - FIXED ORDERING
    */
   async getContractPayments(tenantId: string, contractId: string): Promise<Payment[]> {
-    return this.paymentRepo.find({
-      where: { tenant_id: tenantId, contract_id: contractId },
-      order: { payment_number: 'ASC' },
-    });
+    return this.paymentRepo
+      .createQueryBuilder('p')
+      .select([
+        'p.id', 'p.payment_number', 'p.status', 'p.is_overdue', 
+        'p.amount', 'p.amount_paid', 'p.amount_pending', 
+        'p.due_date', 'p.paid_date', 'p.payment_method', 'p.notes'
+      ])
+      .where('p.tenant_id = :tenantId', { tenantId })
+      .andWhere('p.contract_id = :contractId', { contractId })
+      .orderBy('CAST(p.payment_number AS UNSIGNED)', 'ASC') // Fix: Order by number as integer
+      .getMany();
   }
 
   /**
@@ -80,335 +133,453 @@ export class PaymentsService {
   }
 
   /**
-   * Update payment (amount, due_date, notes)
+   * Basic payment stats - FIXED TOTAL PAID CALCULATION
    */
-  async updatePayment(
+  async getContractPaymentStats(tenantId: string, contractId: string): Promise<any> {
+    const payments = await this.getContractPayments(tenantId, contractId);
+
+    // Get contract information to calculate financed amount
+    const contract = await this.contractRepo.findOne({
+      where: { id: contractId, tenant_id: tenantId }
+    });
+
+    if (!contract) {
+      throw new Error('Contract not found');
+    }
+
+    // Calculate financed amount (Total - Down Payment)
+    const totalPrice = Number(contract.total_price) || 0;
+    const downPayment = Number(contract.down_payment) || 0;
+    const financedAmount = totalPrice - downPayment;
+
+    // Find the current partial payment if any (including overdue partial)
+    const partialPayment = payments.find(p => p.status === 'parcial');
+    
+    // Calculate pending full payments (excluding partial)
+    const pendingFullPayments = payments.filter(p => p.status === 'pendiente').length;
+
+    // CORRECT CALCULATION: 
+    // - For PAID payments: count the full amount (not amount_paid)
+    // - For PARTIAL payments: count only amount_paid
+    // - For PENDING/OVERDUE payments: count 0
+    const totalPaidCorrect = payments.reduce((sum, p) => {
+      if (p.status === 'pagado') {
+        return sum + Number(p.amount || 0); // Full amount for completed payments
+      } else if (p.status === 'parcial') {
+        return sum + Number(p.amount_paid || 0); // Only paid amount for partial payments
+      }
+      return sum; // 0 for pending/overdue payments
+    }, 0);
+
+    // SEPARATE CALCULATIONS for UI breakdown
+    const paidAmountComplete = payments.reduce((sum, p) => {
+      if (p.status === 'pagado') {
+        return sum + Number(p.amount || 0); // Full amount for completed payments only
+      }
+      return sum;
+    }, 0);
+
+    const paidAmountPartial = payments.reduce((sum, p) => {
+      if (p.status === 'parcial') {
+        return sum + Number(p.amount_paid || 0); // Only paid amount for partial payments
+      }
+      return sum;
+    }, 0);
+
+    // FIXED: total_pending = financed_amount - total_paid_from_payments
+    // This matches the manual calculation: Financiado - Pagados
+    const totalPendingCorrect = financedAmount - totalPaidCorrect;
+
+    const stats = {
+      total_payments: payments.length,
+      paid_count: payments.filter(p => p.status === 'pagado').length,
+      partial_count: payments.filter(p => p.status === 'parcial' && !p.is_overdue).length,
+      partial_overdue_count: payments.filter(p => p.status === 'parcial' && p.is_overdue).length,
+      pending_count: payments.filter(p => p.status === 'pendiente' && !p.is_overdue).length,
+      pending_overdue_count: payments.filter(p => p.status === 'pendiente' && p.is_overdue).length,
+      pending_full_payments: pendingFullPayments, // Frontend expects this
+      overdue_count: payments.filter(p => p.is_overdue).length, // Total overdue (partial + pending)
+      cancelled_count: payments.filter(p => p.status === 'cancelado').length,
+      
+      // Fix decimal precision issues and use correct calculation
+      // FIXED: total_paid should include down payment to match contract list
+      total_paid: Math.round((downPayment + totalPaidCorrect) * 100) / 100, // Enganche + pagos mensuales
+      total_paid_from_payments: Math.round(totalPaidCorrect * 100) / 100, // Solo pagos mensuales, sin enganche
+      
+      // BREAKDOWN for UI
+      paid_amount_complete: Math.round(paidAmountComplete * 100) / 100, // Solo pagos completados
+      paid_amount_partial: Math.round(paidAmountPartial * 100) / 100, // Solo abonos parciales
+      
+      total_pending: Math.round(totalPendingCorrect * 100) / 100,
+      total_expected: Math.round(payments.reduce((sum, p) => sum + Number(p.amount || 0), 0) * 100) / 100,
+      total_pending_amount: Math.round(totalPendingCorrect * 100) / 100, // Frontend expects this
+      
+      // Contract financial information
+      financed_amount: Math.round(financedAmount * 100) / 100, // Monto financiado (Total - Enganche)
+      total_price: Math.round(totalPrice * 100) / 100, // Total del contrato
+      down_payment: Math.round(downPayment * 100) / 100, // Enganche
+      
+      // Partial payment details for frontend
+      partial_payment: partialPayment ? {
+        id: partialPayment.id,
+        installment_number: parseInt(partialPayment.payment_number), // Frontend expects this field
+        payment_number: partialPayment.payment_number, // Keep original for compatibility
+        amount_paid: Math.round(Number(partialPayment.amount_paid || 0) * 100) / 100,
+        remaining_amount: Math.round(Number(partialPayment.amount_pending || 0) * 100) / 100,
+        amount: Math.round(Number(partialPayment.amount || 0) * 100) / 100,
+        due_date: partialPayment.due_date,
+        payment_method: partialPayment.payment_method,
+        status: partialPayment.status,
+        is_overdue: partialPayment.is_overdue
+      } : null,
+    };
+
+    return stats;
+  }
+
+  /**
+   * Record a payment (full or partial) - FIXED NaN ISSUES + SINGLE PARTIAL VALIDATION
+   */
+  async recordPayment(
     tenantId: string,
     paymentId: string,
-    updates: {
-      amount?: number;
-      due_date?: Date;
-      notes?: string;
-    },
+    amount: number,
+    paymentDate: string,
+    paymentMethod: string,
+    referenceNumber?: string,
+    notes?: string,
   ): Promise<Payment> {
     const payment = await this.getPayment(tenantId, paymentId);
-
     if (!payment) {
       throw new NotFoundException('Payment not found');
     }
 
-    if (payment.status === 'pagado') {
-      throw new BadRequestException('Cannot update a paid payment');
+    if (payment.status === 'cancelado') {
+      throw new BadRequestException('Cannot record payment for cancelled payment');
     }
 
-    if (updates.amount !== undefined) {
-      payment.amount = updates.amount;
+    // Validate and sanitize amount
+    const paymentAmount = Number(amount);
+    if (isNaN(paymentAmount) || paymentAmount <= 0) {
+      throw new BadRequestException('Amount must be a valid number greater than 0');
     }
 
-    if (updates.due_date !== undefined) {
+    // Check if there's already a partial payment in this contract
+    const existingPartialPayments = await this.paymentRepo.find({
+      where: { 
+        contract_id: payment.contract_id, 
+        tenant_id: tenantId,
+        status: 'parcial'
+      }
+    });
+
+    // Calculate new amounts with proper number handling
+    const currentAmountPaid = Number(payment.amount_paid) || 0;
+    const totalAmount = Number(payment.amount) || 0;
+    const newAmountPaid = currentAmountPaid + paymentAmount;
+    const newAmountPending = Math.max(0, totalAmount - newAmountPaid);
+
+    // Determine new status based on amounts
+    let newStatus: string;
+    if (newAmountPaid >= totalAmount) {
+      newStatus = 'pagado'; // Fully paid (or overpaid)
+    } else if (newAmountPaid > 0) {
+      newStatus = 'parcial'; // Partially paid
+    } else {
+      newStatus = 'pendiente'; // Still pending
+    }
+
+    // VALIDATION: Only allow one partial payment per contract
+    if (newStatus === 'parcial' && existingPartialPayments.length > 0) {
+      // Check if the existing partial is the same payment we're updating
+      const isUpdatingSamePayment = existingPartialPayments.some(p => p.id === payment.id);
+      
+      if (!isUpdatingSamePayment) {
+        const existingPartial = existingPartialPayments[0];
+        throw new BadRequestException(
+          `Ya existe un pago parcial en este contrato (Pago #${existingPartial.payment_number}). ` +
+          `Complete ese pago primero antes de crear otro pago parcial.`
+        );
+      }
+    }
+
+    // Update payment
+    payment.amount_paid = newAmountPaid;
+    payment.amount_pending = newAmountPending;
+    payment.status = newStatus;
+    payment.paid_date = new Date(paymentDate);
+    payment.payment_method = paymentMethod;
+
+    // Set first partial payment date if this is the first payment
+    if (!payment.first_partial_payment_date && newAmountPaid > 0) {
+      payment.first_partial_payment_date = new Date(paymentDate);
+    }
+
+    // Update notes with payment history
+    const paymentRecord = `Pago de $${paymentAmount} el ${paymentDate} (${paymentMethod}${referenceNumber ? `, Ref: ${referenceNumber}` : ''})`;
+    payment.notes = payment.notes ? `${payment.notes}\n${paymentRecord}` : paymentRecord;
+    
+    if (notes) {
+      payment.notes += `\nNotas: ${notes}`;
+    }
+
+    // Handle overpayment case
+    if (newAmountPaid > totalAmount) {
+      const overpayment = newAmountPaid - totalAmount;
+      payment.notes += `\n⚠️ Sobrepago de $${overpayment.toFixed(2)}`;
+    }
+
+    const savedPayment = await this.paymentRepo.save(payment);
+
+    // Update contract remaining balance with proper validation
+    const contract = await this.contractRepo.findOne({
+      where: { id: payment.contract_id },
+    });
+
+    if (contract) {
+      const currentBalance = Number(contract.remaining_balance) || 0;
+      const newBalance = Math.max(0, currentBalance - paymentAmount);
+      
+      // Only update if the new balance is a valid number
+      if (!isNaN(newBalance)) {
+        await this.contractRepo.update(
+          { id: contract.id },
+          { remaining_balance: newBalance }
+        );
+      }
+    }
+
+    return savedPayment;
+  }
+
+  /**
+   * Update payment details - UPDATES PAID AMOUNT, NOT EXPECTED AMOUNT
+   */
+  async updatePayment(
+    tenantId: string,
+    paymentId: string,
+    updates: { 
+      amount_paid?: number;  // How much was actually paid
+      due_date?: Date; 
+      paid_date?: Date;
+      payment_method?: string;
+      reference_number?: string;
+      notes?: string;
+    },
+  ): Promise<Payment> {
+    const payment = await this.getPayment(tenantId, paymentId);
+    if (!payment) {
+      throw new NotFoundException('Payment not found');
+    }
+
+    if (payment.status === 'cancelado') {
+      throw new BadRequestException('Cannot update cancelled payment');
+    }
+
+    // Update amount_paid if provided (this is what was actually paid)
+    if (updates.amount_paid !== undefined) {
+      const newAmountPaid = Number(updates.amount_paid) || 0;
+      const expectedAmount = Number(payment.amount) || 0;
+      
+      // Validate new amount paid
+      if (isNaN(newAmountPaid) || newAmountPaid < 0) {
+        throw new BadRequestException(`Invalid amount_paid provided: ${updates.amount_paid}`);
+      }
+      
+      const oldAmountPaid = Number(payment.amount_paid) || 0;
+      const difference = newAmountPaid - oldAmountPaid;
+      
+      // Calculate new status
+      let newStatus: string;
+      if (newAmountPaid >= expectedAmount) {
+        newStatus = 'pagado';
+      } else if (newAmountPaid > 0) {
+        newStatus = 'parcial';
+      } else {
+        newStatus = 'pendiente';
+      }
+
+      // VALIDATION: Only allow one partial payment per contract
+      if (newStatus === 'parcial' && payment.status !== 'parcial') {
+        // Check if there's already another partial payment in this contract
+        const existingPartialPayments = await this.paymentRepo.find({
+          where: { 
+            contract_id: payment.contract_id, 
+            tenant_id: tenantId,
+            status: 'parcial'
+          }
+        });
+
+        if (existingPartialPayments.length > 0) {
+          const existingPartial = existingPartialPayments[0];
+          throw new BadRequestException(
+            `Ya existe un pago parcial en este contrato (Pago #${existingPartial.payment_number}). ` +
+            `Complete ese pago primero antes de crear otro pago parcial.`
+          );
+        }
+      }
+      
+      // Update payment amounts
+      payment.amount_paid = newAmountPaid;
+      payment.amount_pending = Math.max(0, expectedAmount - newAmountPaid);
+      payment.status = newStatus;
+
+      // Update contract balance based on the difference in amount_paid
+      if (!isNaN(difference) && difference !== 0) {
+        const contract = await this.contractRepo.findOne({
+          where: { id: payment.contract_id },
+        });
+
+        if (contract) {
+          const currentBalance = Number(contract.remaining_balance) || 0;
+          const newBalance = Math.max(0, currentBalance - difference); // Subtract difference because more paid = less balance
+          
+          if (!isNaN(newBalance) && isFinite(newBalance)) {
+            await this.contractRepo.update(
+              { id: contract.id },
+              { remaining_balance: newBalance }
+            );
+          }
+        }
+      }
+    }
+
+    // Update other fields if provided
+    if (updates.due_date) {
       payment.due_date = updates.due_date;
+    }
+
+    if (updates.paid_date) {
+      payment.paid_date = updates.paid_date;
+    }
+
+    if (updates.payment_method) {
+      payment.payment_method = updates.payment_method;
     }
 
     if (updates.notes !== undefined) {
       payment.notes = updates.notes;
     }
 
+    // Add update note
+    const updateNote = `Actualizado el ${new Date().toISOString().split('T')[0]}`;
+    payment.notes = payment.notes ? `${payment.notes}\n${updateNote}` : updateNote;
+
     return this.paymentRepo.save(payment);
   }
 
   /**
-   * Mark payment as paid
+   * Cancel a payment
    */
-  async markAsPaid(
-    tenantId: string,
-    paymentId: string,
-    paidDate: Date,
-    paymentMethod: string,
-    referenceNumber?: string,
-  ): Promise<Payment> {
+  async cancelPayment(tenantId: string, paymentId: string): Promise<Payment> {
     const payment = await this.getPayment(tenantId, paymentId);
-
     if (!payment) {
       throw new NotFoundException('Payment not found');
-    }
-
-    if (payment.status === 'pagado') {
-      throw new BadRequestException('Payment already marked as paid');
-    }
-
-    payment.status = 'pagado';
-    payment.paid_date = paidDate;
-    payment.payment_method = paymentMethod;
-    payment.reference_number = referenceNumber || null;
-    payment.amount_paid = payment.amount;
-    payment.amount_pending = 0;
-
-    const updatedPayment = await this.paymentRepo.save(payment);
-
-    // Update contract remaining balance
-    await this.updateContractBalance(tenantId, payment.contract_id);
-
-    return updatedPayment;
-  }
-
-  /**
-   * Record a partial payment
-   */
-  async recordPartialPayment(
-    tenantId: string,
-    paymentId: string,
-    amount: number,
-    paymentDate: Date,
-    paymentMethod: string,
-    referenceNumber?: string,
-    notes?: string,
-  ): Promise<Payment> {
-    const payment = await this.getPayment(tenantId, paymentId);
-
-    if (!payment) {
-      throw new NotFoundException('Payment not found');
-    }
-
-    if (payment.status === 'pagado') {
-      throw new BadRequestException('Payment already fully paid');
     }
 
     if (payment.status === 'cancelado') {
-      throw new BadRequestException('Cannot record payment on cancelled payment');
+      throw new BadRequestException('Payment is already cancelled');
     }
 
-    // Validar que no haya otro pago parcial en el contrato
-    if (payment.status !== 'parcial') {
-      const existingPartial = await this.paymentRepo.findOne({
-        where: {
-          contract_id: payment.contract_id,
-          tenant_id: tenantId,
-          status: 'parcial',
-        },
+    // Restore contract balance if payment was paid
+    if (payment.amount_paid > 0) {
+      const contract = await this.contractRepo.findOne({
+        where: { id: payment.contract_id },
       });
 
-      if (existingPartial) {
-        throw new BadRequestException(
-          `Ya existe un pago parcial (Pago #${existingPartial.payment_number}). Completa ese pago antes de crear otro parcial.`,
+      if (contract) {
+        const restoredBalance = contract.remaining_balance + payment.amount_paid;
+        await this.contractRepo.update(
+          { id: contract.id },
+          { remaining_balance: restoredBalance }
         );
       }
     }
 
-    // Calcular el monto pendiente actual
-    const currentPending = Number(payment.amount) - Number(payment.amount_paid);
-
-    if (amount > currentPending) {
-      throw new BadRequestException(
-        `Amount exceeds pending balance. Pending: $${currentPending.toFixed(2)}, Attempted: $${amount.toFixed(2)}`,
-      );
-    }
-
-    // Actualizar montos
-    const newAmountPaid = Number(payment.amount_paid) + amount;
-    const newAmountPending = Number(payment.amount) - newAmountPaid;
-
-    payment.amount_paid = newAmountPaid;
-    payment.amount_pending = newAmountPending;
-    payment.paid_date = paymentDate;
-    payment.payment_method = paymentMethod;
-    payment.reference_number = referenceNumber || payment.reference_number;
-
-    // Si es el primer pago parcial, guardar la fecha
-    if (!payment.first_partial_payment_date) {
-      payment.first_partial_payment_date = paymentDate;
-    }
-
-    // Actualizar notas si se proporcionan
-    if (notes) {
-      payment.notes = payment.notes
-        ? `${payment.notes}\n[${paymentDate.toISOString().split('T')[0]}] ${notes}`
-        : notes;
-    }
-
-    // Determinar el estado
-    if (newAmountPending === 0) {
-      payment.status = 'pagado';
-    } else {
-      payment.status = 'parcial';
-    }
-
-    const updatedPayment = await this.paymentRepo.save(payment);
-
-    // Update contract remaining balance
-    await this.updateContractBalance(tenantId, payment.contract_id);
-
-    return updatedPayment;
-  }
-
-  /**
-   * Cancel payment
-   */
-  async cancelPayment(tenantId: string, paymentId: string): Promise<Payment> {
-    const payment = await this.getPayment(tenantId, paymentId);
-
-    if (!payment) {
-      throw new NotFoundException('Payment not found');
-    }
-
-    if (payment.status === 'pagado') {
-      throw new BadRequestException('Cannot cancel a paid payment');
-    }
-
+    // Update payment status
     payment.status = 'cancelado';
+    payment.notes = payment.notes ? `${payment.notes}\nPago cancelado el ${new Date().toISOString().split('T')[0]}` : `Pago cancelado el ${new Date().toISOString().split('T')[0]}`;
+
     return this.paymentRepo.save(payment);
   }
 
   /**
-   * Delete payment (only if not paid)
+   * Delete a payment
    */
   async deletePayment(tenantId: string, paymentId: string): Promise<void> {
     const payment = await this.getPayment(tenantId, paymentId);
-
     if (!payment) {
       throw new NotFoundException('Payment not found');
     }
 
-    if (payment.status === 'pagado') {
-      throw new BadRequestException('Cannot delete a paid payment');
+    // Restore contract balance if payment was paid
+    if (payment.amount_paid > 0) {
+      const contract = await this.contractRepo.findOne({
+        where: { id: payment.contract_id },
+      });
+
+      if (contract) {
+        const restoredBalance = contract.remaining_balance + payment.amount_paid;
+        await this.contractRepo.update(
+          { id: contract.id },
+          { remaining_balance: restoredBalance }
+        );
+      }
     }
 
-    const contractId = payment.contract_id;
     await this.paymentRepo.remove(payment);
-    
-    // Update contract balance after deletion
-    await this.updateContractBalance(tenantId, contractId);
   }
 
   /**
-   * Update contract remaining balance based on paid payments
+   * Reset/Undo a payment - Mark as unpaid and reset to pending
    */
-  private async updateContractBalance(
-    tenantId: string,
-    contractId: string,
-  ): Promise<void> {
-    const contract = await this.contractRepo.findOne({
-      where: { id: contractId, tenant_id: tenantId },
-    });
-
-    if (!contract) {
-      return;
+  async resetPayment(tenantId: string, paymentId: string): Promise<Payment> {
+    const payment = await this.getPayment(tenantId, paymentId);
+    if (!payment) {
+      throw new NotFoundException('Payment not found');
     }
 
-    const paidPayments = await this.paymentRepo.find({
-      where: {
-        contract_id: contractId,
-        tenant_id: tenantId,
-        status: 'pagado',
-      },
-    });
-
-    // Incluir pagos parciales en el cálculo
-    const partialPayments = await this.paymentRepo.find({
-      where: {
-        contract_id: contractId,
-        tenant_id: tenantId,
-        status: 'parcial',
-      },
-    });
-
-    const totalPaidFromComplete = paidPayments.reduce(
-      (sum, payment) => sum + Number(payment.amount_paid),
-      0,
-    );
-    const totalPaidFromPartial = partialPayments.reduce(
-      (sum, payment) => sum + Number(payment.amount_paid),
-      0,
-    );
-    const totalPaid = totalPaidFromComplete + totalPaidFromPartial;
-
-    const remainingBalance =
-      Number(contract.total_price) - Number(contract.down_payment) - totalPaid;
-
-    contract.remaining_balance = Math.max(0, remainingBalance);
-
-    // Check if contract is completed
-    if (contract.remaining_balance === 0) {
-      contract.status = 'completado';
+    if (payment.status === 'cancelado') {
+      throw new BadRequestException('Cannot reset cancelled payment');
     }
 
-    await this.contractRepo.save(contract);
-  }
+    // Store the amount that was paid to restore contract balance
+    const previousAmountPaid = Number(payment.amount_paid) || 0;
+    const expectedAmount = Number(payment.amount) || 0;
 
-  /**
-   * Get payment statistics for a contract
-   */
-  async getContractPaymentStats(tenantId: string, contractId: string): Promise<any> {
-    const payments = await this.getContractPayments(tenantId, contractId);
+    // Reset payment to unpaid state
+    payment.amount_paid = 0;
+    payment.amount_pending = expectedAmount;
+    payment.status = 'pendiente';
+    payment.paid_date = null as any; // TypeScript fix
+    payment.first_partial_payment_date = null as any; // TypeScript fix
 
-    // Get contract to calculate total pending dynamically
-    const contract = await this.contractRepo.findOne({
-      where: { id: contractId, tenant_id: tenantId },
-    });
+    // Add reset note
+    const resetNote = `Pago reseteado el ${new Date().toISOString().split('T')[0]} (se devolvió $${previousAmountPaid} al balance)`;
+    payment.notes = payment.notes ? `${payment.notes}\n${resetNote}` : resetNote;
 
-    if (!contract) {
-      throw new NotFoundException('Contract not found');
+    const savedPayment = await this.paymentRepo.save(payment);
+
+    // Restore contract balance (add back the amount that was previously paid)
+    if (previousAmountPaid > 0) {
+      const contract = await this.contractRepo.findOne({
+        where: { id: payment.contract_id },
+      });
+
+      if (contract) {
+        const currentBalance = Number(contract.remaining_balance) || 0;
+        const newBalance = currentBalance + previousAmountPaid;
+        
+        if (!isNaN(newBalance) && isFinite(newBalance)) {
+          await this.contractRepo.update(
+            { id: contract.id },
+            { remaining_balance: newBalance }
+          );
+        }
+      }
     }
 
-    // Find partial payment if exists
-    const partialPayment = payments.find(p => p.status === 'parcial');
-    let partialPaymentData: {
-      installment_number: number;
-      amount_paid: number;
-      remaining_amount: number;
-      status: string;
-    } | null = null;
-    
-    if (partialPayment) {
-      partialPaymentData = {
-        installment_number: partialPayment.payment_number,
-        amount_paid: Number(partialPayment.amount_paid),
-        remaining_amount: Number(partialPayment.amount_pending),
-        status: 'pending_completion'
-      };
-    }
-
-    // Calculate totals
-    const totalPaidFromComplete = payments
-      .filter(p => p.status === 'pagado')
-      .reduce((sum, p) => sum + Number(p.amount_paid), 0);
-    
-    const totalPaidFromPartial = payments
-      .filter(p => p.status === 'parcial')
-      .reduce((sum, p) => sum + Number(p.amount_paid), 0);
-
-    const totalPendingFromFull = payments
-      .filter(p => p.status === 'pendiente' || p.status === 'vencido')
-      .reduce((sum, p) => sum + Number(p.amount), 0);
-
-    const totalPendingFromPartial = partialPayment ? Number(partialPayment.amount_pending) : 0;
-
-    // Calculate total pending amount DYNAMICALLY from contract
-    const totalAfterDownPayment = Number(contract.total_price) - Number(contract.down_payment);
-    const totalPaidFromPayments = totalPaidFromComplete + totalPaidFromPartial;
-    const totalPendingAmountCalculated = totalAfterDownPayment - totalPaidFromPayments;
-
-    const stats = {
-      total_payments: payments.length,
-      paid_count: payments.filter(p => p.status === 'pagado').length,
-      partial_count: payments.filter(p => p.status === 'parcial').length,
-      pending_count: payments.filter(p => p.status === 'pendiente' || p.status === 'vencido').length,
-      overdue_count: payments.filter(p => p.status === 'vencido').length,
-      cancelled_count: payments.filter(p => p.status === 'cancelado').length,
-      
-      // Existing fields (rounded to 2 decimals)
-      total_paid: Math.round(totalPaidFromComplete * 100) / 100,
-      total_partial: Math.round(totalPaidFromPartial * 100) / 100,
-      total_pending: Math.round(totalPendingFromFull * 100) / 100,
-      
-      // New fields - calculated dynamically
-      pending_full_payments: payments.filter(p => p.status === 'pendiente' || p.status === 'vencido').length,
-      total_pending_amount: Math.round(totalPendingAmountCalculated * 100) / 100, // Calculado dinámicamente
-      partial_payment: partialPaymentData,
-      
-      next_payment: payments.find(p => p.status === 'pendiente' || p.status === 'parcial' || p.status === 'vencido') || null,
-    };
-
-    return stats;
+    return savedPayment;
   }
 
   /**
@@ -418,18 +589,19 @@ export class PaymentsService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const overduePayments = await this.paymentRepo
-      .createQueryBuilder('payment')
-      .where('payment.tenant_id = :tenantId', { tenantId })
-      .andWhere('payment.status = :status', { status: 'pendiente' })
-      .andWhere('payment.due_date < :today', { today })
-      .getMany();
+    const result = await this.paymentRepo
+      .createQueryBuilder()
+      .update(Payment)
+      .set({ 
+        is_overdue: true,
+        updated_at: () => 'CURRENT_TIMESTAMP'
+      })
+      .where('tenant_id = :tenantId', { tenantId })
+      .andWhere('status IN (:...statuses)', { statuses: ['pendiente', 'parcial'] })
+      .andWhere('due_date < :today', { today })
+      .andWhere('is_overdue = :isOverdue', { isOverdue: false })
+      .execute();
 
-    for (const payment of overduePayments) {
-      payment.status = 'vencido';
-      await this.paymentRepo.save(payment);
-    }
-
-    return overduePayments.length;
+    return result.affected || 0;
   }
 }

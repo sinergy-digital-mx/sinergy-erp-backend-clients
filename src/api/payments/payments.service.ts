@@ -57,7 +57,12 @@ export class PaymentsService {
       query.andWhere('p.status = :status', { status });
     }
 
-    return query.orderBy('p.payment_date', 'DESC').getMany();
+    // Fix: Order by payment_number as integer when contractId is provided, otherwise by date
+    if (contractId) {
+      return query.orderBy('CAST(p.payment_number AS UNSIGNED)', 'ASC').getMany();
+    } else {
+      return query.orderBy('p.payment_date', 'DESC').getMany();
+    }
   }
 
   async findOne(tenantId: string, id: string): Promise<Payment | null> {
@@ -119,10 +124,20 @@ export class PaymentsService {
     const query = this.paymentRepo
       .createQueryBuilder('p')
       .select('COUNT(*)', 'total')
-      .addSelect('SUM(p.amount_paid)', 'total_paid')
-      .addSelect("SUM(CASE WHEN p.status = 'pagado' THEN p.amount_paid ELSE 0 END)", 'paid_amount')
-      .addSelect("SUM(CASE WHEN p.status = 'pendiente' THEN p.amount_paid ELSE 0 END)", 'pending_amount')
-      .addSelect("SUM(CASE WHEN p.status = 'atrasado' THEN p.amount_paid ELSE 0 END)", 'overdue_amount')
+      // CORRECT CALCULATION: PAID payments = full amount, PARTIAL payments = amount_paid only, PENDING = 0
+      .addSelect("SUM(CASE WHEN p.status = 'pagado' THEN p.amount WHEN p.status = 'parcial' THEN p.amount_paid ELSE 0 END)", 'total_paid')
+      // CORRECT PENDING: PENDING payments = full amount, PARTIAL payments = amount_pending, PAID = 0
+      .addSelect("SUM(CASE WHEN p.status = 'pendiente' THEN p.amount WHEN p.status = 'parcial' THEN p.amount_pending ELSE 0 END)", 'total_pending')
+      .addSelect('SUM(p.amount)', 'total_expected')
+      .addSelect("SUM(CASE WHEN p.status = 'pagado' THEN 1 ELSE 0 END)", 'paid_count')
+      .addSelect("SUM(CASE WHEN p.status = 'parcial' THEN 1 ELSE 0 END)", 'partial_count')
+      .addSelect("SUM(CASE WHEN p.status = 'pendiente' THEN 1 ELSE 0 END)", 'pending_count')
+      .addSelect("SUM(CASE WHEN p.status = 'atrasado' THEN 1 ELSE 0 END)", 'overdue_count')
+      .addSelect("SUM(CASE WHEN p.status = 'cancelado' THEN 1 ELSE 0 END)", 'cancelled_count')
+      .addSelect("SUM(CASE WHEN p.status = 'pagado' THEN p.amount ELSE 0 END)", 'paid_amount')
+      .addSelect("SUM(CASE WHEN p.status = 'parcial' THEN p.amount_paid ELSE 0 END)", 'partial_amount')
+      .addSelect("SUM(CASE WHEN p.status = 'pendiente' THEN p.amount ELSE 0 END)", 'pending_amount')
+      .addSelect("SUM(CASE WHEN p.status = 'atrasado' THEN p.amount ELSE 0 END)", 'overdue_amount')
       .where('p.tenant_id = :tenantId', { tenantId });
 
     if (contractId) {
@@ -133,10 +148,22 @@ export class PaymentsService {
 
     return {
       total_payments: parseInt(stats.total) || 0,
-      total_paid: parseFloat(stats.total_paid) || 0,
-      paid_amount: parseFloat(stats.paid_amount) || 0,
-      pending_amount: parseFloat(stats.pending_amount) || 0,
-      overdue_amount: parseFloat(stats.overdue_amount) || 0,
+      paid_count: parseInt(stats.paid_count) || 0,
+      partial_count: parseInt(stats.partial_count) || 0,
+      pending_count: parseInt(stats.pending_count) || 0,
+      pending_full_payments: parseInt(stats.pending_count) || 0, // Frontend compatibility
+      overdue_count: parseInt(stats.overdue_count) || 0,
+      cancelled_count: parseInt(stats.cancelled_count) || 0,
+      
+      // Fix decimal precision
+      total_expected: Math.round((parseFloat(stats.total_expected) || 0) * 100) / 100,
+      total_paid: Math.round((parseFloat(stats.total_paid) || 0) * 100) / 100,
+      total_pending: Math.round((parseFloat(stats.total_pending) || 0) * 100) / 100,
+      total_pending_amount: Math.round((parseFloat(stats.total_pending) || 0) * 100) / 100, // Frontend compatibility
+      paid_amount: Math.round((parseFloat(stats.paid_amount) || 0) * 100) / 100,
+      partial_amount: Math.round((parseFloat(stats.partial_amount) || 0) * 100) / 100,
+      pending_amount: Math.round((parseFloat(stats.pending_amount) || 0) * 100) / 100,
+      overdue_amount: Math.round((parseFloat(stats.overdue_amount) || 0) * 100) / 100,
     };
   }
 }

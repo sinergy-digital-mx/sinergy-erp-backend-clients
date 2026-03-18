@@ -14,7 +14,7 @@ import { UoMCatalog } from './uom-catalog.entity';
 import { UoMRelationship } from './uom-relationship.entity';
 import { VendorProductPrice } from './vendor-product-price.entity';
 
-@Entity('uoms')
+@Entity('product_uoms')
 @Index('product_catalog_index', ['product_id', 'uom_catalog_id'], { unique: true })
 @Index('product_index', ['product_id'])
 export class UoM {

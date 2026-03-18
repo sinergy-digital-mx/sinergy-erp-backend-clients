@@ -32,7 +32,21 @@ export class PropertiesService {
     return saved;
   }
 
-  async findAll(tenantId: string, groupId?: string, search?: string): Promise<any[]> {
+  async findAll(
+    tenantId: string, 
+    groupId?: string, 
+    search?: string, 
+    status?: string,
+    page: number = 1,
+    limit: number = 20
+  ): Promise<any> {
+    // Validate pagination parameters
+    if (page < 1) page = 1;
+    if (limit < 1) limit = 1;
+    if (limit > 100) limit = 100;
+    
+    const skip = (page - 1) * limit;
+
     const query = this.propertyRepo
       .createQueryBuilder('p')
       .leftJoinAndSelect('p.group', 'g')
@@ -45,6 +59,10 @@ export class PropertiesService {
       query.andWhere('p.group_id = :groupId', { groupId });
     }
 
+    if (status) {
+      query.andWhere('p.status = :status', { status });
+    }
+
     if (search) {
       query.andWhere(
         '(LOWER(p.code) LIKE LOWER(:search) OR LOWER(p.name) LIKE LOWER(:search) OR LOWER(p.block) LIKE LOWER(:search) OR LOWER(p.location) LIKE LOWER(:search) OR LOWER(p.description) LIKE LOWER(:search) OR LOWER(customer.name) LIKE LOWER(:search) OR LOWER(customer.lastname) LIKE LOWER(:search) OR LOWER(CONCAT(customer.name, " ", customer.lastname)) LIKE LOWER(:search))',
@@ -52,10 +70,18 @@ export class PropertiesService {
       );
     }
 
-    const properties = await query.orderBy('p.code', 'ASC').getMany();
+    // Get total count
+    const total = await query.getCount();
+
+    // Get paginated results
+    const properties = await query
+      .orderBy('p.code', 'ASC')
+      .skip(skip)
+      .take(limit)
+      .getMany();
 
     // Transform the response to include customer info at the property level
-    return properties.map(property => {
+    const data = properties.map(property => {
       // Find the most relevant contract: prioritize 'activo', then 'completado', then any other
       let relevantContract = property.contracts && property.contracts.length > 0
         ? (property.contracts.find(c => c.status === 'activo') ||
@@ -77,6 +103,18 @@ export class PropertiesService {
         contracts: property.contracts
       };
     });
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages,
+      hasNext: page < totalPages,
+      hasPrev: page > 1,
+    };
   }
 
   async findOne(tenantId: string, id: string): Promise<Property | null> {

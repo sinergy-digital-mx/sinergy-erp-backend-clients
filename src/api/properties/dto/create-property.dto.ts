@@ -10,6 +10,11 @@ export class CreatePropertyDto {
   @Length(1, 50)
   block?: string;
 
+  @IsOptional()
+  @IsString()
+  @Length(1, 50)
+  lot_number?: string;
+
   @IsString()
   @Length(1, 150)
   name: string;

@@ -4,13 +4,17 @@ import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { PermissionGuard } from '../guards/permission.guard';
 import { RequirePermissions } from '../decorators/require-permissions.decorator';
 import { ModuleService } from '../services/module.service';
+import { MenuPermissionService } from '../services/menu-permission.service';
 
 @ApiTags('Tenant - Modules')
 @Controller('tenant/modules')
 @UseGuards(JwtAuthGuard, PermissionGuard)
 @ApiBearerAuth()
 export class ModulesController {
-  constructor(private moduleService: ModuleService) {}
+  constructor(
+    private moduleService: ModuleService,
+    private menuPermissionService: MenuPermissionService,
+  ) {}
 
   @Get()
   @RequirePermissions({ entityType: 'Lead', action: 'Read' })
@@ -43,5 +47,65 @@ export class ModulesController {
   })
   async getEnabledModules() {
     return await this.moduleService.getEnabledModulesForCurrentTenant();
+  }
+
+  @Get('visible-menu')
+  @ApiOperation({
+    summary: 'Obtener items de menú visibles para el usuario actual',
+    description: 'Retorna solo los módulos que el usuario actual tiene permiso Ver_Menu. Use este endpoint para construir la navegación del sidebar.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de módulos visibles en el menú para el usuario actual',
+    schema: {
+      example: {
+        modules: [
+          {
+            code: 'customers',
+            name: 'Customers',
+            description: 'Customer management module',
+            permissions: ['Create', 'Read', 'Update', 'Delete', 'Ver_Menu'],
+          },
+          {
+            code: 'leads',
+            name: 'Leads',
+            description: 'Lead management module',
+            permissions: ['Read', 'Ver_Menu'],
+          },
+        ],
+      },
+    },
+  })
+  async getVisibleMenuItems() {
+    return await this.menuPermissionService.getAuthorizedMenuStructure();
+  }
+
+  @Get('menu-permissions')
+  @ApiOperation({
+    summary: 'Obtener permisos de menú detallados para el usuario actual',
+    description: 'Retorna todos los módulos habilitados con el estado del permiso Ver_Menu y permisos disponibles',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Permisos de menú detallados para todos los módulos',
+    schema: {
+      example: [
+        {
+          moduleCode: 'customers',
+          moduleName: 'Customers',
+          hasViewPermission: true,
+          permissions: ['Create', 'Read', 'Update', 'Delete', 'Ver_Menu'],
+        },
+        {
+          moduleCode: 'reports',
+          moduleName: 'Reports',
+          hasViewPermission: false,
+          permissions: [],
+        },
+      ],
+    },
+  })
+  async getMenuPermissions() {
+    return await this.menuPermissionService.getVisibleModulesForCurrentUser();
   }
 }

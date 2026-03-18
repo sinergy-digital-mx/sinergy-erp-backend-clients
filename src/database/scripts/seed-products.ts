@@ -90,7 +90,7 @@ async function seedProducts() {
     for (const uom of uomData) {
       // Check if UoM already exists
       const existing = await AppDataSource.query(
-        `SELECT id FROM uoms WHERE product_id = ? AND code = ?`,
+        `SELECT id FROM product_uoms WHERE product_id = ? AND code = ?`,
         [firstProduct.id, uom.code]
       );
 
@@ -102,7 +102,7 @@ async function seedProducts() {
 
       const uomId = uuidv4();
       await AppDataSource.query(
-        `INSERT INTO uoms (id, product_id, code, name, created_at, updated_at)
+        `INSERT INTO product_uoms (id, product_id, code, name, created_at, updated_at)
          VALUES (?, ?, ?, ?, NOW(), NOW())`,
         [uomId, firstProduct.id, uom.code, uom.name]
       );

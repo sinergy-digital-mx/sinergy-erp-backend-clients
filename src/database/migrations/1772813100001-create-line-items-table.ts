@@ -151,7 +151,7 @@ export class CreateLineItemsTable1772813100001 implements MigrationInterface {
       'line_items',
       new TableForeignKey({
         columnNames: ['uom_id'],
-        referencedTableName: 'uoms',
+        referencedTableName: 'product_uoms',
         referencedColumnNames: ['id'],
         onDelete: 'RESTRICT',
       }),

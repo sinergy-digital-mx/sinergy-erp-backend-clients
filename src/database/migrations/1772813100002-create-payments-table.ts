@@ -4,7 +4,7 @@ export class CreatePaymentsTable1772813100002 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.createTable(
       new Table({
-        name: 'payments',
+        name: 'purchase_order_payments',
         columns: [
           {
             name: 'id',
@@ -63,7 +63,7 @@ export class CreatePaymentsTable1772813100002 implements MigrationInterface {
 
     // Create index
     await queryRunner.createIndex(
-      'payments',
+      'purchase_order_payments',
       new TableIndex({
         name: 'purchase_order_index',
         columnNames: ['purchase_order_id'],
@@ -72,7 +72,7 @@ export class CreatePaymentsTable1772813100002 implements MigrationInterface {
 
     // Create foreign key
     await queryRunner.createForeignKey(
-      'payments',
+      'purchase_order_payments',
       new TableForeignKey({
         columnNames: ['purchase_order_id'],
         referencedTableName: 'purchase_orders',
@@ -83,6 +83,6 @@ export class CreatePaymentsTable1772813100002 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.dropTable('payments');
+    await queryRunner.dropTable('purchase_order_payments');
   }
 }

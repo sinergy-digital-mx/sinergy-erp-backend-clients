@@ -32,7 +32,7 @@ async function seedUomsSpanish() {
 
         try {
           await AppDataSource.query(
-            `INSERT INTO uoms (id, product_id, code, name, created_at, updated_at)
+            `INSERT INTO product_uoms (id, product_id, code, name, created_at, updated_at)
              VALUES (?, ?, ?, ?, NOW(), NOW())`,
             [uomId, product.id, uomData.code, uomData.name]
           );

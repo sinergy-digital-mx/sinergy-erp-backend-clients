@@ -42,6 +42,9 @@ export class Property {
   @Column({ length: 50, nullable: true })
   block: string;
 
+  @Column({ length: 50, nullable: true })
+  lot_number: string;
+
   @Column({ length: 150 })
   name: string;
 

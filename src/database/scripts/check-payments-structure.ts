@@ -1,65 +1,35 @@
-import 'reflect-metadata';
-import 'dotenv/config';
 import { AppDataSource } from '../data-source';
 
-async function checkStructure() {
+async function checkPaymentsStructure() {
   try {
+    console.log('🔄 Initializing database connection...');
     await AppDataSource.initialize();
-    console.log('✅ Database connected\n');
+    console.log('✅ Database connected');
 
+    console.log('🔄 Checking payments table structure...');
+    
     const columns = await AppDataSource.query(`
-      SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT, COLUMN_COMMENT
-      FROM INFORMATION_SCHEMA.COLUMNS
-      WHERE TABLE_SCHEMA = '${process.env.DB_NAME}'
-      AND TABLE_NAME = 'payments'
-      ORDER BY ORDINAL_POSITION
+      DESCRIBE payments
     `);
 
-    console.log('📋 Payments Table Structure:\n');
-    columns.forEach((col: any) => {
-      console.log(`  ${col.COLUMN_NAME}`);
-      console.log(`    Type: ${col.DATA_TYPE}`);
-      console.log(`    Nullable: ${col.IS_NULLABLE}`);
-      console.log(`    Default: ${col.COLUMN_DEFAULT || 'NULL'}`);
-      if (col.COLUMN_COMMENT) {
-        console.log(`    Comment: ${col.COLUMN_COMMENT}`);
-      }
-      console.log('');
+    console.log('📋 Payments table columns:');
+    columns.forEach(col => {
+      console.log(`  - ${col.Field}: ${col.Type} ${col.Null === 'YES' ? '(nullable)' : '(not null)'} ${col.Default ? `default: ${col.Default}` : ''}`);
     });
 
-    // Check if payment_documents table exists
-    const tables = await AppDataSource.query(`
-      SELECT TABLE_NAME
-      FROM INFORMATION_SCHEMA.TABLES
-      WHERE TABLE_SCHEMA = '${process.env.DB_NAME}'
-      AND TABLE_NAME = 'payment_documents'
+    console.log('\n🔄 Checking sample data...');
+    const sampleData = await AppDataSource.query(`
+      SELECT * FROM payments LIMIT 3
     `);
 
-    if (tables.length > 0) {
-      console.log('✅ payment_documents table exists\n');
-      
-      const docColumns = await AppDataSource.query(`
-        SELECT COLUMN_NAME, DATA_TYPE
-        FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_SCHEMA = '${process.env.DB_NAME}'
-        AND TABLE_NAME = 'payment_documents'
-        ORDER BY ORDINAL_POSITION
-      `);
+    console.log('📊 Sample payments data:');
+    console.log(sampleData);
 
-      console.log('📋 Payment Documents Table Structure:\n');
-      docColumns.forEach((col: any) => {
-        console.log(`  - ${col.COLUMN_NAME} (${col.DATA_TYPE})`);
-      });
-    } else {
-      console.log('❌ payment_documents table does NOT exist');
-    }
   } catch (error) {
-    console.error('❌ Error:', error);
+    console.error('❌ Error checking structure:', error);
   } finally {
-    if (AppDataSource.isInitialized) {
-      await AppDataSource.destroy();
-    }
+    await AppDataSource.destroy();
   }
 }
 
-checkStructure();
+checkPaymentsStructure();

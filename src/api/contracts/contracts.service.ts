@@ -13,18 +13,86 @@ export class ContractsService {
   ) {}
 
   async create(tenantId: string, dto: CreateContractDto): Promise<Contract> {
+    // Generate contract number if not provided
+    let contractNumber = dto.contract_number;
+    if (!contractNumber) {
+      contractNumber = await this.generateContractNumber(tenantId, dto.property_id);
+    }
+
     // Calculate remaining balance and monthly payment
     const remaining_balance = dto.total_price - dto.down_payment;
     const monthly_payment = remaining_balance / dto.payment_months;
 
     const contract = this.contractRepo.create({
       ...dto,
+      contract_number: contractNumber,
       tenant_id: tenantId,
       remaining_balance,
       monthly_payment: Math.round(monthly_payment * 100) / 100, // Round to 2 decimals
     });
 
     return this.contractRepo.save(contract);
+  }
+
+  private async generateContractNumber(tenantId: string, propertyId: string): Promise<string> {
+    // Get property info to extract block and lot_number
+    const property = await this.contractRepo.manager.query(
+      `SELECT p.block, p.lot_number, p.code 
+       FROM properties p 
+       WHERE p.id = ? AND p.tenant_id = ?`,
+      [propertyId, tenantId]
+    );
+
+    if (!property || property.length === 0) {
+      throw new Error('Property not found');
+    }
+
+    const prop = property[0];
+    let baseNumber: string;
+
+    // Use block-lot_number format if both exist, otherwise use property code
+    if (prop.block && prop.lot_number) {
+      baseNumber = `CONT-${prop.block}-${prop.lot_number}`;
+    } else {
+      // Extract from property code (e.g., LOT-1-01 -> CONT-1-01)
+      const codeMatch = prop.code.match(/LOT-(\d+)-(\d+)/);
+      if (codeMatch) {
+        baseNumber = `CONT-${codeMatch[1]}-${codeMatch[2]}`;
+      } else {
+        baseNumber = `CONT-${prop.code}`;
+      }
+    }
+
+    // Check if contract number already exists
+    const existingContract = await this.contractRepo.findOne({
+      where: { 
+        contract_number: baseNumber,
+        tenant_id: tenantId 
+      }
+    });
+
+    if (!existingContract) {
+      return baseNumber;
+    }
+
+    // If exists, add letter suffix (A, B, C, etc.)
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    for (let i = 0; i < letters.length; i++) {
+      const numberWithLetter = `${baseNumber}${letters[i]}`;
+      const existingWithLetter = await this.contractRepo.findOne({
+        where: { 
+          contract_number: numberWithLetter,
+          tenant_id: tenantId 
+        }
+      });
+
+      if (!existingWithLetter) {
+        return numberWithLetter;
+      }
+    }
+
+    // If all letters are used, add timestamp
+    return `${baseNumber}-${Date.now()}`;
   }
 
   async findAll(tenantId: string, customerId?: number, propertyId?: string, status?: string, hasOverdue?: boolean, search?: string): Promise<any[]> {
@@ -67,21 +135,23 @@ export class ContractsService {
       return [];
     }
 
-    // Get next payment for each contract (first payment that is not 'pagado')
+    // Get next payment for each contract (first unpaid payment ordered by due_date)
     const contractIds = contracts.map(c => c.id);
     
     const nextPaymentsQuery = `
       SELECT p.*
       FROM payments p
       INNER JOIN (
-        SELECT contract_id, MIN(payment_number) as next_payment_number
+        SELECT contract_id, MIN(due_date) as next_due_date
         FROM payments
         WHERE contract_id IN (${contractIds.map(() => '?').join(',')})
           AND tenant_id = ?
-          AND status != 'pagado'
+          AND status IN ('pendiente', 'parcial', 'vencido')
         GROUP BY contract_id
-      ) next_p ON p.contract_id = next_p.contract_id AND p.payment_number = next_p.next_payment_number
+      ) next_p ON p.contract_id = next_p.contract_id AND p.due_date = next_p.next_due_date
       WHERE p.tenant_id = ?
+        AND p.status IN ('pendiente', 'parcial', 'vencido')
+      ORDER BY p.is_overdue DESC, p.due_date ASC
     `;
 
     const nextPayments = await this.contractRepo.manager.query(
@@ -102,14 +172,21 @@ export class ContractsService {
       });
     });
 
-    // Add next payment info to each contract
-    return contracts.map(contract => ({
-      ...contract,
-      next_payment_date: nextPaymentMap.get(contract.id)?.next_payment_date || null,
-      next_payment_status: nextPaymentMap.get(contract.id)?.next_payment_status || null,
-      next_payment_number: nextPaymentMap.get(contract.id)?.next_payment_number || null,
-      next_payment_amount: nextPaymentMap.get(contract.id)?.next_payment_amount || null,
-    }));
+    // Add next payment info and financed amount to each contract
+    return contracts.map(contract => {
+      const totalPrice = Number(contract.total_price) || 0;
+      const downPayment = Number(contract.down_payment) || 0;
+      const financedAmount = totalPrice - downPayment;
+
+      return {
+        ...contract,
+        financed_amount: Math.round(financedAmount * 100) / 100, // Monto financiado (Total - Enganche)
+        next_payment_date: nextPaymentMap.get(contract.id)?.next_payment_date || null,
+        next_payment_status: nextPaymentMap.get(contract.id)?.next_payment_status || null,
+        next_payment_number: nextPaymentMap.get(contract.id)?.next_payment_number || null,
+        next_payment_amount: nextPaymentMap.get(contract.id)?.next_payment_amount || null,
+      };
+    });
   }
 
   async findOne(tenantId: string, id: string): Promise<any> {
@@ -162,11 +239,13 @@ export class ContractsService {
       const amountPending = Number(payment.amount_pending);
 
       if (status === 'pagado') {
-        totalPaidFromPayments += amountPaid;
+        // FIXED: For completed payments, count the full amount, not amount_paid
+        totalPaidFromPayments += amount;
       } else if (status === 'parcial') {
+        // For partial payments, count only what was actually paid
         totalPaidFromPayments += amountPaid;
         partialPayment = {
-          installment_number: payment.payment_number,
+          installment_number: parseInt(payment.payment_number), // Convert to number for frontend
           amount_paid: amountPaid,
           remaining_amount: amountPending,
           status: 'pending_completion'
@@ -180,9 +259,11 @@ export class ContractsService {
     const totalAfterDownPayment = Number(contract.total_price) - Number(contract.down_payment);
     const totalPaid = Number(contract.down_payment) + totalPaidFromPayments;
     const totalPendingAmount = Number(contract.total_price) - totalPaid;
+    const financedAmount = totalAfterDownPayment; // This is what gets divided by payment_months
 
     return {
       ...contract,
+      financed_amount: Math.round(financedAmount * 100) / 100, // Monto financiado (Total - Enganche)
       total_paid: totalPaid, // Enganche + pagos mensuales
       total_paid_from_payments: totalPaidFromPayments, // Solo pagos mensuales, sin enganche
       total_pending_amount: Math.round(totalPendingAmount * 100) / 100, // Calculado dinámicamente
@@ -220,12 +301,50 @@ export class ContractsService {
   }
 
   async remove(tenantId: string, id: string): Promise<void> {
-    const contract = await this.findOne(tenantId, id);
-    if (!contract) {
-      throw new Error('Contract not found');
-    }
+    const queryRunner = this.contractRepo.manager.connection.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    await this.contractRepo.remove(contract);
+    try {
+      // 1. Verify contract exists and belongs to tenant
+      const contract = await queryRunner.manager.findOne(Contract, {
+        where: { id, tenant_id: tenantId },
+      });
+
+      if (!contract) {
+        throw new Error('Contract not found or access denied');
+      }
+
+      console.log(`🗑️  Deleting contract ${contract.contract_number} and all related data...`);
+
+      // 2. Delete all payments (this will also update contract balances if needed)
+      const paymentsResult = await queryRunner.query(
+        `DELETE FROM payments WHERE contract_id = ? AND tenant_id = ?`,
+        [id, tenantId]
+      );
+      console.log(`✅ Deleted ${paymentsResult.affectedRows || 0} payments`);
+
+      // 3. Delete contract documents (files in S3 should be handled separately if needed)
+      const documentsResult = await queryRunner.query(
+        `DELETE FROM contract_documents WHERE contract_id = ? AND tenant_id = ?`,
+        [id, tenantId]
+      );
+      console.log(`✅ Deleted ${documentsResult.affectedRows || 0} contract documents`);
+
+      // 4. Finally delete the contract itself
+      await queryRunner.manager.delete(Contract, { id, tenant_id: tenantId });
+      console.log(`✅ Deleted contract ${contract.contract_number}`);
+
+      await queryRunner.commitTransaction();
+      console.log(`🎉 Contract ${contract.contract_number} completely deleted`);
+
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      console.error('❌ Error deleting contract:', error);
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   async getContractStats(tenantId: string): Promise<any> {
@@ -261,7 +380,7 @@ export class ContractsService {
     // Contracts with overdue payments - sum of total_price
     const overdueStats = await this.contractRepo
       .createQueryBuilder('c')
-      .leftJoin('payments', 'p', 'p.contract_id = c.id AND p.status = :vencido', { vencido: 'vencido' })
+      .leftJoin('payments', 'p', 'p.contract_id = c.id AND CAST(p.is_overdue AS UNSIGNED) = :isOverdue', { isOverdue: 1 })
       .select('COUNT(DISTINCT c.id)', 'count')
       .addSelect('SUM(DISTINCT c.total_price)', 'value')
       .where('c.tenant_id = :tenantId', { tenantId })

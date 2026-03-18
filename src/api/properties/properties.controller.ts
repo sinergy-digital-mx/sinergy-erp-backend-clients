@@ -54,12 +54,23 @@ export class PropertiesController {
 
   @Get()
   @RequirePermissions({ entityType: 'Property', action: 'Read' })
-  async findAll(@Req() req: any, @Query('groupId') groupId?: string, @Query('search') search?: string) {
+  async findAll(
+    @Req() req: any, 
+    @Query('groupId') groupId?: string, 
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string
+  ) {
     const tenantId = this.tenantContext.getCurrentTenantId();
     if (!tenantId) {
       throw new Error('Tenant context is required');
     }
-    return this.propertiesService.findAll(tenantId, groupId, search);
+    
+    const pageNum = parseInt(page || '1') || 1;
+    const limitNum = parseInt(limit || '20') || 20;
+    
+    return this.propertiesService.findAll(tenantId, groupId, search, status, pageNum, limitNum);
   }
 
   @Get(':id')

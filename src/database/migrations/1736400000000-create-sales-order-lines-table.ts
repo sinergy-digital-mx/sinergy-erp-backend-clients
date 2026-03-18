@@ -134,12 +134,12 @@ export class CreateSalesOrderLinesTable1736400000000 implements MigrationInterfa
       }),
     );
 
-    // Create foreign key to uoms
+    // Create foreign key to product_uoms
     await queryRunner.createForeignKey(
       'sales_order_lines',
       new TableForeignKey({
         columnNames: ['uom_id'],
-        referencedTableName: 'uoms',
+        referencedTableName: 'product_uoms',
         referencedColumnNames: ['id'],
         onDelete: 'RESTRICT',
         name: 'fk_sales_order_lines_uom',

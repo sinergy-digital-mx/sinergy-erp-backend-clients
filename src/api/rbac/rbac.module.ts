@@ -20,6 +20,7 @@ import { RoleTemplateService } from './services/role-template.service';
 import { TenantContextService } from './services/tenant-context.service';
 import { TenantService } from './services/tenant.service';
 import { ModuleService } from './services/module.service';
+import { MenuPermissionService } from './services/menu-permission.service';
 import { PermissionCacheService } from './services/permission-cache.service';
 import { QueryCacheService } from './services/query-cache.service';
 import { AuditLogService } from './services/audit-log.service';
@@ -102,6 +103,7 @@ import rbacConfig from './config/rbac.config';
     TenantContextService,
     TenantService,
     ModuleService,
+    MenuPermissionService,
     
     // Caching Services
     PermissionCacheService,
@@ -132,6 +134,7 @@ import rbacConfig from './config/rbac.config';
     TenantContextService,
     TenantService,
     ModuleService,
+    MenuPermissionService,
     
     // Caching Services
     PermissionCacheService,

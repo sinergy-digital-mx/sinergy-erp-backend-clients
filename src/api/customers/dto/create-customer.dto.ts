@@ -3,10 +3,10 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsString, IsNumber, IsOptional, IsEmail } from 'class-validator';
 
 export class CreateCustomerDto {
-    @ApiProperty({ description: 'Customer status ID', example: 1 })
+    @ApiProperty({ description: 'Customer status ID', example: 1, required: false })
     @IsNumber()
-    @IsNotEmpty()
-    status_id: number;
+    @IsOptional()
+    status_id?: number;
 
     @ApiProperty({ description: 'Customer first name', example: 'John' })
     @IsString()

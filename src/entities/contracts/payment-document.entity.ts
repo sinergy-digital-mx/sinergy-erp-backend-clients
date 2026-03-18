@@ -8,7 +8,7 @@ import {
   UpdateDateColumn,
   Index,
 } from 'typeorm';
-import { Payment } from './payment.entity';
+import { Payment } from '../payments/payment.entity';
 import { RBACTenant } from '../rbac/tenant.entity';
 
 @Entity('payment_documents')

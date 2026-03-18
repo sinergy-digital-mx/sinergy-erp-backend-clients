@@ -61,9 +61,9 @@ export class Product {
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @ManyToOne(() => UoMCatalog, { onDelete: 'SET NULL', nullable: true })
+  @ManyToOne(() => UoM, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'base_uom_id' })
-  base_uom: UoMCatalog | null;
+  base_uom: UoM | null;
 
   @Column({ nullable: true })
   base_uom_id: string | null;

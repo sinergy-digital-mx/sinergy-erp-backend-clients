@@ -1,0 +1,21 @@
+-- Check the data type of contracts.id column
+SELECT 
+    COLUMN_NAME,
+    DATA_TYPE,
+    CHARACTER_MAXIMUM_LENGTH,
+    COLUMN_TYPE
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = DATABASE()
+AND TABLE_NAME = 'contracts'
+AND COLUMN_NAME = 'id';
+
+-- Also check if payments table exists and its contract_id type
+SELECT 
+    COLUMN_NAME,
+    DATA_TYPE,
+    CHARACTER_MAXIMUM_LENGTH,
+    COLUMN_TYPE
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = DATABASE()
+AND TABLE_NAME = 'payments'
+AND COLUMN_NAME = 'contract_id';

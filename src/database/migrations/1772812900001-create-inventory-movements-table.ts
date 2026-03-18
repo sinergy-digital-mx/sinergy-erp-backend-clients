@@ -215,12 +215,12 @@ export class CreateInventoryMovementsTable1772812900001
       }),
     );
 
-    // Create foreign key to uoms
+    // Create foreign key to product_uoms
     await queryRunner.createForeignKey(
       'inventory_movements',
       new TableForeignKey({
         columnNames: ['uom_id'],
-        referencedTableName: 'uoms',
+        referencedTableName: 'product_uoms',
         referencedColumnNames: ['id'],
         onDelete: 'RESTRICT',
         name: 'fk_inventory_movements_uom',

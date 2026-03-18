@@ -28,7 +28,9 @@ export class CustomersService {
     ) { }
 
     async create(dto: CreateCustomerDto, tenantId: string) {
-        const status = await this.statusRepo.findOneByOrFail({ id: dto.status_id });
+        // Use default status "Activo" (id: 1) if not provided
+        const statusId = dto.status_id || 1;
+        const status = await this.statusRepo.findOneByOrFail({ id: statusId });
 
         // Extract country code and national number from phone if provided
         let phone = dto.phone;

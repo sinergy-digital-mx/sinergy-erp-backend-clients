@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Contract } from '../../entities/contracts/contract.entity';
 import { ContractDocument } from '../../entities/contracts/contract-document.entity';
-import { Payment } from '../../entities/contracts/payment.entity';
+import { Payment } from '../../entities/payments/payment.entity';
 import { PaymentDocument } from '../../entities/contracts/payment-document.entity';
 import { ContractsService } from './contracts.service';
 import { ContractsController } from './contracts.controller';

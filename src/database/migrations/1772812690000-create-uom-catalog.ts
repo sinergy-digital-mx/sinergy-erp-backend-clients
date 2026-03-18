@@ -50,9 +50,9 @@ export class CreateUomCatalog1772812690000 implements MigrationInterface {
       })
     );
 
-    // Modify uoms table to reference catalog
+    // Modify product_uoms table to reference catalog
     await queryRunner.addColumn(
-      'uoms',
+      'product_uoms',
       new TableColumn({
         name: 'uom_catalog_id',
         type: 'varchar',
@@ -63,7 +63,7 @@ export class CreateUomCatalog1772812690000 implements MigrationInterface {
 
     // Add foreign key to catalog
     await queryRunner.createForeignKey(
-      'uoms',
+      'product_uoms',
       new TableForeignKey({
         columnNames: ['uom_catalog_id'],
         referencedColumnNames: ['id'],
@@ -74,9 +74,9 @@ export class CreateUomCatalog1772812690000 implements MigrationInterface {
 
     // Add index
     await queryRunner.createIndex(
-      'uoms',
+      'product_uoms',
       new TableIndex({
-        name: 'idx_uoms_catalog',
+        name: 'idx_product_uoms_catalog',
         columnNames: ['uom_catalog_id'],
       })
     );
@@ -84,17 +84,17 @@ export class CreateUomCatalog1772812690000 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Drop foreign key
-    const table = await queryRunner.getTable('uoms');
+    const table = await queryRunner.getTable('product_uoms');
     const foreignKey = table?.foreignKeys.find(fk => fk.columnNames.indexOf('uom_catalog_id') !== -1);
     if (foreignKey) {
-      await queryRunner.dropForeignKey('uoms', foreignKey);
+      await queryRunner.dropForeignKey('product_uoms', foreignKey);
     }
 
     // Drop index
-    await queryRunner.dropIndex('uoms', 'idx_uoms_catalog');
+    await queryRunner.dropIndex('product_uoms', 'idx_product_uoms_catalog');
 
     // Drop column
-    await queryRunner.dropColumn('uoms', 'uom_catalog_id');
+    await queryRunner.dropColumn('product_uoms', 'uom_catalog_id');
 
     // Drop catalog table
     await queryRunner.dropTable('uom_catalog');

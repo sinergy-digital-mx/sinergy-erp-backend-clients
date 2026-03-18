@@ -130,3 +130,34 @@ export const RequireFullAccess = (entityType: string) =>
     { entityType, action: 'Update' },
     { entityType, action: 'Delete' }
   );
+
+/**
+ * Decorator for Ver_Menu permission
+ * This permission controls sidebar visibility for modules
+ * 
+ * @param entityType - The entity/module type (e.g., 'customers', 'leads', 'vendors')
+ * @returns Decorator function
+ * 
+ * @example
+ * ```typescript
+ * @Get('menu-items')
+ * @RequireVerMenu('customers')
+ * async getCustomerMenuItems() {
+ *   // Only users with customers:Ver_Menu permission can access this
+ * }
+ * ```
+ */
+export const RequireVerMenu = (entityType: string) =>
+  RequirePermission(entityType, 'Ver_Menu');
+
+/**
+ * Convenience decorators for Ver_Menu permission on common modules
+ */
+export const RequireCustomerMenu = () => RequireVerMenu('customers');
+export const RequireLeadMenu = () => RequireVerMenu('leads');
+export const RequireVendorMenu = () => RequireVerMenu('vendors');
+export const RequireProductMenu = () => RequireVerMenu('products');
+export const RequireWarehouseMenu = () => RequireVerMenu('warehouse');
+export const RequireContractMenu = () => RequireVerMenu('contracts');
+export const RequireActivityMenu = () => RequireVerMenu('activities');
+export const RequireReportMenu = () => RequireVerMenu('reports');
