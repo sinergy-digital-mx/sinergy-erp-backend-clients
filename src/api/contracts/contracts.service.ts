@@ -377,12 +377,12 @@ export class ContractsService {
       .andWhere('c.status = :status', { status: 'activo' })
       .getRawOne();
 
-    // Contracts with overdue payments - sum of total_price
+    // Contracts with overdue payments - sum of overdue payment amounts (not contract total)
     const overdueStats = await this.contractRepo
       .createQueryBuilder('c')
       .leftJoin('payments', 'p', 'p.contract_id = c.id AND CAST(p.is_overdue AS UNSIGNED) = :isOverdue', { isOverdue: 1 })
       .select('COUNT(DISTINCT c.id)', 'count')
-      .addSelect('SUM(DISTINCT c.total_price)', 'value')
+      .addSelect('SUM(CASE WHEN p.status = "parcial" THEN p.amount_pending ELSE p.amount END)', 'value')
       .where('c.tenant_id = :tenantId', { tenantId })
       .andWhere('c.status = :status', { status: 'activo' })
       .andWhere('p.id IS NOT NULL')
