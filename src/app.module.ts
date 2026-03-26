@@ -23,6 +23,7 @@ import { PurchaseOrdersModule } from './api/purchase-orders/purchase-orders.modu
 import { InventoryModule } from './api/inventory/inventory.module';
 import { POSModule } from './api/pos/pos.module';
 import { PriceListModule } from './api/price-lists/price-list.module';
+import { MailerConfigurationModule } from './api/mailer-configuration/mailer-configuration.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { PriceListModule } from './api/price-lists/price-list.module';
     AuthModule,
     RBACModule,
     EmailModule,
+    MailerConfigurationModule,
     PropertiesModule,
     ContractsModule,
     TransactionsModule,

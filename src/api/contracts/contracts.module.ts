@@ -12,6 +12,7 @@ import { PaymentsService } from './payments.service';
 import { PaymentsController } from './payments.controller';
 import { PaymentDocumentsService } from './payment-documents.service';
 import { PaymentDocumentsController } from './payment-documents.controller';
+import { ContractsMaintenanceService } from './contracts-maintenance.service';
 import { S3Service } from '../../common/services/s3.service';
 import { RBACModule } from '../rbac/rbac.module';
 
@@ -25,6 +26,7 @@ import { RBACModule } from '../rbac/rbac.module';
     ContractDocumentsService,
     PaymentsService,
     PaymentDocumentsService,
+    ContractsMaintenanceService,
     S3Service,
   ],
   controllers: [

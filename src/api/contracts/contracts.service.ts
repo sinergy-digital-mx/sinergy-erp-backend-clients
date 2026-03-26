@@ -95,7 +95,7 @@ export class ContractsService {
     return `${baseNumber}-${Date.now()}`;
   }
 
-  async findAll(tenantId: string, customerId?: number, propertyId?: string, status?: string, hasOverdue?: boolean, search?: string): Promise<any[]> {
+  async findAll(tenantId: string, customerId?: number, propertyId?: string, status?: string, hasOverdue?: boolean, search?: string, page: number = 1, limit: number = 20): Promise<any> {
     const query = this.contractRepo
       .createQueryBuilder('c')
       .where('c.tenant_id = :tenantId', { tenantId })
@@ -117,8 +117,8 @@ export class ContractsService {
     // Filter by contracts with overdue payments
     if (hasOverdue === true) {
       query
-        .innerJoin('payments', 'p', 'p.contract_id = c.id')
-        .andWhere('p.status = :paymentStatus', { paymentStatus: 'vencido' });
+        .innerJoin('payments', 'p', 'p.contract_id = c.id AND p.is_overdue = true')
+        .andWhere('p.status IN (:...statuses)', { statuses: ['pendiente', 'parcial'] });
     }
 
     // Search by customer name, contract number, or property code
@@ -129,11 +129,58 @@ export class ContractsService {
       );
     }
 
-    const contracts = await query.orderBy('c.contract_date', 'DESC').getMany();
+    const contracts = await query
+      .orderBy('c.contract_date', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getMany();
 
     if (contracts.length === 0) {
-      return [];
+      return {
+        data: [],
+        pagination: {
+          page,
+          limit,
+          total: 0,
+          pages: 0,
+        },
+      };
     }
+
+    // Get total count for pagination
+    const countQuery = this.contractRepo
+      .createQueryBuilder('c')
+      .where('c.tenant_id = :tenantId', { tenantId })
+      .leftJoin('c.customer', 'customer')
+      .leftJoin('c.property', 'property');
+
+    if (customerId) {
+      countQuery.andWhere('c.customer_id = :customerId', { customerId });
+    }
+
+    if (propertyId) {
+      countQuery.andWhere('c.property_id = :propertyId', { propertyId });
+    }
+
+    if (status) {
+      countQuery.andWhere('c.status = :status', { status });
+    }
+
+    if (hasOverdue === true) {
+      countQuery
+        .innerJoin('payments', 'p', 'p.contract_id = c.id AND p.is_overdue = true')
+        .andWhere('p.status IN (:...statuses)', { statuses: ['pendiente', 'parcial'] });
+    }
+
+    if (search) {
+      countQuery.andWhere(
+        '(customer.name LIKE :search OR customer.lastname LIKE :search OR c.contract_number LIKE :search OR property.code LIKE :search)',
+        { search: `%${search}%` }
+      );
+    }
+
+    const total = await countQuery.getCount();
+    const pages = Math.ceil(total / limit);
 
     // Get next payment for each contract (first unpaid payment ordered by due_date)
     const contractIds = contracts.map(c => c.id);
@@ -173,7 +220,7 @@ export class ContractsService {
     });
 
     // Add next payment info and financed amount to each contract
-    return contracts.map(contract => {
+    const data = contracts.map(contract => {
       const totalPrice = Number(contract.total_price) || 0;
       const downPayment = Number(contract.down_payment) || 0;
       const financedAmount = totalPrice - downPayment;
@@ -187,6 +234,44 @@ export class ContractsService {
         next_payment_amount: nextPaymentMap.get(contract.id)?.next_payment_amount || null,
       };
     });
+
+    // Get overdue payment counts for each contract (calculate dynamically, not from DB flag)
+    const overdueCountsQuery = `
+      SELECT contract_id, COUNT(*) as overdue_count
+      FROM payments
+      WHERE contract_id IN (${contractIds.map(() => '?').join(',')})
+        AND tenant_id = ?
+        AND payment_date < CURDATE()
+        AND status IN ('pendiente', 'parcial')
+      GROUP BY contract_id
+    `;
+
+    const overdueCounts = await this.contractRepo.manager.query(
+      overdueCountsQuery,
+      [...contractIds, tenantId]
+    );
+
+    const overdueCountMap = new Map();
+    overdueCounts.forEach(row => {
+      overdueCountMap.set(row.contract_id, row.overdue_count);
+    });
+
+    // Add overdue count to each contract
+    const dataWithOverdue = data.map(contract => ({
+      ...contract,
+      overdue_payments_count: overdueCountMap.get(contract.id) || 0,
+      has_overdue: (overdueCountMap.get(contract.id) || 0) > 0,
+    }));
+
+    return {
+      data: dataWithOverdue,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages,
+      },
+    };
   }
 
   async findOne(tenantId: string, id: string): Promise<any> {
@@ -218,13 +303,14 @@ export class ContractsService {
   private async enrichContractWithPaymentData(contract: Contract, tenantId: string): Promise<any> {
     // Get all payments for this contract
     const allPayments = await this.contractRepo.manager.query(
-      'SELECT status, amount, amount_paid, amount_pending, payment_number FROM payments WHERE contract_id = ? AND tenant_id = ?',
+      'SELECT status, amount, amount_paid, amount_pending, payment_number, is_overdue FROM payments WHERE contract_id = ? AND tenant_id = ?',
       [contract.id, tenantId]
     );
 
     // Calculate totals
     let totalPaidFromPayments = 0;
     let pendingFullPayments = 0;
+    let overdueCount = 0;
     let partialPayment: {
       installment_number: number;
       amount_paid: number;
@@ -237,6 +323,7 @@ export class ContractsService {
       const amountPaid = Number(payment.amount_paid);
       const amount = Number(payment.amount);
       const amountPending = Number(payment.amount_pending);
+      const isOverdue = payment.is_overdue;
 
       if (status === 'pagado') {
         // FIXED: For completed payments, count the full amount, not amount_paid
@@ -250,8 +337,16 @@ export class ContractsService {
           remaining_amount: amountPending,
           status: 'pending_completion'
         };
+        // Count overdue parcial payments
+        if (isOverdue) {
+          overdueCount++;
+        }
       } else if (status === 'pendiente' || status === 'vencido') {
         pendingFullPayments++;
+        // Count overdue pendiente payments
+        if (isOverdue) {
+          overdueCount++;
+        }
       }
     }
 
@@ -270,6 +365,8 @@ export class ContractsService {
       remaining_balance: Math.round(totalPendingAmount * 100) / 100, // Override con valor calculado
       pending_full_payments: pendingFullPayments,
       partial_payment: partialPayment,
+      overdue_payments_count: overdueCount,
+      has_overdue: overdueCount > 0,
     };
   }
 
@@ -377,11 +474,12 @@ export class ContractsService {
       .andWhere('c.status = :status', { status: 'activo' })
       .getRawOne();
 
-    // Contracts with overdue payments - sum of overdue payment amounts (not contract total)
+    // Contracts with overdue payments - count contracts AND payments
     const overdueStats = await this.contractRepo
       .createQueryBuilder('c')
-      .leftJoin('payments', 'p', 'p.contract_id = c.id AND CAST(p.is_overdue AS UNSIGNED) = :isOverdue', { isOverdue: 1 })
-      .select('COUNT(DISTINCT c.id)', 'count')
+      .leftJoin('payments', 'p', 'p.contract_id = c.id AND p.payment_date < CURDATE() AND p.status IN (:...statuses)', { statuses: ['pendiente', 'parcial'] })
+      .select('COUNT(DISTINCT c.id)', 'contracts_count')
+      .addSelect('COUNT(p.id)', 'payments_count')
       .addSelect('SUM(CASE WHEN p.status = "parcial" THEN p.amount_pending ELSE p.amount END)', 'value')
       .where('c.tenant_id = :tenantId', { tenantId })
       .andWhere('c.status = :status', { status: 'activo' })
@@ -404,7 +502,8 @@ export class ContractsService {
         remaining: parseFloat(activeStats.pending_value) || 0,
       },
       overdue: {
-        count: parseInt(overdueStats.count) || 0,
+        contracts_count: parseInt(overdueStats.contracts_count) || 0,
+        payments_count: parseInt(overdueStats.payments_count) || 0,
         value: parseFloat(overdueStats.value) || 0,
       },
     };

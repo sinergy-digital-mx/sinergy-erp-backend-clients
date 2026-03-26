@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import 'dotenv/config';
-import { AppDataSource } from '../data-source';
+import { AppDataSource } from '../../data-source';
 
 async function runMigrations() {
   try {

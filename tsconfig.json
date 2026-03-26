@@ -20,6 +20,9 @@
     "forceConsistentCasingInFileNames": true,
     "noImplicitAny": false,
     "strictBindCallApply": false,
-    "noFallthroughCasesInSwitch": false
-  }
+    "noFallthroughCasesInSwitch": false,
+    "skipDefaultLibCheck": true
+  },
+  "include": ["src/api/**/*", "src/entities/**/*", "src/common/**/*", "src/main.ts"],
+  "exclude": ["node_modules", "dist", "src/database/**/*"]
 }

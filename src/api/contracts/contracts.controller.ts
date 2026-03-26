@@ -45,11 +45,16 @@ export class ContractsController {
     @Query('status') status?: string,
     @Query('hasOverdue') hasOverdue?: string,
     @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
     const tenantId = this.tenantContext.getCurrentTenantId();
     if (!tenantId) {
       throw new Error('Tenant context is required');
     }
+    const pageNum = page ? parseInt(page) : 1;
+    const limitNum = limit ? parseInt(limit) : 20;
+    
     return this.contractsService.findAll(
       tenantId,
       customerId ? parseInt(customerId) : undefined,
@@ -57,6 +62,8 @@ export class ContractsController {
       status,
       hasOverdue === 'true',
       search,
+      pageNum,
+      limitNum,
     );
   }
 
