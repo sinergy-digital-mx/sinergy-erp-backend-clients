@@ -1,31 +1,36 @@
-import { IsOptional, IsUUID, IsEnum, IsDateString, Min, Max } from 'class-validator';
+import {
+  IsOptional,
+  IsEnum,
+  IsUUID,
+  IsInt,
+  Min,
+  Max,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class QueryPurchaseOrderDto {
   @IsOptional()
-  @Type(() => Number)
-  @Min(1)
-  page?: number = 1;
+  @IsEnum(['Creada', 'Recibida', 'Cancelada'])
+  general_status?: string;
 
   @IsOptional()
-  @Type(() => Number)
-  @Min(1)
-  @Max(100)
-  limit?: number = 20;
+  @IsEnum(['Pendiente', 'Pagado'])
+  payment_status?: string;
 
   @IsOptional()
   @IsUUID()
   vendor_id?: string;
 
   @IsOptional()
-  @IsEnum(['En Proceso', 'Recibida', 'Cancelada'])
-  status?: string;
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  page?: number;
 
   @IsOptional()
-  @IsDateString()
-  start_date?: string;
-
-  @IsOptional()
-  @IsDateString()
-  end_date?: string;
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @Type(() => Number)
+  limit?: number;
 }

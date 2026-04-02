@@ -8,25 +8,18 @@ import {
   UpdateDateColumn,
   Index,
 } from 'typeorm';
-import { RBACTenant } from '../rbac/tenant.entity';
 import { Product } from './product.entity';
 import { PriceList } from './price-list.entity';
+import { ProductUoM } from './product-uom.entity';
 
 @Entity('product_prices')
-@Index('product_prices_tenant_idx', ['tenant_id'])
-@Index('product_prices_product_idx', ['product_id'])
-@Index('product_prices_price_list_idx', ['price_list_id'])
-@Index('product_prices_unique_idx', ['product_id', 'price_list_id'], { unique: true })
+@Index('product_price_list_uom_unique', ['product_id', 'price_list_id', 'product_uom_id'], { unique: true })
+@Index('product_index', ['product_id'])
+@Index('price_list_index', ['price_list_id'])
+@Index('product_uom_index', ['product_uom_id'])
 export class ProductPrice {
   @PrimaryGeneratedColumn('uuid')
   id: string;
-
-  @ManyToOne(() => RBACTenant, { onDelete: 'CASCADE', nullable: false })
-  @JoinColumn({ name: 'tenant_id' })
-  tenant: RBACTenant;
-
-  @Column()
-  tenant_id: string;
 
   @ManyToOne(() => Product, { onDelete: 'CASCADE', nullable: false })
   @JoinColumn({ name: 'product_id' })
@@ -35,30 +28,40 @@ export class ProductPrice {
   @Column()
   product_id: string;
 
-  @ManyToOne(() => PriceList, (priceList) => priceList.product_prices, { onDelete: 'CASCADE', nullable: false })
+  @ManyToOne(() => PriceList, { onDelete: 'CASCADE', nullable: false })
   @JoinColumn({ name: 'price_list_id' })
   price_list: PriceList;
 
   @Column()
   price_list_id: string;
 
+  @ManyToOne(() => ProductUoM, { onDelete: 'CASCADE', nullable: false })
+  @JoinColumn({ name: 'product_uom_id' })
+  product_uom: ProductUoM;
+
+  @Column()
+  product_uom_id: string;
+
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   price: number;
 
   @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
-  discount_percentage: number;
+  iva_percentage: number;
 
-  @Column({ type: 'date', nullable: true })
-  valid_from: Date | null;
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
+  ieps_percentage: number;
 
-  @Column({ type: 'date', nullable: true })
-  valid_to: Date | null;
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  iva_unit_total: number;
 
-  @Column({ default: true })
-  is_active: boolean;
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  ieps_unit_total: number;
 
-  @Column({ type: 'json', nullable: true })
-  metadata: Record<string, any>;
+  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  subtotal: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  total: number;
 
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;

@@ -1,46 +1,82 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { PurchaseOrderController } from './purchase-order.controller';
-import { LineItemController } from './line-item.controller';
-import { PaymentController } from './payment.controller';
-import { DocumentController } from './document.controller';
-import { PurchaseOrderService } from './purchase-order.service';
-import { LineItemService } from './line-item.service';
-import { PaymentService } from './payment.service';
-import { DocumentService } from './document.service';
-import { TaxCalculationService } from './tax-calculation.service';
-import { PurchaseOrder } from '../../entities/purchase-orders/purchase-order.entity';
-import { LineItem } from '../../entities/purchase-orders/line-item.entity';
-import { Payment } from '../../entities/purchase-orders/payment.entity';
-import { Document } from '../../entities/purchase-orders/document.entity';
-import { RBACModule } from '../rbac/rbac.module';
-import { InventoryModule } from '../inventory/inventory.module';
+import { PurchaseOrderBatch, PurchaseOrderBatchDetail, InventoryBatch, PurchaseOrderDocument, PurchaseOrderDocumentType } from '../../entities/purchase-orders';
+import { Warehouse } from '../../entities/warehouse/warehouse.entity';
+import { Product, ProductUoM, ProductVendorCost } from '../../entities/products';
+import { TenantModule, Module as ModuleEntity } from '../../entities/rbac';
+import { AuthModule } from '../auth/auth.module';
+import { S3Service } from '../../common/services/s3.service';
+import { PurchaseOrderController, VendorProductsController, PurchaseOrderDocumentsController, ReceiptController, InventoryBatchController } from './controllers';
+import {
+  PurchaseOrderService,
+  VendorProductsService,
+  BatchNumberGeneratorService,
+  UnitConversionService,
+  FolioGeneratorService,
+  PurchaseOrderDocumentsService,
+  PurchaseOrderPdfService,
+  ReceiptService,
+  ReceiptValidatorService,
+  LineItemUpdaterService,
+  BatchCreatorService,
+  TotalCalculatorService,
+  POStatusUpdaterService,
+  TenantValidatorService,
+  InventoryBatchService,
+} from './services';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([PurchaseOrder, LineItem, Payment, Document]),
-    RBACModule,
-    forwardRef(() => InventoryModule),
+    TypeOrmModule.forFeature([
+      PurchaseOrderBatch,
+      PurchaseOrderBatchDetail,
+      InventoryBatch,
+      PurchaseOrderDocument,
+      PurchaseOrderDocumentType,
+      Warehouse,
+      Product,
+      ProductUoM,
+      ProductVendorCost,
+      TenantModule,
+      ModuleEntity,
+    ]),
+    AuthModule,
   ],
+  controllers: [PurchaseOrderController, VendorProductsController, PurchaseOrderDocumentsController, ReceiptController, InventoryBatchController],
   providers: [
     PurchaseOrderService,
-    LineItemService,
-    PaymentService,
-    DocumentService,
-    TaxCalculationService,
-  ],
-  controllers: [
-    PurchaseOrderController,
-    LineItemController,
-    PaymentController,
-    DocumentController,
+    VendorProductsService,
+    BatchNumberGeneratorService,
+    UnitConversionService,
+    FolioGeneratorService,
+    PurchaseOrderDocumentsService,
+    PurchaseOrderPdfService,
+    ReceiptService,
+    ReceiptValidatorService,
+    LineItemUpdaterService,
+    BatchCreatorService,
+    TotalCalculatorService,
+    POStatusUpdaterService,
+    TenantValidatorService,
+    InventoryBatchService,
+    S3Service,
   ],
   exports: [
     PurchaseOrderService,
-    LineItemService,
-    PaymentService,
-    DocumentService,
-    TaxCalculationService,
+    VendorProductsService,
+    BatchNumberGeneratorService,
+    UnitConversionService,
+    FolioGeneratorService,
+    PurchaseOrderDocumentsService,
+    PurchaseOrderPdfService,
+    ReceiptService,
+    ReceiptValidatorService,
+    LineItemUpdaterService,
+    BatchCreatorService,
+    TotalCalculatorService,
+    POStatusUpdaterService,
+    TenantValidatorService,
+    InventoryBatchService,
   ],
 })
 export class PurchaseOrdersModule {}

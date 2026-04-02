@@ -7,26 +7,19 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   Index,
-  OneToMany,
 } from 'typeorm';
 import { RBACTenant } from '../rbac/tenant.entity';
 import { Category } from '../categories/category.entity';
 import { Subcategory } from '../categories/subcategory.entity';
-import { UoM } from './uom.entity';
-import { UoMRelationship } from './uom-relationship.entity';
-import { VendorProductPrice } from './vendor-product-price.entity';
-import { ProductPhoto } from './product-photo.entity';
-import { UoMCatalog } from './uom-catalog.entity';
-import { ProductPrice } from './product-price.entity';
 
 @Entity('products')
-@Index('tenant_sku_index', ['tenant_id', 'sku'], { unique: true })
-@Index('tenant_index', ['tenant_id'])
-@Index('sku_index', ['sku'])
-@Index('category_index', ['category_id'])
-@Index('subcategory_index', ['subcategory_id'])
-@Index('tenant_category_index', ['tenant_id', 'category_id'])
-@Index('tenant_subcategory_index', ['tenant_id', 'subcategory_id'])
+@Index('UQ_products_tenant_sku', ['tenant_id', 'sku'], { unique: true })
+@Index('IDX_products_tenant_id', ['tenant_id'])
+@Index('IDX_products_sku', ['sku'])
+@Index('IDX_products_category_id', ['category_id'])
+@Index('IDX_products_subcategory_id', ['subcategory_id'])
+@Index('IDX_products_tenant_category', ['tenant_id', 'category_id'])
+@Index('IDX_products_tenant_subcategory', ['tenant_id', 'subcategory_id'])
 export class Product {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -37,6 +30,18 @@ export class Product {
 
   @Column()
   tenant_id: string;
+
+  @Column({ length: 255 })
+  sku: string;
+
+  @Column({ length: 255 })
+  name: string;
+
+  @Column({ type: 'text', nullable: true })
+  description: string;
+
+  @Column({ default: true })
+  is_active: boolean;
 
   @ManyToOne(() => Category, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'category_id' })
@@ -51,37 +56,6 @@ export class Product {
 
   @Column({ nullable: true })
   subcategory_id: string | null;
-
-  @Column({ length: 255, nullable: false })
-  sku: string;
-
-  @Column({ length: 255, nullable: false })
-  name: string;
-
-  @Column({ type: 'text', nullable: true })
-  description: string;
-
-  @ManyToOne(() => UoM, { onDelete: 'SET NULL', nullable: true })
-  @JoinColumn({ name: 'base_uom_id' })
-  base_uom: UoM | null;
-
-  @Column({ nullable: true })
-  base_uom_id: string | null;
-
-  @OneToMany(() => UoM, (uom) => uom.product, { cascade: true })
-  uoms: UoM[];
-
-  @OneToMany(() => UoMRelationship, (rel) => rel.product, { cascade: true })
-  uom_relationships: UoMRelationship[];
-
-  @OneToMany(() => VendorProductPrice, (price) => price.product, { cascade: true })
-  vendor_prices: VendorProductPrice[];
-
-  @OneToMany(() => ProductPhoto, (photo) => photo.product, { cascade: true })
-  photos: ProductPhoto[];
-
-  @OneToMany(() => ProductPrice, (price) => price.product, { cascade: true })
-  prices: ProductPrice[];
 
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;

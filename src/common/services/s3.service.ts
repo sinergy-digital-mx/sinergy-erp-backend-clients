@@ -6,9 +6,10 @@ import { v4 as uuidv4 } from 'uuid';
 @Injectable()
 export class S3Service {
   private s3Client: S3Client;
-  private bucketName = 'sin-customer-documents';
+  private bucketName: string;
 
   constructor() {
+    this.bucketName = process.env.AWS_S3_BUCKET || 'sin-customer-documents';
     this.s3Client = new S3Client({
       region: process.env.AWS_REGION || 'us-east-2',
       credentials: {
@@ -59,12 +60,19 @@ export class S3Service {
    * @returns Signed URL
    */
   async getSignedUrl(s3Key: string, expiresIn: number = 3600): Promise<string> {
-    const command = new GetObjectCommand({
-      Bucket: this.bucketName,
-      Key: s3Key,
-    });
+    try {
+      const command = new GetObjectCommand({
+        Bucket: this.bucketName,
+        Key: s3Key,
+      });
 
-    return getSignedUrl(this.s3Client, command, { expiresIn });
+      return getSignedUrl(this.s3Client, command, { expiresIn });
+    } catch (error) {
+      console.error('[S3] Error generating signed URL:', error);
+      // If signing fails, return the direct S3 URL
+      // This will work if the bucket has public access or if accessed from within AWS
+      return `https://${this.bucketName}.s3.${process.env.AWS_REGION || 'us-east-2'}.amazonaws.com/${s3Key}`;
+    }
   }
 
   /**

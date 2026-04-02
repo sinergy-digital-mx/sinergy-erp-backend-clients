@@ -1,27 +1,31 @@
-import { IsString, IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional, IsUUID, Length } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateProductDto {
-  @IsString()
+  @ApiProperty({ example: 'PROD-001', description: 'SKU único del producto' })
   @IsNotEmpty()
+  @IsString()
+  @Length(1, 255)
   sku: string;
 
-  @IsString()
+  @ApiProperty({ example: 'Producto de ejemplo', description: 'Nombre del producto' })
   @IsNotEmpty()
+  @IsString()
+  @Length(1, 255)
   name: string;
 
-  @IsString()
+  @ApiPropertyOptional({ example: 'Descripción detallada del producto', description: 'Descripción' })
   @IsOptional()
+  @IsString()
   description?: string;
 
-  @IsUUID()
+  @ApiPropertyOptional({ example: 'uuid-category', description: 'ID de la categoría' })
   @IsOptional()
+  @IsUUID()
   category_id?: string;
 
-  @IsUUID()
+  @ApiPropertyOptional({ example: 'uuid-subcategory', description: 'ID de la subcategoría' })
   @IsOptional()
+  @IsUUID()
   subcategory_id?: string;
-
-  @IsUUID()
-  @IsOptional()
-  base_uom_id?: string;
 }

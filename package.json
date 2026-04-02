@@ -33,6 +33,11 @@
     "rbac:users": "ts-node -r tsconfig-paths/register src/api/rbac/scripts/create-users.script.ts",
     "rbac:migrate-users": "ts-node -r tsconfig-paths/register src/api/rbac/scripts/migrate-users.script.ts",
     "rbac:assign-modules": "ts-node -r tsconfig-paths/register src/database/scripts/assign-modules-to-tenants.ts",
+    "seed:assign-all-modules": "ts-node -r tsconfig-paths/register src/database/seeds/assign-all-modules-to-user.ts",
+    "seed:uom-catalog": "ts-node -r tsconfig-paths/register src/database/seeds/seed-uom-catalog-module.ts",
+    "seed:products": "ts-node -r tsconfig-paths/register src/database/seeds/seed-products-module.ts",
+    "migrate:uom-catalog": "ts-node -r tsconfig-paths/register src/database/scripts/migrations/run-uom-migration.ts",
+    "cleanup:products": "ts-node -r tsconfig-paths/register src/database/scripts/cleanup/cleanup-products-module.ts",
     "import:leads": "ts-node -r tsconfig-paths/register src/database/scripts/import-leads-excel.ts"
   },
   "dependencies": {
@@ -63,6 +68,8 @@
     "nodemailer": "^6.9.7",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
+    "pdfkit": "^0.18.0",
+    "pdfmake": "^0.2.15",
     "pg": "^8.18.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",

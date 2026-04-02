@@ -32,6 +32,9 @@ export class Warehouse {
   @Column({ unique: true, nullable: true })
   code: string;
 
+  @Column({ length: 10, nullable: true })
+  prefix: string;
+
   @Column({ nullable: true })
   description: string;
 

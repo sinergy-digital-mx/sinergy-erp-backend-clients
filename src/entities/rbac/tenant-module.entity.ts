@@ -7,33 +7,32 @@ import {
   CreateDateColumn,
   Index,
 } from 'typeorm';
-import { IsBoolean, IsOptional } from 'class-validator';
+import { RBACTenant } from './tenant.entity';
+import { Module } from './module.entity';
 
 @Entity('tenant_modules')
-@Index('tenant_module_index', ['tenant_id', 'module_id'], { unique: true })
 @Index('tenant_index', ['tenant_id'])
 @Index('module_index', ['module_id'])
+@Index('tenant_module_index', ['tenant_id', 'module_id'], { unique: true })
 export class TenantModule {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne('RBACTenant', 'tenant_modules', { onDelete: 'CASCADE' })
+  @ManyToOne(() => RBACTenant, { onDelete: 'CASCADE', nullable: false })
   @JoinColumn({ name: 'tenant_id' })
-  tenant: any;
+  tenant: RBACTenant;
 
   @Column()
   tenant_id: string;
 
-  @ManyToOne('Module', 'tenant_modules', { onDelete: 'CASCADE' })
+  @ManyToOne(() => Module, { onDelete: 'CASCADE', nullable: false })
   @JoinColumn({ name: 'module_id' })
-  module: any;
+  module: Module;
 
   @Column()
   module_id: string;
 
-  @Column({ default: true })
-  @IsBoolean()
-  @IsOptional()
+  @Column({ type: 'tinyint', default: 1 })
   is_enabled: boolean;
 
   @CreateDateColumn({ type: 'timestamp' })

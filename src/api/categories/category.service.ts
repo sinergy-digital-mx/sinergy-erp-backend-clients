@@ -74,7 +74,6 @@ export class CategoryService {
   async findOne(id: string, tenantId: string): Promise<Category> {
     const category = await this.repo.findOne({
       where: { id, tenant_id: tenantId },
-      relations: ['subcategories'],
     });
 
     if (!category) {

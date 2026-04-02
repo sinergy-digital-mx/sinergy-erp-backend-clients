@@ -1,11 +1,4 @@
-import { IsString, IsOptional } from 'class-validator';
+import { PartialType } from '@nestjs/swagger';
+import { CreateUoMCatalogDto } from './create-uom-catalog.dto';
 
-export class UpdateUoMCatalogDto {
-  @IsString()
-  @IsOptional()
-  name?: string;
-
-  @IsString()
-  @IsOptional()
-  description?: string;
-}
+export class UpdateUoMCatalogDto extends PartialType(CreateUoMCatalogDto) {}
