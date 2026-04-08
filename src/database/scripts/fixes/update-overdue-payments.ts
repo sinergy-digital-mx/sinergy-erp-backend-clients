@@ -17,7 +17,7 @@ async function updateOverduePayments() {
 
     // Update payments that are past due date and not paid
     const result = await queryRunner.query(`
-      UPDATE payments 
+      UPDATE contract_payments 
       SET is_overdue = 1, updated_at = CURRENT_TIMESTAMP
       WHERE tenant_id = ? 
         AND status IN ('pendiente', 'parcial')
@@ -35,7 +35,7 @@ async function updateOverduePayments() {
         p.code as property_code,
         COUNT(*) as overdue_count,
         SUM(CASE WHEN pay.status = 'parcial' THEN pay.amount_pending ELSE pay.amount END) as overdue_amount
-      FROM payments pay
+      FROM contract_payments pay
       INNER JOIN contracts c ON pay.contract_id = c.id
       INNER JOIN customers cu ON c.customer_id = cu.id
       INNER JOIN properties p ON c.property_id = p.id

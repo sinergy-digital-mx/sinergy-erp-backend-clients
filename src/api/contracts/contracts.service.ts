@@ -117,7 +117,7 @@ export class ContractsService {
     // Filter by contracts with overdue payments
     if (hasOverdue === true) {
       query
-        .innerJoin('payments', 'p', 'p.contract_id = c.id AND p.is_overdue = true')
+        .innerJoin('contract_payments', 'p', 'p.contract_id = c.id AND p.is_overdue = true')
         .andWhere('p.status IN (:...statuses)', { statuses: ['pendiente', 'parcial'] });
     }
 
@@ -168,7 +168,7 @@ export class ContractsService {
 
     if (hasOverdue === true) {
       countQuery
-        .innerJoin('payments', 'p', 'p.contract_id = c.id AND p.is_overdue = true')
+        .innerJoin('contract_payments', 'p', 'p.contract_id = c.id AND p.is_overdue = true')
         .andWhere('p.status IN (:...statuses)', { statuses: ['pendiente', 'parcial'] });
     }
 
@@ -187,10 +187,10 @@ export class ContractsService {
     
     const nextPaymentsQuery = `
       SELECT p.*
-      FROM payments p
+      FROM contract_payments p
       INNER JOIN (
         SELECT contract_id, MIN(due_date) as next_due_date
-        FROM payments
+        FROM contract_payments
         WHERE contract_id IN (${contractIds.map(() => '?').join(',')})
           AND tenant_id = ?
           AND status IN ('pendiente', 'parcial', 'vencido')
@@ -238,7 +238,7 @@ export class ContractsService {
     // Get overdue payment counts for each contract (calculate dynamically, not from DB flag)
     const overdueCountsQuery = `
       SELECT contract_id, COUNT(*) as overdue_count
-      FROM payments
+      FROM contract_payments
       WHERE contract_id IN (${contractIds.map(() => '?').join(',')})
         AND tenant_id = ?
         AND payment_date < CURDATE()
@@ -303,7 +303,7 @@ export class ContractsService {
   private async enrichContractWithPaymentData(contract: Contract, tenantId: string): Promise<any> {
     // Get all payments for this contract
     const allPayments = await this.contractRepo.manager.query(
-      'SELECT status, amount, amount_paid, amount_pending, payment_number, is_overdue FROM payments WHERE contract_id = ? AND tenant_id = ?',
+      'SELECT status, amount, amount_paid, amount_pending, payment_number, is_overdue FROM contract_payments WHERE contract_id = ? AND tenant_id = ?',
       [contract.id, tenantId]
     );
 
@@ -416,7 +416,7 @@ export class ContractsService {
 
       // 2. Delete all payments (this will also update contract balances if needed)
       const paymentsResult = await queryRunner.query(
-        `DELETE FROM payments WHERE contract_id = ? AND tenant_id = ?`,
+        `DELETE FROM contract_payments WHERE contract_id = ? AND tenant_id = ?`,
         [id, tenantId]
       );
       console.log(`✅ Deleted ${paymentsResult.affectedRows || 0} payments`);
@@ -477,7 +477,7 @@ export class ContractsService {
     // Contracts with overdue payments - count contracts AND payments
     const overdueStats = await this.contractRepo
       .createQueryBuilder('c')
-      .leftJoin('payments', 'p', 'p.contract_id = c.id AND p.payment_date < CURDATE() AND p.status IN (:...statuses)', { statuses: ['pendiente', 'parcial'] })
+      .leftJoin('contract_payments', 'p', 'p.contract_id = c.id AND p.payment_date < CURDATE() AND p.status IN (:...statuses)', { statuses: ['pendiente', 'parcial'] })
       .select('COUNT(DISTINCT c.id)', 'contracts_count')
       .addSelect('COUNT(p.id)', 'payments_count')
       .addSelect('SUM(CASE WHEN p.status = "parcial" THEN p.amount_pending ELSE p.amount END)', 'value')

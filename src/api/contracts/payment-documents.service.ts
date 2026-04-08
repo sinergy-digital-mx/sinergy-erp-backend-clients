@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PaymentDocument } from '../../entities/contracts/payment-document.entity';
-import { Payment } from '../../entities/payments/payment.entity';
+import { Payment } from '../../entities/contracts/payment.entity';
 import { S3Service } from '../../common/services/s3.service';
 import { v4 as uuidv4 } from 'uuid';
 

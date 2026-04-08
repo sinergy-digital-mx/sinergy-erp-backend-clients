@@ -36,7 +36,7 @@ async function recalculateContractBalances() {
             WHEN status = 'parcial' THEN amount_paid 
             ELSE 0 
           END) as total_paid_real
-        FROM payments 
+        FROM contract_payments 
         WHERE contract_id = ? AND tenant_id = ?
       `, [contract.id, TENANT_ID]);
 

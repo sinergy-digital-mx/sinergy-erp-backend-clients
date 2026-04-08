@@ -19,7 +19,7 @@ async function checkPaymentsStructure() {
 
     console.log('\n🔄 Checking sample data...');
     const sampleData = await AppDataSource.query(`
-      SELECT * FROM payments LIMIT 3
+      SELECT * FROM contract_payments LIMIT 3
     `);
 
     console.log('📊 Sample payments data:');

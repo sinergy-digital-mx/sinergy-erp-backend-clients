@@ -1393,7 +1393,7 @@ create table if not exists inv_s_purchase_order_batch_detail
         primary key,
     purchase_order_batch_id           varchar(36)                              not null,
     product_id                        varchar(36)                              not null,
-    uom_id                            varchar(36)                              not null,
+    product_uom_id                    varchar(36)                              not null,
     quantity                          decimal(12, 3)                           not null,
     unit_total                        decimal(12, 2)                           not null,
     iva_percentage                    decimal(5, 2)  default 0.00              not null,
@@ -1425,8 +1425,8 @@ create table if not exists inv_s_purchase_order_batch_detail
         foreign key (received_original_product_id) references products (id),
     constraint fk_po_detail_received_uom
         foreign key (received_original_uom_id) references uom_catalog (id),
-    constraint fk_po_detail_uom
-        foreign key (uom_id) references uom_catalog (id)
+    constraint fk_po_detail_product_uom
+        foreign key (product_uom_id) references product_uoms (id)
 );
 
 create table if not exists inv_s_batches

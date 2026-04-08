@@ -66,7 +66,7 @@ async function fixPaymentsStructure() {
 
       // Obtener pagos del contrato ordenados correctamente (por número como entero)
       const payments = await queryRunner.query(`
-        SELECT * FROM payments 
+        SELECT * FROM contract_payments 
         WHERE contract_id = ? 
         ORDER BY CAST(payment_number AS UNSIGNED) ASC
       `, [contract.id]);
@@ -88,7 +88,7 @@ async function fixPaymentsStructure() {
         const amountPending = payment.status === 'pagado' ? 0 : payment.amount_paid;
 
         await queryRunner.query(`
-          UPDATE payments 
+          UPDATE contract_payments 
           SET 
             amount = ?,
             amount_pending = ?,

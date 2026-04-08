@@ -29,7 +29,7 @@ async function regeneratePaymentsCorrectly() {
     // Get all payments for the tenant
     const payments = await queryRunner.query(`
       SELECT p.*, c.id as contract_id
-      FROM payments p
+      FROM contract_payments p
       INNER JOIN contracts c ON p.contract_id = c.id
       WHERE c.tenant_id = ?
     `, [TENANT_ID]);
@@ -53,7 +53,7 @@ async function regeneratePaymentsCorrectly() {
       }
 
       await queryRunner.query(`
-        UPDATE payments 
+        UPDATE contract_payments 
         SET 
           amount = ?,
           amount_paid = ?,

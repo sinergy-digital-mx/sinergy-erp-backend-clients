@@ -62,7 +62,7 @@ async function diagnoseRoxana() {
       const contractId = contractByNumber[0].id;
       const payments = await AppDataSource.query(`
         SELECT id, payment_number, due_date, amount, amount_paid, status
-        FROM payments 
+        FROM contract_payments 
         WHERE contract_id = ?
       `, [contractId]);
 

@@ -18,7 +18,7 @@ async function debugPartialPayments() {
     // Check all payments for this contract
     const allPayments = await queryRunner.query(`
       SELECT payment_number, status, is_overdue, due_date, amount_paid, amount_pending, amount
-      FROM payments 
+      FROM contract_payments 
       WHERE contract_id = ? AND tenant_id = ?
       ORDER BY CAST(payment_number AS UNSIGNED)
     `, [CONTRACT_ID, TENANT_ID]);

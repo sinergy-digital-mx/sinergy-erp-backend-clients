@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { PurchaseOrderBatch } from './purchase-order-batch.entity';
 import { Product } from '../products/product.entity';
+import { ProductUoM } from '../products/product-uom.entity';
 import { UoMCatalog } from '../uom-catalog/uom-catalog.entity';
 
 @Entity('inv_s_purchase_order_batch_detail')
@@ -38,12 +39,12 @@ export class PurchaseOrderBatchDetail {
   @Column()
   product_id: string;
 
-  @ManyToOne(() => UoMCatalog, { onDelete: 'RESTRICT', nullable: false })
-  @JoinColumn({ name: 'uom_id' })
-  uom: UoMCatalog;
+  @ManyToOne(() => ProductUoM, { onDelete: 'RESTRICT', nullable: false })
+  @JoinColumn({ name: 'product_uom_id' })
+  product_uom: ProductUoM;
 
   @Column()
-  uom_id: string;
+  product_uom_id: string;
 
   @Column({ type: 'decimal', precision: 12, scale: 3 })
   quantity: number;

@@ -59,9 +59,9 @@ export class InventoryBatch {
   @Column({ type: 'decimal', precision: 12, scale: 3 })
   quantity: number;
 
-  @ManyToOne(() => PurchaseOrderBatch, { onDelete: 'SET NULL', nullable: true })
+  @ManyToOne(() => PurchaseOrderBatch, (po) => po.batches, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'purchase_order_batch_id' })
-  purchase_order: PurchaseOrderBatch;
+  purchase_order_batch: PurchaseOrderBatch;
 
   @Column({ nullable: true })
   purchase_order_batch_id: string;

@@ -33,7 +33,7 @@ async function updateRoxanaPayments() {
     // Get existing payments
     const existingPayments = await AppDataSource.query(`
       SELECT id, payment_number, due_date, amount, amount_paid, amount_pending, status
-      FROM payments 
+      FROM contract_payments 
       WHERE contract_id = ?
       ORDER BY CAST(payment_number AS UNSIGNED) ASC
     `, [contractData.id]);
@@ -57,7 +57,7 @@ async function updateRoxanaPayments() {
 
       // Update payment with correct values
       await AppDataSource.query(`
-        UPDATE payments 
+        UPDATE contract_payments 
         SET 
           amount = ?,
           amount_pending = ?,
@@ -84,7 +84,7 @@ async function updateRoxanaPayments() {
     // Verify updates
     const verifyPayments = await AppDataSource.query(`
       SELECT payment_number, due_date, amount, amount_paid, amount_pending, status
-      FROM payments 
+      FROM contract_payments 
       WHERE contract_id = ?
       ORDER BY CAST(payment_number AS UNSIGNED) ASC
       LIMIT 10
@@ -103,7 +103,7 @@ async function updateRoxanaPayments() {
         SUM(amount) as total_amount,
         SUM(amount_paid) as total_paid,
         SUM(amount_pending) as total_pending
-      FROM payments 
+      FROM contract_payments 
       WHERE contract_id = ?
     `, [contractData.id]);
 

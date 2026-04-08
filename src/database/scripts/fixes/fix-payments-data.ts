@@ -15,7 +15,7 @@ async function fixPaymentsData() {
     // 4. Calculate amount_pending
     
     await AppDataSource.query(`
-      UPDATE payments SET
+      UPDATE contract_payments SET
         due_date = payment_date,
         amount = amount_paid,
         amount_paid = CASE 
@@ -37,7 +37,7 @@ async function fixPaymentsData() {
     console.log('🔄 Checking fixed data...');
     const sampleData = await AppDataSource.query(`
       SELECT id, payment_number, due_date, amount, amount_paid, amount_pending, status, paid_date
-      FROM payments 
+      FROM contract_payments 
       LIMIT 5
     `);
 

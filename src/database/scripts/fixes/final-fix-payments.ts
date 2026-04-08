@@ -9,7 +9,7 @@ async function finalFixPayments() {
     console.log('🔄 Final fix for amount_pending...');
     
     await AppDataSource.query(`
-      UPDATE payments SET
+      UPDATE contract_payments SET
         amount_pending = CASE 
           WHEN status = 'pagado' THEN 0
           ELSE amount
@@ -21,7 +21,7 @@ async function finalFixPayments() {
     console.log('🔄 Checking final data...');
     const sampleData = await AppDataSource.query(`
       SELECT payment_number, due_date, amount, amount_paid, amount_pending, status
-      FROM payments 
+      FROM contract_payments 
       WHERE status IN ('pagado', 'pendiente')
       LIMIT 6
     `);

@@ -141,7 +141,7 @@ async function importPaymentsOriginalStructure() {
 
           // Check if payments already exist
           const existingPayments = await queryRunner.query(
-            `SELECT COUNT(*) as count FROM payments WHERE contract_id = ?`,
+            `SELECT COUNT(*) as count FROM contract_payments WHERE contract_id = ?`,
             [contract.id]
           );
 
@@ -198,7 +198,7 @@ async function importPaymentsOriginalStructure() {
           // Insert payments with CORRECT structure
           for (const payment of payments) {
             await queryRunner.query(
-              `INSERT INTO payments 
+              `INSERT INTO contract_payments 
                (id, tenant_id, contract_id, payment_number, due_date, amount, amount_paid, amount_pending, paid_date, payment_method, status, notes, created_at, updated_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
               [

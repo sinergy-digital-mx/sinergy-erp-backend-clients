@@ -146,7 +146,7 @@ This plan implements a complete purchase order management system with automatic 
     - Set up transaction management with TypeORM QueryRunner
     - _Requirements: All_
   
-  - [~] 7.2 Implement create(dto, tenantId, userId) method
+  - [ ] 7.2 Implement create(dto, tenantId, userId) method
     - Validate fiscal_configuration_id, warehouse_id, vendor_id exist
     - Create PurchaseOrderBatch with general_status = 'Creada'
     - Set payment_status from dto or default to 'Pendiente'
@@ -156,14 +156,14 @@ This plan implements a complete purchase order management system with automatic 
     - Use transaction to ensure atomicity
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
   
-  - [~] 7.3 Implement findAll(tenantId, filters) method
+  - [ ] 7.3 Implement findAll(tenantId, filters) method
     - Query PurchaseOrderBatch filtered by tenant_id
     - Apply optional filters: general_status, payment_status, vendor_id
     - Include relations: fiscal_configuration, warehouse, vendor
     - Implement pagination with page and limit parameters
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
   
-  - [~] 7.4 Implement findOne(id, tenantId) method
+  - [ ] 7.4 Implement findOne(id, tenantId) method
     - Query PurchaseOrderBatch by id and tenant_id
     - Include relations: fiscal_configuration, warehouse, vendor, line_items
     - For each line_item, include relations: product, uom, received_product, received_uom, converted_uom
@@ -171,7 +171,7 @@ This plan implements a complete purchase order management system with automatic 
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
 - [ ] 8. Implement PurchaseOrderService receiving logic
-  - [~] 8.1 Implement receive(id, receivedData, tenantId, userId) method
+  - [ ] 8.1 Implement receive(id, receivedData, tenantId, userId) method
     - Validate purchase order exists and belongs to tenant
     - For each received line item, update corresponding PurchaseOrderBatchDetail
     - Set received_original fields: product_id, uom_id, quantity, unit_total, iva_percentage, iva_unit, ieps_percentage, ieps_unit
@@ -182,7 +182,7 @@ This plan implements a complete purchase order management system with automatic 
     - Use transaction to ensure atomicity
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6_
   
-  - [~] 8.2 Implement batch creation within receive method
+  - [ ] 8.2 Implement batch creation within receive method
     - For each received line item, call BatchNumberGenerator.generateBatchNumber
     - Create InventoryBatch record with generated batch_number
     - Set warehouse_id from purchase order
@@ -201,7 +201,7 @@ This plan implements a complete purchase order management system with automatic 
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6_
 
 - [ ] 9. Implement PurchaseOrderService additional methods
-  - [~] 9.1 Implement cancel(id, tenantId, userId) method
+  - [ ] 9.1 Implement cancel(id, tenantId, userId) method
     - Validate purchase order exists and belongs to tenant
     - Check general_status is 'Creada'
     - If not 'Creada', throw BadRequestException with descriptive message
@@ -209,7 +209,7 @@ This plan implements a complete purchase order management system with automatic 
     - Set updated_by and updated_at audit fields
     - _Requirements: 9.1, 9.2, 9.3, 9.4_
   
-  - [~] 9.2 Implement updateLineItem(orderId, lineItemId, dto, tenantId, userId) method
+  - [ ] 9.2 Implement updateLineItem(orderId, lineItemId, dto, tenantId, userId) method
     - Validate purchase order exists and belongs to tenant
     - Validate line item exists and belongs to purchase order
     - Check purchase order general_status is 'Creada'
@@ -232,42 +232,42 @@ This plan implements a complete purchase order management system with automatic 
     - Extract tenantId and userId from request context
     - _Requirements: 12.1, 12.2_
   
-  - [~] 10.2 Implement POST /tenant/purchase-orders endpoint
+  - [ ] 10.2 Implement POST /tenant/purchase-orders endpoint
     - Use @Post() decorator
     - Accept CreatePurchaseOrderDto with @Body() decorator
     - Call purchaseOrderService.create(dto, tenantId, userId)
     - Return created purchase order with 201 status
     - _Requirements: 12.2_
   
-  - [~] 10.3 Implement GET /tenant/purchase-orders endpoint
+  - [ ] 10.3 Implement GET /tenant/purchase-orders endpoint
     - Use @Get() decorator
     - Accept QueryPurchaseOrderDto with @Query() decorator
     - Call purchaseOrderService.findAll(tenantId, filters)
     - Return paginated list of purchase orders
     - _Requirements: 12.3_
   
-  - [~] 10.4 Implement GET /tenant/purchase-orders/:id endpoint
+  - [ ] 10.4 Implement GET /tenant/purchase-orders/:id endpoint
     - Use @Get(':id') decorator
     - Accept id with @Param('id') decorator
     - Call purchaseOrderService.findOne(id, tenantId)
     - Return purchase order details with line items
     - _Requirements: 12.4_
   
-  - [~] 10.5 Implement POST /tenant/purchase-orders/:id/receive endpoint
+  - [ ] 10.5 Implement POST /tenant/purchase-orders/:id/receive endpoint
     - Use @Post(':id/receive') decorator
     - Accept id with @Param('id') and ReceivePurchaseOrderDto with @Body()
     - Call purchaseOrderService.receive(id, dto, tenantId, userId)
     - Return updated purchase order with generated batches
     - _Requirements: 12.5_
   
-  - [~] 10.6 Implement DELETE /tenant/purchase-orders/:id endpoint
+  - [ ] 10.6 Implement DELETE /tenant/purchase-orders/:id endpoint
     - Use @Delete(':id') decorator
     - Accept id with @Param('id') decorator
     - Call purchaseOrderService.cancel(id, tenantId, userId)
     - Return success message
     - _Requirements: 12.6_
   
-  - [~] 10.7 Implement PATCH /tenant/purchase-orders/:orderId/line-items/:lineItemId endpoint
+  - [ ] 10.7 Implement PATCH /tenant/purchase-orders/:orderId/line-items/:lineItemId endpoint
     - Use @Patch(':orderId/line-items/:lineItemId') decorator
     - Accept orderId, lineItemId with @Param() and UpdateLineItemDto with @Body()
     - Call purchaseOrderService.updateLineItem(orderId, lineItemId, dto, tenantId, userId)
@@ -281,7 +281,7 @@ This plan implements a complete purchase order management system with automatic 
     - Extract tenantId from request context
     - _Requirements: 12.1, 12.7_
   
-  - [~] 11.2 Implement GET /tenant/vendors/:vendorId/products endpoint
+  - [ ] 11.2 Implement GET /tenant/vendors/:vendorId/products endpoint
     - Use @Get(':vendorId/products') decorator
     - Accept vendorId with @Param('vendorId') decorator
     - Call vendorProductsService.getVendorProducts(vendorId, tenantId)

@@ -26,7 +26,7 @@ async function cleanPayments() {
   try {
     // Count existing payments
     const countResult = await queryRunner.query(
-      `SELECT COUNT(*) as count FROM payments p
+      `SELECT COUNT(*) as count FROM contract_payments p
        INNER JOIN contracts c ON p.contract_id = c.id
        WHERE c.tenant_id = ?`,
       [TENANT_ID]
@@ -36,7 +36,7 @@ async function cleanPayments() {
 
     // Delete all payments for this tenant
     const deleteResult = await queryRunner.query(
-      `DELETE p FROM payments p
+      `DELETE p FROM contract_payments p
        INNER JOIN contracts c ON p.contract_id = c.id
        WHERE c.tenant_id = ?`,
       [TENANT_ID]

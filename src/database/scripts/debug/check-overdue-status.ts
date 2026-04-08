@@ -17,7 +17,7 @@ async function checkOverdueStatus() {
 
     // Check if is_overdue column exists
     const columns = await queryRunner.query(`
-      SHOW COLUMNS FROM payments LIKE 'is_overdue'
+      SHOW COLUMNS FROM contract_payments LIKE 'is_overdue'
     `);
 
     console.log('is_overdue column exists:', columns.length > 0);
@@ -25,7 +25,7 @@ async function checkOverdueStatus() {
     // Check payments for specific contract
     const contractPayments = await queryRunner.query(`
       SELECT payment_number, status, is_overdue, due_date, amount_paid
-      FROM payments 
+      FROM contract_payments 
       WHERE contract_id = ? AND tenant_id = ?
       ORDER BY CAST(payment_number AS UNSIGNED)
       LIMIT 20
@@ -40,7 +40,7 @@ async function checkOverdueStatus() {
     // Check total overdue count
     const overdueCount = await queryRunner.query(`
       SELECT COUNT(*) as count
-      FROM payments 
+      FROM contract_payments 
       WHERE contract_id = ? AND tenant_id = ? AND is_overdue = 1
     `, [CONTRACT_ID, TENANT_ID]);
 
@@ -49,7 +49,7 @@ async function checkOverdueStatus() {
     // Check all overdue payments across tenant
     const allOverdue = await queryRunner.query(`
       SELECT COUNT(*) as count
-      FROM payments 
+      FROM contract_payments 
       WHERE tenant_id = ? AND is_overdue = 1
     `, [TENANT_ID]);
 
@@ -61,7 +61,7 @@ async function checkOverdueStatus() {
 
     const shouldBeOverdue = await queryRunner.query(`
       SELECT COUNT(*) as count
-      FROM payments 
+      FROM contract_payments 
       WHERE contract_id = ? AND tenant_id = ? 
         AND status IN ('pendiente', 'parcial')
         AND due_date < CURDATE()

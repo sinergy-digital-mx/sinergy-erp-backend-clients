@@ -1,5 +1,7 @@
 // src/database/seeds/seed-permissions.ts
+import 'dotenv/config';
 import { DataSource } from 'typeorm';
+import { AppDataSource } from '../data-source';
 import { Permission } from '../../entities/rbac/permission.entity';
 import { EntityRegistry } from '../../entities/entity-registry/entity-registry.entity';
 
@@ -21,6 +23,7 @@ export async function seedPermissions(dataSource: DataSource): Promise<void> {
     { code: 'Tenant', name: 'Tenant Management' },
     { code: 'Report', name: 'Report Management' },
     { code: 'AuditLog', name: 'Audit Log Management' },
+    { code: 'Inventory', name: 'Inventory Management' },
   ];
 
   const entityMap = new Map<string, EntityRegistry>();
@@ -104,6 +107,11 @@ export async function seedPermissions(dataSource: DataSource): Promise<void> {
     { entity_code: 'AuditLog', action: 'Read', description: 'View audit logs', is_system_permission: true },
     { entity_code: 'AuditLog', action: 'Export', description: 'Export audit logs', is_system_permission: true },
     { entity_code: 'AuditLog', action: 'Delete', description: 'Delete old audit logs', is_system_permission: true },
+
+    // Inventory permissions
+    { entity_code: 'Inventory', action: 'Read', description: 'View inventory information', is_system_permission: true },
+    { entity_code: 'Inventory', action: 'Write', description: 'Create and edit inventory items', is_system_permission: true },
+    { entity_code: 'Inventory', action: 'Delete', description: 'Delete inventory items', is_system_permission: true },
   ];
 
   let createdCount = 0;
@@ -148,8 +156,6 @@ export async function seedPermissions(dataSource: DataSource): Promise<void> {
  * Run the seed script
  */
 export async function runPermissionSeed(): Promise<void> {
-  const { AppDataSource } = await import('../data-source.js');
-  
   if (!AppDataSource.isInitialized) {
     await AppDataSource.initialize();
   }

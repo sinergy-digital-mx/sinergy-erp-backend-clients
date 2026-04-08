@@ -8,15 +8,15 @@ import {
   UpdateDateColumn,
   Index,
 } from 'typeorm';
-import { Contract } from '../contracts/contract.entity';
+import { Contract } from './contract.entity';
 import { RBACTenant } from '../rbac/tenant.entity';
 
-@Entity('payments')
-@Index('tenant_index', ['tenant_id'])
-@Index('contract_index', ['contract_id'])
-@Index('payment_date_index', ['payment_date'])
-@Index('due_date_index', ['due_date'])
-@Index('status_index', ['status'])
+@Entity('contract_payments')
+@Index('contract_payments_tenant_index', ['tenant_id'])
+@Index('contract_payments_contract_index', ['contract_id'])
+@Index('contract_payments_payment_date_index', ['payment_date'])
+@Index('contract_payments_due_date_index', ['due_date'])
+@Index('contract_payments_status_index', ['status'])
 export class Payment {
   @PrimaryGeneratedColumn('uuid')
   id: string;

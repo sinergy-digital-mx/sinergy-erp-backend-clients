@@ -34,7 +34,7 @@ async function roxanaCleanRegenerate() {
 
     // DELETE all existing payments
     const deleteResult = await AppDataSource.query(`
-      DELETE FROM payments 
+      DELETE FROM contract_payments 
       WHERE contract_id = ?
     `, [c.id]);
 
@@ -83,7 +83,7 @@ async function roxanaCleanRegenerate() {
     // Insert payments
     for (const payment of payments) {
       await AppDataSource.query(`
-        INSERT INTO payments (
+        INSERT INTO contract_payments (
           id, tenant_id, contract_id, payment_number, payment_date, due_date,
           amount, amount_paid, amount_pending, payment_method, status,
           is_overdue, paid_date, notes, metadata, created_at, updated_at
@@ -119,7 +119,7 @@ async function roxanaCleanRegenerate() {
     // Show first 10 payments
     const samplePayments = await AppDataSource.query(`
       SELECT payment_number, due_date, amount, amount_paid, amount_pending, status
-      FROM payments 
+      FROM contract_payments 
       WHERE contract_id = ?
       ORDER BY CAST(payment_number AS UNSIGNED) ASC
       LIMIT 10

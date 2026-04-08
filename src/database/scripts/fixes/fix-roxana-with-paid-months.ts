@@ -30,7 +30,7 @@ async function fixRoxanaWithPaidMonths() {
     // Get payments with status 'pagado'
     const paidPayments = await AppDataSource.query(`
       SELECT COUNT(*) as count, SUM(amount) as total_paid
-      FROM payments 
+      FROM contract_payments 
       WHERE contract_id = ? AND status = 'pagado'
     `, [c.id]);
 

@@ -30,7 +30,7 @@ async function importCampestreDivino() {
 
     // 1. LIMPIAR DATOS DE PRUEBA
     console.log('🧹 Cleaning test data...');
-    await dataSource.query('DELETE FROM payments WHERE tenant_id = ?', [TENANT_ID]);
+    await dataSource.query('DELETE FROM contract_payments WHERE tenant_id = ?', [TENANT_ID]);
     console.log('  ✓ Payments deleted');
     
     await dataSource.query('DELETE FROM contracts WHERE tenant_id = ?', [TENANT_ID]);

@@ -70,7 +70,7 @@ async function generateRoxanaPayments() {
     // Insert payments one by one to avoid bulk insert issues
     for (const payment of payments) {
       await AppDataSource.query(`
-        INSERT INTO payments (
+        INSERT INTO contract_payments (
           id, tenant_id, contract_id, payment_number, payment_date, due_date,
           amount, amount_paid, amount_pending, payment_method, status,
           is_overdue, notes, metadata, created_at, updated_at
@@ -92,7 +92,7 @@ async function generateRoxanaPayments() {
         SUM(amount) as total_amount,
         SUM(amount_paid) as total_paid,
         SUM(amount_pending) as total_pending
-      FROM payments 
+      FROM contract_payments 
       WHERE contract_id = ?
     `, [contractData.id]);
 
@@ -105,7 +105,7 @@ async function generateRoxanaPayments() {
     // Show first 10 payments
     const samplePayments = await AppDataSource.query(`
       SELECT payment_number, due_date, amount, amount_paid, amount_pending, status
-      FROM payments 
+      FROM contract_payments 
       WHERE contract_id = ?
       ORDER BY CAST(payment_number AS UNSIGNED) ASC
       LIMIT 10

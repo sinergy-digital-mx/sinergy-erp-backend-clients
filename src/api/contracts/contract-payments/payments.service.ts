@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Payment } from '../../entities/payments/payment.entity';
-import { Contract } from '../../entities/contracts/contract.entity';
+import { Payment } from '../../../entities/contracts/payment.entity';
+import { Contract } from '../../../entities/contracts/contract.entity';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
 
@@ -121,23 +121,30 @@ export class PaymentsService {
   }
 
   async getPaymentStats(tenantId: string, contractId?: string): Promise<any> {
+    // Get contract info for financed_amount
+    let contract: Contract | null = null;
+    if (contractId) {
+      contract = await this.contractRepo.findOne({
+        where: { id: contractId, tenant_id: tenantId },
+      });
+    }
+
     const query = this.paymentRepo
       .createQueryBuilder('p')
       .select('COUNT(*)', 'total')
-      // CORRECT CALCULATION: PAID payments = full amount, PARTIAL payments = amount_paid only, PENDING = 0
       .addSelect("SUM(CASE WHEN p.status = 'pagado' THEN p.amount WHEN p.status = 'parcial' THEN p.amount_paid ELSE 0 END)", 'total_paid')
-      // CORRECT PENDING: PENDING payments = full amount, PARTIAL payments = amount_pending, PAID = 0
       .addSelect("SUM(CASE WHEN p.status = 'pendiente' THEN p.amount WHEN p.status = 'parcial' THEN p.amount_pending ELSE 0 END)", 'total_pending')
       .addSelect('SUM(p.amount)', 'total_expected')
       .addSelect("SUM(CASE WHEN p.status = 'pagado' THEN 1 ELSE 0 END)", 'paid_count')
+      .addSelect("SUM(CASE WHEN p.status = 'pagado' THEN p.amount ELSE 0 END)", 'paid_amount_complete')
+      .addSelect("SUM(CASE WHEN p.status = 'parcial' THEN p.amount_paid ELSE 0 END)", 'paid_amount_partial')
       .addSelect("SUM(CASE WHEN p.status = 'parcial' THEN 1 ELSE 0 END)", 'partial_count')
-      .addSelect("SUM(CASE WHEN p.status = 'pendiente' THEN 1 ELSE 0 END)", 'pending_count')
-      .addSelect("SUM(CASE WHEN p.status = 'atrasado' THEN 1 ELSE 0 END)", 'overdue_count')
+      .addSelect("SUM(CASE WHEN p.status = 'parcial' AND p.is_overdue = 1 THEN 1 ELSE 0 END)", 'partial_overdue_count')
+      .addSelect("SUM(CASE WHEN p.status = 'pendiente' AND p.is_overdue = 0 THEN 1 ELSE 0 END)", 'pending_count')
+      .addSelect("SUM(CASE WHEN p.status = 'pendiente' AND p.is_overdue = 1 THEN 1 ELSE 0 END)", 'pending_overdue_count')
+      .addSelect("SUM(CASE WHEN (p.status = 'pendiente' OR p.status = 'parcial') AND p.is_overdue = 1 THEN 1 ELSE 0 END)", 'overdue_count')
+      .addSelect("SUM(CASE WHEN (p.status = 'pendiente' OR p.status = 'parcial') AND p.is_overdue = 1 THEN CASE WHEN p.status = 'parcial' THEN p.amount_pending ELSE p.amount END ELSE 0 END)", 'overdue_amount')
       .addSelect("SUM(CASE WHEN p.status = 'cancelado' THEN 1 ELSE 0 END)", 'cancelled_count')
-      .addSelect("SUM(CASE WHEN p.status = 'pagado' THEN p.amount ELSE 0 END)", 'paid_amount')
-      .addSelect("SUM(CASE WHEN p.status = 'parcial' THEN p.amount_paid ELSE 0 END)", 'partial_amount')
-      .addSelect("SUM(CASE WHEN p.status = 'pendiente' THEN p.amount ELSE 0 END)", 'pending_amount')
-      .addSelect("SUM(CASE WHEN p.status = 'atrasado' THEN p.amount ELSE 0 END)", 'overdue_amount')
       .where('p.tenant_id = :tenantId', { tenantId });
 
     if (contractId) {
@@ -146,23 +153,38 @@ export class PaymentsService {
 
     const stats = await query.getRawOne();
 
+    // Get partial payments details
+    let partialPayments: Payment[] = [];
+    if (contractId) {
+      partialPayments = await this.paymentRepo.find({
+        where: { contract_id: contractId, tenant_id: tenantId, status: 'parcial' },
+        order: { payment_number: 'ASC' },
+      });
+    }
+
+    const financedAmount = contract 
+      ? Math.round(((contract.total_price || 0) - (contract.down_payment || 0)) * 100) / 100
+      : 0;
+
     return {
       total_payments: parseInt(stats.total) || 0,
+      financed_amount: financedAmount,
       paid_count: parseInt(stats.paid_count) || 0,
+      paid_amount_complete: Math.round((parseFloat(stats.paid_amount_complete) || 0) * 100) / 100,
+      paid_amount_partial: Math.round((parseFloat(stats.paid_amount_partial) || 0) * 100) / 100,
+      total_paid_from_payments: Math.round((parseFloat(stats.total_paid) || 0) * 100) / 100,
       partial_count: parseInt(stats.partial_count) || 0,
+      partial_overdue_count: parseInt(stats.partial_overdue_count) || 0,
+      partial_payment: partialPayments.length > 0 ? partialPayments.map(p => ({
+        installment_number: p.payment_number,
+        amount_paid: Math.round((parseFloat(p.amount_paid as any) || 0) * 100) / 100,
+        remaining_amount: Math.round((parseFloat(p.amount_pending as any) || 0) * 100) / 100,
+        is_overdue: p.is_overdue,
+      })) : null,
       pending_count: parseInt(stats.pending_count) || 0,
-      pending_full_payments: parseInt(stats.pending_count) || 0, // Frontend compatibility
-      overdue_count: parseInt(stats.overdue_count) || 0,
-      cancelled_count: parseInt(stats.cancelled_count) || 0,
-      
-      // Fix decimal precision
-      total_expected: Math.round((parseFloat(stats.total_expected) || 0) * 100) / 100,
-      total_paid: Math.round((parseFloat(stats.total_paid) || 0) * 100) / 100,
+      pending_overdue_count: parseInt(stats.pending_overdue_count) || 0,
       total_pending: Math.round((parseFloat(stats.total_pending) || 0) * 100) / 100,
-      total_pending_amount: Math.round((parseFloat(stats.total_pending) || 0) * 100) / 100, // Frontend compatibility
-      paid_amount: Math.round((parseFloat(stats.paid_amount) || 0) * 100) / 100,
-      partial_amount: Math.round((parseFloat(stats.partial_amount) || 0) * 100) / 100,
-      pending_amount: Math.round((parseFloat(stats.pending_amount) || 0) * 100) / 100,
+      overdue_count: parseInt(stats.overdue_count) || 0,
       overdue_amount: Math.round((parseFloat(stats.overdue_amount) || 0) * 100) / 100,
     };
   }

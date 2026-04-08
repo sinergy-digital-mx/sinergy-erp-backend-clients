@@ -15,6 +15,7 @@ import { Warehouse } from '../warehouse/warehouse.entity';
 import { Vendor } from '../vendor/vendor.entity';
 import { User } from '../users/user.entity';
 import { PurchaseOrderBatchDetail } from './purchase-order-batch-detail.entity';
+import { InventoryBatch } from './inventory-batch.entity';
 
 @Entity('inv_s_purchase_order_batch')
 @Index('idx_tenant', ['tenant_id'])
@@ -124,4 +125,7 @@ export class PurchaseOrderBatch {
 
   @OneToMany(() => PurchaseOrderBatchDetail, (detail: PurchaseOrderBatchDetail) => detail.purchase_order_batch)
   line_items: PurchaseOrderBatchDetail[];
+
+  @OneToMany(() => InventoryBatch, (batch: InventoryBatch) => batch.purchase_order_batch)
+  batches: InventoryBatch[];
 }

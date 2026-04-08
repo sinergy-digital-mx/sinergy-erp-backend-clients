@@ -13,6 +13,55 @@ export class UnitConversionService {
   ) {}
 
   /**
+   * Get all product UOMs for a product
+   * @param productId - The product ID
+   * @returns Array of product UOMs
+   */
+  async getProductUomsByProductId(productId: string): Promise<any[]> {
+    return await this.productUomRepository.find({
+      where: { product_id: productId },
+    });
+  }
+
+  /**
+   * Get the product_uom.id based on either product_uom.id or uom_catalog.id
+   * @param uomId - The product UOM ID or UoM Catalog ID
+   * @param productId - The product ID
+   * @returns The product_uom.id
+   */
+  async getProductUomId(uomId: string, productId: string): Promise<string> {
+    this.logger.debug(`Getting product_uom.id for UOM ${uomId} and product ${productId}`);
+    
+    // Try to find by ID first
+    let productUom = await this.productUomRepository.findOne({
+      where: {
+        id: uomId,
+        product_id: productId,
+      },
+    });
+
+    // If not found, try by uom_catalog_id
+    if (!productUom) {
+      productUom = await this.productUomRepository.findOne({
+        where: {
+          uom_catalog_id: uomId,
+          product_id: productId,
+        },
+      });
+    }
+
+    if (!productUom) {
+      this.logger.error(`ProductUoM not found for product ${productId} with UOM ${uomId}`);
+      throw new BadRequestException(
+        `Unit of measurement not supported for this product`,
+      );
+    }
+
+    this.logger.debug(`Product UOM ID: ${productUom.id}`);
+    return productUom.id;
+  }
+
+  /**
    * Get conversion factor for a product UOM
    * @param productUomId - The product UOM ID
    * @returns The conversion factor
@@ -60,39 +109,27 @@ export class UnitConversionService {
   /**
    * Convert quantity from received UOM to base unit
    * @param quantity - The quantity to convert
-   * @param fromUomId - The product UOM ID or UoM Catalog ID (received UOM)
+   * @param productUomId - The product UOM ID (from product_uoms table)
    * @param productId - The product ID
    * @returns The converted quantity in base units
    */
   async convertToBaseUnit(
     quantity: number,
-    fromUomId: string,
+    productUomId: string,
     productId: string,
   ): Promise<number> {
-    this.logger.debug(`Converting quantity ${quantity} from UOM ${fromUomId} for product ${productId}`);
+    this.logger.debug(`Converting quantity ${quantity} from product UOM ${productUomId} for product ${productId}`);
     
-    // Try to find ProductUoM by ID first (could be product_uom.id or uom_catalog.id)
-    this.logger.debug(`Searching for ProductUoM by ID: ${fromUomId}`);
-    let productUom = await this.productUomRepository.findOne({
+    // Find ProductUoM by ID
+    const productUom = await this.productUomRepository.findOne({
       where: {
-        id: fromUomId,
+        id: productUomId,
         product_id: productId,
       },
     });
 
-    // If not found by ProductUoM ID, try by UoM Catalog ID
     if (!productUom) {
-      this.logger.debug(`Not found by ID, trying by uom_catalog_id: ${fromUomId}`);
-      productUom = await this.productUomRepository.findOne({
-        where: {
-          uom_catalog_id: fromUomId,
-          product_id: productId,
-        },
-      });
-    }
-
-    if (!productUom) {
-      this.logger.error(`ProductUoM not found for product ${productId} with UOM ${fromUomId}`);
+      this.logger.error(`ProductUoM not found for product ${productId} with ID ${productUomId}`);
       throw new BadRequestException(
         `Unit of measurement not supported for this product`,
       );

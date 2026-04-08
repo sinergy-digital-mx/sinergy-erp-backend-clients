@@ -86,7 +86,7 @@ async function verifyAndFixDates() {
 
           // Get first payment date
           const firstPayment = await queryRunner.query(
-            `SELECT payment_date FROM payments 
+            `SELECT payment_date FROM contract_payments 
              WHERE contract_id = ? 
              ORDER BY payment_number ASC 
              LIMIT 1`,
@@ -137,7 +137,7 @@ async function verifyAndFixDates() {
               const paymentDateStr = paymentDate.toISOString().split('T')[0];
 
               await queryRunner.query(
-                `UPDATE payments 
+                `UPDATE contract_payments 
                  SET payment_date = ? 
                  WHERE contract_id = ? AND payment_number = ?`,
                 [paymentDateStr, contract.id, `${i + 1}`]

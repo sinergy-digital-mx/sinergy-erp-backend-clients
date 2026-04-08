@@ -48,7 +48,7 @@ export class LineItemUpdaterService {
 
     // Update received original fields (Requirement 7.1-7.8)
     lineItem.received_original_product_id = receivedItem.product_id;
-    lineItem.received_original_uom_id = receivedItem.uom_id;
+    lineItem.received_original_uom_id = receivedItem.product_uom_id;
     lineItem.received_original_quantity = receivedItem.quantity;
     lineItem.received_original_unit_total = receivedItem.unit_total;
     lineItem.received_original_iva_percentage = receivedItem.iva_percentage;

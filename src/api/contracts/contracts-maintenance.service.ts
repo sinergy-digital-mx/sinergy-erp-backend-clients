@@ -18,7 +18,7 @@ export class ContractsMaintenanceService {
     try {
       // Step 1: Mark payments as overdue if payment_date < today and status != 'pagado'
       const overdueResult = await queryRunner.query(
-        `UPDATE payments p
+        `UPDATE contract_payments p
          SET is_overdue = 1
          WHERE p.payment_date < CURDATE()
            AND p.status != 'pagado'
@@ -35,7 +35,7 @@ export class ContractsMaintenanceService {
            0,
            (c.total_price - c.down_payment) - COALESCE((
              SELECT SUM(p.amount_paid)
-             FROM payments p
+             FROM contract_payments p
              WHERE p.contract_id = c.id
            ), 0)
          )
@@ -48,7 +48,7 @@ export class ContractsMaintenanceService {
       const summary = await queryRunner.query(
         `SELECT 
            COUNT(DISTINCT c.id) as total_active_contracts,
-           (SELECT COUNT(*) FROM payments WHERE is_overdue = 1) as total_overdue_payments,
+           (SELECT COUNT(*) FROM contract_payments WHERE is_overdue = 1) as total_overdue_payments,
            (SELECT SUM(remaining_balance) FROM contracts WHERE status = 'activo') as total_remaining_balance
          FROM contracts c
          WHERE c.status = 'activo'`

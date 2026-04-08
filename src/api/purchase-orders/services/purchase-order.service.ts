@@ -82,11 +82,17 @@ export class PurchaseOrderService {
         const ieps_percentage = Number(lineItem.ieps_percentage || 0);
         const line_ieps = (line_subtotal * ieps_percentage) / 100;
 
+        // Resolve the product_uom_id (frontend might send uom_catalog_id or product_uom_id)
+        const productUomId = await this.unitConversionService.getProductUomId(
+          lineItem.uom_id,
+          lineItem.product_id,
+        );
+
         const detail = this.purchaseOrderDetailRepository.create({
           id: uuidv4(),
           purchase_order_batch_id: savedOrder.id,
           product_id: lineItem.product_id,
-          uom_id: lineItem.uom_id,
+          product_uom_id: productUomId,
           quantity: lineItem.quantity,
           unit_total: lineItem.unit_total,
           iva_percentage: iva_percentage,
@@ -243,10 +249,12 @@ export class PurchaseOrderService {
       .leftJoinAndSelect('po.updater', 'updater')
       .leftJoinAndSelect('po.line_items', 'line_items')
       .leftJoinAndSelect('line_items.product', 'product')
-      .leftJoinAndSelect('line_items.uom', 'uom')
+      .leftJoinAndSelect('line_items.product_uom', 'product_uom')
+      .leftJoinAndSelect('product_uom.uom', 'uom')
       .leftJoinAndSelect('line_items.received_product', 'received_product')
       .leftJoinAndSelect('line_items.received_uom', 'received_uom')
       .leftJoinAndSelect('line_items.converted_uom', 'converted_uom')
+      .leftJoinAndSelect('po.batches', 'batches')
       .getOne();
 
     if (!purchaseOrder) {
@@ -291,7 +299,7 @@ export class PurchaseOrderService {
 
         // Set received original data
         lineItem.received_original_product_id = receivedItem.product_id;
-        lineItem.received_original_uom_id = receivedItem.uom_id;
+        lineItem.received_original_uom_id = receivedItem.product_uom_id;
         lineItem.received_original_quantity = receivedItem.quantity;
         lineItem.received_original_unit_total = receivedItem.unit_total;
         lineItem.received_original_iva_percentage = receivedItem.iva_percentage;
@@ -302,7 +310,7 @@ export class PurchaseOrderService {
         // Convert to base unit
         const convertedQuantity = await this.unitConversionService.convertToBaseUnit(
           receivedItem.quantity,
-          receivedItem.uom_id,
+          receivedItem.product_uom_id,
           receivedItem.product_id,
         );
         const baseUomId = await this.unitConversionService.getBaseUom(

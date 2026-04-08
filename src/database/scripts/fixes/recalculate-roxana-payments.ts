@@ -33,7 +33,7 @@ async function recalculateRoxanaPayments() {
 
     // Delete existing payments
     const deleteResult = await AppDataSource.query(`
-      DELETE FROM payments 
+      DELETE FROM contract_payments 
       WHERE contract_id = ? AND tenant_id = ?
     `, [contractData.id, contractData.tenant_id]);
 
@@ -73,7 +73,7 @@ async function recalculateRoxanaPayments() {
 
     // Insert new payments
     const insertResult = await AppDataSource.query(`
-      INSERT INTO payments (
+      INSERT INTO contract_payments (
         id, tenant_id, contract_id, payment_number, payment_date, due_date,
         amount, amount_paid, amount_pending, payment_method, status,
         is_overdue, notes, metadata, created_at, updated_at
@@ -89,7 +89,7 @@ async function recalculateRoxanaPayments() {
     // Verify
     const verifyPayments = await AppDataSource.query(`
       SELECT COUNT(*) as count, SUM(amount) as total_amount
-      FROM payments 
+      FROM contract_payments 
       WHERE contract_id = ?
     `, [contractData.id]);
 
@@ -100,7 +100,7 @@ async function recalculateRoxanaPayments() {
     // Show first few payments
     const samplePayments = await AppDataSource.query(`
       SELECT payment_number, due_date, amount, status
-      FROM payments 
+      FROM contract_payments 
       WHERE contract_id = ?
       ORDER BY CAST(payment_number AS UNSIGNED) ASC
       LIMIT 5

@@ -10,15 +10,15 @@ import {
   UseGuards,
   Req,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { PermissionGuard } from '../rbac/guards/permission.guard';
-import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator';
-import { TenantContextService } from '../rbac/services/tenant-context.service';
+import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { PermissionGuard } from '../../rbac/guards/permission.guard';
+import { RequirePermissions } from '../../rbac/decorators/require-permissions.decorator';
+import { TenantContextService } from '../../rbac/services/tenant-context.service';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
 
-@Controller('tenant/payments')
+@Controller('tenant/contracts/:contractId/payments')
 @UseGuards(JwtAuthGuard, PermissionGuard)
 export class PaymentsController {
   constructor(
@@ -28,19 +28,19 @@ export class PaymentsController {
 
   @Post()
   @RequirePermissions({ entityType: 'Payment', action: 'Create' })
-  async create(@Req() req: any, @Body() dto: CreatePaymentDto) {
+  async create(@Param('contractId') contractId: string, @Req() req: any, @Body() dto: CreatePaymentDto) {
     const tenantId = this.tenantContext.getCurrentTenantId();
     if (!tenantId) {
       throw new Error('Tenant context is required');
     }
-    return this.paymentsService.create(tenantId, dto);
+    return this.paymentsService.create(tenantId, { ...dto, contract_id: contractId });
   }
 
   @Get()
   @RequirePermissions({ entityType: 'Payment', action: 'Read' })
   async findAll(
+    @Param('contractId') contractId: string,
     @Req() req: any,
-    @Query('contractId') contractId?: string,
     @Query('status') status?: string,
   ) {
     const tenantId = this.tenantContext.getCurrentTenantId();
@@ -52,7 +52,7 @@ export class PaymentsController {
 
   @Get('stats')
   @RequirePermissions({ entityType: 'Payment', action: 'Read' })
-  async getStats(@Req() req: any, @Query('contractId') contractId?: string) {
+  async getStats(@Param('contractId') contractId: string, @Req() req: any) {
     const tenantId = this.tenantContext.getCurrentTenantId();
     if (!tenantId) {
       throw new Error('Tenant context is required');
@@ -62,7 +62,7 @@ export class PaymentsController {
 
   @Get(':id')
   @RequirePermissions({ entityType: 'Payment', action: 'Read' })
-  async findOne(@Param('id') id: string, @Req() req: any) {
+  async findOne(@Param('contractId') contractId: string, @Param('id') id: string, @Req() req: any) {
     const tenantId = this.tenantContext.getCurrentTenantId();
     if (!tenantId) {
       throw new Error('Tenant context is required');
@@ -73,6 +73,7 @@ export class PaymentsController {
   @Put(':id')
   @RequirePermissions({ entityType: 'Payment', action: 'Update' })
   async update(
+    @Param('contractId') contractId: string,
     @Param('id') id: string,
     @Body() dto: UpdatePaymentDto,
     @Req() req: any,
@@ -86,7 +87,7 @@ export class PaymentsController {
 
   @Delete(':id')
   @RequirePermissions({ entityType: 'Payment', action: 'Delete' })
-  async remove(@Param('id') id: string, @Req() req: any) {
+  async remove(@Param('contractId') contractId: string, @Param('id') id: string, @Req() req: any) {
     const tenantId = this.tenantContext.getCurrentTenantId();
     if (!tenantId) {
       throw new Error('Tenant context is required');

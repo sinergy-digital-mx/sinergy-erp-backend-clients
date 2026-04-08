@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Payment } from '../../entities/payments/payment.entity';
-import { Contract } from '../../entities/contracts/contract.entity';
+import { Payment } from '../../../entities/contracts/payment.entity';
+import { Contract } from '../../../entities/contracts/contract.entity';
 import { PaymentsService } from './payments.service';
 import { PaymentsController } from './payments.controller';
-import { RBACModule } from '../rbac/rbac.module';
+import { RBACModule } from '../../rbac/rbac.module';
 
 @Module({
   imports: [
@@ -13,6 +13,6 @@ import { RBACModule } from '../rbac/rbac.module';
   ],
   providers: [PaymentsService],
   controllers: [PaymentsController],
-  exports: [PaymentsService],
+  exports: [PaymentsService, TypeOrmModule],
 })
 export class PaymentsModule {}

@@ -19,6 +19,7 @@ import { UoMCatalogModule } from './api/uom-catalog/uom-catalog.module';
 import { ProductsModule } from './api/products/products.module';
 import { MailerConfigurationModule } from './api/mailer-configuration/mailer-configuration.module';
 import { PurchaseOrdersModule } from './api/purchase-orders/purchase-orders.module';
+import { InventoryModule } from './api/inventory/inventory.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { PurchaseOrdersModule } from './api/purchase-orders/purchase-orders.modu
     UoMCatalogModule,
     ProductsModule,
     PurchaseOrdersModule,
+    InventoryModule,
   ],
 })
 export class AppModule { }

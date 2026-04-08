@@ -26,7 +26,7 @@ export class ReceivedItemDto {
 
   @IsUUID()
   @IsNotEmpty()
-  uom_id: string;
+  product_uom_id: string;
 
   @IsNumber()
   @Min(0.001)
