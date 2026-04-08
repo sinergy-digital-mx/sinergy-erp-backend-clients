@@ -1,8 +1,207 @@
+payments.controller.ts
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { PermissionGuard } from '../rbac/guards/permission.guard';
+import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator';
+import { TenantContextService } from '../rbac/services/tenant-context.service';
+import { PaymentsService } from './payments.service';
+import { RecordPartialPaymentDto } from './dto/record-partial-payment.dto';
+
+@Controller('tenant/contracts/:contractId/payments')
+@UseGuards(JwtAuthGuard, PermissionGuard)
+export class PaymentsController {
+  constructor(
+    private paymentsService: PaymentsService,
+    private tenantContext: TenantContextService,
+  ) {}
+
+  @Post('generate')
+  @RequirePermissions({ entityType: 'Contract', action: 'Create' })
+  async generatePayments(@Param('contractId') contractId: string, @Req() req: any) {
+    const tenantId = this.tenantContext.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+
+    return this.paymentsService.generatePaymentsForContract(tenantId, contractId);
+  }
+
+  @Post('regenerate')
+  @RequirePermissions({ entityType: 'Contract', action: 'Create' })
+  async regeneratePayments(@Param('contractId') contractId: string, @Req() req: any) {
+    const tenantId = this.tenantContext.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+
+    return this.paymentsService.regeneratePaymentsForContract(tenantId, contractId);
+  }
+
+  @Get()
+  @RequirePermissions({ entityType: 'Contract', action: 'Read' })
+  async getPayments(@Param('contractId') contractId: string, @Req() req: any) {
+    const tenantId = this.tenantContext.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+
+    return this.paymentsService.getContractPayments(tenantId, contractId);
+  }
+
+  @Get('stats')
+  @RequirePermissions({ entityType: 'Contract', action: 'Read' })
+  async getStats(@Param('contractId') contractId: string, @Req() req: any) {
+    const tenantId = this.tenantContext.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+
+    return this.paymentsService.getContractPaymentStats(tenantId, contractId);
+  }
+
+  @Get(':paymentId')
+  @RequirePermissions({ entityType: 'Contract', action: 'Read' })
+  async getPayment(
+    @Param('contractId') contractId: string,
+    @Param('paymentId') paymentId: string,
+    @Req() req: any,
+  ) {
+    const tenantId = this.tenantContext.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+
+    return this.paymentsService.getPayment(tenantId, paymentId);
+  }
+
+  @Put(':paymentId')
+  @RequirePermissions({ entityType: 'Contract', action: 'Update' })
+  async updatePayment(
+    @Param('contractId') contractId: string,
+    @Param('paymentId') paymentId: string,
+    @Body() body: { 
+      amount_paid?: number;  // How much was actually paid (not the expected amount)
+      due_date?: Date; 
+      paid_date?: Date;
+      payment_method?: string;
+      reference_number?: string;
+      notes?: string;
+    },
+    @Req() req: any,
+  ) {
+    const tenantId = this.tenantContext.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+
+    return this.paymentsService.updatePayment(tenantId, paymentId, body);
+  }
+
+  @Post(':paymentId/pay')
+  @RequirePermissions({ entityType: 'Contract', action: 'Update' })
+  async recordPayment(
+    @Param('contractId') contractId: string,
+    @Param('paymentId') paymentId: string,
+    @Body() dto: RecordPartialPaymentDto,
+    @Req() req: any,
+  ) {
+    const tenantId = this.tenantContext.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+
+    return this.paymentsService.recordPayment(
+      tenantId,
+      paymentId,
+      dto.amount,
+      dto.payment_date,
+      dto.payment_method,
+      dto.reference_number,
+      dto.notes,
+    );
+  }
+
+  @Post(':paymentId/cancel')
+  @RequirePermissions({ entityType: 'Contract', action: 'Update' })
+  async cancelPayment(
+    @Param('contractId') contractId: string,
+    @Param('paymentId') paymentId: string,
+    @Req() req: any,
+  ) {
+    const tenantId = this.tenantContext.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+
+    return this.paymentsService.cancelPayment(tenantId, paymentId);
+  }
+
+  @Post(':paymentId/reset')
+  @RequirePermissions({ entityType: 'Contract', action: 'Update' })
+  async resetPayment(
+    @Param('contractId') contractId: string,
+    @Param('paymentId') paymentId: string,
+    @Req() req: any,
+  ) {
+    const tenantId = this.tenantContext.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+
+    return this.paymentsService.resetPayment(tenantId, paymentId);
+  }
+
+  @Delete(':paymentId')
+  @RequirePermissions({ entityType: 'Contract', action: 'Delete' })
+  async deletePayment(
+    @Param('contractId') contractId: string,
+    @Param('paymentId') paymentId: string,
+    @Req() req: any,
+  ) {
+    const tenantId = this.tenantContext.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+
+    await this.paymentsService.deletePayment(tenantId, paymentId);
+    return { message: 'Payment deleted successfully' };
+  }
+
+  @Post('mark-overdue')
+  @RequirePermissions({ entityType: 'Contract', action: 'Update' })
+  async markOverduePayments(
+    @Param('contractId') contractId: string,
+    @Req() req: any,
+  ) {
+    const tenantId = this.tenantContext.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+
+    const updatedCount = await this.paymentsService.markOverduePayments(tenantId);
+    return {
+      message: `Marked ${updatedCount} payments as overdue`,
+      updated_count: updatedCount,
+    };
+  }
+}
+
+payments.service.ts
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Payment } from '../../../entities/contracts/payment.entity';
-import { Contract } from '../../../entities/contracts/contract.entity';
+import { Payment } from '../../entities/payments/payment.entity';
+import { Contract } from '../../entities/contracts/contract.entity';
 
 @Injectable()
 export class PaymentsService {
@@ -12,6 +211,12 @@ export class PaymentsService {
     @InjectRepository(Contract)
     private contractRepo: Repository<Contract>,
   ) {}
+
+  /**
+   * TEMPORARILY SIMPLIFIED SERVICE
+   * This service needs to be updated to work with the original Payment structure
+   * Original structure: payment_number (VARCHAR), payment_date, amount_paid
+   */
 
   /**
    * Auto-generate all payments for a contract
@@ -310,7 +515,7 @@ export class PaymentsService {
     }
 
     // Update notes with payment history
-    const paymentRecord = `Pago de ${paymentAmount} el ${paymentDate} (${paymentMethod}${referenceNumber ? `, Ref: ${referenceNumber}` : ''})`;
+    const paymentRecord = `Pago de $${paymentAmount} el ${paymentDate} (${paymentMethod}${referenceNumber ? `, Ref: ${referenceNumber}` : ''})`;
     payment.notes = payment.notes ? `${payment.notes}\n${paymentRecord}` : paymentRecord;
     
     if (notes) {
@@ -320,7 +525,7 @@ export class PaymentsService {
     // Handle overpayment case
     if (newAmountPaid > totalAmount) {
       const overpayment = newAmountPaid - totalAmount;
-      payment.notes += `\n⚠️ Sobrepago de ${overpayment.toFixed(2)}`;
+      payment.notes += `\n⚠️ Sobrepago de $${overpayment.toFixed(2)}`;
     }
 
     const savedPayment = await this.paymentRepo.save(payment);
@@ -549,7 +754,7 @@ export class PaymentsService {
     payment.first_partial_payment_date = null as any; // TypeScript fix
 
     // Add reset note
-    const resetNote = `Pago reseteado el ${new Date().toISOString().split('T')[0]} (se devolvió ${previousAmountPaid} al balance)`;
+    const resetNote = `Pago reseteado el ${new Date().toISOString().split('T')[0]} (se devolvió $${previousAmountPaid} al balance)`;
     payment.notes = payment.notes ? `${payment.notes}\n${resetNote}` : resetNote;
 
     const savedPayment = await this.paymentRepo.save(payment);
