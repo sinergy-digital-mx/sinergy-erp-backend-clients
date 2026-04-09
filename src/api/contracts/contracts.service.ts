@@ -277,14 +277,108 @@ export class ContractsService {
   async findOne(tenantId: string, id: string): Promise<any> {
     const contract = await this.contractRepo.findOne({
       where: { id, tenant_id: tenantId },
-      relations: ['customer', 'property'],
+      relations: ['customer', 'property', 'seller'],
     });
 
     if (!contract) {
       return null;
     }
 
-    return this.enrichContractWithPaymentData(contract, tenantId);
+    // Get next payment for this contract
+    const nextPaymentQuery = `
+      SELECT p.*
+      FROM contract_payments p
+      WHERE p.contract_id = ?
+        AND p.tenant_id = ?
+        AND p.status IN ('pendiente', 'parcial', 'vencido')
+      ORDER BY p.is_overdue DESC, p.due_date ASC
+      LIMIT 1
+    `;
+
+    const nextPayments = await this.contractRepo.manager.query(
+      nextPaymentQuery,
+      [contract.id, tenantId]
+    );
+
+    const nextPaymentData = nextPayments.length > 0 ? {
+      next_payment_date: nextPayments[0].due_date,
+      next_payment_status: nextPayments[0].status,
+      next_payment_number: nextPayments[0].payment_number,
+      next_payment_amount: nextPayments[0].status === 'parcial' 
+        ? Number(nextPayments[0].amount_pending) 
+        : Number(nextPayments[0].amount),
+    } : {
+      next_payment_date: null,
+      next_payment_status: null,
+      next_payment_number: null,
+      next_payment_amount: null,
+    };
+
+    // Get overdue payment count
+    const overdueCountQuery = `
+      SELECT COUNT(*) as overdue_count
+      FROM contract_payments
+      WHERE contract_id = ?
+        AND tenant_id = ?
+        AND payment_date < CURDATE()
+        AND status IN ('pendiente', 'parcial')
+    `;
+
+    const overdueCountResult = await this.contractRepo.manager.query(
+      overdueCountQuery,
+      [contract.id, tenantId]
+    );
+
+    const overdueCount = overdueCountResult[0]?.overdue_count || 0;
+
+    // Calculate financed amount
+    const totalPrice = Number(contract.total_price) || 0;
+    const downPayment = Number(contract.down_payment) || 0;
+    const financedAmount = totalPrice - downPayment;
+
+    // Format seller info
+    const sellerInfo = contract.seller ? {
+      id: contract.seller.id,
+      email: contract.seller.email,
+      first_name: contract.seller.first_name,
+      last_name: contract.seller.last_name,
+      phone: contract.seller.phone,
+      full_name: `${contract.seller.first_name || ''} ${contract.seller.last_name || ''}`.trim(),
+    } : null;
+
+    return {
+      id: contract.id,
+      tenant_id: contract.tenant_id,
+      customer_id: contract.customer_id,
+      customer: contract.customer,
+      property_id: contract.property_id,
+      property: contract.property,
+      seller_id: contract.seller_id,
+      seller: sellerInfo,
+      contract_number: contract.contract_number,
+      contract_date: contract.contract_date,
+      total_price: contract.total_price,
+      down_payment: contract.down_payment,
+      remaining_balance: contract.remaining_balance,
+      payment_months: contract.payment_months,
+      monthly_payment: contract.monthly_payment,
+      first_payment_date: contract.first_payment_date,
+      payment_due_day: contract.payment_due_day,
+      interest_rate: contract.interest_rate,
+      currency: contract.currency,
+      status: contract.status,
+      notes: contract.notes,
+      metadata: contract.metadata,
+      created_at: contract.created_at,
+      updated_at: contract.updated_at,
+      financed_amount: Math.round(financedAmount * 100) / 100,
+      next_payment_date: nextPaymentData.next_payment_date,
+      next_payment_status: nextPaymentData.next_payment_status,
+      next_payment_number: nextPaymentData.next_payment_number,
+      next_payment_amount: nextPaymentData.next_payment_amount,
+      overdue_payments_count: overdueCount,
+      has_overdue: overdueCount > 0,
+    };
   }
 
   async findByContractNumber(tenantId: string, contractNumber: string): Promise<any> {

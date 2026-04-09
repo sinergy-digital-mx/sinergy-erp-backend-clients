@@ -6,6 +6,8 @@ import { Payment } from '../../entities/contracts/payment.entity';
 import { PaymentDocument } from '../../entities/contracts/payment-document.entity';
 import { ContractsService } from './contracts.service';
 import { ContractsController } from './contracts.controller';
+import { ContractsExportService } from './contracts-export.service';
+import { ContractPdfService } from './contract-pdf.service';
 import { ContractDocumentsService } from './contract-documents.service';
 import { ContractDocumentsController } from './contract-documents.controller';
 import { PaymentDocumentsService } from './payment-documents.service';
@@ -23,6 +25,8 @@ import { PaymentsModule } from './contract-payments/payments.module';
   ],
   providers: [
     ContractsService,
+    ContractsExportService,
+    ContractPdfService,
     ContractDocumentsService,
     PaymentDocumentsService,
     ContractsMaintenanceService,

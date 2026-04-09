@@ -16,6 +16,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiParam,
+  ApiBody,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { PermissionGuard } from '../guards/permission.guard';
@@ -24,6 +25,7 @@ import { RoleService } from '../services/role.service';
 import { PermissionService } from '../services/permission.service';
 import { TenantContextService } from '../services/tenant-context.service';
 import { UsersService } from '../../users/users.service';
+import { CreateUserDto } from '../../users/dto/create-user.dto';
 
 @ApiTags('Tenant - Users & Roles')
 @Controller('tenant/users')
@@ -36,6 +38,40 @@ export class UsersRolesController {
     private tenantContextService: TenantContextService,
     private usersService: UsersService,
   ) {}
+
+  @Post()
+  @RequirePermissions({ entityType: 'User', action: 'Create' })
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Create a new user',
+    description: 'Creates a new user in the current tenant',
+  })
+  @ApiBody({ type: CreateUserDto })
+  @ApiResponse({
+    status: 201,
+    description: 'User created successfully',
+  })
+  async createUser(@Body() dto: CreateUserDto) {
+    const tenantId = this.tenantContextService.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+    const user = await this.usersService.create(dto, tenantId);
+
+    return {
+      message: 'User created successfully',
+      user: {
+        id: user.id,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        phone: user.phone,
+        status: user.status,
+        language_code: user.language_code,
+        created_at: user.created_at,
+      },
+    };
+  }
 
   @Get()
   @RequirePermissions({ entityType: 'User', action: 'Read' })

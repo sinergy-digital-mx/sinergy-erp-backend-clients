@@ -12,12 +12,14 @@ import {
 import { Customer } from '../customers/customer.entity';
 import { Property } from '../properties/property.entity';
 import { RBACTenant } from '../rbac/tenant.entity';
+import { User } from '../users/user.entity';
 
 @Entity('contracts')
 @Index('tenant_index', ['tenant_id'])
 @Index('customer_index', ['customer_id'])
 @Index('property_index', ['property_id'])
 @Index('status_index', ['status'])
+@Index('seller_index', ['seller_id'])
 export class Contract {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -42,6 +44,13 @@ export class Contract {
 
   @Column()
   property_id: string;
+
+  @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'seller_id' })
+  seller: User;
+
+  @Column({ nullable: true })
+  seller_id: string;
 
   @Column({ length: 50 })
   contract_number: string;

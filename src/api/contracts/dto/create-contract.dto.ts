@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsDate, IsOptional, IsEnum, Length } from 'class-validator';
+import { IsString, IsNumber, IsDate, IsOptional, IsEnum, Length, IsUUID } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateContractDto {
@@ -7,6 +7,10 @@ export class CreateContractDto {
 
   @IsString()
   property_id: string;
+
+  @IsOptional()
+  @IsUUID()
+  seller_id?: string;
 
   @IsOptional()
   @IsString()

@@ -9,12 +9,15 @@ import {
   Query,
   UseGuards,
   Req,
+  Response,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionGuard } from '../rbac/guards/permission.guard';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator';
 import { TenantContextService } from '../rbac/services/tenant-context.service';
 import { ContractsService } from './contracts.service';
+import { ContractsExportService } from './contracts-export.service';
+import { ContractPdfService } from './contract-pdf.service';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { UpdateContractDto } from './dto/update-contract.dto';
 
@@ -23,6 +26,8 @@ import { UpdateContractDto } from './dto/update-contract.dto';
 export class ContractsController {
   constructor(
     private contractsService: ContractsService,
+    private contractsExportService: ContractsExportService,
+    private contractPdfService: ContractPdfService,
     private tenantContext: TenantContextService,
   ) {}
 
@@ -87,6 +92,25 @@ export class ContractsController {
     return this.contractsService.findByContractNumber(tenantId, contractNumber);
   }
 
+  @Get(':id/pdf')
+  @RequirePermissions({ entityType: 'Contract', action: 'Read' })
+  async generatePdf(
+    @Param('id') id: string,
+    @Req() req: any,
+    @Response() res: any,
+  ) {
+    const tenantId = this.tenantContext.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+
+    const buffer = await this.contractPdfService.generateContractPdf(tenantId, id);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="estado-cuenta-${id}.pdf"`);
+    res.send(buffer);
+  }
+
   @Get(':id')
   @RequirePermissions({ entityType: 'Contract', action: 'Read' })
   async findOne(@Param('id') id: string, @Req() req: any) {
@@ -120,5 +144,35 @@ export class ContractsController {
     }
     await this.contractsService.remove(tenantId, id);
     return { success: true };
+  }
+
+  @Get('export/excel')
+  @RequirePermissions({ entityType: 'Contract', action: 'Read' })
+  async exportToExcel(
+    @Req() req: any,
+    @Response() res: any,
+    @Query('customerId') customerId?: string,
+    @Query('propertyId') propertyId?: string,
+    @Query('status') status?: string,
+    @Query('hasOverdue') hasOverdue?: string,
+    @Query('search') search?: string,
+  ) {
+    const tenantId = this.tenantContext.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+
+    const buffer = await this.contractsExportService.exportToExcel(
+      tenantId,
+      customerId ? parseInt(customerId) : undefined,
+      propertyId,
+      status,
+      hasOverdue === 'true',
+      search,
+    );
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="contratos.xlsx"');
+    res.send(buffer);
   }
 }

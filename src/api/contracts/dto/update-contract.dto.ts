@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsDate, IsOptional, IsEnum, Length } from 'class-validator';
+import { IsString, IsNumber, IsDate, IsOptional, IsEnum, Length, IsUUID } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UpdateContractDto {
@@ -28,6 +28,10 @@ export class UpdateContractDto {
   @IsDate()
   @Type(() => Date)
   first_payment_date?: Date;
+
+  @IsOptional()
+  @IsUUID()
+  seller_id?: string;
 
   @IsOptional()
   @IsEnum(['activo', 'completado', 'cancelado', 'suspendido'])
