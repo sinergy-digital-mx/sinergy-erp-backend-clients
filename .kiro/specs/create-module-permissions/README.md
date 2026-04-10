@@ -10,7 +10,7 @@ A reusable, standardized system for creating RBAC permissions for any module in 
 A reusable function that handles all the logic for creating module permissions:
 - Creates entity registry entries
 - Creates module records
-- Creates standard permissions (read, write, delete, etc.)
+- Creates standard permissions (read, update, delete, etc.)
 - Assigns modules to tenants
 
 ### 2. Pre-built Seeds
@@ -63,7 +63,7 @@ async function seed{ModuleName}Permissions(tenantId?: string) {
     moduleCode: 'module-code',
     entityCode: 'entity_code',
     description: 'Module description',
-    actions: ['read', 'write', 'delete'],
+    actions: ['read', 'update', 'delete'],
     tenantId: tenantId,
   });
 }
@@ -119,7 +119,7 @@ interface ModulePermissionConfig {
 ### Available Actions
 
 - `read` - View/read access
-- `write` - Create and update access
+- `update` - Create and update access
 - `delete` - Delete access
 - `create` - Create-only access
 - `update` - Update-only access
@@ -143,7 +143,7 @@ When you run a seed, it creates:
 
 3. **Permissions** (for each action)
    - `entity_code:read`
-   - `entity_code:write`
+   - `entity_code:update`
    - `entity_code:delete`
    - etc.
 
@@ -172,7 +172,7 @@ async function seedPosPermissions(tenantId?: string) {
     moduleCode: 'pos',
     entityCode: 'pos',
     description: 'Module for managing point of sale transactions',
-    actions: ['read', 'write', 'delete', 'approve'],
+    actions: ['read', 'update', 'delete', 'approve'],
     tenantId: tenantId,
   });
 }

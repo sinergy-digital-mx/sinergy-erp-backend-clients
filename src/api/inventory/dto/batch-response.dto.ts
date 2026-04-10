@@ -44,6 +44,9 @@ export class BatchResponseDto {
   @ApiProperty({ description: 'Purchase Order Batch Detail ID', nullable: true })
   purchase_order_detail_id?: string;
 
+  @ApiProperty({ description: 'Purchase Order folio', nullable: true })
+  purchase_order_folio?: string;
+
   @ApiProperty({ description: 'User who created the batch' })
   created_by: string;
 

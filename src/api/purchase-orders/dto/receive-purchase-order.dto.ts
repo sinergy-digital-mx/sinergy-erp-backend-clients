@@ -56,9 +56,9 @@ export class ReceivedItemDto {
   ieps_unit: number;
 
   @IsOptional()
-  @IsDate()
   @Type(() => Date)
-  expiration_date?: Date;
+  @IsDate()
+  expiration_date?: Date | null;
 }
 
 /**

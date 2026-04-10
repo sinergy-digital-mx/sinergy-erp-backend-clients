@@ -6,7 +6,7 @@ This spec is a reusable template for creating standard RBAC permissions for any 
 
 This spec automates the creation of:
 1. Module entity in the database
-2. Standard permissions (read, write, delete)
+2. Standard permissions (read, read, delete)
 3. Entity registry entry
 4. Tenant-module associations
 
@@ -21,7 +21,7 @@ This spec automates the creation of:
 
 Each module gets these standard permissions:
 - `read` - View/read access to the module
-- `write` - Create and update access
+- `read` - Create and update access
 - `delete` - Delete access
 
 ## Tasks
@@ -41,7 +41,7 @@ Each module gets these standard permissions:
 
 ### Task 4: Create Permissions
 - Create read permission
-- Create write permission
+- Create read permission
 - Create delete permission
 
 ### Task 5: Assign to Tenant(s)

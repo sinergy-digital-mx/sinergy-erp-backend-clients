@@ -23,6 +23,7 @@ async function bootstrap() {
       'http://localhost:4200',
       'http://localhost:3000',
       'http://localhost:3001',
+      'http://localhost:8000', // Para tenant-modules-admin.html
       'http://localhost:8080',
       'https://divino.sinergydigital.mx',
       'https://*.sinergydigital.mx',

@@ -22,6 +22,7 @@ import { TenantService } from './services/tenant.service';
 import { ModuleService } from './services/module.service';
 import { MenuPermissionService } from './services/menu-permission.service';
 import { PermissionCacheService } from './services/permission-cache.service';
+import { PermissionVersionService } from './services/permission-version.service';
 import { QueryCacheService } from './services/query-cache.service';
 import { AuditLogService } from './services/audit-log.service';
 import { MigrationService } from './services/migration.service';
@@ -32,6 +33,7 @@ import { AuditLogController } from './controllers/audit-log.controller';
 import { DataCleanupController } from './controllers/data-cleanup.controller';
 import { ModulesController } from './controllers/modules.controller';
 import { RolesController } from './controllers/roles.controller';
+import { AdminTenantModulesController } from './controllers/admin-tenant-modules.controller';
 import { RBACErrorHandlerService } from './errors/error-handler.service';
 import { RBACExceptionFilter } from './filters/rbac-exception.filter';
 import { TenantContextMiddleware } from './middleware/tenant-context.middleware';
@@ -94,6 +96,7 @@ import rbacConfig from './config/rbac.config';
     DataCleanupController,
     ModulesController,
     RolesController,
+    AdminTenantModulesController,
   ],
   providers: [
     // Core Services
@@ -107,6 +110,7 @@ import rbacConfig from './config/rbac.config';
     
     // Caching Services
     PermissionCacheService,
+    PermissionVersionService,
     QueryCacheService,
     
     // Audit and Monitoring
@@ -138,6 +142,7 @@ import rbacConfig from './config/rbac.config';
     
     // Caching Services
     PermissionCacheService,
+    PermissionVersionService,
     QueryCacheService,
     
     // Audit and Monitoring
@@ -202,6 +207,7 @@ export class RBACModule {
         TenantContextService,
         TenantService,
         PermissionCacheService,
+        PermissionVersionService,
         QueryCacheService,
         AuditLogService,
         MigrationService,

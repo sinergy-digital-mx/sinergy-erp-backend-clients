@@ -7,6 +7,9 @@ import { RequirePermissions } from '../rbac/decorators/require-permissions.decor
 import { BatchFilterDto } from './dto/batch-filter.dto';
 import { BatchListResponseDto } from './dto/batch-list-response.dto';
 import { BatchResponseDto } from './dto/batch-response.dto';
+import { BatchDetailResponseDto } from './dto/batch-detail-response.dto';
+import { InventorySummaryFilterDto } from './dto/inventory-summary-filter.dto';
+import { InventorySummaryResponseDto } from './dto/inventory-summary-response.dto';
 
 @Controller('tenant/inventory')
 @ApiTags('Inventory')
@@ -23,6 +26,7 @@ export class InventoryController {
     description: 'List of batches retrieved successfully',
     type: BatchListResponseDto,
   })
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Search by batch number, product name or SKU' })
   @ApiQuery({ name: 'batch_number', required: false, type: String })
   @ApiQuery({ name: 'product_id', required: false, type: String })
   @ApiQuery({ name: 'warehouse_id', required: false, type: String })
@@ -42,6 +46,33 @@ export class InventoryController {
     return this.inventoryService.findAll(tenantId, filters);
   }
 
+  @Get('summary')
+  @RequirePermissions({ entityType: 'inventory', action: 'read' })
+  @ApiOperation({ 
+    summary: 'Get inventory summary grouped by product and warehouse',
+    description: 'Returns total available quantity per product+warehouse with batch breakdown'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Inventory summary retrieved successfully',
+    type: InventorySummaryResponseDto,
+  })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'warehouse_id', required: false, type: String })
+  @ApiQuery({ name: 'product_id', required: false, type: String })
+  @ApiQuery({ name: 'only_available', required: false, type: Boolean })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'sort_by', required: false, type: String })
+  @ApiQuery({ name: 'sort_order', required: false, type: String })
+  async getInventorySummary(
+    @Query() filters: InventorySummaryFilterDto,
+    @Req() req: any,
+  ): Promise<InventorySummaryResponseDto> {
+    const tenantId = req.user.tenant_id;
+    return this.inventoryService.getInventorySummary(tenantId, filters);
+  }
+
   @Get('batches/purchase-order/:poId')
   @RequirePermissions({ entityType: 'inventory', action: 'read' })
   @ApiOperation({ summary: 'Get all inventory batches for a specific purchase order' })
@@ -51,6 +82,7 @@ export class InventoryController {
     description: 'List of batches for the purchase order retrieved successfully',
     type: BatchListResponseDto,
   })
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Search by batch number, product name or SKU' })
   @ApiQuery({ name: 'batch_number', required: false, type: String })
   @ApiQuery({ name: 'product_id', required: false, type: String })
   @ApiQuery({ name: 'warehouse_id', required: false, type: String })
@@ -76,7 +108,7 @@ export class InventoryController {
   @ApiResponse({
     status: 200,
     description: 'Batch retrieved successfully',
-    type: BatchResponseDto,
+    type: BatchDetailResponseDto,
   })
   @ApiResponse({
     status: 404,
@@ -85,7 +117,7 @@ export class InventoryController {
   async findOne(
     @Param('id') id: string,
     @Req() req: any,
-  ): Promise<BatchResponseDto> {
+  ): Promise<BatchDetailResponseDto> {
     const tenantId = req.user.tenant_id;
     return this.inventoryService.findById(id, tenantId);
   }

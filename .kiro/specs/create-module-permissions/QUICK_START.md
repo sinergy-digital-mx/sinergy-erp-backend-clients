@@ -7,7 +7,7 @@ A reusable system to create RBAC permissions for any module in Sinergy ERP.
 ## What Was Done
 
 ✅ **Inventory Module** - Assigned to tenant `afff1757-dbcf-4715-a756-6b22bb2c59d5`
-✅ **Sales Orders Module** - Created with 5 permissions (read, write, delete, approve, reject)
+✅ **Sales Orders Module** - Created with 5 permissions (read, update, delete, approve, reject)
 
 ## How to Use
 
@@ -46,7 +46,7 @@ async function seedPosPermissions(tenantId?: string) {
       moduleCode: 'pos',
       entityCode: 'pos',
       description: 'Module for managing point of sale transactions',
-      actions: ['read', 'write', 'delete', 'approve'],
+      actions: ['read', 'update', 'delete', 'approve'],
       tenantId: tenantId,
     });
   } catch (error) {
@@ -102,7 +102,7 @@ npm run seed:pos -- afff1757-dbcf-4715-a756-6b22bb2c59d5
   moduleCode: string;        // Kebab-case code
   entityCode: string;        // Snake_case entity code
   description?: string;      // Optional description
-  actions?: string[];        // Permissions (default: ['read', 'write', 'delete'])
+  actions?: string[];        // Permissions (default: ['read', 'update', 'delete'])
   tenantId?: string;         // Optional: specific tenant
 }
 ```
@@ -110,7 +110,7 @@ npm run seed:pos -- afff1757-dbcf-4715-a756-6b22bb2c59d5
 ## Available Actions
 
 - `read` - View/read access
-- `write` - Create and update access
+- `update` - Create and update access
 - `delete` - Delete access
 - `create` - Create-only access
 - `update` - Update-only access
@@ -139,7 +139,7 @@ For each module, the system creates:
 ✅ Created entity registry: sales_orders
 ✅ Created module: Sales Orders Management
 ✅ Created permission: sales_orders:read
-✅ Created permission: sales_orders:write
+✅ Created permission: sales_orders:update
 ✅ Created permission: sales_orders:delete
 ✅ Created permission: sales_orders:approve
 ✅ Created permission: sales_orders:reject
@@ -148,7 +148,7 @@ For each module, the system creates:
 🎉 Module permissions setup completed!
 ✅ Module: Sales Orders Management (sales-orders)
 ✅ Created permissions: 5
-   sales_orders:read, sales_orders:write, sales_orders:delete, sales_orders:approve, sales_orders:reject
+   sales_orders:read, sales_orders:update, sales_orders:delete, sales_orders:approve, sales_orders:reject
 ✅ Enabled for tenants: 1
    Maderia Zona Norte
 ```

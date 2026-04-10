@@ -1,5 +1,6 @@
 export { PermissionService } from './permission.service';
 export { PermissionCacheService } from './permission-cache.service';
+export { PermissionVersionService } from './permission-version.service';
 export { QueryCacheService } from './query-cache.service';
 export { RoleService } from './role.service';
 export { RoleTemplateService } from './role-template.service';

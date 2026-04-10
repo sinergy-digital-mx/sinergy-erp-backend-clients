@@ -109,7 +109,7 @@ export class InventoryBatchService {
       .createQueryBuilder('batch')
       .select('COUNT(DISTINCT batch.id)', 'total_batches')
       .addSelect('COUNT(DISTINCT batch.product_id)', 'unique_products')
-      .addSelect('SUM(batch.quantity)', 'total_quantity')
+      .addSelect('SUM(batch.available_quantity)', 'total_quantity')
       .where('batch.tenant_id = :tenantId', { tenantId })
       .andWhere('batch.warehouse_id = :warehouseId', { warehouseId })
       .getRawOne();

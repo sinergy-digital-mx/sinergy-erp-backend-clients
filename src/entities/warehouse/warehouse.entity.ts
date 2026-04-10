@@ -62,13 +62,13 @@ export class Warehouse {
   })
   status: string;
 
-  // Fiscal Configuration Reference
-  @ManyToOne('FiscalConfiguration', { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'fiscal_configuration_id' })
-  fiscal_configuration: any;
+  // Billing Branch Reference
+  @ManyToOne('BillingBranch', { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'billing_branch_id' })
+  billing_branch: any;
 
   @Column({ nullable: true })
-  fiscal_configuration_id: string;
+  billing_branch_id: string;
 
   // Metadata for extensibility
   @Column({ type: 'json', nullable: true })

@@ -87,6 +87,7 @@ export class AuthService {
             })),
             // Include permissions in JWT for client-side checks
             permissions: permissionsForJwt,
+            permissions_version: user.permissions_version,
             hasAdminRole: userRoles.some(role => role.name === 'Admin'),
             permissionCount: userPermissions.length,
             iat: Math.floor(Date.now() / 1000),
@@ -107,6 +108,7 @@ export class AuthService {
                 permissions: permissionsByModule,
                 // Also include flat permissions array for UI convenience
                 permissions_flat: permissionsForJwt,
+                permissions_version: user.permissions_version,
                 last_login_at: user.last_login_at,
             },
         };
@@ -146,6 +148,7 @@ export class AuthService {
                 isSystemRole: role.is_system_role,
             })),
             permissions: permissionsForJwt,
+            permissions_version: user.permissions_version,
             hasAdminRole: userRoles.some(role => role.name === 'Admin'),
             permissionCount: userPermissions.length,
             iat: Math.floor(Date.now() / 1000),
@@ -160,8 +163,17 @@ export class AuthService {
                 status: user.status.code,
                 roles: userRoles.map(role => role.name),
                 permissions_flat: permissionsForJwt,
+                permissions_version: user.permissions_version,
             },
         };
+    }
+
+    /**
+     * Refresh endpoint - generates new token with current permissions
+     * Extracts user info from existing JWT and generates new token with latest permissions_version
+     */
+    async refresh(userId: string, tenantId: string) {
+        return this.refreshToken(userId, tenantId);
     }
 
     /**

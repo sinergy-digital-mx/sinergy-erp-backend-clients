@@ -8,8 +8,10 @@ import { UserRole } from '../../../../entities/rbac/user-role.entity';
 import { RolePermission } from '../../../../entities/rbac/role-permission.entity';
 import { Permission } from '../../../../entities/rbac/permission.entity';
 import { RBACTenant } from '../../../../entities/rbac/tenant.entity';
+import { TenantModule } from '../../../../entities/rbac/tenant-module.entity';
 import { TenantContextService } from '../tenant-context.service';
 import { PermissionCacheService } from '../permission-cache.service';
+import { PermissionVersionService } from '../permission-version.service';
 
 describe('RoleService', () => {
   let service: RoleService;
@@ -18,6 +20,7 @@ describe('RoleService', () => {
   let rolePermissionRepository: jest.Mocked<Repository<RolePermission>>;
   let permissionRepository: jest.Mocked<Repository<Permission>>;
   let tenantRepository: jest.Mocked<Repository<RBACTenant>>;
+  let permissionVersionService: jest.Mocked<PermissionVersionService>;
 
   const mockTenant: RBACTenant = {
     id: '123e4567-e89b-12d3-a456-426614174000',
@@ -110,6 +113,10 @@ describe('RoleService', () => {
       findOne: jest.fn(),
     };
 
+    const mockTenantModuleRepository = {
+      find: jest.fn(),
+    };
+
     const mockTenantContextService = {
       getCurrentTenantId: jest.fn(),
       getCurrentUserId: jest.fn(),
@@ -143,6 +150,10 @@ describe('RoleService', () => {
           useValue: mockTenantRepository,
         },
         {
+          provide: getRepositoryToken(TenantModule),
+          useValue: mockTenantModuleRepository,
+        },
+        {
           provide: TenantContextService,
           useValue: mockTenantContextService,
         },
@@ -161,6 +172,14 @@ describe('RoleService', () => {
             warmCache: jest.fn(),
           },
         },
+        {
+          provide: PermissionVersionService,
+          useValue: {
+            incrementUserVersion: jest.fn(),
+            incrementVersionForUsersWithRole: jest.fn(),
+            getUserVersion: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -170,6 +189,7 @@ describe('RoleService', () => {
     rolePermissionRepository = module.get(getRepositoryToken(RolePermission));
     permissionRepository = module.get(getRepositoryToken(Permission));
     tenantRepository = module.get(getRepositoryToken(RBACTenant));
+    permissionVersionService = module.get(PermissionVersionService);
   });
 
   it('should be defined', () => {
@@ -219,6 +239,7 @@ describe('RoleService', () => {
       userRoleRepository.findOne.mockResolvedValue(null);
       userRoleRepository.create.mockReturnValue(mockUserRole);
       userRoleRepository.save.mockResolvedValue(mockUserRole);
+      permissionVersionService.incrementUserVersion.mockResolvedValue(undefined);
 
       const result = await service.assignRoleToUser(
         '123e4567-e89b-12d3-a456-426614174004',
@@ -232,6 +253,7 @@ describe('RoleService', () => {
         role_id: '123e4567-e89b-12d3-a456-426614174001',
         tenant_id: '123e4567-e89b-12d3-a456-426614174000',
       });
+      expect(permissionVersionService.incrementUserVersion).toHaveBeenCalledWith('123e4567-e89b-12d3-a456-426614174004');
     });
 
     it('should throw NotFoundException for invalid role', async () => {
@@ -263,6 +285,7 @@ describe('RoleService', () => {
       rolePermissionRepository.findOne.mockResolvedValue(null);
       rolePermissionRepository.create.mockReturnValue(mockRolePermission);
       rolePermissionRepository.save.mockResolvedValue(mockRolePermission);
+      permissionVersionService.incrementVersionForUsersWithRole.mockResolvedValue(undefined);
       
       // Mock getUsersWithRole to return empty array
       userRoleRepository.find.mockResolvedValue([]);
@@ -277,6 +300,10 @@ describe('RoleService', () => {
         role_id: '123e4567-e89b-12d3-a456-426614174001',
         permission_id: '123e4567-e89b-12d3-a456-426614174002',
       });
+      expect(permissionVersionService.incrementVersionForUsersWithRole).toHaveBeenCalledWith(
+        '123e4567-e89b-12d3-a456-426614174001',
+        '123e4567-e89b-12d3-a456-426614174000',
+      );
     });
 
     it('should throw NotFoundException for invalid role', async () => {
@@ -586,6 +613,62 @@ describe('RoleService', () => {
       await expect(
         service.deleteRole('role-id', 'tenant-id'),
       ).rejects.toThrow('Foreign key constraint');
+    });
+  });
+
+  describe('Permission Version Tracking', () => {
+    describe('removeRoleFromUser', () => {
+      it('should increment user permissions_version when role is removed', async () => {
+        userRoleRepository.findOne.mockResolvedValue(mockUserRole);
+        userRoleRepository.remove.mockResolvedValue(mockUserRole);
+        permissionVersionService.incrementUserVersion.mockResolvedValue(undefined);
+
+        await service.removeRoleFromUser('user-id', 'role-id', 'tenant-id');
+
+        expect(permissionVersionService.incrementUserVersion).toHaveBeenCalledWith('user-id');
+        expect(userRoleRepository.remove).toHaveBeenCalledWith(mockUserRole);
+      });
+
+      it('should throw NotFoundException if user role assignment does not exist', async () => {
+        userRoleRepository.findOne.mockResolvedValue(null);
+
+        await expect(
+          service.removeRoleFromUser('user-id', 'role-id', 'tenant-id'),
+        ).rejects.toThrow(NotFoundException);
+
+        expect(permissionVersionService.incrementUserVersion).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('removePermissionFromRole', () => {
+      it('should increment permissions_version for all users with the role when permission is removed', async () => {
+        rolePermissionRepository.findOne.mockResolvedValue(mockRolePermission);
+        roleRepository.findOne.mockResolvedValue(mockRole);
+        rolePermissionRepository.remove.mockResolvedValue(mockRolePermission);
+        userRoleRepository.find.mockResolvedValue([
+          { user_id: 'user-1' } as UserRole,
+          { user_id: 'user-2' } as UserRole,
+        ]);
+        permissionVersionService.incrementVersionForUsersWithRole.mockResolvedValue(undefined);
+
+        await service.removePermissionFromRole('role-id', 'permission-id');
+
+        expect(permissionVersionService.incrementVersionForUsersWithRole).toHaveBeenCalledWith(
+          'role-id',
+          mockRole.tenant_id,
+        );
+        expect(rolePermissionRepository.remove).toHaveBeenCalledWith(mockRolePermission);
+      });
+
+      it('should throw NotFoundException if role permission assignment does not exist', async () => {
+        rolePermissionRepository.findOne.mockResolvedValue(null);
+
+        await expect(
+          service.removePermissionFromRole('role-id', 'permission-id'),
+        ).rejects.toThrow(NotFoundException);
+
+        expect(permissionVersionService.incrementVersionForUsersWithRole).not.toHaveBeenCalled();
+      });
     });
   });
 

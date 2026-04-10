@@ -41,7 +41,7 @@ export class CreateWarehouseDto {
 
   @IsOptional()
   @IsUUID()
-  fiscal_configuration_id?: string;
+  billing_branch_id?: string;
 
   @IsOptional()
   @IsEnum(['active', 'inactive'])

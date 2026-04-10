@@ -7,6 +7,11 @@ import { ApiProperty } from '@nestjs/swagger';
  * Supports filtering by batch number, product, warehouse, purchase order, and date range
  */
 export class BatchFilterDto {
+  @ApiProperty({ description: 'Search by batch number, product name or product SKU', required: false })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
   @ApiProperty({ description: 'Filter by batch number', required: false })
   @IsOptional()
   @IsString()

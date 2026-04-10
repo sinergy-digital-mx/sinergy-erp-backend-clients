@@ -2,6 +2,9 @@ import {
   IsString,
   IsOptional,
   IsNotEmpty,
+  IsInt,
+  IsNumber,
+  Min,
 } from 'class-validator';
 
 export class CreateVendorDto {
@@ -48,4 +51,14 @@ export class CreateVendorDto {
   @IsOptional()
   @IsString()
   status?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  credit_days?: number;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  credit_limit?: number;
 }

@@ -9,6 +9,7 @@ import { RBACTenant } from '../../../entities/rbac/tenant.entity';
 import { TenantModule } from '../../../entities/rbac/tenant-module.entity';
 import { TenantContextService } from './tenant-context.service';
 import { PermissionCacheService } from './permission-cache.service';
+import { PermissionVersionService } from './permission-version.service';
 
 @Injectable()
 export class RoleService {
@@ -27,6 +28,7 @@ export class RoleService {
     private tenantModuleRepository: Repository<TenantModule>,
     private tenantContextService: TenantContextService,
     private permissionCacheService: PermissionCacheService,
+    private permissionVersionService: PermissionVersionService,
   ) {}
 
   /**
@@ -139,6 +141,9 @@ export class RoleService {
 
     const savedUserRole = await this.userRoleRepository.save(userRole);
 
+    // Increment user's permissions_version since their roles changed
+    await this.permissionVersionService.incrementUserVersion(userId);
+
     // Invalidate user's permission cache since their roles changed
     try {
       await this.permissionCacheService.invalidateUserPermissions(userId, tenantId);
@@ -216,6 +221,9 @@ export class RoleService {
 
     const savedRolePermission = await this.rolePermissionRepository.save(rolePermission);
 
+    // Increment permissions_version for all users with this role
+    await this.permissionVersionService.incrementVersionForUsersWithRole(roleId, role.tenant_id);
+
     // Invalidate cache for all users with this role
     const userIds = await this.getUsersWithRole(roleId, role.tenant_id);
     try {
@@ -280,6 +288,9 @@ export class RoleService {
         })),
       )
       .execute();
+
+    // Increment permissions_version for all users with this role
+    await this.permissionVersionService.incrementVersionForUsersWithRole(roleId, tenantId);
 
     // Invalidate cache (async, don't wait)
     this.permissionCacheService
@@ -395,6 +406,9 @@ export class RoleService {
 
     await this.userRoleRepository.remove(userRole);
 
+    // Increment user's permissions_version since their roles changed
+    await this.permissionVersionService.incrementUserVersion(userId);
+
     // Invalidate user's permission cache since their roles changed
     try {
       await this.permissionCacheService.invalidateUserPermissions(userId, tenantId);
@@ -433,6 +447,9 @@ export class RoleService {
 
     // Invalidate cache for all users with this role
     if (role) {
+      // Increment permissions_version for all users with this role
+      await this.permissionVersionService.incrementVersionForUsersWithRole(roleId, role.tenant_id);
+
       const userIds = await this.getUsersWithRole(roleId, role.tenant_id);
       try {
         await this.permissionCacheService.invalidateRolePermissions(roleId, role.tenant_id, userIds);

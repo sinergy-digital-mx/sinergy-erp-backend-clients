@@ -25,7 +25,7 @@ async function seed{ModuleName}Permissions(tenantId?: string) {
       moduleCode: '{module-code}',
       entityCode: '{entity_code}',
       description: '{Module description}',
-      actions: ['read', 'write', 'delete'],
+      actions: ['read', 'update', 'delete'],
       tenantId: tenantId,
     });
   } catch (error) {
@@ -94,7 +94,7 @@ npm run seed:{module-name} -- {tenant-id}
 ### Available Actions
 
 - `read` - View/read access
-- `write` - Create and update access
+- `update` - Create and update access
 - `delete` - Delete access
 - `create` - Create-only access
 - `update` - Update-only access
@@ -124,7 +124,7 @@ async function seedPosPermissions(tenantId?: string) {
       moduleCode: 'pos',
       entityCode: 'pos',
       description: 'Module for managing point of sale transactions',
-      actions: ['read', 'write', 'delete', 'approve'],
+      actions: ['read', 'update', 'delete', 'approve'],
       tenantId: tenantId,
     });
   } catch (error) {
@@ -194,7 +194,7 @@ async function seedCrmPermissions(tenantId?: string) {
       moduleCode: 'crm',
       entityCode: 'crm',
       description: 'Module for managing customer relationships and interactions',
-      actions: ['read', 'write', 'delete', 'export', 'import'],
+      actions: ['read', 'update', 'delete', 'export', 'import'],
       tenantId: tenantId,
     });
   } catch (error) {
@@ -262,7 +262,7 @@ When you run the seed, it creates:
 
 3. **Permissions** (for each action)
    - `entity_code:read`
-   - `entity_code:write`
+   - `entity_code:update`
    - `entity_code:delete`
    - etc.
 

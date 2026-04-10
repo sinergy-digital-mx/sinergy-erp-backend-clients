@@ -12,7 +12,7 @@ A complete, reusable system for creating RBAC permissions for any module in Sine
 - **Features**:
   - Creates entity registry entries
   - Creates module records
-  - Creates standard permissions (read, write, delete, etc.)
+  - Creates standard permissions (read, update, delete, etc.)
   - Assigns modules to specific tenant or all tenants
   - Idempotent (safe to run multiple times)
 
@@ -28,7 +28,7 @@ A complete, reusable system for creating RBAC permissions for any module in Sine
 - **File**: `src/database/seeds/seed-sales-orders-permissions.ts`
 - **Command**: `npm run seed:sales-orders [tenant-id]`
 - **Status**: ✅ Executed successfully
-- **Result**: Created Sales Orders module with 5 permissions (read, write, delete, approve, reject)
+- **Result**: Created Sales Orders module with 5 permissions (read, update, delete, approve, reject)
 
 ### 3. Documentation
 
@@ -47,7 +47,7 @@ npm run seed:inventory-tenant
 **Results**:
 - ✅ Entity registry: `inventory` (already existed)
 - ✅ Module: `Inventory Management` (created)
-- ✅ Permissions: `inventory:read`, `inventory:write`, `inventory:delete` (already existed)
+- ✅ Permissions: `inventory:read`, `inventory:update`, `inventory:delete` (already existed)
 - ✅ Tenant assignment: Assigned to `Maderia Zona Norte` (afff1757-dbcf-4715-a756-6b22bb2c59d5)
 
 ### Sales Orders Module
@@ -60,7 +60,7 @@ npm run seed:sales-orders -- afff1757-dbcf-4715-a756-6b22bb2c59d5
 - ✅ Module: `Sales Orders Management` (created)
 - ✅ Permissions created:
   - `sales_orders:read`
-  - `sales_orders:write`
+  - `sales_orders:update`
   - `sales_orders:delete`
   - `sales_orders:approve`
   - `sales_orders:reject`
@@ -88,7 +88,7 @@ async function seedPosPermissions(tenantId?: string) {
       moduleCode: 'pos',
       entityCode: 'pos',
       description: 'Module for managing point of sale transactions',
-      actions: ['read', 'write', 'delete', 'approve'],
+      actions: ['read', 'update', 'delete', 'approve'],
       tenantId: tenantId,
     });
   } catch (error) {
@@ -152,7 +152,7 @@ interface ModulePermissionConfig {
   moduleCode: string;        // Kebab-case code (e.g., "inventory")
   entityCode: string;        // Snake_case entity code (e.g., "inventory")
   description?: string;      // Optional module description
-  actions?: string[];        // Permissions to create (default: ['read', 'write', 'delete'])
+  actions?: string[];        // Permissions to create (default: ['read', 'update', 'delete'])
   tenantId?: string;         // Optional: specific tenant ID
 }
 ```
@@ -160,7 +160,7 @@ interface ModulePermissionConfig {
 ## Available Actions
 
 - `read` - View/read access
-- `write` - Create and update access
+- `update` - Create and update access
 - `delete` - Delete access
 - `create` - Create-only access
 - `update` - Update-only access

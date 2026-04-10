@@ -62,6 +62,13 @@ export class Vendor {
   })
   persona_type: string;
 
+  // Credit Information
+  @Column({ type: 'integer', nullable: true })
+  credit_days: number;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
+  credit_limit: string;
+
   // Status
   @Column({
     type: 'enum',

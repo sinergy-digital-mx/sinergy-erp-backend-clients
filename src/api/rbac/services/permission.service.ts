@@ -78,7 +78,7 @@ export class PermissionService {
 
       // Check if the user has the required permission (case-insensitive comparison)
       return userPermissions?.some(
-        permission => permission?.entity_type?.toLowerCase() === entityType.toLowerCase() && permission?.action === action
+        permission => permission?.entity_type?.toLowerCase() === entityType.toLowerCase() && permission?.action?.toLowerCase() === action.toLowerCase()
       ) || false;
     } catch (error) {
       this.logger.error(`Error checking permission for user ${userId} in tenant ${tenantId}:`, error);
@@ -971,6 +971,7 @@ export class PermissionService {
     tenantId: string,
   ): Promise<Permission[]> {
     // Use a more efficient query that leverages indexes
+    // IMPORTANT: Only return permissions for modules that are enabled for this tenant
     const query = `
       SELECT DISTINCT p.id, p.action, p.description, p.is_system_permission, p.created_at, p.updated_at, 
              p.entity_registry_id, er.code as entity_code, p.module_id
@@ -979,11 +980,13 @@ export class PermissionService {
       INNER JOIN rbac_role_permissions rp ON p.id = rp.permission_id
       INNER JOIN rbac_roles r ON rp.role_id = r.id
       INNER JOIN rbac_user_roles ur ON r.id = ur.role_id
+      LEFT JOIN tenant_modules tm ON p.module_id = tm.module_id AND tm.tenant_id = ?
       WHERE ur.user_id = ? AND ur.tenant_id = ?
+        AND (p.module_id IS NULL OR (tm.is_enabled = 1 AND tm.tenant_id = ?))
       ORDER BY er.code, p.action
     `;
 
-    const rawResults = await this.permissionRepository.query(query, [userId, tenantId]);
+    const rawResults = await this.permissionRepository.query(query, [tenantId, userId, tenantId, tenantId]);
     
     // Convert raw results to Permission entities
     return rawResults.map(row => {
@@ -1021,19 +1024,22 @@ export class PermissionService {
     }
 
     // Use optimized query with IN clause
+    // IMPORTANT: Only return permissions for modules that are enabled for this tenant
     const query = `
       SELECT DISTINCT ur.user_id, p.id, p.action, p.description, p.is_system_permission, p.created_at, p.updated_at,
-             p.entity_registry_id, er.code as entity_code
+             p.entity_registry_id, er.code as entity_code, p.module_id
       FROM rbac_permissions p
       INNER JOIN entity_registry er ON p.entity_registry_id = er.id
       INNER JOIN rbac_role_permissions rp ON p.id = rp.permission_id
       INNER JOIN rbac_roles r ON rp.role_id = r.id
       INNER JOIN rbac_user_roles ur ON r.id = ur.role_id
+      LEFT JOIN tenant_modules tm ON p.module_id = tm.module_id AND tm.tenant_id = ?
       WHERE ur.user_id IN (?) AND ur.tenant_id = ?
+        AND (p.module_id IS NULL OR (tm.is_enabled = 1 AND tm.tenant_id = ?))
       ORDER BY ur.user_id, er.code, p.action
     `;
 
-    const rawResults = await this.permissionRepository.query(query, [userIds, tenantId]);
+    const rawResults = await this.permissionRepository.query(query, [tenantId, userIds, tenantId, tenantId]);
     
     // Group results by user ID
     const permissionsByUser = new Map<string, Permission[]>();

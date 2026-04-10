@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Tenant Modules</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .tenant-selector {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        select {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        select:hover {
+            border-color: #667eea;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .module-card {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .module-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .module-card.enabled {
+            border-color: #10b981;
+            background: #f0fdf4;
+        }
+
+        .module-card.disabled {
+            border-color: #e0e0e0;
+            background: #f9fafb;
+        }
+
+        .module-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .module-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .module-status {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-enabled {
+            background: #10b981;
+            color: white;
+        }
+
+        .status-disabled {
+            background: #9ca3af;
+            color: white;
+        }
+
+        .module-code {
+            font-size: 12px;
+            color: #6b7280;
+            font-family: 'Courier New', monospace;
+            margin-bottom: 8px;
+        }
+
+        .module-description {
+            font-size: 13px;
+            color: #6b7280;
+            line-height: 1.5;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .alert-info {
+            background: #dbeafe;
+            color: #1e40af;
+            border-left: 4px solid #3b82f6;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border-left: 4px solid #10b981;
+        }
+
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border-left: 4px solid #ef4444;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+
+        .spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .bulk-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            flex: 1;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: #6b7280;
+            transition: all 0.3s;
+        }
+
+        .tab:hover {
+            color: #667eea;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        .permissions-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .permission-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background: #f9fafb;
+        }
+
+        .permission-info {
+            flex: 1;
+        }
+
+        .permission-action {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .permission-description {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 4px;
+        }
+
+        .permission-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        .module-card-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .btn-link {
+            background: none;
+            border: none;
+            color: #667eea;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 8px;
+            text-decoration: underline;
+        }
+
+        .btn-link:hover {
+            color: #764ba2;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .badge-system {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .badge-custom {
+            background: #fef3c7;
+            color: #92400e;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 Tenant Modules Admin</h1>
+            <p>Administración temporal de módulos por tenant (Solo desarrollo local)</p>
+        </div>
+
+        <div class="content">
+            <div class="alert alert-info">
+                ⚠️ Esta herramienta es temporal y no tiene autenticación. Solo para uso local en desarrollo.
+            </div>
+
+            <div class="section">
+                <div class="section-title">Seleccionar Tenant</div>
+                <div class="tenant-selector">
+                    <select id="tenantSelect" onchange="loadTenantModules()">
+                        <option value="">-- Selecciona un tenant --</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="loadTenants()">🔄 Recargar</button>
+                </div>
+            </div>
+
+            <div id="tenantInfo" style="display: none;">
+                <div class="tabs">
+                    <button class="tab active" onclick="switchTab('modules')">📦 Módulos</button>
+                    <button class="tab" onclick="switchTab('permissions')">🔐 Permisos</button>
+                </div>
+
+                <div id="modulesTab" class="tab-content active">
+                    <div class="stats">
+                        <div class="stat-card">
+                            <div class="stat-number" id="totalModules">0</div>
+                            <div class="stat-label">Total Módulos</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="enabledModules">0</div>
+                            <div class="stat-label">Habilitados</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="disabledModules">0</div>
+                            <div class="stat-label">Deshabilitados</div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">Acciones Masivas</div>
+                        <div class="bulk-actions">
+                            <button class="btn btn-success" onclick="enableAllModules()">✅ Habilitar Todos</button>
+                            <button class="btn btn-danger" onclick="disableAllModules()">❌ Deshabilitar Todos</button>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">Módulos Disponibles</div>
+                        <div id="modulesGrid" class="modules-grid"></div>
+                    </div>
+                </div>
+
+                <div id="permissionsTab" class="tab-content">
+                    <div class="section">
+                        <div class="section-title">Seleccionar Módulo</div>
+                        <select id="moduleSelect" onchange="loadModulePermissions()">
+                            <option value="">-- Selecciona un módulo --</option>
+                        </select>
+                    </div>
+
+                    <div id="permissionsSection" style="display: none;">
+                        <div class="section">
+                            <div class="section-title">
+                                Permisos del Módulo
+                                <button class="btn btn-success btn-small" onclick="openCreatePermissionModal()" style="float: right;">
+                                    ➕ Crear Permiso
+                                </button>
+                            </div>
+                            <div id="permissionsList" class="permissions-list"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="loading" class="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>Cargando...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para crear/editar permiso -->
+    <div id="permissionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header" id="modalTitle">Crear Permiso</div>
+            <form id="permissionForm" onsubmit="savePermission(event)">
+                <div class="form-group">
+                    <label class="form-label">Acción *</label>
+                    <input type="text" id="permissionAction" class="form-input" placeholder="Ej: Download_Report, Export_Data" required>
+                    <small style="color: #6b7280; font-size: 12px;">Usa snake_case o PascalCase</small>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Descripción</label>
+                    <input type="text" id="permissionDescription" class="form-input" placeholder="Descripción del permiso">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closePermissionModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001/api/admin/tenant-modules';
+        let currentTenantId = null;
+        let currentModules = [];
+        let currentModuleId = null;
+        let currentPermissions = [];
+        let editingPermissionId = null;
+
+        // Cargar tenants al iniciar
+        window.onload = () => {
+            loadTenants();
+        };
+
+        async function loadTenants() {
+            try {
+                showLoading(true);
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 segundos timeout
+
+                const response = await fetch(`${API_BASE}/tenants`, {
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                
+                const data = await response.json();
+
+                const select = document.getElementById('tenantSelect');
+                select.innerHTML = '<option value="">-- Selecciona un tenant --</option>';
+
+                data.tenants.forEach(tenant => {
+                    const option = document.createElement('option');
+                    option.value = tenant.id;
+                    option.textContent = `${tenant.name} (${tenant.subdomain})`;
+                    select.appendChild(option);
+                });
+
+                showLoading(false);
+            } catch (error) {
+                console.error('Error loading tenants:', error);
+                if (error.name === 'AbortError') {
+                    showAlert('La petición tardó demasiado. Verifica que el backend esté corriendo.', 'error');
+                } else {
+                    showAlert('Error al cargar tenants: ' + error.message, 'error');
+                }
+                showLoading(false);
+            }
+        }
+
+        async function loadTenantModules() {
+            const select = document.getElementById('tenantSelect');
+            currentTenantId = select.value;
+
+            if (!currentTenantId) {
+                document.getElementById('tenantInfo').style.display = 'none';
+                return;
+            }
+
+            try {
+                showLoading(true);
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+                const response = await fetch(`${API_BASE}/tenants/${currentTenantId}/modules`, {
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                
+                const data = await response.json();
+
+                currentModules = data.modules;
+                renderModules(data.modules);
+                updateStats(data.modules);
+                populateModuleSelect(data.modules);
+
+                document.getElementById('tenantInfo').style.display = 'block';
+                showLoading(false);
+            } catch (error) {
+                console.error('Error loading modules:', error);
+                if (error.name === 'AbortError') {
+                    showAlert('La petición tardó demasiado. Intenta de nuevo.', 'error');
+                } else {
+                    showAlert('Error al cargar módulos: ' + error.message, 'error');
+                }
+                showLoading(false);
+            }
+        }
+
+        function renderModules(modules) {
+            const grid = document.getElementById('modulesGrid');
+            grid.innerHTML = '';
+
+            modules.forEach(module => {
+                const card = document.createElement('div');
+                card.className = `module-card ${module.isEnabled ? 'enabled' : 'disabled'}`;
+                card.onclick = () => toggleModule(module.id, module.isEnabled);
+
+                card.innerHTML = `
+                    <div class="module-header">
+                        <div class="module-name">${module.name}</div>
+                        <div class="module-status ${module.isEnabled ? 'status-enabled' : 'status-disabled'}">
+                            ${module.isEnabled ? 'Activo' : 'Inactivo'}
+                        </div>
+                    </div>
+                    <div class="module-code">${module.code}</div>
+                    <div class="module-description">${module.description || 'Sin descripción'}</div>
+                `;
+
+                grid.appendChild(card);
+            });
+        }
+
+        function updateStats(modules) {
+            const total = modules.length;
+            const enabled = modules.filter(m => m.isEnabled).length;
+            const disabled = total - enabled;
+
+            document.getElementById('totalModules').textContent = total;
+            document.getElementById('enabledModules').textContent = enabled;
+            document.getElementById('disabledModules').textContent = disabled;
+        }
+
+        async function toggleModule(moduleId, currentlyEnabled) {
+            if (!currentTenantId) return;
+
+            const action = currentlyEnabled ? 'disable' : 'enable';
+            const actionText = currentlyEnabled ? 'deshabilitar' : 'habilitar';
+
+            if (!confirm(`¿Estás seguro de ${actionText} este módulo?`)) {
+                return;
+            }
+
+            try {
+                showLoading(true);
+                const response = await fetch(
+                    `${API_BASE}/tenants/${currentTenantId}/modules/${moduleId}/${action}`,
+                    { method: 'POST' }
+                );
+                const data = await response.json();
+
+                if (data.error) {
+                    showAlert(data.error, 'error');
+                } else {
+                    showAlert(data.message, 'success');
+                    await loadTenantModules();
+                }
+            } catch (error) {
+                console.error('Error toggling module:', error);
+                showAlert('Error al cambiar estado del módulo: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function enableAllModules() {
+            if (!currentTenantId) return;
+
+            if (!confirm('¿Estás seguro de habilitar TODOS los módulos para este tenant?')) {
+                return;
+            }
+
+            try {
+                showLoading(true);
+                const response = await fetch(
+                    `${API_BASE}/tenants/${currentTenantId}/modules/enable-all`,
+                    { method: 'POST' }
+                );
+                const data = await response.json();
+
+                if (data.error) {
+                    showAlert(data.error, 'error');
+                } else {
+                    showAlert(data.message, 'success');
+                    await loadTenantModules();
+                }
+            } catch (error) {
+                console.error('Error enabling all modules:', error);
+                showAlert('Error al habilitar todos los módulos: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function disableAllModules() {
+            if (!currentTenantId) return;
+
+            if (!confirm('⚠️ ¿Estás seguro de DESHABILITAR TODOS los módulos? Esto puede afectar el acceso del tenant.')) {
+                return;
+            }
+
+            try {
+                showLoading(true);
+                const response = await fetch(
+                    `${API_BASE}/tenants/${currentTenantId}/modules/disable-all`,
+                    { method: 'POST' }
+                );
+                const data = await response.json();
+
+                if (data.error) {
+                    showAlert(data.error, 'error');
+                } else {
+                    showAlert(data.message, 'success');
+                    await loadTenantModules();
+                }
+            } catch (error) {
+                console.error('Error disabling all modules:', error);
+                showAlert('Error al deshabilitar todos los módulos: ' + error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+
+        function showAlert(message, type) {
+            const existingAlerts = document.querySelectorAll('.alert-success, .alert-error');
+            existingAlerts.forEach(alert => alert.remove());
+
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+
+            const content = document.querySelector('.content');
+            content.insertBefore(alert, content.firstChild);
+
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+
+        // ========== FUNCIONES DE TABS ==========
+        function switchTab(tabName) {
+            // Actualizar tabs
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            if (tabName === 'modules') {
+                document.querySelector('.tab:nth-child(1)').classList.add('active');
+                document.getElementById('modulesTab').classList.add('active');
+            } else if (tabName === 'permissions') {
+                document.querySelector('.tab:nth-child(2)').classList.add('active');
+                document.getElementById('permissionsTab').classList.add('active');
+            }
+        }
+
+        // ========== FUNCIONES DE PERMISOS ==========
+        function populateModuleSelect(modules) {
+            const select = document.getElementById('moduleSelect');
+            select.innerHTML = '<option value="">-- Selecciona un módulo --</option>';
+
+            modules.forEach(module => {
+                const option = document.createElement('option');
+                option.value = module.id;
+                option.textContent = `${module.name} (${module.code})`;
+                select.appendChild(option);
+            });
+        }
+
+        async function loadModulePermissions() {
+            const select = document.getElementById('moduleSelect');
+            currentModuleId = select.value;
+
+            if (!currentModuleId) {
+                document.getElementById('permissionsSection').style.display = 'none';
+                return;
+            }
+
+            try {
+                showLoading(true);
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+                const response = await fetch(`${API_BASE}/modules/${currentModuleId}/permissions`, {
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                
+                const data = await response.json();
+
+                if (data.error) {
+                    showAlert(data.error, 'error');
+                    return;
+                }
+
+                currentPermissions = data.permissions;
+                renderPermissions(data.permissions);
+                document.getElementById('permissionsSection').style.display = 'block';
+                showLoading(false);
+            } catch (error) {
+                console.error('Error loading permissions:', error);
+                if (error.name === 'AbortError') {
+                    showAlert('La petición tardó demasiado. Intenta de nuevo.', 'error');
+                } else {
+                    showAlert('Error al cargar permisos: ' + error.message, 'error');
+                }
+                showLoading(false);
+            }
+        }
+
+        function renderPermissions(permissions) {
+            const list = document.getElementById('permissionsList');
+            
+            if (permissions.length === 0) {
+                list.innerHTML = '<p style="color: #6b7280; text-align: center; padding: 20px;">No hay permisos para este módulo</p>';
+                return;
+            }
+
+            list.innerHTML = '';
+
+            permissions.forEach(permission => {
+                const item = document.createElement('div');
+                item.className = 'permission-item';
+
+                const badge = permission.isSystemPermission 
+                    ? '<span class="badge badge-system">Sistema</span>'
+                    : '<span class="badge badge-custom">Personalizado</span>';
+
+                const deleteButton = permission.isSystemPermission
+                    ? `<button class="btn btn-danger btn-small" onclick="deletePermission('${permission.id}', '${permission.action}', true)">🗑️</button>`
+                    : `<button class="btn btn-danger btn-small" onclick="deletePermission('${permission.id}', '${permission.action}', false)">🗑️</button>`;
+
+                item.innerHTML = `
+                    <div class="permission-info">
+                        <div class="permission-action">${permission.action}${badge}</div>
+                        <div class="permission-description">${permission.description || 'Sin descripción'}</div>
+                    </div>
+                    <div class="permission-actions">
+                        <button class="btn btn-primary btn-small" onclick="editPermission('${permission.id}')">✏️ Editar</button>
+                        ${deleteButton}
+                    </div>
+                `;
+
+                list.appendChild(item);
+            });
+        }
+
+        function openCreatePermissionModal() {
+            if (!currentModuleId) {
+                showAlert('Selecciona un módulo primero', 'error');
+                return;
+            }
+
+            editingPermissionId = null;
+            document.getElementById('modalTitle').textContent = 'Crear Permiso';
+            document.getElementById('permissionAction').value = '';
+            document.getElementById('permissionDescription').value = '';
+            document.getElementById('permissionModal').classList.add('active');
+        }
+
+        function editPermission(permissionId) {
+            const permission = currentPermissions.find(p => p.id === permissionId);
+            if (!permission) return;
+
+            editingPermissionId = permissionId;
+            document.getElementById('modalTitle').textContent = 'Editar Permiso';
+            document.getElementById('permissionAction').value = permission.action;
+            document.getElementById('permissionDescription').value = permission.description || '';
+            document.getElementById('permissionModal').classList.add('active');
+        }
+
+        function closePermissionModal() {
+            document.getElementById('permissionModal').classList.remove('active');
+            editingPermissionId = null;
+        }
+
+        async function savePermission(event) {
+            event.preventDefault();
+
+            const action = document.getElementById('permissionAction').value.trim();
+            const description = document.getElementById('permissionDescription').value.trim();
+
+            if (!action) {
+                showAlert('La acción es requerida', 'error');
+                return;
+            }
+
+            try {
+                showLoading(true);
+                closePermissionModal();
+
+                let response;
+                if (editingPermissionId) {
+                    // Actualizar permiso existente
+                    response = await fetch(`${API_BASE}/permissions/${editingPermissionId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action, description })
+                    });
+                } else {
+                    // Crear nuevo permiso
+                    response = await fetch(`${API_BASE}/modules/${currentModuleId}/permissions`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action, description })
+                    });
+                }
+
+                const data = await response.json();
+
+                if (data.error) {
+                    showAlert(data.error, 'error');
+                } else {
+                    showAlert(data.message, 'success');
+                    await loadModulePermissions();
+                }
+
+                showLoading(false);
+            } catch (error) {
+                console.error('Error saving permission:', error);
+                showAlert('Error al guardar permiso: ' + error.message, 'error');
+                showLoading(false);
+            }
+        }
+
+        async function deletePermission(permissionId, action, isSystem) {
+            const warningMessage = isSystem 
+                ? `⚠️ ADVERTENCIA: "${action}" es un permiso del SISTEMA.\n\nEliminarlo puede causar problemas en la aplicación.\n\n¿Estás seguro de eliminarlo?`
+                : `¿Estás seguro de eliminar el permiso "${action}"?`;
+
+            if (!confirm(warningMessage)) {
+                return;
+            }
+
+            try {
+                showLoading(true);
+                const response = await fetch(`${API_BASE}/permissions/${permissionId}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+
+                if (data.error) {
+                    showAlert(data.error, 'error');
+                } else {
+                    showAlert(data.message, 'success');
+                    await loadModulePermissions();
+                }
+
+                showLoading(false);
+            } catch (error) {
+                console.error('Error deleting permission:', error);
+                showAlert('Error al eliminar permiso: ' + error.message, 'error');
+                showLoading(false);
+            }
+        }
+
+        // Cerrar modal al hacer clic fuera
+        document.getElementById('permissionModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closePermissionModal();
+            }
+        });
+    </script>
+</body>
+</html>

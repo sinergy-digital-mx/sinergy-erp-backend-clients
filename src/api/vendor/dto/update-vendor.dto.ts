@@ -3,6 +3,9 @@ import {
   IsEnum,
   IsOptional,
   Matches,
+  IsInt,
+  IsNumber,
+  Min,
 } from 'class-validator';
 
 export class UpdateVendorDto {
@@ -52,4 +55,14 @@ export class UpdateVendorDto {
   @IsOptional()
   @IsEnum(['active', 'inactive'])
   status?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  credit_days?: number;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  credit_limit?: number;
 }

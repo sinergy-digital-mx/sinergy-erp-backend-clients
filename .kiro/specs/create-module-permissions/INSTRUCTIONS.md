@@ -28,7 +28,7 @@ The system uses a generic seed function that:
 
 1. **Creates Entity Registry** - Registers the entity in the system
 2. **Creates Module** - Creates the module record
-3. **Creates Permissions** - Creates standard permissions (read, write, delete, etc.)
+3. **Creates Permissions** - Creates standard permissions (read, update, delete, etc.)
 4. **Assigns to Tenant(s)** - Links the module to one or all tenants
 
 ## Creating Permissions for a New Module
@@ -47,7 +47,7 @@ async function seed{ModuleName}Permissions(tenantId?: string) {
       moduleCode: 'module-code',
       entityCode: 'entity_code',
       description: 'Module description',
-      actions: ['read', 'write', 'delete'], // Standard actions
+      actions: ['read', 'update', 'delete'], // Standard actions
       tenantId: tenantId, // Optional: specific tenant
     });
   } catch (error) {
@@ -102,7 +102,7 @@ interface ModulePermissionConfig {
   moduleCode: string;        // Kebab-case code (e.g., "inventory")
   entityCode: string;        // Snake_case entity code (e.g., "inventory")
   description?: string;      // Optional module description
-  actions?: string[];        // Permissions to create (default: ['read', 'write', 'delete'])
+  actions?: string[];        // Permissions to create (default: ['read', 'update', 'delete'])
   tenantId?: string;         // Optional: specific tenant ID
 }
 ```
@@ -110,7 +110,7 @@ interface ModulePermissionConfig {
 ### Available Actions
 
 - `read` - View/read access
-- `write` - Create and update access
+- `update` - Create and update access
 - `delete` - Delete access
 - `create` - Create-only access
 - `update` - Update-only access
@@ -133,7 +133,7 @@ async function seedPosPermissions(tenantId?: string) {
     moduleCode: 'pos',
     entityCode: 'pos',
     description: 'Module for managing point of sale transactions',
-    actions: ['read', 'write', 'delete', 'approve'],
+    actions: ['read', 'update', 'delete', 'approve'],
     tenantId: tenantId,
   });
 }
@@ -190,7 +190,7 @@ When you run a seed, it creates:
 ### Permissions
 For each action, creates a permission:
 - `entity_code:read`
-- `entity_code:write`
+- `entity_code:update`
 - `entity_code:delete`
 - etc.
 

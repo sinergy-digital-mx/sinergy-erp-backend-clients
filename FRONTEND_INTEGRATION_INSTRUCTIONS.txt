@@ -1,0 +1,47 @@
+BACKEND CHANGES COMPLETED - PERMISSION CHANGE DETECTION SYSTEM
+
+WHAT WAS IMPLEMENTED IN THE BACKEND:
+
+1. Added permissions_version field to users table (integer, default 1)
+2. Created PermissionVersionService that increments version when:
+   - A role is assigned/removed from a user
+   - A permission is added/removed from a role
+3. Modified JWT tokens to include permissions_version field
+4. Created POST /auth/refresh endpoint that generates new token with current permissions
+5. Created PermissionVersionGuard that validates token version on every request
+6. When JWT version < database version, returns 401 with error code "PERMISSIONS_CHANGED"
+
+WHAT THE FRONTEND NEEDS TO DO:
+
+1. ADD HTTP INTERCEPTOR to catch 401 errors with error.error === "PERMISSIONS_CHANGED"
+
+2. WHEN THIS ERROR IS DETECTED:
+   - Call POST /auth/refresh (with current token in Authorization header)
+   - Save the new access_token from response
+   - Retry the original failed request with new token
+   - Optionally show toast: "Your permissions have been updated"
+
+3. THE REFRESH ENDPOINT:
+   - URL: POST /auth/refresh
+   - Headers: Authorization: Bearer <current_token>
+   - Returns: { access_token: string, user: { permissions_version, permissions_flat, roles, ... } }
+
+4. EXAMPLE INTERCEPTOR LOGIC (Angular):
+   if (error.status === 401 && error.error?.error === 'PERMISSIONS_CHANGED') {
+     return this.authService.refresh().pipe(
+       switchMap(response => {
+         this.authService.setToken(response.access_token);
+         return this.http.request(originalRequest);
+       })
+     );
+   }
+
+NO CHANGES NEEDED:
+- No UI changes required
+- No new screens or components
+- No manual logout/login
+- Process is automatic and transparent to users
+
+MIGRATION REQUIRED:
+Run: npm run migration:run
+This adds the permissions_version column to the users table.

@@ -45,6 +45,50 @@ export class AuthController {
         return this.authService.login(dto.email, dto.password);
     }
 
+    @Post('refresh')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Refresh authentication token with current permissions' })
+    @ApiResponse({
+        status: 200,
+        description: 'Token refreshed successfully with updated permissions',
+        schema: {
+            example: {
+                access_token: 'eyJhbGc...',
+                user: {
+                    id: 'uuid',
+                    email: 'user@example.com',
+                    tenant_id: 'uuid',
+                    status: 'Active',
+                    roles: ['Sales Rep'],
+                    permissions_flat: ['customer:read', 'customer:create'],
+                    permissions_version: 2
+                }
+            }
+        }
+    })
+    @ApiResponse({
+        status: 401,
+        description: 'Invalid or expired token',
+        schema: {
+            example: {
+                statusCode: 401,
+                message: 'Invalid or expired token',
+                error: 'Unauthorized'
+            }
+        }
+    })
+    async refresh() {
+        const userId = this.tenantContextService.getCurrentUserId();
+        const tenantId = this.tenantContextService.getCurrentTenantId();
+
+        if (!userId || !tenantId) {
+            throw new Error('User context is required');
+        }
+
+        return this.authService.refresh(userId, tenantId);
+    }
+
     @Get('me/permissions')
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()

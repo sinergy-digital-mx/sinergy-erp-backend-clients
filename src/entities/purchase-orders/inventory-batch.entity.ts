@@ -56,8 +56,13 @@ export class InventoryBatch {
   @Column()
   uom_id: string;
 
+  /** Quantity received at creation time — never changes */
   @Column({ type: 'decimal', precision: 12, scale: 3 })
-  quantity: number;
+  initial_quantity: number;
+
+  /** Current available quantity — decremented as stock is consumed/transferred */
+  @Column({ type: 'decimal', precision: 12, scale: 3 })
+  available_quantity: number;
 
   @ManyToOne(() => PurchaseOrderBatch, (po) => po.batches, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'purchase_order_batch_id' })

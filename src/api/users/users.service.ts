@@ -2,6 +2,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserStatus } from '../../entities/users/user-status.entity';
@@ -19,11 +20,16 @@ export class UsersService {
     async create(dto: CreateUserDto, tenantId: string) {
         const status = await this.statusRepo.findOneByOrFail({ id: dto.status_id });
 
+        // Hash the password before saving
+        const hashedPassword = await bcrypt.hash(dto.password, 10);
+
         return this.userRepo.save({
             ...dto,
+            password: hashedPassword,
             tenant: { id: tenantId },
             tenant_id: tenantId,
             status,
+            permissions_version: 1,
         });
     }
 
@@ -36,6 +42,11 @@ export class UsersService {
         if (dto.status_id) {
             const status = await this.statusRepo.findOneByOrFail({ id: dto.status_id });
             user.status = status;
+        }
+
+        // Hash password if it's being updated
+        if (dto.password) {
+            dto.password = await bcrypt.hash(dto.password, 10);
         }
 
         Object.assign(user, dto);

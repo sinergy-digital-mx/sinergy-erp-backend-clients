@@ -49,6 +49,9 @@ export class User {
     @Column({ type: 'timestamp', nullable: true })
     last_login_at: Date | null;
 
+    @Column({ type: 'integer', default: 1 })
+    permissions_version: number;
+
     @CreateDateColumn({ type: 'timestamp' })
     created_at: Date;
 

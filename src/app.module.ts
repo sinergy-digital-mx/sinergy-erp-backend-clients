@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { typeOrmOptions } from './database/typeorm.options';
@@ -15,11 +16,15 @@ import { VendorModule } from './api/vendor/vendor.module';
 import { WarehouseModule } from './api/warehouse/warehouse.module';
 import { CategoriesModule } from './api/categories/categories.module';
 import { BillingModule } from './api/billing/billing.module';
+import { PosConfigurationModule } from './api/pos-configuration/pos-configuration.module';
+import { PosSessionsModule } from './api/pos-sessions/pos-sessions.module';
 import { UoMCatalogModule } from './api/uom-catalog/uom-catalog.module';
 import { ProductsModule } from './api/products/products.module';
 import { MailerConfigurationModule } from './api/mailer-configuration/mailer-configuration.module';
 import { PurchaseOrdersModule } from './api/purchase-orders/purchase-orders.module';
 import { InventoryModule } from './api/inventory/inventory.module';
+import { SalesOrdersModule } from './api/sales-orders/sales-orders.module';
+import { PermissionVersionGuard } from './api/auth/guards/permission-version.guard';
 
 @Module({
   imports: [
@@ -39,10 +44,14 @@ import { InventoryModule } from './api/inventory/inventory.module';
     WarehouseModule,
     CategoriesModule,
     BillingModule,
+    PosConfigurationModule,
+    PosSessionsModule,
     UoMCatalogModule,
     ProductsModule,
     PurchaseOrdersModule,
     InventoryModule,
+    SalesOrdersModule,
   ],
+  providers: [],
 })
 export class AppModule { }

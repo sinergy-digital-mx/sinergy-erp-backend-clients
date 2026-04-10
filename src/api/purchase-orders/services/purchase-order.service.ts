@@ -255,6 +255,9 @@ export class PurchaseOrderService {
       .leftJoinAndSelect('line_items.received_uom', 'received_uom')
       .leftJoinAndSelect('line_items.converted_uom', 'converted_uom')
       .leftJoinAndSelect('po.batches', 'batches')
+      .leftJoinAndSelect('batches.product', 'batch_product')
+      .leftJoinAndSelect('batches.uom', 'batch_uom')
+      .leftJoinAndSelect('batches.warehouse', 'batch_warehouse')
       .getOne();
 
     if (!purchaseOrder) {
@@ -345,7 +348,8 @@ export class PurchaseOrderService {
           warehouse_id: purchaseOrder.warehouse_id,
           product_id: receivedItem.product_id,
           uom_id: baseUomId,
-          quantity: convertedQuantity,
+          initial_quantity: convertedQuantity,
+          available_quantity: convertedQuantity,
           purchase_order_batch_id: purchaseOrder.id,
           purchase_order_detail_id: lineItem.id,
           created_by: userId,

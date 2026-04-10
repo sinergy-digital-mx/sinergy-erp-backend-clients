@@ -8,6 +8,7 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { User } from '../../entities/users/user.entity';
 import { RBACModule } from '../rbac/rbac.module';
+import { PermissionVersionGuard } from './guards/permission-version.guard';
 
 @Module({
     imports: [
@@ -20,7 +21,7 @@ import { RBACModule } from '../rbac/rbac.module';
         forwardRef(() => RBACModule), // Use forwardRef to avoid circular dependency
     ],
     controllers: [AuthController],
-    providers: [AuthService, JwtStrategy],
-    exports: [AuthService, JwtStrategy, JwtModule], // Export JwtModule for other modules
+    providers: [AuthService, JwtStrategy, PermissionVersionGuard],
+    exports: [AuthService, JwtStrategy, JwtModule, PermissionVersionGuard], // Export PermissionVersionGuard for global use
 })
 export class AuthModule { }

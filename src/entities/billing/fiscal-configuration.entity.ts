@@ -5,8 +5,10 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   Index,
+  OneToMany,
 } from 'typeorm';
 import { IsNotEmpty, IsString, IsOptional } from 'class-validator';
+import { BillingBranch } from './billing-branch.entity';
 
 @Entity('fiscal_configurations')
 @Index('tenant_index', ['tenant_id'])
@@ -66,6 +68,9 @@ export class FiscalConfiguration {
     default: 'active',
   })
   status: string;
+
+  @OneToMany(() => BillingBranch, (branch) => branch.fiscal_configuration)
+  branches: BillingBranch[];
 
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;
