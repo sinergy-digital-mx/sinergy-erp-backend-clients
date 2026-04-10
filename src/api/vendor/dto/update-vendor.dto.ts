@@ -4,7 +4,6 @@ import {
   IsOptional,
   Matches,
   IsInt,
-  IsNumber,
   Min,
 } from 'class-validator';
 
@@ -62,7 +61,6 @@ export class UpdateVendorDto {
   credit_days?: number;
 
   @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
-  credit_limit?: number;
+  @IsString()
+  credit_limit?: string;
 }
