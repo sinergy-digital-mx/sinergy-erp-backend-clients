@@ -38,10 +38,21 @@ export class CustomersService {
 
         if (phone) {
             const result = parsePhoneNumber(phone);
-            
+
             if (result.isValid) {
                 phone = result.nationalNumber; // Store only the national number
                 phoneCode = result.countryCode; // Store the country code
+            }
+        }
+
+        let additionalPhone = dto.additional_phone;
+        let additionalPhoneCode = dto.additional_phone_code;
+        if (additionalPhone) {
+            const defaultForParse = additionalPhoneCode ?? phoneCode;
+            const parsed = parsePhoneNumber(additionalPhone, defaultForParse);
+            if (parsed.isValid) {
+                additionalPhone = parsed.nationalNumber;
+                additionalPhoneCode = parsed.countryCode;
             }
         }
 
@@ -49,6 +60,8 @@ export class CustomersService {
             ...dto,
             phone,
             phone_code: phoneCode,
+            additional_phone: additionalPhone,
+            additional_phone_code: additionalPhoneCode,
             tenant_id: tenantId,
             status,
         });
@@ -68,10 +81,23 @@ export class CustomersService {
         // Extract country code and national number from phone if provided
         if (dto.phone) {
             const result = parsePhoneNumber(dto.phone);
-            
+
             if (result.isValid) {
                 dto.phone = result.nationalNumber; // Store only the national number
                 dto.phone_code = result.countryCode; // Store the country code
+            }
+        }
+
+        if (dto.additional_phone) {
+            const defaultCode =
+                dto.additional_phone_code ??
+                customer.additional_phone_code ??
+                dto.phone_code ??
+                customer.phone_code;
+            const parsed = parsePhoneNumber(dto.additional_phone, defaultCode);
+            if (parsed.isValid) {
+                dto.additional_phone = parsed.nationalNumber;
+                dto.additional_phone_code = parsed.countryCode;
             }
         }
 

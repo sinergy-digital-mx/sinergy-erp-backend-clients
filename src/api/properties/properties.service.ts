@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 import { Property } from '../../entities/properties/property.entity';
 import { PropertyGroup } from '../../entities/properties/property-group.entity';
 import { MeasurementUnit } from '../../entities/properties/measurement-unit.entity';
@@ -19,12 +19,20 @@ export class PropertiesService {
   ) {}
 
   async create(tenantId: string, dto: CreatePropertyDto): Promise<Property> {
+    await this.assertPropertyCodeAvailable(tenantId, dto.code);
+
     const property = this.propertyRepo.create({
       ...dto,
       tenant_id: tenantId,
     });
 
-    const saved = await this.propertyRepo.save(property);
+    let saved: Property;
+    try {
+      saved = await this.propertyRepo.save(property);
+    } catch (err) {
+      this.rethrowIfDuplicatePropertyCode(err, dto.code);
+      throw err;
+    }
 
     // Update group stats
     await this.updateGroupStats(tenantId, dto.group_id);
@@ -142,8 +150,21 @@ export class PropertiesService {
       throw new Error('Property not found');
     }
 
+    if (dto.code !== undefined && dto.code !== property.code) {
+      await this.assertPropertyCodeAvailable(tenantId, dto.code, property.id);
+    }
+
     Object.assign(property, dto);
-    const updated = await this.propertyRepo.save(property);
+
+    let updated: Property;
+    try {
+      updated = await this.propertyRepo.save(property);
+    } catch (err) {
+      if (dto.code !== undefined) {
+        this.rethrowIfDuplicatePropertyCode(err, dto.code);
+      }
+      throw err;
+    }
 
     // Update group stats
     await this.updateGroupStats(tenantId, property.group_id);
@@ -198,6 +219,42 @@ export class PropertiesService {
   async getMeasurementUnits(): Promise<MeasurementUnit[]> {
     return this.measurementUnitRepo.find({
       order: { system: 'ASC', name: 'ASC' },
+    });
+  }
+
+  private async assertPropertyCodeAvailable(
+    tenantId: string,
+    code: string,
+    excludePropertyId?: string,
+  ): Promise<void> {
+    const existing = await this.propertyRepo.findOne({
+      where: { tenant_id: tenantId, code },
+    });
+    if (existing && existing.id !== excludePropertyId) {
+      throw new ConflictException(
+        `Ya existe una propiedad con el código "${code}".`,
+      );
+    }
+  }
+
+  private rethrowIfDuplicatePropertyCode(err: unknown, code: string): void {
+    if (!(err instanceof QueryFailedError)) {
+      return;
+    }
+    const driverErr = err.driverError as { code?: string; errno?: number; sqlMessage?: string } | undefined;
+    const isDup =
+      driverErr?.code === 'ER_DUP_ENTRY' ||
+      driverErr?.errno === 1062 ||
+      /Duplicate entry/i.test(err.message);
+    if (!isDup) {
+      return;
+    }
+    const detail = driverErr?.sqlMessage ?? err.message;
+    throw new ConflictException({
+      statusCode: 409,
+      message: `Ya existe una propiedad con el código "${code}".`,
+      error: 'Conflict',
+      detail,
     });
   }
 }

@@ -1,5 +1,6 @@
 // src/customers/dto/update-customer.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import { IsOptional, IsString, IsNumber, IsEmail } from 'class-validator';
 
 export class UpdateCustomerDto {
@@ -56,4 +57,38 @@ export class UpdateCustomerDto {
     @IsString()
     @IsOptional()
     group_id?: string;
+
+    @ApiProperty({ description: 'Additional contact first name', required: false })
+    @IsString()
+    @IsOptional()
+    additional_name?: string;
+
+    @ApiProperty({ description: 'Additional contact last name', required: false })
+    @IsString()
+    @IsOptional()
+    additional_lastname?: string;
+
+    @ApiProperty({ description: 'Additional contact email', required: false })
+    @Transform(({ value }) => (value === '' || value === null ? undefined : value))
+    @IsOptional()
+    @IsEmail()
+    additional_email?: string;
+
+    @ApiProperty({
+        description: 'Additional contact phone (national number, same as principal phone field)',
+        required: false,
+    })
+    @IsString()
+    @IsOptional()
+    additional_phone?: string;
+
+    @ApiProperty({ description: 'Additional contact phone country ISO (2 letters)', example: 'MX', required: false })
+    @IsString()
+    @IsOptional()
+    additional_phone_country?: string;
+
+    @ApiProperty({ description: 'Additional contact phone country dial code', example: '+52', required: false })
+    @IsString()
+    @IsOptional()
+    additional_phone_code?: string;
 }

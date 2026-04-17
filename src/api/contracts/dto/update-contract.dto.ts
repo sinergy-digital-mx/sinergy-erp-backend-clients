@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsDate, IsOptional, IsEnum, Length, IsUUID } from 'class-validator';
+import { IsString, IsNumber, IsDate, IsOptional, IsEnum, Length, IsUUID, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UpdateContractDto {
@@ -22,6 +22,7 @@ export class UpdateContractDto {
 
   @IsOptional()
   @IsNumber()
+  @Min(0)
   payment_months?: number;
 
   @IsOptional()

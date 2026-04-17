@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Contract } from '../../entities/contracts/contract.entity';
@@ -19,19 +19,55 @@ export class ContractsService {
       contractNumber = await this.generateContractNumber(tenantId, dto.property_id);
     }
 
-    // Calculate remaining balance and monthly payment
-    const remaining_balance = dto.total_price - dto.down_payment;
-    const monthly_payment = remaining_balance / dto.payment_months;
+    const { remaining_balance, payment_months, monthly_payment } = this.computeFinancing(
+      Number(dto.total_price),
+      Number(dto.down_payment),
+      Number(dto.payment_months),
+    );
 
     const contract = this.contractRepo.create({
       ...dto,
       contract_number: contractNumber,
       tenant_id: tenantId,
+      payment_months,
       remaining_balance,
-      monthly_payment: Math.round(monthly_payment * 100) / 100, // Round to 2 decimals
+      monthly_payment,
     });
 
     return this.contractRepo.save(contract);
+  }
+
+  /**
+   * Sin saldo después del enganche: meses = 0 y mensualidad = 0 (contado).
+   * Con saldo: exige al menos 1 mes para amortizar.
+   */
+  private computeFinancing(
+    totalPrice: number,
+    downPayment: number,
+    paymentMonthsRequested: number,
+  ): { remaining_balance: number; payment_months: number; monthly_payment: number } {
+    const rawRemaining = Math.round((totalPrice - downPayment) * 100) / 100;
+
+    if (rawRemaining <= 0) {
+      return {
+        remaining_balance: 0,
+        payment_months: 0,
+        monthly_payment: 0,
+      };
+    }
+
+    const remaining_balance = rawRemaining;
+
+    if (!Number.isFinite(paymentMonthsRequested) || paymentMonthsRequested < 1) {
+      throw new BadRequestException(
+        'payment_months debe ser al menos 1 cuando el enganche no cubre el precio total',
+      );
+    }
+
+    const monthly_payment =
+      Math.round((remaining_balance / paymentMonthsRequested) * 100) / 100;
+
+    return { remaining_balance, payment_months: paymentMonthsRequested, monthly_payment };
   }
 
   private async generateContractNumber(tenantId: string, propertyId: string): Promise<string> {
@@ -470,19 +506,31 @@ export class ContractsService {
       throw new Error('Contract not found');
     }
 
-    // Recalculate if total_price or down_payment changed
-    if (dto.total_price || dto.down_payment || dto.payment_months) {
-      const total = dto.total_price || contract.total_price;
-      const down = dto.down_payment || contract.down_payment;
-      const months = dto.payment_months || contract.payment_months;
+    // Recalculate if total_price, down_payment, or payment_months changed (incl. payment_months = 0)
+    if (
+      dto.total_price !== undefined ||
+      dto.down_payment !== undefined ||
+      dto.payment_months !== undefined
+    ) {
+      const total = dto.total_price !== undefined ? Number(dto.total_price) : Number(contract.total_price);
+      const down =
+        dto.down_payment !== undefined ? Number(dto.down_payment) : Number(contract.down_payment);
+      const monthsRequested =
+        dto.payment_months !== undefined
+          ? Number(dto.payment_months)
+          : Number(contract.payment_months);
 
-      const remaining_balance = total - down;
-      const monthly_payment = remaining_balance / months;
+      const { remaining_balance, payment_months, monthly_payment } = this.computeFinancing(
+        total,
+        down,
+        monthsRequested,
+      );
 
       Object.assign(contract, {
         ...dto,
         remaining_balance,
-        monthly_payment: Math.round(monthly_payment * 100) / 100,
+        payment_months,
+        monthly_payment,
       });
     } else {
       Object.assign(contract, dto);

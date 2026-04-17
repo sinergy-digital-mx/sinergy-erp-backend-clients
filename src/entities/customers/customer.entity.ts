@@ -65,6 +65,24 @@ export class Customer {
     @Column({ name: 'group_id', nullable: true })
     group_id: string;
 
+    @Column({ nullable: true })
+    additional_name: string;
+
+    @Column({ nullable: true })
+    additional_lastname: string;
+
+    @Column({ nullable: true })
+    additional_email: string;
+
+    @Column({ nullable: true })
+    additional_phone: string;
+
+    @Column({ length: 2, nullable: true })
+    additional_phone_country: string;
+
+    @Column({ length: 10, nullable: true })
+    additional_phone_code: string;
+
     @OneToMany(() => CustomerAddress, address => address.customer)
     addresses: CustomerAddress[];
 
