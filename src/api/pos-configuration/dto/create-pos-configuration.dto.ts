@@ -1,5 +1,6 @@
 import { IsNotEmpty, IsString, IsOptional, IsUUID, IsIn, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 
 export class CreatePosConfigurationDto {
   @ApiProperty({ 
@@ -11,6 +12,17 @@ export class CreatePosConfigurationDto {
   @IsString()
   @MaxLength(255)
   code: string;
+
+  @ApiProperty({
+    description: 'Equipment type',
+    example: 'VENTAS',
+    enum: ['VENTAS', 'COBRANZA'],
+  })
+  @Transform(({ value }) => (typeof value === 'string' ? value.toUpperCase() : value))
+  @IsNotEmpty()
+  @IsString()
+  @IsIn(['VENTAS', 'COBRANZA'])
+  type: 'VENTAS' | 'COBRANZA';
 
   @ApiProperty({ 
     description: 'Branch UUID where equipment is located', 

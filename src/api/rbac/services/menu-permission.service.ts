@@ -46,7 +46,7 @@ export class MenuPermissionService {
         userId,
         tenantId,
         moduleCode,
-        'Ver_Menu',
+        'ViewMenu',
       );
     } catch (error) {
       this.logger.error(
@@ -82,7 +82,7 @@ export class MenuPermissionService {
           userId,
           tenantId,
           module.code,
-          'Ver_Menu',
+          'ViewMenu',
         );
 
         // Get all permissions user has for this module

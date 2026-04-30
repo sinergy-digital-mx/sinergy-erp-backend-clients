@@ -15,6 +15,7 @@ describe('PosConfiguration Entity - Unit Tests', () => {
       config.id = '123e4567-e89b-12d3-a456-426614174000';
       config.tenant_id = '123e4567-e89b-12d3-a456-426614174001';
       config.code = 'POS-001';
+      config.type = 'VENTAS';
       config.sucursal = '123e4567-e89b-12d3-a456-426614174002';
       config.modelo = 'HP EliteDesk 800';
       config.status = 1;
@@ -32,6 +33,7 @@ describe('PosConfiguration Entity - Unit Tests', () => {
       config.id = '123e4567-e89b-12d3-a456-426614174000';
       config.tenant_id = '123e4567-e89b-12d3-a456-426614174001';
       config.code = 'POS-002';
+      config.type = 'VENTAS';
       config.sucursal = '123e4567-e89b-12d3-a456-426614174002';
       config.status = 1;
 
@@ -45,6 +47,7 @@ describe('PosConfiguration Entity - Unit Tests', () => {
       config.id = '123e4567-e89b-12d3-a456-426614174000';
       config.tenant_id = '123e4567-e89b-12d3-a456-426614174001';
       config.code = 'POS-003';
+      config.type = 'VENTAS';
       config.sucursal = '123e4567-e89b-12d3-a456-426614174002';
       // status not set - should fail validation
       
@@ -61,6 +64,7 @@ describe('PosConfiguration Entity - Unit Tests', () => {
       config.id = '123e4567-e89b-12d3-a456-426614174000';
       config.tenant_id = '123e4567-e89b-12d3-a456-426614174001';
       config.code = '';
+      config.type = 'VENTAS';
       config.sucursal = '123e4567-e89b-12d3-a456-426614174002';
       config.status = 1;
 
@@ -74,6 +78,7 @@ describe('PosConfiguration Entity - Unit Tests', () => {
       config.id = '123e4567-e89b-12d3-a456-426614174000';
       config.tenant_id = '123e4567-e89b-12d3-a456-426614174001';
       config.code = 123 as any; // Invalid type
+      config.type = 'VENTAS';
       config.sucursal = '123e4567-e89b-12d3-a456-426614174002';
       config.status = 1;
 
@@ -89,6 +94,7 @@ describe('PosConfiguration Entity - Unit Tests', () => {
       config.id = '123e4567-e89b-12d3-a456-426614174000';
       config.tenant_id = '123e4567-e89b-12d3-a456-426614174001';
       config.code = 'POS-004';
+      config.type = 'VENTAS';
       config.sucursal = '';
       config.status = 1;
 
@@ -102,6 +108,7 @@ describe('PosConfiguration Entity - Unit Tests', () => {
       config.id = '123e4567-e89b-12d3-a456-426614174000';
       config.tenant_id = '123e4567-e89b-12d3-a456-426614174001';
       config.code = 'POS-005';
+      config.type = 'VENTAS';
       config.sucursal = 'not-a-valid-uuid';
       config.status = 1;
 
@@ -115,6 +122,7 @@ describe('PosConfiguration Entity - Unit Tests', () => {
       config.id = '123e4567-e89b-12d3-a456-426614174000';
       config.tenant_id = '123e4567-e89b-12d3-a456-426614174001';
       config.code = 'POS-006';
+      config.type = 'VENTAS';
       config.sucursal = '123e4567-e89b-12d3-a456-426614174002';
       config.status = 1;
 
@@ -129,6 +137,7 @@ describe('PosConfiguration Entity - Unit Tests', () => {
       config.id = '123e4567-e89b-12d3-a456-426614174000';
       config.tenant_id = '123e4567-e89b-12d3-a456-426614174001';
       config.code = 'POS-007';
+      config.type = 'VENTAS';
       config.sucursal = '123e4567-e89b-12d3-a456-426614174002';
       config.modelo = 'Dell OptiPlex 7090';
       config.status = 1;
@@ -142,6 +151,7 @@ describe('PosConfiguration Entity - Unit Tests', () => {
       config.id = '123e4567-e89b-12d3-a456-426614174000';
       config.tenant_id = '123e4567-e89b-12d3-a456-426614174001';
       config.code = 'POS-008';
+      config.type = 'VENTAS';
       config.sucursal = '123e4567-e89b-12d3-a456-426614174002';
       config.modelo = 12345 as any; // Invalid type
       config.status = 1;
@@ -156,6 +166,7 @@ describe('PosConfiguration Entity - Unit Tests', () => {
       config.id = '123e4567-e89b-12d3-a456-426614174000';
       config.tenant_id = '123e4567-e89b-12d3-a456-426614174001';
       config.code = 'POS-009';
+      config.type = 'VENTAS';
       config.sucursal = '123e4567-e89b-12d3-a456-426614174002';
       config.status = 1;
       // modelo is not set
@@ -171,6 +182,7 @@ describe('PosConfiguration Entity - Unit Tests', () => {
       config.id = '123e4567-e89b-12d3-a456-426614174000';
       config.tenant_id = '123e4567-e89b-12d3-a456-426614174001';
       config.code = 'POS-010';
+      config.type = 'VENTAS';
       config.sucursal = '123e4567-e89b-12d3-a456-426614174002';
       config.status = 1;
 
@@ -183,6 +195,7 @@ describe('PosConfiguration Entity - Unit Tests', () => {
       config.id = '123e4567-e89b-12d3-a456-426614174000';
       config.tenant_id = '123e4567-e89b-12d3-a456-426614174001';
       config.code = 'POS-011';
+      config.type = 'VENTAS';
       config.sucursal = '123e4567-e89b-12d3-a456-426614174002';
       config.status = 0;
 
@@ -195,6 +208,7 @@ describe('PosConfiguration Entity - Unit Tests', () => {
       config.id = '123e4567-e89b-12d3-a456-426614174000';
       config.tenant_id = '123e4567-e89b-12d3-a456-426614174001';
       config.code = 'POS-012';
+      config.type = 'VENTAS';
       config.sucursal = '123e4567-e89b-12d3-a456-426614174002';
       config.status = 2; // Invalid value
 
@@ -208,6 +222,7 @@ describe('PosConfiguration Entity - Unit Tests', () => {
       config.id = '123e4567-e89b-12d3-a456-426614174000';
       config.tenant_id = '123e4567-e89b-12d3-a456-426614174001';
       config.code = 'POS-013';
+      config.type = 'VENTAS';
       config.sucursal = '123e4567-e89b-12d3-a456-426614174002';
       config.status = -1; // Invalid value
 
@@ -223,6 +238,7 @@ describe('PosConfiguration Entity - Unit Tests', () => {
       config.id = '123e4567-e89b-12d3-a456-426614174000';
       config.tenant_id = '';
       config.code = 'POS-014';
+      config.type = 'VENTAS';
       config.sucursal = '123e4567-e89b-12d3-a456-426614174002';
       config.status = 1;
 
@@ -236,6 +252,7 @@ describe('PosConfiguration Entity - Unit Tests', () => {
       config.id = '123e4567-e89b-12d3-a456-426614174000';
       config.tenant_id = '123e4567-e89b-12d3-a456-426614174001';
       config.code = 'POS-015';
+      config.type = 'VENTAS';
       config.sucursal = '123e4567-e89b-12d3-a456-426614174002';
       config.status = 1;
 
@@ -296,6 +313,7 @@ describe('PosConfiguration Entity - Unit Tests', () => {
       expect(config).toHaveProperty('id');
       expect(config).toHaveProperty('tenant_id');
       expect(config).toHaveProperty('code');
+      expect(config).toHaveProperty('type');
       expect(config).toHaveProperty('sucursal');
       expect(config).toHaveProperty('modelo');
       expect(config).toHaveProperty('status');

@@ -24,9 +24,11 @@ export class ContractsService {
       Number(dto.down_payment),
       Number(dto.payment_months),
     );
+    const downPaymentConfig = this.buildDownPaymentConfig(dto);
 
     const contract = this.contractRepo.create({
       ...dto,
+      ...downPaymentConfig,
       contract_number: contractNumber,
       tenant_id: tenantId,
       payment_months,
@@ -395,6 +397,11 @@ export class ContractsService {
       contract_date: contract.contract_date,
       total_price: contract.total_price,
       down_payment: contract.down_payment,
+      down_payment_financed: contract.down_payment_financed,
+      down_payment_months: contract.down_payment_months,
+      down_payment_monthly_amount: contract.down_payment_monthly_amount,
+      down_payment_first_payment_date: contract.down_payment_first_payment_date,
+      down_payment_payment_day: contract.down_payment_payment_day,
       remaining_balance: contract.remaining_balance,
       payment_months: contract.payment_months,
       monthly_payment: contract.monthly_payment,
@@ -506,6 +513,29 @@ export class ContractsService {
       throw new Error('Contract not found');
     }
 
+    const downPaymentConfig = this.buildDownPaymentConfig({
+      down_payment:
+        dto.down_payment !== undefined
+          ? Number(dto.down_payment)
+          : Number(contract.down_payment),
+      down_payment_financed:
+        dto.down_payment_financed !== undefined
+          ? dto.down_payment_financed
+          : contract.down_payment_financed,
+      down_payment_months:
+        dto.down_payment_months !== undefined
+          ? dto.down_payment_months
+          : contract.down_payment_months,
+      down_payment_first_payment_date:
+        dto.down_payment_first_payment_date !== undefined
+          ? dto.down_payment_first_payment_date
+          : contract.down_payment_first_payment_date,
+      down_payment_payment_day:
+        dto.down_payment_payment_day !== undefined
+          ? dto.down_payment_payment_day
+          : contract.down_payment_payment_day,
+    });
+
     // Recalculate if total_price, down_payment, or payment_months changed (incl. payment_months = 0)
     if (
       dto.total_price !== undefined ||
@@ -528,12 +558,16 @@ export class ContractsService {
 
       Object.assign(contract, {
         ...dto,
+        ...downPaymentConfig,
         remaining_balance,
         payment_months,
         monthly_payment,
       });
     } else {
-      Object.assign(contract, dto);
+      Object.assign(contract, {
+        ...dto,
+        ...downPaymentConfig,
+      });
     }
 
     return this.contractRepo.save(contract);
@@ -563,14 +597,38 @@ export class ContractsService {
       );
       console.log(`✅ Deleted ${paymentsResult.affectedRows || 0} payments`);
 
-      // 3. Delete contract documents (files in S3 should be handled separately if needed)
+      // 3. Delete HOA payments if the table exists (backward-compatible)
+      const hasHoaPaymentsTable = await queryRunner.hasTable('contract_hoa_payments');
+      if (hasHoaPaymentsTable) {
+        const hoaPaymentsResult = await queryRunner.query(
+          `DELETE FROM contract_hoa_payments WHERE contract_id = ? AND tenant_id = ?`,
+          [id, tenantId],
+        );
+        console.log(`✅ Deleted ${hoaPaymentsResult.affectedRows || 0} HOA payments`);
+      }
+
+      // 4. Delete down payment payments if the table exists (backward-compatible)
+      const hasDownpaymentPaymentsTable = await queryRunner.hasTable(
+        'contract_downpayment_payments',
+      );
+      if (hasDownpaymentPaymentsTable) {
+        const downpaymentResult = await queryRunner.query(
+          `DELETE FROM contract_downpayment_payments WHERE contract_id = ? AND tenant_id = ?`,
+          [id, tenantId],
+        );
+        console.log(
+          `✅ Deleted ${downpaymentResult.affectedRows || 0} down payment payments`,
+        );
+      }
+
+      // 5. Delete contract documents (files in S3 should be handled separately if needed)
       const documentsResult = await queryRunner.query(
         `DELETE FROM contract_documents WHERE contract_id = ? AND tenant_id = ?`,
         [id, tenantId]
       );
       console.log(`✅ Deleted ${documentsResult.affectedRows || 0} contract documents`);
 
-      // 4. Finally delete the contract itself
+      // 6. Finally delete the contract itself
       await queryRunner.manager.delete(Contract, { id, tenant_id: tenantId });
       console.log(`✅ Deleted contract ${contract.contract_number}`);
 
@@ -648,6 +706,68 @@ export class ContractsService {
         payments_count: parseInt(overdueStats.payments_count) || 0,
         value: parseFloat(overdueStats.value) || 0,
       },
+    };
+  }
+
+  private buildDownPaymentConfig(dto: {
+    down_payment: number;
+    down_payment_financed?: boolean;
+    down_payment_months?: number | null;
+    down_payment_first_payment_date?: Date | string | null;
+    down_payment_payment_day?: number | null;
+  }): {
+    down_payment_financed: boolean;
+    down_payment_months: number | null;
+    down_payment_monthly_amount: number | null;
+    down_payment_first_payment_date: Date | null;
+    down_payment_payment_day: number | null;
+  } {
+    const financed = !!dto.down_payment_financed;
+    if (!financed) {
+      return {
+        down_payment_financed: false,
+        down_payment_months: null,
+        down_payment_monthly_amount: null,
+        down_payment_first_payment_date: null,
+        down_payment_payment_day: null,
+      };
+    }
+
+    const months = Number(dto.down_payment_months || 0);
+    const paymentDay = Number(dto.down_payment_payment_day || 0);
+    const firstPaymentDate = dto.down_payment_first_payment_date
+      ? new Date(dto.down_payment_first_payment_date)
+      : null;
+    const downPaymentAmount = Number(dto.down_payment || 0);
+
+    if (downPaymentAmount <= 0) {
+      throw new BadRequestException(
+        'down_payment debe ser mayor a 0 para financiar el enganche',
+      );
+    }
+    if (!months || months < 1) {
+      throw new BadRequestException(
+        'down_payment_months debe ser mayor a 0 cuando se financia el enganche',
+      );
+    }
+    if (!paymentDay || paymentDay < 1 || paymentDay > 31) {
+      throw new BadRequestException(
+        'down_payment_payment_day debe estar entre 1 y 31 cuando se financia el enganche',
+      );
+    }
+    if (!firstPaymentDate || Number.isNaN(firstPaymentDate.getTime())) {
+      throw new BadRequestException(
+        'down_payment_first_payment_date es requerida cuando se financia el enganche',
+      );
+    }
+
+    return {
+      down_payment_financed: true,
+      down_payment_months: months,
+      down_payment_monthly_amount:
+        Math.round((downPaymentAmount / months) * 100) / 100,
+      down_payment_first_payment_date: firstPaymentDate,
+      down_payment_payment_day: paymentDay,
     };
   }
 }

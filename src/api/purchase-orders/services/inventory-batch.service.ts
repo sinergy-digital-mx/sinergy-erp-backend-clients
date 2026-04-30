@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 import { InventoryBatch } from '../../../entities/purchase-orders/inventory-batch.entity';
 import { QueryInventoryBatchDto } from '../dto/query-inventory-batch.dto';
+import { S3Service } from '../../../common/services/s3.service';
 
 /**
  * Service for querying and listing inventory batches
@@ -13,6 +14,7 @@ export class InventoryBatchService {
   constructor(
     @InjectRepository(InventoryBatch)
     private readonly inventoryBatchRepository: Repository<InventoryBatch>,
+    private readonly s3Service: S3Service,
   ) {}
 
   /**
@@ -86,9 +88,12 @@ export class InventoryBatchService {
 
     // Get results and total count
     const [data, total] = await qb.getManyAndCount();
+    const dataWithPhotoUrls = await Promise.all(
+      data.map((batch) => this.toResponseWithPhotoUrl(batch)),
+    );
 
     return {
-      data,
+      data: dataWithPhotoUrls,
       pagination: {
         page,
         limit,
@@ -118,6 +123,59 @@ export class InventoryBatchService {
       total_batches: parseInt(stats.total_batches || 0),
       unique_products: parseInt(stats.unique_products || 0),
       total_quantity: parseFloat(stats.total_quantity || 0),
+    };
+  }
+
+  async uploadPhoto(
+    id: string,
+    tenantId: string,
+    file: Express.Multer.File,
+  ): Promise<InventoryBatch> {
+    const batch = await this.getByIdOrFail(id, tenantId);
+
+    if (batch.photo) {
+      await this.s3Service.deleteFile(batch.photo).catch(() => undefined);
+    }
+
+    const s3Key = await this.s3Service.uploadEntityFile(
+      tenantId,
+      'inventory_batches',
+      id,
+      'photo',
+      file.buffer,
+      file.originalname,
+      file.mimetype,
+    );
+
+    batch.photo = s3Key;
+    const saved = await this.inventoryBatchRepository.save(batch);
+    return this.toResponseWithPhotoUrl(saved);
+  }
+
+  private async getByIdOrFail(id: string, tenantId: string): Promise<InventoryBatch> {
+    const batch = await this.inventoryBatchRepository.findOne({
+      where: { id, tenant_id: tenantId },
+    });
+
+    if (!batch) {
+      throw new NotFoundException(`Inventory Batch with ID ${id} not found`);
+    }
+
+    return batch;
+  }
+
+  private async toResponseWithPhotoUrl(batch: InventoryBatch): Promise<InventoryBatch> {
+    if (!batch.photo) {
+      return batch;
+    }
+
+    const photoUrl = await this.s3Service
+      .getSignedUrl(batch.photo, 900)
+      .catch(() => batch.photo);
+
+    return {
+      ...batch,
+      photo: photoUrl,
     };
   }
 }

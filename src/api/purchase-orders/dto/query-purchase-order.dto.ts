@@ -2,6 +2,7 @@ import {
   IsOptional,
   IsEnum,
   IsUUID,
+  IsString,
   IsInt,
   Min,
   Max,
@@ -9,6 +10,10 @@ import {
 import { Type } from 'class-transformer';
 
 export class QueryPurchaseOrderDto {
+  @IsOptional()
+  @IsString()
+  search?: string;
+
   @IsOptional()
   @IsEnum(['Creada', 'Recibida', 'Cancelada'])
   general_status?: string;

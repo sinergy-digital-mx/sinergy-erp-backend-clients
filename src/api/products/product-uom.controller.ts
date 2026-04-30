@@ -6,6 +6,7 @@ import {
   Patch,
   Param,
   Delete,
+  Query,
   UseGuards,
   Request,
 } from '@nestjs/common';
@@ -13,6 +14,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { ProductUoMService } from './product-uom.service';
 import { CreateProductUoMDto } from './dto/create-product-uom.dto';
 import { UpdateProductUoMDto } from './dto/update-product-uom.dto';
+import { QueryUoMCatalogDto } from '../uom-catalog/dto/query-uom-catalog.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionGuard } from '../rbac/guards/permission.guard';
 import { RequirePermission } from '../rbac/decorators/require-permissions.decorator';
@@ -39,6 +41,22 @@ export class ProductUoMController {
   @ApiResponse({ status: 200, description: 'Lista de UoMs' })
   findAll(@Param('productId') productId: string, @Request() req) {
     return this.productUoMService.findAll(productId, req.user.tenant_id);
+  }
+
+  @Get('catalog')
+  @RequirePermission('Product', 'Read')
+  @ApiOperation({
+    summary: 'Catálogo UoM del tenant (para asignar al producto)',
+    description:
+      'Misma respuesta que GET /api/uom-catalog. Debe declararse antes de GET :id para no confundir "catalog" con un UUID.',
+  })
+  @ApiResponse({ status: 200, description: 'Listado paginado del catálogo UoM' })
+  findCatalog(
+    @Param('productId') productId: string,
+    @Query() query: QueryUoMCatalogDto,
+    @Request() req,
+  ) {
+    return this.productUoMService.findCatalogForProduct(productId, query, req.user.tenant_id);
   }
 
   @Get(':id')

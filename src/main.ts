@@ -7,6 +7,19 @@ import { setupSwagger } from './config/swagger/swagger.setup';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Clients or proxies that call /tenant/... without the global /api prefix would get 404
+  // because routes are registered as /api/tenant/... . Normalize before routing.
+  const httpServer = app.getHttpAdapter().getInstance();
+  if (httpServer?.use) {
+    httpServer.use((req: { url?: string }, _res: unknown, next: () => void) => {
+      const u = req.url ?? '';
+      if (u.startsWith('/tenant/') && !u.startsWith('/api/')) {
+        req.url = `/api${u}`;
+      }
+      next();
+    });
+  }
+
   // Global validation and transformation pipe
   app.useGlobalPipes(
     new ValidationPipe({

@@ -32,6 +32,7 @@ export class BatchCreatorService {
     purchaseOrderDetailId: string,
     userId: string,
     productUoms?: any[],
+    sourceTagIdentifier?: string,
   ): Promise<InventoryBatch> {
     try {
       // 1. Get warehouse prefix
@@ -103,6 +104,7 @@ export class BatchCreatorService {
       const batch = this.inventoryBatchRepository.create({
         tenant_id: purchaseOrder.tenant_id,
         batch_number: batchNumber,
+        source_tag_identifier: sourceTagIdentifier || null,
         warehouse_id: purchaseOrder.warehouse_id,
         product_id: receivedItem.product_id,
         uom_id: baseUom.uom_catalog_id,

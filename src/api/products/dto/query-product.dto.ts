@@ -22,6 +22,11 @@ export class QueryProductDto {
   @IsString()
   sku?: string;
 
+  @ApiPropertyOptional({ example: 'EXT-ERP', description: 'Buscar por SKU externo' })
+  @IsOptional()
+  @IsString()
+  external_sku?: string;
+
   @ApiPropertyOptional({ example: 'Producto', description: 'Buscar por nombre' })
   @IsOptional()
   @IsString()

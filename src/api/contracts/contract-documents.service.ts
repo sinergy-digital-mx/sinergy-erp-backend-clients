@@ -19,11 +19,13 @@ export class ContractDocumentsService {
     uploadedBy: string,
     notes?: string,
   ): Promise<ContractDocument> {
-    // Upload to S3 with contracts path
-    const s3Key = await this.s3Service.uploadFile(
+    // Upload to S3 using standard module structure:
+    // tenant/entityType/entityId/documentType/file
+    const s3Key = await this.s3Service.uploadEntityFile(
       tenantId,
-      contractId,
       'contracts',
+      contractId,
+      'documents',
       file.buffer,
       file.originalname,
       file.mimetype,

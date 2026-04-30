@@ -10,7 +10,11 @@ import {
   Delete,
   Query,
   HttpCode,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
@@ -88,6 +92,24 @@ export class FiscalConfigurationController {
   @ApiResponse({ status: 404, description: 'Not found' })
   update(@Param('id') id: string, @Body() dto: UpdateFiscalConfigurationDto, @Req() req) {
     return this.service.update(id, dto, req.user.tenantId);
+  }
+
+  @Post(':id/logo')
+  @UseInterceptors(FileInterceptor('file'))
+  @RequirePermissions({ entityType: 'fiscal_configurations', action: 'Update' })
+  @ApiOperation({ summary: 'Upload logo for a fiscal configuration' })
+  @ApiParam({ name: 'id', type: 'string' })
+  @ApiResponse({ status: 200, description: 'Logo uploaded successfully' })
+  uploadLogo(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    return this.service.uploadLogo(id, req.user.tenantId, file);
   }
 
   @Delete(':id')

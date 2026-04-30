@@ -52,6 +52,45 @@ export class PurchaseOrderDocumentsService {
   }
 
   /**
+   * Upload a binary file for a purchase order and persist its document record.
+   */
+  async uploadDocumentFile(
+    tenantId: string,
+    purchaseOrderId: string,
+    documentTypeId: number,
+    file: Express.Multer.File,
+    uploadedBy: string,
+  ): Promise<PurchaseOrderDocument> {
+    const docType = await this.documentTypeRepository.findOne({
+      where: { id: documentTypeId },
+    });
+
+    if (!docType) {
+      throw new NotFoundException(`Document type not found: ${documentTypeId}`);
+    }
+
+    const s3Key = await this.s3Service.uploadEntityFile(
+      tenantId,
+      'purchase_orders',
+      purchaseOrderId,
+      docType.name,
+      file.buffer,
+      file.originalname,
+      file.mimetype,
+    );
+
+    return this.uploadDocument(
+      purchaseOrderId,
+      documentTypeId,
+      file.originalname,
+      s3Key,
+      file.size,
+      file.mimetype,
+      uploadedBy,
+    );
+  }
+
+  /**
    * Get all documents for a purchase order with signed URLs
    */
   async getDocuments(purchaseOrderId: string): Promise<any[]> {

@@ -50,16 +50,11 @@ export class PurchaseOrderDocumentsController {
     // Verify purchase order exists
     await this.purchaseOrderService.findOne(orderId, tenantId);
 
-    // For now, store file path as is. In production, upload to S3 or similar
-    const filePath = `uploads/purchase-orders/${orderId}/${file.filename}`;
-
-    const document = await this.documentsService.uploadDocument(
+    const document = await this.documentsService.uploadDocumentFile(
+      tenantId,
       orderId,
       parseInt(documentTypeId),
-      file.originalname,
-      filePath,
-      file.size,
-      file.mimetype,
+      file,
       userId,
     );
 

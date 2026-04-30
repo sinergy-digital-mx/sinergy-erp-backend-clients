@@ -1,4 +1,5 @@
 // src/database/typeorm.options.ts
+import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { DataSourceOptions } from 'typeorm';
 import 'dotenv/config';
 
@@ -14,6 +15,13 @@ export const typeOrmOptions: DataSourceOptions = {
     logging: true,
     timezone: 'local', // Use local timezone
     dateStrings: true, // Return dates as strings to avoid timezone conversion
-    entities: [__dirname + '/../entities/**/*.entity.{ts,js}'],
+    // Keep glob for scripts/CLI usage; autoLoadEntities ensures Nest modules
+    // registered with TypeOrmModule.forFeature() are always attached too.
+    entities: [__dirname + '/../entities/**/*.entity.ts', __dirname + '/../entities/**/*.entity.js'],
     migrations: [__dirname + '/migrations/*.{ts,js}'],
+};
+
+export const typeOrmModuleOptions: TypeOrmModuleOptions = {
+    ...typeOrmOptions,
+    autoLoadEntities: true,
 };

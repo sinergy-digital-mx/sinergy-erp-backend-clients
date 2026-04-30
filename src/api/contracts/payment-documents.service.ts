@@ -4,7 +4,6 @@ import { Repository } from 'typeorm';
 import { PaymentDocument } from '../../entities/contracts/payment-document.entity';
 import { Payment } from '../../entities/contracts/payment.entity';
 import { S3Service } from '../../common/services/s3.service';
-import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class PaymentDocumentsService {
@@ -36,15 +35,13 @@ export class PaymentDocumentsService {
       throw new NotFoundException('Payment not found');
     }
 
-    // Generate S3 key
-    const fileExtension = file.originalname.split('.').pop();
-    const uniqueFileName = `${uuidv4()}.${fileExtension}`;
-
-    // Upload to S3
-    const s3Key = await this.s3Service.uploadFile(
+    // Upload to S3 using standard module structure:
+    // tenant/entityType/entityId/documentType/file
+    const s3Key = await this.s3Service.uploadEntityFile(
       tenantId,
+      'contract-payments',
       paymentId,
-      'payment-documents',
+      documentType || 'payment-documents',
       file.buffer,
       file.originalname,
       file.mimetype,

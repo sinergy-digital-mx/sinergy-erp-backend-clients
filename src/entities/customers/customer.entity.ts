@@ -14,6 +14,7 @@ import { CustomerGroup } from './customer-group.entity';
 import { CustomerActivity } from './customer-activity.entity';
 import { RBACTenant } from '../rbac/tenant.entity';
 import { Contract } from '../contracts/contract.entity';
+import { Warehouse } from '../warehouse/warehouse.entity';
 
 @Entity('customers')
 export class Customer {
@@ -82,6 +83,40 @@ export class Customer {
 
     @Column({ length: 10, nullable: true })
     additional_phone_code: string;
+
+    @Column({ nullable: true, length: 20 })
+    fiscal_rfc: string;
+
+    @Column({ nullable: true })
+    fiscal_razon_social: string;
+
+    @Column({ nullable: true, length: 20 })
+    fiscal_person_type: string;
+
+    @Column({ nullable: true })
+    fiscal_address: string;
+
+    @Column({ nullable: true })
+    fiscal_city: string;
+
+    @Column({ nullable: true })
+    fiscal_state: string;
+
+    @Column({ nullable: true, length: 20 })
+    fiscal_postal_code: string;
+
+    @ManyToOne(() => Warehouse, { nullable: true, onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'warehouse_id' })
+    warehouse: Warehouse | null;
+
+    @Column({ nullable: true })
+    warehouse_id: string;
+
+    @Column({ type: 'int', nullable: true })
+    credit_days: number;
+
+    @Column({ type: 'decimal', precision: 14, scale: 2, nullable: true })
+    credit_amount: number;
 
     @OneToMany(() => CustomerAddress, address => address.customer)
     addresses: CustomerAddress[];

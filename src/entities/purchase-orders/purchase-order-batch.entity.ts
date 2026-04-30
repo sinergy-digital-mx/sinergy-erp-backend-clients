@@ -16,6 +16,7 @@ import { Vendor } from '../vendor/vendor.entity';
 import { User } from '../users/user.entity';
 import { PurchaseOrderBatchDetail } from './purchase-order-batch-detail.entity';
 import { InventoryBatch } from './inventory-batch.entity';
+import { PurchaseOrderPayment } from './purchase-order-payment.entity';
 
 @Entity('inv_s_purchase_order_batch')
 @Index('idx_tenant', ['tenant_id'])
@@ -68,6 +69,13 @@ export class PurchaseOrderBatch {
     default: 'Pendiente',
   })
   payment_status: string;
+
+  @Column({
+    type: 'enum',
+    enum: ['MXN', 'USD'],
+    default: 'MXN',
+  })
+  payment_currency: string;
 
   @Column({
     type: 'enum',
@@ -128,4 +136,7 @@ export class PurchaseOrderBatch {
 
   @OneToMany(() => InventoryBatch, (batch: InventoryBatch) => batch.purchase_order_batch)
   batches: InventoryBatch[];
+
+  @OneToMany(() => PurchaseOrderPayment, (payment: PurchaseOrderPayment) => payment.purchase_order_batch)
+  payments: PurchaseOrderPayment[];
 }

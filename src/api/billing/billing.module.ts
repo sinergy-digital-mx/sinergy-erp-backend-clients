@@ -7,13 +7,14 @@ import { BillingBranchService } from './billing-branch.service';
 import { FiscalConfiguration } from '../../entities/billing/fiscal-configuration.entity';
 import { BillingBranch } from '../../entities/billing/billing-branch.entity';
 import { RBACModule } from '../rbac/rbac.module';
+import { S3Service } from '../../common/services/s3.service';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([FiscalConfiguration, BillingBranch]),
     RBACModule,
   ],
-  providers: [FiscalConfigurationService, BillingBranchService],
+  providers: [FiscalConfigurationService, BillingBranchService, S3Service],
   controllers: [FiscalConfigurationController, BillingBranchController, BillingBranchAllController],
   exports: [FiscalConfigurationService, BillingBranchService],
 })

@@ -15,6 +15,7 @@ import { CustomerGroup } from '../../entities/customers/customer-group.entity';
 import { CustomerActivity } from '../../entities/customers/customer-activity.entity';
 import { CustomerDocument } from '../../entities/customers/customer-document.entity';
 import { DocumentType } from '../../entities/customers/document-type.entity';
+import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { S3Service } from '../../common/services/s3.service';
 import { RBACModule } from '../rbac/rbac.module';
 
@@ -27,6 +28,7 @@ import { RBACModule } from '../rbac/rbac.module';
             CustomerActivity,
             CustomerDocument,
             DocumentType,
+            Warehouse,
         ]),
         RBACModule,
     ],

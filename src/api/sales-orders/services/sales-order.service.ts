@@ -1,11 +1,11 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, QueryRunner, Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { SalesOrder } from '../../../entities/sales-orders/sales-order.entity';
 import { SalesOrderDetail } from '../../../entities/sales-orders/sales-order-detail.entity';
 import { SalesOrderBatchAllocation } from '../../../entities/sales-orders/sales-order-batch-allocation.entity';
-import { CreateSalesOrderDto } from '../dto/create-sales-order.dto';
+import { CreateSalesOrderDto, CreateSalesOrderLineItemDto } from '../dto/create-sales-order.dto';
 import { QuerySalesOrderDto } from '../dto/query-sales-order.dto';
 import { FulfillSalesOrderDto } from '../dto/fulfill-sales-order.dto';
 import { SalesOrderFolioService } from './sales-order-folio.service';
@@ -27,6 +27,42 @@ export class SalesOrderService {
     private readonly dataSource: DataSource,
   ) {}
 
+  /**
+   * Accepts either product_uom.id (preferred) or uom_catalog.id (fallback).
+   * Returns the resolved ProductUoM row used by sales-order logic.
+   */
+  private async resolveProductUom(
+    qr: QueryRunner,
+    productId: string,
+    providedUomId: string,
+  ): Promise<{ id: string; factor: number; is_base: boolean; uom_catalog_id: string }> {
+    const [productUomRow] = await qr.manager.query(
+      `SELECT pu.id, pu.factor, pu.is_base, pu.uom_catalog_id
+       FROM product_uoms pu
+       WHERE pu.id = ? AND pu.product_id = ?
+       LIMIT 1`,
+      [providedUomId, productId],
+    );
+
+    if (productUomRow) {
+      return productUomRow;
+    }
+
+    const [productUomByCatalog] = await qr.manager.query(
+      `SELECT pu.id, pu.factor, pu.is_base, pu.uom_catalog_id
+       FROM product_uoms pu
+       WHERE pu.product_id = ? AND pu.uom_catalog_id = ?
+       LIMIT 1`,
+      [productId, providedUomId],
+    );
+
+    if (productUomByCatalog) {
+      return productUomByCatalog;
+    }
+
+    throw new BadRequestException(`UOM no encontrado: ${providedUomId}`);
+  }
+
   async create(dto: CreateSalesOrderDto, tenantId: string, userId: string): Promise<SalesOrder> {
     const qr = this.dataSource.createQueryRunner();
     await qr.connect();
@@ -43,6 +79,8 @@ export class SalesOrderService {
         warehouse_id: dto.warehouse_id,
         customer_id: dto.customer_id,
         expected_delivery_date: new Date(dto.expected_delivery_date),
+        sales_order_type: dto.sales_order_type || 'MANUAL',
+        fiscal_razon_social: dto.fiscal_razon_social,
         payment_status: dto.payment_status || 'Pendiente',
         general_status: 'Creada',
         notes: dto.notes,
@@ -51,25 +89,24 @@ export class SalesOrderService {
 
       const savedSO = await qr.manager.save(SalesOrder, so);
 
-      let subtotal = 0, iva_total = 0, ieps_total = 0;
+      let subtotal = 0, iva_total = 0, ieps_total = 0, discount_total = 0;
 
       for (const item of dto.line_items) {
         const line_subtotal = Number(item.quantity) * Number(item.unit_price);
+        const discount_pct = Number(item.discount_percentage || 0);
+        const line_discount = (line_subtotal * discount_pct) / 100;
+        const taxable_subtotal = Math.max(line_subtotal - line_discount, 0);
         const iva_pct = Number(item.iva_percentage || 0);
         const ieps_pct = Number(item.ieps_percentage || 0);
-        const line_iva = (line_subtotal * iva_pct) / 100;
-        const line_ieps = (line_subtotal * ieps_pct) / 100;
+        const line_iva = (taxable_subtotal * iva_pct) / 100;
+        const line_ieps = (taxable_subtotal * ieps_pct) / 100;
 
         // Resolve base UOM for this product UOM
-        const [productUomRow] = await qr.manager.query(
-          `SELECT pu.id, pu.factor, pu.is_base, pu.uom_catalog_id
-           FROM product_uoms pu WHERE pu.id = ? LIMIT 1`,
-          [item.product_uom_id],
+        const productUomRow = await this.resolveProductUom(
+          qr,
+          item.product_id,
+          item.product_uom_id,
         );
-
-        if (!productUomRow) {
-          throw new BadRequestException(`UOM no encontrado: ${item.product_uom_id}`);
-        }
 
         const [baseUomRow] = await qr.manager.query(
           `SELECT pu.uom_catalog_id FROM product_uoms pu
@@ -90,11 +127,13 @@ export class SalesOrderService {
           id: uuidv4(),
           sales_order_id: savedSO.id,
           product_id: item.product_id,
-          product_uom_id: item.product_uom_id,
+          product_uom_id: productUomRow.id,
           quantity: item.quantity,
           quantity_base_uom: qty_base,
           base_uom_id: baseUomRow.uom_catalog_id,
           unit_price: item.unit_price,
+          discount_percentage: discount_pct,
+          discount_unit: Number(item.quantity) > 0 ? line_discount / Number(item.quantity) : 0,
           iva_percentage: iva_pct,
           iva_unit: Number(item.quantity) > 0 ? line_iva / Number(item.quantity) : 0,
           ieps_percentage: ieps_pct,
@@ -105,14 +144,16 @@ export class SalesOrderService {
         await qr.manager.save(SalesOrderDetail, detail);
 
         subtotal += line_subtotal;
+        discount_total += line_discount;
         iva_total += line_iva;
         ieps_total += line_ieps;
       }
 
       savedSO.subtotal = subtotal;
+      savedSO.discount_total = discount_total;
       savedSO.iva_total = iva_total;
       savedSO.ieps_total = ieps_total;
-      savedSO.total = subtotal + iva_total + ieps_total;
+      savedSO.total = subtotal - discount_total + iva_total + ieps_total;
       await qr.manager.save(SalesOrder, savedSO);
 
       await qr.commitTransaction();
@@ -126,7 +167,7 @@ export class SalesOrderService {
   }
 
   async findAll(tenantId: string, filters: QuerySalesOrderDto) {
-    const { search, general_status, payment_status, warehouse_id, customer_id,
+    const { search, general_status, payment_status, sales_order_type, warehouse_id, customer_id,
             created_from, created_to, page = 1, limit = 20,
             sort_by = 'created_at', sort_order = 'DESC' } = filters;
 
@@ -141,6 +182,7 @@ export class SalesOrderService {
     }
     if (general_status) qb.andWhere('so.general_status = :general_status', { general_status });
     if (payment_status) qb.andWhere('so.payment_status = :payment_status', { payment_status });
+    if (sales_order_type) qb.andWhere('so.sales_order_type = :sales_order_type', { sales_order_type });
     if (warehouse_id) qb.andWhere('so.warehouse_id = :warehouse_id', { warehouse_id });
     if (customer_id) qb.andWhere('so.customer_id = :customer_id', { customer_id });
     if (created_from) qb.andWhere('so.created_at >= :created_from', { created_from: new Date(created_from) });
@@ -158,7 +200,8 @@ export class SalesOrderService {
       where: { id, tenant_id: tenantId },
       relations: [
         'customer', 'warehouse', 'fiscal_configuration',
-        'line_items', 'line_items.product', 'line_items.product_uom',
+        'line_items', 'line_items.product', 'line_items.product_uom', 'line_items.product_uom.uom',
+        'line_items.base_uom',
         'line_items.batch_allocations', 'line_items.batch_allocations.inventory_batch',
       ],
     });
@@ -235,5 +278,149 @@ export class SalesOrderService {
     } finally {
       await qr.release();
     }
+  }
+
+  async replace(
+    id: string,
+    dto: CreateSalesOrderDto,
+    tenantId: string,
+    userId: string,
+  ): Promise<SalesOrder> {
+    const existing = await this.findOne(id, tenantId);
+    if (existing.general_status !== 'Creada') {
+      throw new BadRequestException(
+        `Cannot edit sales order with status: ${existing.general_status}`,
+      );
+    }
+
+    const qr = this.dataSource.createQueryRunner();
+    await qr.connect();
+    await qr.startTransaction();
+
+    try {
+      await qr.manager.delete(SalesOrderDetail, { sales_order_id: id });
+      const so = await qr.manager.findOne(SalesOrder, { where: { id, tenant_id: tenantId } });
+      if (!so) {
+        throw new NotFoundException(`Sales order not found: ${id}`);
+      }
+
+      so.fiscal_configuration_id = dto.fiscal_configuration_id;
+      so.warehouse_id = dto.warehouse_id;
+      so.customer_id = dto.customer_id;
+      so.expected_delivery_date = new Date(dto.expected_delivery_date);
+      so.sales_order_type = dto.sales_order_type || so.sales_order_type || 'MANUAL';
+      if (dto.fiscal_razon_social !== undefined) {
+        so.fiscal_razon_social = dto.fiscal_razon_social;
+      }
+      so.payment_status = dto.payment_status || so.payment_status;
+      if (dto.notes !== undefined) {
+        so.notes = dto.notes;
+      }
+      so.updated_by = userId;
+
+      await qr.manager.save(SalesOrder, so);
+      await this.insertSalesOrderLineItems(qr, so.id, dto.line_items, userId);
+      await this.recomputeTotals(qr, so.id, tenantId, userId);
+
+      await qr.commitTransaction();
+      return this.findOne(id, tenantId);
+    } catch (err) {
+      await qr.rollbackTransaction();
+      throw err;
+    } finally {
+      await qr.release();
+    }
+  }
+
+  private async insertSalesOrderLineItems(
+    qr: QueryRunner,
+    salesOrderId: string,
+    lineItems: CreateSalesOrderLineItemDto[],
+    userId: string,
+  ): Promise<void> {
+    for (const item of lineItems) {
+      const line_subtotal = Number(item.quantity) * Number(item.unit_price);
+      const discount_pct = Number(item.discount_percentage || 0);
+      const line_discount = (line_subtotal * discount_pct) / 100;
+      const taxable_subtotal = Math.max(line_subtotal - line_discount, 0);
+      const iva_pct = Number(item.iva_percentage || 0);
+      const ieps_pct = Number(item.ieps_percentage || 0);
+      const line_iva = (taxable_subtotal * iva_pct) / 100;
+      const line_ieps = (taxable_subtotal * ieps_pct) / 100;
+
+      const productUomRow = await this.resolveProductUom(
+        qr,
+        item.product_id,
+        item.product_uom_id,
+      );
+
+      const [baseUomRow] = await qr.manager.query(
+        `SELECT pu.uom_catalog_id FROM product_uoms pu
+         WHERE pu.product_id = ? AND pu.is_base = 1 LIMIT 1`,
+        [item.product_id],
+      );
+      if (!baseUomRow) {
+        throw new BadRequestException(`UOM base no encontrado para producto: ${item.product_id}`);
+      }
+
+      const factor = productUomRow.factor || 1;
+      const qty_base = productUomRow.is_base
+        ? Number(item.quantity)
+        : Number(item.quantity) * factor;
+
+      const detail = qr.manager.create(SalesOrderDetail, {
+        id: uuidv4(),
+        sales_order_id: salesOrderId,
+        product_id: item.product_id,
+        product_uom_id: productUomRow.id,
+        quantity: item.quantity,
+        quantity_base_uom: qty_base,
+        base_uom_id: baseUomRow.uom_catalog_id,
+        unit_price: item.unit_price,
+        discount_percentage: discount_pct,
+        discount_unit: Number(item.quantity) > 0 ? line_discount / Number(item.quantity) : 0,
+        iva_percentage: iva_pct,
+        iva_unit: Number(item.quantity) > 0 ? line_iva / Number(item.quantity) : 0,
+        ieps_percentage: ieps_pct,
+        ieps_unit: Number(item.quantity) > 0 ? line_ieps / Number(item.quantity) : 0,
+        created_by: userId,
+      });
+      await qr.manager.save(SalesOrderDetail, detail);
+    }
+  }
+
+  private async recomputeTotals(
+    qr: QueryRunner,
+    salesOrderId: string,
+    tenantId: string,
+    userId: string,
+  ): Promise<void> {
+    const so = await qr.manager.findOne(SalesOrder, { where: { id: salesOrderId, tenant_id: tenantId } });
+    if (!so) {
+      throw new NotFoundException(`Sales order not found: ${salesOrderId}`);
+    }
+
+    const details = await qr.manager.find(SalesOrderDetail, { where: { sales_order_id: salesOrderId } });
+    let subtotal = 0;
+    let discount_total = 0;
+    let iva_total = 0;
+    let ieps_total = 0;
+    for (const detail of details) {
+      const qty = Number(detail.quantity || 0);
+      const line_subtotal = qty * Number(detail.unit_price || 0);
+      const line_discount = qty * Number(detail.discount_unit || 0);
+      const taxable_subtotal = Math.max(line_subtotal - line_discount, 0);
+      subtotal += line_subtotal;
+      discount_total += line_discount;
+      iva_total += (taxable_subtotal * Number(detail.iva_percentage || 0)) / 100;
+      ieps_total += (taxable_subtotal * Number(detail.ieps_percentage || 0)) / 100;
+    }
+    so.subtotal = subtotal;
+    so.discount_total = discount_total;
+    so.iva_total = iva_total;
+    so.ieps_total = ieps_total;
+    so.total = subtotal - discount_total + iva_total + ieps_total;
+    so.updated_by = userId;
+    await qr.manager.save(SalesOrder, so);
   }
 }

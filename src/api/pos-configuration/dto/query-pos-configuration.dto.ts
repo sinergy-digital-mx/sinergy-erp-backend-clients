@@ -1,5 +1,5 @@
 import { IsOptional, IsString, IsNumber, IsUUID, IsIn, Min, Max } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class QueryPosConfigurationDto {
@@ -52,4 +52,15 @@ export class QueryPosConfigurationDto {
   @IsOptional()
   @IsUUID()
   sucursal?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by equipment type',
+    example: 'VENTAS',
+    enum: ['VENTAS', 'COBRANZA'],
+  })
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.toUpperCase() : value))
+  @IsString()
+  @IsIn(['VENTAS', 'COBRANZA'])
+  type?: 'VENTAS' | 'COBRANZA';
 }

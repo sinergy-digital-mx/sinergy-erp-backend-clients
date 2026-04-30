@@ -10,6 +10,7 @@ import { BatchResponseDto } from './dto/batch-response.dto';
 import { BatchDetailResponseDto } from './dto/batch-detail-response.dto';
 import { InventorySummaryFilterDto } from './dto/inventory-summary-filter.dto';
 import { InventorySummaryResponseDto } from './dto/inventory-summary-response.dto';
+import { PosSessionInventorySummaryResponseDto } from './dto/pos-session-inventory-summary-response.dto';
 
 @Controller('tenant/inventory')
 @ApiTags('Inventory')
@@ -71,6 +72,36 @@ export class InventoryController {
   ): Promise<InventorySummaryResponseDto> {
     const tenantId = req.user.tenant_id;
     return this.inventoryService.getInventorySummary(tenantId, filters);
+  }
+
+  @Get('pos-sessions/:sessionId/summary')
+  @RequirePermissions({ entityType: 'inventory', action: 'read' })
+  @ApiOperation({
+    summary: 'Get POS inventory summary scoped to session branch',
+    description:
+      'Resolves branch from POS session equipment and returns summed inventory by product/UOM across matching warehouses. Optional warehouse_id narrows results.',
+  })
+  @ApiParam({ name: 'sessionId', type: String, description: 'Open POS session ID' })
+  @ApiQuery({ name: 'warehouse_id', required: false, type: String })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'product_id', required: false, type: String })
+  @ApiQuery({ name: 'only_available', required: false, type: Boolean })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'sort_by', required: false, type: String })
+  @ApiQuery({ name: 'sort_order', required: false, type: String })
+  @ApiResponse({
+    status: 200,
+    description: 'POS session inventory summary retrieved successfully',
+    type: PosSessionInventorySummaryResponseDto,
+  })
+  async getPosSessionInventorySummary(
+    @Param('sessionId') sessionId: string,
+    @Query() filters: InventorySummaryFilterDto,
+    @Req() req: any,
+  ): Promise<PosSessionInventorySummaryResponseDto> {
+    const tenantId = req.user.tenant_id;
+    return this.inventoryService.getPosSessionInventorySummary(tenantId, sessionId, filters);
   }
 
   @Get('batches/purchase-order/:poId')

@@ -62,6 +62,16 @@ export class SalesOrder {
 
   @Column({
     type: 'enum',
+    enum: ['POS', 'MANUAL'],
+    default: 'MANUAL',
+  })
+  sales_order_type: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  fiscal_razon_social: string;
+
+  @Column({
+    type: 'enum',
     enum: ['Pendiente', 'Pagado'],
     default: 'Pendiente',
   })
@@ -85,6 +95,9 @@ export class SalesOrder {
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   ieps_total: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  discount_total: number;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   total: number;

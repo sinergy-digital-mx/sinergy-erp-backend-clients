@@ -1,6 +1,20 @@
-import { IsNumber, Min, Max, IsOptional } from 'class-validator';
+import { IsNumber, Min, Max, IsOptional, IsUUID } from 'class-validator';
 
 export class UpdateLineItemDto {
+  /** Quantity in the selected UOM (same rules as create). */
+  @IsNumber()
+  @Min(0.001)
+  @IsOptional()
+  quantity?: number;
+
+  /**
+   * Product UOM row id or UoM catalog id for this line's product
+   * (resolved via UnitConversionService.getProductUomId).
+   */
+  @IsUUID()
+  @IsOptional()
+  uom_id?: string;
+
   @IsNumber()
   @Min(0)
   @IsOptional()
@@ -14,17 +28,7 @@ export class UpdateLineItemDto {
 
   @IsNumber()
   @Min(0)
-  @IsOptional()
-  iva_unit?: number;
-
-  @IsNumber()
-  @Min(0)
   @Max(100)
   @IsOptional()
   ieps_percentage?: number;
-
-  @IsNumber()
-  @Min(0)
-  @IsOptional()
-  ieps_unit?: number;
 }

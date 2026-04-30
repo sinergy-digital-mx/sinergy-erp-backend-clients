@@ -3,12 +3,22 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { InventoryService } from './inventory.service';
 import { InventoryBatch } from '../../entities/purchase-orders/inventory-batch.entity';
+import { ProductPrice } from '../../entities/products/product-price.entity';
+import { PosSession } from '../../entities/pos/pos-session.entity';
+import { PosConfiguration } from '../../entities/billing/pos-configuration.entity';
+import { Warehouse } from '../../entities/warehouse/warehouse.entity';
+import { S3Service } from '../../common/services/s3.service';
 import { BatchFilterDto } from './dto/batch-filter.dto';
 import { BatchResponseDto } from './dto/batch-response.dto';
 
 describe('InventoryService', () => {
   let service: InventoryService;
   let mockRepository: any;
+  let mockProductPriceRepository: any;
+  let mockPosSessionRepository: any;
+  let mockPosConfigurationRepository: any;
+  let mockWarehouseRepository: any;
+  let mockS3Service: any;
 
   const mockTenantId = '550e8400-e29b-41d4-a716-446655440000';
   const mockUserId = 'user-123';
@@ -37,6 +47,21 @@ describe('InventoryService', () => {
     mockRepository = {
       createQueryBuilder: jest.fn(),
     };
+    mockProductPriceRepository = {
+      createQueryBuilder: jest.fn(),
+    };
+    mockPosSessionRepository = {
+      findOne: jest.fn(),
+    };
+    mockPosConfigurationRepository = {
+      findOne: jest.fn(),
+    };
+    mockWarehouseRepository = {
+      find: jest.fn(),
+    };
+    mockS3Service = {
+      getSignedUrl: jest.fn().mockResolvedValue('https://signed.example/photo.jpg'),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -44,6 +69,26 @@ describe('InventoryService', () => {
         {
           provide: getRepositoryToken(InventoryBatch),
           useValue: mockRepository,
+        },
+        {
+          provide: getRepositoryToken(ProductPrice),
+          useValue: mockProductPriceRepository,
+        },
+        {
+          provide: getRepositoryToken(PosSession),
+          useValue: mockPosSessionRepository,
+        },
+        {
+          provide: getRepositoryToken(PosConfiguration),
+          useValue: mockPosConfigurationRepository,
+        },
+        {
+          provide: getRepositoryToken(Warehouse),
+          useValue: mockWarehouseRepository,
+        },
+        {
+          provide: S3Service,
+          useValue: mockS3Service,
         },
       ],
     }).compile();

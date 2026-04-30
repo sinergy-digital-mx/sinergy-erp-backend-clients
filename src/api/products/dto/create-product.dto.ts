@@ -8,6 +8,15 @@ export class CreateProductDto {
   @Length(1, 255)
   sku: string;
 
+  @ApiPropertyOptional({
+    example: 'EXT-ERP-001',
+    description: 'SKU externo del producto en sistemas de terceros',
+  })
+  @IsOptional()
+  @IsString()
+  @Length(1, 255)
+  external_sku?: string;
+
   @ApiProperty({ example: 'Producto de ejemplo', description: 'Nombre del producto' })
   @IsNotEmpty()
   @IsString()

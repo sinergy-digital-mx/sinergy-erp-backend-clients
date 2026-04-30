@@ -15,6 +15,8 @@ import { BillingBranch } from './billing-branch.entity';
 @Index('tenant_index', ['tenant_id'])
 @Index('branch_index', ['sucursal'])
 export class PosConfiguration {
+  static readonly ALLOWED_TYPES = ['VENTAS', 'COBRANZA'] as const;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -26,6 +28,12 @@ export class PosConfiguration {
   @IsNotEmpty()
   @IsString()
   code: string;
+
+  @Column({ type: 'varchar', length: 20 })
+  @IsNotEmpty()
+  @IsString()
+  @IsIn(PosConfiguration.ALLOWED_TYPES)
+  type: (typeof PosConfiguration.ALLOWED_TYPES)[number];
 
   @Column({ name: 'sucursal' })
   @IsNotEmpty()

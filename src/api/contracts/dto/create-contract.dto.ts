@@ -1,4 +1,15 @@
-import { IsString, IsNumber, IsDate, IsOptional, IsEnum, Length, IsUUID, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsDate,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Length,
+  Max,
+  Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateContractDto {
@@ -26,6 +37,26 @@ export class CreateContractDto {
 
   @IsNumber()
   down_payment: number;
+
+  @IsOptional()
+  @IsBoolean()
+  down_payment_financed?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  down_payment_months?: number;
+
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  down_payment_first_payment_date?: Date;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(31)
+  down_payment_payment_day?: number;
 
   /** 0 = pago de contado (enganche cubre el total); ≥1 si hay saldo a financiar */
   @IsNumber()

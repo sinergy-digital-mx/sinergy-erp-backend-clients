@@ -8,8 +8,33 @@ import {
   Max,
   IsOptional,
   IsDate,
+  IsEnum,
+  IsString,
+  MaxLength,
+  ArrayMinSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+
+export enum ReceiptLotMode {
+  SINGLE = 'single',
+  MULTIPLE = 'multiple',
+}
+
+export class ReceivedLotDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  tag_identifier: string;
+
+  @IsUUID()
+  @IsNotEmpty()
+  product_uom_id: string;
+
+  @IsNumber()
+  @Min(0.001)
+  @Max(999999.999)
+  quantity: number;
+}
 
 /**
  * DTO for a single received item in a purchase order receipt
@@ -59,6 +84,17 @@ export class ReceivedItemDto {
   @Type(() => Date)
   @IsDate()
   expiration_date?: Date | null;
+
+  @IsOptional()
+  @IsEnum(ReceiptLotMode)
+  lot_mode?: ReceiptLotMode;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => ReceivedLotDto)
+  lots?: ReceivedLotDto[];
 }
 
 /**

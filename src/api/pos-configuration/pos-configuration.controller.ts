@@ -82,6 +82,7 @@ export class PosConfigurationController {
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'status', required: false, type: Number })
   @ApiQuery({ name: 'sucursal', required: false, type: String })
+  @ApiQuery({ name: 'type', required: false, enum: ['VENTAS', 'COBRANZA'] })
   @ApiResponse({ status: 200, description: 'List of POS configurations retrieved successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })

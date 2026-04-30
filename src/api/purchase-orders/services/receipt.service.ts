@@ -4,7 +4,10 @@ import { Repository } from 'typeorm';
 import { PurchaseOrderBatch } from '../../../entities/purchase-orders/purchase-order-batch.entity';
 import { PurchaseOrderBatchDetail } from '../../../entities/purchase-orders/purchase-order-batch-detail.entity';
 import { InventoryBatch } from '../../../entities/purchase-orders/inventory-batch.entity';
-import { ReceivePurchaseOrderDto } from '../dto/receive-purchase-order.dto';
+import {
+  ReceivePurchaseOrderDto,
+  ReceiptLotMode,
+} from '../dto/receive-purchase-order.dto';
 import { ReceiptValidatorService } from './receipt-validator.service';
 import { BatchCreatorService } from './batch-creator.service';
 import { TotalCalculatorService } from './total-calculator.service';
@@ -78,7 +81,17 @@ export class ReceiptService {
 
       // 5. Update line items one by one (simple, no transaction)
       for (const receivedItem of dto.received_items) {
-        if (receivedItem.quantity > 0) {
+        const hasLots = Array.isArray(receivedItem.lots) && receivedItem.lots.length > 0;
+        const lots = receivedItem.lots || [];
+        const lotMode =
+          receivedItem.lot_mode ||
+          (hasLots ? ReceiptLotMode.MULTIPLE : ReceiptLotMode.SINGLE);
+        const totalQuantityInLineUom =
+          lotMode === ReceiptLotMode.MULTIPLE
+            ? lots.reduce((acc, lot) => acc + Number(lot.quantity || 0), 0)
+            : Number(receivedItem.quantity || 0);
+
+        if (totalQuantityInLineUom > 0) {
           const productUoms = productUomsMap.get(receivedItem.product_id) || [];
           
           const productUom = productUoms.find(p => p.id === receivedItem.product_uom_id);
@@ -97,8 +110,8 @@ export class ReceiptService {
 
           const factor = productUom.factor || 1;
           const convertedQuantity = productUom.is_base 
-            ? receivedItem.quantity 
-            : receivedItem.quantity * factor;
+            ? totalQuantityInLineUom
+            : totalQuantityInLineUom * factor;
 
           // Update line item
           await this.lineItemRepository.update(
@@ -107,7 +120,7 @@ export class ReceiptService {
               received_original_product_id: receivedItem.product_id,
               received_original_uom_id: productUom.uom_catalog_id,
               product_uom_id: productUom.id,
-              received_original_quantity: receivedItem.quantity,
+              received_original_quantity: totalQuantityInLineUom,
               received_original_unit_total: receivedItem.unit_total,
               received_original_iva_percentage: receivedItem.iva_percentage,
               received_original_iva_unit: receivedItem.iva_unit,
@@ -124,7 +137,41 @@ export class ReceiptService {
 
       // 6. Create inventory batches
       for (const receivedItem of dto.received_items) {
-        if (receivedItem.quantity > 0) {
+        const hasLots = Array.isArray(receivedItem.lots) && receivedItem.lots.length > 0;
+        const lots = receivedItem.lots || [];
+        const lotMode =
+          receivedItem.lot_mode ||
+          (hasLots ? ReceiptLotMode.MULTIPLE : ReceiptLotMode.SINGLE);
+
+        if (lotMode === ReceiptLotMode.MULTIPLE && hasLots) {
+          try {
+            const productUoms = productUomsMap.get(receivedItem.product_id) || [];
+            for (const lot of lots) {
+              const lotReceivedItem = {
+                ...receivedItem,
+                quantity: Number(lot.quantity || 0),
+                product_uom_id: lot.product_uom_id,
+              };
+              await this.batchCreatorService.createBatchForReceivedItem(
+                lotReceivedItem,
+                purchaseOrder,
+                receivedItem.line_item_id,
+                userId,
+                productUoms,
+                lot.tag_identifier,
+              );
+            }
+            this.logger.log(
+              `Created ${lots.length} batches for line item ${receivedItem.line_item_id}`,
+            );
+          } catch (batchError) {
+            this.logger.error(
+              `Failed to create batch for line item ${receivedItem.line_item_id}: ${batchError.message}`,
+              batchError.stack,
+            );
+            throw batchError;
+          }
+        } else if (Number(receivedItem.quantity || 0) > 0) {
           try {
             const productUoms = productUomsMap.get(receivedItem.product_id) || [];
             await this.batchCreatorService.createBatchForReceivedItem(

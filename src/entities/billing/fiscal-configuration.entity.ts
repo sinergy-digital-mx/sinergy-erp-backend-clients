@@ -62,6 +62,11 @@ export class FiscalConfiguration {
   @IsString()
   private_key: string;
 
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  @IsOptional()
+  @IsString()
+  logo: string;
+
   @Column({
     type: 'enum',
     enum: ['active', 'inactive'],

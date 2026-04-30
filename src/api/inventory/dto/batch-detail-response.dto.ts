@@ -28,6 +28,7 @@ export class MovementSummaryDto {
 export class BatchDetailResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() batch_number: string;
+  @ApiProperty({ nullable: true }) source_tag_identifier: string | null;
 
   @ApiProperty() product_id: string;
   @ApiProperty() product_name: string;

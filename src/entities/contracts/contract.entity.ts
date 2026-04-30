@@ -64,6 +64,21 @@ export class Contract {
   @Column({ type: 'decimal', precision: 15, scale: 2 })
   down_payment: number;
 
+  @Column({ type: 'boolean', default: false })
+  down_payment_financed: boolean;
+
+  @Column({ type: 'int', nullable: true })
+  down_payment_months: number | null;
+
+  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
+  down_payment_monthly_amount: number | null;
+
+  @Column({ type: 'date', nullable: true })
+  down_payment_first_payment_date: Date | null;
+
+  @Column({ type: 'int', nullable: true })
+  down_payment_payment_day: number | null;
+
   @Column({ type: 'decimal', precision: 15, scale: 2 })
   remaining_balance: number;
 

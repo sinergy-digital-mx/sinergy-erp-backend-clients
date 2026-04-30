@@ -59,6 +59,7 @@ describe('PosConfigurationService', () => {
   describe('create', () => {
     const createDto: CreatePosConfigurationDto = {
       code: 'Computadora 1',
+      type: 'VENTAS',
       sucursal: mockBranchId,
       modelo: 'Dell OptiPlex 7090',
       status: 1,
@@ -124,6 +125,7 @@ describe('PosConfigurationService', () => {
     it('should default status to 1 if not provided', async () => {
       const dtoWithoutStatus = {
         code: 'Computadora 1',
+        type: 'VENTAS' as const,
         sucursal: mockBranchId,
       };
 
@@ -351,6 +353,7 @@ describe('PosConfigurationService', () => {
         search: 'Computadora',
         status: 1,
         sucursal: mockBranchId,
+        type: 'COBRANZA',
       };
 
       const mockQueryBuilder = {
@@ -379,6 +382,10 @@ describe('PosConfigurationService', () => {
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
         'config.sucursal = :sucursal',
         { sucursal: mockBranchId },
+      );
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'config.type = :type',
+        { type: 'COBRANZA' },
       );
     });
 
@@ -424,6 +431,30 @@ describe('PosConfigurationService', () => {
 
       expect(mockQueryBuilder.take).toHaveBeenCalledWith(20);
       expect(result.limit).toBe(20);
+    });
+
+    it('should apply type filter', async () => {
+      const query: QueryPosConfigurationDto = { type: 'VENTAS' };
+
+      const mockQueryBuilder = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getCount: jest.fn().mockResolvedValue(0),
+        getMany: jest.fn().mockResolvedValue([]),
+      };
+
+      mockPosRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+
+      await service.findAll(mockTenantId, query);
+
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'config.type = :type',
+        { type: 'VENTAS' },
+      );
     });
   });
 

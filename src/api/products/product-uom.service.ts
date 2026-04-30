@@ -5,6 +5,9 @@ import { ProductUoM } from '../../entities/products/product-uom.entity';
 import { Product } from '../../entities/products/product.entity';
 import { CreateProductUoMDto } from './dto/create-product-uom.dto';
 import { UpdateProductUoMDto } from './dto/update-product-uom.dto';
+import { UoMCatalogService } from '../uom-catalog/uom-catalog.service';
+import { QueryUoMCatalogDto } from '../uom-catalog/dto/query-uom-catalog.dto';
+import { PaginatedUoMCatalogDto } from '../uom-catalog/dto/paginated-uom-catalog.dto';
 
 @Injectable()
 export class ProductUoMService {
@@ -13,6 +16,7 @@ export class ProductUoMService {
     private readonly productUoMRepository: Repository<ProductUoM>,
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    private readonly uomCatalogService: UoMCatalogService,
   ) {}
 
   async create(productId: string, dto: CreateProductUoMDto, tenantId: string): Promise<ProductUoM> {
@@ -51,6 +55,26 @@ export class ProductUoMService {
     });
 
     return await this.productUoMRepository.save(productUoM);
+  }
+
+  /**
+   * Catálogo UoM del tenant (misma forma que GET /api/uom-catalog) para pantallas de asignación.
+   * Evita que GET .../uoms/catalog sea interpretado como GET .../uoms/:id con id=catalog.
+   */
+  async findCatalogForProduct(
+    productId: string,
+    query: QueryUoMCatalogDto,
+    tenantId: string,
+  ): Promise<PaginatedUoMCatalogDto> {
+    const product = await this.productRepository.findOne({
+      where: { id: productId, tenant_id: tenantId },
+    });
+
+    if (!product) {
+      throw new NotFoundException(`Producto con ID ${productId} no encontrado`);
+    }
+
+    return this.uomCatalogService.findAll(query, tenantId);
   }
 
   async findAll(productId: string, tenantId: string): Promise<ProductUoM[]> {
@@ -106,8 +130,31 @@ export class ProductUoMService {
       }
     }
 
-    Object.assign(productUoM, dto);
-    return await this.productUoMRepository.save(productUoM);
+    if (dto.uom_catalog_id !== undefined && dto.uom_catalog_id !== productUoM.uom_catalog_id) {
+      await this.uomCatalogService.findOne(dto.uom_catalog_id, tenantId);
+
+      const duplicate = await this.productUoMRepository.findOne({
+        where: { product_id: productId, uom_catalog_id: dto.uom_catalog_id },
+      });
+
+      if (duplicate && duplicate.id !== id) {
+        throw new ConflictException('Esta UoM del catálogo ya está asignada a este producto');
+      }
+    }
+
+    // No usar save() sobre la entidad con relación `uom` cargada: TypeORM puede persistir el
+    // FK viejo desde la referencia en memoria y anular un cambio de uom_catalog_id.
+    const patch: Partial<Pick<ProductUoM, 'uom_catalog_id' | 'factor' | 'is_base' | 'parent_uom_id'>> = {};
+    if (dto.uom_catalog_id !== undefined) patch.uom_catalog_id = dto.uom_catalog_id;
+    if (dto.factor !== undefined) patch.factor = dto.factor;
+    if (dto.is_base !== undefined) patch.is_base = dto.is_base;
+    if (dto.parent_uom_id !== undefined) patch.parent_uom_id = dto.parent_uom_id;
+
+    if (Object.keys(patch).length > 0) {
+      await this.productUoMRepository.update({ id, product_id: productId }, patch);
+    }
+
+    return this.findOne(id, productId, tenantId);
   }
 
   async remove(id: string, productId: string, tenantId: string): Promise<void> {

@@ -27,6 +27,38 @@ export class ContractsMaintenanceService {
 
       this.logger.log(`✅ Marked ${overdueResult.affectedRows} payments as overdue`);
 
+      // Step 1.1: Mark HOA payments as overdue (if table exists)
+      const hasHoaPaymentsTable = await queryRunner.hasTable('contract_hoa_payments');
+      if (hasHoaPaymentsTable) {
+        const hoaOverdueResult = await queryRunner.query(
+          `UPDATE contract_hoa_payments p
+           SET is_overdue = 1
+           WHERE p.due_date < CURDATE()
+             AND p.status IN ('pendiente', 'parcial')
+             AND p.is_overdue = 0`,
+        );
+        this.logger.log(
+          `✅ Marked ${hoaOverdueResult.affectedRows || 0} HOA payments as overdue`,
+        );
+      }
+
+      // Step 1.2: Mark downpayment payments as overdue (if table exists)
+      const hasDownpaymentPaymentsTable = await queryRunner.hasTable(
+        'contract_downpayment_payments',
+      );
+      if (hasDownpaymentPaymentsTable) {
+        const downpaymentOverdueResult = await queryRunner.query(
+          `UPDATE contract_downpayment_payments p
+           SET is_overdue = 1
+           WHERE p.due_date < CURDATE()
+             AND p.status IN ('pendiente', 'parcial')
+             AND p.is_overdue = 0`,
+        );
+        this.logger.log(
+          `✅ Marked ${downpaymentOverdueResult.affectedRows || 0} downpayment payments as overdue`,
+        );
+      }
+
       // Step 2: Recalculate remaining_balance for all active contracts
       // Formula: (total_price - down_payment) - SUM(amount_paid from all payments)
       const balanceResult = await queryRunner.query(

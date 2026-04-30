@@ -59,6 +59,7 @@ describe('PosConfigurationController', () => {
     it('should create a new POS configuration', async () => {
       const dto: CreatePosConfigurationDto = {
         code: 'POS-001',
+        type: 'VENTAS',
         sucursal: 'branch-uuid',
         modelo: 'Model X',
         status: 1,
@@ -113,6 +114,7 @@ describe('PosConfigurationController', () => {
       const expectedResult = {
         id,
         code: 'POS-001',
+        type: 'VENTAS',
         sucursal: 'branch-uuid',
         modelo: 'Model X',
         status: 1,
@@ -150,6 +152,7 @@ describe('PosConfigurationController', () => {
       const expectedResult = {
         id,
         code: dto.code,
+        type: 'VENTAS',
         sucursal: 'branch-uuid',
         modelo: 'Model X',
         status: dto.status,

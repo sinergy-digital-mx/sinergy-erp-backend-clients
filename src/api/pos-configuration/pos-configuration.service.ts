@@ -64,6 +64,10 @@ export class PosConfigurationService {
       queryBuilder.andWhere('config.sucursal = :sucursal', { sucursal: query.sucursal });
     }
 
+    if (query?.type) {
+      queryBuilder.andWhere('config.type = :type', { type: query.type });
+    }
+
     queryBuilder.orderBy('config.created_at', 'DESC');
 
     const total = await queryBuilder.getCount();

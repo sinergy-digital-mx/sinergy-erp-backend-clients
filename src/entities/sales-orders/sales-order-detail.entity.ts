@@ -65,6 +65,12 @@ export class SalesOrderDetail {
   unit_price: number;
 
   @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
+  discount_percentage: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  discount_unit: number;
+
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
   iva_percentage: number;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })

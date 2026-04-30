@@ -1,4 +1,16 @@
-import { Controller, Get, Query, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Query,
+  UseGuards,
+  Req,
+  Post,
+  Param,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../api/auth/jwt-auth.guard';
 import { TenantModuleValidationGuard } from '../../../api/auth/tenant-module-validation.guard';
@@ -154,5 +166,33 @@ export class InventoryBatchController {
   ) {
     const tenantId = req.user.tenant_id;
     return this.inventoryBatchService.getWarehouseStats(tenantId, warehouseId);
+  }
+
+  @Post(':id/photo')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({
+    summary: 'Upload photo for an inventory batch',
+    description: 'Upload or replace an inventory batch photo (label, lot state, etc.)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Batch photo uploaded successfully',
+  })
+  async uploadPhoto(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: any,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    const tenantId = req.user.tenant_id;
+    const batch = await this.inventoryBatchService.uploadPhoto(id, tenantId, file);
+
+    return {
+      message: 'Batch photo uploaded successfully',
+      data: batch,
+    };
   }
 }

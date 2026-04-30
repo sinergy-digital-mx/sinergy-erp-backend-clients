@@ -3,6 +3,7 @@ import { ApiProperty } from '@nestjs/swagger';
 export class BatchBreakdownDto {
   @ApiProperty() batch_id: string;
   @ApiProperty() batch_number: string;
+  @ApiProperty({ nullable: true }) source_tag_identifier: string | null;
   @ApiProperty() available_quantity: string;
   @ApiProperty() initial_quantity: string;
   @ApiProperty() purchase_order_folio: string | null;
@@ -13,10 +14,31 @@ export class ProductInventorySummaryDto {
   @ApiProperty() product_id: string;
   @ApiProperty() product_name: string;
   @ApiProperty() product_sku: string;
+  @ApiProperty({ nullable: true, description: 'Signed product photo URL (temporary access)' })
+  product_photo: string | null;
   @ApiProperty() warehouse_id: string;
   @ApiProperty() warehouse_name: string;
   @ApiProperty() uom_id: string;
   @ApiProperty() uom_name: string;
+
+  @ApiProperty({ nullable: true, description: 'Suggested unit price for this product/UOM' })
+  suggested_unit_price: string | null;
+
+  @ApiProperty({ nullable: true, description: 'Suggested IVA percentage from price list' })
+  suggested_iva_percentage: string | null;
+
+  @ApiProperty({ nullable: true, description: 'Suggested IEPS percentage from price list' })
+  suggested_ieps_percentage: string | null;
+
+  @ApiProperty({ type: [Object], description: 'All active price-list options for this product/UOM' })
+  pricing_options: Array<{
+    price_list_id: string;
+    price_list_name: string;
+    price: string;
+    iva_percentage: string;
+    ieps_percentage: string;
+    total: string;
+  }>;
   
   /** Total available quantity across all batches for this product+warehouse */
   @ApiProperty() total_available_quantity: string;

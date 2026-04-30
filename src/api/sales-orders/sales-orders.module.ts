@@ -4,6 +4,7 @@ import { SalesOrder, SalesOrderDetail, SalesOrderBatchAllocation } from '../../e
 import { InventoryBatch } from '../../entities/purchase-orders/inventory-batch.entity';
 import { AuthModule } from '../auth/auth.module';
 import { RBACModule } from '../rbac/rbac.module';
+import { InventoryModule } from '../inventory/inventory.module';
 import { SalesOrderController } from './controllers/sales-order.controller';
 import { SalesOrderService } from './services/sales-order.service';
 import { SalesOrderFolioService } from './services/sales-order-folio.service';
@@ -19,6 +20,7 @@ import { SalesOrderFulfillmentService } from './services/sales-order-fulfillment
     ]),
     AuthModule,
     RBACModule,
+    InventoryModule,
   ],
   controllers: [SalesOrderController],
   providers: [

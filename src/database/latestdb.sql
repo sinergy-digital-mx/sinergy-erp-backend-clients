@@ -55,6 +55,42 @@ create index catalog_code_index
 create index catalog_type_index
     on catalogs (catalog_type);
 
+create table if not exists contract_payments
+(
+    id                         varchar(36)                                                                    not null
+        primary key,
+    tenant_id                  varchar(36)                                                                    not null,
+    contract_id                varchar(36)                                                                    not null,
+    payment_number             varchar(50)                                                                    not null,
+    payment_date               date                                                                           not null,
+    amount_paid                decimal(15, 2)                                                                 not null,
+    payment_method             varchar(50)                                          default 'transferencia'   null,
+    status                     enum ('pagado', 'pendiente', 'parcial', 'cancelado') default 'pendiente'       not null,
+    notes                      text                                                                           null,
+    metadata                   json                                                                           null,
+    created_at                 timestamp                                            default CURRENT_TIMESTAMP null,
+    updated_at                 timestamp                                            default CURRENT_TIMESTAMP null on update CURRENT_TIMESTAMP,
+    amount                     decimal(15, 2)                                       default 0.00              null,
+    amount_pending             decimal(15, 2)                                       default 0.00              null,
+    due_date                   date                                                                           null,
+    paid_date                  date                                                                           null,
+    first_partial_payment_date date                                                                           null,
+    is_overdue                 tinyint                                              default 0                 not null
+)
+    collate = utf8mb4_unicode_ci;
+
+create index contract_index
+    on contract_payments (contract_id);
+
+create index payment_date_index
+    on contract_payments (payment_date);
+
+create index status_index
+    on contract_payments (status);
+
+create index tenant_index
+    on contract_payments (tenant_id);
+
 create table if not exists customer_addresses
 (
     id               int auto_increment
@@ -102,21 +138,27 @@ create table if not exists customer_status
 
 create table if not exists customers
 (
-    id            int auto_increment
+    id                       int auto_increment
         primary key,
-    name          varchar(255)                        not null,
-    created_at    timestamp default CURRENT_TIMESTAMP not null,
-    tenant_id     varchar(36)                         null,
-    status_id     int                                 null,
-    group_id      varchar(255)                        null,
-    lastname      varchar(255)                        null,
-    email         varchar(255)                        null,
-    phone         varchar(255)                        null,
-    phone_country varchar(2)                          null,
-    company_name  varchar(255)                        null,
-    website       varchar(255)                        null,
-    phone_code    varchar(10)                         null,
-    country       varchar(100)                        null,
+    name                     varchar(255)                        not null,
+    created_at               timestamp default CURRENT_TIMESTAMP not null,
+    tenant_id                varchar(36)                         null,
+    status_id                int                                 null,
+    group_id                 varchar(255)                        null,
+    lastname                 varchar(255)                        null,
+    email                    varchar(255)                        null,
+    phone                    varchar(255)                        null,
+    phone_country            varchar(2)                          null,
+    company_name             varchar(255)                        null,
+    website                  varchar(255)                        null,
+    phone_code               varchar(10)                         null,
+    country                  varchar(100)                        null,
+    additional_name          varchar(255)                        null,
+    additional_lastname      varchar(255)                        null,
+    additional_email         varchar(255)                        null,
+    additional_phone         varchar(50)                         null,
+    additional_phone_country varchar(2)                          null,
+    additional_phone_code    varchar(10)                         null,
     constraint FK_9d666fe1125d410ff9d110e2d2e
         foreign key (status_id) references customer_status (id)
 );
@@ -213,6 +255,26 @@ create index IDX_email_threads_tenant_entity
 
 create index IDX_email_threads_tenant_status
     on email_threads (tenant_id, status);
+
+create table if not exists exchange_rates
+(
+    id            varchar(36) default (uuid())          not null
+        primary key,
+    tenant_id     varchar(36)                           not null,
+    rate_date     date                                  not null,
+    exchange_rate decimal(10, 4)                        not null,
+    notes         varchar(255)                          null,
+    created_at    timestamp   default CURRENT_TIMESTAMP not null,
+    updated_at    timestamp   default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP,
+    constraint UQ_exchange_rates_tenant_date
+        unique (tenant_id, rate_date)
+);
+
+create index IDX_exchange_rates_rate_date
+    on exchange_rates (rate_date);
+
+create index IDX_exchange_rates_tenant_id
+    on exchange_rates (tenant_id);
 
 create table if not exists inv_s_purchase_order_document_types
 (
@@ -382,42 +444,6 @@ create table if not exists modules
     constraint code_index
         unique (code)
 );
-
-create table if not exists payments
-(
-    id                         varchar(36)                                                                    not null
-        primary key,
-    tenant_id                  varchar(36)                                                                    not null,
-    contract_id                varchar(36)                                                                    not null,
-    payment_number             varchar(50)                                                                    not null,
-    payment_date               date                                                                           not null,
-    amount_paid                decimal(15, 2)                                                                 not null,
-    payment_method             varchar(50)                                          default 'transferencia'   null,
-    status                     enum ('pagado', 'pendiente', 'parcial', 'cancelado') default 'pendiente'       not null,
-    notes                      text                                                                           null,
-    metadata                   json                                                                           null,
-    created_at                 timestamp                                            default CURRENT_TIMESTAMP null,
-    updated_at                 timestamp                                            default CURRENT_TIMESTAMP null on update CURRENT_TIMESTAMP,
-    amount                     decimal(15, 2)                                       default 0.00              null,
-    amount_pending             decimal(15, 2)                                       default 0.00              null,
-    due_date                   date                                                                           null,
-    paid_date                  date                                                                           null,
-    first_partial_payment_date date                                                                           null,
-    is_overdue                 tinyint                                              default 0                 not null
-)
-    collate = utf8mb4_unicode_ci;
-
-create index contract_index
-    on payments (contract_id);
-
-create index payment_date_index
-    on payments (payment_date);
-
-create index status_index
-    on payments (status);
-
-create index tenant_index
-    on payments (tenant_id);
 
 create table if not exists phone_countries
 (
@@ -607,10 +633,35 @@ create table if not exists fiscal_configurations
     status                enum ('active', 'inactive') default 'active'                                                                                                                    not null,
     created_at            timestamp                   default CURRENT_TIMESTAMP                                                                                                           not null,
     updated_at            timestamp                   default CURRENT_TIMESTAMP                                                                                                           not null on update CURRENT_TIMESTAMP,
+    logo                  varchar(500)                                                                                                                                                    null,
     constraint FK_6a3ffa5eaa223d9f40fa47ac2ee
         foreign key (tenant_id) references rbac_tenants (id)
             on delete cascade
 );
+
+create table if not exists billing_branches
+(
+    id                      varchar(36)                         not null
+        primary key,
+    fiscal_configuration_id varchar(36)                         not null,
+    code                    varchar(255)                        not null,
+    address                 varchar(255)                        not null,
+    city                    varchar(255)                        not null,
+    state                   varchar(255)                        not null,
+    country                 varchar(255)                        not null,
+    postal_code             varchar(20)                         not null,
+    status                  tinyint   default 1                 not null comment '1 = active, 0 = inactive',
+    created_at              timestamp default CURRENT_TIMESTAMP not null,
+    updated_at              timestamp default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP,
+    constraint idx_billing_branches_code_unique
+        unique (fiscal_configuration_id, code),
+    constraint FK_billing_branches_fiscal_configuration
+        foreign key (fiscal_configuration_id) references fiscal_configurations (id)
+            on delete cascade
+);
+
+create index idx_billing_branches_fiscal_config
+    on billing_branches (fiscal_configuration_id);
 
 create index tenant_index
     on fiscal_configurations (tenant_id);
@@ -708,6 +759,74 @@ create index IDX_mailer_configurations_tenant_is_active
 create index IDX_mailer_configurations_tenant_is_fallback
     on mailer_configurations (tenant_id, is_fallback);
 
+create table if not exists pos_configurations
+(
+    id         varchar(36)                         not null
+        primary key,
+    tenant_id  varchar(36)                         not null,
+    code       varchar(255)                        not null,
+    sucursal   varchar(36)                         not null comment 'Reference to billing_branches.id',
+    modelo     varchar(255)                        null,
+    status     tinyint   default 1                 not null comment '1 = active, 0 = inactive',
+    created_at timestamp default CURRENT_TIMESTAMP not null,
+    updated_at timestamp default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP,
+    constraint idx_pos_configurations_code_unique
+        unique (tenant_id, code),
+    constraint FK_pos_configurations_billing_branch
+        foreign key (sucursal) references billing_branches (id)
+);
+
+create index branch_index
+    on pos_configurations (sucursal);
+
+create index tenant_index
+    on pos_configurations (tenant_id);
+
+create table if not exists product_attributes
+(
+    id         varchar(36)                         not null
+        primary key,
+    tenant_id  varchar(36)                         not null,
+    name       varchar(100)                        not null,
+    is_active  tinyint   default 1                 not null,
+    created_at timestamp default CURRENT_TIMESTAMP not null,
+    updated_at timestamp default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP,
+    constraint UQ_product_attributes_tenant_name
+        unique (tenant_id, name),
+    constraint FK_product_attributes_tenant_id
+        foreign key (tenant_id) references rbac_tenants (id)
+            on delete cascade
+);
+
+create table if not exists product_attribute_values
+(
+    id            varchar(36)                         not null
+        primary key,
+    attribute_id  varchar(36)                         not null,
+    value         varchar(100)                        not null,
+    display_order int       default 0                 not null,
+    is_active     tinyint   default 1                 not null,
+    created_at    timestamp default CURRENT_TIMESTAMP not null,
+    updated_at    timestamp default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP,
+    constraint UQ_product_attribute_values_attribute_value
+        unique (attribute_id, value),
+    constraint FK_product_attribute_values_attribute_id
+        foreign key (attribute_id) references product_attributes (id)
+            on delete cascade
+);
+
+create index IDX_product_attribute_values_attribute_id
+    on product_attribute_values (attribute_id);
+
+create index IDX_product_attribute_values_is_active
+    on product_attribute_values (is_active);
+
+create index IDX_product_attributes_is_active
+    on product_attributes (is_active);
+
+create index IDX_product_attributes_tenant_id
+    on product_attributes (tenant_id);
+
 create table if not exists product_price_lists
 (
     id          varchar(36)                          not null
@@ -778,50 +897,6 @@ create table if not exists properties
     constraint FK_properties_measurement_unit_id
         foreign key (measurement_unit_id) references measurement_units (id)
 );
-
-create table if not exists contracts
-(
-    id                 varchar(36) collate utf8mb4_unicode_ci                                             not null
-        primary key,
-    tenant_id          varchar(36)                                                                        not null,
-    customer_id        int                                                                                not null,
-    property_id        varchar(36)                                                                        not null,
-    contract_number    varchar(50) collate utf8mb4_unicode_ci                                             null,
-    contract_date      date                                                                               not null,
-    total_price        decimal(15, 2)                                                                     not null,
-    down_payment       decimal(15, 2)                                                                     not null,
-    remaining_balance  decimal(15, 2)                                                                     not null,
-    payment_months     int                                                                                not null,
-    monthly_payment    decimal(15, 2)                                                                     not null,
-    first_payment_date date                                                                               not null,
-    currency           varchar(10) collate utf8mb4_unicode_ci                                             null,
-    status             enum ('activo', 'completado', 'cancelado', 'suspendido') default 'activo'          not null,
-    notes              text                                                                               null,
-    metadata           json                                                                               null,
-    created_at         timestamp                                                default CURRENT_TIMESTAMP not null,
-    updated_at         timestamp                                                default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP,
-    payment_due_day    int                                                                                null,
-    interest_rate      decimal(5, 2)                                                                      null,
-    constraint FK_2e66f7950711366031e3200413d
-        foreign key (customer_id) references customers (id),
-    constraint FK_5d074ef9e0a3c47bace58d850b0
-        foreign key (property_id) references properties (id),
-    constraint FK_99f99bdfee2d227b320d4d7c70e
-        foreign key (tenant_id) references rbac_tenants (id)
-            on delete cascade
-);
-
-create index IDX_contracts_customer_id
-    on contracts (customer_id);
-
-create index IDX_contracts_property_id
-    on contracts (property_id);
-
-create index IDX_contracts_status
-    on contracts (status);
-
-create index IDX_contracts_tenant_id
-    on contracts (tenant_id);
 
 create index IDX_properties_group_id
     on properties (group_id);
@@ -912,6 +987,7 @@ create table if not exists products
         primary key,
     tenant_id      varchar(36)                          not null,
     sku            varchar(255)                         not null,
+    external_sku   varchar(255)                         null,
     name           varchar(255)                         not null,
     description    text                                 null,
     is_active      tinyint(1) default 1                 not null,
@@ -919,6 +995,8 @@ create table if not exists products
     updated_at     timestamp  default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP,
     category_id    varchar(36)                          null,
     subcategory_id varchar(36)                          null,
+    constraint UQ_products_tenant_external_sku
+        unique (tenant_id, external_sku),
     constraint UQ_products_tenant_sku
         unique (tenant_id, sku),
     constraint FK_products_category_id
@@ -964,6 +1042,9 @@ create index IDX_product_photos_tenant_id
 
 create index IDX_products_category_id
     on products (category_id);
+
+create index IDX_products_external_sku
+    on products (external_sku);
 
 create index IDX_products_sku
     on products (sku);
@@ -1137,20 +1218,72 @@ create table if not exists user_status
 
 create table if not exists users
 (
-    id            varchar(36)                           not null
+    id                  varchar(36)                           not null
         primary key,
-    tenant_id     varchar(36)                           null,
-    status_id     int                                   null,
-    email         varchar(255)                          not null,
-    password      varchar(255)                          not null,
-    last_login_at timestamp                             null,
-    created_at    timestamp   default CURRENT_TIMESTAMP not null,
-    updated_at    timestamp   default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP,
-    first_name    varchar(100)                          null,
-    last_name     varchar(100)                          null,
-    phone         varchar(20)                           null,
-    language_code varchar(10) default 'es'              null
+    tenant_id           varchar(36)                           null,
+    status_id           int                                   null,
+    email               varchar(255)                          not null,
+    password            varchar(255)                          not null,
+    last_login_at       timestamp                             null,
+    created_at          timestamp   default CURRENT_TIMESTAMP not null,
+    updated_at          timestamp   default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP,
+    first_name          varchar(100)                          null,
+    last_name           varchar(100)                          null,
+    phone               varchar(20)                           null,
+    language_code       varchar(10) default 'es'              null,
+    permissions_version int         default 1                 not null
 );
+
+create table if not exists contracts
+(
+    id                 varchar(36) collate utf8mb4_unicode_ci                                             not null
+        primary key,
+    tenant_id          varchar(36)                                                                        not null,
+    customer_id        int                                                                                not null,
+    property_id        varchar(36)                                                                        not null,
+    contract_number    varchar(50) collate utf8mb4_unicode_ci                                             null,
+    contract_date      date                                                                               not null,
+    total_price        decimal(15, 2)                                                                     not null,
+    down_payment       decimal(15, 2)                                                                     not null,
+    remaining_balance  decimal(15, 2)                                                                     not null,
+    payment_months     int                                                                                not null,
+    monthly_payment    decimal(15, 2)                                                                     not null,
+    first_payment_date date                                                                               not null,
+    currency           varchar(10) collate utf8mb4_unicode_ci                                             null,
+    status             enum ('activo', 'completado', 'cancelado', 'suspendido') default 'activo'          not null,
+    notes              text                                                                               null,
+    metadata           json                                                                               null,
+    created_at         timestamp                                                default CURRENT_TIMESTAMP not null,
+    updated_at         timestamp                                                default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP,
+    payment_due_day    int                                                                                null,
+    interest_rate      decimal(5, 2)                                                                      null,
+    seller_id          varchar(36)                                                                        null,
+    constraint FK_2e66f7950711366031e3200413d
+        foreign key (customer_id) references customers (id),
+    constraint FK_5d074ef9e0a3c47bace58d850b0
+        foreign key (property_id) references properties (id),
+    constraint FK_7007ebacc0a8a606adbc373de45
+        foreign key (seller_id) references users (id)
+            on delete set null,
+    constraint FK_99f99bdfee2d227b320d4d7c70e
+        foreign key (tenant_id) references rbac_tenants (id)
+            on delete cascade
+);
+
+create index IDX_contracts_customer_id
+    on contracts (customer_id);
+
+create index IDX_contracts_property_id
+    on contracts (property_id);
+
+create index IDX_contracts_seller_id
+    on contracts (seller_id);
+
+create index IDX_contracts_status
+    on contracts (status);
+
+create index IDX_contracts_tenant_id
+    on contracts (tenant_id);
 
 create table if not exists customer_activities
 (
@@ -1193,6 +1326,64 @@ create index IDX_customer_activities_type
 
 create index IDX_customer_activities_user
     on customer_activities (user_id, tenant_id);
+
+create table if not exists pos_sessions
+(
+    id                   varchar(36)                                                    not null
+        primary key,
+    tenant_id            varchar(36)                                                    not null,
+    pos_configuration_id varchar(36)                                                    not null comment 'Reference to pos_configurations.id',
+    user_id              varchar(36)                                                    not null comment 'Cashier/seller who opened the session',
+    session_number       int                                                            not null comment 'Sequential number per POS configuration',
+    opened_at            timestamp                            default CURRENT_TIMESTAMP not null comment 'When session was opened',
+    closed_at            timestamp                                                      null comment 'When session was closed',
+    opening_cash         decimal(10, 2)                       default 0.00              not null comment 'Initial cash in drawer',
+    closing_cash         decimal(10, 2)                                                 null comment 'Final cash counted at closing',
+    expected_cash        decimal(10, 2)                                                 null comment 'Expected cash based on transactions',
+    cash_difference      decimal(10, 2)                                                 null comment 'Difference between expected and actual (closing - expected)',
+    status               enum ('open', 'closed', 'suspended') default 'open'            not null comment 'Current session status',
+    total_sales          decimal(10, 2)                       default 0.00              null comment 'Total sales amount during session',
+    total_transactions   int                                  default 0                 null comment 'Number of transactions processed',
+    notes                text                                                           null comment 'Optional notes or observations',
+    closed_by            varchar(36)                                                    null comment 'User who closed the session (if different from opener)',
+    created_at           timestamp                            default CURRENT_TIMESTAMP not null,
+    updated_at           timestamp                            default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP,
+    constraint UQ_pos_sessions_open_per_config
+        unique (pos_configuration_id, status),
+    constraint idx_pos_sessions_number
+        unique (tenant_id, pos_configuration_id, session_number),
+    constraint FK_pos_sessions_closed_by
+        foreign key (closed_by) references users (id)
+            on delete set null,
+    constraint FK_pos_sessions_pos_configuration
+        foreign key (pos_configuration_id) references pos_configurations (id),
+    constraint FK_pos_sessions_tenant
+        foreign key (tenant_id) references rbac_tenants (id)
+            on delete cascade,
+    constraint FK_pos_sessions_user
+        foreign key (user_id) references users (id)
+);
+
+create index idx_pos_sessions_config_date
+    on pos_sessions (pos_configuration_id, opened_at);
+
+create index idx_pos_sessions_opened_at
+    on pos_sessions (opened_at);
+
+create index idx_pos_sessions_pos_config
+    on pos_sessions (pos_configuration_id);
+
+create index idx_pos_sessions_status
+    on pos_sessions (status);
+
+create index idx_pos_sessions_tenant
+    on pos_sessions (tenant_id);
+
+create index idx_pos_sessions_tenant_status
+    on pos_sessions (tenant_id, status);
+
+create index idx_pos_sessions_user
+    on pos_sessions (user_id);
 
 create table if not exists rbac_user_roles
 (
@@ -1245,6 +1436,8 @@ create table if not exists vendors
     status       enum ('active', 'inactive') default 'active'          not null,
     created_at   timestamp                   default CURRENT_TIMESTAMP not null,
     updated_at   timestamp                   default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP,
+    credit_days  int                                                   null,
+    credit_limit decimal(15, 2)                                        null,
     constraint FK_b362795545b91a886939d70beae
         foreign key (tenant_id) references rbac_tenants (id)
             on delete cascade
@@ -1319,6 +1512,7 @@ create table if not exists warehouses
     updated_at              timestamp                   default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP,
     fiscal_configuration_id varchar(36)                                           null,
     prefix                  varchar(10)                                           null,
+    billing_branch_id       varchar(36)                                           null,
     constraint UQ_d8b96d60ff9a288f5ed862280d9
         unique (code),
     constraint FK_09106b8068aeaf74fa33666df8f
@@ -1326,6 +1520,9 @@ create table if not exists warehouses
             on delete cascade,
     constraint FK_746712ac0e81d7fe91f2be2c22e
         foreign key (fiscal_configuration_id) references fiscal_configurations (id)
+            on delete set null,
+    constraint FK_e7c616327d31567ecad1c231943
+        foreign key (billing_branch_id) references billing_branches (id)
             on delete set null
 );
 
@@ -1354,6 +1551,7 @@ create table if not exists inv_s_purchase_order_batch
     received_iva_total      decimal(12, 2)                           default 0.00              not null,
     received_ieps_total     decimal(12, 2)                           default 0.00              not null,
     received_total          decimal(12, 2)                           default 0.00              not null,
+    payment_currency        enum ('MXN', 'USD')                      default 'MXN'             not null,
     constraint IDX_403461c1358be728b882d8bb32
         unique (folio),
     constraint idx_folio
@@ -1393,7 +1591,6 @@ create table if not exists inv_s_purchase_order_batch_detail
         primary key,
     purchase_order_batch_id           varchar(36)                              not null,
     product_id                        varchar(36)                              not null,
-    product_uom_id                    varchar(36)                              not null,
     quantity                          decimal(12, 3)                           not null,
     unit_total                        decimal(12, 2)                           not null,
     iva_percentage                    decimal(5, 2)  default 0.00              not null,
@@ -1414,6 +1611,8 @@ create table if not exists inv_s_purchase_order_batch_detail
     created_at                        timestamp      default CURRENT_TIMESTAMP not null,
     updated_by                        varchar(36)                              null,
     updated_at                        timestamp      default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP,
+    uom_id_new                        varchar(36)                              null,
+    product_uom_id                    varchar(36)                              null,
     constraint fk_po_detail_batch
         foreign key (purchase_order_batch_id) references inv_s_purchase_order_batch (id)
             on delete cascade,
@@ -1421,28 +1620,30 @@ create table if not exists inv_s_purchase_order_batch_detail
         foreign key (received_converted_uom_id) references uom_catalog (id),
     constraint fk_po_detail_product
         foreign key (product_id) references products (id),
+    constraint fk_po_detail_product_uom
+        foreign key (product_uom_id) references product_uoms (id),
     constraint fk_po_detail_received_product
         foreign key (received_original_product_id) references products (id),
     constraint fk_po_detail_received_uom
-        foreign key (received_original_uom_id) references uom_catalog (id),
-    constraint fk_po_detail_product_uom
-        foreign key (product_uom_id) references product_uoms (id)
+        foreign key (received_original_uom_id) references uom_catalog (id)
 );
 
 create table if not exists inv_s_batches
 (
-    id                       varchar(36)                         not null
+    id                       varchar(36)                              not null
         primary key,
-    tenant_id                varchar(36)                         not null,
-    batch_number             varchar(50)                         not null,
-    warehouse_id             varchar(36)                         not null,
-    product_id               varchar(36)                         not null,
-    uom_id                   varchar(36)                         not null,
-    quantity                 decimal(12, 3)                      not null,
-    purchase_order_batch_id  varchar(36)                         null,
-    purchase_order_detail_id varchar(36)                         null,
-    created_by               varchar(36)                         not null,
-    created_at               timestamp default CURRENT_TIMESTAMP not null,
+    tenant_id                varchar(36)                              not null,
+    batch_number             varchar(50)                              not null,
+    warehouse_id             varchar(36)                              not null,
+    product_id               varchar(36)                              not null,
+    uom_id                   varchar(36)                              not null,
+    initial_quantity         decimal(12, 3) default 0.000             not null,
+    available_quantity       decimal(12, 3) default 0.000             not null,
+    purchase_order_batch_id  varchar(36)                              null,
+    purchase_order_detail_id varchar(36)                              null,
+    created_by               varchar(36)                              not null,
+    created_at               timestamp      default CURRENT_TIMESTAMP not null,
+    source_tag_identifier    varchar(100)                             null,
     constraint uq_batch_number
         unique (tenant_id, batch_number),
     constraint fk_batch_po
@@ -1470,6 +1671,9 @@ create index idx_product
 
 create index idx_purchase_order
     on inv_s_batches (purchase_order_batch_id);
+
+create index idx_source_tag_identifier
+    on inv_s_batches (source_tag_identifier);
 
 create index idx_tenant
     on inv_s_batches (tenant_id);
@@ -1510,6 +1714,153 @@ create index idx_doc_type_id
 
 create index idx_po_batch_id
     on inv_s_purchase_order_documents (purchase_order_batch_id);
+
+create table if not exists inv_s_purchase_order_payments
+(
+    id                      varchar(36)         default (uuid())          not null
+        primary key,
+    tenant_id               varchar(36)                                   not null,
+    purchase_order_batch_id varchar(36)                                   not null,
+    payment_date            date                                          not null,
+    amount                  decimal(12, 2)                                not null,
+    currency                enum ('MXN', 'USD') default 'MXN'             not null,
+    payment_method          varchar(100)                                  not null,
+    reference_number        varchar(100)                                  null,
+    notes                   text                                          null,
+    created_by              varchar(36)                                   not null,
+    created_at              timestamp           default CURRENT_TIMESTAMP not null,
+    constraint FK_a3ec47e4e40c9b917ab139a71d4
+        foreign key (purchase_order_batch_id) references inv_s_purchase_order_batch (id)
+            on delete cascade
+);
+
+create index idx_po_payments_date
+    on inv_s_purchase_order_payments (payment_date);
+
+create index idx_po_payments_po_id
+    on inv_s_purchase_order_payments (purchase_order_batch_id);
+
+create index idx_po_payments_tenant
+    on inv_s_purchase_order_payments (tenant_id);
+
+create table if not exists inv_s_sales_orders
+(
+    id                      varchar(36)                                                       not null
+        primary key,
+    tenant_id               varchar(36)                                                       not null,
+    folio                   varchar(20)                                                       not null,
+    fiscal_configuration_id varchar(36)                                                       not null,
+    warehouse_id            varchar(36)                                                       not null,
+    customer_id             int                                                               not null,
+    expected_delivery_date  date                                                              not null,
+    payment_status          enum ('Pendiente', 'Pagado')            default 'Pendiente'       not null,
+    general_status          enum ('Creada', 'Surtida', 'Cancelada') default 'Creada'          not null,
+    notes                   text                                                              null,
+    subtotal                decimal(12, 2)                          default 0.00              not null,
+    iva_total               decimal(12, 2)                          default 0.00              not null,
+    ieps_total              decimal(12, 2)                          default 0.00              not null,
+    total                   decimal(12, 2)                          default 0.00              not null,
+    created_by              varchar(36)                                                       not null,
+    created_at              timestamp                               default CURRENT_TIMESTAMP not null,
+    updated_by              varchar(36)                                                       null,
+    updated_at              timestamp                               default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP,
+    constraint folio
+        unique (folio),
+    constraint inv_s_sales_orders_ibfk_1
+        foreign key (tenant_id) references rbac_tenants (id)
+            on delete cascade,
+    constraint inv_s_sales_orders_ibfk_2
+        foreign key (fiscal_configuration_id) references fiscal_configurations (id),
+    constraint inv_s_sales_orders_ibfk_3
+        foreign key (warehouse_id) references warehouses (id),
+    constraint inv_s_sales_orders_ibfk_4
+        foreign key (customer_id) references customers (id)
+);
+
+create table if not exists inv_s_sales_order_details
+(
+    id                varchar(36)                              not null
+        primary key,
+    sales_order_id    varchar(36)                              not null,
+    product_id        varchar(36)                              not null,
+    product_uom_id    varchar(36)                              not null,
+    quantity          decimal(12, 3)                           not null,
+    quantity_base_uom decimal(12, 3) default 0.000             not null,
+    base_uom_id       varchar(36)                              null,
+    unit_price        decimal(12, 2)                           not null,
+    iva_percentage    decimal(5, 2)  default 0.00              not null,
+    iva_unit          decimal(12, 2) default 0.00              not null,
+    ieps_percentage   decimal(5, 2)  default 0.00              not null,
+    ieps_unit         decimal(12, 2) default 0.00              not null,
+    created_by        varchar(36)                              not null,
+    created_at        timestamp      default CURRENT_TIMESTAMP not null,
+    updated_by        varchar(36)                              null,
+    updated_at        timestamp      default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP,
+    constraint inv_s_sales_order_details_ibfk_1
+        foreign key (sales_order_id) references inv_s_sales_orders (id)
+            on delete cascade,
+    constraint inv_s_sales_order_details_ibfk_2
+        foreign key (product_id) references products (id),
+    constraint inv_s_sales_order_details_ibfk_3
+        foreign key (product_uom_id) references product_uoms (id),
+    constraint inv_s_sales_order_details_ibfk_4
+        foreign key (base_uom_id) references uom_catalog (id)
+);
+
+create table if not exists inv_s_sales_order_batch_allocations
+(
+    id                    varchar(36)                         not null
+        primary key,
+    sales_order_detail_id varchar(36)                         not null,
+    inventory_batch_id    varchar(36)                         not null,
+    quantity_allocated    decimal(12, 3)                      not null,
+    created_by            varchar(36)                         not null,
+    created_at            timestamp default CURRENT_TIMESTAMP not null,
+    constraint inv_s_sales_order_batch_allocations_ibfk_1
+        foreign key (sales_order_detail_id) references inv_s_sales_order_details (id)
+            on delete cascade,
+    constraint inv_s_sales_order_batch_allocations_ibfk_2
+        foreign key (inventory_batch_id) references inv_s_batches (id)
+);
+
+create index idx_alloc_batch
+    on inv_s_sales_order_batch_allocations (inventory_batch_id);
+
+create index idx_alloc_detail
+    on inv_s_sales_order_batch_allocations (sales_order_detail_id);
+
+create index base_uom_id
+    on inv_s_sales_order_details (base_uom_id);
+
+create index idx_so_detail_order
+    on inv_s_sales_order_details (sales_order_id);
+
+create index idx_so_detail_product
+    on inv_s_sales_order_details (product_id);
+
+create index product_uom_id
+    on inv_s_sales_order_details (product_uom_id);
+
+create index fiscal_configuration_id
+    on inv_s_sales_orders (fiscal_configuration_id);
+
+create index idx_so_customer
+    on inv_s_sales_orders (customer_id);
+
+create index idx_so_general_status
+    on inv_s_sales_orders (general_status);
+
+create index idx_so_payment_status
+    on inv_s_sales_orders (payment_status);
+
+create index idx_so_tenant
+    on inv_s_sales_orders (tenant_id);
+
+create index idx_so_warehouse
+    on inv_s_sales_orders (warehouse_id);
+
+create index billing_branch_index
+    on warehouses (billing_branch_id);
 
 create index code_index
     on warehouses (code);

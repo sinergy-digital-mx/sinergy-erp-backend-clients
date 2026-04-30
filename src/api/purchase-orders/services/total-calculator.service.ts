@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ReceivedItemDto } from '../dto/receive-purchase-order.dto';
+import { ReceiptLotMode, ReceivedItemDto } from '../dto/receive-purchase-order.dto';
 
 /**
  * Service for calculating received totals (subtotal, IVA, IEPS, and total)
@@ -7,6 +7,15 @@ import { ReceivedItemDto } from '../dto/receive-purchase-order.dto';
  */
 @Injectable()
 export class TotalCalculatorService {
+  private getEffectiveQuantity(item: ReceivedItemDto): number {
+    const hasLots = Array.isArray(item.lots) && item.lots.length > 0;
+    const lotMode = item.lot_mode || (hasLots ? ReceiptLotMode.MULTIPLE : ReceiptLotMode.SINGLE);
+    if (lotMode === ReceiptLotMode.MULTIPLE) {
+      return (item.lots || []).reduce((sum, lot) => sum + Number(lot.quantity || 0), 0);
+    }
+    return Number(item.quantity || 0);
+  }
+
   /**
    * Calculate the received subtotal by summing (quantity × unit_total) for all items
    * Validates: Requirement 5.1
@@ -16,7 +25,7 @@ export class TotalCalculatorService {
    */
   calculateReceivedSubtotal(items: ReceivedItemDto[]): number {
     const subtotal = items.reduce((sum, item) => {
-      return sum + item.quantity * item.unit_total;
+      return sum + this.getEffectiveQuantity(item) * item.unit_total;
     }, 0);
 
     return this.roundToCurrency(subtotal);
@@ -31,7 +40,7 @@ export class TotalCalculatorService {
    */
   calculateReceivedIvaTotal(items: ReceivedItemDto[]): number {
     const ivaTotal = items.reduce((sum, item) => {
-      return sum + item.iva_unit * item.quantity;
+      return sum + item.iva_unit * this.getEffectiveQuantity(item);
     }, 0);
 
     return this.roundToCurrency(ivaTotal);
@@ -46,7 +55,7 @@ export class TotalCalculatorService {
    */
   calculateReceivedIepsTotal(items: ReceivedItemDto[]): number {
     const iepsTotal = items.reduce((sum, item) => {
-      return sum + item.ieps_unit * item.quantity;
+      return sum + item.ieps_unit * this.getEffectiveQuantity(item);
     }, 0);
 
     return this.roundToCurrency(iepsTotal);

@@ -34,5 +34,9 @@ export class CreateFiscalConfigurationDto {
 
   @IsOptional()
   @IsString()
+  logo?: string;
+
+  @IsOptional()
+  @IsString()
   status?: string;
 }

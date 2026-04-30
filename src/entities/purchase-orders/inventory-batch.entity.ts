@@ -35,6 +35,12 @@ export class InventoryBatch {
   @Column({ length: 50 })
   batch_number: string;
 
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  source_tag_identifier: string | null;
+
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  photo: string | null;
+
   @ManyToOne(() => Warehouse, { onDelete: 'RESTRICT', nullable: false })
   @JoinColumn({ name: 'warehouse_id' })
   warehouse: Warehouse;

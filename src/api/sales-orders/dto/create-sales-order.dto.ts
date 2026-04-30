@@ -30,6 +30,11 @@ export class CreateSalesOrderLineItemDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
+  discount_percentage?: number = 0;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
   iva_percentage?: number = 0;
 
   @IsOptional()
@@ -50,6 +55,14 @@ export class CreateSalesOrderDto {
 
   @IsDateString()
   expected_delivery_date: string;
+
+  @IsOptional()
+  @IsEnum(['POS', 'MANUAL'])
+  sales_order_type?: 'POS' | 'MANUAL';
+
+  @IsOptional()
+  @IsString()
+  fiscal_razon_social?: string;
 
   @IsOptional()
   @IsEnum(['Pendiente', 'Pagado'])

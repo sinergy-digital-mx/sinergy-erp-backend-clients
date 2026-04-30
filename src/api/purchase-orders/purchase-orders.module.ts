@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { PurchaseOrderBatch, PurchaseOrderBatchDetail, InventoryBatch, PurchaseOrderDocument, PurchaseOrderDocumentType } from '../../entities/purchase-orders';
+import { PurchaseOrderBatch, PurchaseOrderBatchDetail, InventoryBatch, PurchaseOrderDocument, PurchaseOrderDocumentType, PurchaseOrderPayment } from '../../entities/purchase-orders';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { Product, ProductUoM, ProductVendorCost } from '../../entities/products';
 import { TenantModule, Module as ModuleEntity } from '../../entities/rbac';
@@ -33,6 +33,7 @@ import {
       InventoryBatch,
       PurchaseOrderDocument,
       PurchaseOrderDocumentType,
+      PurchaseOrderPayment,
       Warehouse,
       Product,
       ProductUoM,

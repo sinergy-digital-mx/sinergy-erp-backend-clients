@@ -1,5 +1,5 @@
 // src/customers/customers.service.ts
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
@@ -8,6 +8,7 @@ import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { QueryCustomersDto } from './dto/query-customers.dto';
 import { CustomerStatus } from '../../entities/customers/customer-status.entity';
 import { Customer } from '../../entities/customers/customer.entity';
+import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { parsePhoneNumber } from '../../common/utils/phone.validator';
 
 interface PaginatedCustomersDto {
@@ -25,6 +26,7 @@ export class CustomersService {
     constructor(
         @InjectRepository(Customer) private customerRepo: Repository<Customer>,
         @InjectRepository(CustomerStatus) private statusRepo: Repository<CustomerStatus>,
+        @InjectRepository(Warehouse) private warehouseRepo: Repository<Warehouse>,
     ) { }
 
     async create(dto: CreateCustomerDto, tenantId: string) {
@@ -56,12 +58,18 @@ export class CustomersService {
             }
         }
 
+        const warehouse =
+            dto.warehouse_id !== undefined
+                ? await this.resolveWarehouseOrThrow(dto.warehouse_id, tenantId)
+                : undefined;
+
         return this.customerRepo.save({
             ...dto,
             phone,
             phone_code: phoneCode,
             additional_phone: additionalPhone,
             additional_phone_code: additionalPhoneCode,
+            warehouse,
             tenant_id: tenantId,
             status,
         });
@@ -101,6 +109,10 @@ export class CustomersService {
             }
         }
 
+        if (dto.warehouse_id !== undefined) {
+            customer.warehouse = await this.resolveWarehouseOrThrow(dto.warehouse_id, tenantId);
+        }
+
         Object.assign(customer, dto);
         return this.customerRepo.save(customer);
     }
@@ -118,6 +130,7 @@ export class CustomersService {
         const queryBuilder = this.customerRepo.createQueryBuilder('customer')
             .leftJoinAndSelect('customer.status', 'status')
             .leftJoinAndSelect('customer.group', 'group')
+            .leftJoinAndSelect('customer.warehouse', 'warehouse')
             .leftJoin('customer.contracts', 'contracts')
             .leftJoin('contracts.property', 'property')
             .addSelect(['contracts.id', 'contracts.status', 'contracts.contract_number', 'property.id', 'property.code', 'property.name', 'property.status'])
@@ -164,6 +177,7 @@ export class CustomersService {
             .createQueryBuilder('customer')
             .leftJoinAndSelect('customer.status', 'status')
             .leftJoinAndSelect('customer.group', 'group')
+            .leftJoinAndSelect('customer.warehouse', 'warehouse')
             .leftJoinAndSelect('customer.contracts', 'contracts')
             .leftJoinAndSelect('contracts.property', 'property')
             .where('customer.id = :id', { id })
@@ -176,6 +190,7 @@ export class CustomersService {
             .createQueryBuilder('customer')
             .leftJoinAndSelect('customer.status', 'status')
             .leftJoinAndSelect('customer.group', 'group')
+            .leftJoinAndSelect('customer.warehouse', 'warehouse')
             .leftJoinAndSelect('customer.addresses', 'addresses')
             .where('customer.id = :id', { id })
             .andWhere('customer.tenant_id = :tenantId', { tenantId })
@@ -187,9 +202,32 @@ export class CustomersService {
             .createQueryBuilder('customer')
             .leftJoinAndSelect('customer.status', 'status')
             .leftJoinAndSelect('customer.group', 'group')
+            .leftJoinAndSelect('customer.warehouse', 'warehouse')
             .leftJoinAndSelect('customer.activities', 'activities')
             .where('customer.id = :id', { id })
             .andWhere('customer.tenant_id = :tenantId', { tenantId })
             .getOne();
+    }
+
+    private async resolveWarehouseOrThrow(
+        warehouseId: string | null | undefined,
+        tenantId: string,
+    ): Promise<Warehouse | null> {
+        if (warehouseId === null || warehouseId === '') {
+            return null;
+        }
+
+        const warehouse = await this.warehouseRepo.findOne({
+            where: {
+                id: warehouseId,
+                tenant_id: tenantId,
+            },
+        });
+
+        if (!warehouse) {
+            throw new BadRequestException('warehouse_id is invalid for this tenant');
+        }
+
+        return warehouse;
     }
 }

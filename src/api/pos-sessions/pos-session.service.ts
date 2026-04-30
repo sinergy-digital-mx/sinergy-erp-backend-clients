@@ -18,6 +18,11 @@ export class PosSessionService {
     private readonly posSessionRepository: Repository<PosSession>,
   ) {}
 
+  private toNumeric(value: unknown): number {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : 0;
+  }
+
   async openSession(
     dto: OpenPosSessionDto,
     userId: string,
@@ -83,13 +88,16 @@ export class PosSessionService {
     }
 
     // Calculate expected cash and difference
-    const expectedCash = session.opening_cash + session.total_sales;
-    const cashDifference = dto.closing_cash - expectedCash;
+    const openingCash = this.toNumeric(session.opening_cash);
+    const totalSales = this.toNumeric(session.total_sales);
+    const closingCash = this.toNumeric(dto.closing_cash);
+    const expectedCash = Number((openingCash + totalSales).toFixed(2));
+    const cashDifference = Number((closingCash - expectedCash).toFixed(2));
 
     // Update session
     session.status = PosSessionStatus.CLOSED;
     session.closed_at = new Date();
-    session.closing_cash = dto.closing_cash;
+    session.closing_cash = closingCash;
     session.expected_cash = expectedCash;
     session.cash_difference = cashDifference;
     session.closed_by = userId;
@@ -194,7 +202,9 @@ export class PosSessionService {
       throw new NotFoundException('Session not found');
     }
 
-    session.total_sales += saleAmount;
+    session.total_sales = Number(
+      (this.toNumeric(session.total_sales) + this.toNumeric(saleAmount)).toFixed(2),
+    );
     session.total_transactions += 1;
 
     await this.posSessionRepository.save(session);

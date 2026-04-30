@@ -9,7 +9,11 @@ import {
   Query,
   UseGuards,
   Request,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -79,5 +83,22 @@ export class ProductController {
   @ApiResponse({ status: 404, description: 'Producto no encontrado' })
   remove(@Param('id') id: string, @Request() req) {
     return this.productService.remove(id, req.user.tenant_id);
+  }
+
+  @Post(':id/photo')
+  @RequirePermission('Product', 'Update')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Subir foto del producto' })
+  @ApiResponse({ status: 200, description: 'Foto subida exitosamente' })
+  uploadPhoto(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Request() req,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    return this.productService.uploadPhoto(id, req.user.tenant_id, file);
   }
 }

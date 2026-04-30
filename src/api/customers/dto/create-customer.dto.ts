@@ -1,7 +1,7 @@
 // src/customers/dto/create-customer.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsNotEmpty, IsString, IsNumber, IsOptional, IsEmail } from 'class-validator';
+import { IsNotEmpty, IsString, IsNumber, IsOptional, IsEmail, IsIn, Min } from 'class-validator';
 
 export class CreateCustomerDto {
     @ApiProperty({ description: 'Customer status ID', example: 1, required: false })
@@ -96,4 +96,57 @@ export class CreateCustomerDto {
     @IsString()
     @IsOptional()
     additional_phone_code?: string;
+
+    @ApiProperty({ description: 'RFC del cliente', example: 'XAXX010101000', required: false })
+    @IsString()
+    @IsOptional()
+    fiscal_rfc?: string;
+
+    @ApiProperty({ description: 'Razon social fiscal', example: 'Comercializadora Demo SA de CV', required: false })
+    @IsString()
+    @IsOptional()
+    fiscal_razon_social?: string;
+
+    @ApiProperty({ description: 'Tipo de persona fiscal', example: 'moral', enum: ['fisica', 'moral', 'otro'], required: false })
+    @IsString()
+    @IsIn(['fisica', 'moral', 'otro'])
+    @IsOptional()
+    fiscal_person_type?: 'fisica' | 'moral' | 'otro';
+
+    @ApiProperty({ description: 'Direccion fiscal', example: 'Av. Reforma 100', required: false })
+    @IsString()
+    @IsOptional()
+    fiscal_address?: string;
+
+    @ApiProperty({ description: 'Ciudad fiscal', example: 'Ciudad de Mexico', required: false })
+    @IsString()
+    @IsOptional()
+    fiscal_city?: string;
+
+    @ApiProperty({ description: 'Estado fiscal', example: 'CDMX', required: false })
+    @IsString()
+    @IsOptional()
+    fiscal_state?: string;
+
+    @ApiProperty({ description: 'Codigo postal fiscal', example: '06600', required: false })
+    @IsString()
+    @IsOptional()
+    fiscal_postal_code?: string;
+
+    @ApiProperty({ description: 'Warehouse asignado al cliente', example: 'warehouse-uuid', required: false })
+    @IsString()
+    @IsOptional()
+    warehouse_id?: string;
+
+    @ApiProperty({ description: 'Credit days allowed for customer', example: 30, required: false })
+    @IsNumber()
+    @Min(0)
+    @IsOptional()
+    credit_days?: number;
+
+    @ApiProperty({ description: 'Maximum credit amount allowed for customer', example: 15000, required: false })
+    @IsNumber()
+    @Min(0)
+    @IsOptional()
+    credit_amount?: number;
 }

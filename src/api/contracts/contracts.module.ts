@@ -16,12 +16,16 @@ import { ContractsMaintenanceService } from './contracts-maintenance.service';
 import { S3Service } from '../../common/services/s3.service';
 import { RBACModule } from '../rbac/rbac.module';
 import { PaymentsModule } from './contract-payments/payments.module';
+import { HoaPaymentsModule } from './contract-hoa-payments/hoa-payments.module';
+import { DownpaymentPaymentsModule } from './contract-downpayment-payments/downpayment-payments.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Contract, ContractDocument, Payment, PaymentDocument]),
     RBACModule,
     PaymentsModule,
+    HoaPaymentsModule,
+    DownpaymentPaymentsModule,
   ],
   providers: [
     ContractsService,

@@ -11,6 +11,9 @@ export class BatchResponseDto {
   @ApiProperty({ description: 'Batch number' })
   batch_number: string;
 
+  @ApiProperty({ description: 'Source lot tag/identifier from receipt', nullable: true })
+  source_tag_identifier: string | null;
+
   @ApiProperty({ description: 'Warehouse ID' })
   warehouse_id: string;
 

@@ -9,6 +9,7 @@ describe('POS Configuration DTOs', () => {
     it('should validate a valid DTO', async () => {
       const dto = plainToInstance(CreatePosConfigurationDto, {
         code: 'Computadora 1',
+        type: 'VENTAS',
         sucursal: '550e8400-e29b-41d4-a716-446655440000',
         modelo: 'Dell OptiPlex 7090',
         status: 1,
@@ -21,6 +22,7 @@ describe('POS Configuration DTOs', () => {
     it('should fail validation when code is empty', async () => {
       const dto = plainToInstance(CreatePosConfigurationDto, {
         code: '',
+        type: 'VENTAS',
         sucursal: '550e8400-e29b-41d4-a716-446655440000',
       });
 
@@ -32,6 +34,7 @@ describe('POS Configuration DTOs', () => {
     it('should fail validation when sucursal is not a UUID', async () => {
       const dto = plainToInstance(CreatePosConfigurationDto, {
         code: 'Computadora 1',
+        type: 'VENTAS',
         sucursal: 'invalid-uuid',
       });
 
@@ -43,6 +46,7 @@ describe('POS Configuration DTOs', () => {
     it('should fail validation when status is not 0 or 1', async () => {
       const dto = plainToInstance(CreatePosConfigurationDto, {
         code: 'Computadora 1',
+        type: 'VENTAS',
         sucursal: '550e8400-e29b-41d4-a716-446655440000',
         status: 2,
       });
@@ -52,9 +56,22 @@ describe('POS Configuration DTOs', () => {
       expect(errors[0].property).toBe('status');
     });
 
+    it('should fail validation when type is not valid', async () => {
+      const dto = plainToInstance(CreatePosConfigurationDto, {
+        code: 'Computadora 1',
+        type: 'CAJA',
+        sucursal: '550e8400-e29b-41d4-a716-446655440000',
+      });
+
+      const errors = await validate(dto);
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0].property).toBe('type');
+    });
+
     it('should allow optional fields to be omitted', async () => {
       const dto = plainToInstance(CreatePosConfigurationDto, {
         code: 'Computadora 1',
+        type: 'COBRANZA',
         sucursal: '550e8400-e29b-41d4-a716-446655440000',
       });
 
@@ -89,6 +106,7 @@ describe('POS Configuration DTOs', () => {
         search: 'Computadora',
         status: '1',
         sucursal: '550e8400-e29b-41d4-a716-446655440000',
+        type: 'VENTAS',
       });
 
       const errors = await validate(dto);
@@ -119,6 +137,15 @@ describe('POS Configuration DTOs', () => {
     it('should fail validation when status is not 0 or 1', async () => {
       const dto = plainToInstance(QueryPosConfigurationDto, {
         status: '2',
+      });
+
+      const errors = await validate(dto);
+      expect(errors.length).toBeGreaterThan(0);
+    });
+
+    it('should fail validation when type is invalid', async () => {
+      const dto = plainToInstance(QueryPosConfigurationDto, {
+        type: 'OTRO',
       });
 
       const errors = await validate(dto);

@@ -15,6 +15,10 @@ export class QuerySalesOrderDto {
   payment_status?: string;
 
   @IsOptional()
+  @IsEnum(['POS', 'MANUAL'])
+  sales_order_type?: 'POS' | 'MANUAL';
+
+  @IsOptional()
   @IsUUID()
   warehouse_id?: string;
 

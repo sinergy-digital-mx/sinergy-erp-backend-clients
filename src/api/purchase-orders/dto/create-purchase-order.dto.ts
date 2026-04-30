@@ -6,6 +6,7 @@ import {
   IsString,
   IsOptional,
   IsArray,
+  ArrayMinSize,
   ValidateNested,
   IsNumber,
   Min,
@@ -74,11 +75,16 @@ export class CreatePurchaseOrderDto {
   @IsOptional()
   payment_status?: string;
 
+  @IsEnum(['MXN', 'USD'])
+  @IsOptional()
+  payment_currency?: string;
+
   @IsString()
   @IsOptional()
   notes?: string;
 
   @IsArray()
+  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => CreateLineItemDto)
   line_items: CreateLineItemDto[];

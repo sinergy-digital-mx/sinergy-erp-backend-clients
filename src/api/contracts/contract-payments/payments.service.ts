@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Payment } from '../../../entities/contracts/payment.entity';
 import { Contract } from '../../../entities/contracts/contract.entity';
+import { ContractDownpaymentPayment } from '../../../entities/contracts/contract-downpayment-payment.entity';
 
 @Injectable()
 export class PaymentsService {
@@ -11,6 +12,8 @@ export class PaymentsService {
     private paymentRepo: Repository<Payment>,
     @InjectRepository(Contract)
     private contractRepo: Repository<Contract>,
+    @InjectRepository(ContractDownpaymentPayment)
+    private downpaymentPaymentRepo: Repository<ContractDownpaymentPayment>,
   ) {}
 
   /**
@@ -26,6 +29,12 @@ export class PaymentsService {
 
     if (!contract) {
       throw new NotFoundException('Contract not found');
+    }
+
+    if (await this.hasPendingDownpaymentPayments(tenantId, contractId)) {
+      throw new BadRequestException(
+        'No se pueden generar pagos normales hasta liquidar completamente el enganche financiado',
+      );
     }
 
     // Check if payments already exist
@@ -53,6 +62,12 @@ export class PaymentsService {
 
     if (!contract) {
       throw new NotFoundException('Contract not found');
+    }
+
+    if (await this.hasPendingDownpaymentPayments(tenantId, contractId)) {
+      throw new BadRequestException(
+        'No se pueden regenerar pagos normales hasta liquidar completamente el enganche financiado',
+      );
     }
 
     // Delete existing payments
@@ -597,5 +612,75 @@ export class PaymentsService {
       .execute();
 
     return result.affected || 0;
+  }
+
+  private async hasPendingDownpaymentPayments(
+    tenantId: string,
+    contractId: string,
+  ): Promise<boolean> {
+    const contract = await this.contractRepo.findOne({
+      where: { id: contractId, tenant_id: tenantId },
+      select: ['id', 'down_payment_financed', 'down_payment'],
+    });
+
+    if (!contract || !contract.down_payment_financed) {
+      return false;
+    }
+
+    const databaseResult = await this.contractRepo.manager.query(
+      'SELECT DATABASE() as db',
+    );
+    const dbName = databaseResult?.[0]?.db;
+    if (!dbName) {
+      return false;
+    }
+
+    const tableResult = await this.contractRepo.manager.query(
+      `
+        SELECT COUNT(*) as total
+        FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = ?
+          AND TABLE_NAME = 'contract_downpayment_payments'
+      `,
+      [dbName],
+    );
+
+    if (!tableResult?.[0] || Number(tableResult[0].total) === 0) {
+      return true;
+    }
+
+    const totalRows = await this.downpaymentPaymentRepo.count({
+      where: {
+        tenant_id: tenantId,
+        contract_id: contractId,
+      },
+    });
+
+    if (totalRows === 0) {
+      return true;
+    }
+
+    const paymentRows = await this.downpaymentPaymentRepo.find({
+      where: {
+        tenant_id: tenantId,
+        contract_id: contractId,
+      },
+      select: ['status', 'amount', 'amount_paid'],
+    });
+
+    const totalPaid = paymentRows.reduce((sum, row) => {
+      if (row.status === 'pagado') {
+        return sum + Number(row.amount || 0);
+      }
+      if (row.status === 'parcial') {
+        return sum + Number(row.amount_paid || 0);
+      }
+      return sum;
+    }, 0);
+
+    if (totalPaid < Number(contract.down_payment || 0)) {
+      return true;
+    }
+    return false;
   }
 }

@@ -14,8 +14,10 @@ import { Subcategory } from '../categories/subcategory.entity';
 
 @Entity('products')
 @Index('UQ_products_tenant_sku', ['tenant_id', 'sku'], { unique: true })
+@Index('UQ_products_tenant_external_sku', ['tenant_id', 'external_sku'], { unique: true })
 @Index('IDX_products_tenant_id', ['tenant_id'])
 @Index('IDX_products_sku', ['sku'])
+@Index('IDX_products_external_sku', ['external_sku'])
 @Index('IDX_products_category_id', ['category_id'])
 @Index('IDX_products_subcategory_id', ['subcategory_id'])
 @Index('IDX_products_tenant_category', ['tenant_id', 'category_id'])
@@ -34,11 +36,17 @@ export class Product {
   @Column({ length: 255 })
   sku: string;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  external_sku: string | null;
+
   @Column({ length: 255 })
   name: string;
 
   @Column({ type: 'text', nullable: true })
   description: string;
+
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  photo: string | null;
 
   @Column({ default: true })
   is_active: boolean;

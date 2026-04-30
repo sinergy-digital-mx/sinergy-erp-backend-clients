@@ -54,6 +54,48 @@ export class S3Service {
   }
 
   /**
+   * Upload file to S3 with hierarchical path by entity type.
+   * Format: tenant/entityType/entityId/documentType/file
+   */
+  async uploadEntityFile(
+    tenantId: string,
+    entityType: string,
+    entityId: number | string,
+    documentType: string,
+    file: Buffer,
+    fileName: string,
+    mimeType: string,
+  ): Promise<string> {
+    const fileExtension = fileName.includes('.') ? fileName.split('.').pop() : 'bin';
+    const uniqueFileName = `${uuidv4()}.${fileExtension}`;
+    const safeEntityType = this.toSafePathSegment(entityType);
+    const safeDocumentType = this.toSafePathSegment(documentType);
+    const safeEntityId = this.toSafePathSegment(String(entityId));
+    const s3Key = `${tenantId}/${safeEntityType}/${safeEntityId}/${safeDocumentType}/${uniqueFileName}`;
+
+    const command = new PutObjectCommand({
+      Bucket: this.bucketName,
+      Key: s3Key,
+      Body: file,
+      ContentType: mimeType,
+      ServerSideEncryption: 'AES256',
+    });
+
+    await this.s3Client.send(command);
+    return s3Key;
+  }
+
+  private toSafePathSegment(value: string): string {
+    return value
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9_-]+/g, '_')
+      .replace(/^_+|_+$/g, '') || 'unknown';
+  }
+
+  /**
    * Generate signed URL for downloading file (valid for 1 hour)
    * @param s3Key S3 key
    * @param expiresIn Expiration time in seconds (default: 3600 = 1 hour)

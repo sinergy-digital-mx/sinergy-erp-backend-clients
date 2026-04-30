@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
-import { typeOrmOptions } from './database/typeorm.options';
+import { typeOrmModuleOptions } from './database/typeorm.options';
 import { UsersModule } from './api/users/users.module';
 import { LeadsModule } from './api/leads/leads.module';
 import { CustomersModule } from './api/customers/customers.module';
@@ -24,12 +24,13 @@ import { MailerConfigurationModule } from './api/mailer-configuration/mailer-con
 import { PurchaseOrdersModule } from './api/purchase-orders/purchase-orders.module';
 import { InventoryModule } from './api/inventory/inventory.module';
 import { SalesOrdersModule } from './api/sales-orders/sales-orders.module';
+import { ExchangeRateModule } from './api/exchange-rate/exchange-rate.module';
 import { PermissionVersionGuard } from './api/auth/guards/permission-version.guard';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    TypeOrmModule.forRoot(typeOrmOptions),
+    TypeOrmModule.forRoot(typeOrmModuleOptions),
     UsersModule,
     LeadsModule,
     CustomersModule,
@@ -51,6 +52,7 @@ import { PermissionVersionGuard } from './api/auth/guards/permission-version.gua
     PurchaseOrdersModule,
     InventoryModule,
     SalesOrdersModule,
+    ExchangeRateModule,
   ],
   providers: [],
 })
