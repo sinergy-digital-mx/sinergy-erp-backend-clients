@@ -21,9 +21,11 @@ import { PosSessionsModule } from './api/pos-sessions/pos-sessions.module';
 import { UoMCatalogModule } from './api/uom-catalog/uom-catalog.module';
 import { ProductsModule } from './api/products/products.module';
 import { MailerConfigurationModule } from './api/mailer-configuration/mailer-configuration.module';
+import { EmailTemplatesModule } from './api/email-templates/email-templates.module';
 import { PurchaseOrdersModule } from './api/purchase-orders/purchase-orders.module';
 import { InventoryModule } from './api/inventory/inventory.module';
 import { SalesOrdersModule } from './api/sales-orders/sales-orders.module';
+import { SalesReportsModule } from './api/sales-reports/sales-reports.module';
 import { ExchangeRateModule } from './api/exchange-rate/exchange-rate.module';
 import { PermissionVersionGuard } from './api/auth/guards/permission-version.guard';
 
@@ -38,6 +40,7 @@ import { PermissionVersionGuard } from './api/auth/guards/permission-version.gua
     RBACModule,
     EmailModule,
     MailerConfigurationModule,
+    EmailTemplatesModule,
     PropertiesModule,
     ContractsModule,
     CatalogsModule,
@@ -52,6 +55,7 @@ import { PermissionVersionGuard } from './api/auth/guards/permission-version.gua
     PurchaseOrdersModule,
     InventoryModule,
     SalesOrdersModule,
+    SalesReportsModule,
     ExchangeRateModule,
   ],
   providers: [],

@@ -118,6 +118,9 @@ export class Customer {
     @Column({ type: 'decimal', precision: 14, scale: 2, nullable: true })
     credit_amount: number;
 
+    @Column({ type: 'int', nullable: true })
+    legacy_customer_id: number;
+
     @OneToMany(() => CustomerAddress, address => address.customer)
     addresses: CustomerAddress[];
 

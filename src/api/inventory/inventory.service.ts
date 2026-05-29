@@ -48,7 +48,7 @@ export class InventoryService {
     });
 
     if (!session) {
-      throw new NotFoundException('Open POS session not found');
+      throw new NotFoundException('No se encontró una sesión POS abierta');
     }
 
     const posConfig = await this.posConfigRepo.findOne({
@@ -56,7 +56,7 @@ export class InventoryService {
     });
 
     if (!posConfig?.sucursal) {
-      throw new BadRequestException('POS session has no valid branch relation');
+      throw new BadRequestException('La sesión POS no tiene una sucursal válida asociada');
     }
 
     const branchWarehouses = await this.warehouseRepo.find({
@@ -65,7 +65,7 @@ export class InventoryService {
     });
 
     if (branchWarehouses.length === 0) {
-      throw new NotFoundException('No warehouses found for the session branch');
+      throw new NotFoundException('No se encontraron almacenes para la sucursal de la sesión');
     }
 
     const availableWarehouseIds = new Set(branchWarehouses.map((w) => w.id));
@@ -73,7 +73,7 @@ export class InventoryService {
 
     if (selectedWarehouseId && !availableWarehouseIds.has(selectedWarehouseId)) {
       throw new BadRequestException(
-        'Selected warehouse does not belong to the branch assigned to this POS session',
+        'El almacén seleccionado no pertenece a la sucursal asignada a esta sesión POS',
       );
     }
 

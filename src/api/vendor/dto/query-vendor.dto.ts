@@ -7,6 +7,7 @@ import {
   Max,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { VendorType } from '../../../entities/vendor/vendor-type.enum';
 
 export class QueryVendorDto {
   @IsOptional()
@@ -35,4 +36,8 @@ export class QueryVendorDto {
   @IsOptional()
   @IsString()
   country?: string;
+
+  @IsOptional()
+  @IsEnum(VendorType)
+  vendor_type?: VendorType;
 }

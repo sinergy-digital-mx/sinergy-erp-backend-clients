@@ -1,0 +1,4 @@
+export enum VendorType {
+  NATIONAL = 'NATIONAL',
+  INTERNATIONAL = 'INTERNATIONAL',
+}

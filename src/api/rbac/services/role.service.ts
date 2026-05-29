@@ -266,38 +266,30 @@ export class RoleService {
       .where('role_id = :roleId', { roleId })
       .execute();
 
-    if (permissionIds.length === 0) {
-      // Invalidate cache (async, don't wait)
-      this.permissionCacheService
-        .invalidateRolePermissions(roleId, tenantId, [])
-        .catch(error => {
-          console.warn(`Failed to invalidate role permissions cache for role ${roleId}:`, error.message);
-        });
-      return;
+    if (permissionIds.length > 0) {
+      // Single INSERT query: Insert all new permissions at once
+      await this.rolePermissionRepository
+        .createQueryBuilder()
+        .insert()
+        .into(RolePermission)
+        .values(
+          permissionIds.map(permissionId => ({
+            role_id: roleId,
+            permission_id: permissionId,
+          })),
+        )
+        .execute();
     }
-
-    // Single INSERT query: Insert all new permissions at once
-    await this.rolePermissionRepository
-      .createQueryBuilder()
-      .insert()
-      .into(RolePermission)
-      .values(
-        permissionIds.map(permissionId => ({
-          role_id: roleId,
-          permission_id: permissionId,
-        })),
-      )
-      .execute();
 
     // Increment permissions_version for all users with this role
     await this.permissionVersionService.incrementVersionForUsersWithRole(roleId, tenantId);
 
-    // Invalidate cache (async, don't wait)
-    this.permissionCacheService
-      .invalidateRolePermissions(roleId, tenantId, [])
-      .catch(error => {
-        console.warn(`Failed to invalidate role permissions cache for role ${roleId}:`, error.message);
-      });
+    const userIds = await this.getUsersWithRole(roleId, tenantId);
+    try {
+      await this.permissionCacheService.invalidateRolePermissions(roleId, tenantId, userIds);
+    } catch (error) {
+      console.warn(`Failed to invalidate role permissions cache for role ${roleId}:`, error.message);
+    }
   }
 
   /**

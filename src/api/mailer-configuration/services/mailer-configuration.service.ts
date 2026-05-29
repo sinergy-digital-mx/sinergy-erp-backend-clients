@@ -1,15 +1,18 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
-import { ResendConfiguration } from '../../../entities/mailer-configuration/resend-configuration.entity';
+import { IsNull } from 'typeorm';
+import { MailerConfiguration } from '../../../entities/mailer-configuration/mailer-configuration.entity';
 import { MailerConfigurationRepository } from '../repositories/mailer-configuration.repository';
 import { MailerConfigurationEncryptionService } from './encryption.service';
 import { CreateMailerConfigurationDto } from '../dto/create-mailer-configuration.dto';
 import { UpdateMailerConfigurationDto } from '../dto/update-mailer-configuration.dto';
 import { QueryMailerConfigurationDto } from '../dto/query-mailer-configuration.dto';
+import { MailerVendor } from '../enums/mailer-vendor.enum';
+import type { ResendConfig, VendorConfig } from '../interfaces/vendor-config.interface';
 
 /**
  * MailerConfigurationService
- * Simplified service for managing Resend-only email configurations
- * Handles CRUD operations, encryption, and configuration state management
+ * Manages tenant-scoped mailer provider configurations.
+ * Currently supports Resend and stores credentials encrypted in vendor_config.
  */
 @Injectable()
 export class MailerConfigurationService {
@@ -31,35 +34,34 @@ export class MailerConfigurationService {
     tenantId: string,
     dto: CreateMailerConfigurationDto,
     userId: string,
-  ): Promise<ResendConfiguration> {
-    // Check if configuration name already exists for this tenant
+  ): Promise<MailerConfiguration> {
     const existing = await this.configRepository.findByTenantAndName(tenantId, dto.name);
     if (existing) {
       throw new BadRequestException(`Configuration with name "${dto.name}" already exists for this tenant`);
     }
 
-    // Validate API key format
-    if (!dto.apiKey || typeof dto.apiKey !== 'string' || dto.apiKey.trim().length === 0) {
-      throw new BadRequestException('Valid API key is required');
-    }
+    const vendor = dto.vendor || MailerVendor.RESEND;
+    const vendorConfig = this.prepareVendorConfig(vendor, dto.vendorConfig, dto.apiKey);
 
-    // Encrypt API key
-    const encrypted = this.encryptionService.encryptResendApiKey(dto.apiKey);
-
-    // Create configuration entity
     const config = this.configRepository.create({
       tenant_id: tenantId,
       name: dto.name,
-      api_key_encrypted: encrypted.encryptedKey,
-      api_key_iv: encrypted.iv,
+      vendor,
+      vendor_config: vendorConfig,
       is_active: false,
+      is_fallback: dto.isFallback ?? false,
       is_valid: true,
       created_by: userId,
       updated_by: userId,
     });
 
-    // Save and return configuration
-    return this.configRepository.save(config);
+    const saved = await this.configRepository.save(config);
+
+    if (dto.isActive) {
+      return this.activate(tenantId, saved.id, userId);
+    }
+
+    return this.toSafeConfiguration(saved);
   }
 
   /**
@@ -70,7 +72,12 @@ export class MailerConfigurationService {
    * @param configId - The configuration ID
    * @returns Configuration if found and belongs to tenant
    */
-  async findById(tenantId: string, configId: string): Promise<ResendConfiguration> {
+  async findById(tenantId: string, configId: string): Promise<MailerConfiguration> {
+    const config = await this.findByIdInternal(tenantId, configId);
+    return this.toSafeConfiguration(config);
+  }
+
+  async findByIdInternal(tenantId: string, configId: string): Promise<MailerConfiguration> {
     const config = await this.configRepository.findByTenantAndId(tenantId, configId);
     if (!config) {
       throw new NotFoundException(`Configuration not found`);
@@ -89,19 +96,24 @@ export class MailerConfigurationService {
   async list(
     tenantId: string,
     query: QueryMailerConfigurationDto,
-  ): Promise<{ data: ResendConfiguration[]; total: number; page: number; limit: number }> {
+  ): Promise<{ data: MailerConfiguration[]; total: number; page: number; limit: number }> {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
     const [data, total] = await this.configRepository.findAndCount({
-      where: { tenant_id: tenantId },
+      where: { tenant_id: tenantId, deleted_at: IsNull() },
       order: { created_at: 'DESC' },
       skip,
       take: limit,
     });
 
-    return { data, total, page, limit };
+    return {
+      data: data.map((config) => this.toSafeConfiguration(config)),
+      total,
+      page,
+      limit,
+    };
   }
 
   /**
@@ -111,10 +123,15 @@ export class MailerConfigurationService {
    * @param tenantId - The tenant ID
    * @returns Active configuration if exists
    */
-  async findActive(tenantId: string): Promise<ResendConfiguration> {
+  async findActive(tenantId: string): Promise<MailerConfiguration> {
+    const config = await this.findActiveInternal(tenantId);
+    return this.toSafeConfiguration(config);
+  }
+
+  async findActiveInternal(tenantId: string): Promise<MailerConfiguration> {
     const config = await this.configRepository.findActiveByTenant(tenantId);
     if (!config) {
-      throw new NotFoundException(`No active Resend configuration found for this tenant`);
+      throw new NotFoundException(`No active mailer configuration found for this tenant`);
     }
     return config;
   }
@@ -134,9 +151,8 @@ export class MailerConfigurationService {
     configId: string,
     dto: UpdateMailerConfigurationDto,
     userId: string,
-  ): Promise<ResendConfiguration> {
-    // Verify configuration exists and belongs to tenant
-    const config = await this.findById(tenantId, configId);
+  ): Promise<MailerConfiguration> {
+    const config = await this.findByIdInternal(tenantId, configId);
 
     // Update name if provided
     if (dto.name !== undefined && dto.name !== config.name) {
@@ -147,21 +163,26 @@ export class MailerConfigurationService {
       config.name = dto.name;
     }
 
-    // Update API key if provided
-    if (dto.apiKey !== undefined) {
-      if (!dto.apiKey || typeof dto.apiKey !== 'string' || dto.apiKey.trim().length === 0) {
-        throw new BadRequestException('Valid API key is required');
-      }
-      const encrypted = this.encryptionService.encryptResendApiKey(dto.apiKey);
-      config.api_key_encrypted = encrypted.encryptedKey;
-      config.api_key_iv = encrypted.iv;
+    if (dto.vendorConfig !== undefined || dto.apiKey !== undefined) {
+      config.vendor_config = this.prepareVendorConfig(
+        config.vendor as MailerVendor,
+        dto.vendorConfig,
+        dto.apiKey,
+        config.vendor_config,
+      );
+      config.is_valid = true;
+    }
+
+    if (dto.isFallback !== undefined) {
+      config.is_fallback = dto.isFallback;
     }
 
     // Update metadata
     config.updated_by = userId;
     config.updated_at = new Date();
 
-    return this.configRepository.save(config);
+    const saved = await this.configRepository.save(config);
+    return this.toSafeConfiguration(saved);
   }
 
   /**
@@ -173,8 +194,7 @@ export class MailerConfigurationService {
    * @param userId - User ID performing the action
    */
   async delete(tenantId: string, configId: string, userId: string): Promise<void> {
-    // Verify configuration exists and belongs to tenant
-    const config = await this.findById(tenantId, configId);
+    const config = await this.findByIdInternal(tenantId, configId);
 
     // Soft delete
     config.deleted_at = new Date();
@@ -191,14 +211,15 @@ export class MailerConfigurationService {
    * @param userId - User ID performing the action
    * @returns Updated configuration
    */
-  async activate(tenantId: string, configId: string, userId: string): Promise<ResendConfiguration> {
-    // Verify configuration exists and belongs to tenant
-    const config = await this.findById(tenantId, configId);
+  async activate(tenantId: string, configId: string, userId: string): Promise<MailerConfiguration> {
+    const config = await this.findByIdInternal(tenantId, configId);
 
     // Verify configuration is valid
     if (!config.is_valid) {
       throw new BadRequestException(`Cannot activate invalid configuration`);
     }
+
+    this.validateStoredVendorConfig(config);
 
     // Deactivate all other configurations for this tenant
     await this.configRepository.deactivateAllByTenant(tenantId);
@@ -208,7 +229,128 @@ export class MailerConfigurationService {
     config.updated_by = userId;
     config.updated_at = new Date();
 
-    return this.configRepository.save(config);
+    const saved = await this.configRepository.save(config);
+    return this.toSafeConfiguration(saved);
+  }
+
+  decryptVendorConfig(config: MailerConfiguration): VendorConfig {
+    if (config.vendor === MailerVendor.RESEND) {
+      const stored = config.vendor_config as {
+        apiKeyEncrypted?: string;
+        apiKeyIv?: string;
+        fromEmail?: string;
+        fromName?: string;
+        replyTo?: string;
+        publicKey?: string;
+      };
+
+      if (!stored.apiKeyEncrypted || !stored.apiKeyIv) {
+        throw new BadRequestException('Resend configuration is missing encrypted api key');
+      }
+
+      return {
+        apiKey: this.encryptionService.decryptSecret(stored.apiKeyEncrypted, stored.apiKeyIv),
+        fromEmail: stored.fromEmail as string,
+        fromName: stored.fromName as string | undefined,
+        replyTo: stored.replyTo as string | undefined,
+        publicKey: stored.publicKey as string | undefined,
+      };
+    }
+
+    throw new BadRequestException(`Mailer vendor "${config.vendor}" is not supported yet`);
+  }
+
+  private prepareVendorConfig(
+    vendor: MailerVendor,
+    vendorConfig?: VendorConfig,
+    legacyApiKey?: string,
+    existingConfig: Record<string, unknown> = {},
+  ): Record<string, unknown> {
+    if (vendor !== MailerVendor.RESEND) {
+      throw new BadRequestException(`Mailer vendor "${vendor}" is not supported yet`);
+    }
+
+    const resendConfig = (vendorConfig || {}) as Partial<ResendConfig>;
+    const apiKey = legacyApiKey || resendConfig.apiKey;
+    const fromEmail = resendConfig.fromEmail || (existingConfig.fromEmail as string | undefined);
+    const fromName = resendConfig.fromName ?? (existingConfig.fromName as string | undefined);
+    const replyTo = resendConfig.replyTo ?? (existingConfig.replyTo as string | undefined);
+    const publicKey = resendConfig.publicKey ?? (existingConfig.publicKey as string | undefined);
+
+    if (!apiKey && !existingConfig.apiKeyEncrypted) {
+      throw new BadRequestException('Valid Resend apiKey is required');
+    }
+
+    if (apiKey && (typeof apiKey !== 'string' || apiKey.trim().length < 10)) {
+      throw new BadRequestException('Valid Resend apiKey is required');
+    }
+
+    if (!fromEmail || typeof fromEmail !== 'string' || !this.isValidEmail(fromEmail)) {
+      throw new BadRequestException('Valid Resend fromEmail is required');
+    }
+
+    if (replyTo && !this.isValidEmail(replyTo)) {
+      throw new BadRequestException('Valid Resend replyTo is required');
+    }
+
+    const encrypted = apiKey
+      ? this.encryptionService.encryptSecret(apiKey.trim())
+      : {
+          encryptedValue: existingConfig.apiKeyEncrypted as string,
+          iv: existingConfig.apiKeyIv as string,
+        };
+
+    return {
+      apiKeyEncrypted: encrypted.encryptedValue,
+      apiKeyIv: encrypted.iv,
+      fromEmail: fromEmail.trim(),
+      fromName: fromName?.trim(),
+      replyTo: replyTo?.trim(),
+      publicKey,
+    };
+  }
+
+  private toSafeConfiguration(config: MailerConfiguration): MailerConfiguration {
+    return {
+      ...config,
+      vendor_config: this.maskVendorConfig(config),
+    } as MailerConfiguration;
+  }
+
+  private maskVendorConfig(config: MailerConfiguration): Record<string, unknown> {
+    if (config.vendor === MailerVendor.RESEND) {
+      return {
+        apiKey: '********',
+        fromEmail: (config.vendor_config as Record<string, unknown>)?.fromEmail,
+        fromName: (config.vendor_config as Record<string, unknown>)?.fromName,
+        replyTo: (config.vendor_config as Record<string, unknown>)?.replyTo,
+        publicKey: (config.vendor_config as Record<string, unknown>)?.publicKey,
+      };
+    }
+
+    return {};
+  }
+
+  private validateStoredVendorConfig(config: MailerConfiguration): void {
+    if (config.vendor === MailerVendor.RESEND) {
+      const stored = config.vendor_config as Record<string, unknown>;
+
+      if (!stored.apiKeyEncrypted || !stored.apiKeyIv) {
+        throw new BadRequestException('Resend configuration is missing apiKey');
+      }
+
+      if (!stored.fromEmail || typeof stored.fromEmail !== 'string' || !this.isValidEmail(stored.fromEmail)) {
+        throw new BadRequestException('Resend configuration is missing a valid fromEmail');
+      }
+
+      return;
+    }
+
+    throw new BadRequestException(`Mailer vendor "${config.vendor}" is not supported yet`);
+  }
+
+  private isValidEmail(value: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
   }
 
 }

@@ -1,39 +1,42 @@
 import { Injectable } from '@nestjs/common';
-import { DataSource, Repository } from 'typeorm';
-import { ResendConfiguration } from '../../../entities/mailer-configuration/resend-configuration.entity';
+import { DataSource, IsNull, Repository } from 'typeorm';
+import { MailerConfiguration } from '../../../entities/mailer-configuration/mailer-configuration.entity';
 
 /**
  * MailerConfigurationRepository
- * Custom repository for ResendConfiguration entity with tenant-scoped queries
+ * Custom repository for mailer configurations with tenant-scoped queries.
  */
 @Injectable()
-export class MailerConfigurationRepository extends Repository<ResendConfiguration> {
+export class MailerConfigurationRepository extends Repository<MailerConfiguration> {
   constructor(private dataSource: DataSource) {
-    super(ResendConfiguration, dataSource.createEntityManager());
+    super(MailerConfiguration, dataSource.createEntityManager());
   }
 
-  async findByTenantAndId(tenantId: string, configId: string): Promise<ResendConfiguration | null> {
+  async findByTenantAndId(tenantId: string, configId: string): Promise<MailerConfiguration | null> {
     return this.findOne({
       where: {
         id: configId,
         tenant_id: tenantId,
+        deleted_at: IsNull(),
       },
     });
   }
 
-  async findActiveByTenant(tenantId: string): Promise<ResendConfiguration | null> {
+  async findActiveByTenant(tenantId: string): Promise<MailerConfiguration | null> {
     return this.findOne({
       where: {
         tenant_id: tenantId,
         is_active: true,
+        deleted_at: IsNull(),
       },
     });
   }
 
-  async findByTenant(tenantId: string): Promise<ResendConfiguration[]> {
+  async findByTenant(tenantId: string): Promise<MailerConfiguration[]> {
     return this.find({
       where: {
         tenant_id: tenantId,
+        deleted_at: IsNull(),
       },
       order: {
         created_at: 'DESC',
@@ -41,11 +44,12 @@ export class MailerConfigurationRepository extends Repository<ResendConfiguratio
     });
   }
 
-  async findByTenantAndName(tenantId: string, name: string): Promise<ResendConfiguration | null> {
+  async findByTenantAndName(tenantId: string, name: string): Promise<MailerConfiguration | null> {
     return this.findOne({
       where: {
         tenant_id: tenantId,
         name,
+        deleted_at: IsNull(),
       },
     });
   }

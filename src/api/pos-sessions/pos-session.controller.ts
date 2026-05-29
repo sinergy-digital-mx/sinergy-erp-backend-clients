@@ -9,7 +9,7 @@ import {
   UseGuards,
   Request,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { PosSessionService } from './pos-session.service';
 import { OpenPosSessionDto } from './dto/open-pos-session.dto';
 import { ClosePosSessionDto } from './dto/close-pos-session.dto';
@@ -30,7 +30,7 @@ export class PosSessionController {
   @RequirePermission('PosSession', 'Create')
   @ApiOperation({ summary: 'Open a new POS session' })
   @ApiResponse({ status: 201, description: 'Session opened successfully' })
-  @ApiResponse({ status: 409, description: 'There is already an open session for this POS' })
+  @ApiResponse({ status: 409, description: 'Ya existe una sesión abierta para este POS' })
   openSession(@Body() dto: OpenPosSessionDto, @Request() req) {
     return this.posSessionService.openSession(dto, req.user.id, req.user.tenant_id);
   }
@@ -39,8 +39,8 @@ export class PosSessionController {
   @RequirePermission('PosSession', 'Update')
   @ApiOperation({ summary: 'Close an open POS session' })
   @ApiResponse({ status: 200, description: 'Session closed successfully' })
-  @ApiResponse({ status: 404, description: 'Session not found' })
-  @ApiResponse({ status: 400, description: 'Session is not open' })
+  @ApiResponse({ status: 404, description: 'Sesión no encontrada' })
+  @ApiResponse({ status: 400, description: 'La sesión no está abierta' })
   closeSession(
     @Param('id') id: string,
     @Body() dto: ClosePosSessionDto,
@@ -61,7 +61,7 @@ export class PosSessionController {
   @RequirePermission('PosSession', 'Read')
   @ApiOperation({ summary: 'Get current open session for a POS configuration' })
   @ApiResponse({ status: 200, description: 'Current open session' })
-  @ApiResponse({ status: 404, description: 'No open session found' })
+  @ApiResponse({ status: 404, description: 'No hay sesión abierta' })
   getCurrentSession(@Param('posConfigId') posConfigId: string, @Request() req) {
     return this.posSessionService.getCurrentOpenSession(posConfigId, req.user.tenant_id);
   }
@@ -70,7 +70,7 @@ export class PosSessionController {
   @RequirePermission('PosSession', 'Read')
   @ApiOperation({ summary: 'Get POS session by ID' })
   @ApiResponse({ status: 200, description: 'Session found' })
-  @ApiResponse({ status: 404, description: 'Session not found' })
+  @ApiResponse({ status: 404, description: 'Sesión no encontrada' })
   findOne(@Param('id') id: string, @Request() req) {
     return this.posSessionService.findOne(id, req.user.tenant_id);
   }

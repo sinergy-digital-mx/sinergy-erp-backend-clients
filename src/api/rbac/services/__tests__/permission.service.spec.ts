@@ -10,6 +10,7 @@ import { RolePermission } from '../../../../entities/rbac/role-permission.entity
 import { EntityRegistry } from '../../../../entities/entity-registry/entity-registry.entity';
 import { TenantContextService } from '../tenant-context.service';
 import { PermissionCacheService } from '../permission-cache.service';
+import { PermissionVersionService } from '../permission-version.service';
 import { QueryCacheService } from '../query-cache.service';
 
 describe('PermissionService', () => {
@@ -89,6 +90,12 @@ describe('PermissionService', () => {
       clearAllCache: jest.fn(),
     };
 
+    const mockPermissionVersionService = {
+      getUserVersion: jest.fn().mockResolvedValue(1),
+      incrementUserVersion: jest.fn(),
+      incrementVersionForUsersWithRole: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PermissionService,
@@ -119,6 +126,10 @@ describe('PermissionService', () => {
         {
           provide: QueryCacheService,
           useValue: mockQueryCacheService,
+        },
+        {
+          provide: PermissionVersionService,
+          useValue: mockPermissionVersionService,
         },
       ],
     }).compile();
@@ -204,7 +215,7 @@ describe('PermissionService', () => {
       const result = await service.hasPermission('user-id', 'tenant-id', 'Customer', 'Read');
 
       expect(result).toBe(true);
-      expect(permissionCacheService.getUserPermissions).toHaveBeenCalledWith('user-id', 'tenant-id');
+      expect(permissionCacheService.getUserPermissions).toHaveBeenCalledWith('user-id', 'tenant-id', 1);
     });
 
     it('should return true when user has permission (cache miss)', async () => {
@@ -229,7 +240,7 @@ describe('PermissionService', () => {
       const result = await service.hasPermission('user-id', 'tenant-id', 'Customer', 'Read');
 
       expect(result).toBe(true);
-      expect(permissionCacheService.getUserPermissions).toHaveBeenCalledWith('user-id', 'tenant-id');
+      expect(permissionCacheService.getUserPermissions).toHaveBeenCalledWith('user-id', 'tenant-id', 1);
       expect(permissionCacheService.setUserPermissions).toHaveBeenCalled();
     });
 
@@ -259,7 +270,7 @@ describe('PermissionService', () => {
       const result = await service.getUserPermissions('user-id', 'tenant-id');
 
       expect(result).toEqual(mockPermissions);
-      expect(permissionCacheService.getUserPermissions).toHaveBeenCalledWith('user-id', 'tenant-id');
+      expect(permissionCacheService.getUserPermissions).toHaveBeenCalledWith('user-id', 'tenant-id', 1);
     });
 
     it('should fetch and cache user permissions on cache miss', async () => {
@@ -284,7 +295,7 @@ describe('PermissionService', () => {
       const result = await service.getUserPermissions('user-id', 'tenant-id');
 
       expect(result).toHaveLength(1);
-      expect(permissionCacheService.getUserPermissions).toHaveBeenCalledWith('user-id', 'tenant-id');
+      expect(permissionCacheService.getUserPermissions).toHaveBeenCalledWith('user-id', 'tenant-id', 1);
       expect(permissionCacheService.setUserPermissions).toHaveBeenCalled();
     });
 
@@ -431,7 +442,7 @@ describe('PermissionService', () => {
 
       // Should return permissions without throwing error
       expect(result).toEqual(mockPermissions);
-      expect(permissionCacheService.getUserPermissions).toHaveBeenCalledWith('other-user-id', 'tenant-id');
+      expect(permissionCacheService.getUserPermissions).toHaveBeenCalledWith('other-user-id', 'tenant-id', 1);
     });
 
     it('should not throw error when validateTenantContext is called with different user IDs', async () => {
@@ -516,7 +527,7 @@ describe('PermissionService', () => {
 
       // Should return results without throwing error
       expect(result).toEqual([true]);
-      expect(permissionCacheService.getUserPermissions).toHaveBeenCalledWith('other-user-id', 'tenant-id');
+      expect(permissionCacheService.getUserPermissions).toHaveBeenCalledWith('other-user-id', 'tenant-id', 1);
     });
 
     it('should allow checkPermissionForMultipleUsers for other users without throwing error', async () => {
@@ -611,7 +622,7 @@ describe('PermissionService', () => {
       const result = await service.getUserPermissions('user-id', 'tenant-id');
 
       expect(result).toEqual(mockPermissions);
-      expect(permissionCacheService.getUserPermissions).toHaveBeenCalledWith('user-id', 'tenant-id');
+      expect(permissionCacheService.getUserPermissions).toHaveBeenCalledWith('user-id', 'tenant-id', 1);
     });
 
     /**
@@ -631,7 +642,7 @@ describe('PermissionService', () => {
       const result = await service.hasPermission('user-id', 'tenant-id', 'Customer', 'Read');
 
       expect(result).toBe(true);
-      expect(permissionCacheService.getUserPermissions).toHaveBeenCalledWith('user-id', 'tenant-id');
+      expect(permissionCacheService.getUserPermissions).toHaveBeenCalledWith('user-id', 'tenant-id', 1);
     });
 
     /**
@@ -651,7 +662,7 @@ describe('PermissionService', () => {
       const result = await service.hasPermission('user-id', 'tenant-id', 'Customer', 'Write');
 
       expect(result).toBe(false);
-      expect(permissionCacheService.getUserPermissions).toHaveBeenCalledWith('user-id', 'tenant-id');
+      expect(permissionCacheService.getUserPermissions).toHaveBeenCalledWith('user-id', 'tenant-id', 1);
     });
 
     /**
@@ -698,7 +709,7 @@ describe('PermissionService', () => {
       ]);
 
       expect(result).toEqual([true]);
-      expect(permissionCacheService.getUserPermissions).toHaveBeenCalledWith('user-id', 'tenant-id');
+      expect(permissionCacheService.getUserPermissions).toHaveBeenCalledWith('user-id', 'tenant-id', 1);
     });
 
     /**
@@ -779,7 +790,7 @@ describe('PermissionService', () => {
       const result = await service.getUserPermissions('target-user-id', 'tenant-id');
 
       expect(result).toEqual(mockPermissions);
-      expect(permissionCacheService.getUserPermissions).toHaveBeenCalledWith('target-user-id', 'tenant-id');
+      expect(permissionCacheService.getUserPermissions).toHaveBeenCalledWith('target-user-id', 'tenant-id', 1);
     });
 
     /**
@@ -877,7 +888,7 @@ describe('PermissionService', () => {
       const result = await service.getUserPermissions('user-id', 'tenant-id');
 
       expect(result).toEqual(mockPermissions);
-      expect(permissionCacheService.getUserPermissions).toHaveBeenCalledWith('user-id', 'tenant-id');
+      expect(permissionCacheService.getUserPermissions).toHaveBeenCalledWith('user-id', 'tenant-id', 1);
     });
 
     /**

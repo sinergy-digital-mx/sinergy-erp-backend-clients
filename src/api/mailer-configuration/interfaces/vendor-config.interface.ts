@@ -1,5 +1,8 @@
 export interface ResendConfig {
   apiKey: string;
+  fromEmail: string;
+  fromName?: string;
+  replyTo?: string;
   publicKey?: string;
 }
 

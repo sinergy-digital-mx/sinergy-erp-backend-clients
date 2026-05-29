@@ -57,6 +57,7 @@ export class VendorController {
   @ApiQuery({ name: 'status', required: false, type: String })
   @ApiQuery({ name: 'state', required: false, type: String })
   @ApiQuery({ name: 'country', required: false, type: String })
+  @ApiQuery({ name: 'vendor_type', required: false, enum: ['NATIONAL', 'INTERNATIONAL'] })
   @ApiResponse({ status: 200, description: 'List of vendors retrieved successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })

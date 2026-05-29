@@ -4,6 +4,7 @@ import * as fc from 'fast-check';
 import { VendorService } from './vendor.service';
 import { Vendor } from '../../entities/vendor/vendor.entity';
 import { CreateVendorDto } from './dto/create-vendor.dto';
+import { VendorType } from '../../entities/vendor/vendor-type.enum';
 import { NotFoundException } from '@nestjs/common';
 
 describe('VendorService - Tenant Isolation', () => {
@@ -36,6 +37,7 @@ describe('VendorService - Tenant Isolation', () => {
     it('should associate vendor with correct tenant on creation', async () => {
       // **Validates: Requirements 5.1, 5.2**
       const vendorArbitrary = fc.record({
+        vendor_type: fc.constant(VendorType.NATIONAL),
         name: fc.string({ minLength: 1, maxLength: 100 }),
         company_name: fc.string({ minLength: 1, maxLength: 100 }),
         street: fc.string({ minLength: 1, maxLength: 100 }),
@@ -52,7 +54,7 @@ describe('VendorService - Tenant Isolation', () => {
 
       fc.assert(
         fc.property(vendorArbitrary, tenantArbitrary, (vendorData, tenantId) => {
-          const dto: CreateVendorDto = vendorData;
+          const dto: CreateVendorDto = vendorData as CreateVendorDto;
           const createdVendor: Vendor = {
             id: 'vendor-123',
             ...dto,

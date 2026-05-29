@@ -39,7 +39,7 @@ export class PosSessionService {
 
     if (existingOpenSession) {
       throw new ConflictException(
-        `There is already an open session for this POS configuration. Please close session ${existingOpenSession.session_number} first.`,
+        `Ya existe una sesión abierta para esta configuración de POS. Cierre primero la sesión ${existingOpenSession.session_number}.`,
       );
     }
 
@@ -80,11 +80,11 @@ export class PosSessionService {
     });
 
     if (!session) {
-      throw new NotFoundException('Session not found');
+      throw new NotFoundException('Sesión no encontrada');
     }
 
     if (session.status !== PosSessionStatus.OPEN) {
-      throw new BadRequestException('Only open sessions can be closed');
+      throw new BadRequestException('Solo se pueden cerrar sesiones abiertas');
     }
 
     // Calculate expected cash and difference
@@ -115,15 +115,29 @@ export class PosSessionService {
     query: QueryPosSessionDto,
     tenantId: string,
   ): Promise<{ data: PosSession[]; total: number; page: number; limit: number; totalPages: number }> {
-    const { page = 1, limit = 10, pos_configuration_id, user_id, status, from_date, to_date } = query;
+    const {
+      page = 1,
+      limit = 10,
+      sucursal,
+      pos_configuration_id,
+      user_id,
+      status,
+      from_date,
+      to_date,
+    } = query;
     const skip = (page - 1) * limit;
 
     const queryBuilder = this.posSessionRepository
       .createQueryBuilder('session')
       .leftJoinAndSelect('session.posConfiguration', 'posConfig')
+      .leftJoinAndSelect('posConfig.branch', 'branch')
       .leftJoinAndSelect('session.user', 'user')
       .leftJoinAndSelect('session.closedByUser', 'closedBy')
       .where('session.tenant_id = :tenantId', { tenantId });
+
+    if (sucursal) {
+      queryBuilder.andWhere('posConfig.sucursal = :sucursal', { sucursal });
+    }
 
     if (pos_configuration_id) {
       queryBuilder.andWhere('session.pos_configuration_id = :pos_configuration_id', {
@@ -169,7 +183,7 @@ export class PosSessionService {
     });
 
     if (!session) {
-      throw new NotFoundException('Session not found');
+      throw new NotFoundException('Sesión no encontrada');
     }
 
     return session;
@@ -199,7 +213,7 @@ export class PosSessionService {
     });
 
     if (!session) {
-      throw new NotFoundException('Session not found');
+      throw new NotFoundException('Sesión no encontrada');
     }
 
     session.total_sales = Number(

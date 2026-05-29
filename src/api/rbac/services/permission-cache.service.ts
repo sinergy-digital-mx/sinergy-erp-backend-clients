@@ -8,6 +8,7 @@ interface CacheEntry<T> {
   data: T;
   expiresAt: number;
   createdAt: number;
+  permissionsVersion?: number;
 }
 
 /**
@@ -60,6 +61,7 @@ export class PermissionCacheService {
   async getUserPermissions(
     userId: string,
     tenantId: string,
+    expectedPermissionsVersion?: number,
   ): Promise<Permission[] | null> {
     return this.safeCacheOperation(
       () => {
@@ -79,6 +81,20 @@ export class PermissionCacheService {
           this.stats.evictions++;
           this.updateCacheSize();
           this.logger.debug(`Cache entry expired for user ${userId} in tenant ${tenantId}`);
+          return null;
+        }
+
+        if (
+          expectedPermissionsVersion !== undefined &&
+          entry.permissionsVersion !== expectedPermissionsVersion
+        ) {
+          this.cache.delete(cacheKey);
+          this.stats.misses++;
+          this.stats.evictions++;
+          this.updateCacheSize();
+          this.logger.debug(
+            `Cache stale for user ${userId} in tenant ${tenantId}: cached version ${entry.permissionsVersion ?? 'none'} != current ${expectedPermissionsVersion}`,
+          );
           return null;
         }
 
@@ -104,6 +120,7 @@ export class PermissionCacheService {
     tenantId: string,
     permissions: Permission[],
     ttl?: number,
+    permissionsVersion?: number,
   ): Promise<void> {
     await this.safeCacheOperation(
       () => {
@@ -120,6 +137,7 @@ export class PermissionCacheService {
           data: [...permissions], // Create a copy to avoid reference issues
           expiresAt: now + effectiveTtl,
           createdAt: now,
+          permissionsVersion,
         };
 
         this.cache.set(cacheKey, entry);
@@ -316,8 +334,9 @@ export class PermissionCacheService {
     tenantId: string,
     permissions: Permission[],
     ttl?: number,
+    permissionsVersion?: number,
   ): Promise<void> {
-    await this.setUserPermissions(userId, tenantId, permissions, ttl);
+    await this.setUserPermissions(userId, tenantId, permissions, ttl, permissionsVersion);
     this.logger.debug(`Warmed cache for user ${userId} in tenant ${tenantId}`);
   }
 

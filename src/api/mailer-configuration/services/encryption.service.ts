@@ -23,18 +23,11 @@ export class MailerConfigurationEncryptionService {
     }
   }
 
-  /**
-   * Encrypt a Resend API key
-   * Returns encrypted key and IV separately for storage in ResendConfiguration entity
-   *
-   * @param apiKey - The plaintext API key
-   * @returns Object with encryptedKey and iv
-   */
-  encryptResendApiKey(apiKey: string): { encryptedKey: string; iv: string } {
+  encryptSecret(secret: string): { encryptedValue: string; iv: string } {
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipheriv(this.algorithm, this.encryptionKey, iv);
 
-    let encrypted = cipher.update(apiKey, 'utf8', 'hex');
+    let encrypted = cipher.update(secret, 'utf8', 'hex');
     encrypted += cipher.final('hex');
 
     const authTag = cipher.getAuthTag();
@@ -43,9 +36,28 @@ export class MailerConfigurationEncryptionService {
     const encryptedKey = `${authTag.toString('hex')}:${encrypted}`;
 
     return {
-      encryptedKey,
+      encryptedValue: encryptedKey,
       iv: iv.toString('hex'),
     };
+  }
+
+  /**
+   * Encrypt a Resend API key
+   * Returns encrypted key and IV separately for backward compatibility.
+   *
+   * @param apiKey - The plaintext API key
+   * @returns Object with encryptedKey and iv
+   */
+  encryptResendApiKey(apiKey: string): { encryptedKey: string; iv: string } {
+    const encrypted = this.encryptSecret(apiKey);
+    return {
+      encryptedKey: encrypted.encryptedValue,
+      iv: encrypted.iv,
+    };
+  }
+
+  decryptSecret(encryptedValue: string, iv: string): string {
+    return this.decryptResendApiKey(encryptedValue, iv);
   }
 
   /**

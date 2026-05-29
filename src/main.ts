@@ -31,30 +31,50 @@ async function bootstrap() {
   );
 
   // Configure CORS
+  const productionOrigins = [
+    'https://divino.sinergydigital.mx',
+  ];
+  const localDevOriginPattern = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+
   app.enableCors({
-    origin: [
-      'http://localhost:4200',
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://localhost:8000', // Para tenant-modules-admin.html
-      'http://localhost:8080',
-      'https://divino.sinergydigital.mx',
-      'https://*.sinergydigital.mx',
-      '*' // Temporary wildcard - remove in production
-    ],
+    origin: (origin, callback) => {
+      // Non-browser clients (curl, server-to-server) send no Origin header.
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      if (process.env.NODE_ENV !== 'production' && localDevOriginPattern.test(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      if (
+        productionOrigins.includes(origin) ||
+        /^https:\/\/([a-z0-9-]+\.)?sinergydigital\.mx$/.test(origin)
+      ) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: [
-      'Content-Type', 
-      'Authorization', 
+      'Content-Type',
+      'Authorization',
       'X-Requested-With',
       'Accept',
       'Origin',
-      'X-Tenant-ID'
+      'X-Tenant-ID',
+      'Cache-Control',
+      'Pragma',
+      'Expires',
     ],
     exposedHeaders: ['Authorization'],
     preflightContinue: false,
-    optionsSuccessStatus: 204
+    optionsSuccessStatus: 204,
   });
 
   // Set global API prefix

@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Vendor } from '../../entities/vendor/vendor.entity';
+import { VendorType } from '../../entities/vendor/vendor-type.enum';
 import { CreateVendorDto } from './dto/create-vendor.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { QueryVendorDto } from './dto/query-vendor.dto';
@@ -15,8 +16,9 @@ export class VendorService {
   ) {}
 
   async create(dto: CreateVendorDto, tenantId: string): Promise<Vendor> {
+    const payload = this.buildPayload(dto, dto.vendor_type ?? VendorType.NATIONAL);
     const vendor = this.repo.create({
-      ...dto,
+      ...payload,
       tenant_id: tenantId,
       status: dto.status || 'active',
     });
@@ -42,8 +44,12 @@ export class VendorService {
 
     if (query?.search) {
       queryBuilder.andWhere(
-        '(LOWER(vendor.name) LIKE LOWER(:search) OR LOWER(vendor.company_name) LIKE LOWER(:search))',
-        { search: `%${query.search}%` }
+        `(LOWER(vendor.name) LIKE LOWER(:search)
+          OR LOWER(vendor.company_name) LIKE LOWER(:search)
+          OR LOWER(vendor.rfc) LIKE LOWER(:search)
+          OR LOWER(vendor.tax_id) LIKE LOWER(:search)
+          OR LOWER(vendor.legal_name) LIKE LOWER(:search))`,
+        { search: `%${query.search}%` },
       );
     }
 
@@ -57,6 +63,12 @@ export class VendorService {
 
     if (query?.country) {
       queryBuilder.andWhere('vendor.country = :country', { country: query.country });
+    }
+
+    if (query?.vendor_type) {
+      queryBuilder.andWhere('vendor.vendor_type = :vendor_type', {
+        vendor_type: query.vendor_type,
+      });
     }
 
     queryBuilder.orderBy('vendor.created_at', 'DESC');
@@ -95,12 +107,64 @@ export class VendorService {
     tenantId: string,
   ): Promise<Vendor> {
     const vendor = await this.findOne(id, tenantId);
-    Object.assign(vendor, dto);
+    const vendorType = dto.vendor_type ?? vendor.vendor_type ?? VendorType.NATIONAL;
+    this.assertTypeSwitchValid(vendor, vendorType, dto);
+    const payload = this.buildPayload(dto, vendorType);
+    Object.assign(vendor, payload);
     return this.repo.save(vendor);
   }
 
   async remove(id: string, tenantId: string): Promise<void> {
     const vendor = await this.findOne(id, tenantId);
     await this.repo.remove(vendor);
+  }
+
+  private assertTypeSwitchValid(
+    existing: Vendor,
+    nextType: VendorType,
+    dto: UpdateVendorDto,
+  ): void {
+    if (existing.vendor_type === nextType) return;
+
+    if (nextType === VendorType.INTERNATIONAL) {
+      const taxId = dto.tax_id ?? existing.tax_id;
+      const legalName = dto.legal_name ?? existing.legal_name;
+      const country = dto.country ?? existing.country;
+      if (!taxId?.trim() || !legalName?.trim() || !country?.trim()) {
+        throw new BadRequestException(
+          'ID fiscal, nombre legal y país son requeridos al cambiar el proveedor a internacional',
+        );
+      }
+    }
+  }
+
+  private buildPayload(
+    dto: CreateVendorDto | UpdateVendorDto | Vendor,
+    vendorType: VendorType,
+  ): Partial<Vendor> {
+    const base = { ...dto, vendor_type: vendorType };
+
+    if (vendorType === VendorType.NATIONAL) {
+      return {
+        ...base,
+        vendor_type: VendorType.NATIONAL,
+        country: base.country || 'México',
+        persona_type: base.persona_type || 'Persona Moral',
+        tax_id: null,
+        legal_name: null,
+        bank_swift_bic: null,
+        bank_iban: null,
+      };
+    }
+
+    return {
+      ...base,
+      vendor_type: VendorType.INTERNATIONAL,
+      rfc: null,
+      razon_social: null,
+      persona_type: null,
+      bank_clabe: null,
+      bank_currency: base.bank_currency || 'USD',
+    };
   }
 }

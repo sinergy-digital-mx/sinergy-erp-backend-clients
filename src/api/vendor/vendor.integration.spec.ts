@@ -4,6 +4,7 @@ import { VendorService } from './vendor.service';
 import { Vendor } from '../../entities/vendor/vendor.entity';
 import { CreateVendorDto } from './dto/create-vendor.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
+import { VendorType } from '../../entities/vendor/vendor-type.enum';
 import { NotFoundException } from '@nestjs/common';
 
 describe('VendorService - Integration Tests', () => {
@@ -70,6 +71,7 @@ describe('VendorService - Integration Tests', () => {
 
       // Create vendor
       const createDto: CreateVendorDto = {
+        vendor_type: VendorType.NATIONAL,
         name: 'Acme Corp',
         company_name: 'Acme Corporation',
         street: '123 Main St',
@@ -128,6 +130,7 @@ describe('VendorService - Integration Tests', () => {
 
       // Create vendor for tenant A
       const vendorADto: CreateVendorDto = {
+        vendor_type: VendorType.NATIONAL,
         name: 'Vendor A',
         company_name: 'Company A',
         street: 'Street A',
@@ -145,6 +148,7 @@ describe('VendorService - Integration Tests', () => {
 
       // Create vendor for tenant B
       const vendorBDto: CreateVendorDto = {
+        vendor_type: VendorType.NATIONAL,
         name: 'Vendor B',
         company_name: 'Company B',
         street: 'Street B',
@@ -178,6 +182,7 @@ describe('VendorService - Integration Tests', () => {
 
       const tenantId = 'tenant-123';
       const createDto: CreateVendorDto = {
+        vendor_type: VendorType.NATIONAL,
         name: 'Test Vendor',
         company_name: 'Company',
         street: 'Street',
@@ -219,6 +224,7 @@ describe('VendorService - Integration Tests', () => {
 
       // Valid RFC should work
       const validDto: CreateVendorDto = {
+        vendor_type: VendorType.NATIONAL,
         name: 'Valid Vendor',
         company_name: 'Company',
         street: 'Street',
@@ -280,6 +286,7 @@ describe('VendorService - Integration Tests', () => {
       const tenantId = 'tenant-123';
 
       const createDto: CreateVendorDto = {
+        vendor_type: VendorType.NATIONAL,
         name: 'Address Test Vendor',
         company_name: 'Company',
         street: '456 Oak Avenue',

@@ -19,7 +19,7 @@ export class MailerConfigurationDto {
   /**
    * Tenant ID this configuration belongs to
    */
-  @Expose()
+  @Expose({ name: 'tenant_id' })
   tenantId: string;
 
   /**
@@ -38,71 +38,71 @@ export class MailerConfigurationDto {
    * Vendor-specific configuration with masked sensitive fields
    * Sensitive fields (apiKey, password, etc.) are masked showing only last 4 characters
    */
-  @Expose()
+  @Expose({ name: 'vendor_config' })
   vendorConfig: VendorConfig;
 
   /**
    * Whether this is the active configuration for the tenant
    */
-  @Expose()
+  @Expose({ name: 'is_active' })
   isActive: boolean;
 
   /**
    * Whether this is the fallback configuration for the tenant
    */
-  @Expose()
+  @Expose({ name: 'is_fallback' })
   isFallback: boolean;
 
   /**
    * Whether this configuration has passed validation
    */
-  @Expose()
+  @Expose({ name: 'is_valid' })
   isValid: boolean;
 
   /**
    * Timestamp when the configuration was created
    */
-  @Expose()
+  @Expose({ name: 'created_at' })
   @Type(() => Date)
   createdAt: Date;
 
   /**
    * User ID who created the configuration
    */
-  @Expose()
+  @Expose({ name: 'created_by' })
   createdBy: string;
 
   /**
    * Timestamp when the configuration was last updated
    */
-  @Expose()
+  @Expose({ name: 'updated_at' })
   @Type(() => Date)
   updatedAt: Date;
 
   /**
    * User ID who last updated the configuration
    */
-  @Expose()
+  @Expose({ name: 'updated_by' })
   updatedBy: string;
 
   /**
    * Result of the last test performed on this configuration (optional)
    */
-  @Expose()
+  @Expose({ name: 'last_test_result' })
   @Type(() => Object)
   lastTestResult?: TestResult;
 
   /**
    * Timestamp of the last test performed on this configuration (optional)
    */
-  @Expose()
+  @Expose({ name: 'last_test_timestamp' })
   @Type(() => Date)
   lastTestTimestamp?: Date;
 
   /**
    * Timestamp of the last time this configuration was used to send an email (optional)
    */
-  @Expose()
+  @Expose({ name: 'last_used_timestamp' })
   @Type(() => Date)
   lastUsedTimestamp?: Date;
 }

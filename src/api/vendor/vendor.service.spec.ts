@@ -4,6 +4,8 @@ import * as fc from 'fast-check';
 import { VendorService } from './vendor.service';
 import { Vendor } from '../../entities/vendor/vendor.entity';
 import { CreateVendorDto } from './dto/create-vendor.dto';
+import { UpdateVendorDto } from './dto/update-vendor.dto';
+import { VendorType } from '../../entities/vendor/vendor-type.enum';
 
 describe('VendorService', () => {
   let service: VendorService;
@@ -38,6 +40,7 @@ describe('VendorService', () => {
   describe('create', () => {
     it('should create a vendor with all fields', async () => {
       const dto: CreateVendorDto = {
+        vendor_type: VendorType.NATIONAL,
         name: 'Test Vendor',
         company_name: 'Test Company',
         street: '123 Main St',
@@ -66,16 +69,20 @@ describe('VendorService', () => {
       const result = await service.create(dto, tenantId);
 
       expect(result).toEqual(expected);
-      expect(mockRepository.create).toHaveBeenCalledWith({
-        ...dto,
-        tenant_id: tenantId,
-        status: 'active',
-      });
+      expect(mockRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ...dto,
+          tenant_id: tenantId,
+          status: 'active',
+          vendor_type: VendorType.NATIONAL,
+        }),
+      );
       expect(mockRepository.save).toHaveBeenCalledWith(expected);
     });
 
     it('should set default status to active', async () => {
       const dto: CreateVendorDto = {
+        vendor_type: VendorType.NATIONAL,
         name: 'Test Vendor',
         company_name: 'Test Company',
         street: '123 Main St',
@@ -111,6 +118,7 @@ describe('VendorService', () => {
     it('should store all provided fields when creating a vendor', async () => {
       // **Validates: Requirements 1.1, 1.4, 4.1, 4.5**
       const vendorArbitrary = fc.record({
+        vendor_type: fc.constant(VendorType.NATIONAL),
         name: fc.string({ minLength: 1, maxLength: 100 }),
         company_name: fc.string({ minLength: 1, maxLength: 100 }),
         street: fc.string({ minLength: 1, maxLength: 100 }),
@@ -125,7 +133,7 @@ describe('VendorService', () => {
 
       fc.assert(
         fc.property(vendorArbitrary, (vendorData) => {
-          const dto: CreateVendorDto = vendorData;
+          const dto: CreateVendorDto = vendorData as CreateVendorDto;
           const tenantId = 'tenant-123';
           const createdVendor: Vendor = {
             id: 'vendor-123',

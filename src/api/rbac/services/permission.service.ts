@@ -8,6 +8,7 @@ import { RolePermission } from '../../../entities/rbac/role-permission.entity';
 import { EntityRegistry } from '../../../entities/entity-registry/entity-registry.entity';
 import { TenantContextService } from './tenant-context.service';
 import { PermissionCacheService } from './permission-cache.service';
+import { PermissionVersionService } from './permission-version.service';
 import { QueryCacheService } from './query-cache.service';
 
 /**
@@ -37,6 +38,7 @@ export class PermissionService {
     private entityRegistryRepository: Repository<EntityRegistry>,
     private tenantContextService: TenantContextService,
     private permissionCacheService: PermissionCacheService,
+    private permissionVersionService: PermissionVersionService,
     private queryCacheService: QueryCacheService,
   ) {}
 
@@ -787,7 +789,14 @@ export class PermissionService {
    */
   async warmUserPermissionsCache(userId: string, tenantId: string): Promise<void> {
     const permissions = await this.getUserPermissionsOptimized(userId, tenantId);
-    await this.permissionCacheService.warmCache(userId, tenantId, permissions);
+    const permissionsVersion = await this.permissionVersionService.getUserVersion(userId);
+    await this.permissionCacheService.warmCache(
+      userId,
+      tenantId,
+      permissions,
+      undefined,
+      permissionsVersion,
+    );
     this.logger.debug(`Warmed cache for user ${userId} in tenant ${tenantId} with ${permissions.length} permissions`);
   }
 
@@ -1378,8 +1387,14 @@ export class PermissionService {
     tenantId: string,
   ): Promise<Permission[]> {
     try {
-      // Cache-first approach: Try to get permissions from cache first
-      let permissions = await this.permissionCacheService.getUserPermissions(userId, tenantId);
+      const permissionsVersion = await this.permissionVersionService.getUserVersion(userId);
+
+      // Cache-first approach: validate cached entry against current permissions_version
+      let permissions = await this.permissionCacheService.getUserPermissions(
+        userId,
+        tenantId,
+        permissionsVersion,
+      );
       
       if (!permissions) {
         // Cache miss - fetch from database and cache the result
@@ -1388,7 +1403,13 @@ export class PermissionService {
         
         // Try to cache the result with graceful degradation for cache failures
         try {
-          await this.permissionCacheService.setUserPermissions(userId, tenantId, permissions);
+          await this.permissionCacheService.setUserPermissions(
+            userId,
+            tenantId,
+            permissions,
+            undefined,
+            permissionsVersion,
+          );
           this.logger.debug(`Cached permissions for user ${userId} in tenant ${tenantId}`);
         } catch (cacheError) {
           this.logger.warn(`Failed to cache permissions for user ${userId} in tenant ${tenantId}:`, cacheError);

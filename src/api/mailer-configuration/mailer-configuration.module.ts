@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ResendConfiguration } from '../../entities/mailer-configuration/resend-configuration.entity';
+import { MailerConfiguration } from '../../entities/mailer-configuration/mailer-configuration.entity';
 import { MailerConfigurationService } from './services/mailer-configuration.service';
 import { MailerConfigurationEncryptionService } from './services/encryption.service';
 import { AuditService } from './services/audit.service';
@@ -11,7 +11,7 @@ import { RBACModule } from '../rbac/rbac.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ResendConfiguration]),
+    TypeOrmModule.forFeature([MailerConfiguration]),
     RBACModule.forFeature(),
   ],
   controllers: [MailerConfigurationController],

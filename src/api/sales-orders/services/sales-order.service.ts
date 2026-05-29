@@ -88,6 +88,7 @@ export class SalesOrderService {
       });
 
       const savedSO = await qr.manager.save(SalesOrder, so);
+      const savedDetails: SalesOrderDetail[] = [];
 
       let subtotal = 0, iva_total = 0, ieps_total = 0, discount_total = 0;
 
@@ -142,6 +143,7 @@ export class SalesOrderService {
         });
 
         await qr.manager.save(SalesOrderDetail, detail);
+        savedDetails.push(detail);
 
         subtotal += line_subtotal;
         discount_total += line_discount;
@@ -155,6 +157,17 @@ export class SalesOrderService {
       savedSO.ieps_total = ieps_total;
       savedSO.total = subtotal - discount_total + iva_total + ieps_total;
       await qr.manager.save(SalesOrder, savedSO);
+
+      if ((dto.sales_order_type || 'MANUAL') === 'POS') {
+        await this.fulfillOrderLines(
+          qr,
+          savedSO.id,
+          dto.warehouse_id,
+          savedDetails,
+          userId,
+        );
+        this.logger.log(`POS sales order ${folio} auto-fulfilled by user ${userId}`);
+      }
 
       await qr.commitTransaction();
       return this.findOne(savedSO.id, tenantId);
@@ -178,7 +191,10 @@ export class SalesOrderService {
       .where('so.tenant_id = :tenantId', { tenantId });
 
     if (search) {
-      qb.andWhere('(so.folio LIKE :s OR customer.name LIKE :s)', { s: `%${search}%` });
+      qb.andWhere(
+        '(so.folio LIKE :s OR customer.name LIKE :s OR customer.lastname LIKE :s OR CONCAT(customer.name, \' \', COALESCE(customer.lastname, \'\')) LIKE :s)',
+        { s: `%${search}%` },
+      );
     }
     if (general_status) qb.andWhere('so.general_status = :general_status', { general_status });
     if (payment_status) qb.andWhere('so.payment_status = :payment_status', { payment_status });
@@ -226,15 +242,14 @@ export class SalesOrderService {
     await qr.startTransaction();
 
     try {
-      for (const detail of so.line_items) {
-        await this.fulfillmentService.allocateFifo(detail, so.warehouse_id, userId, qr.manager);
-      }
-
-      await qr.manager.update(SalesOrder, { id }, {
-        general_status: 'Surtida',
-        notes: dto.notes ?? so.notes,
-        updated_by: userId,
-      });
+      await this.fulfillOrderLines(
+        qr,
+        id,
+        so.warehouse_id,
+        so.line_items,
+        userId,
+        dto.notes ?? so.notes,
+      );
 
       await qr.commitTransaction();
       this.logger.log(`Sales order ${so.folio} fulfilled by user ${userId}`);
@@ -330,6 +345,25 @@ export class SalesOrderService {
     } finally {
       await qr.release();
     }
+  }
+
+  private async fulfillOrderLines(
+    qr: QueryRunner,
+    salesOrderId: string,
+    warehouseId: string,
+    lineItems: SalesOrderDetail[],
+    userId: string,
+    notes?: string,
+  ): Promise<void> {
+    for (const detail of lineItems) {
+      await this.fulfillmentService.allocateFifo(detail, warehouseId, userId, qr.manager);
+    }
+
+    await qr.manager.update(SalesOrder, { id: salesOrderId }, {
+      general_status: 'Surtida',
+      ...(notes !== undefined ? { notes } : {}),
+      updated_by: userId,
+    });
   }
 
   private async insertSalesOrderLineItems(

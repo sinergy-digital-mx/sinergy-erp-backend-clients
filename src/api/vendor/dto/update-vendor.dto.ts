@@ -2,12 +2,18 @@ import {
   IsString,
   IsEnum,
   IsOptional,
-  Matches,
   IsInt,
   Min,
+  ValidateIf,
 } from 'class-validator';
+import { VendorType } from '../../../entities/vendor/vendor-type.enum';
+import { VendorBankingDto } from './vendor-banking.dto';
 
-export class UpdateVendorDto {
+export class UpdateVendorDto extends VendorBankingDto {
+  @IsOptional()
+  @IsEnum(VendorType)
+  vendor_type?: VendorType;
+
   @IsOptional()
   @IsString()
   name?: string;
@@ -36,20 +42,30 @@ export class UpdateVendorDto {
   @IsString()
   country?: string;
 
+  @ValidateIf((o) => o.vendor_type === VendorType.NATIONAL)
   @IsOptional()
   @IsString()
   razon_social?: string;
 
+  @ValidateIf((o) => o.vendor_type === VendorType.NATIONAL)
   @IsOptional()
   @IsString()
-  @Matches(/^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/, {
-    message: 'RFC must be in valid format (13 characters: 3-4 letters + 6 digits + 3 alphanumeric)',
-  })
   rfc?: string;
 
+  @ValidateIf((o) => o.vendor_type === VendorType.NATIONAL)
   @IsOptional()
   @IsEnum(['Persona Física', 'Persona Moral'])
   persona_type?: string;
+
+  @ValidateIf((o) => o.vendor_type === VendorType.INTERNATIONAL)
+  @IsOptional()
+  @IsString()
+  tax_id?: string;
+
+  @ValidateIf((o) => o.vendor_type === VendorType.INTERNATIONAL)
+  @IsOptional()
+  @IsString()
+  legal_name?: string;
 
   @IsOptional()
   @IsEnum(['active', 'inactive'])

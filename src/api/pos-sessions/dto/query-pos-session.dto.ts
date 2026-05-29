@@ -26,6 +26,14 @@ export class QueryPosSessionDto {
   @Min(1)
   limit?: number = 10;
   @ApiProperty({
+    description: 'Filter by branch (sucursal) UUID',
+    required: false,
+  })
+  @IsOptional()
+  @IsUUID()
+  sucursal?: string;
+
+  @ApiProperty({
     description: 'Filter by POS configuration ID',
     required: false,
   })

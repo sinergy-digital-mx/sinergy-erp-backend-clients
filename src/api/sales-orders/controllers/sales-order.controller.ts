@@ -21,7 +21,11 @@ export class SalesOrderController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a new sales order' })
+  @ApiOperation({
+    summary: 'Create a new sales order',
+    description:
+      'Orders with sales_order_type POS are automatically fulfilled (inventory deducted via FIFO) in the same transaction.',
+  })
   async create(@Body() dto: CreateSalesOrderDto, @Req() req: any) {
     return this.salesOrderService.create(dto, req.user.tenant_id, req.user.id);
   }

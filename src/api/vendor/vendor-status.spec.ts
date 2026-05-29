@@ -4,6 +4,7 @@ import * as fc from 'fast-check';
 import { VendorService } from './vendor.service';
 import { Vendor } from '../../entities/vendor/vendor.entity';
 import { CreateVendorDto } from './dto/create-vendor.dto';
+import { VendorType } from '../../entities/vendor/vendor-type.enum';
 
 describe('VendorService - Status Management', () => {
   let service: VendorService;
@@ -35,6 +36,7 @@ describe('VendorService - Status Management', () => {
     it('should set default status to active when not provided', async () => {
       // **Validates: Requirements 3.1**
       const vendorArbitrary = fc.record({
+        vendor_type: fc.constant(VendorType.NATIONAL),
         name: fc.string({ minLength: 1, maxLength: 100 }),
         company_name: fc.string({ minLength: 1, maxLength: 100 }),
         street: fc.string({ minLength: 1, maxLength: 100 }),
@@ -49,7 +51,7 @@ describe('VendorService - Status Management', () => {
 
       fc.assert(
         fc.property(vendorArbitrary, (vendorData) => {
-          const dto: CreateVendorDto = vendorData;
+          const dto: CreateVendorDto = vendorData as CreateVendorDto;
           const tenantId = 'tenant-123';
           const createdVendor: Vendor = {
             id: 'vendor-123',
@@ -144,6 +146,7 @@ describe('VendorService - Status Management', () => {
   describe('Status management in service', () => {
     it('should create vendor with default active status', async () => {
       const dto: CreateVendorDto = {
+        vendor_type: VendorType.NATIONAL,
         name: 'Test Vendor',
         company_name: 'Company',
         street: 'Street',
@@ -176,6 +179,7 @@ describe('VendorService - Status Management', () => {
 
     it('should create vendor with provided status', async () => {
       const dto: CreateVendorDto = {
+        vendor_type: VendorType.NATIONAL,
         name: 'Test Vendor',
         company_name: 'Company',
         street: 'Street',
