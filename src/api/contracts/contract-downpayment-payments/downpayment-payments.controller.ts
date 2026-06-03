@@ -13,6 +13,8 @@ import { RequirePermissions } from '../../rbac/decorators/require-permissions.de
 import { PermissionGuard } from '../../rbac/guards/permission.guard';
 import { TenantContextService } from '../../rbac/services/tenant-context.service';
 import { RecordPartialPaymentDto } from '../dto/record-partial-payment.dto';
+import { CreateManualDownpaymentPaymentDto } from './dto/create-manual-downpayment-payment.dto';
+import { GenerateDownpaymentPaymentsDto } from './dto/generate-downpayment-payments.dto';
 import { DownpaymentPaymentsService } from './downpayment-payments.service';
 
 @Controller('tenant/contracts/:contractId/downpayment-payments')
@@ -23,12 +25,29 @@ export class DownpaymentPaymentsController {
     private readonly tenantContext: TenantContextService,
   ) {}
 
+  @Post()
+  @RequirePermissions({ entityType: 'Contract', action: 'Create' })
+  async createManual(
+    @Param('contractId') contractId: string,
+    @Body() dto: CreateManualDownpaymentPaymentDto,
+  ) {
+    return this.downpaymentPaymentsService.createManualDownpaymentPayment(
+      this.getTenantIdOrThrow(),
+      contractId,
+      dto,
+    );
+  }
+
   @Post('generate')
   @RequirePermissions({ entityType: 'Contract', action: 'Create' })
-  async generate(@Param('contractId') contractId: string) {
+  async generate(
+    @Param('contractId') contractId: string,
+    @Body() dto: GenerateDownpaymentPaymentsDto,
+  ) {
     return this.downpaymentPaymentsService.generateDownpaymentPayments(
       this.getTenantIdOrThrow(),
       contractId,
+      dto ?? {},
     );
   }
 

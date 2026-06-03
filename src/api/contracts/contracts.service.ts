@@ -19,16 +19,26 @@ export class ContractsService {
       contractNumber = await this.generateContractNumber(tenantId, dto.property_id);
     }
 
+    const financed = !!dto.down_payment_financed;
+    const downPaymentConfig = this.buildDownPaymentConfig(dto);
+    const downPaymentApplied = financed ? 0 : Number(dto.down_payment);
+    const downPaymentTarget =
+      financed && Number(dto.down_payment) > 0 ? Number(dto.down_payment) : null;
+    const engancheForFinancing = financed
+      ? Number(downPaymentTarget ?? 0)
+      : downPaymentApplied;
+
     const { remaining_balance, payment_months, monthly_payment } = this.computeFinancing(
       Number(dto.total_price),
-      Number(dto.down_payment),
+      engancheForFinancing,
       Number(dto.payment_months),
     );
-    const downPaymentConfig = this.buildDownPaymentConfig(dto);
 
     const contract = this.contractRepo.create({
       ...dto,
       ...downPaymentConfig,
+      down_payment_target: financed ? downPaymentTarget : null,
+      down_payment: downPaymentApplied,
       contract_number: contractNumber,
       tenant_id: tenantId,
       payment_months,
@@ -397,6 +407,21 @@ export class ContractsService {
       contract_date: contract.contract_date,
       total_price: contract.total_price,
       down_payment: contract.down_payment,
+      down_payment_target: contract.down_payment_target,
+      down_payment_applied: Number(contract.down_payment) || 0,
+      down_payment_pending:
+        contract.down_payment_financed && contract.down_payment_target != null
+          ? Math.max(
+              0,
+              Math.round(
+                (Number(contract.down_payment_target) -
+                  Number(contract.down_payment || 0)) *
+                  100,
+              ) / 100,
+            )
+          : null,
+      down_payment_target_defined:
+        contract.down_payment_financed && contract.down_payment_target != null,
       down_payment_financed: contract.down_payment_financed,
       down_payment_months: contract.down_payment_months,
       down_payment_monthly_amount: contract.down_payment_monthly_amount,
@@ -488,7 +513,10 @@ export class ContractsService {
     }
 
     // Calculate total pending amount DYNAMICALLY (not from DB)
-    const totalAfterDownPayment = Number(contract.total_price) - Number(contract.down_payment);
+    const downPaymentBaseline = contract.down_payment_financed
+      ? Number(contract.down_payment_target ?? contract.down_payment)
+      : Number(contract.down_payment);
+    const totalAfterDownPayment = Number(contract.total_price) - downPaymentBaseline;
     const totalPaid = Number(contract.down_payment) + totalPaidFromPayments;
     const totalPendingAmount = Number(contract.total_price) - totalPaid;
     const financedAmount = totalAfterDownPayment; // This is what gets divided by payment_months
@@ -513,15 +541,13 @@ export class ContractsService {
       throw new Error('Contract not found');
     }
 
+    const financed =
+      dto.down_payment_financed !== undefined
+        ? dto.down_payment_financed
+        : contract.down_payment_financed;
+
     const downPaymentConfig = this.buildDownPaymentConfig({
-      down_payment:
-        dto.down_payment !== undefined
-          ? Number(dto.down_payment)
-          : Number(contract.down_payment),
-      down_payment_financed:
-        dto.down_payment_financed !== undefined
-          ? dto.down_payment_financed
-          : contract.down_payment_financed,
+      down_payment_financed: financed,
       down_payment_months:
         dto.down_payment_months !== undefined
           ? dto.down_payment_months
@@ -536,15 +562,34 @@ export class ContractsService {
           : contract.down_payment_payment_day,
     });
 
-    // Recalculate if total_price, down_payment, or payment_months changed (incl. payment_months = 0)
-    if (
+    if (financed) {
+      if (dto.down_payment_financed === true && !contract.down_payment_financed) {
+        contract.down_payment = 0;
+      }
+      if (dto.down_payment !== undefined && Number(dto.down_payment) > 0) {
+        contract.down_payment_target = Number(dto.down_payment);
+      }
+    } else if (dto.down_payment !== undefined) {
+      contract.down_payment = Number(dto.down_payment);
+      contract.down_payment_target = null;
+    }
+
+    const shouldRecalculateFinancing =
       dto.total_price !== undefined ||
       dto.down_payment !== undefined ||
-      dto.payment_months !== undefined
-    ) {
-      const total = dto.total_price !== undefined ? Number(dto.total_price) : Number(contract.total_price);
-      const down =
-        dto.down_payment !== undefined ? Number(dto.down_payment) : Number(contract.down_payment);
+      dto.payment_months !== undefined ||
+      dto.down_payment_financed !== undefined;
+
+    if (shouldRecalculateFinancing) {
+      const total =
+        dto.total_price !== undefined ? Number(dto.total_price) : Number(contract.total_price);
+      const engancheForFinancing = financed
+        ? Number(contract.down_payment_target ?? 0)
+        : Number(
+            dto.down_payment !== undefined
+              ? dto.down_payment
+              : contract.down_payment,
+          );
       const monthsRequested =
         dto.payment_months !== undefined
           ? Number(dto.payment_months)
@@ -552,22 +597,27 @@ export class ContractsService {
 
       const { remaining_balance, payment_months, monthly_payment } = this.computeFinancing(
         total,
-        down,
+        engancheForFinancing,
         monthsRequested,
       );
 
-      Object.assign(contract, {
+      const updatePayload: Record<string, unknown> = {
         ...dto,
         ...downPaymentConfig,
         remaining_balance,
         payment_months,
         monthly_payment,
-      });
+      };
+      if (financed) {
+        delete updatePayload.down_payment;
+      }
+      Object.assign(contract, updatePayload);
     } else {
-      Object.assign(contract, {
-        ...dto,
-        ...downPaymentConfig,
-      });
+      const updatePayload: Record<string, unknown> = { ...dto, ...downPaymentConfig };
+      if (financed) {
+        delete updatePayload.down_payment;
+      }
+      Object.assign(contract, updatePayload);
     }
 
     return this.contractRepo.save(contract);
@@ -710,7 +760,6 @@ export class ContractsService {
   }
 
   private buildDownPaymentConfig(dto: {
-    down_payment: number;
     down_payment_financed?: boolean;
     down_payment_months?: number | null;
     down_payment_first_payment_date?: Date | string | null;
@@ -733,39 +782,27 @@ export class ContractsService {
       };
     }
 
-    const months = Number(dto.down_payment_months || 0);
-    const paymentDay = Number(dto.down_payment_payment_day || 0);
+    const months = dto.down_payment_months ? Number(dto.down_payment_months) : null;
+    const paymentDay = dto.down_payment_payment_day
+      ? Number(dto.down_payment_payment_day)
+      : null;
     const firstPaymentDate = dto.down_payment_first_payment_date
       ? new Date(dto.down_payment_first_payment_date)
       : null;
-    const downPaymentAmount = Number(dto.down_payment || 0);
 
-    if (downPaymentAmount <= 0) {
+    if (paymentDay != null && (paymentDay < 1 || paymentDay > 31)) {
       throw new BadRequestException(
-        'down_payment debe ser mayor a 0 para financiar el enganche',
+        'down_payment_payment_day debe estar entre 1 y 31',
       );
     }
-    if (!months || months < 1) {
-      throw new BadRequestException(
-        'down_payment_months debe ser mayor a 0 cuando se financia el enganche',
-      );
-    }
-    if (!paymentDay || paymentDay < 1 || paymentDay > 31) {
-      throw new BadRequestException(
-        'down_payment_payment_day debe estar entre 1 y 31 cuando se financia el enganche',
-      );
-    }
-    if (!firstPaymentDate || Number.isNaN(firstPaymentDate.getTime())) {
-      throw new BadRequestException(
-        'down_payment_first_payment_date es requerida cuando se financia el enganche',
-      );
+    if (firstPaymentDate && Number.isNaN(firstPaymentDate.getTime())) {
+      throw new BadRequestException('down_payment_first_payment_date inválida');
     }
 
     return {
       down_payment_financed: true,
       down_payment_months: months,
-      down_payment_monthly_amount:
-        Math.round((downPaymentAmount / months) * 100) / 100,
+      down_payment_monthly_amount: null,
       down_payment_first_payment_date: firstPaymentDate,
       down_payment_payment_day: paymentDay,
     };

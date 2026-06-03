@@ -620,7 +620,7 @@ export class PaymentsService {
   ): Promise<boolean> {
     const contract = await this.contractRepo.findOne({
       where: { id: contractId, tenant_id: tenantId },
-      select: ['id', 'down_payment_financed', 'down_payment'],
+      select: ['id', 'down_payment_financed', 'down_payment', 'down_payment_target'],
     });
 
     if (!contract || !contract.down_payment_financed) {
@@ -678,9 +678,27 @@ export class PaymentsService {
       return sum;
     }, 0);
 
-    if (totalPaid < Number(contract.down_payment || 0)) {
+    if (!contract.down_payment_financed) {
+      return false;
+    }
+
+    const downPaymentTarget =
+      contract.down_payment_target != null
+        ? Number(contract.down_payment_target)
+        : null;
+
+    if (downPaymentTarget == null || downPaymentTarget <= 0) {
       return true;
     }
-    return false;
+
+    if (totalPaid < downPaymentTarget) {
+      return true;
+    }
+
+    const pendingOrPartial = paymentRows.filter(
+      (row) => row.status === 'pendiente' || row.status === 'parcial',
+    ).length;
+
+    return pendingOrPartial > 0;
   }
 }

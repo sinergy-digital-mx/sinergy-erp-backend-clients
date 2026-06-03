@@ -64,6 +64,10 @@ export class Contract {
   @Column({ type: 'decimal', precision: 15, scale: 2 })
   down_payment: number;
 
+  /** Enganche total pactado cuando se financia en pagos (meta contractual). */
+  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
+  down_payment_target: number | null;
+
   @Column({ type: 'boolean', default: false })
   down_payment_financed: boolean;
 

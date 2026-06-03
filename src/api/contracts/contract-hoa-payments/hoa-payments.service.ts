@@ -21,18 +21,10 @@ export class HoaPaymentsService {
     contractId: string,
     dto: GenerateHoaPaymentsDto,
   ): Promise<ContractHoaPayment[]> {
-    await this.ensureContractExists(tenantId, contractId);
+    await this.ensureContractAllowsHoaOperations(tenantId, contractId);
 
-    const firstPaymentDate = new Date(dto.first_payment_date);
-    if (Number.isNaN(firstPaymentDate.getTime())) {
-      throw new BadRequestException('Fecha inicial de pago inválida');
-    }
-
-    if (dto.payments_count <= 0) {
-      throw new BadRequestException(
-        'La cantidad de pagos debe ser mayor que 0',
-      );
-    }
+    const { firstPaymentDate, paymentsCount, paymentDay } =
+      this.resolveGenerateConfig(dto);
 
     const existingPayments = await this.hoaPaymentRepo.count({
       where: { tenant_id: tenantId, contract_id: contractId },
@@ -51,14 +43,14 @@ export class HoaPaymentsService {
       1,
     );
 
-    for (let i = 0; i < dto.payments_count; i++) {
+    for (let i = 0; i < paymentsCount; i++) {
       const monthDate = new Date(baseMonth.getFullYear(), baseMonth.getMonth() + i, 1);
       const maxDayOfMonth = new Date(
         monthDate.getFullYear(),
         monthDate.getMonth() + 1,
         0,
       ).getDate();
-      const safePaymentDay = Math.min(dto.payment_day, maxDayOfMonth);
+      const safePaymentDay = Math.min(paymentDay, maxDayOfMonth);
       const dueDate = new Date(
         monthDate.getFullYear(),
         monthDate.getMonth(),
@@ -162,6 +154,7 @@ export class HoaPaymentsService {
     paymentId: string,
     dto: RecordHoaPaymentDto,
   ): Promise<ContractHoaPayment> {
+    await this.ensureContractAllowsHoaOperations(tenantId, contractId);
     const payment = await this.getHoaPaymentOrThrow(tenantId, contractId, paymentId);
 
     if (payment.status === 'cancelado') {
@@ -341,13 +334,88 @@ export class HoaPaymentsService {
   }
 
   private async ensureContractExists(tenantId: string, contractId: string): Promise<void> {
+    await this.ensureContractAllowsHoaOperations(tenantId, contractId);
+  }
+
+  /**
+   * HOA es independiente del financiamiento del contrato.
+   * Se permiten operaciones con contrato activo o completado.
+   */
+  private async ensureContractAllowsHoaOperations(
+    tenantId: string,
+    contractId: string,
+  ): Promise<Contract> {
     const contract = await this.contractRepo.findOne({
       where: { id: contractId, tenant_id: tenantId },
-      select: ['id'],
+      select: ['id', 'status', 'contract_number'],
     });
+
     if (!contract) {
       throw new NotFoundException('Contract not found');
     }
+
+    if (contract.status === 'cancelado') {
+      throw new BadRequestException(
+        `No se pueden gestionar pagos HOA del contrato ${contract.contract_number} porque está cancelado`,
+      );
+    }
+
+    return contract;
+  }
+
+  private resolveGenerateConfig(dto: GenerateHoaPaymentsDto): {
+    firstPaymentDate: Date;
+    paymentsCount: number;
+    paymentDay: number;
+  } {
+    if (dto.first_payment_date && dto.payments_count) {
+      const firstPaymentDate = new Date(dto.first_payment_date);
+      if (Number.isNaN(firstPaymentDate.getTime())) {
+        throw new BadRequestException('Fecha inicial de pago inválida');
+      }
+
+      return {
+        firstPaymentDate,
+        paymentsCount: dto.payments_count,
+        paymentDay: dto.payment_day ?? 5,
+      };
+    }
+
+    if (dto.start_date && dto.end_date) {
+      const startDate = new Date(dto.start_date);
+      const endDate = new Date(dto.end_date);
+
+      if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+        throw new BadRequestException('Rango de fechas inválido');
+      }
+
+      if (endDate <= startDate) {
+        throw new BadRequestException(
+          'La fecha de fin debe ser posterior a la fecha de inicio',
+        );
+      }
+
+      const paymentsCount =
+        (endDate.getFullYear() - startDate.getFullYear()) * 12 +
+        (endDate.getMonth() - startDate.getMonth()) +
+        1;
+
+      if (paymentsCount <= 0) {
+        throw new BadRequestException(
+          'El rango de fechas debe cubrir al menos un mes',
+        );
+      }
+
+      return {
+        firstPaymentDate: startDate,
+        paymentsCount,
+        paymentDay: dto.payment_day ?? 5,
+      };
+    }
+
+    throw new BadRequestException(
+      'Envía first_payment_date y payments_count, o start_date y end_date',
+    );
   }
 
   private async getHoaPaymentOrThrow(

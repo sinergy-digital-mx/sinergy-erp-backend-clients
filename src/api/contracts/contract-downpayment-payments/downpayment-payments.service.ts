@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Contract } from '../../../entities/contracts/contract.entity';
 import { ContractDownpaymentPayment } from '../../../entities/contracts/contract-downpayment-payment.entity';
+import { CreateManualDownpaymentPaymentDto } from './dto/create-manual-downpayment-payment.dto';
+import { GenerateDownpaymentPaymentsDto } from './dto/generate-downpayment-payments.dto';
 
 @Injectable()
 export class DownpaymentPaymentsService {
@@ -13,78 +15,190 @@ export class DownpaymentPaymentsService {
     private contractRepo: Repository<Contract>,
   ) {}
 
+  async createManualDownpaymentPayment(
+    tenantId: string,
+    contractId: string,
+    dto: CreateManualDownpaymentPaymentDto,
+  ): Promise<ContractDownpaymentPayment> {
+    await this.getFinancedContractOrThrow(tenantId, contractId);
+
+    const amount = Math.round(Number(dto.amount) * 100) / 100;
+    const dueDate = new Date(dto.due_date);
+    if (Number.isNaN(dueDate.getTime())) {
+      throw new BadRequestException('Fecha de vencimiento inválida');
+    }
+
+    const paymentNumber = await this.getNextPaymentNumber(tenantId, contractId);
+    const payment = this.createDownpaymentRow(
+      tenantId,
+      contractId,
+      paymentNumber,
+      amount,
+      dueDate,
+    );
+
+    if (dto.record_as_paid) {
+      const paymentDate = dto.payment_date ?? dto.due_date;
+      payment.amount_paid = amount;
+      payment.amount_pending = 0;
+      payment.status = 'pagado';
+      payment.paid_date = new Date(paymentDate);
+      payment.payment_method = dto.payment_method ?? 'efectivo';
+      payment.first_partial_payment_date = new Date(paymentDate);
+      const history = `Abono manual de enganche ${amount} el ${paymentDate}`;
+      payment.notes = dto.notes ? `${history}\n${dto.notes}` : history;
+    } else if (dto.notes) {
+      payment.notes = dto.notes;
+    }
+
+    const saved = await this.downpaymentRepo.save(payment);
+    await this.syncContractDownPaymentApplied(tenantId, contractId);
+    return saved;
+  }
+
+  /**
+   * Genera cuotas de enganche (y opcionalmente fija la meta total).
+   * Resta pagos manuales ya existentes: meta - programado = saldo a dividir en meses.
+   */
   async generateDownpaymentPayments(
     tenantId: string,
     contractId: string,
+    dto: GenerateDownpaymentPaymentsDto = {},
   ): Promise<ContractDownpaymentPayment[]> {
-    const contract = await this.contractRepo.findOne({
-      where: { id: contractId, tenant_id: tenantId },
-    });
+    const contract = await this.getFinancedContractOrThrow(tenantId, contractId);
 
-    if (!contract) {
-      throw new NotFoundException('Contract not found');
-    }
+    const downPaymentTarget =
+      dto.down_payment_target ??
+      (contract.down_payment_target != null
+        ? Number(contract.down_payment_target)
+        : null);
 
-    if (!contract.down_payment_financed) {
+    if (!downPaymentTarget || downPaymentTarget <= 0) {
       throw new BadRequestException(
-        'Este contrato no tiene configurado financiamiento de enganche',
+        'Indica down_payment_target (enganche total pactado) al generar las cuotas',
       );
     }
 
-    if (
-      !contract.down_payment_months ||
-      !contract.down_payment_first_payment_date ||
-      !contract.down_payment_payment_day ||
-      Number(contract.down_payment_monthly_amount || 0) <= 0
-    ) {
+    const installmentMonths =
+      dto.down_payment_months ?? contract.down_payment_months ?? null;
+    const paymentDay =
+      dto.payment_day ?? contract.down_payment_payment_day ?? null;
+    const firstPaymentDateRaw =
+      dto.first_payment_date ?? contract.down_payment_first_payment_date ?? null;
+
+    if (!installmentMonths || installmentMonths < 1) {
       throw new BadRequestException(
-        'Faltan datos de configuración para generar pagos de enganche',
+        'Indica down_payment_months (meses a financiar del saldo restante)',
       );
     }
 
-    const existingPayments = await this.downpaymentRepo.count({
+    const existingRows = await this.downpaymentRepo.find({
       where: { tenant_id: tenantId, contract_id: contractId },
+      select: ['amount', 'status'],
     });
+    const existingScheduled = existingRows
+      .filter((row) => row.status !== 'cancelado')
+      .reduce((sum, row) => sum + Number(row.amount || 0), 0);
 
-    if (existingPayments > 0) {
+    const newInitialPayments = dto.initial_payments ?? [];
+    const newInitialTotal = newInitialPayments.reduce(
+      (sum, item) => sum + Number(item.amount),
+      0,
+    );
+
+    const remainder = Math.round(
+      (downPaymentTarget - existingScheduled - newInitialTotal) * 100,
+    ) / 100;
+
+    if (remainder < 0) {
       throw new BadRequestException(
-        'Los pagos de enganche ya fueron generados para este contrato',
+        'Los pagos ya registrados superan el enganche objetivo indicado',
       );
     }
 
     const payments: ContractDownpaymentPayment[] = [];
-    const firstDate = new Date(contract.down_payment_first_payment_date);
-    const baseMonth = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+    let paymentNumber = await this.getNextPaymentNumber(tenantId, contractId);
 
-    for (let i = 0; i < contract.down_payment_months; i++) {
-      const monthDate = new Date(baseMonth.getFullYear(), baseMonth.getMonth() + i, 1);
-      const maxDay = new Date(
-        monthDate.getFullYear(),
-        monthDate.getMonth() + 1,
-        0,
-      ).getDate();
-      const dueDay = Math.min(Number(contract.down_payment_payment_day), maxDay);
-      const dueDate = new Date(monthDate.getFullYear(), monthDate.getMonth(), dueDay);
-
+    for (const initial of newInitialPayments) {
+      const amount = Math.round(Number(initial.amount) * 100) / 100;
+      const dueDate = new Date(initial.due_date);
+      if (Number.isNaN(dueDate.getTime())) {
+        throw new BadRequestException('Fecha de vencimiento inválida en pagos iniciales');
+      }
       payments.push(
-        this.downpaymentRepo.create({
-          tenant_id: tenantId,
-          contract_id: contractId,
-          payment_number: String(i + 1),
-          amount: Number(contract.down_payment_monthly_amount),
-          amount_paid: 0,
-          amount_pending: Number(contract.down_payment_monthly_amount),
-          due_date: dueDate,
-          paid_date: null,
-          first_partial_payment_date: null,
-          payment_method: null,
-          status: 'pendiente',
-          is_overdue: false,
-        }),
+        this.createDownpaymentRow(tenantId, contractId, paymentNumber++, amount, dueDate),
       );
     }
 
-    return this.downpaymentRepo.save(payments);
+    if (remainder > 0) {
+      if (!paymentDay || paymentDay < 1 || paymentDay > 31) {
+        throw new BadRequestException(
+          'Indica payment_day (1-31) para las cuotas mensuales del enganche',
+        );
+      }
+      if (!firstPaymentDateRaw) {
+        throw new BadRequestException(
+          'Indica first_payment_date para las cuotas mensuales del enganche',
+        );
+      }
+
+      const firstDate = new Date(firstPaymentDateRaw);
+      if (Number.isNaN(firstDate.getTime())) {
+        throw new BadRequestException('first_payment_date inválida');
+      }
+
+      const monthlyAmount = Math.round((remainder / installmentMonths) * 100) / 100;
+      const baseMonth = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+      let distributed = 0;
+
+      for (let i = 0; i < installmentMonths; i++) {
+        const monthDate = new Date(baseMonth.getFullYear(), baseMonth.getMonth() + i, 1);
+        const maxDay = new Date(
+          monthDate.getFullYear(),
+          monthDate.getMonth() + 1,
+          0,
+        ).getDate();
+        const dueDay = Math.min(Number(paymentDay), maxDay);
+        const dueDate = new Date(monthDate.getFullYear(), monthDate.getMonth(), dueDay);
+
+        let amount = monthlyAmount;
+        if (i === installmentMonths - 1) {
+          amount = Math.round((remainder - distributed) * 100) / 100;
+        } else {
+          distributed += amount;
+        }
+
+        payments.push(
+          this.createDownpaymentRow(tenantId, contractId, paymentNumber++, amount, dueDate),
+        );
+      }
+    }
+
+    const firstPaymentDate = firstPaymentDateRaw
+      ? new Date(firstPaymentDateRaw)
+      : contract.down_payment_first_payment_date;
+
+    await this.contractRepo.update(
+      { id: contractId, tenant_id: tenantId },
+      {
+        down_payment_target: downPaymentTarget,
+        down_payment_months: installmentMonths,
+        down_payment_payment_day: paymentDay ?? contract.down_payment_payment_day,
+        down_payment_first_payment_date: firstPaymentDate,
+        down_payment_monthly_amount:
+          remainder > 0 && installmentMonths > 0
+            ? Math.round((remainder / installmentMonths) * 100) / 100
+            : null,
+      },
+    );
+
+    const saved =
+      payments.length > 0 ? await this.downpaymentRepo.save(payments) : [];
+
+    await this.recalculateContractFinancing(tenantId, contractId);
+    await this.syncContractDownPaymentApplied(tenantId, contractId);
+
+    return saved;
   }
 
   async getDownpaymentPayments(
@@ -101,8 +215,17 @@ export class DownpaymentPaymentsService {
   }
 
   async getDownpaymentPaymentStats(tenantId: string, contractId: string): Promise<any> {
+    const contract = await this.contractRepo.findOne({
+      where: { id: contractId, tenant_id: tenantId },
+      select: ['down_payment', 'down_payment_target', 'down_payment_financed'],
+    });
     const payments = await this.getDownpaymentPayments(tenantId, contractId);
     const partialPayment = payments.find((p) => p.status === 'parcial') ?? null;
+    const downPaymentTarget = contract
+      ? this.getDownPaymentTarget(contract)
+      : null;
+    const downPaymentApplied = contract ? Number(contract.down_payment) || 0 : 0;
+    const targetValue = downPaymentTarget ?? 0;
 
     const totalPaid = payments.reduce((sum, p) => {
       if (p.status === 'pagado') return sum + Number(p.amount || 0);
@@ -126,6 +249,23 @@ export class DownpaymentPaymentsService {
       partial_count: payments.filter((p) => p.status === 'parcial').length,
       overdue_count: payments.filter((p) => p.is_overdue).length,
       cancelled_count: payments.filter((p) => p.status === 'cancelado').length,
+      down_payment_target:
+        downPaymentTarget != null
+          ? Math.round(downPaymentTarget * 100) / 100
+          : null,
+      down_payment_target_defined: downPaymentTarget != null && downPaymentTarget > 0,
+      down_payment_applied: Math.round(downPaymentApplied * 100) / 100,
+      down_payment_remaining:
+        downPaymentTarget != null
+          ? Math.max(
+              0,
+              Math.round((targetValue - downPaymentApplied) * 100) / 100,
+            )
+          : null,
+      downpayment_financing_complete:
+        downPaymentTarget != null &&
+        downPaymentTarget > 0 &&
+        downPaymentApplied >= downPaymentTarget,
       total_paid: Math.round(totalPaid * 100) / 100,
       total_pending: Math.round(totalPending * 100) / 100,
       total_expected: Math.round(totalExpected * 100) / 100,
@@ -192,7 +332,9 @@ export class DownpaymentPaymentsService {
       payment.notes += `\nNotas: ${notes}`;
     }
 
-    return this.downpaymentRepo.save(payment);
+    const saved = await this.downpaymentRepo.save(payment);
+    await this.syncContractDownPaymentApplied(tenantId, contractId);
+    return saved;
   }
 
   async updateDownpaymentPayment(
@@ -240,7 +382,9 @@ export class DownpaymentPaymentsService {
     const updateNote = `Actualizado el ${new Date().toISOString().split('T')[0]}`;
     payment.notes = payment.notes ? `${payment.notes}\n${updateNote}` : updateNote;
 
-    return this.downpaymentRepo.save(payment);
+    const saved = await this.downpaymentRepo.save(payment);
+    await this.syncContractDownPaymentApplied(tenantId, contractId);
+    return saved;
   }
 
   async cancelDownpaymentPayment(
@@ -255,7 +399,9 @@ export class DownpaymentPaymentsService {
     payment.status = 'cancelado';
     const note = `Pago cancelado el ${new Date().toISOString().split('T')[0]}`;
     payment.notes = payment.notes ? `${payment.notes}\n${note}` : note;
-    return this.downpaymentRepo.save(payment);
+    const saved = await this.downpaymentRepo.save(payment);
+    await this.syncContractDownPaymentApplied(tenantId, contractId);
+    return saved;
   }
 
   async resetDownpaymentPayment(
@@ -277,7 +423,9 @@ export class DownpaymentPaymentsService {
     payment.payment_method = null;
     const note = `Pago reseteado el ${new Date().toISOString().split('T')[0]} (se devolvió ${previousAmountPaid})`;
     payment.notes = payment.notes ? `${payment.notes}\n${note}` : note;
-    return this.downpaymentRepo.save(payment);
+    const saved = await this.downpaymentRepo.save(payment);
+    await this.syncContractDownPaymentApplied(tenantId, contractId);
+    return saved;
   }
 
   async deleteDownpaymentPayment(
@@ -287,6 +435,7 @@ export class DownpaymentPaymentsService {
   ): Promise<void> {
     const payment = await this.getPaymentOrThrow(tenantId, contractId, paymentId);
     await this.downpaymentRepo.remove(payment);
+    await this.syncContractDownPaymentApplied(tenantId, contractId);
   }
 
   async markOverdueDownpaymentPayments(
@@ -332,6 +481,143 @@ export class DownpaymentPaymentsService {
       },
     });
     return partialCount > 0;
+  }
+
+  getDownPaymentTarget(
+    contract: Pick<Contract, 'down_payment_target' | 'down_payment' | 'down_payment_financed'>,
+  ): number | null {
+    if (contract.down_payment_financed) {
+      if (contract.down_payment_target == null) {
+        return null;
+      }
+      return Number(contract.down_payment_target);
+    }
+    return Number(contract.down_payment ?? 0);
+  }
+
+  async recalculateContractFinancing(
+    tenantId: string,
+    contractId: string,
+  ): Promise<void> {
+    const contract = await this.contractRepo.findOne({
+      where: { id: contractId, tenant_id: tenantId },
+    });
+
+    if (!contract?.down_payment_financed) {
+      return;
+    }
+
+    const target = Number(contract.down_payment_target ?? 0);
+    const totalPrice = Number(contract.total_price);
+    const rawRemaining = Math.round((totalPrice - target) * 100) / 100;
+    const remaining_balance = rawRemaining <= 0 ? 0 : rawRemaining;
+
+    let monthly_payment = Number(contract.monthly_payment) || 0;
+    const paymentMonths = Number(contract.payment_months) || 0;
+    if (remaining_balance > 0 && paymentMonths > 0) {
+      monthly_payment = Math.round((remaining_balance / paymentMonths) * 100) / 100;
+    } else if (remaining_balance <= 0) {
+      monthly_payment = 0;
+    }
+
+    await this.contractRepo.update(
+      { id: contractId, tenant_id: tenantId },
+      { remaining_balance, monthly_payment },
+    );
+  }
+
+  private async getFinancedContractOrThrow(
+    tenantId: string,
+    contractId: string,
+  ): Promise<Contract> {
+    const contract = await this.contractRepo.findOne({
+      where: { id: contractId, tenant_id: tenantId },
+    });
+
+    if (!contract) {
+      throw new NotFoundException('Contract not found');
+    }
+
+    if (!contract.down_payment_financed) {
+      throw new BadRequestException(
+        'Este contrato no tiene configurado financiamiento de enganche',
+      );
+    }
+
+    return contract;
+  }
+
+  private async getNextPaymentNumber(
+    tenantId: string,
+    contractId: string,
+  ): Promise<number> {
+    const result = await this.downpaymentRepo
+      .createQueryBuilder('p')
+      .select('MAX(CAST(p.payment_number AS UNSIGNED))', 'maxNum')
+      .where('p.tenant_id = :tenantId', { tenantId })
+      .andWhere('p.contract_id = :contractId', { contractId })
+      .getRawOne<{ maxNum: string | null }>();
+
+    return (Number(result?.maxNum) || 0) + 1;
+  }
+
+  async syncContractDownPaymentApplied(
+    tenantId: string,
+    contractId: string,
+  ): Promise<void> {
+    const contract = await this.contractRepo.findOne({
+      where: { id: contractId, tenant_id: tenantId },
+      select: ['id', 'down_payment_financed'],
+    });
+
+    if (!contract?.down_payment_financed) {
+      return;
+    }
+
+    const paymentRows = await this.downpaymentRepo.find({
+      where: { tenant_id: tenantId, contract_id: contractId },
+      select: ['status', 'amount', 'amount_paid'],
+    });
+
+    const applied = paymentRows.reduce((sum, row) => {
+      if (row.status === 'pagado') {
+        return sum + Number(row.amount || 0);
+      }
+      if (row.status === 'parcial') {
+        return sum + Number(row.amount_paid || 0);
+      }
+      return sum;
+    }, 0);
+
+    await this.contractRepo.update(
+      { id: contractId, tenant_id: tenantId },
+      { down_payment: Math.round(applied * 100) / 100 },
+    );
+
+    await this.recalculateContractFinancing(tenantId, contractId);
+  }
+
+  private createDownpaymentRow(
+    tenantId: string,
+    contractId: string,
+    paymentNumber: number,
+    amount: number,
+    dueDate: Date,
+  ): ContractDownpaymentPayment {
+    return this.downpaymentRepo.create({
+      tenant_id: tenantId,
+      contract_id: contractId,
+      payment_number: String(paymentNumber),
+      amount,
+      amount_paid: 0,
+      amount_pending: amount,
+      due_date: dueDate,
+      paid_date: null,
+      first_partial_payment_date: null,
+      payment_method: null,
+      status: 'pendiente',
+      is_overdue: false,
+    });
   }
 
   private async ensureContractExists(tenantId: string, contractId: string): Promise<void> {
