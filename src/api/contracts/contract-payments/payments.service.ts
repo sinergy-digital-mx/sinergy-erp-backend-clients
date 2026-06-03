@@ -199,6 +199,16 @@ export class PaymentsService {
     // This matches the manual calculation: Financiado - Pagados
     const totalPendingCorrect = financedAmount - totalPaidCorrect;
 
+    const overdueAmount = payments.reduce((sum, p) => {
+      if (!p.is_overdue || p.status === 'cancelado' || p.status === 'pagado') {
+        return sum;
+      }
+      if (p.status === 'parcial') {
+        return sum + Number(p.amount_pending || 0);
+      }
+      return sum + Number(p.amount_pending ?? p.amount ?? 0);
+    }, 0);
+
     const stats = {
       total_payments: payments.length,
       paid_count: payments.filter(p => p.status === 'pagado').length,
@@ -208,6 +218,7 @@ export class PaymentsService {
       pending_overdue_count: payments.filter(p => p.status === 'pendiente' && p.is_overdue).length,
       pending_full_payments: pendingFullPayments, // Frontend expects this
       overdue_count: payments.filter(p => p.is_overdue).length, // Total overdue (partial + pending)
+      overdue_amount: Math.round(overdueAmount * 100) / 100,
       cancelled_count: payments.filter(p => p.status === 'cancelado').length,
       
       // Fix decimal precision issues and use correct calculation
