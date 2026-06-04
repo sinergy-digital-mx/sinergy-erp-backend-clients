@@ -4,7 +4,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Divino Dashboard                       [Mes|Año] [▼ Mes ▼ Año]│
+│  Divino Dashboard            [All time|Mes|Año] [▼ Mes ▼ Año]  │
 ├─────────────────────────────────────────────────────────────┤
 │  KPI GRID (4 cols desktop, 2 tablet, 1 mobile)              │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐       │
@@ -19,7 +19,11 @@
 │  │ promedio │ │ promedio │                                  │
 │  └──────────┘ └──────────┘                                  │
 ├─────────────────────────────────────────────────────────────┤
-│  [Chart] Revenue mensual/trimestral (tabs: M | Q | S | A)   │
+│  (solo All time) TENDENCIA POR AÑO — líneas/barras por año  │
+│  total vendido, m², lotes, precio lista/cierre, $/m², etc.  │
+│  Fuente: summary.yearly_breakdown[]                         │
+├─────────────────────────────────────────────────────────────┤
+│  [Chart] Revenue (periodo: M|Q|S|A · All time: por año)     │
 │  [Chart] Origen de leads (donut)                            │
 ├─────────────────────────────────────────────────────────────┤
 │  VENTAS POR VENDEDOR (tabla full width)                     │
@@ -29,10 +33,12 @@
 
 ## Filtro periodo
 
-- **Segmented control** (como referencia Hoy/Semana/Mes/Año): solo **Mes** | **Año**.
-- Modo **Mes:** dropdown mes (1-12) + dropdown año.
-- Modo **Año:** solo dropdown año.
-- Al cambiar → refetch: `summary`, `sellers`, `lead-origins`, `revenue-series`.
+- **Segmented control:** **All time** | **Mes** | **Año**.
+- **All time:** `?scope=all_time` (sin año). KPI cards = histórico. Mostrar sección **“Tendencia por año”** con gráficas desde `summary.yearly_breakdown` y `revenue-series` (una barra por año).
+- **Mes:** `?scope=period&year=&month=`
+- **Año:** `?scope=period&year=`
+- Al cambiar → refetch los 4 endpoints con el mismo `scope` (+ `year`/`month` si aplica).
+- En **All time**, ocultar toggles M/Q/S del gráfico Revenue (el API ya agrupa por año).
 
 ## KPI cards
 

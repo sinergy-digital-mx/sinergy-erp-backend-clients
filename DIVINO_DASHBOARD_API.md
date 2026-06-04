@@ -10,10 +10,20 @@ Base: `/api/tenant/divino-dashboard`
 
 | Param | Tipo | Descripción |
 |-------|------|-------------|
-| `year` | number | Requerido (ej. 2026) |
-| `month` | number? | 1-12. Si se omite = año completo |
+| `scope` | `period` \| `all_time` | Default `period`. `all_time` = histórico completo (sin `year`) |
+| `year` | number | Requerido si `scope=period` (ej. 2026) |
+| `month` | number? | 1-12. Solo con `scope=period`. Si se omite = año completo |
 
-Modo UI: toggle **Mes** (envía `year` + `month`) vs **Año** (solo `year`).
+Modo UI:
+- **All time** → `?scope=all_time` (no enviar `year`)
+- **Mes** → `?scope=period&year=2026&month=6`
+- **Año** → `?scope=period&year=2026`
+
+### All time — respuesta extra en `/summary`
+
+Incluye `yearly_breakdown[]`: mismos KPIs **por año** (`year` + todos los campos de `kpis`) para gráficas de tendencia.
+
+`GET /revenue-series?scope=all_time` devuelve una barra por año (`bucket`: `"2024"`, `"2025"`, …); ignora `period` M/Q/S.
 
 ---
 
@@ -23,6 +33,7 @@ KPIs generales del periodo.
 
 ```http
 GET /api/tenant/divino-dashboard/summary?year=2026&month=3
+GET /api/tenant/divino-dashboard/summary?scope=all_time
 ```
 
 **Response `kpis`:**

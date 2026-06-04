@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Contract } from '../../entities/contracts/contract.entity';
 import {
+  DivinoDashboardScope,
   QueryDivinoDashboardDto,
   QueryRevenueSeriesDto,
 } from './dto/query-divino-dashboard.dto';
@@ -27,6 +28,10 @@ interface SaleRow {
   property_code: string | null;
 }
 
+export type DivinoDashboardKpis = ReturnType<
+  DivinoDashboardService['computeKpisFromSales']
+>;
+
 @Injectable()
 export class DivinoDashboardService {
   constructor(
@@ -45,7 +50,20 @@ export class DivinoDashboardService {
   async getSummary(tenantId: string, query: QueryDivinoDashboardDto) {
     this.assertTenant(tenantId);
     const sales = await this.fetchSales(tenantId, query);
-    return this.buildKpis(sales, query);
+    const result: {
+      filters: ReturnType<DivinoDashboardService['filtersMeta']>;
+      kpis: DivinoDashboardKpis;
+      yearly_breakdown?: Array<DivinoDashboardKpis & { year: number }>;
+    } = {
+      filters: this.filtersMeta(query),
+      kpis: this.computeKpisFromSales(sales),
+    };
+
+    if (this.isAllTime(query)) {
+      result.yearly_breakdown = this.buildYearlyBreakdown(sales);
+    }
+
+    return result;
   }
 
   async getSellers(tenantId: string, query: QueryDivinoDashboardDto) {
@@ -77,7 +95,7 @@ export class DivinoDashboardService {
           lots_sold: 0,
           revenue: 0,
           m2_sold: 0,
-          tours_count: toursBySeller.get(sid) ?? 0,
+          tours_count: toursBySeller.get(sid)?.tours ?? 0,
         });
       }
       const entry = map.get(sid)!;
@@ -86,18 +104,18 @@ export class DivinoDashboardService {
       entry.m2_sold += Number(row.total_area);
     }
 
-    for (const [sid, count] of toursBySeller) {
+    for (const [sid, tourInfo] of toursBySeller) {
       if (!map.has(sid)) {
         map.set(sid, {
           seller_id: sid,
-          seller_name: 'Sin vendedor',
+          seller_name: tourInfo.seller_name,
           lots_sold: 0,
           revenue: 0,
           m2_sold: 0,
-          tours_count: count,
+          tours_count: tourInfo.tours,
         });
       } else {
-        map.get(sid)!.tours_count = count;
+        map.get(sid)!.tours_count = tourInfo.tours;
       }
     }
 
@@ -144,8 +162,39 @@ export class DivinoDashboardService {
 
   async getRevenueSeries(tenantId: string, query: QueryRevenueSeriesDto) {
     this.assertTenant(tenantId);
+
+    if (this.isAllTime(query)) {
+      const rows: { bucket: string; revenue: number; lots: number }[] =
+        await this.contractRepo.manager.query(
+          `
+          SELECT
+            CAST(YEAR(c.contract_date) AS CHAR) AS bucket,
+            COALESCE(SUM(c.total_price), 0) AS revenue,
+            COUNT(*) AS lots
+          FROM contracts c
+          WHERE c.tenant_id = ?
+            AND c.status IN ('activo', 'completado')
+          GROUP BY YEAR(c.contract_date)
+          ORDER BY bucket ASC
+          `,
+          [tenantId],
+        );
+
+      return {
+        filters: this.filtersMeta(query),
+        period: 'annual' as const,
+        year: null,
+        month: null,
+        series: rows.map((r) => ({
+          bucket: r.bucket,
+          revenue: this.round(Number(r.revenue)),
+          lots_sold: Number(r.lots),
+        })),
+      };
+    }
+
     const period = query.period ?? 'monthly';
-    const { dateFrom, dateTo } = this.resolveRange(query.year, query.month);
+    const { dateFrom, dateTo } = this.resolveRange(query.year!, query.month);
 
     const rows: { bucket: string; revenue: number; lots: number }[] =
       await this.contractRepo.manager.query(
@@ -171,8 +220,9 @@ export class DivinoDashboardService {
       );
 
     return {
+      filters: this.filtersMeta(query),
       period,
-      year: query.year,
+      year: query.year ?? null,
       month: query.month ?? null,
       series: rows.map((r) => ({
         bucket: r.bucket,
@@ -182,7 +232,7 @@ export class DivinoDashboardService {
     };
   }
 
-  private buildKpis(sales: SaleRow[], query: QueryDivinoDashboardDto) {
+  computeKpisFromSales(sales: SaleRow[]) {
     const count = sales.length;
     let totalRevenue = 0;
     let totalM2 = 0;
@@ -236,39 +286,65 @@ export class DivinoDashboardService {
       avgList > 0 ? ((avgClose - avgList) / avgList) * 100 : 0;
 
     return {
-      filters: this.filtersMeta(query),
-      kpis: {
-        avg_price_per_m2:
-          totalM2 > 0 ? this.round(totalRevenue / totalM2) : 0,
-        total_sold_amount: this.round(totalRevenue),
-        total_sold_m2: this.round(totalM2),
-        lots_sold: count,
-        avg_list_price: this.round(avgList),
-        avg_close_price: this.round(avgClose),
-        list_vs_close_diff_amount: this.round(avgClose - avgList),
-        list_vs_close_diff_pct: this.round(listVsCloseDiff),
-        max_price_per_m2:
-          pricePerM2.length > 0 ? this.round(Math.max(...pricePerM2)) : 0,
-        min_price_per_m2:
-          pricePerM2.length > 0 ? this.round(Math.min(...pricePerM2)) : 0,
-        cash_pct: count > 0 ? this.round((cashCount / count) * 100) : 0,
-        financed_pct:
-          count > 0 ? this.round((financedCount / count) * 100) : 0,
-        cash_count: cashCount,
-        financed_count: financedCount,
-        avg_down_payment:
-          downCount > 0 ? this.round(downSum / downCount) : 0,
-        avg_monthly_payment:
-          monthlyCount > 0 ? this.round(monthlySum / monthlyCount) : 0,
-      },
+      avg_price_per_m2:
+        totalM2 > 0 ? this.round(totalRevenue / totalM2) : 0,
+      total_sold_amount: this.round(totalRevenue),
+      total_sold_m2: this.round(totalM2),
+      lots_sold: count,
+      avg_list_price: this.round(avgList),
+      avg_close_price: this.round(avgClose),
+      list_vs_close_diff_amount: this.round(avgClose - avgList),
+      list_vs_close_diff_pct: this.round(listVsCloseDiff),
+      max_price_per_m2:
+        pricePerM2.length > 0 ? this.round(Math.max(...pricePerM2)) : 0,
+      min_price_per_m2:
+        pricePerM2.length > 0 ? this.round(Math.min(...pricePerM2)) : 0,
+      cash_pct: count > 0 ? this.round((cashCount / count) * 100) : 0,
+      financed_pct:
+        count > 0 ? this.round((financedCount / count) * 100) : 0,
+      cash_count: cashCount,
+      financed_count: financedCount,
+      avg_down_payment:
+        downCount > 0 ? this.round(downSum / downCount) : 0,
+      avg_monthly_payment:
+        monthlyCount > 0 ? this.round(monthlySum / monthlyCount) : 0,
     };
+  }
+
+  private buildYearlyBreakdown(
+    sales: SaleRow[],
+  ): Array<DivinoDashboardKpis & { year: number }> {
+    const byYear = new Map<number, SaleRow[]>();
+
+    for (const row of sales) {
+      const year = new Date(row.contract_date).getFullYear();
+      if (!byYear.has(year)) {
+        byYear.set(year, []);
+      }
+      byYear.get(year)!.push(row);
+    }
+
+    return Array.from(byYear.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([year, rows]) => ({
+        year,
+        ...this.computeKpisFromSales(rows),
+      }));
   }
 
   private async fetchSales(
     tenantId: string,
     query: QueryDivinoDashboardDto,
   ): Promise<SaleRow[]> {
-    const { dateFrom, dateTo } = this.resolveRange(query.year, query.month);
+    const dateClause = this.isAllTime(query)
+      ? ''
+      : 'AND c.contract_date >= ? AND c.contract_date <= ?';
+    const params: (string | number)[] = [tenantId];
+    if (!this.isAllTime(query)) {
+      const { dateFrom, dateTo } = this.resolveRange(query.year!, query.month);
+      params.push(dateFrom, dateTo);
+    }
+
     return this.contractRepo.manager.query(
       `
       SELECT
@@ -296,40 +372,65 @@ export class DivinoDashboardService {
       LEFT JOIN lead_groups lg_lead ON lg_lead.id = l.group_id
       WHERE c.tenant_id = ?
         AND c.status IN ('activo', 'completado')
-        AND c.contract_date >= ?
-        AND c.contract_date <= ?
+        ${dateClause}
       ORDER BY c.contract_date DESC
       `,
-      [tenantId, dateFrom, dateTo],
+      params,
     );
   }
 
   private async fetchToursBySeller(
     tenantId: string,
     query: QueryDivinoDashboardDto,
-  ): Promise<Map<string, number>> {
-    const { dateFrom, dateTo } = this.resolveRange(query.year, query.month);
-    const rows: { seller_id: string; tours: number }[] =
-      await this.contractRepo.manager.query(
-        `
-        SELECT la.user_id AS seller_id, COUNT(*) AS tours
-        FROM lead_activities la
-        WHERE la.tenant_id = ?
-          AND la.type = 'meeting'
-          AND la.status = 'completed'
-          AND la.activity_date >= ?
-          AND la.activity_date <= ?
-          AND la.user_id IS NOT NULL
-        GROUP BY la.user_id
-        `,
-        [tenantId, dateFrom, dateTo],
-      );
+  ): Promise<Map<string, { tours: number; seller_name: string }>> {
+    const dateClause = this.isAllTime(query)
+      ? ''
+      : 'AND la.activity_date >= ? AND la.activity_date <= ?';
+    const params: (string | number)[] = [tenantId];
+    if (!this.isAllTime(query)) {
+      const { dateFrom, dateTo } = this.resolveRange(query.year!, query.month);
+      params.push(dateFrom, dateTo);
+    }
 
-    const map = new Map<string, number>();
+    const rows: {
+      seller_id: string;
+      tours: number;
+      seller_first_name: string | null;
+      seller_last_name: string | null;
+    }[] = await this.contractRepo.manager.query(
+      `
+      SELECT
+        la.user_id AS seller_id,
+        COUNT(*) AS tours,
+        u.first_name AS seller_first_name,
+        u.last_name AS seller_last_name
+      FROM lead_activities la
+      LEFT JOIN users u ON u.id = la.user_id
+      WHERE la.tenant_id = ?
+        AND la.type = 'meeting'
+        AND la.status = 'completed'
+        AND la.user_id IS NOT NULL
+        ${dateClause}
+      GROUP BY la.user_id, u.first_name, u.last_name
+      `,
+      params,
+    );
+
+    const map = new Map<string, { tours: number; seller_name: string }>();
     for (const row of rows) {
-      map.set(row.seller_id, Number(row.tours));
+      const name =
+        `${row.seller_first_name ?? ''} ${row.seller_last_name ?? ''}`.trim() ||
+        'Sin vendedor';
+      map.set(row.seller_id, {
+        tours: Number(row.tours),
+        seller_name: name,
+      });
     }
     return map;
+  }
+
+  private isAllTime(query: QueryDivinoDashboardDto): boolean {
+    return (query.scope ?? 'period') === 'all_time';
   }
 
   private resolveRange(
@@ -350,10 +451,20 @@ export class DivinoDashboardService {
   }
 
   private filtersMeta(query: QueryDivinoDashboardDto) {
+    const scope: DivinoDashboardScope = query.scope ?? 'period';
+    if (scope === 'all_time') {
+      return {
+        scope: 'all_time' as const,
+        year: null,
+        month: null,
+        mode: 'all_time' as const,
+      };
+    }
     return {
-      year: query.year,
+      scope: 'period' as const,
+      year: query.year ?? null,
       month: query.month ?? null,
-      mode: query.month ? 'month' : 'year',
+      mode: query.month ? ('month' as const) : ('year' as const),
     };
   }
 
