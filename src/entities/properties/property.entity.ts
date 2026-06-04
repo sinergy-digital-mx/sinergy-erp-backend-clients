@@ -67,6 +67,10 @@ export class Property {
   @Column({ type: 'decimal', precision: 15, scale: 2 })
   total_price: number;
 
+  /** Precio de lista publicado (vs precio de cierre en contrato). */
+  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
+  list_price: number | null;
+
   @Column({ length: 10, default: 'MXN' })
   currency: string;
 

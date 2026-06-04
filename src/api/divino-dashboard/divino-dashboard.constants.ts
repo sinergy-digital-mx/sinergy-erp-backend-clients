@@ -1,0 +1,4 @@
+export const DIVINO_DASHBOARD_ALLOWED_TENANT_ID =
+  '54481b63-5516-458d-9bb3-d4e5cb028864';
+
+export const DIVINO_DASHBOARD_MODULE_CODE = 'divino_dashboard';

@@ -24,6 +24,18 @@ export class CreateContractDto {
   seller_id?: string;
 
   @IsOptional()
+  @IsNumber()
+  lead_id?: number;
+
+  @IsOptional()
+  @IsString()
+  lead_group_id?: string;
+
+  @IsOptional()
+  @IsNumber()
+  list_price?: number;
+
+  @IsOptional()
   @IsString()
   @Length(1, 50)
   contract_number?: string;

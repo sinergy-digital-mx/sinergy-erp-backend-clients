@@ -67,6 +67,18 @@ export class UpdateContractDto {
   seller_id?: string;
 
   @IsOptional()
+  @IsNumber()
+  lead_id?: number | null;
+
+  @IsOptional()
+  @IsString()
+  lead_group_id?: string | null;
+
+  @IsOptional()
+  @IsNumber()
+  list_price?: number;
+
+  @IsOptional()
   @IsEnum(['activo', 'completado', 'cancelado', 'suspendido'])
   status?: string;
 

@@ -42,6 +42,10 @@ export class UpdatePropertyDto {
   total_price?: number;
 
   @IsOptional()
+  @IsNumber()
+  list_price?: number;
+
+  @IsOptional()
   @IsString()
   @Length(1, 10)
   currency?: string;

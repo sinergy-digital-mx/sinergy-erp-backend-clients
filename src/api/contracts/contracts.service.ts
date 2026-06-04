@@ -34,11 +34,22 @@ export class ContractsService {
       Number(dto.payment_months),
     );
 
+    const propertyRows = await this.contractRepo.manager.query(
+      `SELECT total_price, list_price FROM properties WHERE id = ? AND tenant_id = ? LIMIT 1`,
+      [dto.property_id, tenantId],
+    );
+    const propertyListPrice = propertyRows[0]
+      ? Number(propertyRows[0].list_price ?? propertyRows[0].total_price)
+      : Number(dto.total_price);
+    const contractListPrice =
+      dto.list_price != null ? Number(dto.list_price) : propertyListPrice;
+
     const contract = this.contractRepo.create({
       ...dto,
       ...downPaymentConfig,
       down_payment_target: financed ? downPaymentTarget : null,
       down_payment: downPaymentApplied,
+      list_price: contractListPrice,
       contract_number: contractNumber,
       tenant_id: tenantId,
       payment_months,
@@ -422,6 +433,9 @@ export class ContractsService {
           : null,
       down_payment_target_defined:
         contract.down_payment_financed && contract.down_payment_target != null,
+      list_price: contract.list_price,
+      lead_id: contract.lead_id,
+      lead_group_id: contract.lead_group_id,
       down_payment_financed: contract.down_payment_financed,
       down_payment_months: contract.down_payment_months,
       down_payment_monthly_amount: contract.down_payment_monthly_amount,

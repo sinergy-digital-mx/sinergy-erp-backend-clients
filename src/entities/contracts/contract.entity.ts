@@ -13,6 +13,8 @@ import { Customer } from '../customers/customer.entity';
 import { Property } from '../properties/property.entity';
 import { RBACTenant } from '../rbac/tenant.entity';
 import { User } from '../users/user.entity';
+import { Lead } from '../leads/lead.entity';
+import { LeadGroup } from '../leads/lead-group.entity';
 
 @Entity('contracts')
 @Index('tenant_index', ['tenant_id'])
@@ -52,6 +54,20 @@ export class Contract {
   @Column({ nullable: true })
   seller_id: string;
 
+  @ManyToOne(() => Lead, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'lead_id' })
+  lead: Lead | null;
+
+  @Column({ nullable: true })
+  lead_id: number | null;
+
+  @ManyToOne(() => LeadGroup, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'lead_group_id' })
+  lead_group: LeadGroup | null;
+
+  @Column({ nullable: true })
+  lead_group_id: string | null;
+
   @Column({ length: 50 })
   contract_number: string;
 
@@ -60,6 +76,10 @@ export class Contract {
 
   @Column({ type: 'decimal', precision: 15, scale: 2 })
   total_price: number;
+
+  /** Precio de lista del lote al momento de la venta (snapshot). */
+  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
+  list_price: number | null;
 
   @Column({ type: 'decimal', precision: 15, scale: 2 })
   down_payment: number;

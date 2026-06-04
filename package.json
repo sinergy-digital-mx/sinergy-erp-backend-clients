@@ -20,6 +20,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "typeorm": "typeorm-ts-node-commonjs",
     "migration:run": "ts-node -r tsconfig-paths/register src/database/scripts/migrations/run-migrations.ts",
+    "seed:divino-dashboard": "ts-node -r tsconfig-paths/register src/database/seeds/seed-divino-dashboard-module.ts",
     "migration:revert": "ts-node -r tsconfig-paths/register src/database/scripts/migrations/run-migration.ts",
     "migration:show": "ts-node -r tsconfig-paths/register src/database/scripts/migrations/run-migrations.ts",
     "migrate:rbac": "ts-node -r tsconfig-paths/register src/api/rbac/scripts/migrate-users.script.ts",
