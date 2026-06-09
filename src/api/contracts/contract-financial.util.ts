@@ -10,7 +10,7 @@ type ContractFinancialFields = Pick<
   | 'status'
 >;
 
-/** Meta de enganche para amortización (no el abonado acumulado). */
+/** Meta de enganche (contrato normal) o base del plan mensual (enganche financiado). */
 export function getDownPaymentTarget(contract: ContractFinancialFields): number {
   if (contract.down_payment_financed) {
     return Number(contract.down_payment_target ?? 0);
@@ -27,6 +27,10 @@ export function computeFinancedAmount(
   totalPrice: number,
   contract: ContractFinancialFields,
 ): number {
+  if (contract.down_payment_financed) {
+    // Enganche financiado: las mensualidades amortizan la meta, no (total - meta).
+    return Math.round(getDownPaymentTarget(contract) * 100) / 100;
+  }
   const baseline = getDownPaymentTarget(contract);
   return Math.round((totalPrice - baseline) * 100) / 100;
 }
@@ -36,6 +40,14 @@ export function computeMonthlyPayment(
   contract: ContractFinancialFields,
   paymentMonths: number,
 ): number {
+  if (contract.down_payment_financed) {
+    const target = getDownPaymentTarget(contract);
+    if (target <= 0 || !Number.isFinite(paymentMonths) || paymentMonths < 1) {
+      return 0;
+    }
+    return Math.round((target / paymentMonths) * 100) / 100;
+  }
+
   const financed = computeFinancedAmount(totalPrice, contract);
   if (financed <= 0 || !Number.isFinite(paymentMonths) || paymentMonths < 1) {
     return 0;

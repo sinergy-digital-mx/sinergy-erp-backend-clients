@@ -78,13 +78,12 @@ export class ContractsMaintenanceService {
              ), 0)
            ),
            monthly_payment = CASE
+             WHEN c.down_payment_financed = 1 AND c.payment_months > 0 THEN ROUND(
+               COALESCE(c.down_payment_target, 0) / c.payment_months,
+               2
+             )
              WHEN c.payment_months > 0 THEN ROUND(
-               (
-                 c.total_price - CASE
-                   WHEN c.down_payment_financed = 1 THEN COALESCE(c.down_payment_target, 0)
-                   ELSE c.down_payment
-                 END
-               ) / c.payment_months,
+               (c.total_price - c.down_payment) / c.payment_months,
                2
              )
              ELSE c.monthly_payment

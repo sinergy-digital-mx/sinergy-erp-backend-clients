@@ -39,6 +39,7 @@ export class ContractsService {
       Number(dto.total_price),
       engancheForFinancing,
       Number(dto.payment_months),
+      financed,
     );
 
     const propertyRows = await this.contractRepo.manager.query(
@@ -68,14 +69,38 @@ export class ContractsService {
   }
 
   /**
-   * Sin saldo después del enganche: meses = 0 y mensualidad = 0 (contado).
-   * Con saldo: exige al menos 1 mes para amortizar.
+   * Contrato normal: mensualidad = (total - enganche) / meses.
+   * Enganche financiado: mensualidad = meta de enganche / meses; saldo inicial = precio total.
    */
   private computeFinancing(
     totalPrice: number,
     downPayment: number,
     paymentMonthsRequested: number,
+    financed = false,
   ): { remaining_balance: number; payment_months: number; monthly_payment: number } {
+    if (financed) {
+      if (!Number.isFinite(paymentMonthsRequested) || paymentMonthsRequested < 1) {
+        throw new BadRequestException(
+          'payment_months debe ser al menos 1 cuando el enganche se financia en pagos',
+        );
+      }
+
+      if (!Number.isFinite(downPayment) || downPayment <= 0) {
+        return {
+          remaining_balance: Math.round(totalPrice * 100) / 100,
+          payment_months: paymentMonthsRequested,
+          monthly_payment: 0,
+        };
+      }
+
+      return {
+        remaining_balance: Math.round(totalPrice * 100) / 100,
+        payment_months: paymentMonthsRequested,
+        monthly_payment:
+          Math.round((downPayment / paymentMonthsRequested) * 100) / 100,
+      };
+    }
+
     const rawRemaining = Math.round((totalPrice - downPayment) * 100) / 100;
 
     if (rawRemaining <= 0) {
@@ -676,6 +701,7 @@ export class ContractsService {
         total,
         engancheForFinancing,
         monthsRequested,
+        financed,
       );
 
       const updatePayload: Record<string, unknown> = {

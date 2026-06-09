@@ -412,6 +412,7 @@ export class DownpaymentPaymentsService {
         0,
         Math.round((target - Number(updatedContract?.down_payment ?? 0)) * 100) / 100,
       ),
+      financed_amount: target,
       monthly_payment: Number(updatedContract?.monthly_payment ?? 0),
       remaining_balance: Number(updatedContract?.remaining_balance ?? 0),
       scheduled_total: Math.round(scheduledTotal * 100) / 100,
