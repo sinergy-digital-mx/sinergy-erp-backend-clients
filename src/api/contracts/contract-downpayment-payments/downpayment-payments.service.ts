@@ -3,6 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Contract } from '../../../entities/contracts/contract.entity';
 import { ContractDownpaymentPayment } from '../../../entities/contracts/contract-downpayment-payment.entity';
+import {
+  computeFinancingSnapshot,
+  getDownPaymentApplied,
+  sumPaidFromPaymentRows,
+} from '../contract-financial.util';
 import { CreateManualDownpaymentPaymentDto } from './dto/create-manual-downpayment-payment.dto';
 import { GenerateDownpaymentPaymentsDto } from './dto/generate-downpayment-payments.dto';
 
@@ -507,22 +512,35 @@ export class DownpaymentPaymentsService {
       return;
     }
 
-    const target = Number(contract.down_payment_target ?? 0);
-    const totalPrice = Number(contract.total_price);
-    const rawRemaining = Math.round((totalPrice - target) * 100) / 100;
-    const remaining_balance = rawRemaining <= 0 ? 0 : rawRemaining;
+    const monthlyPaymentRows: Array<{
+      status: string;
+      amount: number | string;
+      amount_paid: number | string;
+    }> = await this.contractRepo.manager.query(
+      `
+      SELECT status, amount, amount_paid
+      FROM contract_payments
+      WHERE contract_id = ? AND tenant_id = ?
+      `,
+      [contractId, tenantId],
+    );
 
-    let monthly_payment = Number(contract.monthly_payment) || 0;
-    const paymentMonths = Number(contract.payment_months) || 0;
-    if (remaining_balance > 0 && paymentMonths > 0) {
-      monthly_payment = Math.round((remaining_balance / paymentMonths) * 100) / 100;
-    } else if (remaining_balance <= 0) {
-      monthly_payment = 0;
-    }
+    const monthlyPaid = sumPaidFromPaymentRows(monthlyPaymentRows);
+    const downPaymentApplied = getDownPaymentApplied(contract);
+    const snapshot = computeFinancingSnapshot(
+      {
+        ...contract,
+        down_payment: downPaymentApplied,
+      },
+      monthlyPaid,
+    );
 
     await this.contractRepo.update(
       { id: contractId, tenant_id: tenantId },
-      { remaining_balance, monthly_payment },
+      {
+        remaining_balance: snapshot.remaining_balance,
+        monthly_payment: snapshot.monthly_payment,
+      },
     );
   }
 

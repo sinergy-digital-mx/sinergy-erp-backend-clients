@@ -59,19 +59,37 @@ export class ContractsMaintenanceService {
         );
       }
 
-      // Step 2: Recalculate remaining_balance for all active contracts
-      // Formula: (total_price - down_payment) - SUM(amount_paid from all payments)
+      // Step 2: Recalculate remaining_balance and monthly_payment for active contracts
       const balanceResult = await queryRunner.query(
         `UPDATE contracts c
-         SET remaining_balance = GREATEST(
-           0,
-           (c.total_price - c.down_payment) - COALESCE((
-             SELECT SUM(p.amount_paid)
-             FROM contract_payments p
-             WHERE p.contract_id = c.id
-           ), 0)
-         )
-         WHERE c.status = 'activo'`
+         SET
+           remaining_balance = GREATEST(
+             0,
+             c.total_price - c.down_payment - COALESCE((
+               SELECT SUM(
+                 CASE
+                   WHEN p.status = 'pagado' THEN p.amount
+                   WHEN p.status = 'parcial' THEN p.amount_paid
+                   ELSE 0
+                 END
+               )
+               FROM contract_payments p
+               WHERE p.contract_id = c.id
+             ), 0)
+           ),
+           monthly_payment = CASE
+             WHEN c.payment_months > 0 THEN ROUND(
+               (
+                 c.total_price - CASE
+                   WHEN c.down_payment_financed = 1 THEN COALESCE(c.down_payment_target, 0)
+                   ELSE c.down_payment
+                 END
+               ) / c.payment_months,
+               2
+             )
+             ELSE c.monthly_payment
+           END
+         WHERE c.status = 'activo'`,
       );
 
       this.logger.log(`✅ Updated remaining_balance for ${balanceResult.affectedRows} contracts`);

@@ -4,6 +4,11 @@ import { Repository } from 'typeorm';
 import { Payment } from '../../../entities/contracts/payment.entity';
 import { Contract } from '../../../entities/contracts/contract.entity';
 import { ContractDownpaymentPayment } from '../../../entities/contracts/contract-downpayment-payment.entity';
+import {
+  computeFinancedAmount,
+  getDownPaymentTarget,
+  resolveContractFinancials,
+} from '../contract-financial.util';
 
 @Injectable()
 export class PaymentsService {
@@ -156,11 +161,6 @@ export class PaymentsService {
       throw new Error('Contract not found');
     }
 
-    // Calculate financed amount (Total - Down Payment)
-    const totalPrice = Number(contract.total_price) || 0;
-    const downPayment = Number(contract.down_payment) || 0;
-    const financedAmount = totalPrice - downPayment;
-
     // Find the current partial payment if any (including overdue partial)
     const partialPayment = payments.find(p => p.status === 'parcial');
     
@@ -180,6 +180,20 @@ export class PaymentsService {
       return sum; // 0 for pending/overdue payments
     }, 0);
 
+    const totalPrice = Number(contract.total_price) || 0;
+    const downPaymentTarget = getDownPaymentTarget(contract);
+    const financedAmount = computeFinancedAmount(totalPrice, contract);
+    const financials = resolveContractFinancials(contract, totalPaidCorrect);
+    const downPaymentApplied = financials.down_payment_applied;
+    const totalPendingCorrect = financials.remaining_balance;
+    const totalPendingFromFinanced =
+      contract.status === 'completado'
+        ? 0
+        : Math.max(
+            0,
+            Math.round((financedAmount - totalPaidCorrect) * 100) / 100,
+          );
+
     // SEPARATE CALCULATIONS for UI breakdown
     const paidAmountComplete = payments.reduce((sum, p) => {
       if (p.status === 'pagado') {
@@ -194,10 +208,6 @@ export class PaymentsService {
       }
       return sum;
     }, 0);
-
-    // FIXED: total_pending = financed_amount - total_paid_from_payments
-    // This matches the manual calculation: Financiado - Pagados
-    const totalPendingCorrect = financedAmount - totalPaidCorrect;
 
     const overdueAmount = payments.reduce((sum, p) => {
       if (!p.is_overdue || p.status === 'cancelado' || p.status === 'pagado') {
@@ -222,22 +232,28 @@ export class PaymentsService {
       cancelled_count: payments.filter(p => p.status === 'cancelado').length,
       
       // Fix decimal precision issues and use correct calculation
-      // FIXED: total_paid should include down payment to match contract list
-      total_paid: Math.round((downPayment + totalPaidCorrect) * 100) / 100, // Enganche + pagos mensuales
-      total_paid_from_payments: Math.round(totalPaidCorrect * 100) / 100, // Solo pagos mensuales, sin enganche
+      total_paid: financials.total_paid,
+      total_paid_from_payments: financials.total_paid_from_payments,
       
       // BREAKDOWN for UI
       paid_amount_complete: Math.round(paidAmountComplete * 100) / 100, // Solo pagos completados
       paid_amount_partial: Math.round(paidAmountPartial * 100) / 100, // Solo abonos parciales
       
-      total_pending: Math.round(totalPendingCorrect * 100) / 100,
+      total_pending: Math.round(totalPendingFromFinanced * 100) / 100,
       total_expected: Math.round(payments.reduce((sum, p) => sum + Number(p.amount || 0), 0) * 100) / 100,
-      total_pending_amount: Math.round(totalPendingCorrect * 100) / 100, // Frontend expects this
-      
+      total_pending_amount: Math.round(totalPendingCorrect * 100) / 100,
+
       // Contract financial information
-      financed_amount: Math.round(financedAmount * 100) / 100, // Monto financiado (Total - Enganche)
-      total_price: Math.round(totalPrice * 100) / 100, // Total del contrato
-      down_payment: Math.round(downPayment * 100) / 100, // Enganche
+      financed_amount: Math.round(financedAmount * 100) / 100,
+      total_price: Math.round(totalPrice * 100) / 100,
+      down_payment: Math.round(downPaymentApplied * 100) / 100,
+      down_payment_applied: Math.round(downPaymentApplied * 100) / 100,
+      down_payment_target:
+        contract.down_payment_financed && contract.down_payment_target != null
+          ? Math.round(downPaymentTarget * 100) / 100
+          : null,
+      down_payment_target_defined:
+        contract.down_payment_financed && contract.down_payment_target != null,
       
       // Partial payment details for frontend
       partial_payment: partialPayment ? {

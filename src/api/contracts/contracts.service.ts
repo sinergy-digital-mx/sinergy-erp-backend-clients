@@ -2,6 +2,13 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Contract } from '../../entities/contracts/contract.entity';
+import {
+  computeFinancedAmount,
+  computeMonthlyPayment,
+  getDownPaymentTarget,
+  resolveContractFinancials,
+  sumPaidFromPaymentRows,
+} from './contract-financial.util';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { UpdateContractDto } from './dto/update-contract.dto';
 
@@ -278,15 +285,34 @@ export class ContractsService {
       });
     });
 
+    const paidByContract = await this.fetchMonthlyPaidTotalsByContract(
+      tenantId,
+      contractIds,
+    );
+
     // Add next payment info and financed amount to each contract
     const data = contracts.map(contract => {
       const totalPrice = Number(contract.total_price) || 0;
-      const downPayment = Number(contract.down_payment) || 0;
-      const financedAmount = totalPrice - downPayment;
+      const monthlyPaid = paidByContract.get(contract.id) ?? 0;
+      const financials = resolveContractFinancials(contract, monthlyPaid);
+      const financedAmount = computeFinancedAmount(totalPrice, contract);
+      const monthlyPayment = computeMonthlyPayment(
+        totalPrice,
+        contract,
+        Number(contract.payment_months) || 0,
+      );
 
       return {
         ...contract,
-        financed_amount: Math.round(financedAmount * 100) / 100, // Monto financiado (Total - Enganche)
+        down_payment_applied: financials.down_payment_applied,
+        down_payment_target: contract.down_payment_target,
+        down_payment_target_defined:
+          contract.down_payment_financed && contract.down_payment_target != null,
+        financed_amount: financedAmount,
+        total_paid: financials.total_paid,
+        total_paid_from_payments: financials.total_paid_from_payments,
+        remaining_balance: financials.remaining_balance,
+        monthly_payment: monthlyPayment,
         next_payment_date: nextPaymentMap.get(contract.id)?.next_payment_date || null,
         next_payment_status: nextPaymentMap.get(contract.id)?.next_payment_status || null,
         next_payment_number: nextPaymentMap.get(contract.id)?.next_payment_number || null,
@@ -390,10 +416,7 @@ export class ContractsService {
 
     const overdueCount = overdueCountResult[0]?.overdue_count || 0;
 
-    // Calculate financed amount
-    const totalPrice = Number(contract.total_price) || 0;
-    const downPayment = Number(contract.down_payment) || 0;
-    const financedAmount = totalPrice - downPayment;
+    const enriched = await this.enrichContractWithPaymentData(contract, tenantId);
 
     // Format seller info
     const sellerInfo = contract.seller ? {
@@ -419,20 +442,9 @@ export class ContractsService {
       total_price: contract.total_price,
       down_payment: contract.down_payment,
       down_payment_target: contract.down_payment_target,
-      down_payment_applied: Number(contract.down_payment) || 0,
-      down_payment_pending:
-        contract.down_payment_financed && contract.down_payment_target != null
-          ? Math.max(
-              0,
-              Math.round(
-                (Number(contract.down_payment_target) -
-                  Number(contract.down_payment || 0)) *
-                  100,
-              ) / 100,
-            )
-          : null,
-      down_payment_target_defined:
-        contract.down_payment_financed && contract.down_payment_target != null,
+      down_payment_applied: enriched.down_payment_applied,
+      down_payment_pending: enriched.down_payment_pending,
+      down_payment_target_defined: enriched.down_payment_target_defined,
       list_price: contract.list_price,
       lead_id: contract.lead_id,
       lead_group_id: contract.lead_group_id,
@@ -441,9 +453,13 @@ export class ContractsService {
       down_payment_monthly_amount: contract.down_payment_monthly_amount,
       down_payment_first_payment_date: contract.down_payment_first_payment_date,
       down_payment_payment_day: contract.down_payment_payment_day,
-      remaining_balance: contract.remaining_balance,
+      remaining_balance: enriched.remaining_balance,
       payment_months: contract.payment_months,
-      monthly_payment: contract.monthly_payment,
+      monthly_payment: enriched.monthly_payment,
+      total_paid: enriched.total_paid,
+      total_paid_from_payments: enriched.total_paid_from_payments,
+      total_pending_amount: enriched.total_pending_amount,
+      financed_amount: enriched.financed_amount,
       first_payment_date: contract.first_payment_date,
       payment_due_day: contract.payment_due_day,
       interest_rate: contract.interest_rate,
@@ -453,7 +469,6 @@ export class ContractsService {
       metadata: contract.metadata,
       created_at: contract.created_at,
       updated_at: contract.updated_at,
-      financed_amount: Math.round(financedAmount * 100) / 100,
       next_payment_date: nextPaymentData.next_payment_date,
       next_payment_status: nextPaymentData.next_payment_status,
       next_payment_number: nextPaymentData.next_payment_number,
@@ -477,14 +492,11 @@ export class ContractsService {
   }
 
   private async enrichContractWithPaymentData(contract: Contract, tenantId: string): Promise<any> {
-    // Get all payments for this contract
     const allPayments = await this.contractRepo.manager.query(
       'SELECT status, amount, amount_paid, amount_pending, payment_number, is_overdue FROM contract_payments WHERE contract_id = ? AND tenant_id = ?',
       [contract.id, tenantId]
     );
 
-    // Calculate totals
-    let totalPaidFromPayments = 0;
     let pendingFullPayments = 0;
     let overdueCount = 0;
     let partialPayment: {
@@ -501,52 +513,97 @@ export class ContractsService {
       const amountPending = Number(payment.amount_pending);
       const isOverdue = payment.is_overdue;
 
-      if (status === 'pagado') {
-        // FIXED: For completed payments, count the full amount, not amount_paid
-        totalPaidFromPayments += amount;
-      } else if (status === 'parcial') {
-        // For partial payments, count only what was actually paid
-        totalPaidFromPayments += amountPaid;
+      if (status === 'parcial') {
         partialPayment = {
-          installment_number: parseInt(payment.payment_number), // Convert to number for frontend
+          installment_number: parseInt(payment.payment_number),
           amount_paid: amountPaid,
           remaining_amount: amountPending,
           status: 'pending_completion'
         };
-        // Count overdue parcial payments
         if (isOverdue) {
           overdueCount++;
         }
       } else if (status === 'pendiente' || status === 'vencido') {
         pendingFullPayments++;
-        // Count overdue pendiente payments
         if (isOverdue) {
           overdueCount++;
         }
       }
     }
 
-    // Calculate total pending amount DYNAMICALLY (not from DB)
-    const downPaymentBaseline = contract.down_payment_financed
-      ? Number(contract.down_payment_target ?? contract.down_payment)
-      : Number(contract.down_payment);
-    const totalAfterDownPayment = Number(contract.total_price) - downPaymentBaseline;
-    const totalPaid = Number(contract.down_payment) + totalPaidFromPayments;
-    const totalPendingAmount = Number(contract.total_price) - totalPaid;
-    const financedAmount = totalAfterDownPayment; // This is what gets divided by payment_months
+    const totalPaidFromPayments = sumPaidFromPaymentRows(allPayments);
+    const totalPrice = Number(contract.total_price) || 0;
+    const downPaymentTarget = getDownPaymentTarget(contract);
+    const financials = resolveContractFinancials(contract, totalPaidFromPayments);
+    const financedAmount = computeFinancedAmount(totalPrice, contract);
+    const monthlyPayment = computeMonthlyPayment(
+      totalPrice,
+      contract,
+      Number(contract.payment_months) || 0,
+    );
+    const downPaymentPending =
+      contract.status === 'completado'
+        ? 0
+        : contract.down_payment_financed && contract.down_payment_target != null
+          ? Math.max(
+              0,
+              Math.round((downPaymentTarget - financials.down_payment_applied) * 100) / 100,
+            )
+          : null;
 
     return {
       ...contract,
-      financed_amount: Math.round(financedAmount * 100) / 100, // Monto financiado (Total - Enganche)
-      total_paid: totalPaid, // Enganche + pagos mensuales
-      total_paid_from_payments: totalPaidFromPayments, // Solo pagos mensuales, sin enganche
-      total_pending_amount: Math.round(totalPendingAmount * 100) / 100, // Calculado dinámicamente
-      remaining_balance: Math.round(totalPendingAmount * 100) / 100, // Override con valor calculado
+      down_payment_applied: financials.down_payment_applied,
+      down_payment_target_defined:
+        contract.down_payment_financed && contract.down_payment_target != null,
+      down_payment_pending: downPaymentPending,
+      financed_amount: financedAmount,
+      total_paid: financials.total_paid,
+      total_paid_from_payments: financials.total_paid_from_payments,
+      total_pending_amount: financials.remaining_balance,
+      remaining_balance: financials.remaining_balance,
+      monthly_payment: monthlyPayment,
       pending_full_payments: pendingFullPayments,
       partial_payment: partialPayment,
       overdue_payments_count: overdueCount,
       has_overdue: overdueCount > 0,
     };
+  }
+
+  private async fetchMonthlyPaidTotalsByContract(
+    tenantId: string,
+    contractIds: string[],
+  ): Promise<Map<string, number>> {
+    const map = new Map<string, number>();
+    if (contractIds.length === 0) {
+      return map;
+    }
+
+    const rows: Array<{ contract_id: string; total_paid: string | number }> =
+      await this.contractRepo.manager.query(
+        `
+        SELECT
+          contract_id,
+          COALESCE(SUM(
+            CASE
+              WHEN status = 'pagado' THEN amount
+              WHEN status = 'parcial' THEN amount_paid
+              ELSE 0
+            END
+          ), 0) AS total_paid
+        FROM contract_payments
+        WHERE tenant_id = ?
+          AND contract_id IN (${contractIds.map(() => '?').join(',')})
+        GROUP BY contract_id
+        `,
+        [tenantId, ...contractIds],
+      );
+
+    for (const row of rows) {
+      map.set(row.contract_id, Number(row.total_paid) || 0);
+    }
+
+    return map;
   }
 
   async update(tenantId: string, id: string, dto: UpdateContractDto): Promise<Contract> {
@@ -578,6 +635,12 @@ export class ContractsService {
 
     if (financed) {
       if (dto.down_payment_financed === true && !contract.down_payment_financed) {
+        if (
+          contract.down_payment_target == null &&
+          Number(contract.down_payment) > 0
+        ) {
+          contract.down_payment_target = Number(contract.down_payment);
+        }
         contract.down_payment = 0;
       }
       if (dto.down_payment !== undefined && Number(dto.down_payment) > 0) {
