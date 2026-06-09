@@ -342,14 +342,91 @@ export class DownpaymentPaymentsService {
     return saved;
   }
 
+  async updateDownpaymentTarget(
+    tenantId: string,
+    contractId: string,
+    downPaymentTarget: number,
+  ): Promise<any> {
+    const contract = await this.getFinancedContractOrThrow(tenantId, contractId);
+    const target = Math.round(Number(downPaymentTarget) * 100) / 100;
+
+    if (!Number.isFinite(target) || target <= 0) {
+      throw new BadRequestException('La meta de enganche debe ser mayor a 0');
+    }
+
+    const paymentRows = await this.downpaymentRepo.find({
+      where: { tenant_id: tenantId, contract_id: contractId },
+      select: ['amount', 'status', 'amount_paid'],
+    });
+
+    const activeRows = paymentRows.filter((row) => row.status !== 'cancelado');
+    const scheduledTotal = activeRows.reduce(
+      (sum, row) => sum + Number(row.amount || 0),
+      0,
+    );
+    const appliedTotal = activeRows.reduce((sum, row) => {
+      if (row.status === 'pagado') {
+        return sum + Number(row.amount || 0);
+      }
+      if (row.status === 'parcial') {
+        return sum + Number(row.amount_paid || 0);
+      }
+      return sum;
+    }, 0);
+
+    if (target < appliedTotal) {
+      throw new BadRequestException(
+        `La meta no puede ser menor al enganche ya abonado ($${appliedTotal.toFixed(2)})`,
+      );
+    }
+
+    if (scheduledTotal > 0 && target < scheduledTotal) {
+      throw new BadRequestException(
+        `La meta no puede ser menor a la suma de cuotas programadas ($${scheduledTotal.toFixed(2)})`,
+      );
+    }
+
+    await this.contractRepo.update(
+      { id: contractId, tenant_id: tenantId },
+      { down_payment_target: target },
+    );
+
+    await this.recalculateContractFinancing(tenantId, contractId);
+
+    const updatedContract = await this.contractRepo.findOne({
+      where: { id: contractId, tenant_id: tenantId },
+      select: [
+        'down_payment',
+        'down_payment_target',
+        'monthly_payment',
+        'remaining_balance',
+        'payment_months',
+        'total_price',
+      ],
+    });
+
+    return {
+      down_payment_target: target,
+      down_payment_applied: Number(updatedContract?.down_payment ?? 0),
+      down_payment_pending: Math.max(
+        0,
+        Math.round((target - Number(updatedContract?.down_payment ?? 0)) * 100) / 100,
+      ),
+      monthly_payment: Number(updatedContract?.monthly_payment ?? 0),
+      remaining_balance: Number(updatedContract?.remaining_balance ?? 0),
+      scheduled_total: Math.round(scheduledTotal * 100) / 100,
+    };
+  }
+
   async updateDownpaymentPayment(
     tenantId: string,
     contractId: string,
     paymentId: string,
     updates: {
+      amount?: number;
       amount_paid?: number;
-      due_date?: Date;
-      paid_date?: Date;
+      due_date?: Date | string;
+      paid_date?: Date | string;
       payment_method?: string;
       notes?: string;
     },
@@ -359,11 +436,43 @@ export class DownpaymentPaymentsService {
       throw new BadRequestException('Cannot update cancelled payment');
     }
 
+    if (updates.amount !== undefined) {
+      const newAmount = Math.round(Number(updates.amount) * 100) / 100;
+      const amountPaid = Number(payment.amount_paid) || 0;
+
+      if (!Number.isFinite(newAmount) || newAmount <= 0) {
+        throw new BadRequestException('El monto debe ser mayor a 0');
+      }
+
+      if (newAmount < amountPaid) {
+        throw new BadRequestException(
+          `El monto no puede ser menor a lo ya pagado ($${amountPaid.toFixed(2)})`,
+        );
+      }
+
+      payment.amount = newAmount;
+      payment.amount_pending = Math.round((newAmount - amountPaid) * 100) / 100;
+
+      if (amountPaid >= newAmount) {
+        payment.status = 'pagado';
+      } else if (amountPaid > 0) {
+        payment.status = 'parcial';
+      } else {
+        payment.status = 'pendiente';
+      }
+    }
+
     if (updates.amount_paid !== undefined) {
       const newAmountPaid = Number(updates.amount_paid) || 0;
       const totalAmount = Number(payment.amount) || 0;
       if (newAmountPaid < 0 || Number.isNaN(newAmountPaid)) {
         throw new BadRequestException('Invalid amount_paid provided');
+      }
+
+      if (newAmountPaid > totalAmount) {
+        throw new BadRequestException(
+          `El monto pagado no puede superar el monto de la cuota ($${totalAmount.toFixed(2)})`,
+        );
       }
 
       let newStatus = 'pendiente';
@@ -379,8 +488,8 @@ export class DownpaymentPaymentsService {
       payment.status = newStatus;
     }
 
-    if (updates.due_date) payment.due_date = updates.due_date;
-    if (updates.paid_date) payment.paid_date = updates.paid_date;
+    if (updates.due_date) payment.due_date = new Date(updates.due_date);
+    if (updates.paid_date) payment.paid_date = new Date(updates.paid_date);
     if (updates.payment_method !== undefined) payment.payment_method = updates.payment_method;
     if (updates.notes !== undefined) payment.notes = updates.notes;
 

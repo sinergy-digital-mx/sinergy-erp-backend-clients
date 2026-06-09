@@ -4,6 +4,7 @@ import {
   IsNotEmpty,
   IsNumber,
   IsOptional,
+  IsString,
   Max,
   Min,
 } from 'class-validator';
@@ -38,4 +39,9 @@ export class GenerateHoaPaymentsDto {
   @IsNumber()
   @Min(0.01, { message: 'El monto mensual debe ser mayor a 0' })
   monthly_amount: number;
+
+  /** Moneda de las cuotas (default: moneda del contrato). Ej. USD, MXN */
+  @IsOptional()
+  @IsString()
+  currency?: string;
 }

@@ -21,22 +21,31 @@ export class HoaPaymentsService {
     contractId: string,
     dto: GenerateHoaPaymentsDto,
   ): Promise<ContractHoaPayment[]> {
-    await this.ensureContractAllowsHoaOperations(tenantId, contractId);
+    const contract = await this.ensureContractAllowsHoaOperations(tenantId, contractId);
+    const currency = this.resolveCurrency(dto.currency, contract.currency);
 
     const { firstPaymentDate, paymentsCount, paymentDay } =
       this.resolveGenerateConfig(dto);
 
-    const existingPayments = await this.hoaPaymentRepo.count({
+    const existingPayments = await this.hoaPaymentRepo.find({
       where: { tenant_id: tenantId, contract_id: contractId },
+      select: ['due_date', 'status', 'payment_number'],
     });
 
-    if (existingPayments > 0) {
-      throw new BadRequestException(
-        'Los pagos HOA ya fueron generados para este contrato',
-      );
-    }
+    const occupiedMonths = new Set(
+      existingPayments
+        .filter((payment) => payment.status !== 'cancelado')
+        .map((payment) => this.getMonthKey(new Date(payment.due_date))),
+    );
+
+    let nextPaymentNumber =
+      existingPayments.reduce(
+        (max, payment) => Math.max(max, Number(payment.payment_number) || 0),
+        0,
+      ) + 1;
 
     const payments: ContractHoaPayment[] = [];
+    const duplicateMonths: string[] = [];
     const baseMonth = new Date(
       firstPaymentDate.getFullYear(),
       firstPaymentDate.getMonth(),
@@ -45,6 +54,13 @@ export class HoaPaymentsService {
 
     for (let i = 0; i < paymentsCount; i++) {
       const monthDate = new Date(baseMonth.getFullYear(), baseMonth.getMonth() + i, 1);
+      const monthKey = this.getMonthKey(monthDate);
+
+      if (occupiedMonths.has(monthKey)) {
+        duplicateMonths.push(this.formatMonthLabel(monthDate));
+        continue;
+      }
+
       const maxDayOfMonth = new Date(
         monthDate.getFullYear(),
         monthDate.getMonth() + 1,
@@ -57,21 +73,33 @@ export class HoaPaymentsService {
         safePaymentDay,
       );
 
-      const payment = this.hoaPaymentRepo.create({
-        tenant_id: tenantId,
-        contract_id: contractId,
-        payment_number: String(i + 1),
-        amount: dto.monthly_amount,
-        amount_paid: 0,
-        amount_pending: dto.monthly_amount,
-        due_date: dueDate,
-        paid_date: null,
-        first_partial_payment_date: null,
-        payment_method: null,
-        status: 'pendiente',
-        is_overdue: false,
-      });
-      payments.push(payment);
+      payments.push(
+        this.hoaPaymentRepo.create({
+          tenant_id: tenantId,
+          contract_id: contractId,
+          payment_number: String(nextPaymentNumber++),
+          amount: dto.monthly_amount,
+          amount_paid: 0,
+          amount_pending: dto.monthly_amount,
+          currency,
+          due_date: dueDate,
+          paid_date: null,
+          first_partial_payment_date: null,
+          payment_method: null,
+          status: 'pendiente',
+          is_overdue: false,
+        }),
+      );
+      occupiedMonths.add(monthKey);
+    }
+
+    if (payments.length === 0) {
+      const monthList = [...new Set(duplicateMonths)].join(', ');
+      throw new BadRequestException(
+        duplicateMonths.length === 1
+          ? `Ya hay un pago HOA para el mes ${monthList}`
+          : `Ya hay pagos HOA para los meses: ${monthList}`,
+      );
     }
 
     return this.hoaPaymentRepo.save(payments);
@@ -101,8 +129,16 @@ export class HoaPaymentsService {
   }
 
   async getHoaPaymentStats(tenantId: string, contractId: string): Promise<any> {
+    const contract = await this.contractRepo.findOne({
+      where: { id: contractId, tenant_id: tenantId },
+      select: ['id', 'currency'],
+    });
     const payments = await this.getContractHoaPayments(tenantId, contractId);
     const partialPayment = payments.find((p) => p.status === 'parcial') ?? null;
+    const currency =
+      payments.find((payment) => payment.currency)?.currency ??
+      contract?.currency ??
+      'MXN';
 
     const totalPaid = payments.reduce((sum, p) => {
       if (p.status === 'pagado') {
@@ -127,6 +163,7 @@ export class HoaPaymentsService {
     );
 
     return {
+      currency,
       total_payments: payments.length,
       paid_count: payments.filter((p) => p.status === 'pagado').length,
       pending_count: payments.filter((p) => p.status === 'pendiente').length,
@@ -347,7 +384,7 @@ export class HoaPaymentsService {
   ): Promise<Contract> {
     const contract = await this.contractRepo.findOne({
       where: { id: contractId, tenant_id: tenantId },
-      select: ['id', 'status', 'contract_number'],
+      select: ['id', 'status', 'contract_number', 'currency'],
     });
 
     if (!contract) {
@@ -456,5 +493,33 @@ export class HoaPaymentsService {
         `Ya existe un pago parcial en este contrato (Pago #${existingPartial.payment_number}). Complete ese pago primero antes de crear otro pago parcial.`,
       );
     }
+  }
+
+  private getMonthKey(date: Date): string {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  private formatMonthLabel(date: Date): string {
+    return date.toLocaleDateString('es-MX', {
+      month: 'long',
+      year: 'numeric',
+    });
+  }
+
+  private resolveCurrency(
+    requestedCurrency: string | undefined,
+    contractCurrency: string | undefined,
+  ): string {
+    const normalized = (requestedCurrency ?? contractCurrency ?? 'MXN')
+      .trim()
+      .toUpperCase();
+
+    if (!/^[A-Z]{3}$/.test(normalized)) {
+      throw new BadRequestException(
+        'La moneda debe ser un código ISO de 3 letras (ej. USD, MXN)',
+      );
+    }
+
+    return normalized;
   }
 }

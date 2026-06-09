@@ -15,6 +15,8 @@ import { TenantContextService } from '../../rbac/services/tenant-context.service
 import { RecordPartialPaymentDto } from '../dto/record-partial-payment.dto';
 import { CreateManualDownpaymentPaymentDto } from './dto/create-manual-downpayment-payment.dto';
 import { GenerateDownpaymentPaymentsDto } from './dto/generate-downpayment-payments.dto';
+import { UpdateDownpaymentPaymentDto } from './dto/update-downpayment-payment.dto';
+import { UpdateDownpaymentTargetDto } from './dto/update-downpayment-target.dto';
 import { DownpaymentPaymentsService } from './downpayment-payments.service';
 
 @Controller('tenant/contracts/:contractId/downpayment-payments')
@@ -48,6 +50,19 @@ export class DownpaymentPaymentsController {
       this.getTenantIdOrThrow(),
       contractId,
       dto ?? {},
+    );
+  }
+
+  @Put('target')
+  @RequirePermissions({ entityType: 'Contract', action: 'Update' })
+  async updateTarget(
+    @Param('contractId') contractId: string,
+    @Body() dto: UpdateDownpaymentTargetDto,
+  ) {
+    return this.downpaymentPaymentsService.updateDownpaymentTarget(
+      this.getTenantIdOrThrow(),
+      contractId,
+      dto.down_payment_target,
     );
   }
 
@@ -93,20 +108,13 @@ export class DownpaymentPaymentsController {
   async update(
     @Param('contractId') contractId: string,
     @Param('paymentId') paymentId: string,
-    @Body()
-    body: {
-      amount_paid?: number;
-      due_date?: Date;
-      paid_date?: Date;
-      payment_method?: string;
-      notes?: string;
-    },
+    @Body() dto: UpdateDownpaymentPaymentDto,
   ) {
     return this.downpaymentPaymentsService.updateDownpaymentPayment(
       this.getTenantIdOrThrow(),
       contractId,
       paymentId,
-      body,
+      dto,
     );
   }
 

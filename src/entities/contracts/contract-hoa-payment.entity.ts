@@ -46,6 +46,9 @@ export class ContractHoaPayment {
   @Column({ type: 'decimal', precision: 15, scale: 2 })
   amount_pending: number;
 
+  @Column({ length: 10, default: 'MXN' })
+  currency: string;
+
   @Column({ type: 'date' })
   due_date: Date;
 
