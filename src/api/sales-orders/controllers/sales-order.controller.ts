@@ -76,11 +76,51 @@ export class SalesOrderController {
     );
   }
 
+  @Get(':id/ticket-recibo')
+  @ApiOperation({
+    summary: 'Obtener ticket existente para reimpresión',
+    description:
+      'Devuelve el TICKET / RECIBO ya guardado. No genera ni reemplaza documentos (404 si no existe).',
+  })
+  async getTicketRecibo(@Param('id') id: string, @Req() req: any) {
+    const receipt = await this.posReceiptService.reprintPosTicket(
+      req.user.tenant_id,
+      id,
+    );
+
+    return {
+      success: true,
+      message: 'Ticket existente listo para imprimir',
+      regenerated: false,
+      receipt,
+    };
+  }
+
+  @Post(':id/reprint-ticket-recibo')
+  @ApiOperation({
+    summary: 'Reimprimir ticket existente (sin regenerar)',
+    description:
+      'Lee el documento TICKET / RECIBO guardado y devuelve bytes para impresora. No modifica documentos.',
+  })
+  async reprintTicketRecibo(@Param('id') id: string, @Req() req: any) {
+    const receipt = await this.posReceiptService.reprintPosTicket(
+      req.user.tenant_id,
+      id,
+    );
+
+    return {
+      success: true,
+      message: 'Ticket existente listo para imprimir',
+      regenerated: false,
+      receipt,
+    };
+  }
+
   @Post(':id/regenerate-ticket-recibo')
   @ApiOperation({
     summary: '[TEMPORAL] Regenerar TICKET / RECIBO ESC/POS (Bixolon)',
     description:
-      'Solo para ventas POS ya cobradas. Elimina el ticket anterior y crea uno nuevo con formato ESC/POS actual. Devuelve el recibo para imprimir y la lista actualizada de documentos.',
+      'Elimina el ticket anterior y crea uno nuevo. Usar solo cuando haga falta actualizar formato o corregir datos. Para reimprimir el guardado usar reprint-ticket-recibo.',
   })
   async regenerateTicketRecibo(@Param('id') id: string, @Req() req: any) {
     const receipt = await this.posReceiptService.regeneratePosTicket(
@@ -93,6 +133,7 @@ export class SalesOrderController {
     return {
       success: true,
       message: 'TICKET / RECIBO regenerado exitosamente',
+      regenerated: true,
       receipt,
       documents,
     };

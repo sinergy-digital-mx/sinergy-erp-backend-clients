@@ -156,7 +156,12 @@ export class SalesOrderPosReceiptService {
     return this.buildReceiptResultFromDocument(salesOrderId, ticketDoc);
   }
 
-  /** Temporal: regenerar TICKET / RECIBO desde detalle de venta (backoffice). */
+  /** Reimprimir ticket guardado — no crea ni reemplaza documentos. */
+  async reprintPosTicket(tenantId: string, salesOrderId: string): Promise<PosReceiptResult> {
+    return this.getPosTicket(tenantId, salesOrderId);
+  }
+
+  /** Regenerar ticket — elimina el anterior y crea uno nuevo. */
   async regeneratePosTicket(
     tenantId: string,
     salesOrderId: string,
