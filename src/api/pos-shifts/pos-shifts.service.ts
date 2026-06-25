@@ -944,6 +944,16 @@ export class PosShiftsService {
     };
   }
 
+  async getSaleReceiptRaw(tenantId: string, salesOrderId: string, res: any) {
+    const { buffer, fileName } = await this.posReceiptService.getPosTicketRawBuffer(
+      tenantId,
+      salesOrderId,
+    );
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+    res.send(buffer);
+  }
+
   async getSaleCollection(tenantId: string, salesOrderId: string) {
     const collection = await this.collectionRepo.findOne({
       where: { tenant_id: tenantId, sales_order_id: salesOrderId },

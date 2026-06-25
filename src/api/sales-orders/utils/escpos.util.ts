@@ -9,12 +9,23 @@ const LF = 0x0a;
 
 export const ESCPOS_CHARS_PER_LINE = 48;
 
+/** Hex continuo para QZ Tray: format command, flavor hex (evita array de números). */
+export function bufferToEscPosHex(buffer: Buffer): string {
+  return buffer.toString('hex').toUpperCase();
+}
+
 export class EscPosBuilder {
   private readonly chunks: Buffer[] = [];
 
   initialize(): this {
     this.chunks.push(Buffer.from([ESC, 0x40]));
     return this.selectFontA().setCodePageLatin1().characterSizeNormal();
+  }
+
+  /** Font B 9x17 — texto más pequeño (dirección, etc.). */
+  selectFontB(): this {
+    this.chunks.push(Buffer.from([ESC, 0x4d, 0x01]));
+    return this;
   }
 
   /** Font A 12x24 — evita "letritas" (Font B es 9x17). */
@@ -106,12 +117,50 @@ export function formatMoney(amount: number): string {
   return '$' + amount.toFixed(2);
 }
 
+export function formatUsd(amount: number): string {
+  return 'USD ' + amount.toFixed(2);
+}
+
 /** Dos columnas: etiqueta izquierda, valor derecho. */
 export function labelValueLine(label: string, value: string, width = ESCPOS_CHARS_PER_LINE): string {
   const maxLabel = width - value.length - 1;
   const safeLabel = label.length > maxLabel ? label.slice(0, maxLabel) : label;
   const spaces = Math.max(1, width - safeLabel.length - value.length);
   return safeLabel + ' '.repeat(spaces) + value;
+}
+
+/** Etiqueta y valor pegados a la izquierda; envuelve sin huecos grandes. */
+export function leftLabelLines(label: string, value: string, width = ESCPOS_CHARS_PER_LINE): string[] {
+  return wrapLines(`${label} ${value}`.trim(), width);
+}
+
+/** Dos bloques en la misma línea (mitad izq / mitad der). */
+export function twoColumnLine(left: string, right: string, width = ESCPOS_CHARS_PER_LINE): string {
+  const half = Math.floor(width / 2);
+  const safeLeft = left.length > half ? left.slice(0, half) : left;
+  const safeRight = right.length > half ? right.slice(0, half) : right;
+  return padRight(safeLeft, half) + padRight(safeRight, width - half);
+}
+
+export function wrapLines(text: string, width = ESCPOS_CHARS_PER_LINE): string[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [''];
+
+  const lines: string[] = [];
+  let current = '';
+
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length <= width) {
+      current = candidate;
+      continue;
+    }
+    if (current) lines.push(current);
+    current = word.length > width ? word.slice(0, width) : word;
+  }
+
+  if (current) lines.push(current);
+  return lines;
 }
 
 /** Fila de producto: descripción + cantidad + precio + total. */

@@ -12,9 +12,14 @@ import { SalesOrderDocumentType } from '../../../entities/sales-orders/sales-ord
 import {
   EscPosBuilder,
   ESCPOS_CHARS_PER_LINE,
+  bufferToEscPosHex,
   formatMoney,
+  formatUsd,
   labelValueLine,
+  leftLabelLines,
   productLine,
+  twoColumnLine,
+  wrapLines,
 } from '../utils/escpos.util';
 
 export const SALES_ORDER_TICKET_RECIBO_NAMES = ['TICKET / RECIBO', 'TICKET_RECIBO'] as const;
@@ -25,10 +30,19 @@ export interface PosReceiptResult {
   mime_type: string;
   download_url: string | null;
   escpos_base64: string;
+  /** Preferir esto en QZ Tray (flavor hex). NO convertir a array de números. */
+  escpos_hex: string;
   plain_text: string;
   printer_profile: string;
   /** Solo depuración / vista previa. NO enviar a impresora. */
   print_mode: 'raw_escpos_base64';
+  /** Config QZ lista para `qz.print(config, [qz_raw_config])` */
+  qz_raw_config: {
+    type: 'raw';
+    format: 'command';
+    flavor: 'hex';
+    data: string;
+  };
 }
 
 @Injectable()
@@ -97,16 +111,33 @@ export class SalesOrderPosReceiptService {
       this.logger.warn(`No se pudo firmar URL del ticket ${salesOrderId}: ${error}`);
     }
 
-    return {
-      document_id: document.id,
-      file_name: fileName,
-      mime_type: 'application/octet-stream',
-      download_url: downloadUrl,
-      escpos_base64: escposBuffer.toString('base64'),
-      plain_text: plainText,
-      printer_profile: 'bixolon-srp-330iii-escpos-80mm',
-      print_mode: 'raw_escpos_base64',
-    };
+    return this.buildReceiptResult(
+      escposBuffer,
+      plainText,
+      document.id,
+      fileName,
+      downloadUrl,
+    );
+  }
+
+  async getPosTicketRawBuffer(
+    tenantId: string,
+    salesOrderId: string,
+  ): Promise<{ buffer: Buffer; fileName: string }> {
+    const order = await this.salesOrderRepo.findOne({
+      where: { id: salesOrderId, tenant_id: tenantId },
+    });
+    if (!order) {
+      throw new NotFoundException('Orden de venta no encontrada');
+    }
+
+    const ticketDoc = await this.findExistingTicket(salesOrderId);
+    if (!ticketDoc) {
+      throw new NotFoundException('Ticket de recibo no generado para esta orden');
+    }
+
+    const buffer = await this.s3Service.getFileBuffer(ticketDoc.file_path);
+    return { buffer, fileName: ticketDoc.document_name };
   }
 
   async getPosTicket(tenantId: string, salesOrderId: string): Promise<PosReceiptResult> {
@@ -137,6 +168,33 @@ export class SalesOrderPosReceiptService {
     return this.generateAndSavePosTicket(tenantId, salesOrderId, uploadedBy);
   }
 
+  private buildReceiptResult(
+    escposBuffer: Buffer,
+    plainText: string,
+    documentId: string,
+    fileName: string,
+    downloadUrl: string | null,
+  ): PosReceiptResult {
+    const escposHex = bufferToEscPosHex(escposBuffer);
+    return {
+      document_id: documentId,
+      file_name: fileName,
+      mime_type: 'application/octet-stream',
+      download_url: downloadUrl,
+      escpos_base64: escposBuffer.toString('base64'),
+      escpos_hex: escposHex,
+      plain_text: this.stripStyleMarkers(plainText),
+      printer_profile: 'bixolon-srp-330iii-escpos-80mm',
+      print_mode: 'raw_escpos_base64',
+      qz_raw_config: {
+        type: 'raw',
+        format: 'command',
+        flavor: 'hex',
+        data: escposHex,
+      },
+    };
+  }
+
   private async buildReceiptResultFromDocument(
     salesOrderId: string,
     ticketDoc: {
@@ -146,26 +204,28 @@ export class SalesOrderPosReceiptService {
       path?: string | null;
     },
   ): Promise<PosReceiptResult> {
-    let escposBase64 = '';
     let plainText = '';
     try {
       const buffer = await this.s3Service.getFileBuffer(ticketDoc.file_path);
-      escposBase64 = buffer.toString('base64');
       plainText = this.extractPlainTextFromEscPos(buffer);
+      return this.buildReceiptResult(
+        buffer,
+        plainText,
+        ticketDoc.id,
+        ticketDoc.document_name,
+        ticketDoc.path ?? null,
+      );
     } catch (error) {
       this.logger.warn(`Error leyendo ticket ${salesOrderId}: ${error}`);
     }
 
-    return {
-      document_id: ticketDoc.id,
-      file_name: ticketDoc.document_name,
-      mime_type: 'application/octet-stream',
-      download_url: ticketDoc.path ?? null,
-      escpos_base64: escposBase64,
-      plain_text: plainText,
-      printer_profile: 'bixolon-srp-330iii-escpos-80mm',
-      print_mode: 'raw_escpos_base64',
-    };
+    return this.buildReceiptResult(
+      Buffer.alloc(0),
+      plainText,
+      ticketDoc.id,
+      ticketDoc.document_name,
+      ticketDoc.path ?? null,
+    );
   }
 
   private async findExistingTicket(salesOrderId: string) {
@@ -263,14 +323,17 @@ export class SalesOrderPosReceiptService {
     const address = this.formatBranchAddress(billingBranch, order);
     const soldAt = collection.created_at ?? order.updated_at ?? new Date();
 
-    lines.push(businessName.toUpperCase());
-    lines.push(businessName.toUpperCase());
-    if (rfc) lines.push(rfc);
-    if (address) lines.push(address.toUpperCase());
-    lines.push(this.formatDateTime(soldAt));
+    lines.push(`!H!${businessName.toUpperCase()}`);
+    if (rfc) lines.push(`!H!${rfc}`);
+    lines.push(`!C!${this.formatDateTime(soldAt)}`);
+    if (address) {
+      for (const addressLine of wrapLines(address.toUpperCase(), ESCPOS_CHARS_PER_LINE)) {
+        lines.push(`!S!${addressLine}`);
+      }
+    }
     lines.push('');
     lines.push(
-      productLine('DESCRIPCION', 'CANT.', 'PRECIO', 'TOTAL', ESCPOS_CHARS_PER_LINE),
+      `!N!${productLine('DESCRIPCION', 'CANT.', 'PRECIO', 'TOTAL', ESCPOS_CHARS_PER_LINE)}`,
     );
 
     let totalQty = 0;
@@ -284,93 +347,120 @@ export class SalesOrderPosReceiptService {
 
       const description = (item.product?.name ?? 'PRODUCTO').toUpperCase();
       lines.push(
-        productLine(
+        `!N!${productLine(
           description,
           this.formatQuantity(qty),
           formatMoney(unitPrice),
           formatMoney(lineTotal),
           ESCPOS_CHARS_PER_LINE,
-        ),
+        )}`,
       );
     }
 
     const orderTotal = Number(collection.order_total_mxn) || Number(order.total) || 0;
+    const lineCount = order.line_items?.length ?? 0;
+
     lines.push('');
-    lines.push(labelValueLine('Total:', formatMoney(orderTotal)));
-    lines.push('Recibido + :');
-    lines.push(...this.buildPaymentLines(collection));
+    lines.push(`!N!${labelValueLine('Total:', formatMoney(orderTotal))}`);
+    lines.push(`!N!${'-'.repeat(ESCPOS_CHARS_PER_LINE)}`);
+    lines.push(...this.buildPaymentLines(collection).map((line) => `!N!${line}`));
+    lines.push(`!N!${'-'.repeat(ESCPOS_CHARS_PER_LINE)}`);
+    lines.push(
+      `!N!${twoColumnLine(
+        `Renglones: ${lineCount}`,
+        `Cantidad: ${this.formatQuantity(totalQty)}`,
+      )}`,
+    );
     lines.push('');
-    lines.push(labelValueLine('Rens :', String(order.line_items?.length ?? 0)));
-    lines.push(labelValueLine('Tot-Cant:', this.formatQuantity(totalQty)));
+    this.pushFooterLines(lines, 'No. Caja:', '1');
+    this.pushFooterLines(lines, 'Recibo No:', order.folio);
+    this.pushFooterLines(lines, 'Por:', 'RECIBO AL PUBLICO EN GENERAL');
+    this.pushFooterLines(lines, 'Cajero(a):', this.formatUserName(collection.collected_by_user));
+    this.pushFooterLines(lines, 'Lo atendio:', this.formatUserName(order.seller_user));
+    this.pushFooterLines(lines, 'Cliente:', this.formatCustomerName(order));
     lines.push('');
-    lines.push(labelValueLine('No. Caja:', '1'));
-    lines.push(labelValueLine('Recibo No:', order.folio));
-    lines.push(labelValueLine('Por:', 'RECIBO AL PUBLICO EN GENERAL'));
-    lines.push(labelValueLine('Cajero(a):', this.formatUserName(collection.collected_by_user)));
-    lines.push(labelValueLine('Lo atendio:', this.formatUserName(order.seller_user)));
-    lines.push(labelValueLine('Cliente:', this.formatCustomerName(order)));
-    lines.push(labelValueLine('Saldo Global:', formatMoney(0)));
-    lines.push('');
-    if (address) lines.push(address.toUpperCase());
-    lines.push('');
-    lines.push(this.center('GRACIAS POR SU PREFERENCIA !!!'));
-    lines.push(this.center('REVISE SU CAMBIO Y SU MERCANCIA'));
-    lines.push(this.center('NO HAY CAMBIOS NI DEVOLUCIONES'));
+    lines.push('!CB!GRACIAS POR SU PREFERENCIA !!!');
+    lines.push('!CB!REVISE SU CAMBIO Y SU MERCANCIA');
+    lines.push('!CB!NO HAY CAMBIOS NI DEVOLUCIONES');
 
     return lines.join('\n');
   }
 
+  private pushFooterLines(lines: string[], label: string, value: string): void {
+    for (const part of leftLabelLines(label, value)) {
+      lines.push(`!N!${part}`);
+    }
+  }
+
   private buildEscPosReceipt(plainText: string): Buffer {
-    const builder = new EscPosBuilder().initialize().align('center');
-    const textLines = plainText.split('\n');
-    let headerLinesPrinted = 0;
+    const builder = new EscPosBuilder().initialize();
 
-    for (const line of textLines) {
-      const trimmed = line.trim();
-
-      if (!trimmed) {
+    for (const rawLine of plainText.split('\n')) {
+      if (!rawLine) {
         builder.textLine('');
         continue;
       }
 
-      if (
-        trimmed === 'GRACIAS POR SU PREFERENCIA !!!' ||
-        trimmed === 'REVISE SU CAMBIO Y SU MERCANCIA' ||
-        trimmed === 'NO HAY CAMBIOS NI DEVOLUCIONES'
-      ) {
-        builder
-          .align('center')
-          .characterSizeNormal()
-          .bold(true)
-          .textLine(trimmed)
-          .bold(false)
-          .align('left');
-        continue;
+      const { style, text } = this.parseStyleLine(rawLine);
+      switch (style) {
+        case 'H':
+          builder
+            .align('center')
+            .selectFontA()
+            .characterSizeDouble()
+            .bold(true)
+            .textLine(text)
+            .bold(false)
+            .characterSizeNormal()
+            .align('left');
+          break;
+        case 'S':
+          builder
+            .align('center')
+            .selectFontB()
+            .characterSizeNormal()
+            .bold(false)
+            .textLine(text)
+            .selectFontA()
+            .align('left');
+          break;
+        case 'C':
+          builder
+            .align('center')
+            .selectFontA()
+            .characterSizeNormal()
+            .bold(false)
+            .textLine(text)
+            .align('left');
+          break;
+        case 'CB':
+          builder
+            .align('center')
+            .selectFontA()
+            .characterSizeNormal()
+            .bold(true)
+            .textLine(text)
+            .bold(false)
+            .align('left');
+          break;
+        default:
+          builder.align('left').selectFontA().characterSizeNormal().bold(false).textLine(text);
       }
-
-      const isBusinessHeader =
-        headerLinesPrinted < 4 &&
-        !trimmed.includes('$') &&
-        trimmed === trimmed.toUpperCase() &&
-        trimmed.length > 3;
-
-      if (isBusinessHeader) {
-        headerLinesPrinted++;
-        builder
-          .align('center')
-          .characterSizeDouble()
-          .bold(true)
-          .textLine(trimmed)
-          .bold(false)
-          .characterSizeNormal()
-          .align('left');
-        continue;
-      }
-
-      builder.align('left').characterSizeNormal().textLine(line);
     }
 
     return builder.cut(true).build();
+  }
+
+  private parseStyleLine(line: string): { style: string; text: string } {
+    const match = line.match(/^!([A-Z]+)!(.*)$/);
+    if (match) {
+      return { style: match[1], text: match[2] };
+    }
+    return { style: 'N', text: line };
+  }
+
+  private stripStyleMarkers(text: string): string {
+    return text.replace(/^![A-Z]+!/gm, '');
   }
 
   private buildPaymentLines(collection: PosSaleCollection): string[] {
@@ -381,34 +471,29 @@ export class SalesOrderPosReceiptService {
     const cardMxn = Number(collection.amount_card_mxn) || 0;
     const changeMxn = Number(collection.change_cash_mxn) || 0;
     const changeUsd = Number(collection.change_cash_usd) || 0;
+    const receivedMxn =
+      Number(collection.received_cash_mxn) || (cashMxn > 0 ? cashMxn + changeMxn : 0);
+    const receivedUsd =
+      Number(collection.received_cash_usd) || (cashUsd > 0 ? cashUsd + changeUsd : 0);
 
-    if (collection.payment_method === PosSalePaymentMethod.CASH) {
-      if (cashMxn > 0) {
-        lines.push(labelValueLine('Efectivo PESOS -> :', formatMoney(cashMxn)));
-      }
-      if (cashUsd > 0) {
-        lines.push(labelValueLine('Efectivo DOLARES -> :', formatMoney(cashUsd)));
-      }
-    } else if (collection.payment_method === PosSalePaymentMethod.CARD) {
-      lines.push(labelValueLine('Tarjeta -> :', formatMoney(cardMxn)));
-    } else if (collection.payment_method === PosSalePaymentMethod.TRANSFER) {
-      lines.push(labelValueLine('Transferencia -> :', formatMoney(transferMxn)));
-    } else {
-      if (cashMxn > 0) lines.push(labelValueLine('Efectivo PESOS -> :', formatMoney(cashMxn)));
-      if (cashUsd > 0) lines.push(labelValueLine('Efectivo DOLARES -> :', formatMoney(cashUsd)));
-      if (transferMxn > 0) {
-        lines.push(labelValueLine('Transferencia -> :', formatMoney(transferMxn)));
-      }
-      if (cardMxn > 0) lines.push(labelValueLine('Tarjeta -> :', formatMoney(cardMxn)));
+    lines.push(
+      labelValueLine('Recibido Efec. Pesos:', formatMoney(receivedMxn)),
+    );
+    lines.push(
+      labelValueLine('Recibido Efec. Dolares:', formatUsd(receivedUsd)),
+    );
+
+    if (collection.payment_method === PosSalePaymentMethod.CARD && cardMxn > 0) {
+      lines.push(labelValueLine('Tarjeta:', formatMoney(cardMxn)));
+    } else if (collection.payment_method === PosSalePaymentMethod.TRANSFER && transferMxn > 0) {
+      lines.push(labelValueLine('Transferencia:', formatMoney(transferMxn)));
+    } else if (collection.payment_method === PosSalePaymentMethod.MIXED) {
+      if (transferMxn > 0) lines.push(labelValueLine('Transferencia:', formatMoney(transferMxn)));
+      if (cardMxn > 0) lines.push(labelValueLine('Tarjeta:', formatMoney(cardMxn)));
     }
 
-    if (changeMxn > 0) {
-      lines.push(labelValueLine('Cambio = :', formatMoney(changeMxn)));
-    } else if (changeUsd > 0) {
-      lines.push(labelValueLine('Cambio USD = :', formatMoney(changeUsd)));
-    } else {
-      lines.push(labelValueLine('Cambio = :', formatMoney(0)));
-    }
+    lines.push(labelValueLine('Cambio Pesos:', formatMoney(changeMxn)));
+    lines.push(labelValueLine('Cambio Dolares:', formatUsd(changeUsd)));
 
     return lines;
   }
@@ -444,6 +529,7 @@ export class SalesOrderPosReceiptService {
 
   private formatDateTime(date: Date): string {
     return new Intl.DateTimeFormat('es-MX', {
+      timeZone: 'America/Tijuana',
       day: '2-digit',
       month: 'short',
       year: 'numeric',
@@ -456,12 +542,6 @@ export class SalesOrderPosReceiptService {
 
   private formatQuantity(value: number): string {
     return Number.isInteger(value) ? String(value) : value.toFixed(3).replace(/\.?0+$/, '');
-  }
-
-  private center(text: string): string {
-    if (text.length >= ESCPOS_CHARS_PER_LINE) return text;
-    const pad = Math.floor((ESCPOS_CHARS_PER_LINE - text.length) / 2);
-    return ' '.repeat(pad) + text;
   }
 
   private extractPlainTextFromEscPos(buffer: Buffer): string {

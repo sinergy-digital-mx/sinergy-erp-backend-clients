@@ -7,6 +7,7 @@ import {
   Param,
   Query,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -229,6 +230,24 @@ export class PosShiftsController {
     return this.posShiftsService.getSaleReceipt(
       req.user.tenant_id,
       salesOrderId,
+    );
+  }
+
+  @Get('sales/:salesOrderId/receipt/raw')
+  @RequirePermissions({ entityType: 'PosShift', action: 'Read' })
+  @ApiOperation({
+    summary: 'Bytes ESC/POS del ticket (binario)',
+    description: 'application/octet-stream para impresión RAW Bixolon.',
+  })
+  async getSaleReceiptRaw(
+    @Param('salesOrderId') salesOrderId: string,
+    @Req() req: any,
+    @Res() res: any,
+  ) {
+    return this.posShiftsService.getSaleReceiptRaw(
+      req.user.tenant_id,
+      salesOrderId,
+      res,
     );
   }
 }

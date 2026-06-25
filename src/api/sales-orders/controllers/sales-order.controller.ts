@@ -1,6 +1,6 @@
 import {
   Controller, Post, Get, Put, Delete, Body, Param, Query,
-  UseGuards, Req, HttpCode, HttpStatus,
+  UseGuards, Req, HttpCode, HttpStatus, Res,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
@@ -96,6 +96,27 @@ export class SalesOrderController {
       receipt,
       documents,
     };
+  }
+
+  @Get(':id/ticket-recibo/raw')
+  @ApiOperation({
+    summary: 'Descargar bytes ESC/POS del ticket (binario)',
+    description:
+      'application/octet-stream listo para enviar RAW a Bixolon. Alternativa a escpos_base64/escpos_hex en JSON.',
+  })
+  async downloadTicketReciboRaw(
+    @Param('id') id: string,
+    @Req() req: any,
+    @Res() res: any,
+  ) {
+    const { buffer, fileName } = await this.posReceiptService.getPosTicketRawBuffer(
+      req.user.tenant_id,
+      id,
+    );
+
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+    res.send(buffer);
   }
 
   @Get(':id')
