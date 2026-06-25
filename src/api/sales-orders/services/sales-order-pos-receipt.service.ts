@@ -27,6 +27,8 @@ export interface PosReceiptResult {
   escpos_base64: string;
   plain_text: string;
   printer_profile: string;
+  /** Solo depuración / vista previa. NO enviar a impresora. */
+  print_mode: 'raw_escpos_base64';
 }
 
 @Injectable()
@@ -119,21 +121,8 @@ export class SalesOrderPosReceiptService {
       escpos_base64: escposBuffer.toString('base64'),
       plain_text: plainText,
       printer_profile: 'bixolon-srp-330iii-escpos-80mm',
+      print_mode: 'raw_escpos_base64',
     };
-  }
-
-  private async findExistingTicket(salesOrderId: string) {
-    const documents = await this.documentsService.getDocuments(salesOrderId);
-    const ticketTypeId = await this.resolveTicketDocumentTypeId();
-    return (
-      documents.find((doc) => Number(doc.document_type_id) === ticketTypeId) ??
-      documents.find((doc) =>
-        SALES_ORDER_TICKET_RECIBO_NAMES.includes(
-          doc.document_type_name as (typeof SALES_ORDER_TICKET_RECIBO_NAMES)[number],
-        ),
-      ) ??
-      null
-    );
   }
 
   private async buildReceiptResultFromDocument(
@@ -163,7 +152,22 @@ export class SalesOrderPosReceiptService {
       escpos_base64: escposBase64,
       plain_text: plainText,
       printer_profile: 'bixolon-srp-330iii-escpos-80mm',
+      print_mode: 'raw_escpos_base64',
     };
+  }
+
+  private async findExistingTicket(salesOrderId: string) {
+    const documents = await this.documentsService.getDocuments(salesOrderId);
+    const ticketTypeId = await this.resolveTicketDocumentTypeId();
+    return (
+      documents.find((doc) => Number(doc.document_type_id) === ticketTypeId) ??
+      documents.find((doc) =>
+        SALES_ORDER_TICKET_RECIBO_NAMES.includes(
+          doc.document_type_name as (typeof SALES_ORDER_TICKET_RECIBO_NAMES)[number],
+        ),
+      ) ??
+      null
+    );
   }
 
   private async resolveTicketDocumentTypeId(): Promise<number> {
@@ -305,28 +309,53 @@ export class SalesOrderPosReceiptService {
   }
 
   private buildEscPosReceipt(plainText: string): Buffer {
-    const builder = new EscPosBuilder().initialize().align('left');
+    const builder = new EscPosBuilder().initialize().align('center');
     const textLines = plainText.split('\n');
+    let headerLinesPrinted = 0;
 
     for (const line of textLines) {
       const trimmed = line.trim();
+
+      if (!trimmed) {
+        builder.textLine('');
+        continue;
+      }
+
       if (
         trimmed === 'GRACIAS POR SU PREFERENCIA !!!' ||
         trimmed === 'REVISE SU CAMBIO Y SU MERCANCIA' ||
         trimmed === 'NO HAY CAMBIOS NI DEVOLUCIONES'
       ) {
-        builder.align('center').textLine(trimmed).align('left');
+        builder
+          .align('center')
+          .characterSizeNormal()
+          .bold(true)
+          .textLine(trimmed)
+          .bold(false)
+          .align('left');
         continue;
       }
 
-      const isHeader =
-        textLines.indexOf(line) <= 3 && line.length > 0 && !line.includes('$');
-      if (isHeader && line === line.toUpperCase() && line.length > 5) {
-        builder.bold(true).textLine(line).bold(false);
+      const isBusinessHeader =
+        headerLinesPrinted < 4 &&
+        !trimmed.includes('$') &&
+        trimmed === trimmed.toUpperCase() &&
+        trimmed.length > 3;
+
+      if (isBusinessHeader) {
+        headerLinesPrinted++;
+        builder
+          .align('center')
+          .characterSizeDouble()
+          .bold(true)
+          .textLine(trimmed)
+          .bold(false)
+          .characterSizeNormal()
+          .align('left');
         continue;
       }
 
-      builder.textLine(line);
+      builder.align('left').characterSizeNormal().textLine(line);
     }
 
     return builder.cut(true).build();

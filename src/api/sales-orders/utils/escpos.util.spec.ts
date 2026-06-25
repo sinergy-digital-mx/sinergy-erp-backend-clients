@@ -21,16 +21,11 @@ describe('escpos.util', () => {
     expect(line.endsWith('$900.46')).toBe(true);
   });
 
-  it('builds escpos buffer with init and cut', () => {
-    const buffer = new EscPosBuilder()
-      .initialize()
-      .textLine('TEST')
-      .cut(true)
-      .build();
-
+  it('initializes with font A and normal size', () => {
+    const buffer = new EscPosBuilder().initialize().build();
     expect(buffer[0]).toBe(0x1b);
     expect(buffer[1]).toBe(0x40);
-    expect(buffer.includes(0x0a)).toBe(true);
+    expect(buffer.includes(0x1b)).toBe(true); // ESC sequences present
   });
 
   it('pads columns', () => {

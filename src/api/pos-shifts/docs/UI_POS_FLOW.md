@@ -1116,16 +1116,15 @@ En Node/Electron: `Buffer.from(response.receipt.escpos_base64, 'base64')`.
 
 ```typescript
 async function printPosReceipt(escposBase64: string, printerName: string): Promise<void> {
-  const bytes = decodeEscPosBase64(escposBase64);
-
   await qz.websocket.connect();
   const config = qz.configs.create(printerName);
 
+  // IMPORTANTE: format 'base64' — NO 'plain', NO imprimir escpos_base64 como texto
   await qz.print(config, [
     {
       type: 'raw',
-      format: 'plain',
-      data: Array.from(bytes),
+      format: 'base64',
+      data: escposBase64,
     },
   ]);
 }
@@ -1150,7 +1149,16 @@ Pasar el mismo buffer ESC/POS decodificado al SDK del fabricante.
 | 200 + impresión falla | Toast cobro OK + modal *"No se pudo imprimir. [Reintentar]"* |
 | `receipt === null` | Cobro OK; avisar que no hay ticket (no existe endpoint de regeneración) |
 
-**No usar** `window.print()` ni imprimir `plain_text` en HTML.
+**No usar** `window.print()`, `plain_text`, ni pegar `escpos_base64` en un diálogo de texto — eso imprime "letritas" o basura, no el ticket.
+
+### Error típico: "salieron puras letritas"
+
+| Causa | Solución |
+|-------|----------|
+| Imprimir `plain_text` | Usar solo `escpos_base64` en modo RAW |
+| Imprimir el string base64 tal cual | Decodificar o QZ `format: 'base64'` |
+| QZ `format: 'plain'` con bytes | Cambiar a `format: 'base64'` |
+| Driver en modo "Text" no "RAW" | Configurar impresora como Generic / Raw en Windows |
 
 ### Reimpresión
 

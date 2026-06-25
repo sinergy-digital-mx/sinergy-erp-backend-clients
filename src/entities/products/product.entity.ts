@@ -65,6 +65,9 @@ export class Product {
   @Column({ nullable: true })
   subcategory_id: string | null;
 
+  @Column({ type: 'varchar', length: 8, nullable: true })
+  sat_clave: string | null;
+
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;
 

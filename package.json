@@ -43,7 +43,8 @@
     "seed:email-templates": "ts-node -r tsconfig-paths/register src/database/seeds/seed-email-templates-module.ts",
     "migrate:uom-catalog": "ts-node -r tsconfig-paths/register src/database/scripts/migrations/run-uom-migration.ts",
     "cleanup:products": "ts-node -r tsconfig-paths/register src/database/scripts/cleanup/cleanup-products-module.ts",
-    "import:leads": "ts-node -r tsconfig-paths/register src/database/scripts/import-leads-excel.ts"
+    "import:leads": "ts-node -r tsconfig-paths/register src/database/scripts/import-leads-excel.ts",
+    "seed:import-mzn-catsat": "ts-node -r tsconfig-paths/register src/database/seeds/import-mzn-art-maestro-catsat.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.994.0",

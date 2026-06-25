@@ -14,6 +14,33 @@ export class EscPosBuilder {
 
   initialize(): this {
     this.chunks.push(Buffer.from([ESC, 0x40]));
+    return this.selectFontA().setCodePageLatin1().characterSizeNormal();
+  }
+
+  /** Font A 12x24 — evita "letritas" (Font B es 9x17). */
+  selectFontA(): this {
+    this.chunks.push(Buffer.from([ESC, 0x4d, 0x00]));
+    return this;
+  }
+
+  /** CP850 — acentos y ñ en México. */
+  setCodePageLatin1(): this {
+    this.chunks.push(Buffer.from([ESC, 0x74, 0x02]));
+    return this;
+  }
+
+  characterSizeNormal(): this {
+    this.chunks.push(Buffer.from([GS, 0x21, 0x00]));
+    return this;
+  }
+
+  characterSizeDouble(): this {
+    this.chunks.push(Buffer.from([GS, 0x21, 0x11]));
+    return this;
+  }
+
+  raw(bytes: number[]): this {
+    this.chunks.push(Buffer.from(bytes));
     return this;
   }
 
@@ -45,9 +72,10 @@ export class EscPosBuilder {
     return this.textLine(char.repeat(ESCPOS_CHARS_PER_LINE));
   }
 
-  /** Corte parcial con avance de papel (típico en POS). */
+  /** Corte parcial Bixolon / ESC-POS estándar. */
   cut(partial = true): this {
-    this.blankLines(3);
+    this.blankLines(4);
+    // GS V m — m=1 corte parcial + avance
     this.chunks.push(Buffer.from([GS, 0x56, partial ? 1 : 0]));
     return this;
   }

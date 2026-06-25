@@ -28,6 +28,12 @@ export class CreateProductDto {
   @IsString()
   description?: string;
 
+  @ApiPropertyOptional({ example: '31201610', description: 'Clave de producto o servicio SAT (c_ClaveProdServ)' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 8)
+  sat_clave?: string;
+
   @ApiPropertyOptional({ example: 'uuid-category', description: 'ID de la categoría' })
   @IsOptional()
   @IsUUID()

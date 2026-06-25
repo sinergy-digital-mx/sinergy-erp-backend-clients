@@ -25,6 +25,7 @@ export class ProductService {
       ...(dto.description !== undefined ? { description: dto.description } : {}),
       ...(dto.category_id !== undefined ? { category_id: dto.category_id } : {}),
       ...(dto.subcategory_id !== undefined ? { subcategory_id: dto.subcategory_id } : {}),
+      ...(dto.sat_clave !== undefined ? { sat_clave: dto.sat_clave } : {}),
     };
   }
 
