@@ -49,22 +49,6 @@ export class SalesOrderPosReceiptService {
     private readonly s3Service: S3Service,
   ) {}
 
-  async getPosTicket(tenantId: string, salesOrderId: string): Promise<PosReceiptResult> {
-    const order = await this.salesOrderRepo.findOne({
-      where: { id: salesOrderId, tenant_id: tenantId },
-    });
-    if (!order) {
-      throw new NotFoundException('Orden de venta no encontrada');
-    }
-
-    const ticketDoc = await this.findExistingTicket(salesOrderId);
-    if (!ticketDoc) {
-      throw new NotFoundException('Ticket de recibo no generado para esta orden');
-    }
-
-    return this.buildReceiptResultFromDocument(salesOrderId, ticketDoc);
-  }
-
   async generateAndSavePosTicket(
     tenantId: string,
     salesOrderId: string,
@@ -123,6 +107,34 @@ export class SalesOrderPosReceiptService {
       printer_profile: 'bixolon-srp-330iii-escpos-80mm',
       print_mode: 'raw_escpos_base64',
     };
+  }
+
+  async getPosTicket(tenantId: string, salesOrderId: string): Promise<PosReceiptResult> {
+    const order = await this.salesOrderRepo.findOne({
+      where: { id: salesOrderId, tenant_id: tenantId },
+    });
+    if (!order) {
+      throw new NotFoundException('Orden de venta no encontrada');
+    }
+
+    const ticketDoc = await this.findExistingTicket(salesOrderId);
+    if (!ticketDoc) {
+      throw new NotFoundException('Ticket de recibo no generado para esta orden');
+    }
+
+    return this.buildReceiptResultFromDocument(salesOrderId, ticketDoc);
+  }
+
+  /** Temporal: regenerar TICKET / RECIBO desde detalle de venta (backoffice). */
+  async regeneratePosTicket(
+    tenantId: string,
+    salesOrderId: string,
+    uploadedBy: string,
+  ): Promise<PosReceiptResult> {
+    this.logger.warn(
+      `[TEMP] Regenerando ticket POS ${salesOrderId} por usuario ${uploadedBy}`,
+    );
+    return this.generateAndSavePosTicket(tenantId, salesOrderId, uploadedBy);
   }
 
   private async buildReceiptResultFromDocument(

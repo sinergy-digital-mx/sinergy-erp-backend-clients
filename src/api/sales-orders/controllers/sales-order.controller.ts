@@ -7,6 +7,7 @@ import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { TenantModuleValidationGuard } from '../../auth/tenant-module-validation.guard';
 import { SalesOrderService } from '../services/sales-order.service';
 import { SalesOrderDocumentsService } from '../services/sales-order-documents.service';
+import { SalesOrderPosReceiptService } from '../services/sales-order-pos-receipt.service';
 import { InventoryService } from '../../inventory/inventory.service';
 import { CreateSalesOrderDto, QuerySalesOrderDto, FulfillSalesOrderDto, RegenerateDocumentDto } from '../dto';
 
@@ -18,6 +19,7 @@ export class SalesOrderController {
   constructor(
     private readonly salesOrderService: SalesOrderService,
     private readonly documentsService: SalesOrderDocumentsService,
+    private readonly posReceiptService: SalesOrderPosReceiptService,
     private readonly inventoryService: InventoryService,
   ) {}
 
@@ -72,6 +74,28 @@ export class SalesOrderController {
       dto.language,
       dto.keep_previous ?? false,
     );
+  }
+
+  @Post(':id/regenerate-ticket-recibo')
+  @ApiOperation({
+    summary: '[TEMPORAL] Regenerar TICKET / RECIBO ESC/POS (Bixolon)',
+    description:
+      'Solo para ventas POS ya cobradas. Elimina el ticket anterior y crea uno nuevo con formato ESC/POS actual. Devuelve el recibo para imprimir y la lista actualizada de documentos.',
+  })
+  async regenerateTicketRecibo(@Param('id') id: string, @Req() req: any) {
+    const receipt = await this.posReceiptService.regeneratePosTicket(
+      req.user.tenant_id,
+      id,
+      req.user.id,
+    );
+    const documents = await this.documentsService.getDocuments(id);
+
+    return {
+      success: true,
+      message: 'TICKET / RECIBO regenerado exitosamente',
+      receipt,
+      documents,
+    };
   }
 
   @Get(':id')

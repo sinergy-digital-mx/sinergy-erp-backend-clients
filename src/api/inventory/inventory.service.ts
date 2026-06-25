@@ -99,9 +99,10 @@ export class InventoryService {
       .andWhere('batch.warehouse_id IN (:...warehouseIds)', { warehouseIds: targetWarehouseIds });
 
     if (filters.search) {
-      query = query.andWhere('(product.name ILIKE :search OR product.sku ILIKE :search)', {
-        search: `%${filters.search}%`,
-      });
+      query = query.andWhere(
+        '(LOWER(product.name) LIKE LOWER(:search) OR LOWER(product.sku) LIKE LOWER(:search))',
+        { search: `%${filters.search}%` },
+      );
     }
 
     if (filters.product_id) {
@@ -312,13 +313,13 @@ export class InventoryService {
       // Apply filters
       if (filters.search) {
         query.andWhere(
-          '(batch.batch_number ILIKE :search OR product.name ILIKE :search OR product.sku ILIKE :search)',
+          '(LOWER(batch.batch_number) LIKE LOWER(:search) OR LOWER(product.name) LIKE LOWER(:search) OR LOWER(product.sku) LIKE LOWER(:search))',
           { search: `%${filters.search}%` },
         );
       }
 
       if (filters.batch_number) {
-        query.andWhere('batch.batch_number ILIKE :batch_number', {
+        query.andWhere('LOWER(batch.batch_number) LIKE LOWER(:batch_number)', {
           batch_number: `%${filters.batch_number}%`,
         });
       }
@@ -468,13 +469,13 @@ export class InventoryService {
       // Apply filters
       if (filters.search) {
         query.andWhere(
-          '(batch.batch_number ILIKE :search OR product.name ILIKE :search OR product.sku ILIKE :search)',
+          '(LOWER(batch.batch_number) LIKE LOWER(:search) OR LOWER(product.name) LIKE LOWER(:search) OR LOWER(product.sku) LIKE LOWER(:search))',
           { search: `%${filters.search}%` },
         );
       }
 
       if (filters.batch_number) {
-        query.andWhere('batch.batch_number ILIKE :batch_number', {
+        query.andWhere('LOWER(batch.batch_number) LIKE LOWER(:batch_number)', {
           batch_number: `%${filters.batch_number}%`,
         });
       }
@@ -621,7 +622,7 @@ export class InventoryService {
       // Apply filters
       if (filters.search) {
         query = query.andWhere(
-          '(product.name ILIKE :search OR product.sku ILIKE :search)',
+          '(LOWER(product.name) LIKE LOWER(:search) OR LOWER(product.sku) LIKE LOWER(:search))',
           { search: `%${filters.search}%` },
         );
       }

@@ -145,7 +145,7 @@ describe('InventoryService', () => {
       await service.findAll(mockTenantId, filters);
 
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'batch.batch_number ILIKE :batch_number',
+        'LOWER(batch.batch_number) LIKE LOWER(:batch_number)',
         { batch_number: '%BATCH-001%' },
       );
     });
@@ -483,7 +483,7 @@ describe('InventoryService', () => {
       await service.findByPurchaseOrderId(poId, mockTenantId, filters);
 
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'batch.batch_number ILIKE :batch_number',
+        'LOWER(batch.batch_number) LIKE LOWER(:batch_number)',
         { batch_number: '%BATCH-001%' },
       );
     });

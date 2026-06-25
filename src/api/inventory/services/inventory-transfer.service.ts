@@ -286,7 +286,7 @@ export class InventoryTransferService {
 
     if (filters.search) {
       query.andWhere(
-        '(transfer.folio ILIKE :search OR product.name ILIKE :search OR product.sku ILIKE :search)',
+        '(LOWER(transfer.folio) LIKE LOWER(:search) OR LOWER(product.name) LIKE LOWER(:search) OR LOWER(product.sku) LIKE LOWER(:search))',
         { search: `%${filters.search}%` },
       );
     }
