@@ -1,13 +1,17 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Module } from '../../../entities/rbac/module.entity';
 import { TenantModule } from '../../../entities/rbac/tenant-module.entity';
 import { Permission } from '../../../entities/rbac/permission.entity';
 import { TenantContextService } from './tenant-context.service';
+import { PermissionVersionService } from './permission-version.service';
+import { PermissionCacheService } from './permission-cache.service';
 
 @Injectable()
 export class ModuleService {
+  private readonly logger = new Logger(ModuleService.name);
+
   constructor(
     @InjectRepository(Module)
     private moduleRepository: Repository<Module>,
@@ -16,7 +20,21 @@ export class ModuleService {
     @InjectRepository(Permission)
     private permissionRepository: Repository<Permission>,
     private tenantContextService: TenantContextService,
+    private permissionVersionService: PermissionVersionService,
+    private permissionCacheService: PermissionCacheService,
   ) {}
+
+  async refreshTenantUserPermissionVersions(tenantId: string): Promise<void> {
+    await this.permissionVersionService.incrementVersionForUsersInTenant(tenantId);
+
+    try {
+      await this.permissionCacheService.invalidateTenantPermissions(tenantId);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to invalidate permission cache for tenant ${tenantId}: ${error.message}`,
+      );
+    }
+  }
 
   /**
    * Get all modules enabled for the current tenant
@@ -146,7 +164,11 @@ export class ModuleService {
   /**
    * Enable a module for a tenant (admin only)
    */
-  async enableModuleForTenant(tenantId: string, moduleId: string) {
+  async enableModuleForTenant(
+    tenantId: string,
+    moduleId: string,
+    options?: { skipPermissionRefresh?: boolean },
+  ) {
     const module = await this.moduleRepository.findOne({
       where: { id: moduleId },
     });
@@ -155,10 +177,11 @@ export class ModuleService {
       throw new NotFoundException(`Module with ID ${moduleId} not found`);
     }
 
-    // Check if already enabled
     const existingTenantModule = await this.tenantModuleRepository.findOne({
       where: { tenant_id: tenantId, module_id: moduleId },
     });
+
+    let savedTenantModule: TenantModule;
 
     if (existingTenantModule) {
       if (existingTenantModule.is_enabled) {
@@ -166,18 +189,22 @@ export class ModuleService {
           `Module '${module.name}' is already enabled for this tenant`,
         );
       }
-      // Re-enable if disabled
       existingTenantModule.is_enabled = true;
-      return await this.tenantModuleRepository.save(existingTenantModule);
+      savedTenantModule = await this.tenantModuleRepository.save(existingTenantModule);
+    } else {
+      const tenantModule = this.tenantModuleRepository.create({
+        tenant_id: tenantId,
+        module_id: moduleId,
+        is_enabled: true,
+      });
+      savedTenantModule = await this.tenantModuleRepository.save(tenantModule);
     }
 
-    const tenantModule = this.tenantModuleRepository.create({
-      tenant_id: tenantId,
-      module_id: moduleId,
-      is_enabled: true,
-    });
+    if (!options?.skipPermissionRefresh) {
+      await this.refreshTenantUserPermissionVersions(tenantId);
+    }
 
-    return await this.tenantModuleRepository.save(tenantModule);
+    return savedTenantModule;
   }
 
   /**
@@ -195,7 +222,9 @@ export class ModuleService {
     }
 
     tenantModule.is_enabled = false;
-    return await this.tenantModuleRepository.save(tenantModule);
+    const savedTenantModule = await this.tenantModuleRepository.save(tenantModule);
+    await this.refreshTenantUserPermissionVersions(tenantId);
+    return savedTenantModule;
   }
 
   /**

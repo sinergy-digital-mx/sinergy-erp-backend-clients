@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PurchaseOrderDocument } from '../../../entities/purchase-orders/purchase-order-document.entity';
+import { PurchaseOrderDocumentLanguage } from '../../../entities/purchase-orders/purchase-order-document-language.enum';
 import { PurchaseOrderDocumentType } from '../../../entities/purchase-orders/purchase-order-document-type.entity';
 import { S3Service } from '../../../common/services/s3.service';
 import { v4 as uuidv4 } from 'uuid';
@@ -27,6 +28,7 @@ export class PurchaseOrderDocumentsService {
     fileSize: number,
     mimeType: string,
     uploadedBy: string,
+    documentLanguage: PurchaseOrderDocumentLanguage = PurchaseOrderDocumentLanguage.ES,
   ): Promise<PurchaseOrderDocument> {
     // Verify document type exists
     const docType = await this.documentTypeRepository.findOne({
@@ -46,6 +48,7 @@ export class PurchaseOrderDocumentsService {
       file_size: fileSize,
       mime_type: mimeType,
       uploaded_by: uploadedBy,
+      document_language: documentLanguage,
     });
 
     return this.documentRepository.save(document);
@@ -127,6 +130,7 @@ export class PurchaseOrderDocumentsService {
           uploaded_by_name: uploaderName,
           uploaded_at: doc.created_at,
           document_type_name: doc.document_type?.name || 'Unknown',
+          document_language: doc.document_language,
           key: doc.file_path,
           path: signedUrl || doc.file_path,
         };
@@ -134,6 +138,24 @@ export class PurchaseOrderDocumentsService {
     );
 
     return docsWithUrls;
+  }
+
+  /**
+   * Obtiene el idioma del ultimo documento generado de un tipo, o espanol por defecto.
+   */
+  async getLastDocumentLanguage(
+    purchaseOrderId: string,
+    documentTypeId: number,
+  ): Promise<PurchaseOrderDocumentLanguage> {
+    const document = await this.documentRepository.findOne({
+      where: {
+        purchase_order_batch_id: purchaseOrderId,
+        document_type_id: documentTypeId,
+      },
+      order: { created_at: 'DESC' },
+    });
+
+    return document?.document_language ?? PurchaseOrderDocumentLanguage.ES;
   }
 
   /**

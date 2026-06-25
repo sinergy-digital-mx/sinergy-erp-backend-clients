@@ -1,0 +1,6 @@
+export enum PosSalePaymentMethod {
+  CASH = 'cash',
+  CARD = 'card',
+  TRANSFER = 'transfer',
+  MIXED = 'mixed',
+}

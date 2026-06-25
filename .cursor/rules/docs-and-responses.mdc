@@ -1,0 +1,19 @@
+---
+description: 
+alwaysApply: true
+---
+
+## Documentación
+- Nunca en raíz del repo ni suelta en la carpeta del módulo/entidad.
+- Siempre en `docs/` dentro del módulo o entidad:
+  - `src/api/<modulo>/docs/`
+  - `src/entities/<entidad>/docs/`
+- Antes de crear o modificar documentación, revisar siempre `\specs\MODULE_STANDARD.md` y seguir ese estándar.
+
+## Respuestas
+- Concisas, sin relleno ni resúmenes largos innecesarios.
+- Priorizar hechos, rutas y cambios concretos.
+
+## Código
+- Variables, funciones, clases, interfaces, enums, DTOs, tablas y archivos en inglés.
+- Comentarios y documentación en español.

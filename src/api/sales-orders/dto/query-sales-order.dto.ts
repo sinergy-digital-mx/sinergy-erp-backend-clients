@@ -7,7 +7,7 @@ export class QuerySalesOrderDto {
   search?: string;
 
   @IsOptional()
-  @IsEnum(['Creada', 'Surtida', 'Cancelada'])
+  @IsEnum(['Creada', 'Surtida', 'Cancelada', 'En cola'])
   general_status?: string;
 
   @IsOptional()

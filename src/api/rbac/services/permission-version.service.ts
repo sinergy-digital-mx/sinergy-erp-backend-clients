@@ -44,6 +44,14 @@ export class PermissionVersionService {
    * @param tenantId - The tenant ID to scope the operation
    * @returns Promise that resolves when all versions are incremented
    */
+  async incrementVersionForUsersInTenant(tenantId: string): Promise<void> {
+    await this.userRepository.increment(
+      { tenant_id: tenantId },
+      'permissions_version',
+      1,
+    );
+  }
+
   async incrementVersionForUsersWithRole(
     roleId: string,
     tenantId: string,

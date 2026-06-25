@@ -2,6 +2,12 @@ import { Injectable } from '@nestjs/common';
 import PdfPrinter from 'pdfmake';
 import { S3Service } from '../../../common/services/s3.service';
 import { PurchaseOrderBatch } from '../../../entities/purchase-orders/purchase-order-batch.entity';
+import { PurchaseOrderDocumentLanguage } from '../../../entities/purchase-orders/purchase-order-document-language.enum';
+import {
+  getPurchaseOrderPdfLabels,
+  translateGeneralStatus,
+  translatePaymentStatus,
+} from './purchase-order-pdf-labels';
 import * as path from 'path';
 
 @Injectable()
@@ -20,8 +26,12 @@ export class PurchaseOrderPdfService {
   /**
    * Generate PDF for a purchase order
    */
-  async generatePdf(purchaseOrder: PurchaseOrderBatch): Promise<Buffer> {
+  async generatePdf(
+    purchaseOrder: PurchaseOrderBatch,
+    language: PurchaseOrderDocumentLanguage = PurchaseOrderDocumentLanguage.ES,
+  ): Promise<Buffer> {
     const printer = new PdfPrinter(this.fonts);
+    const labels = getPurchaseOrderPdfLabels(language);
     const lineItems = purchaseOrder.line_items || [];
     const creatorName = [purchaseOrder.creator?.first_name, purchaseOrder.creator?.last_name]
       .filter(Boolean)
@@ -31,10 +41,10 @@ export class PurchaseOrderPdfService {
 
     const tableBody: any[] = [
       [
-        { text: 'Producto', style: 'receptionTh' },
-        { text: 'Cant. solicitada', style: 'receptionTh' },
-        { text: 'Precio Unit.', style: 'receptionTh' },
-        { text: 'Total', style: 'receptionTh' },
+        { text: labels.product, style: 'receptionTh' },
+        { text: labels.requestedQty, style: 'receptionTh' },
+        { text: labels.unitPrice, style: 'receptionTh' },
+        { text: labels.total, style: 'receptionTh' },
       ],
     ];
 
@@ -48,7 +58,7 @@ export class PurchaseOrderPdfService {
         {
           stack: [
             { text: item.product?.name || 'N/A', fontSize: 9, bold: true, color: '#111827' },
-            { text: `Unidad: ${requestedUom}`, fontSize: 8, color: '#6b7280' },
+            { text: `${labels.unitPrefix}: ${requestedUom}`, fontSize: 8, color: '#6b7280' },
           ],
         },
         { text: `${quantity} ${requestedUom}`, fontSize: 9, alignment: 'center' },
@@ -67,13 +77,13 @@ export class PurchaseOrderPdfService {
               width: '*',
               stack: [
                 {
-                  text: 'Documento original de solicitud',
+                  text: labels.originalDocumentTitle,
                   fontSize: 12,
                   bold: true,
                   color: '#111827',
                 },
                 {
-                  text: `Folio: ${purchaseOrder.folio}`,
+                  text: `${labels.folioPrefix}: ${purchaseOrder.folio}`,
                   fontSize: 9,
                   color: '#4b5563',
                   margin: [0, 2, 0, 0],
@@ -92,7 +102,7 @@ export class PurchaseOrderPdfService {
             },
             {
               width: '*',
-              text: 'ORDEN DE COMPRA',
+              text: labels.purchaseOrderTitle,
               fontSize: 10,
               bold: true,
               alignment: 'right',
@@ -116,7 +126,7 @@ export class PurchaseOrderPdfService {
           margin: [0, 0, 0, 12],
         },
         {
-          text: 'Resumen',
+          text: labels.summary,
           style: 'sectionHeading',
           margin: [0, 0, 0, 4],
         },
@@ -125,20 +135,20 @@ export class PurchaseOrderPdfService {
             widths: [95, 132, 95, '*'],
             body: [
               [
-                { text: 'Fecha creacion', style: 'summaryLabel' },
-                { text: new Date(purchaseOrder.created_at).toLocaleDateString('es-MX'), style: 'summaryValue' },
-                { text: 'Creado por', style: 'summaryLabel' },
+                { text: labels.creationDate, style: 'summaryLabel' },
+                { text: new Date(purchaseOrder.created_at).toLocaleDateString(labels.dateLocale), style: 'summaryValue' },
+                { text: labels.createdBy, style: 'summaryLabel' },
                 { text: creatorName, style: 'summaryValue' },
               ],
               [
-                { text: 'Fecha esperada', style: 'summaryLabel' },
-                { text: new Date(purchaseOrder.expected_delivery_date).toLocaleDateString('es-MX'), style: 'summaryValue' },
-                { text: 'Estado', style: 'summaryLabel' },
-                { text: purchaseOrder.general_status || 'N/A', style: 'summaryValue' },
+                { text: labels.expectedDate, style: 'summaryLabel' },
+                { text: new Date(purchaseOrder.expected_delivery_date).toLocaleDateString(labels.dateLocale), style: 'summaryValue' },
+                { text: labels.status, style: 'summaryLabel' },
+                { text: translateGeneralStatus(purchaseOrder.general_status, labels), style: 'summaryValue' },
               ],
               [
-                { text: 'Pago', style: 'summaryLabel' },
-                { text: purchaseOrder.payment_status || 'N/A', style: 'summaryValue' },
+                { text: labels.payment, style: 'summaryLabel' },
+                { text: translatePaymentStatus(purchaseOrder.payment_status, labels), style: 'summaryValue' },
                 { text: '', style: 'summaryLabel' },
                 { text: '', style: 'summaryValue' },
               ],
@@ -165,11 +175,11 @@ export class PurchaseOrderPdfService {
               [
                 {
                   stack: [
-                    { text: 'Proveedor', style: 'sectionTitle' },
+                    { text: labels.vendor, style: 'sectionTitle' },
                     { text: purchaseOrder.vendor?.name || 'N/A', style: 'sectionValue' },
-                    { text: `RFC: ${purchaseOrder.vendor?.rfc || 'N/A'}`, style: 'sectionMeta' },
+                    { text: `${labels.rfcPrefix}: ${purchaseOrder.vendor?.rfc || 'N/A'}`, style: 'sectionMeta' },
                     {
-                      text: `Direccion: ${
+                      text: `${labels.addressPrefix}: ${
                         [purchaseOrder.vendor?.street, purchaseOrder.vendor?.city, purchaseOrder.vendor?.state]
                           .filter(Boolean)
                           .join(', ') || 'N/A'
@@ -180,7 +190,7 @@ export class PurchaseOrderPdfService {
                 },
                 {
                   stack: [
-                    { text: 'Almacen destino', style: 'sectionTitle' },
+                    { text: labels.destinationWarehouse, style: 'sectionTitle' },
                     { text: purchaseOrder.warehouse?.name || 'N/A', style: 'sectionValue' },
                     {
                       text: `${purchaseOrder.warehouse?.city || 'N/A'}, ${purchaseOrder.warehouse?.state || 'N/A'}`,
@@ -205,7 +215,7 @@ export class PurchaseOrderPdfService {
           margin: [0, 2, 0, 14],
         },
         {
-          text: 'Detalle de productos solicitados',
+          text: labels.requestedProductsDetail,
           style: 'sectionHeading',
         },
         {
@@ -234,7 +244,7 @@ export class PurchaseOrderPdfService {
           columns: [
             {
               width: '*',
-              text: purchaseOrder.notes ? `Notas: ${purchaseOrder.notes}` : '',
+              text: purchaseOrder.notes ? `${labels.notesPrefix}: ${purchaseOrder.notes}` : '',
               style: 'sectionMeta',
               margin: [0, 18, 0, 0],
             },
@@ -242,13 +252,13 @@ export class PurchaseOrderPdfService {
               width: 200,
               margin: [0, 0, 0, 0],
               text: [
-                { text: 'Subtotal: ', bold: true, fontSize: 9 },
+                { text: `${labels.subtotal}: `, bold: true, fontSize: 9 },
                 { text: `${this.formatCurrency(Number(purchaseOrder.requested_subtotal) || 0)}\n`, fontSize: 9 },
-                { text: 'IVA: ', bold: true, fontSize: 9 },
+                { text: `${labels.vat}: `, bold: true, fontSize: 9 },
                 { text: `${this.formatCurrency(Number(purchaseOrder.requested_iva_total) || 0)}\n`, fontSize: 9 },
-                { text: 'IEPS: ', bold: true, fontSize: 9 },
+                { text: `${labels.ieps}: `, bold: true, fontSize: 9 },
                 { text: `${this.formatCurrency(Number(purchaseOrder.requested_ieps_total) || 0)}\n`, fontSize: 9 },
-                { text: 'TOTAL: ', bold: true, fontSize: 10, color: '#0f172a' },
+                { text: `${labels.totalLabel}: `, bold: true, fontSize: 10, color: '#0f172a' },
                 {
                   text: `${this.formatCurrency(Number(purchaseOrder.requested_total) || 0)}`,
                   fontSize: 10,
@@ -326,8 +336,12 @@ export class PurchaseOrderPdfService {
   /**
    * Generate Reception PDF for a received purchase order
    */
-  async generateRecepcionPdf(purchaseOrder: PurchaseOrderBatch): Promise<Buffer> {
+  async generateRecepcionPdf(
+    purchaseOrder: PurchaseOrderBatch,
+    language: PurchaseOrderDocumentLanguage = PurchaseOrderDocumentLanguage.ES,
+  ): Promise<Buffer> {
     const printer = new PdfPrinter(this.fonts);
+    const labels = getPurchaseOrderPdfLabels(language);
     const lineItems = purchaseOrder.line_items || [];
     const batches = purchaseOrder.batches || [];
     const batchesByLineItem = new Map<string, any[]>();
@@ -351,11 +365,11 @@ export class PurchaseOrderPdfService {
 
     const tableBody: any[] = [
       [
-        { text: 'Producto', style: 'receptionTh' },
-        { text: 'Lotes ingresados', style: 'receptionTh' },
-        { text: 'Cant. recibida', style: 'receptionTh' },
-        { text: 'Precio Unit.', style: 'receptionTh' },
-        { text: 'Total', style: 'receptionTh' },
+        { text: labels.product, style: 'receptionTh' },
+        { text: labels.receivedBatches, style: 'receptionTh' },
+        { text: labels.receivedQty, style: 'receptionTh' },
+        { text: labels.unitPrice, style: 'receptionTh' },
+        { text: labels.total, style: 'receptionTh' },
       ],
     ];
 
@@ -367,13 +381,13 @@ export class PurchaseOrderPdfService {
       const lotText = itemBatches.length
         ? itemBatches
             .map((batch, index) => {
-              const lotIdentifier = batch.source_tag_identifier || batch.batch_number || 'Sin tag';
+              const lotIdentifier = batch.source_tag_identifier || batch.batch_number || labels.noTag;
               const lotQty = Number(batch.initial_quantity) || 0;
               const lotUom = batch.uom?.name || item.converted_uom?.name || 'UOM';
               return `${index + 1}. ${lotIdentifier} (${lotQty} ${lotUom})`;
             })
             .join('\n')
-        : 'Sin lotes registrados';
+        : labels.noBatchesRegistered;
       const lotModeLabel = itemBatches.length > 1 ? 'MULTI' : 'SINGLE';
       const receivedUom = item.received_uom?.name || item.product_uom?.uom?.name || 'UOM';
 
@@ -381,7 +395,7 @@ export class PurchaseOrderPdfService {
         {
           stack: [
             { text: item.product?.name || 'N/A', fontSize: 9, bold: true, color: '#111827' },
-            { text: `Modo: ${lotModeLabel}`, fontSize: 8, color: '#6b7280' },
+            { text: `${labels.modePrefix}: ${lotModeLabel}`, fontSize: 8, color: '#6b7280' },
           ],
         },
         { text: lotText, fontSize: 8, color: '#1f2937' },
@@ -401,13 +415,13 @@ export class PurchaseOrderPdfService {
               width: '*',
               stack: [
                 {
-                  text: 'Comprobante de recepcion',
+                  text: labels.receptionDocumentTitle,
                   fontSize: 12,
                   bold: true,
                   color: '#111827',
                 },
                 {
-                  text: `Folio: ${purchaseOrder.folio}`,
+                  text: `${labels.folioPrefix}: ${purchaseOrder.folio}`,
                   fontSize: 9,
                   color: '#4b5563',
                   margin: [0, 2, 0, 0],
@@ -426,7 +440,7 @@ export class PurchaseOrderPdfService {
             },
             {
               width: '*',
-              text: 'ORDEN DE COMPRA',
+              text: labels.purchaseOrderTitle,
               fontSize: 10,
               bold: true,
               alignment: 'right',
@@ -450,7 +464,7 @@ export class PurchaseOrderPdfService {
           margin: [0, 0, 0, 12],
         },
         {
-          text: 'Resumen',
+          text: labels.summary,
           style: 'sectionHeading',
           margin: [0, 0, 0, 4],
         },
@@ -459,22 +473,22 @@ export class PurchaseOrderPdfService {
             widths: [95, 132, 95, '*'],
             body: [
               [
-                { text: 'Fecha creacion', style: 'summaryLabel' },
-                { text: new Date(purchaseOrder.created_at).toLocaleDateString('es-MX'), style: 'summaryValue' },
-                { text: 'Creado por', style: 'summaryLabel' },
+                { text: labels.creationDate, style: 'summaryLabel' },
+                { text: new Date(purchaseOrder.created_at).toLocaleDateString(labels.dateLocale), style: 'summaryValue' },
+                { text: labels.createdBy, style: 'summaryLabel' },
                 { text: creatorName, style: 'summaryValue' },
               ],
               [
-                { text: 'Fecha esperada', style: 'summaryLabel' },
-                { text: new Date(purchaseOrder.expected_delivery_date).toLocaleDateString('es-MX'), style: 'summaryValue' },
-                { text: 'Fecha recepcion', style: 'summaryLabel' },
-                { text: new Date().toLocaleDateString('es-MX'), style: 'summaryValue' },
+                { text: labels.expectedDate, style: 'summaryLabel' },
+                { text: new Date(purchaseOrder.expected_delivery_date).toLocaleDateString(labels.dateLocale), style: 'summaryValue' },
+                { text: labels.receptionDate, style: 'summaryLabel' },
+                { text: new Date().toLocaleDateString(labels.dateLocale), style: 'summaryValue' },
               ],
               [
-                { text: 'Estado', style: 'summaryLabel' },
-                { text: purchaseOrder.general_status || 'N/A', style: 'summaryValue' },
-                { text: 'Pago', style: 'summaryLabel' },
-                { text: purchaseOrder.payment_status || 'N/A', style: 'summaryValue' },
+                { text: labels.status, style: 'summaryLabel' },
+                { text: translateGeneralStatus(purchaseOrder.general_status, labels), style: 'summaryValue' },
+                { text: labels.payment, style: 'summaryLabel' },
+                { text: translatePaymentStatus(purchaseOrder.payment_status, labels), style: 'summaryValue' },
               ],
             ],
           },
@@ -499,11 +513,11 @@ export class PurchaseOrderPdfService {
               [
                 {
                   stack: [
-                    { text: 'Proveedor', style: 'sectionTitle' },
+                    { text: labels.vendor, style: 'sectionTitle' },
                     { text: purchaseOrder.vendor?.name || 'N/A', style: 'sectionValue' },
-                    { text: `RFC: ${purchaseOrder.vendor?.rfc || 'N/A'}`, style: 'sectionMeta' },
+                    { text: `${labels.rfcPrefix}: ${purchaseOrder.vendor?.rfc || 'N/A'}`, style: 'sectionMeta' },
                     {
-                      text: `Direccion: ${
+                      text: `${labels.addressPrefix}: ${
                         [purchaseOrder.vendor?.street, purchaseOrder.vendor?.city, purchaseOrder.vendor?.state]
                           .filter(Boolean)
                           .join(', ') || 'N/A'
@@ -514,7 +528,7 @@ export class PurchaseOrderPdfService {
                 },
                 {
                   stack: [
-                    { text: 'Almacen destino', style: 'sectionTitle' },
+                    { text: labels.destinationWarehouse, style: 'sectionTitle' },
                     { text: purchaseOrder.warehouse?.name || 'N/A', style: 'sectionValue' },
                     {
                       text: `${purchaseOrder.warehouse?.city || 'N/A'}, ${purchaseOrder.warehouse?.state || 'N/A'}`,
@@ -539,7 +553,7 @@ export class PurchaseOrderPdfService {
           margin: [0, 2, 0, 14],
         },
         {
-          text: 'Detalle de productos recibidos',
+          text: labels.receivedProductsDetail,
           style: 'sectionHeading',
         },
         {
@@ -568,7 +582,7 @@ export class PurchaseOrderPdfService {
           columns: [
             {
               width: '*',
-              text: purchaseOrder.notes ? `Notas: ${purchaseOrder.notes}` : '',
+              text: purchaseOrder.notes ? `${labels.notesPrefix}: ${purchaseOrder.notes}` : '',
               style: 'sectionMeta',
               margin: [0, 18, 0, 0],
             },
@@ -576,13 +590,13 @@ export class PurchaseOrderPdfService {
               width: 200,
               margin: [0, 0, 0, 0],
               text: [
-                { text: 'Subtotal: ', bold: true, fontSize: 9 },
+                { text: `${labels.subtotal}: `, bold: true, fontSize: 9 },
                 { text: `${this.formatCurrency(Number(purchaseOrder.received_subtotal) || 0)}\n`, fontSize: 9 },
-                { text: 'IVA: ', bold: true, fontSize: 9 },
+                { text: `${labels.vat}: `, bold: true, fontSize: 9 },
                 { text: `${this.formatCurrency(Number(purchaseOrder.received_iva_total) || 0)}\n`, fontSize: 9 },
-                { text: 'IEPS: ', bold: true, fontSize: 9 },
+                { text: `${labels.ieps}: `, bold: true, fontSize: 9 },
                 { text: `${this.formatCurrency(Number(purchaseOrder.received_ieps_total) || 0)}\n`, fontSize: 9 },
-                { text: 'TOTAL: ', bold: true, fontSize: 10, color: '#0f172a' },
+                { text: `${labels.totalLabel}: `, bold: true, fontSize: 10, color: '#0f172a' },
                 {
                   text: `${this.formatCurrency(Number(purchaseOrder.received_total) || 0)}`,
                   fontSize: 10,

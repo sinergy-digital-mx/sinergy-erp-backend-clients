@@ -92,12 +92,16 @@ describe('BatchNumberGeneratorService', () => {
         const warehouseId = '550e8400-e29b-41d4-a716-446655440000';
         const tenantId = '550e8400-e29b-41d4-a716-446655440001';
 
+        mockWarehouseRepository.findOne.mockResolvedValue({
+          id: warehouseId,
+          prefix: 'MH',
+        });
+
         const mockQueryBuilder = {
+          select: jest.fn().mockReturnThis(),
           where: jest.fn().mockReturnThis(),
           andWhere: jest.fn().mockReturnThis(),
-          orderBy: jest.fn().mockReturnThis(),
-          take: jest.fn().mockReturnThis(),
-          getOne: jest.fn().mockResolvedValue(null),
+          getRawOne: jest.fn().mockResolvedValue({ maxSeq: null }),
         };
 
         mockInventoryBatchRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
@@ -110,14 +114,16 @@ describe('BatchNumberGeneratorService', () => {
         const warehouseId = '550e8400-e29b-41d4-a716-446655440000';
         const tenantId = '550e8400-e29b-41d4-a716-446655440001';
 
+        mockWarehouseRepository.findOne.mockResolvedValue({
+          id: warehouseId,
+          prefix: 'MH',
+        });
+
         const mockQueryBuilder = {
+          select: jest.fn().mockReturnThis(),
           where: jest.fn().mockReturnThis(),
           andWhere: jest.fn().mockReturnThis(),
-          orderBy: jest.fn().mockReturnThis(),
-          take: jest.fn().mockReturnThis(),
-          getOne: jest.fn().mockResolvedValue({
-            batch_number: 'MH-LOTE-000042',
-          }),
+          getRawOne: jest.fn().mockResolvedValue({ maxSeq: '42' }),
         };
 
         mockInventoryBatchRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
@@ -130,14 +136,16 @@ describe('BatchNumberGeneratorService', () => {
         const warehouseId = '550e8400-e29b-41d4-a716-446655440000';
         const tenantId = '550e8400-e29b-41d4-a716-446655440001';
 
+        mockWarehouseRepository.findOne.mockResolvedValue({
+          id: warehouseId,
+          prefix: 'CD',
+        });
+
         const mockQueryBuilder = {
+          select: jest.fn().mockReturnThis(),
           where: jest.fn().mockReturnThis(),
           andWhere: jest.fn().mockReturnThis(),
-          orderBy: jest.fn().mockReturnThis(),
-          take: jest.fn().mockReturnThis(),
-          getOne: jest.fn().mockResolvedValue({
-            batch_number: 'CD-LOTE-000099',
-          }),
+          getRawOne: jest.fn().mockResolvedValue({ maxSeq: '99' }),
         };
 
         mockInventoryBatchRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
@@ -150,14 +158,16 @@ describe('BatchNumberGeneratorService', () => {
         const warehouseId = '550e8400-e29b-41d4-a716-446655440000';
         const tenantId = '550e8400-e29b-41d4-a716-446655440001';
 
+        mockWarehouseRepository.findOne.mockResolvedValue({
+          id: warehouseId,
+          prefix: 'MH',
+        });
+
         const mockQueryBuilder = {
+          select: jest.fn().mockReturnThis(),
           where: jest.fn().mockReturnThis(),
           andWhere: jest.fn().mockReturnThis(),
-          orderBy: jest.fn().mockReturnThis(),
-          take: jest.fn().mockReturnThis(),
-          getOne: jest.fn().mockResolvedValue({
-            batch_number: 'INVALID-FORMAT',
-          }),
+          getRawOne: jest.fn().mockResolvedValue({ maxSeq: '0' }),
         };
 
         mockInventoryBatchRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
@@ -178,11 +188,10 @@ describe('BatchNumberGeneratorService', () => {
         });
 
         const mockQueryBuilder = {
+          select: jest.fn().mockReturnThis(),
           where: jest.fn().mockReturnThis(),
           andWhere: jest.fn().mockReturnThis(),
-          orderBy: jest.fn().mockReturnThis(),
-          take: jest.fn().mockReturnThis(),
-          getOne: jest.fn().mockResolvedValue(null),
+          getRawOne: jest.fn().mockResolvedValue({ maxSeq: null }),
         };
 
         mockInventoryBatchRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
@@ -202,13 +211,10 @@ describe('BatchNumberGeneratorService', () => {
         });
 
         const mockQueryBuilder = {
+          select: jest.fn().mockReturnThis(),
           where: jest.fn().mockReturnThis(),
           andWhere: jest.fn().mockReturnThis(),
-          orderBy: jest.fn().mockReturnThis(),
-          take: jest.fn().mockReturnThis(),
-          getOne: jest.fn().mockResolvedValue({
-            batch_number: 'CD-LOTE-000099',
-          }),
+          getRawOne: jest.fn().mockResolvedValue({ maxSeq: '99' }),
         };
 
         mockInventoryBatchRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
@@ -228,11 +234,10 @@ describe('BatchNumberGeneratorService', () => {
         });
 
         const mockQueryBuilder = {
+          select: jest.fn().mockReturnThis(),
           where: jest.fn().mockReturnThis(),
           andWhere: jest.fn().mockReturnThis(),
-          orderBy: jest.fn().mockReturnThis(),
-          take: jest.fn().mockReturnThis(),
-          getOne: jest.fn().mockResolvedValue(null),
+          getRawOne: jest.fn().mockResolvedValue({ maxSeq: null }),
         };
 
         mockInventoryBatchRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
@@ -246,7 +251,7 @@ describe('BatchNumberGeneratorService', () => {
         ).rejects.toThrow(BadRequestException);
         await expect(
           service.generateBatchNumber(warehouseId, tenantId),
-        ).rejects.toThrow('already exists');
+        ).rejects.toThrow('Unable to generate a unique batch number');
       });
 
       it('should throw NotFoundException when warehouse does not exist', async () => {
@@ -296,11 +301,10 @@ describe('BatchNumberGeneratorService', () => {
           });
 
           const mockQueryBuilder = {
+            select: jest.fn().mockReturnThis(),
             where: jest.fn().mockReturnThis(),
             andWhere: jest.fn().mockReturnThis(),
-            orderBy: jest.fn().mockReturnThis(),
-            take: jest.fn().mockReturnThis(),
-            getOne: jest.fn().mockResolvedValue(null),
+            getRawOne: jest.fn().mockResolvedValue({ maxSeq: null }),
           };
 
           mockInventoryBatchRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
@@ -328,11 +332,10 @@ describe('BatchNumberGeneratorService', () => {
         });
 
         const mockQueryBuilder = {
+          select: jest.fn().mockReturnThis(),
           where: jest.fn().mockReturnThis(),
           andWhere: jest.fn().mockReturnThis(),
-          orderBy: jest.fn().mockReturnThis(),
-          take: jest.fn().mockReturnThis(),
-          getOne: jest.fn().mockResolvedValue(null),
+          getRawOne: jest.fn().mockResolvedValue({ maxSeq: null }),
         };
 
         mockInventoryBatchRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
@@ -342,7 +345,7 @@ describe('BatchNumberGeneratorService', () => {
         const result1 = await service.generateBatchNumber(warehouseId, tenantId);
         expect(result1).toBe(batchNumber);
 
-        // Second call with same batch number should fail
+        // Second call with same batch number should retry until exhausted
         mockInventoryBatchRepository.findOne.mockResolvedValue({
           id: 'existing-batch-id',
           batch_number: batchNumber,
@@ -372,17 +375,12 @@ describe('BatchNumberGeneratorService', () => {
 
         for (let i = 1; i <= 5; i++) {
           const mockQueryBuilder = {
+            select: jest.fn().mockReturnThis(),
             where: jest.fn().mockReturnThis(),
             andWhere: jest.fn().mockReturnThis(),
-            orderBy: jest.fn().mockReturnThis(),
-            take: jest.fn().mockReturnThis(),
-            getOne: jest.fn().mockResolvedValue(
-              i === 1
-                ? null
-                : {
-                    batch_number: batchNumbers[i - 2],
-                  },
-            ),
+            getRawOne: jest.fn().mockResolvedValue({
+              maxSeq: i === 1 ? null : String(i - 1),
+            }),
           };
 
           mockInventoryBatchRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
@@ -410,13 +408,10 @@ describe('BatchNumberGeneratorService', () => {
         });
 
         const mockQueryBuilder = {
+          select: jest.fn().mockReturnThis(),
           where: jest.fn().mockReturnThis(),
           andWhere: jest.fn().mockReturnThis(),
-          orderBy: jest.fn().mockReturnThis(),
-          take: jest.fn().mockReturnThis(),
-          getOne: jest.fn().mockResolvedValue({
-            batch_number: 'MH-LOTE-999999',
-          }),
+          getRawOne: jest.fn().mockResolvedValue({ maxSeq: '999999' }),
         };
 
         mockInventoryBatchRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);

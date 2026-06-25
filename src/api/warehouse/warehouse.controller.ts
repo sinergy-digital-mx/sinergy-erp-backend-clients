@@ -37,7 +37,7 @@ export class WarehouseController {
   constructor(private readonly service: WarehouseService) {}
 
   @Post()
-  @RequirePermissions({ entityType: 'warehouses', action: 'Create' })
+  @RequirePermissions({ entityType: 'Warehouse', action: 'Create' })
   @ApiOperation({ summary: 'Create a new warehouse' })
   @ApiBody({ type: CreateWarehouseDto })
   @ApiResponse({ status: 201, description: 'Warehouse created successfully' })
@@ -49,7 +49,7 @@ export class WarehouseController {
   }
 
   @Get()
-  @RequirePermissions({ entityType: 'warehouses', action: 'Read' })
+  @RequirePermissions({ entityType: 'Warehouse', action: 'Read' })
   @ApiOperation({ summary: 'Get paginated warehouses with search and filters' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
@@ -66,7 +66,7 @@ export class WarehouseController {
   }
 
   @Get(':id')
-  @RequirePermissions({ entityType: 'warehouses', action: 'Read' })
+  @RequirePermissions({ entityType: 'Warehouse', action: 'Read' })
   @ApiOperation({ summary: 'Get a specific warehouse by ID' })
   @ApiParam({ name: 'id', type: 'string', description: 'Warehouse ID' })
   @ApiResponse({ status: 200, description: 'Warehouse retrieved successfully' })
@@ -78,7 +78,7 @@ export class WarehouseController {
   }
 
   @Put(':id')
-  @RequirePermissions({ entityType: 'warehouses', action: 'Update' })
+  @RequirePermissions({ entityType: 'Warehouse', action: 'Update' })
   @ApiOperation({ summary: 'Update an existing warehouse' })
   @ApiParam({ name: 'id', type: 'string' })
   @ApiBody({ type: UpdateWarehouseDto })
@@ -93,7 +93,7 @@ export class WarehouseController {
 
   @Delete(':id')
   @HttpCode(200)
-  @RequirePermissions({ entityType: 'warehouses', action: 'Delete' })
+  @RequirePermissions({ entityType: 'Warehouse', action: 'Delete' })
   @ApiOperation({ summary: 'Delete a warehouse by ID' })
   @ApiParam({ name: 'id', type: 'string' })
   @ApiResponse({ status: 200, description: 'Warehouse deleted successfully' })

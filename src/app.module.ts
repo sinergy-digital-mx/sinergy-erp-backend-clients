@@ -16,8 +16,7 @@ import { VendorModule } from './api/vendor/vendor.module';
 import { WarehouseModule } from './api/warehouse/warehouse.module';
 import { CategoriesModule } from './api/categories/categories.module';
 import { BillingModule } from './api/billing/billing.module';
-import { PosConfigurationModule } from './api/pos-configuration/pos-configuration.module';
-import { PosSessionsModule } from './api/pos-sessions/pos-sessions.module';
+import { PosShiftsModule } from './api/pos-shifts/pos-shifts.module';
 import { UoMCatalogModule } from './api/uom-catalog/uom-catalog.module';
 import { ProductsModule } from './api/products/products.module';
 import { MailerConfigurationModule } from './api/mailer-configuration/mailer-configuration.module';
@@ -49,8 +48,7 @@ import { PermissionVersionGuard } from './api/auth/guards/permission-version.gua
     WarehouseModule,
     CategoriesModule,
     BillingModule,
-    PosConfigurationModule,
-    PosSessionsModule,
+    PosShiftsModule,
     UoMCatalogModule,
     ProductsModule,
     PurchaseOrdersModule,

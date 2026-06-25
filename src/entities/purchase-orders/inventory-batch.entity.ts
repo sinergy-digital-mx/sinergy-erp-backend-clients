@@ -84,6 +84,14 @@ export class InventoryBatch {
   @Column({ nullable: true })
   purchase_order_detail_id: string;
 
+  /** Lote origen cuando este lote se creó por transferencia parcial */
+  @ManyToOne(() => InventoryBatch, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'transferred_from_batch_id' })
+  transferred_from_batch: InventoryBatch | null;
+
+  @Column({ nullable: true })
+  transferred_from_batch_id: string | null;
+
   @Column()
   created_by: string;
 

@@ -156,11 +156,17 @@ export class AdminTenantModulesController {
 
       for (const module of allModules) {
         try {
-          await this.moduleService.enableModuleForTenant(tenantId, module.id);
+          await this.moduleService.enableModuleForTenant(tenantId, module.id, {
+            skipPermissionRefresh: true,
+          });
           enabledCount++;
         } catch (error) {
           // Skip if already enabled
         }
+      }
+
+      if (enabledCount > 0) {
+        await this.moduleService.refreshTenantUserPermissionVersions(tenantId);
       }
 
       return {

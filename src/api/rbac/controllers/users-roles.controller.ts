@@ -26,6 +26,8 @@ import { PermissionService } from '../services/permission.service';
 import { TenantContextService } from '../services/tenant-context.service';
 import { UsersService } from '../../users/users.service';
 import { CreateUserDto } from '../../users/dto/create-user.dto';
+import { UpdateUserDto } from '../../users/dto/update-user.dto';
+import { AssignUserBranchDto } from '../../users/dto/assign-user-branch.dto';
 
 @ApiTags('Tenant - Users & Roles')
 @Controller('tenant/users')
@@ -60,16 +62,7 @@ export class UsersRolesController {
 
     return {
       message: 'User created successfully',
-      user: {
-        id: user.id,
-        email: user.email,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        phone: user.phone,
-        status: user.status,
-        language_code: user.language_code,
-        created_at: user.created_at,
-      },
+      user: this.usersService.mapUserResponse(user),
     };
   }
 
@@ -108,17 +101,7 @@ export class UsersRolesController {
     const users = await this.usersService.findAll(tenantId);
 
     return {
-      users: users.map((u) => ({
-        id: u.id,
-        email: u.email,
-        first_name: u.first_name,
-        last_name: u.last_name,
-        phone: u.phone,
-        status: u.status,
-        language_code: u.language_code,
-        last_login_at: u.last_login_at,
-        created_at: u.created_at,
-      })),
+      users: users.map((u) => this.usersService.mapUserResponse(u)),
     };
   }
   @Get(':userId')
@@ -143,16 +126,53 @@ export class UsersRolesController {
       throw new Error('User not found');
     }
 
+    return this.usersService.mapUserResponse(user);
+  }
+
+  @Get(':userId/branch')
+  @RequirePermissions({ entityType: 'User', action: 'Read' })
+  @ApiOperation({
+    summary: 'Get user branch assignment',
+    description:
+      'Returns the single branch assigned to the user, or null if has access to all branches',
+  })
+  @ApiParam({ name: 'userId', description: 'User ID' })
+  async getUserBranch(@Param('userId') userId: string) {
+    const tenantId = this.tenantContextService.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+
+    return this.usersService.getUserBranch(userId, tenantId);
+  }
+
+  @Put(':userId/branch')
+  @RequirePermissions({ entityType: 'User', action: 'Update' })
+  @ApiOperation({
+    summary: 'Assign branch to user',
+    description:
+      'Assigns a single branch to the user. Send billing_branch_id null for access to all branches. Required for POS users.',
+  })
+  @ApiParam({ name: 'userId', description: 'User ID' })
+  @ApiBody({ type: AssignUserBranchDto })
+  async assignUserBranch(
+    @Param('userId') userId: string,
+    @Body() dto: AssignUserBranchDto,
+  ) {
+    const tenantId = this.tenantContextService.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+
+    const branch = await this.usersService.assignBranch(
+      userId,
+      tenantId,
+      dto.billing_branch_id ?? null,
+    );
+
     return {
-      id: user.id,
-      email: user.email,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      phone: user.phone,
-      status: user.status,
-      language_code: user.language_code,
-      last_login_at: user.last_login_at,
-      created_at: user.created_at,
+      message: 'Branch assignment updated successfully',
+      ...branch,
     };
   }
 
@@ -169,7 +189,7 @@ export class UsersRolesController {
   })
   async updateUser(
     @Param('userId') userId: string,
-    @Body() updateData: any,
+    @Body() updateData: UpdateUserDto,
   ) {
     const tenantId = this.tenantContextService.getCurrentTenantId();
     if (!tenantId) {
@@ -179,15 +199,7 @@ export class UsersRolesController {
 
     return {
       message: 'User updated successfully',
-      user: {
-        id: user.id,
-        email: user.email,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        phone: user.phone,
-        status: user.status,
-        language_code: user.language_code,
-      },
+      user: this.usersService.mapUserResponse(user),
     };
   }
 

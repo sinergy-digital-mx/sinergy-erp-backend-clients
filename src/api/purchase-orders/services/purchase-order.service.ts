@@ -15,6 +15,7 @@ import { BatchNumberGeneratorService } from './batch-number-generator.service';
 import { FolioGeneratorService } from './folio-generator.service';
 import { PurchaseOrderPdfService } from './purchase-order-pdf.service';
 import { PurchaseOrderDocumentsService } from './purchase-order-documents.service';
+import { PurchaseOrderDocumentLanguage } from '../../../entities/purchase-orders/purchase-order-document-language.enum';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
@@ -226,7 +227,7 @@ export class PurchaseOrderService {
       await this.documentsService.uploadDocument(
         purchaseOrderId,
         PurchaseOrderService.DOC_TYPE_DOCUMENTO_ORIGINAL,
-        `DOCUMENTO_ORIGINAL_${fullOrder.folio}.pdf`,
+        `DOCUMENTO_ORIGINAL_${fullOrder.folio}_es.pdf`,
         s3Key,
         pdfBuffer.length,
         'application/pdf',
@@ -711,7 +712,7 @@ export class PurchaseOrderService {
       await queryRunner.release();
     }
 
-    this.regenerateDocumentoOriginal(id, tenantId, userId).catch((err) => {
+    this.regenerateDocumentoOriginalPreservingLanguage(id, tenantId, userId).catch((err) => {
       console.error(
         '[PDF] Error regenerating DOCUMENTO_ORIGINAL after full PO replace:',
         err,
@@ -986,22 +987,25 @@ export class PurchaseOrderService {
     id: string,
     tenantId: string,
     userId: string,
-  ): Promise<{ success: boolean; message: string }> {
+    language: PurchaseOrderDocumentLanguage,
+    keepPrevious = false,
+  ): Promise<{ success: boolean; message: string; document_language: PurchaseOrderDocumentLanguage; keep_previous: boolean }> {
     try {
       const purchaseOrder = await this.findOne(id, tenantId);
 
-      // Delete all previous DOCUMENTO_ORIGINAL records before creating a new one
-      await this.deleteDocumentsByType(
-        id,
-        PurchaseOrderService.DOC_TYPE_DOCUMENTO_ORIGINAL,
-      );
+      if (!keepPrevious) {
+        await this.deleteDocumentsByType(
+          id,
+          PurchaseOrderService.DOC_TYPE_DOCUMENTO_ORIGINAL,
+        );
+      }
 
       // Generate new PDF
       let pdfBuffer: Buffer;
       let s3Key: string;
 
       try {
-        pdfBuffer = await this.pdfService.generatePdf(purchaseOrder);
+        pdfBuffer = await this.pdfService.generatePdf(purchaseOrder, language);
         const uploadResult = await this.pdfService.uploadPdfToS3(
           purchaseOrder,
           pdfBuffer,
@@ -1017,21 +1021,39 @@ export class PurchaseOrderService {
       await this.documentsService.uploadDocument(
         id,
         PurchaseOrderService.DOC_TYPE_DOCUMENTO_ORIGINAL,
-        `DOCUMENTO_ORIGINAL_${purchaseOrder.folio}.pdf`,
+        `DOCUMENTO_ORIGINAL_${purchaseOrder.folio}_${language}.pdf`,
         s3Key,
         pdfBuffer.length,
         'application/pdf',
         userId,
+        language,
       );
 
       return {
         success: true,
         message: 'DOCUMENTO_ORIGINAL regenerado exitosamente',
+        document_language: language,
+        keep_previous: keepPrevious,
       };
     } catch (error) {
       console.error('[PDF] Error regenerating DOCUMENTO_ORIGINAL:', error);
       throw error;
     }
+  }
+
+  /**
+   * Regenerate DOCUMENTO_ORIGINAL preserving the previous document language.
+   */
+  async regenerateDocumentoOriginalPreservingLanguage(
+    id: string,
+    tenantId: string,
+    userId: string,
+  ): Promise<{ success: boolean; message: string; document_language: PurchaseOrderDocumentLanguage }> {
+    const language = await this.documentsService.getLastDocumentLanguage(
+      id,
+      PurchaseOrderService.DOC_TYPE_DOCUMENTO_ORIGINAL,
+    );
+    return this.regenerateDocumentoOriginal(id, tenantId, userId, language);
   }
 
   /**
@@ -1041,7 +1063,9 @@ export class PurchaseOrderService {
     id: string,
     tenantId: string,
     userId: string,
-  ): Promise<{ success: boolean; message: string }> {
+    language: PurchaseOrderDocumentLanguage,
+    keepPrevious = false,
+  ): Promise<{ success: boolean; message: string; document_language: PurchaseOrderDocumentLanguage; keep_previous: boolean }> {
     try {
       const purchaseOrder = await this.findOne(id, tenantId);
 
@@ -1050,15 +1074,16 @@ export class PurchaseOrderService {
         throw new Error('La orden de compra debe estar en estado "Recibida" para generar documento de recepción');
       }
 
-      // Delete all previous RECEPCIÓN records before creating a new one
-      await this.deleteDocumentsByType(id, PurchaseOrderService.DOC_TYPE_RECEPCION);
+      if (!keepPrevious) {
+        await this.deleteDocumentsByType(id, PurchaseOrderService.DOC_TYPE_RECEPCION);
+      }
 
       // Generate reception PDF
       let pdfBuffer: Buffer;
       let s3Key: string;
 
       try {
-        pdfBuffer = await this.pdfService.generateRecepcionPdf(purchaseOrder);
+        pdfBuffer = await this.pdfService.generateRecepcionPdf(purchaseOrder, language);
         const uploadResult = await this.pdfService.uploadPdfToS3(
           purchaseOrder,
           pdfBuffer,
@@ -1074,16 +1099,19 @@ export class PurchaseOrderService {
       await this.documentsService.uploadDocument(
         id,
         PurchaseOrderService.DOC_TYPE_RECEPCION,
-        `RECEPCION_${purchaseOrder.folio}.pdf`,
+        `RECEPCION_${purchaseOrder.folio}_${language}.pdf`,
         s3Key,
         pdfBuffer.length,
         'application/pdf',
         userId,
+        language,
       );
 
       return {
         success: true,
         message: 'Documento de RECEPCIÓN regenerado exitosamente',
+        document_language: language,
+        keep_previous: keepPrevious,
       };
     } catch (error) {
       console.error('[PDF] Error regenerating RECEPCIÓN document:', error);

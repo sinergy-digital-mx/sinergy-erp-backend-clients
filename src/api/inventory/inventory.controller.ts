@@ -74,34 +74,23 @@ export class InventoryController {
     return this.inventoryService.getInventorySummary(tenantId, filters);
   }
 
-  @Get('pos-sessions/:sessionId/summary')
+  @Get('pos/summary')
   @RequirePermissions({ entityType: 'inventory', action: 'read' })
   @ApiOperation({
-    summary: 'Get POS inventory summary scoped to session branch',
+    summary: 'Inventario POS por sucursal de la terminal',
     description:
-      'Resolves branch from POS session equipment and returns summed inventory by product/UOM across matching warehouses. Optional warehouse_id narrows results.',
+      'Usa billing_branch_id del usuario POS logueado. warehouse_id es opcional; si se omite, incluye todos los almacenes de esa sucursal. La respuesta trae warehouses válidos para la UI.',
   })
-  @ApiParam({ name: 'sessionId', type: String, description: 'Open POS session ID' })
-  @ApiQuery({ name: 'warehouse_id', required: false, type: String })
-  @ApiQuery({ name: 'search', required: false, type: String })
-  @ApiQuery({ name: 'product_id', required: false, type: String })
-  @ApiQuery({ name: 'only_available', required: false, type: Boolean })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiQuery({ name: 'sort_by', required: false, type: String })
-  @ApiQuery({ name: 'sort_order', required: false, type: String })
-  @ApiResponse({
-    status: 200,
-    description: 'POS session inventory summary retrieved successfully',
-    type: PosSessionInventorySummaryResponseDto,
-  })
-  async getPosSessionInventorySummary(
-    @Param('sessionId') sessionId: string,
+  async getPosTerminalInventorySummary(
     @Query() filters: InventorySummaryFilterDto,
     @Req() req: any,
   ): Promise<PosSessionInventorySummaryResponseDto> {
     const tenantId = req.user.tenant_id;
-    return this.inventoryService.getPosSessionInventorySummary(tenantId, sessionId, filters);
+    return this.inventoryService.getPosTerminalInventorySummary(
+      tenantId,
+      req.user.id,
+      filters,
+    );
   }
 
   @Get('batches/purchase-order/:poId')

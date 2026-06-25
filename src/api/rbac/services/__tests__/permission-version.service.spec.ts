@@ -116,6 +116,20 @@ describe('PermissionVersionService', () => {
     });
   });
 
+  describe('incrementVersionForUsersInTenant', () => {
+    it('should increment permissions_version for all users in a tenant', async () => {
+      const tenantId = 'tenant-123';
+
+      await service.incrementVersionForUsersInTenant(tenantId);
+
+      expect(userRepository.increment).toHaveBeenCalledWith(
+        { tenant_id: tenantId },
+        'permissions_version',
+        1,
+      );
+    });
+  });
+
   describe('getUserVersion', () => {
     it('should return the current permissions_version for a user', async () => {
       const userId = 'user-123';

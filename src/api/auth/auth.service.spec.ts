@@ -96,6 +96,66 @@ describe('AuthService', () => {
       );
       expect(result.user.permissions_version).toBe(1);
     });
+
+    it('should include POS session fields in login user response', async () => {
+      const mockUser = {
+        id: 'user-pos',
+        email: 'cobranza@example.com',
+        password: 'hashed-password',
+        permissions_version: 1,
+        last_login_at: null,
+        is_pos_user: true,
+        pos_user_type: 'COBRANZA',
+        billing_branch_id: 'branch-1',
+        tenant: { id: 'tenant-456', name: 'Test Tenant' },
+        status: { code: 'active' },
+      };
+
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      mockUserRepo.save.mockResolvedValue(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      mockRoleService.getUserRoles.mockResolvedValue([]);
+      mockPermissionService.getUserPermissions.mockResolvedValue([]);
+      mockJwtService.sign.mockReturnValue('jwt-token');
+
+      const result = await service.login('cobranza@example.com', 'password123');
+
+      expect(result.user).toMatchObject({
+        is_pos_user: true,
+        pos_user_type: 'COBRANZA',
+        billing_branch_id: 'branch-1',
+      });
+    });
+
+    it('should return null pos fields for non-POS users on login', async () => {
+      const mockUser = {
+        id: 'user-erp',
+        email: 'admin@example.com',
+        password: 'hashed-password',
+        permissions_version: 1,
+        last_login_at: null,
+        is_pos_user: false,
+        pos_user_type: null,
+        billing_branch_id: null,
+        tenant: { id: 'tenant-456', name: 'Test Tenant' },
+        status: { code: 'active' },
+      };
+
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      mockUserRepo.save.mockResolvedValue(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      mockRoleService.getUserRoles.mockResolvedValue([]);
+      mockPermissionService.getUserPermissions.mockResolvedValue([]);
+      mockJwtService.sign.mockReturnValue('jwt-token');
+
+      const result = await service.login('admin@example.com', 'password123');
+
+      expect(result.user).toMatchObject({
+        is_pos_user: false,
+        pos_user_type: null,
+        billing_branch_id: null,
+      });
+    });
   });
 
   describe('refresh', () => {

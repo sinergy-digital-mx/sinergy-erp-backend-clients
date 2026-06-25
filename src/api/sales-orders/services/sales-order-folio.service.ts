@@ -10,21 +10,20 @@ export class SalesOrderFolioService {
     private readonly salesOrderRepo: Repository<SalesOrder>,
   ) {}
 
-  /** Format: OSV-000001 */
+  /** Format: OSV-000001 — sequential per tenant */
   async generateFolio(tenantId: string): Promise<string> {
-    const last = await this.salesOrderRepo
+    const result = await this.salesOrderRepo
       .createQueryBuilder('so')
+      .select(
+        "MAX(CAST(SUBSTRING_INDEX(so.folio, '-', -1) AS UNSIGNED))",
+        'maxSeq',
+      )
       .where('so.tenant_id = :tenantId', { tenantId })
-      .orderBy('so.created_at', 'DESC')
-      .take(1)
-      .getOne();
+      .andWhere("so.folio LIKE 'OSV-%'")
+      .getRawOne<{ maxSeq: string | null }>();
 
-    let next = 1;
-    if (last?.folio) {
-      const match = last.folio.match(/OSV-(\d+)/);
-      if (match) next = parseInt(match[1], 10) + 1;
-    }
-
+    const maxSeq = result?.maxSeq ? Number(result.maxSeq) : 0;
+    const next = maxSeq > 0 ? maxSeq + 1 : 1;
     return `OSV-${String(next).padStart(6, '0')}`;
   }
 }

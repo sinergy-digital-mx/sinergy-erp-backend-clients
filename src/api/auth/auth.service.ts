@@ -110,6 +110,7 @@ export class AuthService {
                 permissions_flat: permissionsForJwt,
                 permissions_version: user.permissions_version,
                 last_login_at: user.last_login_at,
+                ...this.mapPosSessionFields(user),
             },
         };
     }
@@ -164,7 +165,16 @@ export class AuthService {
                 roles: userRoles.map(role => role.name),
                 permissions_flat: permissionsForJwt,
                 permissions_version: user.permissions_version,
+                ...this.mapPosSessionFields(user),
             },
+        };
+    }
+
+    private mapPosSessionFields(user: User) {
+        return {
+            is_pos_user: Boolean(user.is_pos_user),
+            pos_user_type: user.is_pos_user ? user.pos_user_type : null,
+            billing_branch_id: user.billing_branch_id ?? null,
         };
     }
 

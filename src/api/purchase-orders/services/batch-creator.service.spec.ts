@@ -33,7 +33,7 @@ describe('BatchCreatorService', () => {
   const mockReceivedItem: ReceivedItemDto = {
     line_item_id: 'line-1',
     product_id: 'product-1',
-    uom_id: 'uom-2',
+    product_uom_id: 'puom-2',
     quantity: 10,
     unit_total: 100,
     iva_percentage: 16,
@@ -42,6 +42,11 @@ describe('BatchCreatorService', () => {
     ieps_unit: 0,
   };
 
+  const mockProductUoms = [
+    { id: 'puom-1', is_base: true, uom_catalog_id: 'uom-1', factor: 1 },
+    { id: 'puom-2', is_base: false, uom_catalog_id: 'uom-2', factor: 2 },
+  ];
+
   const mockCreatedBatch: InventoryBatch = {
     id: 'batch-1',
     tenant_id: 'tenant-1',
@@ -49,7 +54,8 @@ describe('BatchCreatorService', () => {
     warehouse_id: 'warehouse-1',
     product_id: 'product-1',
     uom_id: 'uom-1',
-    quantity: 10,
+    initial_quantity: 10,
+    available_quantity: 10,
     purchase_order_batch_id: 'po-123',
     purchase_order_detail_id: 'line-1',
     created_by: 'user-1',
@@ -118,6 +124,7 @@ describe('BatchCreatorService', () => {
         mockPurchaseOrder,
         'line-1',
         'user-1',
+        mockProductUoms,
       );
 
       expect(result.batch_number).toBe('MH-LOTE-000001');
@@ -149,6 +156,7 @@ describe('BatchCreatorService', () => {
         mockPurchaseOrder,
         'line-1',
         'user-1',
+        mockProductUoms,
       );
 
       expect(result.warehouse_id).toBe('warehouse-1');
@@ -176,6 +184,7 @@ describe('BatchCreatorService', () => {
         mockPurchaseOrder,
         'line-1',
         'user-1',
+        mockProductUoms,
       );
 
       expect(result.product_id).toBe('product-1');
@@ -186,22 +195,18 @@ describe('BatchCreatorService', () => {
         .spyOn(batchNumberGeneratorService, 'generateBatchNumber')
         .mockResolvedValue('MH-LOTE-000001');
       jest
-        .spyOn(unitConversionService, 'getBaseUom')
-        .mockResolvedValue('uom-1');
-      jest
-        .spyOn(unitConversionService, 'convertToBaseUnit')
-        .mockResolvedValue(20);
-      jest
         .spyOn(inventoryBatchRepository, 'create')
         .mockReturnValue({
           ...mockCreatedBatch,
-          quantity: 20,
+          initial_quantity: 20,
+          available_quantity: 20,
         });
       jest
         .spyOn(inventoryBatchRepository, 'save')
         .mockResolvedValue({
           ...mockCreatedBatch,
-          quantity: 20,
+          initial_quantity: 20,
+          available_quantity: 20,
         });
 
       const result = await service.createBatchForReceivedItem(
@@ -209,14 +214,11 @@ describe('BatchCreatorService', () => {
         mockPurchaseOrder,
         'line-1',
         'user-1',
+        mockProductUoms,
       );
 
-      expect(result.quantity).toBe(20);
-      expect(unitConversionService.convertToBaseUnit).toHaveBeenCalledWith(
-        10,
-        'uom-2',
-        'product-1',
-      );
+      expect(result.initial_quantity).toBe(20);
+      expect(result.available_quantity).toBe(20);
     });
 
     it('should set uom_id to base unit', async () => {
@@ -241,6 +243,7 @@ describe('BatchCreatorService', () => {
         mockPurchaseOrder,
         'line-1',
         'user-1',
+        mockProductUoms,
       );
 
       expect(result.uom_id).toBe('uom-1');
@@ -268,6 +271,7 @@ describe('BatchCreatorService', () => {
         mockPurchaseOrder,
         'line-1',
         'user-1',
+        mockProductUoms,
       );
 
       expect(result.purchase_order_batch_id).toBe('po-123');
@@ -295,6 +299,7 @@ describe('BatchCreatorService', () => {
         mockPurchaseOrder,
         'line-1',
         'user-1',
+        mockProductUoms,
       );
 
       expect(result.purchase_order_detail_id).toBe('line-1');
@@ -322,6 +327,7 @@ describe('BatchCreatorService', () => {
         mockPurchaseOrder,
         'line-1',
         'user-1',
+        mockProductUoms,
       );
 
       expect(result.created_by).toBe('user-1');
@@ -355,6 +361,7 @@ describe('BatchCreatorService', () => {
         mockPurchaseOrder,
         'line-1',
         'user-1',
+        mockProductUoms,
       );
       const afterCall = new Date();
 
@@ -389,6 +396,7 @@ describe('BatchCreatorService', () => {
         mockPurchaseOrder,
         'line-1',
         'user-1',
+        mockProductUoms,
       );
 
       expect(result.tenant_id).toBe('tenant-1');
@@ -416,6 +424,7 @@ describe('BatchCreatorService', () => {
         mockPurchaseOrder,
         'line-1',
         'user-1',
+        mockProductUoms,
       );
 
       expect(inventoryBatchRepository.save).toHaveBeenCalledWith(
@@ -423,16 +432,10 @@ describe('BatchCreatorService', () => {
       );
     });
 
-    it('should call getBaseUom with correct product ID', async () => {
+    it('should use base uom from provided product uoms', async () => {
       jest
         .spyOn(batchNumberGeneratorService, 'generateBatchNumber')
         .mockResolvedValue('MH-LOTE-000001');
-      jest
-        .spyOn(unitConversionService, 'getBaseUom')
-        .mockResolvedValue('uom-1');
-      jest
-        .spyOn(unitConversionService, 'convertToBaseUnit')
-        .mockResolvedValue(10);
       jest
         .spyOn(inventoryBatchRepository, 'create')
         .mockReturnValue(mockCreatedBatch);
@@ -440,16 +443,15 @@ describe('BatchCreatorService', () => {
         .spyOn(inventoryBatchRepository, 'save')
         .mockResolvedValue(mockCreatedBatch);
 
-      await service.createBatchForReceivedItem(
+      const result = await service.createBatchForReceivedItem(
         mockReceivedItem,
         mockPurchaseOrder,
         'line-1',
         'user-1',
+        mockProductUoms,
       );
 
-      expect(unitConversionService.getBaseUom).toHaveBeenCalledWith(
-        'product-1',
-      );
+      expect(result.uom_id).toBe('uom-1');
     });
   });
 });

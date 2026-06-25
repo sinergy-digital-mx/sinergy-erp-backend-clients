@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Product } from '../../entities/products/product.entity';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -60,42 +60,65 @@ export class ProductService {
   }
 
   async findAll(query: QueryProductDto, tenantId: string): Promise<PaginatedProductDto> {
-    const { page = 1, limit = 10, sku, external_sku, name, category_id, subcategory_id, is_active } = query;
-    const skip = (page - 1) * limit;
+    let page = Number(query.page) || 1;
+    let limit = Number(query.limit) || 10;
 
-    const where: any = { tenant_id: tenantId };
+    if (page < 1) page = 1;
+    if (limit < 1) limit = 1;
+    if (limit > 100) limit = 100;
+
+    const skip = (page - 1) * limit;
+    const { search, sku, external_sku, name, category_id, subcategory_id, is_active } = query;
+
+    const queryBuilder = this.productRepository
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.category', 'category')
+      .leftJoinAndSelect('product.subcategory', 'subcategory')
+      .where('product.tenant_id = :tenantId', { tenantId });
+
+    if (search?.trim()) {
+      const term = `%${search.trim()}%`;
+      queryBuilder.andWhere(
+        `(LOWER(product.name) LIKE LOWER(:search)
+          OR LOWER(product.sku) LIKE LOWER(:search)
+          OR LOWER(product.external_sku) LIKE LOWER(:search))`,
+        { search: term },
+      );
+    }
 
     if (sku) {
-      where.sku = Like(`%${sku}%`);
+      queryBuilder.andWhere('product.sku LIKE :sku', { sku: `%${sku}%` });
     }
 
     if (external_sku) {
-      where.external_sku = Like(`%${external_sku}%`);
+      queryBuilder.andWhere('product.external_sku LIKE :externalSku', {
+        externalSku: `%${external_sku}%`,
+      });
     }
 
     if (name) {
-      where.name = Like(`%${name}%`);
+      queryBuilder.andWhere('product.name LIKE :name', { name: `%${name}%` });
     }
 
     if (category_id) {
-      where.category_id = category_id;
+      queryBuilder.andWhere('product.category_id = :categoryId', { categoryId: category_id });
     }
 
     if (subcategory_id) {
-      where.subcategory_id = subcategory_id;
+      queryBuilder.andWhere('product.subcategory_id = :subcategoryId', {
+        subcategoryId: subcategory_id,
+      });
     }
 
     if (is_active !== undefined) {
-      where.is_active = is_active;
+      queryBuilder.andWhere('product.is_active = :isActive', { isActive: is_active });
     }
 
-    const [data, total] = await this.productRepository.findAndCount({
-      where,
-      relations: ['category', 'subcategory'],
-      skip,
-      take: limit,
-      order: { name: 'ASC' },
-    });
+    const [data, total] = await queryBuilder
+      .orderBy('product.name', 'ASC')
+      .skip(skip)
+      .take(limit)
+      .getManyAndCount();
     const dataWithPhotoUrls = await Promise.all(
       data.map((product) => this.toResponseWithPhotoUrl(product)),
     );

@@ -3,8 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { InventoryBatch } from '../../../entities/purchase-orders/inventory-batch.entity';
 import { PurchaseOrderBatch } from '../../../entities/purchase-orders/purchase-order-batch.entity';
-import { Warehouse } from '../../../entities/warehouse/warehouse.entity';
 import { ReceivedItemDto } from '../dto/receive-purchase-order.dto';
+import { BatchNumberGeneratorService } from './batch-number-generator.service';
 
 /**
  * Service for creating inventory batch records for received items
@@ -17,8 +17,7 @@ export class BatchCreatorService {
   constructor(
     @InjectRepository(InventoryBatch)
     private readonly inventoryBatchRepository: Repository<InventoryBatch>,
-    @InjectRepository(Warehouse)
-    private readonly warehouseRepository: Repository<Warehouse>,
+    private readonly batchNumberGeneratorService: BatchNumberGeneratorService,
   ) {}
 
   /**
@@ -35,49 +34,11 @@ export class BatchCreatorService {
     sourceTagIdentifier?: string,
   ): Promise<InventoryBatch> {
     try {
-      // 1. Get warehouse prefix
-      const warehouse = await this.warehouseRepository.findOne({
-        where: { id: purchaseOrder.warehouse_id },
-      });
+      const batchNumber = await this.batchNumberGeneratorService.generateBatchNumber(
+        purchaseOrder.warehouse_id,
+        purchaseOrder.tenant_id,
+      );
 
-      if (!warehouse) {
-        throw new BadRequestException(
-          `Warehouse not found: ${purchaseOrder.warehouse_id}`,
-        );
-      }
-
-      if (!warehouse.prefix) {
-        throw new BadRequestException(
-          `Warehouse ${purchaseOrder.warehouse_id} does not have a prefix configured`,
-        );
-      }
-
-      // 2. Get next sequential number
-      const lastBatch = await this.inventoryBatchRepository
-        .createQueryBuilder('batch')
-        .where('batch.warehouse_id = :warehouseId', {
-          warehouseId: purchaseOrder.warehouse_id,
-        })
-        .andWhere('batch.tenant_id = :tenantId', {
-          tenantId: purchaseOrder.tenant_id,
-        })
-        .orderBy('batch.created_at', 'DESC')
-        .take(1)
-        .getOne();
-
-      let sequenceNumber = 1;
-      if (lastBatch && lastBatch.batch_number) {
-        const match = lastBatch.batch_number.match(/-LOTE-(\d+)$/);
-        if (match) {
-          sequenceNumber = parseInt(match[1], 10) + 1;
-        }
-      }
-
-      // 3. Generate batch number
-      const paddedNumber = String(sequenceNumber).padStart(6, '0');
-      const batchNumber = `${warehouse.prefix}-LOTE-${paddedNumber}`;
-
-      // 4. Find base UOM
       const uoms = productUoms || [];
       const baseUom = uoms.find(u => u.is_base);
       if (!baseUom) {
@@ -86,7 +47,6 @@ export class BatchCreatorService {
         );
       }
 
-      // 5. Find the product UOM
       const productUom = uoms.find(u => u.id === receivedItem.product_uom_id);
       if (!productUom) {
         throw new BadRequestException(
@@ -94,13 +54,11 @@ export class BatchCreatorService {
         );
       }
 
-      // 6. Calculate converted quantity
       const factor = productUom.factor || 1;
       const convertedQuantity = productUom.is_base
         ? receivedItem.quantity
         : receivedItem.quantity * factor;
 
-      // 7. Create and save batch
       const batch = this.inventoryBatchRepository.create({
         tenant_id: purchaseOrder.tenant_id,
         batch_number: batchNumber,
@@ -117,7 +75,7 @@ export class BatchCreatorService {
       });
 
       const savedBatch = await this.inventoryBatchRepository.save(batch);
-      
+
       this.logger.log(
         `Batch created: ${batchNumber} for product ${receivedItem.product_id}`,
       );

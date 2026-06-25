@@ -11,31 +11,22 @@ export class FolioGeneratorService {
   ) {}
 
   /**
-   * Generate a unique folio for a purchase order
+   * Generate a unique folio for a purchase order within a tenant.
    * Format: ODC-{6-digit zero-padded number}
-   * @param tenantId - The tenant ID
-   * @returns The generated folio
    */
   async generateFolio(tenantId: string): Promise<string> {
-    // Get the highest folio number for this tenant
-    const lastOrder = await this.purchaseOrderBatchRepository
+    const result = await this.purchaseOrderBatchRepository
       .createQueryBuilder('po')
+      .select(
+        "MAX(CAST(SUBSTRING_INDEX(po.folio, '-', -1) AS UNSIGNED))",
+        'maxSeq',
+      )
       .where('po.tenant_id = :tenantId', { tenantId })
-      .orderBy('po.created_at', 'DESC')
-      .take(1)
-      .getOne();
+      .andWhere("po.folio LIKE 'ODC-%'")
+      .getRawOne<{ maxSeq: string | null }>();
 
-    let nextNumber = 1;
-
-    if (lastOrder && lastOrder.folio) {
-      // Extract the number from the folio (e.g., "ODC-000001" -> 1)
-      const match = lastOrder.folio.match(/ODC-(\d+)/);
-      if (match) {
-        nextNumber = parseInt(match[1], 10) + 1;
-      }
-    }
-
-    // Format with 6-digit zero-padding
+    const maxSeq = result?.maxSeq ? Number(result.maxSeq) : 0;
+    const nextNumber = maxSeq > 0 ? maxSeq + 1 : 1;
     const paddedNumber = String(nextNumber).padStart(6, '0');
     return `ODC-${paddedNumber}`;
   }

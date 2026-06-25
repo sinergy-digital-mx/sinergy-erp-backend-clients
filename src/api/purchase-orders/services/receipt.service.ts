@@ -64,6 +64,25 @@ export class ReceiptService {
         throw new NotFoundException(`Purchase order not found: ${id}`);
       }
 
+      if (purchaseOrder.general_status !== 'Creada') {
+        throw new BadRequestException(
+          `Purchase order cannot be received. Current status: ${purchaseOrder.general_status}`,
+        );
+      }
+
+      const existingBatchesCount = await this.inventoryBatchRepository.count({
+        where: {
+          purchase_order_batch_id: id,
+          tenant_id: tenantId,
+        },
+      });
+
+      if (existingBatchesCount > 0) {
+        throw new BadRequestException(
+          'Purchase order already has inventory batches. If receipt failed previously, contact support before retrying.',
+        );
+      }
+
       // 3. Validate input
       await this.receiptValidatorService.validateReceivedItems(dto.received_items);
 

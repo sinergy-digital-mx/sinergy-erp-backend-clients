@@ -95,12 +95,6 @@ export class S3Service {
       .replace(/^_+|_+$/g, '') || 'unknown';
   }
 
-  /**
-   * Generate signed URL for downloading file (valid for 1 hour)
-   * @param s3Key S3 key
-   * @param expiresIn Expiration time in seconds (default: 3600 = 1 hour)
-   * @returns Signed URL
-   */
   async getSignedUrl(s3Key: string, expiresIn: number = 3600): Promise<string> {
     try {
       const command = new GetObjectCommand({
@@ -115,6 +109,23 @@ export class S3Service {
       // This will work if the bucket has public access or if accessed from within AWS
       return `https://${this.bucketName}.s3.${process.env.AWS_REGION || 'us-east-2'}.amazonaws.com/${s3Key}`;
     }
+  }
+
+  async getFileBuffer(s3Key: string): Promise<Buffer> {
+    const command = new GetObjectCommand({
+      Bucket: this.bucketName,
+      Key: s3Key,
+    });
+    const response = await this.s3Client.send(command);
+    const body = response.Body;
+    if (!body) {
+      throw new Error(`Empty S3 object: ${s3Key}`);
+    }
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of body as AsyncIterable<Uint8Array>) {
+      chunks.push(chunk);
+    }
+    return Buffer.concat(chunks);
   }
 
   /**

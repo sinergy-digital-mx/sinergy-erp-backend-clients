@@ -2,9 +2,9 @@ import { Injectable, Logger, NotFoundException, BadRequestException } from '@nes
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { InventoryBatch } from '../../entities/purchase-orders/inventory-batch.entity';
+import { InventoryTransferLine } from '../../entities/inventory/inventory-transfer-line.entity';
 import { ProductPrice } from '../../entities/products/product-price.entity';
-import { PosSession, PosSessionStatus } from '../../entities/pos/pos-session.entity';
-import { PosConfiguration } from '../../entities/billing/pos-configuration.entity';
+import { User } from '../../entities/users/user.entity';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { S3Service } from '../../common/services/s3.service';
 import { BatchFilterDto } from './dto/batch-filter.dto';
@@ -22,12 +22,12 @@ export class InventoryService {
   constructor(
     @InjectRepository(InventoryBatch)
     private inventoryBatchRepo: Repository<InventoryBatch>,
+    @InjectRepository(InventoryTransferLine)
+    private readonly transferLineRepo: Repository<InventoryTransferLine>,
     @InjectRepository(ProductPrice)
     private readonly productPriceRepo: Repository<ProductPrice>,
-    @InjectRepository(PosSession)
-    private readonly posSessionRepo: Repository<PosSession>,
-    @InjectRepository(PosConfiguration)
-    private readonly posConfigRepo: Repository<PosConfiguration>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
     @InjectRepository(Warehouse)
     private readonly warehouseRepo: Repository<Warehouse>,
     private readonly s3Service: S3Service,
@@ -38,43 +38,51 @@ export class InventoryService {
     return this.s3Service.getSignedUrl(photoKey, 900).catch(() => photoKey);
   }
 
-  async getPosSessionInventorySummary(
+  async getPosTerminalInventorySummary(
     tenantId: string,
-    sessionId: string,
+    terminalUserId: string,
     filters: InventorySummaryFilterDto,
   ): Promise<PosSessionInventorySummaryResponseDto> {
-    const session = await this.posSessionRepo.findOne({
-      where: { id: sessionId, tenant_id: tenantId, status: PosSessionStatus.OPEN },
+    const terminalUser = await this.userRepo.findOne({
+      where: { id: terminalUserId, tenant_id: tenantId, is_pos_user: true },
     });
 
-    if (!session) {
-      throw new NotFoundException('No se encontró una sesión POS abierta');
+    if (!terminalUser) {
+      throw new NotFoundException('Usuario POS no encontrado');
     }
 
-    const posConfig = await this.posConfigRepo.findOne({
-      where: { id: session.pos_configuration_id, tenant_id: tenantId },
-    });
-
-    if (!posConfig?.sucursal) {
-      throw new BadRequestException('La sesión POS no tiene una sucursal válida asociada');
+    if (!terminalUser.billing_branch_id) {
+      throw new BadRequestException('El usuario POS no tiene una sucursal asignada');
     }
 
     const branchWarehouses = await this.warehouseRepo.find({
-      where: { tenant_id: tenantId, billing_branch_id: posConfig.sucursal },
+      where: { tenant_id: tenantId, billing_branch_id: terminalUser.billing_branch_id },
       select: ['id', 'name', 'status'],
+      order: { name: 'ASC' },
     });
 
     if (branchWarehouses.length === 0) {
-      throw new NotFoundException('No se encontraron almacenes para la sucursal de la sesión');
+      throw new NotFoundException({
+        message: 'No se encontraron almacenes para la sucursal de la terminal',
+        billing_branch_id: terminalUser.billing_branch_id,
+        warehouses: [],
+      });
     }
 
     const availableWarehouseIds = new Set(branchWarehouses.map((w) => w.id));
-    const selectedWarehouseId = filters.warehouse_id?.trim();
+    const selectedWarehouseId = filters.warehouse_id?.trim() || undefined;
 
     if (selectedWarehouseId && !availableWarehouseIds.has(selectedWarehouseId)) {
-      throw new BadRequestException(
-        'El almacén seleccionado no pertenece a la sucursal asignada a esta sesión POS',
-      );
+      throw new BadRequestException({
+        message:
+          'El almacén seleccionado no pertenece a la sucursal de esta terminal POS. Omita warehouse_id o use un almacén de la lista.',
+        billing_branch_id: terminalUser.billing_branch_id,
+        warehouses: branchWarehouses.map((w) => ({
+          id: w.id,
+          name: w.name,
+          status: w.status,
+        })),
+      });
     }
 
     const targetWarehouseIds = selectedWarehouseId
@@ -200,6 +208,13 @@ export class InventoryService {
     const paginatedData = summaries.slice(start, start + limit);
 
     return {
+      billing_branch_id: terminalUser.billing_branch_id,
+      warehouses: branchWarehouses.map((w) => ({
+        id: w.id,
+        name: w.name,
+        status: w.status,
+      })),
+      applied_warehouse_id: selectedWarehouseId ?? null,
       data: paginatedData,
       total,
       page,
@@ -402,6 +417,7 @@ export class InventoryService {
         .leftJoinAndSelect('batch.warehouse', 'warehouse')
         .leftJoinAndSelect('batch.uom', 'uom')
         .leftJoinAndSelect('batch.purchase_order_batch', 'purchase_order_batch')
+        .leftJoinAndSelect('batch.transferred_from_batch', 'transferred_from_batch')
         .getOne();
 
       if (!batch) {
@@ -410,7 +426,7 @@ export class InventoryService {
       }
 
       this.logger.log(`Successfully retrieved batch: ${id}`);
-      return this.mapToDetailResponseDto(batch);
+      return this.mapToDetailResponseDto(batch, await this.loadTransferHistory(batch.id));
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -741,15 +757,66 @@ export class InventoryService {
   }
 
   /**
-   * Map InventoryBatch entity to BatchDetailResponseDto
-   * Includes quantity breakdown and movement summary
-   * Since there is no movement tracking table yet, initial = available = current quantity
+   * Historial de transferencias donde este lote fue origen o destino.
    */
-  private mapToDetailResponseDto(batch: InventoryBatch): BatchDetailResponseDto {
+  private async loadTransferHistory(batchId: string) {
+    const lines = await this.transferLineRepo
+      .createQueryBuilder('line')
+      .leftJoinAndSelect('line.inventory_transfer', 'transfer')
+      .leftJoinAndSelect('line.source_inventory_batch', 'source_batch')
+      .leftJoinAndSelect('line.destination_inventory_batch', 'dest_batch')
+      .leftJoinAndSelect('transfer.source_warehouse', 'source_wh')
+      .leftJoinAndSelect('transfer.destination_warehouse', 'dest_wh')
+      .where('line.source_inventory_batch_id = :batchId', { batchId })
+      .orWhere('line.destination_inventory_batch_id = :batchId', { batchId })
+      .orderBy('line.created_at', 'DESC')
+      .getMany();
+
+    return lines.map((line) => {
+      const isOut = line.source_inventory_batch_id === batchId;
+      return {
+        transfer_id: line.inventory_transfer_id,
+        transfer_folio: line.inventory_transfer?.folio ?? '',
+        direction: isOut ? ('out' as const) : ('in' as const),
+        quantity: parseFloat(line.quantity?.toString() ?? '0').toFixed(3),
+        related_batch_id: isOut
+          ? line.destination_inventory_batch_id
+          : line.source_inventory_batch_id,
+        related_batch_number: isOut
+          ? line.destination_inventory_batch?.batch_number ?? null
+          : line.source_inventory_batch?.batch_number ?? null,
+        warehouse_name: isOut
+          ? line.inventory_transfer?.destination_warehouse?.name ?? null
+          : line.inventory_transfer?.source_warehouse?.name ?? null,
+        created_at: line.created_at,
+      };
+    });
+  }
+
+  /**
+   * Map InventoryBatch entity to BatchDetailResponseDto
+   */
+  private mapToDetailResponseDto(
+    batch: InventoryBatch,
+    transferHistory: Array<{
+      transfer_id: string;
+      transfer_folio: string;
+      direction: 'out' | 'in';
+      quantity: string;
+      related_batch_id: string | null;
+      related_batch_number: string | null;
+      warehouse_name: string | null;
+      created_at: Date;
+    }> = [],
+  ): BatchDetailResponseDto {
     const initial = parseFloat(batch.initial_quantity?.toString() ?? '0');
     const available = parseFloat(batch.available_quantity?.toString() ?? '0');
     const consumed = parseFloat((initial - available).toFixed(3));
     const availabilityPct = initial > 0 ? Math.round((available / initial) * 100) : 100;
+    const transfersOut = transferHistory.filter((t) => t.direction === 'out');
+    const transfersIn = transferHistory.filter((t) => t.direction === 'in');
+    const totalOut = transfersOut.reduce((sum, t) => sum + parseFloat(t.quantity), 0);
+    const totalIn = transfersIn.reduce((sum, t) => sum + parseFloat(t.quantity), 0);
 
     return {
       id: batch.id,
@@ -772,14 +839,17 @@ export class InventoryService {
       availability_percentage: availabilityPct,
       created_by: batch.created_by,
       created_at: batch.created_at,
+      transferred_from_batch_id: batch.transferred_from_batch_id ?? null,
+      transferred_from_batch_number: batch.transferred_from_batch?.batch_number ?? null,
+      transfer_history: transferHistory,
       movement_summary: {
-        total_movements: 0,
-        total_out: 0,
-        total_in: 0,
+        total_movements: transferHistory.length,
+        total_out: parseFloat(totalOut.toFixed(3)),
+        total_in: parseFloat(totalIn.toFixed(3)),
         by_type: {
           orders: 0,
-          transfers_out: 0,
-          transfers_in: 0,
+          transfers_out: transfersOut.length,
+          transfers_in: transfersIn.length,
           adjustments: 0,
         },
       },

@@ -10,12 +10,20 @@ export class QueryProductDto {
   @Min(1)
   page?: number = 1;
 
-  @ApiPropertyOptional({ example: 10, description: 'Registros por página' })
+  @ApiPropertyOptional({ example: 20, description: 'Registros por página (máx. 100)' })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   limit?: number = 10;
+
+  @ApiPropertyOptional({
+    example: 'manzana',
+    description: 'Buscar por nombre, SKU o SKU externo (coincidencia parcial)',
+  })
+  @IsOptional()
+  @IsString()
+  search?: string;
 
   @ApiPropertyOptional({ example: 'PROD', description: 'Buscar por SKU' })
   @IsOptional()

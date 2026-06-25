@@ -4,13 +4,14 @@ import {
     PrimaryGeneratedColumn,
     Column,
     ManyToOne,
-    OneToMany,
     JoinColumn,
     CreateDateColumn,
     UpdateDateColumn,
 } from 'typeorm';
 import { RBACTenant } from '../rbac/tenant.entity';
 import { UserStatus } from './user-status.entity';
+import { BillingBranch } from '../billing/billing-branch.entity';
+import { PosUserType } from './pos-user-type.enum';
 
 @Entity('users')
 export class User {
@@ -51,6 +52,26 @@ export class User {
 
     @Column({ type: 'integer', default: 1 })
     permissions_version: number;
+
+    @Column({ name: 'billing_branch_id', nullable: true })
+    billing_branch_id: string | null;
+
+    @ManyToOne(() => BillingBranch, { nullable: true })
+    @JoinColumn({ name: 'billing_branch_id' })
+    billing_branch: BillingBranch | null;
+
+    @Column({ type: 'tinyint', default: 0 })
+    is_pos_user: boolean;
+
+    @Column({ type: 'int', nullable: true })
+    pos_user_code: number | null;
+
+    @Column({
+      type: 'enum',
+      enum: PosUserType,
+      nullable: true,
+    })
+    pos_user_type: PosUserType | null;
 
     @CreateDateColumn({ type: 'timestamp' })
     created_at: Date;

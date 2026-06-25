@@ -1,4 +1,5 @@
 import { Type } from 'class-transformer';
+import { ApiProperty } from '@nestjs/swagger';
 import {
   IsArray,
   IsDateString,
@@ -9,6 +10,7 @@ import {
   IsString,
   IsUUID,
   Min,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 
@@ -50,8 +52,14 @@ export class CreateSalesOrderDto {
   @IsUUID()
   warehouse_id: string;
 
+  @ApiProperty({
+    required: false,
+    description:
+      'Cliente. Obligatorio en órdenes MANUAL. En POS es opcional (mostrador si se omite).',
+  })
+  @IsOptional()
   @IsNumber()
-  customer_id: number;
+  customer_id?: number;
 
   @IsDateString()
   expected_delivery_date: string;
@@ -59,6 +67,19 @@ export class CreateSalesOrderDto {
   @IsOptional()
   @IsEnum(['POS', 'MANUAL'])
   sales_order_type?: 'POS' | 'MANUAL';
+
+  @ValidateIf((dto: CreateSalesOrderDto) => dto.sales_order_type === 'POS')
+  @IsUUID()
+  seller_user_id?: string;
+
+  @ApiProperty({
+    required: false,
+    description:
+      'Opcional. Si no se envía, se resuelve el corte abierto de cobranza de la sucursal.',
+  })
+  @IsOptional()
+  @IsUUID()
+  pos_daily_shift_id?: string;
 
   @IsOptional()
   @IsString()

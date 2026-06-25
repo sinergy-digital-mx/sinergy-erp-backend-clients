@@ -41,7 +41,28 @@ export class PosSessionProductInventorySummaryDto {
   batches: PosSessionBatchBreakdownDto[];
 }
 
+export class PosSessionWarehouseDto {
+  @ApiProperty() id: string;
+  @ApiProperty() name: string;
+  @ApiProperty() status: string;
+}
+
 export class PosSessionInventorySummaryResponseDto {
+  @ApiProperty({ description: 'Sucursal de la terminal POS (billing_branch_id del usuario)' })
+  billing_branch_id: string;
+
+  @ApiProperty({
+    type: [PosSessionWarehouseDto],
+    description: 'Almacenes de esa sucursal. Usar uno de estos ids si se filtra por warehouse_id.',
+  })
+  warehouses: PosSessionWarehouseDto[];
+
+  @ApiProperty({
+    nullable: true,
+    description: 'Almacén aplicado al filtro. null = todos los de la sucursal.',
+  })
+  applied_warehouse_id: string | null;
+
   @ApiProperty({ type: [PosSessionProductInventorySummaryDto] })
   data: PosSessionProductInventorySummaryDto[];
   @ApiProperty() total: number;

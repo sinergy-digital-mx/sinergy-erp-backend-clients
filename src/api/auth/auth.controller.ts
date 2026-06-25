@@ -31,6 +31,9 @@ export class AuthController {
                     tenant_id: 'uuid',
                     status: 'Active',
                     roles: ['Sales Rep'],
+                    is_pos_user: true,
+                    pos_user_type: 'COBRANZA',
+                    billing_branch_id: 'uuid',
                     permissions: {
                         'Lead Management': [
                             { id: 1, action: 'Read', description: 'View leads' },

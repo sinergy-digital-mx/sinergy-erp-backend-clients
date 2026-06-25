@@ -15,8 +15,6 @@ export class BatchNumberGeneratorService {
 
   /**
    * Retrieve the warehouse prefix from the warehouse record
-   * @param warehouseId - The warehouse ID
-   * @returns The warehouse prefix
    */
   async getWarehousePrefix(warehouseId: string): Promise<string> {
     const warehouse = await this.warehouseRepository.findOne({
@@ -37,73 +35,58 @@ export class BatchNumberGeneratorService {
   }
 
   /**
-   * Get the next sequential number for a warehouse + tenant combination
-   * Uses database-level locking to handle concurrent batch creation
-   * @param warehouseId - The warehouse ID
-   * @param tenantId - The tenant ID
-   * @returns The next sequential number
+   * Get the next sequential number for a warehouse prefix within a tenant.
+   * Uniqueness is enforced per tenant + batch_number, so we scan by prefix at tenant scope.
    */
   async getNextSequentialNumber(
     warehouseId: string,
     tenantId: string,
   ): Promise<number> {
-    // Query the highest batch number for this warehouse + tenant
-    const lastBatch = await this.inventoryBatchRepository
+    const prefix = await this.getWarehousePrefix(warehouseId);
+    const pattern = `${prefix}-LOTE-%`;
+
+    const result = await this.inventoryBatchRepository
       .createQueryBuilder('batch')
-      .where('batch.warehouse_id = :warehouseId', { warehouseId })
-      .andWhere('batch.tenant_id = :tenantId', { tenantId })
-      .orderBy('batch.created_at', 'DESC')
-      .take(1)
-      .getOne();
+      .select(
+        "MAX(CAST(SUBSTRING_INDEX(batch.batch_number, '-LOTE-', -1) AS UNSIGNED))",
+        'maxSeq',
+      )
+      .where('batch.tenant_id = :tenantId', { tenantId })
+      .andWhere('batch.batch_number LIKE :pattern', { pattern })
+      .getRawOne<{ maxSeq: string | null }>();
 
-    if (!lastBatch || !lastBatch.batch_number) {
-      return 1;
-    }
-
-    // Extract the sequential number from the batch number format: {prefix}-LOTE-{number}
-    const match = lastBatch.batch_number.match(/-LOTE-(\d+)$/);
-    if (!match) {
-      return 1;
-    }
-
-    const lastSequence = parseInt(match[1], 10);
-    return lastSequence + 1;
+    const maxSeq = result?.maxSeq ? Number(result.maxSeq) : 0;
+    return maxSeq > 0 ? maxSeq + 1 : 1;
   }
 
   /**
    * Generate a unique batch number for a warehouse
    * Format: {prefix}-LOTE-{6_digit_sequential}
-   * Verifies uniqueness in inv_s_batches table before returning
-   * Handles concurrent batch creation with database-level locking
-   * @param warehouseId - The warehouse ID
-   * @param tenantId - The tenant ID
-   * @returns The generated batch number
    */
   async generateBatchNumber(warehouseId: string, tenantId: string): Promise<string> {
-    // Get warehouse prefix
     const prefix = await this.getWarehousePrefix(warehouseId);
+    let sequenceNumber = await this.getNextSequentialNumber(warehouseId, tenantId);
 
-    // Get next sequential number with database-level locking
-    const sequenceNumber = await this.getNextSequentialNumber(warehouseId, tenantId);
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const paddedNumber = String(sequenceNumber).padStart(6, '0');
+      const batchNumber = `${prefix}-LOTE-${paddedNumber}`;
 
-    // Format batch number with 6-digit zero-padding
-    const paddedNumber = String(sequenceNumber).padStart(6, '0');
-    const batchNumber = `${prefix}-LOTE-${paddedNumber}`;
+      const existingBatch = await this.inventoryBatchRepository.findOne({
+        where: {
+          tenant_id: tenantId,
+          batch_number: batchNumber,
+        },
+      });
 
-    // Verify uniqueness in inv_s_batches table before returning
-    const existingBatch = await this.inventoryBatchRepository.findOne({
-      where: {
-        tenant_id: tenantId,
-        batch_number: batchNumber,
-      },
-    });
+      if (!existingBatch) {
+        return batchNumber;
+      }
 
-    if (existingBatch) {
-      throw new BadRequestException(
-        `Batch number ${batchNumber} already exists for tenant ${tenantId}`,
-      );
+      sequenceNumber++;
     }
 
-    return batchNumber;
+    throw new BadRequestException(
+      `Unable to generate a unique batch number for warehouse ${warehouseId}`,
+    );
   }
 }

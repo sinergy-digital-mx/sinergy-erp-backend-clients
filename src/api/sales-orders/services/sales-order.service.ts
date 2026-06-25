@@ -10,10 +10,23 @@ import { QuerySalesOrderDto } from '../dto/query-sales-order.dto';
 import { FulfillSalesOrderDto } from '../dto/fulfill-sales-order.dto';
 import { SalesOrderFolioService } from './sales-order-folio.service';
 import { SalesOrderFulfillmentService } from './sales-order-fulfillment.service';
+import { SalesOrderPdfService } from './sales-order-pdf.service';
+import { SalesOrderDocumentsService } from './sales-order-documents.service';
+import { PosShiftsService } from '../../pos-shifts/pos-shifts.service';
+import { PosUserType } from '../../../entities/users/pos-user-type.enum';
+import { DocumentLanguage } from '../../../common/enums/document-language.enum';
+import { PosSaleCollection } from '../../../entities/pos/pos-sale-collection.entity';
+import {
+  formatCustomerDisplayName,
+  mapPosCustomer,
+  mapPosSaleCollection,
+  mapPosUser,
+} from '../../pos-shifts/mappers/pos-sale-collection.mapper';
 
 @Injectable()
 export class SalesOrderService {
   private readonly logger = new Logger(SalesOrderService.name);
+  private static readonly DOC_TYPE_DOCUMENTO_ORIGINAL = 1;
 
   constructor(
     @InjectRepository(SalesOrder)
@@ -25,7 +38,74 @@ export class SalesOrderService {
     private readonly folioService: SalesOrderFolioService,
     private readonly fulfillmentService: SalesOrderFulfillmentService,
     private readonly dataSource: DataSource,
+    private readonly posShiftsService: PosShiftsService,
+    private readonly pdfService: SalesOrderPdfService,
+    private readonly documentsService: SalesOrderDocumentsService,
+    @InjectRepository(PosSaleCollection)
+    private readonly posCollectionRepo: Repository<PosSaleCollection>,
   ) {}
+
+  private async deleteDocumentsByType(
+    salesOrderId: string,
+    documentTypeId: number,
+  ): Promise<void> {
+    const existingDocs = await this.documentsService.getDocuments(salesOrderId);
+    for (const doc of existingDocs) {
+      if (Number(doc.document_type_id) === Number(documentTypeId)) {
+        await this.documentsService.deleteDocument(doc.id);
+      }
+    }
+  }
+
+  private async loadOrderForPdf(id: string, tenantId: string): Promise<SalesOrder | null> {
+    return this.soRepo
+      .createQueryBuilder('so')
+      .where('so.id = :id AND so.tenant_id = :tenantId', { id, tenantId })
+      .leftJoinAndSelect('so.fiscal_configuration', 'fiscal_config')
+      .leftJoinAndSelect('so.warehouse', 'warehouse')
+      .leftJoinAndSelect('so.customer', 'customer')
+      .leftJoinAndSelect('so.creator', 'creator')
+      .leftJoinAndSelect('so.line_items', 'line_items')
+      .leftJoinAndSelect('line_items.product', 'product')
+      .leftJoinAndSelect('line_items.product_uom', 'product_uom')
+      .leftJoinAndSelect('product_uom.uom', 'uom')
+      .getOne();
+  }
+
+  private async generateAndUploadPdf(
+    salesOrderId: string,
+    tenantId: string,
+    userId: string,
+    language: DocumentLanguage = DocumentLanguage.ES,
+  ): Promise<void> {
+    try {
+      const fullOrder = await this.loadOrderForPdf(salesOrderId, tenantId);
+      if (!fullOrder) {
+        this.logger.error(`[PDF] Failed to load sales order: ${salesOrderId}`);
+        return;
+      }
+
+      const pdfBuffer = await this.pdfService.generatePdf(fullOrder, language);
+      const uploadResult = await this.pdfService.uploadPdfToS3(
+        fullOrder,
+        pdfBuffer,
+        'DOCUMENTO_ORIGINAL',
+      );
+
+      await this.documentsService.uploadDocument(
+        salesOrderId,
+        SalesOrderService.DOC_TYPE_DOCUMENTO_ORIGINAL,
+        `DOCUMENTO_ORIGINAL_${fullOrder.folio}_es.pdf`,
+        uploadResult.s3Key,
+        pdfBuffer.length,
+        'application/pdf',
+        userId,
+        language,
+      );
+    } catch (error) {
+      this.logger.error('[PDF] Error in generateAndUploadPdf:', error);
+    }
+  }
 
   /**
    * Accepts either product_uom.id (preferred) or uom_catalog.id (fallback).
@@ -64,6 +144,43 @@ export class SalesOrderService {
   }
 
   async create(dto: CreateSalesOrderDto, tenantId: string, userId: string): Promise<SalesOrder> {
+    const isPosSale = dto.sales_order_type === 'POS';
+    let posDailyShiftId: string | null = null;
+    let paymentStatus = dto.payment_status || 'Pendiente';
+    let collectedByUserId: string | null = null;
+    let posQueued = false;
+
+    if (!isPosSale && dto.customer_id == null) {
+      throw new BadRequestException('Las órdenes manuales requieren customer_id');
+    }
+
+    const customerId = isPosSale
+      ? dto.customer_id ?? (await this.posShiftsService.resolveWalkInCustomerId(tenantId))
+      : dto.customer_id!;
+
+    if (isPosSale) {
+      if (!dto.seller_user_id) {
+        throw new BadRequestException('Las ventas POS requieren seller_user_id');
+      }
+
+      const { shift, terminalUser, queued } =
+        await this.posShiftsService.resolvePosSaleContext(
+          tenantId,
+          userId,
+          dto.seller_user_id,
+          dto.pos_daily_shift_id,
+        );
+
+      posQueued = queued;
+      posDailyShiftId = shift?.id ?? null;
+
+      if (terminalUser.pos_user_type === PosUserType.VENTAS) {
+        paymentStatus = 'Pendiente';
+      } else if (paymentStatus === 'Pagado') {
+        collectedByUserId = userId;
+      }
+    }
+
     const qr = this.dataSource.createQueryRunner();
     await qr.connect();
     await qr.startTransaction();
@@ -77,14 +194,18 @@ export class SalesOrderService {
         folio,
         fiscal_configuration_id: dto.fiscal_configuration_id,
         warehouse_id: dto.warehouse_id,
-        customer_id: dto.customer_id,
+        customer_id: customerId,
         expected_delivery_date: new Date(dto.expected_delivery_date),
         sales_order_type: dto.sales_order_type || 'MANUAL',
         fiscal_razon_social: dto.fiscal_razon_social,
-        payment_status: dto.payment_status || 'Pendiente',
+        payment_status: paymentStatus,
         general_status: 'Creada',
         notes: dto.notes,
         created_by: userId,
+        terminal_user_id: isPosSale ? userId : null,
+        seller_user_id: isPosSale ? dto.seller_user_id! : null,
+        pos_daily_shift_id: isPosSale ? posDailyShiftId : null,
+        collected_by_user_id: collectedByUserId,
       });
 
       const savedSO = await qr.manager.save(SalesOrder, so);
@@ -166,10 +287,17 @@ export class SalesOrderService {
           savedDetails,
           userId,
         );
+        savedSO.general_status = posQueued ? 'En cola' : 'Surtida';
+        await qr.manager.save(SalesOrder, savedSO);
         this.logger.log(`POS sales order ${folio} auto-fulfilled by user ${userId}`);
       }
 
       await qr.commitTransaction();
+
+      this.generateAndUploadPdf(savedSO.id, tenantId, userId).catch((err) => {
+        this.logger.error('[PDF] Error in async PDF generation:', err);
+      });
+
       return this.findOne(savedSO.id, tenantId);
     } catch (err) {
       await qr.rollbackTransaction();
@@ -216,6 +344,7 @@ export class SalesOrderService {
       where: { id, tenant_id: tenantId },
       relations: [
         'customer', 'warehouse', 'fiscal_configuration',
+        'seller_user', 'terminal_user', 'collected_by_user',
         'line_items', 'line_items.product', 'line_items.product_uom', 'line_items.product_uom.uom',
         'line_items.base_uom',
         'line_items.batch_allocations', 'line_items.batch_allocations.inventory_batch',
@@ -223,6 +352,36 @@ export class SalesOrderService {
     });
     if (!so) throw new NotFoundException(`Sales order not found: ${id}`);
     return so;
+  }
+
+  async findOneDetail(id: string, tenantId: string) {
+    const so = await this.findOne(id, tenantId);
+    const posCollection = await this.posCollectionRepo.findOne({
+      where: { sales_order_id: id, tenant_id: tenantId },
+      relations: ['customer', 'collected_by_user'],
+    });
+
+    if (posCollection && so.customer_id !== posCollection.customer_id) {
+      await this.soRepo.update(
+        { id: so.id, tenant_id: tenantId },
+        { customer_id: posCollection.customer_id },
+      );
+      so.customer_id = posCollection.customer_id;
+      so.customer = posCollection.customer ?? so.customer;
+    }
+
+    const customerSummary = mapPosCustomer(so.customer);
+    const header = {
+      ...so,
+      customer_display_name: customerSummary?.display_name ?? formatCustomerDisplayName(so.customer),
+      customer_summary: customerSummary,
+      seller_user: mapPosUser(so.seller_user),
+      terminal_user: mapPosUser(so.terminal_user),
+      collected_by_user: mapPosUser(so.collected_by_user),
+      pos_collection: posCollection ? mapPosSaleCollection(posCollection) : null,
+    };
+
+    return { header, sales_order: so, pos_collection: header.pos_collection };
   }
 
   /**
@@ -321,7 +480,9 @@ export class SalesOrderService {
 
       so.fiscal_configuration_id = dto.fiscal_configuration_id;
       so.warehouse_id = dto.warehouse_id;
-      so.customer_id = dto.customer_id;
+      if (dto.customer_id != null) {
+        so.customer_id = dto.customer_id;
+      }
       so.expected_delivery_date = new Date(dto.expected_delivery_date);
       so.sales_order_type = dto.sales_order_type || so.sales_order_type || 'MANUAL';
       if (dto.fiscal_razon_social !== undefined) {
@@ -338,6 +499,11 @@ export class SalesOrderService {
       await this.recomputeTotals(qr, so.id, tenantId, userId);
 
       await qr.commitTransaction();
+
+      this.regenerateDocumentoOriginalPreservingLanguage(id, tenantId, userId).catch((err) => {
+        this.logger.error('[PDF] Error regenerating DOCUMENTO_ORIGINAL after sales order replace:', err);
+      });
+
       return this.findOne(id, tenantId);
     } catch (err) {
       await qr.rollbackTransaction();
@@ -456,5 +622,61 @@ export class SalesOrderService {
     so.total = subtotal - discount_total + iva_total + ieps_total;
     so.updated_by = userId;
     await qr.manager.save(SalesOrder, so);
+  }
+
+  async regenerateDocumentoOriginal(
+    id: string,
+    tenantId: string,
+    userId: string,
+    language: DocumentLanguage,
+    keepPrevious = false,
+  ): Promise<{ success: boolean; message: string; document_language: DocumentLanguage; keep_previous: boolean }> {
+    const salesOrder = await this.findOne(id, tenantId);
+
+    if (!keepPrevious) {
+      await this.deleteDocumentsByType(id, SalesOrderService.DOC_TYPE_DOCUMENTO_ORIGINAL);
+    }
+
+    const fullOrder = await this.loadOrderForPdf(id, tenantId);
+    if (!fullOrder) {
+      throw new NotFoundException(`Sales order not found: ${id}`);
+    }
+
+    const pdfBuffer = await this.pdfService.generatePdf(fullOrder, language);
+    const uploadResult = await this.pdfService.uploadPdfToS3(
+      fullOrder,
+      pdfBuffer,
+      'DOCUMENTO_ORIGINAL',
+    );
+
+    await this.documentsService.uploadDocument(
+      id,
+      SalesOrderService.DOC_TYPE_DOCUMENTO_ORIGINAL,
+      `DOCUMENTO_ORIGINAL_${salesOrder.folio}_${language}.pdf`,
+      uploadResult.s3Key,
+      pdfBuffer.length,
+      'application/pdf',
+      userId,
+      language,
+    );
+
+    return {
+      success: true,
+      message: 'DOCUMENTO_ORIGINAL regenerado exitosamente',
+      document_language: language,
+      keep_previous: keepPrevious,
+    };
+  }
+
+  async regenerateDocumentoOriginalPreservingLanguage(
+    id: string,
+    tenantId: string,
+    userId: string,
+  ): Promise<{ success: boolean; message: string; document_language: DocumentLanguage }> {
+    const language = await this.documentsService.getLastDocumentLanguage(
+      id,
+      SalesOrderService.DOC_TYPE_DOCUMENTO_ORIGINAL,
+    );
+    return this.regenerateDocumentoOriginal(id, tenantId, userId, language);
   }
 }

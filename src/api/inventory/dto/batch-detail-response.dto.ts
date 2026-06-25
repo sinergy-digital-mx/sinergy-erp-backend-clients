@@ -1,5 +1,16 @@
 import { ApiProperty } from '@nestjs/swagger';
 
+export class BatchTransferHistoryItemDto {
+  @ApiProperty() transfer_id: string;
+  @ApiProperty() transfer_folio: string;
+  @ApiProperty() direction: 'out' | 'in';
+  @ApiProperty() quantity: string;
+  @ApiProperty({ nullable: true }) related_batch_id: string | null;
+  @ApiProperty({ nullable: true }) related_batch_number: string | null;
+  @ApiProperty({ nullable: true }) warehouse_name: string | null;
+  @ApiProperty() created_at: Date;
+}
+
 export class MovementSummaryDto {
   @ApiProperty() total_movements: number;
   @ApiProperty() total_out: number;
@@ -56,6 +67,15 @@ export class BatchDetailResponseDto {
 
   @ApiProperty() created_by: string;
   @ApiProperty() created_at: Date;
+
+  @ApiProperty({ nullable: true, description: 'Lote origen si este lote fue creado por transferencia' })
+  transferred_from_batch_id: string | null;
+
+  @ApiProperty({ nullable: true })
+  transferred_from_batch_number: string | null;
+
+  @ApiProperty({ type: [BatchTransferHistoryItemDto] })
+  transfer_history: BatchTransferHistoryItemDto[];
 
   @ApiProperty({ type: MovementSummaryDto })
   movement_summary: MovementSummaryDto;

@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { PurchaseOrderBatch } from './purchase-order-batch.entity';
 import { PurchaseOrderDocumentType } from './purchase-order-document-type.entity';
+import { PurchaseOrderDocumentLanguage } from './purchase-order-document-language.enum';
 import { User } from '../users/user.entity';
 
 @Entity('inv_s_purchase_order_documents')
@@ -43,6 +44,13 @@ export class PurchaseOrderDocument {
 
   @Column({ length: 100, nullable: true })
   mime_type: string;
+
+  @Column({
+    type: 'enum',
+    enum: PurchaseOrderDocumentLanguage,
+    default: PurchaseOrderDocumentLanguage.ES,
+  })
+  document_language: PurchaseOrderDocumentLanguage;
 
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'uploaded_by' })

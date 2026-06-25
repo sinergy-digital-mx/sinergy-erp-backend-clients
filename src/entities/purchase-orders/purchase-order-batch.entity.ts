@@ -20,6 +20,7 @@ import { PurchaseOrderPayment } from './purchase-order-payment.entity';
 
 @Entity('inv_s_purchase_order_batch')
 @Index('idx_tenant', ['tenant_id'])
+@Index('uq_po_batch_tenant_folio', ['tenant_id', 'folio'], { unique: true })
 @Index('idx_general_status', ['general_status'])
 @Index('idx_payment_status', ['payment_status'])
 @Index('idx_vendor', ['vendor_id'])
@@ -57,7 +58,7 @@ export class PurchaseOrderBatch {
   @Column()
   vendor_id: string;
 
-  @Column({ length: 20, unique: true })
+  @Column({ length: 20 })
   folio: string;
 
   @Column({ type: 'date' })

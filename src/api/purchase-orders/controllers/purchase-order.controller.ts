@@ -24,6 +24,7 @@ import {
   UpdateLineItemDto,
   QueryPurchaseOrderDto,
   CreatePurchaseOrderPaymentDto,
+  RegenerateDocumentDto,
 } from '../dto';
 
 @Controller('tenant/purchase-orders')
@@ -106,21 +107,35 @@ export class PurchaseOrderController {
   @Post(':id/regenerate-documento-original')
   async regenerateDocumentoOriginal(
     @Param('id') id: string,
+    @Body() dto: RegenerateDocumentDto,
     @Req() req: any,
   ) {
     const tenantId = req.user.tenant_id;
     const userId = req.user.id;
-    return this.purchaseOrderService.regenerateDocumentoOriginal(id, tenantId, userId);
+    return this.purchaseOrderService.regenerateDocumentoOriginal(
+      id,
+      tenantId,
+      userId,
+      dto.language,
+      dto.keep_previous ?? false,
+    );
   }
 
   @Post(':id/regenerate-recepcion')
   async regenerateRecepcion(
     @Param('id') id: string,
+    @Body() dto: RegenerateDocumentDto,
     @Req() req: any,
   ) {
     const tenantId = req.user.tenant_id;
     const userId = req.user.id;
-    return this.purchaseOrderService.regenerateRecepcionDocument(id, tenantId, userId);
+    return this.purchaseOrderService.regenerateRecepcionDocument(
+      id,
+      tenantId,
+      userId,
+      dto.language,
+      dto.keep_previous ?? false,
+    );
   }
 
   @Patch(':orderId/line-items/:lineItemId')

@@ -6,8 +6,9 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { TenantModuleValidationGuard } from '../../auth/tenant-module-validation.guard';
 import { SalesOrderService } from '../services/sales-order.service';
+import { SalesOrderDocumentsService } from '../services/sales-order-documents.service';
 import { InventoryService } from '../../inventory/inventory.service';
-import { CreateSalesOrderDto, QuerySalesOrderDto, FulfillSalesOrderDto } from '../dto';
+import { CreateSalesOrderDto, QuerySalesOrderDto, FulfillSalesOrderDto, RegenerateDocumentDto } from '../dto';
 
 @ApiTags('Sales Orders')
 @Controller('tenant/sales-orders')
@@ -16,6 +17,7 @@ import { CreateSalesOrderDto, QuerySalesOrderDto, FulfillSalesOrderDto } from '.
 export class SalesOrderController {
   constructor(
     private readonly salesOrderService: SalesOrderService,
+    private readonly documentsService: SalesOrderDocumentsService,
     private readonly inventoryService: InventoryService,
   ) {}
 
@@ -56,11 +58,30 @@ export class SalesOrderController {
     });
   }
 
+  @Post(':id/regenerate-documento-original')
+  @ApiOperation({ summary: 'Regenerate DOCUMENTO_ORIGINAL PDF with selected language' })
+  async regenerateDocumentoOriginal(
+    @Param('id') id: string,
+    @Body() dto: RegenerateDocumentDto,
+    @Req() req: any,
+  ) {
+    return this.salesOrderService.regenerateDocumentoOriginal(
+      id,
+      req.user.tenant_id,
+      req.user.id,
+      dto.language,
+      dto.keep_previous ?? false,
+    );
+  }
+
   @Get(':id')
-  @ApiOperation({ summary: 'Get a single sales order with line items and batch allocations' })
+  @ApiOperation({
+    summary: 'Get a single sales order with line items, documents and POS collection',
+  })
   async findOne(@Param('id') id: string, @Req() req: any) {
-    const so = await this.salesOrderService.findOne(id, req.user.tenant_id);
-    const lineItems = (so.line_items ?? []).map((lineItem: any) => ({
+    const detail = await this.salesOrderService.findOneDetail(id, req.user.tenant_id);
+    const documents = await this.documentsService.getDocuments(id);
+    const lineItems = (detail.sales_order.line_items ?? []).map((lineItem: any) => ({
       ...lineItem,
       uom_name: lineItem.product_uom?.uom?.name ?? null,
       base_uom_name: lineItem.base_uom?.name ?? null,
@@ -68,8 +89,10 @@ export class SalesOrderController {
 
     return {
       data: {
-        header: so,
+        header: detail.header,
         line_items: lineItems,
+        documents,
+        pos_collection: detail.pos_collection,
       },
     };
   }
