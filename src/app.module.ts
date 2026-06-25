@@ -25,6 +25,7 @@ import { PurchaseOrdersModule } from './api/purchase-orders/purchase-orders.modu
 import { InventoryModule } from './api/inventory/inventory.module';
 import { SalesOrdersModule } from './api/sales-orders/sales-orders.module';
 import { SalesReportsModule } from './api/sales-reports/sales-reports.module';
+import { AccountingModule } from './api/accounting/accounting.module';
 import { ExchangeRateModule } from './api/exchange-rate/exchange-rate.module';
 import { DivinoDashboardModule } from './api/divino-dashboard/divino-dashboard.module';
 import { PermissionVersionGuard } from './api/auth/guards/permission-version.guard';
@@ -55,6 +56,7 @@ import { PermissionVersionGuard } from './api/auth/guards/permission-version.gua
     InventoryModule,
     SalesOrdersModule,
     SalesReportsModule,
+    AccountingModule,
     ExchangeRateModule,
     DivinoDashboardModule,
   ],

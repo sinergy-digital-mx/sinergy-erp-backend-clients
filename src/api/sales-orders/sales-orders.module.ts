@@ -12,6 +12,7 @@ import { AuthModule } from '../auth/auth.module';
 import { RBACModule } from '../rbac/rbac.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { PosShiftsModule } from '../pos-shifts/pos-shifts.module';
+import { ProductsModule } from '../products/products.module';
 import { S3Service } from '../../common/services/s3.service';
 import { SalesOrderController } from './controllers/sales-order.controller';
 import { SalesOrderService } from './services/sales-order.service';
@@ -38,6 +39,7 @@ import { BillingBranch } from '../../entities/billing/billing-branch.entity';
     AuthModule,
     RBACModule,
     InventoryModule,
+    ProductsModule,
     forwardRef(() => PosShiftsModule),
   ],
   controllers: [SalesOrderController],

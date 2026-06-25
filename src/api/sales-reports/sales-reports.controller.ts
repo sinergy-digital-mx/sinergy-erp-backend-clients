@@ -13,9 +13,9 @@ export class SalesReportsController {
 
   @Get('by-seller')
   @ApiOperation({
-    summary: 'Sales report grouped by branch and seller (preview, no RBAC)',
+    summary: 'Sales report grouped by branch and seller',
     description:
-      'Aggregates fulfilled sales orders. Filter by fiscal configuration (razón social padre), branch, and date period.',
+      'Aggregates fulfilled sales orders. POS sales group by seller_user_id (vendedor con código); manual orders by creator. Filter by fiscal configuration, branch, and date period.',
   })
   @ApiQuery({ name: 'fiscal_configuration_id', required: false, type: String })
   @ApiQuery({ name: 'billing_branch_id', required: false, type: String })

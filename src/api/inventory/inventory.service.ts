@@ -1,9 +1,15 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { InventoryBatch } from '../../entities/purchase-orders/inventory-batch.entity';
 import { InventoryTransferLine } from '../../entities/inventory/inventory-transfer-line.entity';
 import { ProductPrice } from '../../entities/products/product-price.entity';
+import { ProductDiscount } from '../../entities/products/product-discount.entity';
+import { ProductUoM } from '../../entities/products/product-uom.entity';
+import {
+  isProductDiscountApplicable,
+  mapApplicableProductDiscount,
+} from '../products/utils/product-discount.util';
 import { User } from '../../entities/users/user.entity';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { S3Service } from '../../common/services/s3.service';
@@ -26,6 +32,10 @@ export class InventoryService {
     private readonly transferLineRepo: Repository<InventoryTransferLine>,
     @InjectRepository(ProductPrice)
     private readonly productPriceRepo: Repository<ProductPrice>,
+    @InjectRepository(ProductDiscount)
+    private readonly productDiscountRepo: Repository<ProductDiscount>,
+    @InjectRepository(ProductUoM)
+    private readonly productUomRepo: Repository<ProductUoM>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     @InjectRepository(Warehouse)
@@ -127,6 +137,8 @@ export class InventoryService {
     const productIds = Array.from(new Set(batches.map((b) => b.product_id)));
     const uomIds = Array.from(new Set(batches.map((b) => b.uom_id)));
     const priceMap = await this.buildPriceMap(productIds, uomIds);
+    const productUomMap = await this.buildProductUomMap(productIds, uomIds);
+    const discountsByProductId = await this.buildDiscountsByProductMap(productIds);
 
     const summaries: PosSessionProductInventorySummaryDto[] = [];
 
@@ -148,6 +160,10 @@ export class InventoryService {
       const priceKey = `${first.product_id}|${first.uom_id}`;
       const pricingOptions = priceMap.get(priceKey) || [];
       const suggestedPrice = pricingOptions[0] || null;
+      const productUomId = productUomMap.get(priceKey) ?? '';
+      const applicableDiscounts = (discountsByProductId.get(first.product_id) ?? [])
+        .filter((discount) => productUomId && isProductDiscountApplicable(discount, productUomId))
+        .map(mapApplicableProductDiscount);
 
       summaries.push({
         product_id: first.product_id,
@@ -162,6 +178,9 @@ export class InventoryService {
         suggested_iva_percentage: suggestedPrice?.iva_percentage ?? null,
         suggested_ieps_percentage: suggestedPrice?.ieps_percentage ?? null,
         pricing_options: pricingOptions,
+        product_uom_id: productUomId,
+        has_applicable_discounts: applicableDiscounts.length > 0,
+        applicable_discounts: applicableDiscounts,
         total_available_quantity: totalAvailable.toFixed(3),
         total_initial_quantity: totalInitial.toFixed(3),
         total_batches: batchGroup.length,
@@ -285,6 +304,50 @@ export class InventoryService {
     }
 
     return priceMap;
+  }
+
+  private async buildProductUomMap(
+    productIds: string[],
+    uomCatalogIds: string[],
+  ): Promise<Map<string, string>> {
+    const map = new Map<string, string>();
+    if (productIds.length === 0 || uomCatalogIds.length === 0) {
+      return map;
+    }
+
+    const productUoms = await this.productUomRepo
+      .createQueryBuilder('pu')
+      .where('pu.product_id IN (:...productIds)', { productIds })
+      .andWhere('pu.uom_catalog_id IN (:...uomCatalogIds)', { uomCatalogIds })
+      .getMany();
+
+    for (const productUom of productUoms) {
+      map.set(`${productUom.product_id}|${productUom.uom_catalog_id}`, productUom.id);
+    }
+
+    return map;
+  }
+
+  private async buildDiscountsByProductMap(
+    productIds: string[],
+  ): Promise<Map<string, ProductDiscount[]>> {
+    const map = new Map<string, ProductDiscount[]>();
+    if (productIds.length === 0) {
+      return map;
+    }
+
+    const discounts = await this.productDiscountRepo.find({
+      where: { product_id: In(productIds), is_active: true },
+      order: { created_at: 'ASC' },
+    });
+
+    for (const discount of discounts) {
+      const current = map.get(discount.product_id) ?? [];
+      current.push(discount);
+      map.set(discount.product_id, current);
+    }
+
+    return map;
   }
 
   /**

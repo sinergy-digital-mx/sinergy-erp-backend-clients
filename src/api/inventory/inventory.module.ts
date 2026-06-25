@@ -4,6 +4,8 @@ import { InventoryBatch } from '../../entities/purchase-orders/inventory-batch.e
 import { InventoryTransfer } from '../../entities/inventory/inventory-transfer.entity';
 import { InventoryTransferLine } from '../../entities/inventory/inventory-transfer-line.entity';
 import { ProductPrice } from '../../entities/products/product-price.entity';
+import { ProductDiscount } from '../../entities/products/product-discount.entity';
+import { ProductUoM } from '../../entities/products/product-uom.entity';
 import { User } from '../../entities/users/user.entity';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { S3Service } from '../../common/services/s3.service';
@@ -22,6 +24,8 @@ import { PurchaseOrdersModule } from '../purchase-orders/purchase-orders.module'
       InventoryTransfer,
       InventoryTransferLine,
       ProductPrice,
+      ProductDiscount,
+      ProductUoM,
       User,
       Warehouse,
     ]),

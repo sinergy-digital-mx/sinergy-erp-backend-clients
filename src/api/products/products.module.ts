@@ -4,6 +4,7 @@ import { Product } from '../../entities/products/product.entity';
 import { ProductUoM } from '../../entities/products/product-uom.entity';
 import { PriceList } from '../../entities/products/price-list.entity';
 import { ProductPrice } from '../../entities/products/product-price.entity';
+import { ProductDiscount } from '../../entities/products/product-discount.entity';
 import { ProductVendorCost } from '../../entities/products/product-vendor-cost.entity';
 import { ProductAttribute } from '../../entities/products/product-attribute.entity';
 import { ProductAttributeValue } from '../../entities/products/product-attribute-value.entity';
@@ -15,6 +16,8 @@ import { PriceListController } from './price-list.controller';
 import { PriceListService } from './price-list.service';
 import { ProductPriceController } from './product-price.controller';
 import { ProductPriceService } from './product-price.service';
+import { ProductDiscountController } from './product-discount.controller';
+import { ProductDiscountService } from './product-discount.service';
 import { ProductVendorCostController } from './product-vendor-cost.controller';
 import { ProductVendorCostService } from './product-vendor-cost.service';
 import { ProductAttributeController } from './product-attribute.controller';
@@ -30,6 +33,7 @@ import { S3Service } from '../../common/services/s3.service';
       ProductUoM,
       PriceList,
       ProductPrice,
+      ProductDiscount,
       ProductVendorCost,
       ProductAttribute,
       ProductAttributeValue,
@@ -45,6 +49,7 @@ import { S3Service } from '../../common/services/s3.service';
     ProductUoMController,
     PriceListController,
     ProductPriceController,
+    ProductDiscountController,
     ProductVendorCostController,
   ],
   providers: [
@@ -52,6 +57,7 @@ import { S3Service } from '../../common/services/s3.service';
     ProductUoMService,
     PriceListService,
     ProductPriceService,
+    ProductDiscountService,
     ProductVendorCostService,
     ProductAttributeService,
     S3Service,
@@ -61,6 +67,7 @@ import { S3Service } from '../../common/services/s3.service';
     ProductUoMService,
     PriceListService,
     ProductPriceService,
+    ProductDiscountService,
     ProductVendorCostService,
     ProductAttributeService,
   ],

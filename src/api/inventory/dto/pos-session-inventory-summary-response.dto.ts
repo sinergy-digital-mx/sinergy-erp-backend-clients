@@ -1,4 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { ProductDiscountType } from '../../../entities/products/product-discount.entity';
+
+export class PosSessionApplicableDiscountDto {
+  @ApiProperty() id: string;
+  @ApiProperty() name: string;
+  @ApiProperty({ enum: ProductDiscountType }) discount_type: ProductDiscountType;
+  @ApiProperty() value: number;
+  @ApiProperty({ nullable: true }) product_uom_id: string | null;
+}
 
 export class PosSessionBatchBreakdownDto {
   @ApiProperty() batch_id: string;
@@ -34,6 +43,16 @@ export class PosSessionProductInventorySummaryDto {
     ieps_percentage: string;
     total: string;
   }>;
+  @ApiProperty({
+    description: 'ID de product_uoms para enviar en sales-orders (product_uom_id)',
+  })
+  product_uom_id: string;
+  @ApiProperty({
+    description: 'Indica si el producto tiene descuentos activos aplicables a esta UOM',
+  })
+  has_applicable_discounts: boolean;
+  @ApiProperty({ type: [PosSessionApplicableDiscountDto] })
+  applicable_discounts: PosSessionApplicableDiscountDto[];
   @ApiProperty() total_available_quantity: string;
   @ApiProperty() total_initial_quantity: string;
   @ApiProperty() total_batches: number;

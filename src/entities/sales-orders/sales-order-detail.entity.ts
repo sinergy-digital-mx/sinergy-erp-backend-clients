@@ -12,6 +12,7 @@ import {
 import { SalesOrder } from './sales-order.entity';
 import { Product } from '../products/product.entity';
 import { ProductUoM } from '../products/product-uom.entity';
+import { ProductDiscount } from '../products/product-discount.entity';
 import { UoMCatalog } from '../uom-catalog/uom-catalog.entity';
 import { SalesOrderBatchAllocation } from './sales-order-batch-allocation.entity';
 
@@ -69,6 +70,13 @@ export class SalesOrderDetail {
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   discount_unit: number;
+
+  @ManyToOne(() => ProductDiscount, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'product_discount_id' })
+  product_discount: ProductDiscount | null;
+
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  product_discount_id: string | null;
 
   @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
   iva_percentage: number;

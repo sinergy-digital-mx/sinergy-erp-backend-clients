@@ -121,6 +121,18 @@ export function formatUsd(amount: number): string {
   return 'USD ' + amount.toFixed(2);
 }
 
+/** Monto pegado a la etiqueta (izquierda). Evita recorte en térmicas ~42 cols. */
+export function compactMoneyLine(
+  label: string,
+  formattedValue: string,
+  width = ESCPOS_CHARS_PER_LINE,
+): string {
+  const text = `${label} ${formattedValue}`;
+  if (text.length <= width) return text;
+  const trimmedLabel = label.slice(0, Math.max(1, width - formattedValue.length - 1));
+  return `${trimmedLabel} ${formattedValue}`;
+}
+
 /** Dos columnas: etiqueta izquierda, valor derecho. */
 export function labelValueLine(label: string, value: string, width = ESCPOS_CHARS_PER_LINE): string {
   const maxLabel = width - value.length - 1;

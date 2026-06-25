@@ -13,6 +13,7 @@ import {
   EscPosBuilder,
   ESCPOS_CHARS_PER_LINE,
   bufferToEscPosHex,
+  compactMoneyLine,
   formatMoney,
   formatUsd,
   labelValueLine,
@@ -284,6 +285,7 @@ export class SalesOrderPosReceiptService {
       .leftJoinAndSelect('line_items.product', 'product')
       .leftJoinAndSelect('line_items.product_uom', 'product_uom')
       .leftJoinAndSelect('product_uom.uom', 'uom')
+      .leftJoinAndSelect('line_items.product_discount', 'product_discount')
       .getOne();
 
     if (!order) {
@@ -342,13 +344,19 @@ export class SalesOrderPosReceiptService {
     );
 
     let totalQty = 0;
+    let subtotalBeforeDiscount = 0;
+    let totalDiscountAmount = 0;
+
     for (const item of order.line_items ?? []) {
       const qty = Number(item.quantity) || 0;
       const unitPrice = Number(item.unit_price) || 0;
-      const discountPct = Number(item.discount_percentage) || 0;
+      const discountUnit = Number(item.discount_unit) || 0;
       const lineSubtotal = qty * unitPrice;
-      const lineTotal = lineSubtotal - (lineSubtotal * discountPct) / 100;
+      const lineDiscount = discountUnit * qty;
+      const lineTotal = lineSubtotal - lineDiscount;
       totalQty += qty;
+      subtotalBeforeDiscount += lineSubtotal;
+      totalDiscountAmount += lineDiscount;
 
       const description = (item.product?.name ?? 'PRODUCTO').toUpperCase();
       lines.push(
@@ -360,13 +368,24 @@ export class SalesOrderPosReceiptService {
           ESCPOS_CHARS_PER_LINE,
         )}`,
       );
+
+      if (lineDiscount > 0) {
+        const discountLabel = item.product_discount?.name
+          ? `DESC: ${item.product_discount.name.toUpperCase()}`
+          : 'DESCUENTO';
+        lines.push(`!N!${compactMoneyLine(`  ${discountLabel}`, `-${formatMoney(lineDiscount)}`)}`);
+      }
     }
 
     const orderTotal = Number(collection.order_total_mxn) || Number(order.total) || 0;
     const lineCount = order.line_items?.length ?? 0;
 
     lines.push('');
-    lines.push(`!N!${labelValueLine('Total:', formatMoney(orderTotal))}`);
+    lines.push(`!N!${compactMoneyLine('Subtotal:', formatMoney(subtotalBeforeDiscount))}`);
+    if (totalDiscountAmount > 0) {
+      lines.push(`!N!${compactMoneyLine('Descuentos:', `-${formatMoney(totalDiscountAmount)}`)}`);
+    }
+    lines.push(`!N!${compactMoneyLine('Total:', formatMoney(orderTotal))}`);
     lines.push(`!N!${'-'.repeat(ESCPOS_CHARS_PER_LINE)}`);
     lines.push(...this.buildPaymentLines(collection).map((line) => `!N!${line}`));
     lines.push(`!N!${'-'.repeat(ESCPOS_CHARS_PER_LINE)}`);
@@ -482,23 +501,23 @@ export class SalesOrderPosReceiptService {
       Number(collection.received_cash_usd) || (cashUsd > 0 ? cashUsd + changeUsd : 0);
 
     lines.push(
-      labelValueLine('Recibido Efec. Pesos:', formatMoney(receivedMxn)),
+      compactMoneyLine('Recibido Pesos:', formatMoney(receivedMxn)),
     );
     lines.push(
-      labelValueLine('Recibido Efec. Dolares:', formatUsd(receivedUsd)),
+      compactMoneyLine('Recibido Dolares:', formatUsd(receivedUsd)),
     );
 
     if (collection.payment_method === PosSalePaymentMethod.CARD && cardMxn > 0) {
-      lines.push(labelValueLine('Tarjeta:', formatMoney(cardMxn)));
+      lines.push(compactMoneyLine('Tarjeta:', formatMoney(cardMxn)));
     } else if (collection.payment_method === PosSalePaymentMethod.TRANSFER && transferMxn > 0) {
-      lines.push(labelValueLine('Transferencia:', formatMoney(transferMxn)));
+      lines.push(compactMoneyLine('Transferencia:', formatMoney(transferMxn)));
     } else if (collection.payment_method === PosSalePaymentMethod.MIXED) {
-      if (transferMxn > 0) lines.push(labelValueLine('Transferencia:', formatMoney(transferMxn)));
-      if (cardMxn > 0) lines.push(labelValueLine('Tarjeta:', formatMoney(cardMxn)));
+      if (transferMxn > 0) lines.push(compactMoneyLine('Transferencia:', formatMoney(transferMxn)));
+      if (cardMxn > 0) lines.push(compactMoneyLine('Tarjeta:', formatMoney(cardMxn)));
     }
 
-    lines.push(labelValueLine('Cambio Pesos:', formatMoney(changeMxn)));
-    lines.push(labelValueLine('Cambio Dolares:', formatUsd(changeUsd)));
+    lines.push(compactMoneyLine('Cambio Pesos:', formatMoney(changeMxn)));
+    lines.push(compactMoneyLine('Cambio Dolares:', formatUsd(changeUsd)));
 
     return lines;
   }

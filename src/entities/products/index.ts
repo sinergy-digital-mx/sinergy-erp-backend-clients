@@ -4,4 +4,5 @@ export { ProductAttributeValue } from './product-attribute-value.entity';
 export { ProductUoM } from './product-uom.entity';
 export { ProductVendorCost } from './product-vendor-cost.entity';
 export { ProductPrice } from './product-price.entity';
+export { ProductDiscount, ProductDiscountType } from './product-discount.entity';
 export { PriceList } from './price-list.entity';

@@ -34,6 +34,14 @@ export class CreateSalesOrderLineItemDto {
   @Min(0)
   discount_percentage?: number = 0;
 
+  @ApiProperty({
+    required: false,
+    description: 'Descuento de producto seleccionado en POS/venta. Tiene prioridad sobre discount_percentage.',
+  })
+  @IsOptional()
+  @IsUUID()
+  product_discount_id?: string;
+
   @IsOptional()
   @IsNumber()
   @Min(0)

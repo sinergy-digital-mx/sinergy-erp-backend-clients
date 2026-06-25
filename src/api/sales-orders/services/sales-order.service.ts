@@ -13,6 +13,15 @@ import { SalesOrderFulfillmentService } from './sales-order-fulfillment.service'
 import { SalesOrderPdfService } from './sales-order-pdf.service';
 import { SalesOrderDocumentsService } from './sales-order-documents.service';
 import { PosShiftsService } from '../../pos-shifts/pos-shifts.service';
+import { ProductDiscountService } from '../../products/product-discount.service';
+import {
+  assertProductDiscountApplicable,
+  calculateProductDiscountLineAmounts,
+} from '../../products/utils/product-discount.util';
+import {
+  mapAppliedDiscountsFromOrder,
+  mapLineItemWithDiscount,
+} from '../mappers/sales-order-discount.mapper';
 import { PosUserType } from '../../../entities/users/pos-user-type.enum';
 import { DocumentLanguage } from '../../../common/enums/document-language.enum';
 import { PosSaleCollection } from '../../../entities/pos/pos-sale-collection.entity';
@@ -39,6 +48,7 @@ export class SalesOrderService {
     private readonly fulfillmentService: SalesOrderFulfillmentService,
     private readonly dataSource: DataSource,
     private readonly posShiftsService: PosShiftsService,
+    private readonly productDiscountService: ProductDiscountService,
     private readonly pdfService: SalesOrderPdfService,
     private readonly documentsService: SalesOrderDocumentsService,
     @InjectRepository(PosSaleCollection)
@@ -143,6 +153,41 @@ export class SalesOrderService {
     throw new BadRequestException(`UOM no encontrado: ${providedUomId}`);
   }
 
+  private async resolveLineDiscountAmounts(
+    tenantId: string,
+    item: CreateSalesOrderLineItemDto,
+    productUomId: string,
+  ): Promise<{ discount_percentage: number; discount_unit: number; line_discount: number; product_discount_id: string | null }> {
+    if (item.product_discount_id) {
+      const discount = await this.productDiscountService.findByIdForOrder(
+        item.product_discount_id,
+        item.product_id,
+        tenantId,
+      );
+      assertProductDiscountApplicable(discount, item.product_id, productUomId);
+      const amounts = calculateProductDiscountLineAmounts(
+        item.unit_price,
+        item.quantity,
+        discount,
+      );
+      return {
+        ...amounts,
+        product_discount_id: discount.id,
+      };
+    }
+
+    const discount_pct = Number(item.discount_percentage || 0);
+    const line_subtotal = Number(item.quantity) * Number(item.unit_price);
+    const line_discount = (line_subtotal * discount_pct) / 100;
+
+    return {
+      discount_percentage: discount_pct,
+      discount_unit: Number(item.quantity) > 0 ? line_discount / Number(item.quantity) : 0,
+      line_discount,
+      product_discount_id: null,
+    };
+  }
+
   async create(dto: CreateSalesOrderDto, tenantId: string, userId: string): Promise<SalesOrder> {
     const isPosSale = dto.sales_order_type === 'POS';
     let posDailyShiftId: string | null = null;
@@ -214,21 +259,25 @@ export class SalesOrderService {
       let subtotal = 0, iva_total = 0, ieps_total = 0, discount_total = 0;
 
       for (const item of dto.line_items) {
-        const line_subtotal = Number(item.quantity) * Number(item.unit_price);
-        const discount_pct = Number(item.discount_percentage || 0);
-        const line_discount = (line_subtotal * discount_pct) / 100;
-        const taxable_subtotal = Math.max(line_subtotal - line_discount, 0);
-        const iva_pct = Number(item.iva_percentage || 0);
-        const ieps_pct = Number(item.ieps_percentage || 0);
-        const line_iva = (taxable_subtotal * iva_pct) / 100;
-        const line_ieps = (taxable_subtotal * ieps_pct) / 100;
-
-        // Resolve base UOM for this product UOM
         const productUomRow = await this.resolveProductUom(
           qr,
           item.product_id,
           item.product_uom_id,
         );
+
+        const discountAmounts = await this.resolveLineDiscountAmounts(
+          tenantId,
+          item,
+          productUomRow.id,
+        );
+
+        const line_subtotal = Number(item.quantity) * Number(item.unit_price);
+        const line_discount = discountAmounts.line_discount;
+        const taxable_subtotal = Math.max(line_subtotal - line_discount, 0);
+        const iva_pct = Number(item.iva_percentage || 0);
+        const ieps_pct = Number(item.ieps_percentage || 0);
+        const line_iva = (taxable_subtotal * iva_pct) / 100;
+        const line_ieps = (taxable_subtotal * ieps_pct) / 100;
 
         const [baseUomRow] = await qr.manager.query(
           `SELECT pu.uom_catalog_id FROM product_uoms pu
@@ -254,8 +303,9 @@ export class SalesOrderService {
           quantity_base_uom: qty_base,
           base_uom_id: baseUomRow.uom_catalog_id,
           unit_price: item.unit_price,
-          discount_percentage: discount_pct,
-          discount_unit: Number(item.quantity) > 0 ? line_discount / Number(item.quantity) : 0,
+          discount_percentage: discountAmounts.discount_percentage,
+          discount_unit: discountAmounts.discount_unit,
+          product_discount_id: discountAmounts.product_discount_id,
           iva_percentage: iva_pct,
           iva_unit: Number(item.quantity) > 0 ? line_iva / Number(item.quantity) : 0,
           ieps_percentage: ieps_pct,
@@ -346,6 +396,7 @@ export class SalesOrderService {
         'customer', 'warehouse', 'fiscal_configuration',
         'seller_user', 'terminal_user', 'collected_by_user',
         'line_items', 'line_items.product', 'line_items.product_uom', 'line_items.product_uom.uom',
+        'line_items.product_discount',
         'line_items.base_uom',
         'line_items.batch_allocations', 'line_items.batch_allocations.inventory_batch',
       ],
@@ -371,6 +422,7 @@ export class SalesOrderService {
     }
 
     const customerSummary = mapPosCustomer(so.customer);
+    const appliedDiscounts = mapAppliedDiscountsFromOrder(so);
     const header = {
       ...so,
       customer_display_name: customerSummary?.display_name ?? formatCustomerDisplayName(so.customer),
@@ -379,9 +431,22 @@ export class SalesOrderService {
       terminal_user: mapPosUser(so.terminal_user),
       collected_by_user: mapPosUser(so.collected_by_user),
       pos_collection: posCollection ? mapPosSaleCollection(posCollection) : null,
+      applied_discounts: appliedDiscounts,
+      discount_summary: {
+        discount_total: Number(so.discount_total) || 0,
+        items: appliedDiscounts,
+      },
     };
 
-    return { header, sales_order: so, pos_collection: header.pos_collection };
+    return {
+      header,
+      sales_order: {
+        ...so,
+        line_items: (so.line_items ?? []).map(mapLineItemWithDiscount),
+      },
+      pos_collection: header.pos_collection,
+      applied_discounts: appliedDiscounts,
+    };
   }
 
   /**
@@ -495,7 +560,7 @@ export class SalesOrderService {
       so.updated_by = userId;
 
       await qr.manager.save(SalesOrder, so);
-      await this.insertSalesOrderLineItems(qr, so.id, dto.line_items, userId);
+      await this.insertSalesOrderLineItems(qr, so.id, dto.line_items, userId, tenantId);
       await this.recomputeTotals(qr, so.id, tenantId, userId);
 
       await qr.commitTransaction();
@@ -537,22 +602,28 @@ export class SalesOrderService {
     salesOrderId: string,
     lineItems: CreateSalesOrderLineItemDto[],
     userId: string,
+    tenantId: string,
   ): Promise<void> {
     for (const item of lineItems) {
-      const line_subtotal = Number(item.quantity) * Number(item.unit_price);
-      const discount_pct = Number(item.discount_percentage || 0);
-      const line_discount = (line_subtotal * discount_pct) / 100;
-      const taxable_subtotal = Math.max(line_subtotal - line_discount, 0);
-      const iva_pct = Number(item.iva_percentage || 0);
-      const ieps_pct = Number(item.ieps_percentage || 0);
-      const line_iva = (taxable_subtotal * iva_pct) / 100;
-      const line_ieps = (taxable_subtotal * ieps_pct) / 100;
-
       const productUomRow = await this.resolveProductUom(
         qr,
         item.product_id,
         item.product_uom_id,
       );
+
+      const discountAmounts = await this.resolveLineDiscountAmounts(
+        tenantId,
+        item,
+        productUomRow.id,
+      );
+
+      const line_subtotal = Number(item.quantity) * Number(item.unit_price);
+      const line_discount = discountAmounts.line_discount;
+      const taxable_subtotal = Math.max(line_subtotal - line_discount, 0);
+      const iva_pct = Number(item.iva_percentage || 0);
+      const ieps_pct = Number(item.ieps_percentage || 0);
+      const line_iva = (taxable_subtotal * iva_pct) / 100;
+      const line_ieps = (taxable_subtotal * ieps_pct) / 100;
 
       const [baseUomRow] = await qr.manager.query(
         `SELECT pu.uom_catalog_id FROM product_uoms pu
@@ -577,8 +648,9 @@ export class SalesOrderService {
         quantity_base_uom: qty_base,
         base_uom_id: baseUomRow.uom_catalog_id,
         unit_price: item.unit_price,
-        discount_percentage: discount_pct,
-        discount_unit: Number(item.quantity) > 0 ? line_discount / Number(item.quantity) : 0,
+        discount_percentage: discountAmounts.discount_percentage,
+        discount_unit: discountAmounts.discount_unit,
+        product_discount_id: discountAmounts.product_discount_id,
         iva_percentage: iva_pct,
         iva_unit: Number(item.quantity) > 0 ? line_iva / Number(item.quantity) : 0,
         ieps_percentage: ieps_pct,
