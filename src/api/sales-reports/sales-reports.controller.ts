@@ -1,7 +1,11 @@
 import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { QuerySalesBySellerReportDto, SalesReportPeriod } from './dto/query-sales-by-seller-report.dto';
+import {
+  QuerySalesBySellerOrdersDto,
+  QuerySalesBySellerReportDto,
+  SalesReportPeriod,
+} from './dto/query-sales-by-seller-report.dto';
 import { SalesReportsService } from './sales-reports.service';
 
 @ApiTags('Sales Reports (preview)')
@@ -31,9 +35,20 @@ export class SalesReportsController {
     name: 'commission_rate',
     required: false,
     type: Number,
-    description: 'Demo commission % applied to all rows until per-seller rates exist',
+    description: 'Comisión % sobre monto vendido (default 1)',
+    example: 1,
   })
   getSalesBySellerReport(@Query() query: QuerySalesBySellerReportDto, @Req() req: any) {
     return this.salesReportsService.getSalesBySellerReport(req.user.tenant_id, query);
+  }
+
+  @Get('by-seller/orders')
+  @ApiOperation({
+    summary: 'Órdenes de un vendedor (drill-down del reporte)',
+    description:
+      'Lista las ventas Surtida del vendedor en el mismo periodo/filtros del reporte. Click en fila → este endpoint.',
+  })
+  getSalesBySellerOrders(@Query() query: QuerySalesBySellerOrdersDto, @Req() req: any) {
+    return this.salesReportsService.getSalesBySellerOrders(req.user.tenant_id, query);
   }
 }

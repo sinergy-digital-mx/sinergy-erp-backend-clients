@@ -53,6 +53,14 @@ export class CustomersController {
         return this.customersService.update(Number(id), dto, req.user.tenantId);
     }
 
+    @Get('statuses')
+    @RequirePermissions({ entityType: 'customers', action: 'Read' })
+    @ApiOperation({ summary: 'Listar estatus disponibles para clientes' })
+    @ApiResponse({ status: 200, description: 'Catálogo de estatus obtenido' })
+    findAllStatuses() {
+        return this.customersService.findAllStatuses();
+    }
+
     @Get()
     @RequirePermissions({ entityType: 'customers', action: 'Read' })
     @ApiOperation({ summary: 'Get paginated customers with search and filters' })

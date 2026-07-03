@@ -1,13 +1,27 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, QueryRunner, Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { SalesOrder } from '../../../entities/sales-orders/sales-order.entity';
 import { SalesOrderDetail } from '../../../entities/sales-orders/sales-order-detail.entity';
 import { SalesOrderBatchAllocation } from '../../../entities/sales-orders/sales-order-batch-allocation.entity';
+import { SalesOrderPayment } from '../../../entities/sales-orders/sales-order-payment.entity';
+import { SalesOrderPaymentDocument } from '../../../entities/sales-orders/sales-order-payment-document.entity';
 import { CreateSalesOrderDto, CreateSalesOrderLineItemDto } from '../dto/create-sales-order.dto';
 import { QuerySalesOrderDto } from '../dto/query-sales-order.dto';
 import { FulfillSalesOrderDto } from '../dto/fulfill-sales-order.dto';
+import { UpdateSalesOrderNotesDto } from '../dto/update-sales-order-notes.dto';
+import { CreateSalesOrderPaymentDto } from '../dto/create-sales-order-payment.dto';
+import { PosSalePaymentMethod } from '../../../entities/pos/pos-sale-payment-method.enum';
+import { User } from '../../../entities/users/user.entity';
+import { S3Service } from '../../../common/services/s3.service';
 import { SalesOrderFolioService } from './sales-order-folio.service';
 import { SalesOrderFulfillmentService } from './sales-order-fulfillment.service';
 import { SalesOrderPdfService } from './sales-order-pdf.service';
@@ -47,12 +61,20 @@ export class SalesOrderService {
     private readonly folioService: SalesOrderFolioService,
     private readonly fulfillmentService: SalesOrderFulfillmentService,
     private readonly dataSource: DataSource,
+    @Inject(forwardRef(() => PosShiftsService))
     private readonly posShiftsService: PosShiftsService,
     private readonly productDiscountService: ProductDiscountService,
     private readonly pdfService: SalesOrderPdfService,
     private readonly documentsService: SalesOrderDocumentsService,
+    private readonly s3Service: S3Service,
     @InjectRepository(PosSaleCollection)
     private readonly posCollectionRepo: Repository<PosSaleCollection>,
+    @InjectRepository(SalesOrderPayment)
+    private readonly paymentRepo: Repository<SalesOrderPayment>,
+    @InjectRepository(SalesOrderPaymentDocument)
+    private readonly paymentDocumentRepo: Repository<SalesOrderPaymentDocument>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
   ) {}
 
   private async deleteDocumentsByType(
@@ -423,6 +445,7 @@ export class SalesOrderService {
 
     const customerSummary = mapPosCustomer(so.customer);
     const appliedDiscounts = mapAppliedDiscountsFromOrder(so);
+    const paymentData = await this.getPaymentsForOrder(so);
     const header = {
       ...so,
       customer_display_name: customerSummary?.display_name ?? formatCustomerDisplayName(so.customer),
@@ -431,6 +454,8 @@ export class SalesOrderService {
       terminal_user: mapPosUser(so.terminal_user),
       collected_by_user: mapPosUser(so.collected_by_user),
       pos_collection: posCollection ? mapPosSaleCollection(posCollection) : null,
+      payments: paymentData.payments,
+      payments_summary: paymentData.summary,
       applied_discounts: appliedDiscounts,
       discount_summary: {
         discount_total: Number(so.discount_total) || 0,
@@ -445,8 +470,362 @@ export class SalesOrderService {
         line_items: (so.line_items ?? []).map(mapLineItemWithDiscount),
       },
       pos_collection: header.pos_collection,
+      payments: paymentData.payments,
+      payments_summary: paymentData.summary,
       applied_discounts: appliedDiscounts,
     };
+  }
+
+  async getPayments(id: string, tenantId: string) {
+    const order = await this.findOne(id, tenantId);
+    return this.getPaymentsForOrder(order);
+  }
+
+  /**
+   * Registra un pago en la orden (detalle OV o cobranza POS).
+   * Actualiza payment_status a Pagado cuando el saldo queda en 0.
+   */
+  async createPayment(
+    salesOrderId: string,
+    dto: CreateSalesOrderPaymentDto,
+    tenantId: string,
+    userId: string,
+    source: 'manual' | 'pos_cobranza' = 'manual',
+  ) {
+    const order = await this.findOne(salesOrderId, tenantId);
+
+    if (order.general_status === 'Cancelada') {
+      throw new BadRequestException('No se pueden registrar pagos en una orden cancelada');
+    }
+
+    if (order.payment_status === 'Pagado') {
+      throw new BadRequestException('La orden ya está pagada');
+    }
+
+    if (
+      dto.payment_method === PosSalePaymentMethod.TRANSFER &&
+      !dto.reference_number?.trim()
+    ) {
+      throw new BadRequestException('reference_number es obligatorio para transferencia');
+    }
+
+    const existing = await this.paymentRepo.find({
+      where: { sales_order_id: salesOrderId, tenant_id: tenantId },
+    });
+    const currentSummary = this.buildPaymentSummary(order, existing);
+
+    if (dto.amount > currentSummary.amount_pending + 0.001) {
+      throw new BadRequestException(
+        `El monto excede el saldo pendiente (${currentSummary.amount_pending.toFixed(2)} MXN)`,
+      );
+    }
+
+    const payment = this.paymentRepo.create({
+      id: uuidv4(),
+      tenant_id: tenantId,
+      sales_order_id: salesOrderId,
+      payment_date: new Date(dto.payment_date),
+      amount: dto.amount,
+      currency: dto.currency ?? 'MXN',
+      payment_method: dto.payment_method,
+      reference_number: dto.reference_number?.trim() || null,
+      notes: dto.notes?.trim() || null,
+      source,
+      created_by: userId,
+    });
+
+    await this.paymentRepo.save(payment);
+
+    const updatedPayments = [...existing, payment];
+    const summary = this.buildPaymentSummary(order, updatedPayments);
+    order.payment_status = summary.payment_status;
+    order.updated_by = userId;
+    if (summary.payment_status === 'Pagado' && source === 'manual') {
+      order.collected_by_user_id = userId;
+    }
+    await this.soRepo.save(order);
+
+    const mapped = await this.mapPaymentWithDocuments(payment);
+    return { payment: mapped, summary };
+  }
+
+  async deletePayment(
+    salesOrderId: string,
+    paymentId: string,
+    tenantId: string,
+    userId: string,
+  ) {
+    const order = await this.findOne(salesOrderId, tenantId);
+
+    const payment = await this.paymentRepo.findOne({
+      where: { id: paymentId, sales_order_id: salesOrderId, tenant_id: tenantId },
+      relations: ['documents'],
+    });
+
+    if (!payment) {
+      throw new NotFoundException(`Pago no encontrado: ${paymentId}`);
+    }
+
+    if (payment.source === 'pos_cobranza') {
+      throw new BadRequestException(
+        'No se puede eliminar un pago registrado desde cobranza POS',
+      );
+    }
+
+    for (const doc of payment.documents ?? []) {
+      try {
+        await this.s3Service.deleteFile(doc.s3_key);
+      } catch {
+        /* ignore S3 cleanup errors */
+      }
+    }
+
+    await this.paymentRepo.remove(payment);
+
+    const paymentData = await this.getPaymentsForOrder(order);
+    order.payment_status = paymentData.summary.payment_status;
+    order.updated_by = userId;
+    if (paymentData.summary.payment_status === 'Pendiente') {
+      order.collected_by_user_id = null;
+    }
+    await this.soRepo.save(order);
+
+    return { success: true as const, id: paymentId, summary: paymentData.summary };
+  }
+
+  async uploadPaymentDocument(
+    salesOrderId: string,
+    paymentId: string,
+    tenantId: string,
+    userId: string,
+    file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
+    notes?: string,
+  ) {
+    await this.findOne(salesOrderId, tenantId);
+
+    const payment = await this.paymentRepo.findOne({
+      where: { id: paymentId, sales_order_id: salesOrderId, tenant_id: tenantId },
+    });
+    if (!payment) {
+      throw new NotFoundException(`Pago no encontrado: ${paymentId}`);
+    }
+
+    const s3Key = await this.s3Service.uploadEntityFile(
+      tenantId,
+      'sales-order-payments',
+      paymentId,
+      'comprobantes',
+      file.buffer,
+      file.originalname,
+      file.mimetype,
+    );
+
+    const document = this.paymentDocumentRepo.create({
+      id: uuidv4(),
+      tenant_id: tenantId,
+      payment_id: paymentId,
+      file_name: file.originalname,
+      s3_key: s3Key,
+      mime_type: file.mimetype,
+      file_size: file.size,
+      notes: notes?.trim() || null,
+      uploaded_by: userId,
+    });
+
+    await this.paymentDocumentRepo.save(document);
+    return this.mapPaymentDocument(document);
+  }
+
+  async getPaymentDocuments(salesOrderId: string, paymentId: string, tenantId: string) {
+    await this.findOne(salesOrderId, tenantId);
+
+    const payment = await this.paymentRepo.findOne({
+      where: { id: paymentId, sales_order_id: salesOrderId, tenant_id: tenantId },
+    });
+    if (!payment) {
+      throw new NotFoundException(`Pago no encontrado: ${paymentId}`);
+    }
+
+    const docs = await this.paymentDocumentRepo.find({
+      where: { payment_id: paymentId, tenant_id: tenantId },
+      order: { created_at: 'DESC' },
+    });
+
+    return Promise.all(docs.map((doc) => this.mapPaymentDocument(doc)));
+  }
+
+  async deletePaymentDocument(
+    salesOrderId: string,
+    paymentId: string,
+    documentId: string,
+    tenantId: string,
+  ) {
+    await this.findOne(salesOrderId, tenantId);
+
+    const doc = await this.paymentDocumentRepo.findOne({
+      where: {
+        id: documentId,
+        payment_id: paymentId,
+        tenant_id: tenantId,
+      },
+      relations: ['payment'],
+    });
+
+    if (!doc || doc.payment?.sales_order_id !== salesOrderId) {
+      throw new NotFoundException('Documento de pago no encontrado');
+    }
+
+    try {
+      await this.s3Service.deleteFile(doc.s3_key);
+    } catch {
+      /* ignore */
+    }
+
+    await this.paymentDocumentRepo.remove(doc);
+    return { success: true as const, id: documentId };
+  }
+
+  /** Saldo pendiente de una orden (para cobranza POS). */
+  async getAmountPending(salesOrderId: string, tenantId: string): Promise<number> {
+    const order = await this.findOne(salesOrderId, tenantId);
+    const { summary } = await this.getPaymentsForOrder(order);
+    return summary.amount_pending;
+  }
+
+  private async getPaymentsForOrder(order: SalesOrder) {
+    const payments = await this.paymentRepo.find({
+      where: { sales_order_id: order.id, tenant_id: order.tenant_id },
+      relations: ['documents', 'creator'],
+      order: { payment_date: 'DESC', created_at: 'DESC' },
+    });
+
+    const mapped = await Promise.all(payments.map((p) => this.mapPaymentWithDocuments(p)));
+    return {
+      payments: mapped,
+      summary: this.buildPaymentSummary(order, payments),
+    };
+  }
+
+  private buildPaymentSummary(
+    order: SalesOrder,
+    payments: SalesOrderPayment[],
+  ): {
+    amount_paid: number;
+    amount_pending: number;
+    payment_status: string;
+    currency: string;
+    order_total: number;
+  } {
+    const orderTotal = Number(order.total || 0);
+    const amountPaid = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const amountPending = Math.max(Number((orderTotal - amountPaid).toFixed(2)), 0);
+    return {
+      amount_paid: Number(amountPaid.toFixed(2)),
+      amount_pending: amountPending,
+      payment_status: amountPending <= 0 ? 'Pagado' : 'Pendiente',
+      currency: 'MXN',
+      order_total: Number(orderTotal.toFixed(2)),
+    };
+  }
+
+  private async mapPaymentWithDocuments(payment: SalesOrderPayment) {
+    const documents = await Promise.all(
+      (payment.documents ?? []).map((doc) => this.mapPaymentDocument(doc)),
+    );
+    return {
+      id: payment.id,
+      sales_order_id: payment.sales_order_id,
+      payment_date: payment.payment_date,
+      amount: Number(payment.amount),
+      currency: payment.currency,
+      payment_method: payment.payment_method,
+      reference_number: payment.reference_number,
+      notes: payment.notes,
+      source: payment.source,
+      created_by: payment.created_by,
+      created_by_name: payment.creator
+        ? [payment.creator.first_name, payment.creator.last_name].filter(Boolean).join(' ').trim()
+        : null,
+      created_at: payment.created_at,
+      documents,
+    };
+  }
+
+  private async mapPaymentDocument(doc: SalesOrderPaymentDocument) {
+    let url: string | null = null;
+    try {
+      url = await this.s3Service.getSignedUrl(doc.s3_key, 900);
+    } catch {
+      url = null;
+    }
+    return {
+      id: doc.id,
+      payment_id: doc.payment_id,
+      file_name: doc.file_name,
+      mime_type: doc.mime_type,
+      file_size: Number(doc.file_size),
+      notes: doc.notes,
+      uploaded_by: doc.uploaded_by,
+      created_at: doc.created_at,
+      url,
+    };
+  }
+
+  async updateNotes(
+    id: string,
+    dto: UpdateSalesOrderNotesDto,
+    tenantId: string,
+    userId: string,
+  ): Promise<SalesOrder> {
+    const so = await this.findOne(id, tenantId);
+
+    if (so.general_status === 'Cancelada') {
+      throw new BadRequestException('No se pueden editar notas de una orden cancelada');
+    }
+
+    so.notes = dto.notes?.trim() ? dto.notes.trim() : null;
+    so.updated_by = userId;
+    await this.soRepo.save(so);
+
+    return this.findOne(id, tenantId);
+  }
+
+  /**
+   * Cambia el vendedor de la orden (usuario con pos_user_code).
+   * Disponible en cualquier estado excepto Cancelada.
+   */
+  async updateSeller(
+    id: string,
+    sellerUserId: string,
+    tenantId: string,
+    userId: string,
+  ) {
+    const so = await this.findOne(id, tenantId);
+
+    if (so.general_status === 'Cancelada') {
+      throw new BadRequestException('No se puede cambiar el vendedor de una orden cancelada');
+    }
+
+    const seller = await this.userRepo.findOne({
+      where: { id: sellerUserId, tenant_id: tenantId },
+    });
+
+    if (!seller) {
+      throw new BadRequestException('Vendedor no válido');
+    }
+
+    if (seller.is_pos_user) {
+      throw new BadRequestException(
+        'El vendedor debe ser un usuario de ventas (no terminal POS)',
+      );
+    }
+
+    await this.soRepo.update(
+      { id, tenant_id: tenantId },
+      { seller_user_id: sellerUserId, updated_by: userId },
+    );
+
+    return this.findOneDetail(id, tenantId);
   }
 
   /**
@@ -472,7 +851,7 @@ export class SalesOrderService {
         so.warehouse_id,
         so.line_items,
         userId,
-        dto.notes ?? so.notes,
+        dto.notes ?? so.notes ?? undefined,
       );
 
       await qr.commitTransaction();

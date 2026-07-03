@@ -338,6 +338,10 @@ export class SalesOrderPosReceiptService {
         lines.push(`!S!${addressLine}`);
       }
     }
+    const branchPhone = this.formatBranchPhone(billingBranch);
+    if (branchPhone) {
+      lines.push(`!S!TEL: ${branchPhone.toUpperCase()}`);
+    }
     lines.push('');
     lines.push(
       `!N!${productLine('DESCRIPCION', 'CANT.', 'PRECIO', 'TOTAL', ESCPOS_CHARS_PER_LINE)}`,
@@ -534,6 +538,11 @@ export class SalesOrderPosReceiptService {
     const warehouse = order.warehouse;
     if (!warehouse) return '';
     return [warehouse.street, warehouse.city, warehouse.state].filter(Boolean).join(', ');
+  }
+
+  private formatBranchPhone(billingBranch: BillingBranch | null): string {
+    const phone = billingBranch?.phone?.trim();
+    return phone || '';
   }
 
   private formatCustomerName(order: SalesOrder): string {

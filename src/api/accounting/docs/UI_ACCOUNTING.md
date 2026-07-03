@@ -184,12 +184,29 @@ GET /api/tenant/accounting/pos-terminals/{terminal_user_id}/sales
 | Filas tabla | `response.data[]` |
 | Folio | `data[i].folio` |
 | ID para detalle OV | `data[i].id` |
-| Cliente | `data[i].customer_display_name` |
+| Cliente empresa | `data[i].customer_company_name` |
+| Cliente persona | `data[i].customer_person_name` |
+| Cliente (fallback 1 línea) | `data[i].customer_display_name` |
 | Es mostrador | `data[i].is_walk_in` |
 | Vendedor nombre | `data[i].seller_user.first_name` + `last_name` |
 | Vendedor código | `data[i].seller_user.pos_user_code` |
 | Total | `data[i].total` |
 | Paginación | `response.total`, `response.page`, `response.totalPages` |
+
+**Columna Cliente (2 líneas):**
+
+```
+┌─────────────────────┐
+│ Sinergy             │  ← customer_company_name (si existe)
+│ Juan Pérez          │  ← customer_person_name (name + lastname)
+└─────────────────────┘
+```
+
+- Si hay `customer_company_name` → línea superior (negrita o primaria).
+- Si hay `customer_person_name` → línea inferior (secundaria / más chica).
+- Si solo uno de los dos existe → mostrar solo esa línea.
+- Si `is_walk_in: true` → chip **Mostrador** (además o en lugar del nombre).
+- Fallback legacy: `customer_display_name` (empresa o persona en una sola línea).
 
 **Click folio** → `GET /api/tenant/sales-orders/{data[i].id}` → leer `response.data.header`, `response.data.line_items`.
 
@@ -371,6 +388,20 @@ if (terminals.length > 0) {
 
   const orders = detail.data ?? [];  // ← filas del modal/drawer
 }
+
+// 4. Drill-down cobranza (click en Órdenes cobradas / Público / Facturadas)
+const collectionParams = new URLSearchParams({
+  billing_branch_id: billingBranchId,
+  period: 'month',
+  customer_type: 'all', // o 'walk_in' | 'invoiced'
+  page: '1',
+  limit: '20',
+});
+const collections = await fetch(
+  `/api/tenant/accounting/pos-collections?${collectionParams}`,
+  { headers },
+).then(r => r.json());
+// collections.data[] → filas del modal de cobranza
 ```
 
 ### Errores comunes de integración
@@ -450,7 +481,11 @@ Mostrar tabla paginada:
 |-------|-------|---------|----------|-------|--------------|
 | OV-001 | ... | Público en General | Juan Pérez | $1,200 | Pagado |
 
-- **Cliente:** `customer_display_name`. Si `is_walk_in: true` → chip **Mostrador**.
+- **Cliente (2 líneas):**
+  - Arriba: `customer_company_name` (solo si no es `null`).
+  - Abajo: `customer_person_name` (`name` + `lastname`).
+  - Si `is_walk_in: true` → chip **Mostrador**.
+  - Fallback: `customer_display_name` si no usan los campos separados.
 - **Vendedor:** `[seller_user.first_name] [seller_user.last_name]` + código `(seller_user.pos_user_code)` si existe.
 - **Click en folio** → abrir el **detalle existente** de sales orders: `GET /api/tenant/sales-orders/{id}` (misma pantalla/modal que ya tienen).
 
@@ -458,19 +493,135 @@ Mostrar tabla paginada:
 
 Card resumen debajo o al lado de las terminales de venta:
 
-| Métrica | Campo | Descripción |
-|---------|-------|-------------|
-| Órdenes cobradas | `orders_collected` | Cobros registrados en el periodo |
-| Total cobrado | `amount_collected` | Suma MXN de `pos_sale_collections` |
-| Público en General | `walk_in_count` | Cliente mostrador al cobrar |
-| Facturadas | `invoiced_count` | Cliente distinto de mostrador (RFC/razón social real) |
+| Métrica | Campo | Descripción | Click |
+|---------|-------|-------------|-------|
+| Órdenes cobradas | `orders_collected` | Cobros registrados en el periodo | Abrir modal con `customer_type=all` |
+| Total cobrado | `amount_collected` | Suma MXN de `pos_sale_collections` | (opcional) mismo modal `all` |
+| Público en General | `walk_in_count` | Cliente mostrador al cobrar | Abrir modal con `customer_type=walk_in` |
+| Facturadas | `invoiced_count` | Cliente distinto de mostrador | Abrir modal con `customer_type=invoiced` |
 
 **Definición "facturada" vs "Público en General":**
 
-| Tipo | Regla backend |
-|------|---------------|
-| Público en General | `customer.fiscal_razon_social = 'VENTA DE MOSTRADOR'` **o** `customer.name = 'Público en General'` |
-| Facturada | Cualquier otro cliente asignado al cobrar |
+| Tipo | Regla backend | `customer_type` |
+|------|---------------|-----------------|
+| Todas | Sin filtro de cliente | `all` |
+| Público en General | `fiscal_razon_social = 'VENTA DE MOSTRADOR'` **o** `name = 'Público en General'` | `walk_in` |
+| Facturada | Cualquier otro cliente | `invoiced` |
+
+> **Nota:** este conteo usa fecha de **cobro**, no de venta. Puede ser mayor que `# VENTAS` de una terminal (órdenes vendidas antes y cobradas en el periodo, u otras terminales).
+
+#### 1C) Detalle al click en card de cobranza
+
+```http
+GET /api/tenant/accounting/pos-collections
+  ?billing_branch_id={uuid}
+  &period=range
+  &date_from=2026-06-01
+  &date_to=2026-06-30
+  &customer_type=all
+  &page=1&limit=20
+```
+
+| Query | Requerido | Valores |
+|-------|-----------|---------|
+| `billing_branch_id` | Sí | UUID sucursal |
+| `period` | No (default `month`) | `today`, `week`, `month`, `range` |
+| `date_from` / `date_to` | Si `period=range` | ISO date |
+| `customer_type` | No (default `all`) | `all`, `walk_in`, `invoiced` |
+| `page` / `limit` | No | Paginación |
+
+**Qué leer:**
+
+| UI | Path JSON |
+|----|-----------|
+| Título modal | `Cobranza — {terminal_name}` |
+| Subtítulo | `{total} órdenes cobradas en el periodo` |
+| Filas | `response.data[]` |
+| Folio / ID orden | `data[i].folio` / `data[i].id` |
+| Fecha venta | `data[i].created_at` |
+| Fecha cobro | `data[i].collected_at` |
+| Cliente empresa | `data[i].customer_company_name` |
+| Cliente persona | `data[i].customer_person_name` |
+| Es mostrador | `data[i].is_walk_in` |
+| Vendedor | `data[i].seller_user` |
+| Cajero | `data[i].collected_by_user` |
+| Método pago | `data[i].payment_method` |
+| Total | `data[i].total` |
+| Estatus pago | `data[i].payment_status` |
+
+**Modal (mismo layout que detalle de terminal de venta):**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Cobranza — POS Cobranza Terminal 1                     ✕   │
+│ 7 órdenes cobradas en el periodo seleccionado               │
+├─────────────────────────────────────────────────────────────┤
+│ [ Todas (7) ]  [ Público en General (2) ]  [ Facturadas (5)]│
+├─────────────────────────────────────────────────────────────┤
+│ FOLIO      FECHA VENTA  FECHA COBRO  CLIENTE  TOTAL  PAGO  │
+│ OSV-000010 25 jun 2026  25 jun 2026  Sinergy  $12.95 Pagado │
+│ ...                                                         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Filtros del modal (tabs o chips):**
+
+| Chip UI | `customer_type` | Count desde resumen |
+|---------|-----------------|---------------------|
+| Todas | `all` | `orders_collected` |
+| Público en General | `walk_in` | `walk_in_count` |
+| Facturadas | `invoiced` | `invoiced_count` |
+
+Al cambiar chip → volver a llamar `pos-collections` con el mismo periodo/sucursal y el nuevo `customer_type`.
+
+**Columnas sugeridas:**
+
+| Columna | Campo |
+|---------|-------|
+| Folio | `folio` (click → `GET /sales-orders/{id}`) |
+| Fecha venta | `created_at` |
+| Fecha cobro | `collected_at` (útil para ver por qué hay más cobros que ventas) |
+| Cliente | 2 líneas: `customer_company_name` arriba, `customer_person_name` abajo; chip Mostrador si `is_walk_in` |
+| Vendedor | `seller_user.first_name` + `last_name` + `(pos_user_code)` |
+| Total | `total` |
+| Estatus pago | `payment_status` |
+
+**Función Pollux:**
+
+```typescript
+type CollectionCustomerType = 'all' | 'walk_in' | 'invoiced';
+
+async function fetchPosCollections(opts: {
+  billingBranchId: string;
+  period: string;
+  dateFrom?: string;
+  dateTo?: string;
+  customerType?: CollectionCustomerType;
+  page?: number;
+  limit?: number;
+}) {
+  const params = new URLSearchParams({
+    billing_branch_id: opts.billingBranchId,
+    period: opts.period,
+    customer_type: opts.customerType ?? 'all',
+    page: String(opts.page ?? 1),
+    limit: String(opts.limit ?? 20),
+  });
+  if (opts.dateFrom) params.set('date_from', opts.dateFrom);
+  if (opts.dateTo) params.set('date_to', opts.dateTo);
+
+  return api.get(`/tenant/accounting/pos-collections?${params}`);
+}
+
+// Click en "Órdenes cobradas"
+openCollectionsModal('all');
+
+// Click en "Público en General"
+openCollectionsModal('walk_in');
+
+// Click en "Facturadas"
+openCollectionsModal('invoiced');
+```
 
 ---
 
@@ -701,6 +852,7 @@ Si no se envía `seller_user_id`, el backend responde 400.
 |-----|----------|---------|
 | POS resumen | `GET /tenant/accounting/pos-summary` | Accounting:Read |
 | POS detalle terminal | `GET /tenant/accounting/pos-terminals/:id/sales` | Accounting:Read |
+| POS órdenes cobradas | `GET /tenant/accounting/pos-collections` | Accounting:Read |
 | CxP lista | `GET /tenant/accounting/accounts-payable` | Accounting:Read |
 | CxP detalle | `GET /tenant/accounting/accounts-payable/vendors/:vendorId` | Accounting:Read |
 | CxC lista | `GET /tenant/accounting/accounts-receivable` | Accounting:Read |
@@ -715,7 +867,7 @@ Si no se envía `seller_user_id`, el backend responde 400.
 - [ ] Entrada de menú con permiso `Accounting:ViewMenu`
 - [ ] Componente periodo reutilizado de Reporte Ventas Zona Norte
 - [ ] Dropdown sucursal con `billing-branches/all`
-- [ ] Tab 1: tabla terminales + card cobranza + drill-down a sales order
+- [ ] Tab 1: tabla terminales + card cobranza + drill-down ventas y órdenes cobradas (`pos-collections` con filtro `customer_type`)
 - [ ] Tab 2: search proveedores + progress bar + detalle OCs
 - [ ] Tab 3: lista por razón social + drawer con órdenes pendientes
 - [ ] Detalle sales order: mostrar `seller_user`, `terminal_user`, `collected_by_user`

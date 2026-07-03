@@ -13,3 +13,4 @@ export { TotalCalculatorService } from './total-calculator.service';
 export { POStatusUpdaterService } from './po-status-updater.service';
 export { TenantValidatorService } from './tenant-validator.service';
 export { InventoryBatchService } from './inventory-batch.service';
+export { PurchaseOrderExportService } from './purchase-order-export.service';

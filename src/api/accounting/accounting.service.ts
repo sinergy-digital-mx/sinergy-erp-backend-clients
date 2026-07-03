@@ -8,9 +8,11 @@ import { User } from '../../entities/users/user.entity';
 import { PosUserType } from '../../entities/users/pos-user-type.enum';
 import {
   AccountingReportPeriod,
+  PosCollectionCustomerType,
   QueryAccountsPayableDto,
   QueryAccountsReceivableDto,
   QueryAccountingBaseDto,
+  QueryPosCollectionsDto,
   QueryPosTerminalSalesDto,
 } from './dto/query-accounting-base.dto';
 import { isWalkInCustomer } from '../pos-shifts/mappers/pos-sale-collection.mapper';
@@ -187,27 +189,141 @@ export class AccountingService {
         date_from: dateFrom.toISOString(),
         date_to: dateTo.toISOString(),
       },
-      data: orders.map((order) => ({
-        id: order.id,
-        folio: order.folio,
-        total: Number(order.total),
-        payment_status: order.payment_status,
-        general_status: order.general_status,
-        created_at: order.created_at,
-        customer_display_name: order.customer?.company_name
-          ?? [order.customer?.name, order.customer?.lastname].filter(Boolean).join(' ').trim()
-          ?? order.customer?.fiscal_razon_social
-          ?? null,
-        is_walk_in: order.customer ? isWalkInCustomer(order.customer) : false,
-        seller_user: order.seller_user
-          ? {
-              id: order.seller_user.id,
-              first_name: order.seller_user.first_name,
-              last_name: order.seller_user.last_name,
-              pos_user_code: order.seller_user.pos_user_code ?? null,
-            }
-          : null,
-      })),
+      data: orders.map((order) => {
+        const customerFields = this.buildCustomerFields(order.customer);
+        return {
+          id: order.id,
+          folio: order.folio,
+          total: Number(order.total),
+          payment_status: order.payment_status,
+          general_status: order.general_status,
+          created_at: order.created_at,
+          ...customerFields,
+          is_walk_in: order.customer ? isWalkInCustomer(order.customer) : false,
+          seller_user: order.seller_user
+            ? {
+                id: order.seller_user.id,
+                first_name: order.seller_user.first_name,
+                last_name: order.seller_user.last_name,
+                pos_user_code: order.seller_user.pos_user_code ?? null,
+              }
+            : null,
+        };
+      }),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  /**
+   * Detalle de órdenes cobradas (card Terminal de cobranza).
+   * Filtra por fecha de cobro (`pos_sale_collections.created_at`), no por fecha de venta.
+   */
+  async getPosCollections(tenantId: string, filters: QueryPosCollectionsDto) {
+    const { dateFrom, dateTo } = this.resolveDateRange(
+      filters.period ?? AccountingReportPeriod.MONTH,
+      filters.date_from,
+      filters.date_to,
+    );
+    const page = filters.page ?? 1;
+    const limit = filters.limit ?? 20;
+    const customerType = filters.customer_type ?? PosCollectionCustomerType.ALL;
+
+    const cobranzaTerminal = await this.userRepo.findOne({
+      where: {
+        tenant_id: tenantId,
+        billing_branch_id: filters.billing_branch_id,
+        is_pos_user: true,
+        pos_user_type: PosUserType.COBRANZA,
+      },
+    });
+
+    const qb = this.collectionRepo
+      .createQueryBuilder('collection')
+      .innerJoinAndSelect('collection.sales_order', 'so')
+      .innerJoinAndSelect('collection.customer', 'customer')
+      .leftJoinAndSelect('so.seller_user', 'seller_user')
+      .leftJoinAndSelect('collection.collected_by_user', 'collected_by_user')
+      .innerJoin('so.warehouse', 'warehouse')
+      .where('collection.tenant_id = :tenantId', { tenantId })
+      .andWhere('warehouse.billing_branch_id = :branchId', {
+        branchId: filters.billing_branch_id,
+      })
+      .andWhere('collection.created_at >= :dateFrom', { dateFrom })
+      .andWhere('collection.created_at <= :dateTo', { dateTo });
+
+    if (customerType === PosCollectionCustomerType.WALK_IN) {
+      qb.andWhere(
+        '(customer.fiscal_razon_social = :walkInFiscal OR customer.name = :walkInName)',
+        {
+          walkInFiscal: WALK_IN_FISCAL_NAME,
+          walkInName: WALK_IN_DISPLAY_NAME,
+        },
+      );
+    } else if (customerType === PosCollectionCustomerType.INVOICED) {
+      qb.andWhere(
+        'NOT (customer.fiscal_razon_social = :walkInFiscal OR customer.name = :walkInName)',
+        {
+          walkInFiscal: WALK_IN_FISCAL_NAME,
+          walkInName: WALK_IN_DISPLAY_NAME,
+        },
+      );
+    }
+
+    qb.orderBy('collection.created_at', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const [collections, total] = await qb.getManyAndCount();
+
+    return {
+      terminal_user_id: cobranzaTerminal?.id ?? null,
+      terminal_name: cobranzaTerminal
+        ? this.buildUserName(cobranzaTerminal.first_name, cobranzaTerminal.last_name)
+        : null,
+      filters_applied: {
+        billing_branch_id: filters.billing_branch_id,
+        period: filters.period ?? AccountingReportPeriod.MONTH,
+        date_from: dateFrom.toISOString(),
+        date_to: dateTo.toISOString(),
+        customer_type: customerType,
+      },
+      data: collections.map((collection) => {
+        const order = collection.sales_order;
+        const customer = collection.customer;
+        const customerFields = this.buildCustomerFields(customer);
+        return {
+          id: order?.id ?? collection.sales_order_id,
+          collection_id: collection.id,
+          folio: order?.folio ?? null,
+          total: Number(collection.order_total_mxn),
+          payment_status: order?.payment_status ?? null,
+          general_status: order?.general_status ?? null,
+          created_at: order?.created_at ?? null,
+          collected_at: collection.created_at,
+          payment_method: collection.payment_method,
+          ...customerFields,
+          is_walk_in: customer ? isWalkInCustomer(customer) : false,
+          seller_user: order?.seller_user
+            ? {
+                id: order.seller_user.id,
+                first_name: order.seller_user.first_name,
+                last_name: order.seller_user.last_name,
+                pos_user_code: order.seller_user.pos_user_code ?? null,
+              }
+            : null,
+          collected_by_user: collection.collected_by_user
+            ? {
+                id: collection.collected_by_user.id,
+                first_name: collection.collected_by_user.first_name,
+                last_name: collection.collected_by_user.last_name,
+                pos_user_code: collection.collected_by_user.pos_user_code ?? null,
+              }
+            : null,
+        };
+      }),
       total,
       page,
       limit,
@@ -604,5 +720,34 @@ export class AccountingService {
 
   private buildUserName(firstName?: string | null, lastName?: string | null): string {
     return [firstName, lastName].filter(Boolean).join(' ').trim() || 'Sin nombre';
+  }
+
+  /** Campos de cliente para listados: empresa arriba, persona abajo en UI. */
+  private buildCustomerFields(
+    customer?: {
+      name?: string | null;
+      lastname?: string | null;
+      company_name?: string | null;
+      fiscal_razon_social?: string | null;
+    } | null,
+  ): {
+    customer_company_name: string | null;
+    customer_person_name: string | null;
+    customer_display_name: string | null;
+  } {
+    const companyName = customer?.company_name?.trim() || null;
+    const personName =
+      [customer?.name, customer?.lastname].filter(Boolean).join(' ').trim() || null;
+    const displayName =
+      companyName ||
+      personName ||
+      customer?.fiscal_razon_social?.trim() ||
+      null;
+
+    return {
+      customer_company_name: companyName,
+      customer_person_name: personName,
+      customer_display_name: displayName,
+    };
   }
 }

@@ -6,6 +6,8 @@ import {
   SalesOrderBatchAllocation,
   SalesOrderDocument,
   SalesOrderDocumentType,
+  SalesOrderPayment,
+  SalesOrderPaymentDocument,
 } from '../../entities/sales-orders';
 import { InventoryBatch } from '../../entities/purchase-orders/inventory-batch.entity';
 import { AuthModule } from '../auth/auth.module';
@@ -21,8 +23,10 @@ import { SalesOrderFulfillmentService } from './services/sales-order-fulfillment
 import { SalesOrderPdfService } from './services/sales-order-pdf.service';
 import { SalesOrderDocumentsService } from './services/sales-order-documents.service';
 import { SalesOrderPosReceiptService } from './services/sales-order-pos-receipt.service';
+import { SalesOrderExportService } from './services/sales-order-export.service';
 import { PosSaleCollection } from '../../entities/pos/pos-sale-collection.entity';
 import { BillingBranch } from '../../entities/billing/billing-branch.entity';
+import { User } from '../../entities/users/user.entity';
 
 @Module({
   imports: [
@@ -32,9 +36,12 @@ import { BillingBranch } from '../../entities/billing/billing-branch.entity';
       SalesOrderBatchAllocation,
       SalesOrderDocument,
       SalesOrderDocumentType,
+      SalesOrderPayment,
+      SalesOrderPaymentDocument,
       InventoryBatch,
       PosSaleCollection,
       BillingBranch,
+      User,
     ]),
     AuthModule,
     RBACModule,
@@ -50,6 +57,7 @@ import { BillingBranch } from '../../entities/billing/billing-branch.entity';
     SalesOrderPdfService,
     SalesOrderDocumentsService,
     SalesOrderPosReceiptService,
+    SalesOrderExportService,
     S3Service,
   ],
   exports: [SalesOrderService, SalesOrderPosReceiptService],

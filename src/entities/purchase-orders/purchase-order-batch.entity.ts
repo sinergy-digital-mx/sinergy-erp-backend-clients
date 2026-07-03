@@ -86,7 +86,7 @@ export class PurchaseOrderBatch {
   general_status: string;
 
   @Column({ type: 'text', nullable: true })
-  notes: string;
+  notes: string | null;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   requested_subtotal: number;

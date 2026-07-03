@@ -10,3 +10,8 @@ export { QueryPurchaseOrderDto } from './query-purchase-order.dto';
 export { QueryInventoryBatchDto } from './query-inventory-batch.dto';
 export { CreatePurchaseOrderPaymentDto } from './create-purchase-order-payment.dto';
 export { RegenerateDocumentDto } from './regenerate-document.dto';
+export { UpdatePurchaseOrderNotesDto } from './update-purchase-order-notes.dto';
+export {
+  QueryPurchaseOrderHeaderExportDto,
+  QueryPurchaseOrderDetailExportDto,
+} from './query-purchase-order-export.dto';

@@ -28,6 +28,7 @@ import { SalesReportsModule } from './api/sales-reports/sales-reports.module';
 import { AccountingModule } from './api/accounting/accounting.module';
 import { ExchangeRateModule } from './api/exchange-rate/exchange-rate.module';
 import { DivinoDashboardModule } from './api/divino-dashboard/divino-dashboard.module';
+import { GoalsModule } from './api/goals/goals.module';
 import { PermissionVersionGuard } from './api/auth/guards/permission-version.guard';
 
 @Module({
@@ -59,6 +60,7 @@ import { PermissionVersionGuard } from './api/auth/guards/permission-version.gua
     AccountingModule,
     ExchangeRateModule,
     DivinoDashboardModule,
+    GoalsModule,
   ],
   providers: [],
 })

@@ -8,6 +8,7 @@ import {
   QueryAccountingBaseDto,
   QueryAccountsPayableDto,
   QueryAccountsReceivableDto,
+  QueryPosCollectionsDto,
   QueryPosTerminalSalesDto,
 } from './dto/query-accounting-base.dto';
 
@@ -43,6 +44,17 @@ export class AccountingController {
       terminalUserId,
       query,
     );
+  }
+
+  @Get('pos-collections')
+  @RequirePermissions({ entityType: 'Accounting', action: 'Read' })
+  @ApiOperation({
+    summary: 'Detalle de órdenes cobradas (terminal de cobranza)',
+    description:
+      'Lista cobros del periodo/sucursal. Filtro customer_type: all | walk_in | invoiced.',
+  })
+  getPosCollections(@Query() query: QueryPosCollectionsDto, @Req() req: any) {
+    return this.accountingService.getPosCollections(req.user.tenant_id, query);
   }
 
   @Get('accounts-payable')

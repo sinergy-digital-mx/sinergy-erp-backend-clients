@@ -29,10 +29,20 @@ export class CustomersService {
         @InjectRepository(Warehouse) private warehouseRepo: Repository<Warehouse>,
     ) { }
 
+    private async resolveDefaultStatus(): Promise<CustomerStatus> {
+        const active = await this.statusRepo.findOne({ where: { code: 'ACTIVE' } });
+        if (active) return active;
+        return this.statusRepo.findOneByOrFail({ id: 1 });
+    }
+
+    async findAllStatuses(): Promise<CustomerStatus[]> {
+        return this.statusRepo.find({ order: { id: 'ASC' } });
+    }
+
     async create(dto: CreateCustomerDto, tenantId: string) {
-        // Use default status "Activo" (id: 1) if not provided
-        const statusId = dto.status_id || 1;
-        const status = await this.statusRepo.findOneByOrFail({ id: statusId });
+        const status = dto.status_id
+            ? await this.statusRepo.findOneByOrFail({ id: dto.status_id })
+            : await this.resolveDefaultStatus();
 
         // Extract country code and national number from phone if provided
         let phone = dto.phone;

@@ -32,6 +32,16 @@ export class CreateBillingBranchDto {
   @IsString()
   postal_code: string;
 
+  @ApiProperty({
+    description: 'Teléfono de contacto de la sucursal',
+    example: '6641234567',
+    required: false,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  phone?: string | null;
+
   @ApiProperty({ description: 'Status: 1 = active, 0 = inactive', example: 1, required: false })
   @IsOptional()
   @IsNumber()

@@ -1,15 +1,28 @@
 import {
-  Controller, Post, Get, Put, Delete, Body, Param, Query,
-  UseGuards, Req, HttpCode, HttpStatus, Res,
+  Controller, Post, Get, Put, Patch, Delete, Body, Param, Query,
+  UseGuards, Req, HttpCode, HttpStatus, Res, UseInterceptors, UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { TenantModuleValidationGuard } from '../../auth/tenant-module-validation.guard';
 import { SalesOrderService } from '../services/sales-order.service';
 import { SalesOrderDocumentsService } from '../services/sales-order-documents.service';
 import { SalesOrderPosReceiptService } from '../services/sales-order-pos-receipt.service';
+import { SalesOrderExportService } from '../services/sales-order-export.service';
 import { InventoryService } from '../../inventory/inventory.service';
-import { CreateSalesOrderDto, QuerySalesOrderDto, FulfillSalesOrderDto, RegenerateDocumentDto } from '../dto';
+import {
+  CreateSalesOrderDto,
+  QuerySalesOrderDto,
+  FulfillSalesOrderDto,
+  RegenerateDocumentDto,
+  UpdateSalesOrderNotesDto,
+  QuerySalesOrderHeaderExportDto,
+  QuerySalesOrderDetailExportDto,
+  CreateSalesOrderPaymentDto,
+  UpdateSalesOrderSellerDto,
+} from '../dto';
 
 @ApiTags('Sales Orders')
 @Controller('tenant/sales-orders')
@@ -21,6 +34,7 @@ export class SalesOrderController {
     private readonly documentsService: SalesOrderDocumentsService,
     private readonly posReceiptService: SalesOrderPosReceiptService,
     private readonly inventoryService: InventoryService,
+    private readonly exportService: SalesOrderExportService,
   ) {}
 
   @Post()
@@ -40,10 +54,197 @@ export class SalesOrderController {
     return this.salesOrderService.replace(id, dto, req.user.tenant_id, req.user.id);
   }
 
+  @Patch(':id/notes')
+  @ApiOperation({
+    summary: 'Actualizar notas de la orden',
+    description:
+      'Permite editar solo el campo notes sin reemplazar líneas. Disponible en cualquier estado excepto Cancelada.',
+  })
+  async updateNotes(
+    @Param('id') id: string,
+    @Body() dto: UpdateSalesOrderNotesDto,
+    @Req() req: any,
+  ) {
+    return this.salesOrderService.updateNotes(id, dto, req.user.tenant_id, req.user.id);
+  }
+
+  @Patch(':id/seller')
+  @ApiOperation({
+    summary: 'Cambiar vendedor de la orden',
+    description:
+      'Actualiza seller_user_id. Debe ser un usuario no-POS (quien usa código de vendedor).',
+  })
+  async updateSeller(
+    @Param('id') id: string,
+    @Body() dto: UpdateSalesOrderSellerDto,
+    @Req() req: any,
+  ) {
+    return this.salesOrderService.updateSeller(
+      id,
+      dto.seller_user_id,
+      req.user.tenant_id,
+      req.user.id,
+    );
+  }
+
+  @Get(':id/payments')
+  @ApiOperation({ summary: 'Listar pagos de la orden de venta' })
+  async getPayments(@Param('id') id: string, @Req() req: any) {
+    return this.salesOrderService.getPayments(id, req.user.tenant_id);
+  }
+
+  @Post(':id/payments')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Registrar pago en la orden de venta',
+    description:
+      'Pago parcial o total. Métodos: cash, card, transfer, mixed. Si el saldo llega a 0 → payment_status = Pagado.',
+  })
+  async createPayment(
+    @Param('id') id: string,
+    @Body() dto: CreateSalesOrderPaymentDto,
+    @Req() req: any,
+  ) {
+    return this.salesOrderService.createPayment(
+      id,
+      dto,
+      req.user.tenant_id,
+      req.user.id,
+      'manual',
+    );
+  }
+
+  @Delete(':id/payments/:paymentId')
+  @ApiOperation({ summary: 'Eliminar un pago manual de la orden' })
+  async deletePayment(
+    @Param('id') id: string,
+    @Param('paymentId') paymentId: string,
+    @Req() req: any,
+  ) {
+    return this.salesOrderService.deletePayment(
+      id,
+      paymentId,
+      req.user.tenant_id,
+      req.user.id,
+    );
+  }
+
+  @Get(':id/payments/:paymentId/documents')
+  @ApiOperation({ summary: 'Listar comprobantes de un pago' })
+  async getPaymentDocuments(
+    @Param('id') id: string,
+    @Param('paymentId') paymentId: string,
+    @Req() req: any,
+  ) {
+    return this.salesOrderService.getPaymentDocuments(
+      id,
+      paymentId,
+      req.user.tenant_id,
+    );
+  }
+
+  @Post(':id/payments/:paymentId/documents')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Subir comprobante de pago (PDF/imagen)' })
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadPaymentDocument(
+    @Param('id') id: string,
+    @Param('paymentId') paymentId: string,
+    @UploadedFile() file: any,
+    @Body('notes') notes: string | undefined,
+    @Req() req: any,
+  ) {
+    if (!file) {
+      throw new BadRequestException('El archivo es obligatorio');
+    }
+
+    const allowed = [
+      'application/pdf',
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/heic',
+      'image/heif',
+    ];
+    if (!allowed.includes(file.mimetype)) {
+      throw new BadRequestException('Tipo no permitido. Use PDF, JPEG, PNG o HEIC');
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      throw new BadRequestException('El archivo no puede superar 10MB');
+    }
+
+    return this.salesOrderService.uploadPaymentDocument(
+      id,
+      paymentId,
+      req.user.tenant_id,
+      req.user.id,
+      file,
+      notes,
+    );
+  }
+
+  @Delete(':id/payments/:paymentId/documents/:documentId')
+  @ApiOperation({ summary: 'Eliminar comprobante de un pago' })
+  async deletePaymentDocument(
+    @Param('id') id: string,
+    @Param('paymentId') paymentId: string,
+    @Param('documentId') documentId: string,
+    @Req() req: any,
+  ) {
+    return this.salesOrderService.deletePaymentDocument(
+      id,
+      paymentId,
+      documentId,
+      req.user.tenant_id,
+    );
+  }
+
   @Get()
   @ApiOperation({ summary: 'List sales orders with filters and pagination' })
   async findAll(@Query() filters: QuerySalesOrderDto, @Req() req: any) {
     return this.salesOrderService.findAll(req.user.tenant_id, filters);
+  }
+
+  @Get('export/excel/headers')
+  @ApiOperation({ summary: 'Descargar Excel de cabeceras de órdenes de venta' })
+  async exportHeadersExcel(
+    @Query() filters: QuerySalesOrderHeaderExportDto,
+    @Req() req: any,
+    @Res() res: any,
+  ) {
+    const buffer = await this.exportService.exportHeaders(req.user.tenant_id, filters);
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${this.exportService.getHeadersFilename()}"`,
+    );
+    res.send(buffer);
+  }
+
+  @Get('export/excel/details')
+  @ApiOperation({
+    summary: 'Descargar Excel detalle de líneas de venta',
+    description: 'Requiere created_from y created_to (rango de fechas obligatorio).',
+  })
+  async exportDetailsExcel(
+    @Query() filters: QuerySalesOrderDetailExportDto,
+    @Req() req: any,
+    @Res() res: any,
+  ) {
+    const buffer = await this.exportService.exportDetails(req.user.tenant_id, filters);
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${this.exportService.getDetailsFilename(filters.created_from, filters.created_to)}"`,
+    );
+    res.send(buffer);
   }
 
   @Get('warehouse/:warehouseId/products-summary')

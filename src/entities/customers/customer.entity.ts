@@ -32,6 +32,9 @@ export class Customer {
     @JoinColumn({ name: 'status_id' })
     status: CustomerStatus;
 
+    @Column({ name: 'status_id', nullable: true })
+    status_id: number | null;
+
     @Column()
     name: string;
 

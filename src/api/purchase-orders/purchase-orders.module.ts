@@ -23,6 +23,7 @@ import {
   POStatusUpdaterService,
   TenantValidatorService,
   InventoryBatchService,
+  PurchaseOrderExportService,
 } from './services';
 
 @Module({
@@ -60,6 +61,7 @@ import {
     POStatusUpdaterService,
     TenantValidatorService,
     InventoryBatchService,
+    PurchaseOrderExportService,
     S3Service,
   ],
   exports: [

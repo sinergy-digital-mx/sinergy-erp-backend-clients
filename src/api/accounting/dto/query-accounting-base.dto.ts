@@ -70,3 +70,24 @@ export class QueryPosTerminalSalesDto extends QueryAccountingBaseDto {
   @Type(() => Number)
   limit?: number = 20;
 }
+
+/** Filtro de cliente en detalle de órdenes cobradas (card Terminal de cobranza). */
+export enum PosCollectionCustomerType {
+  ALL = 'all',
+  WALK_IN = 'walk_in',
+  INVOICED = 'invoiced',
+}
+
+export class QueryPosCollectionsDto extends QueryAccountingBaseDto {
+  @IsOptional()
+  @IsEnum(PosCollectionCustomerType)
+  customer_type?: PosCollectionCustomerType = PosCollectionCustomerType.ALL;
+
+  @IsOptional()
+  @Type(() => Number)
+  page?: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  limit?: number = 20;
+}

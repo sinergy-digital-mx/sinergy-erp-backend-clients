@@ -41,6 +41,9 @@ export class BillingBranch {
   @Column({ length: 20 })
   postal_code: string;
 
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  phone: string | null;
+
   @Column({ type: 'tinyint', default: 1 })
   status: number;
 

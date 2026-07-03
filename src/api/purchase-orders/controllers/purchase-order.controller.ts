@@ -12,11 +12,13 @@ import {
   Req,
   HttpCode,
   HttpStatus,
+  Res,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { TenantModuleValidationGuard } from '../../auth/tenant-module-validation.guard';
 import { PurchaseOrderService } from '../services/purchase-order.service';
 import { PurchaseOrderDocumentsService } from '../services/purchase-order-documents.service';
+import { PurchaseOrderExportService } from '../services/purchase-order-export.service';
 import {
   CreatePurchaseOrderDto,
   CreateLineItemDto,
@@ -25,6 +27,9 @@ import {
   QueryPurchaseOrderDto,
   CreatePurchaseOrderPaymentDto,
   RegenerateDocumentDto,
+  UpdatePurchaseOrderNotesDto,
+  QueryPurchaseOrderHeaderExportDto,
+  QueryPurchaseOrderDetailExportDto,
 } from '../dto';
 
 @Controller('tenant/purchase-orders')
@@ -33,6 +38,7 @@ export class PurchaseOrderController {
   constructor(
     private readonly purchaseOrderService: PurchaseOrderService,
     private readonly documentsService: PurchaseOrderDocumentsService,
+    private readonly exportService: PurchaseOrderExportService,
   ) {}
 
   @Post()
@@ -47,6 +53,42 @@ export class PurchaseOrderController {
   async findAll(@Query() filters: QueryPurchaseOrderDto, @Req() req: any) {
     const tenantId = req.user.tenant_id;
     return this.purchaseOrderService.findAll(tenantId, filters);
+  }
+
+  @Get('export/excel/headers')
+  async exportHeadersExcel(
+    @Query() filters: QueryPurchaseOrderHeaderExportDto,
+    @Req() req: any,
+    @Res() res: any,
+  ) {
+    const buffer = await this.exportService.exportHeaders(req.user.tenant_id, filters);
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${this.exportService.getHeadersFilename()}"`,
+    );
+    res.send(buffer);
+  }
+
+  @Get('export/excel/details')
+  async exportDetailsExcel(
+    @Query() filters: QueryPurchaseOrderDetailExportDto,
+    @Req() req: any,
+    @Res() res: any,
+  ) {
+    const buffer = await this.exportService.exportDetails(req.user.tenant_id, filters);
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${this.exportService.getDetailsFilename(filters.created_from, filters.created_to)}"`,
+    );
+    res.send(buffer);
   }
 
   /* Rutas con más segmentos antes que `:id` suelto (evita conflictos en el router). */
@@ -171,6 +213,17 @@ export class PurchaseOrderController {
       tenantId,
       userId,
     );
+  }
+
+  @Patch(':id/notes')
+  async updateNotes(
+    @Param('id') id: string,
+    @Body() dto: UpdatePurchaseOrderNotesDto,
+    @Req() req: any,
+  ) {
+    const tenantId = req.user.tenant_id;
+    const userId = req.user.id;
+    return this.purchaseOrderService.updateNotes(id, dto, tenantId, userId);
   }
 
   /**

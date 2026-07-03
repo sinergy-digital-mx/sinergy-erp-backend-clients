@@ -10,6 +10,7 @@ import { ReceivePurchaseOrderDto } from '../dto/receive-purchase-order.dto';
 import { UpdateLineItemDto } from '../dto/update-line-item.dto';
 import { QueryPurchaseOrderDto } from '../dto/query-purchase-order.dto';
 import { CreatePurchaseOrderPaymentDto } from '../dto/create-purchase-order-payment.dto';
+import { UpdatePurchaseOrderNotesDto } from '../dto/update-purchase-order-notes.dto';
 import { UnitConversionService } from './unit-conversion.service';
 import { BatchNumberGeneratorService } from './batch-number-generator.service';
 import { FolioGeneratorService } from './folio-generator.service';
@@ -617,6 +618,28 @@ export class PurchaseOrderService {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  /**
+   * Actualiza solo las notas sin reemplazar líneas ni cabecera.
+   */
+  async updateNotes(
+    id: string,
+    dto: UpdatePurchaseOrderNotesDto,
+    tenantId: string,
+    userId: string,
+  ): Promise<PurchaseOrderBatch> {
+    const purchaseOrder = await this.findOne(id, tenantId);
+
+    if (purchaseOrder.general_status === 'Cancelada') {
+      throw new BadRequestException('No se pueden editar notas de una orden cancelada');
+    }
+
+    purchaseOrder.notes = dto.notes?.trim() ? dto.notes.trim() : null;
+    purchaseOrder.updated_by = userId;
+    await this.purchaseOrderBatchRepository.save(purchaseOrder);
+
+    return this.findOne(id, tenantId);
   }
 
   /**

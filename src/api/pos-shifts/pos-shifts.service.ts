@@ -30,6 +30,7 @@ import {
   SalesOrderPosReceiptService,
   PosReceiptResult,
 } from '../sales-orders/services/sales-order-pos-receipt.service';
+import { SalesOrderService } from '../sales-orders/services/sales-order.service';
 import {
   mapPosCustomer,
   mapPosSaleCollection,
@@ -58,6 +59,8 @@ export class PosShiftsService {
     private readonly collectionRepo: Repository<PosSaleCollection>,
     @Inject(forwardRef(() => SalesOrderPosReceiptService))
     private readonly posReceiptService: SalesOrderPosReceiptService,
+    @Inject(forwardRef(() => SalesOrderService))
+    private readonly salesOrderService: SalesOrderService,
   ) {}
 
   async validateSellerCode(tenantId: string, terminalUserId: string, code: number) {
@@ -448,40 +451,49 @@ export class PosShiftsService {
       .orderBy('so.created_at', 'ASC')
       .getMany();
 
-    return orders.map((order) => ({
-      id: order.id,
-      folio: order.folio,
-      total: Number(order.total),
-      subtotal: Number(order.subtotal),
-      created_at: order.created_at,
-      notes: order.notes,
-      customer: order.customer
-        ? {
-            id: order.customer.id,
-            name: order.customer.name,
-            lastname: order.customer.lastname,
-            company_name: order.customer.company_name,
-            fiscal_razon_social: order.customer.fiscal_razon_social,
-            is_walk_in: isWalkInCustomer(order.customer),
-          }
-        : null,
-      seller_user: order.seller_user
-        ? {
-            id: order.seller_user.id,
-            first_name: order.seller_user.first_name,
-            last_name: order.seller_user.last_name,
-            pos_user_code: order.seller_user.pos_user_code,
-          }
-        : null,
-      terminal_user: order.terminal_user
-        ? {
-            id: order.terminal_user.id,
-            first_name: order.terminal_user.first_name,
-            last_name: order.terminal_user.last_name,
-            pos_user_type: order.terminal_user.pos_user_type,
-          }
-        : null,
-    }));
+    return Promise.all(
+      orders.map(async (order) => {
+        const amountPending = await this.salesOrderService.getAmountPending(
+          order.id,
+          tenantId,
+        );
+        return {
+          id: order.id,
+          folio: order.folio,
+          total: Number(order.total),
+          amount_pending: amountPending,
+          subtotal: Number(order.subtotal),
+          created_at: order.created_at,
+          notes: order.notes,
+          customer: order.customer
+            ? {
+                id: order.customer.id,
+                name: order.customer.name,
+                lastname: order.customer.lastname,
+                company_name: order.customer.company_name,
+                fiscal_razon_social: order.customer.fiscal_razon_social,
+                is_walk_in: isWalkInCustomer(order.customer),
+              }
+            : null,
+          seller_user: order.seller_user
+            ? {
+                id: order.seller_user.id,
+                first_name: order.seller_user.first_name,
+                last_name: order.seller_user.last_name,
+                pos_user_code: order.seller_user.pos_user_code,
+              }
+            : null,
+          terminal_user: order.terminal_user
+            ? {
+                id: order.terminal_user.id,
+                first_name: order.terminal_user.first_name,
+                last_name: order.terminal_user.last_name,
+                pos_user_type: order.terminal_user.pos_user_type,
+              }
+            : null,
+        };
+      }),
+    );
   }
 
   async getCollectedSales(
@@ -594,7 +606,12 @@ export class PosShiftsService {
     }
 
     const orderTotal = Number(order.total);
-    const payment = this.validateAndNormalizePayment(dto, orderTotal);
+    const amountPending = await this.salesOrderService.getAmountPending(order.id, tenantId);
+    if (amountPending <= 0) {
+      throw new BadRequestException('La orden ya no tiene saldo pendiente');
+    }
+
+    const payment = this.validateAndNormalizePayment(dto, amountPending);
     const customerId = await this.resolveCollectionCustomerId(
       tenantId,
       order,
@@ -608,7 +625,7 @@ export class PosShiftsService {
       pos_daily_shift_id: shift.id,
       customer_id: customerId,
       payment_method: dto.payment_method,
-      order_total_mxn: orderTotal,
+      order_total_mxn: amountPending,
       amount_cash_mxn: payment.amountCashMxn,
       amount_cash_usd: payment.amountCashUsd,
       usd_exchange_rate: payment.usdExchangeRate,
@@ -625,6 +642,26 @@ export class PosShiftsService {
     });
 
     await this.collectionRepo.save(collection);
+
+    const referenceNumber =
+      payment.transferReference ||
+      payment.cardReference ||
+      null;
+
+    await this.salesOrderService.createPayment(
+      order.id,
+      {
+        amount: amountPending,
+        payment_date: new Date().toISOString().slice(0, 10),
+        payment_method: dto.payment_method,
+        currency: 'MXN',
+        reference_number: referenceNumber ?? undefined,
+        notes: dto.notes,
+      },
+      tenantId,
+      cobranzaUserId,
+      'pos_cobranza',
+    );
 
     // update() evita que TypeORM revierta customer_id por la relación customer cargada al crear la orden
     await this.salesOrderRepo.update(
@@ -675,6 +712,7 @@ export class PosShiftsService {
         customer: mapPosCustomer(finalCustomer),
         pos_daily_shift_id: shift.id,
         total: orderTotal,
+        amount_collected: amountPending,
       },
     };
   }
