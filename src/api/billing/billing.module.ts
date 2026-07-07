@@ -6,12 +6,13 @@ import { BillingBranchController, BillingBranchAllController } from './billing-b
 import { BillingBranchService } from './billing-branch.service';
 import { FiscalConfiguration } from '../../entities/billing/fiscal-configuration.entity';
 import { BillingBranch } from '../../entities/billing/billing-branch.entity';
+import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { RBACModule } from '../rbac/rbac.module';
 import { S3Service } from '../../common/services/s3.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([FiscalConfiguration, BillingBranch]),
+    TypeOrmModule.forFeature([FiscalConfiguration, BillingBranch, Warehouse]),
     RBACModule,
   ],
   providers: [FiscalConfigurationService, BillingBranchService, S3Service],

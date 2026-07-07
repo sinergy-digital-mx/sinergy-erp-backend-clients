@@ -3,6 +3,7 @@ import {
   PrimaryGeneratedColumn,
   Column,
   ManyToOne,
+  OneToMany,
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
@@ -46,6 +47,9 @@ export class BillingBranch {
 
   @Column({ type: 'tinyint', default: 1 })
   status: number;
+
+  @OneToMany('Warehouse', 'billing_branch')
+  warehouses: any[];
 
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;

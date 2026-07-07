@@ -1,5 +1,16 @@
-import { IsNotEmpty, IsString, IsOptional, IsNumber, Min, Max } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsNotEmpty,
+  IsString,
+  IsOptional,
+  IsNumber,
+  Min,
+  Max,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { BranchWarehouseDto } from './branch-warehouse.dto';
 
 export class CreateBillingBranchDto {
   @ApiProperty({ description: 'Branch code', example: 'BRANCH-001' })
@@ -48,4 +59,14 @@ export class CreateBillingBranchDto {
   @Min(0)
   @Max(1)
   status?: number;
+
+  @ApiPropertyOptional({
+    description: 'Almacenes vinculados a la sucursal',
+    type: [BranchWarehouseDto],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => BranchWarehouseDto)
+  warehouses?: BranchWarehouseDto[];
 }
