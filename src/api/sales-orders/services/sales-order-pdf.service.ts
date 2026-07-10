@@ -241,23 +241,52 @@ export class SalesOrderPdfService {
             },
             {
               width: 200,
-              text: [
-                { text: `${labels.subtotal}: `, bold: true, fontSize: 9 },
-                { text: `${this.formatCurrency(Number(salesOrder.subtotal) || 0)}\n`, fontSize: 9 },
-                { text: `${labels.discountTotal}: `, bold: true, fontSize: 9 },
-                { text: `${this.formatCurrency(Number(salesOrder.discount_total) || 0)}\n`, fontSize: 9 },
-                { text: `${labels.vat}: `, bold: true, fontSize: 9 },
-                { text: `${this.formatCurrency(Number(salesOrder.iva_total) || 0)}\n`, fontSize: 9 },
-                { text: `${labels.ieps}: `, bold: true, fontSize: 9 },
-                { text: `${this.formatCurrency(Number(salesOrder.ieps_total) || 0)}\n`, fontSize: 9 },
-                { text: `${labels.totalLabel}: `, bold: true, fontSize: 10, color: '#0f172a' },
-                {
-                  text: `${this.formatCurrency(Number(salesOrder.total) || 0)}`,
-                  fontSize: 10,
-                  bold: true,
-                  color: '#0f172a',
-                },
-              ],
+              text: (() => {
+                const summaryLines: Array<{ text: string; bold?: boolean; fontSize?: number; color?: string }> = [
+                  { text: `${labels.subtotal}: `, bold: true, fontSize: 9 },
+                  { text: `${this.formatCurrency(Number(salesOrder.subtotal) || 0)}\n`, fontSize: 9 },
+                ];
+
+                const lineDiscountTotal = Number(salesOrder.discount_total) || 0;
+                const globalDiscountAmount = Number(salesOrder.global_discount_amount) || 0;
+
+                if (lineDiscountTotal > 0) {
+                  summaryLines.push(
+                    { text: `${labels.lineDiscountTotal}: `, bold: true, fontSize: 9 },
+                    { text: `${this.formatCurrency(lineDiscountTotal)}\n`, fontSize: 9 },
+                  );
+                }
+
+                if (globalDiscountAmount > 0) {
+                  summaryLines.push(
+                    { text: `${labels.globalDiscountTotal}: `, bold: true, fontSize: 9 },
+                    { text: `${this.formatCurrency(globalDiscountAmount)}\n`, fontSize: 9 },
+                  );
+                }
+
+                if (lineDiscountTotal <= 0 && globalDiscountAmount <= 0) {
+                  summaryLines.push(
+                    { text: `${labels.discountTotal}: `, bold: true, fontSize: 9 },
+                    { text: `${this.formatCurrency(0)}\n`, fontSize: 9 },
+                  );
+                }
+
+                summaryLines.push(
+                  { text: `${labels.vat}: `, bold: true, fontSize: 9 },
+                  { text: `${this.formatCurrency(Number(salesOrder.iva_total) || 0)}\n`, fontSize: 9 },
+                  { text: `${labels.ieps}: `, bold: true, fontSize: 9 },
+                  { text: `${this.formatCurrency(Number(salesOrder.ieps_total) || 0)}\n`, fontSize: 9 },
+                  { text: `${labels.totalLabel}: `, bold: true, fontSize: 10, color: '#0f172a' },
+                  {
+                    text: `${this.formatCurrency(Number(salesOrder.total) || 0)}`,
+                    fontSize: 10,
+                    bold: true,
+                    color: '#0f172a',
+                  },
+                );
+
+                return summaryLines;
+              })(),
               alignment: 'right',
               fontSize: 9,
             },

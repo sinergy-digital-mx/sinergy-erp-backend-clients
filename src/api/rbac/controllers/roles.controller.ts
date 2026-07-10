@@ -25,6 +25,11 @@ import { TenantContextService } from '../services/tenant-context.service';
 import { CreateRoleDto } from '../dto/create-role.dto';
 import { UpdateRoleDto } from '../dto/update-role.dto';
 import { AssignPermissionsDto } from '../dto/assign-permissions.dto';
+import { ReplaceRolePermissionsDto } from '../dto/replace-role-permissions.dto';
+import {
+  buildGroupedModulesForPermissions,
+  groupModulesByCategory,
+} from '../utils/group-modules-by-category.util';
 
 @ApiTags('Tenant - Roles')
 @Controller('tenant/roles')
@@ -192,38 +197,16 @@ export class RolesController {
       return true;
     });
 
-    // Group by module
-    const groupedByModule = enabledModules.reduce((acc, tenantModule) => {
-      const module = tenantModule.module;
-      const modulePermissions = tenantPermissions.filter(p => p.module_id === module.id);
-      
-      if (modulePermissions.length > 0) {
-        acc.push({
-          id: module.id,
-          name: module.name,
-          code: module.code,
-          permissions: modulePermissions
-            .map(p => ({
-              id: p.id,
-              entity: p.entity_type,
-              action: p.action,
-              description: p.description,
-            }))
-            .sort((a, b) => {
-              const entityCompare = a.entity.localeCompare(b.entity);
-              return entityCompare !== 0 ? entityCompare : a.action.localeCompare(b.action);
-            }),
-        });
-      }
-      
-      return acc;
-    }, [] as any[]);
-
-    // Sort modules by name
-    groupedByModule.sort((a, b) => a.name.localeCompare(b.name));
+    // Group by module and category
+    const groupedByModule = buildGroupedModulesForPermissions(
+      enabledModules,
+      tenantPermissions,
+    );
+    const { modules, categories } = groupModulesByCategory(groupedByModule);
 
     return {
-      modules: groupedByModule,
+      modules,
+      categories,
     };
   }
 
@@ -348,43 +331,20 @@ export class RolesController {
       return true;
     });
 
-    // Group by module
-    const groupedByModule = enabledModules.reduce((acc, tenantModule) => {
-      const module = tenantModule.module;
-      const modulePermissions = tenantPermissions.filter(p => p.module_id === module.id);
-      
-      if (modulePermissions.length > 0) {
-        acc.push({
-          id: module.id,
-          name: module.name,
-          code: module.code,
-          permissions: modulePermissions
-            .map(p => ({
-              id: p.id,
-              entity: p.entity_type,
-              action: p.action,
-              description: p.description,
-              assigned: assignedPermissionIds.has(p.id),
-            }))
-            .sort((a, b) => {
-              const entityCompare = a.entity.localeCompare(b.entity);
-              return entityCompare !== 0 ? entityCompare : a.action.localeCompare(b.action);
-            }),
-        });
-      }
-      
-      return acc;
-    }, [] as any[]);
-
-    // Sort modules by name
-    groupedByModule.sort((a, b) => a.name.localeCompare(b.name));
+    const groupedByModule = buildGroupedModulesForPermissions(
+      enabledModules,
+      tenantPermissions,
+      assignedPermissionIds,
+    );
+    const { modules, categories } = groupModulesByCategory(groupedByModule);
 
     return {
       role: {
         id: role.id,
         name: role.name,
       },
-      modules: groupedByModule,
+      modules,
+      categories,
     };
   }
 
@@ -580,6 +540,51 @@ export class RolesController {
       throw new Error('Tenant context is required');
     }
     const role = await this.roleService.getRoleById(roleId, tenantId);
+    const permissions = await this.roleService.getRolePermissions(roleId);
+
+    return {
+      role: {
+        id: role.id,
+        name: role.name,
+      },
+      permissions: permissions.map((p) => ({
+        id: p.id,
+        module: p.entity_type,
+        action: p.action,
+        description: p.description,
+      })),
+    };
+  }
+
+  @Put(':roleId/permissions')
+  @RequirePermissions({ entityType: 'User', action: 'Update' })
+  @ApiOperation({
+    summary: 'Replace role permissions',
+    description:
+      'Replaces all permissions assigned to a role with the provided list',
+  })
+  @ApiParam({ name: 'roleId', description: 'Role ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Permissions replaced successfully',
+  })
+  async replaceRolePermissions(
+    @Param('roleId') roleId: string,
+    @Body() replaceRolePermissionsDto: ReplaceRolePermissionsDto,
+  ) {
+    const tenantId = this.tenantContextService.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+
+    const role = await this.roleService.getRoleById(roleId, tenantId);
+
+    await this.roleService.replaceRolePermissions(
+      roleId,
+      replaceRolePermissionsDto.permission_ids,
+      tenantId,
+    );
+
     const permissions = await this.roleService.getRolePermissions(roleId);
 
     return {

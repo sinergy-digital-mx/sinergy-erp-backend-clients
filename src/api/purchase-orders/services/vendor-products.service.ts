@@ -1,79 +1,87 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Product, ProductUoM, ProductVendorCost } from '../../../entities/products';
+import { ProductVendorCost } from '../../../entities/products';
+
+export interface VendorProductUom {
+  product_uom_id: string;
+  uom_id: string;
+  uom_name: string;
+  factor: number;
+  is_base: boolean;
+  cost: number;
+  iva_percentage: number;
+  ieps_percentage: number;
+  iva_unit_total: number;
+  ieps_unit_total: number;
+  subtotal: number;
+}
+
+export interface VendorProduct {
+  product_id: string;
+  product_name: string;
+  product_sku: string;
+  uoms: VendorProductUom[];
+}
 
 @Injectable()
 export class VendorProductsService {
   constructor(
-    @InjectRepository(Product)
-    private readonly productRepository: Repository<Product>,
-    @InjectRepository(ProductUoM)
-    private readonly productUomRepository: Repository<ProductUoM>,
     @InjectRepository(ProductVendorCost)
     private readonly productVendorCostRepository: Repository<ProductVendorCost>,
   ) {}
 
-  async getVendorProducts(vendorId: string, tenantId: string): Promise<any[]> {
-    // Get all products for the tenant
-    const products = await this.productRepository
-      .createQueryBuilder('product')
-      .where('product.tenant_id = :tenantId', { tenantId })
+  async getVendorProducts(vendorId: string, tenantId: string): Promise<VendorProduct[]> {
+    const vendorCosts = await this.productVendorCostRepository
+      .createQueryBuilder('pvc')
+      .innerJoinAndSelect('pvc.product', 'product')
+      .innerJoinAndSelect('pvc.product_uom', 'product_uom')
+      .leftJoinAndSelect('product_uom.uom', 'uom')
+      .where('pvc.vendor_id = :vendorId', { vendorId })
+      .andWhere('product.tenant_id = :tenantId', { tenantId })
       .getMany();
 
-    // Build response with UOM and pricing information
-    const result: any[] = [];
+    const byProduct = new Map<string, VendorProduct>();
 
-    for (const product of products) {
-      // Get all UOMs for this product
-      const productUoms = await this.productUomRepository
-        .createQueryBuilder('product_uom')
-        .leftJoinAndSelect('product_uom.uom', 'uom')
-        .where('product_uom.product_id = :productId', { productId: product.id })
-        .getMany();
+    for (const vendorCost of vendorCosts) {
+      const product = vendorCost.product;
+      const productUom = vendorCost.product_uom;
+      const factor = Number(productUom.factor) || 1;
+      const cost = Number(vendorCost.cost);
+      const ivaPercentage = Number(vendorCost.iva_percentage) || 0;
+      const iepsPercentage = Number(vendorCost.ieps_percentage) || 0;
+      const subtotal = cost * factor;
+      const ivaAmount = subtotal * (ivaPercentage / 100);
+      const iepsAmount = subtotal * (iepsPercentage / 100);
 
-      const uoms: any[] = [];
+      const uomEntry: VendorProductUom = {
+        product_uom_id: productUom.id,
+        uom_id: productUom.uom_catalog_id,
+        uom_name: productUom.uom?.name || 'Unknown',
+        factor,
+        is_base: productUom.is_base || false,
+        cost,
+        iva_percentage: ivaPercentage,
+        ieps_percentage: iepsPercentage,
+        iva_unit_total: ivaAmount,
+        ieps_unit_total: iepsAmount,
+        subtotal,
+      };
 
-      for (const productUom of productUoms) {
-        // Get vendor cost for this product UOM
-        const vendorCost = await this.productVendorCostRepository.findOne({
-          where: {
-            product_uom_id: productUom.id,
-            vendor_id: vendorId,
-          },
-        });
-
-        if (vendorCost) {
-          const subtotal = vendorCost.cost * (productUom.factor || 1);
-          const ivaAmount = subtotal * ((vendorCost.iva_percentage || 0) / 100);
-          const iepsAmount = subtotal * ((vendorCost.ieps_percentage || 0) / 100);
-
-          uoms.push({
-            product_uom_id: productUom.id,
-            uom_id: productUom.uom_catalog_id,
-            uom_name: productUom.uom?.name || 'Unknown',
-            factor: productUom.factor || 1,
-            is_base: productUom.is_base || false,
-            cost: vendorCost.cost,
-            iva_percentage: vendorCost.iva_percentage || 0,
-            ieps_percentage: vendorCost.ieps_percentage || 0,
-            iva_unit_total: ivaAmount,
-            ieps_unit_total: iepsAmount,
-            subtotal: subtotal,
-          });
-        }
+      const existing = byProduct.get(product.id);
+      if (existing) {
+        existing.uoms.push(uomEntry);
+        continue;
       }
 
-      if (uoms.length > 0) {
-        result.push({
-          product_id: product.id,
-          product_name: product.name,
-          product_sku: product.sku,
-          uoms,
-        });
-      }
+      byProduct.set(product.id, {
+        product_id: product.id,
+        product_name: product.name,
+        product_sku: product.sku,
+        uoms: [uomEntry],
+      });
     }
 
-    return result;
+    return Array.from(byProduct.values());
   }
 }

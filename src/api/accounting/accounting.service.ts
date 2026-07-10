@@ -3,6 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SalesOrder } from '../../entities/sales-orders/sales-order.entity';
 import { PosSaleCollection } from '../../entities/pos/pos-sale-collection.entity';
+import { PosDailyShift } from '../../entities/pos/pos-daily-shift.entity';
+import { PosDailyShiftStatus } from '../../entities/pos/pos-daily-shift-status.enum';
+import { ElectronicInvoice } from '../../entities/electronic-invoicing/electronic-invoice.entity';
 import { PurchaseOrderBatch } from '../../entities/purchase-orders/purchase-order-batch.entity';
 import { User } from '../../entities/users/user.entity';
 import { PosUserType } from '../../entities/users/pos-user-type.enum';
@@ -27,6 +30,10 @@ export class AccountingService {
     private readonly salesOrderRepo: Repository<SalesOrder>,
     @InjectRepository(PosSaleCollection)
     private readonly collectionRepo: Repository<PosSaleCollection>,
+    @InjectRepository(PosDailyShift)
+    private readonly dailyShiftRepo: Repository<PosDailyShift>,
+    @InjectRepository(ElectronicInvoice)
+    private readonly electronicInvoiceRepo: Repository<ElectronicInvoice>,
     @InjectRepository(PurchaseOrderBatch)
     private readonly purchaseOrderRepo: Repository<PurchaseOrderBatch>,
     @InjectRepository(User)
@@ -72,6 +79,9 @@ export class AccountingService {
         amount_sold: string;
       }>();
 
+    const stampedInvoiceSql = this.stampedInvoiceExistsSql('so');
+    const walkInSql = this.walkInCustomerSql('customer');
+
     const collectionRows = await this.collectionRepo
       .createQueryBuilder('collection')
       .innerJoin('collection.sales_order', 'so')
@@ -80,11 +90,11 @@ export class AccountingService {
       .select('COUNT(collection.id)', 'orders_collected')
       .addSelect('COALESCE(SUM(collection.order_total_mxn), 0)', 'amount_collected')
       .addSelect(
-        `SUM(CASE WHEN customer.fiscal_razon_social = :walkInFiscal OR customer.name = :walkInName THEN 1 ELSE 0 END)`,
+        `SUM(CASE WHEN ${walkInSql} AND NOT ${stampedInvoiceSql} THEN 1 ELSE 0 END)`,
         'walk_in_count',
       )
       .addSelect(
-        `SUM(CASE WHEN customer.fiscal_razon_social = :walkInFiscal OR customer.name = :walkInName THEN 0 ELSE 1 END)`,
+        `SUM(CASE WHEN ${stampedInvoiceSql} THEN 1 ELSE 0 END)`,
         'invoiced_count',
       )
       .where('collection.tenant_id = :tenantId', { tenantId })
@@ -104,6 +114,39 @@ export class AccountingService {
         invoiced_count: string;
       }>();
 
+    const shiftStats = await this.dailyShiftRepo
+      .createQueryBuilder('shift')
+      .leftJoin('shift.partial_shifts', 'partial')
+      .select('COUNT(DISTINCT shift.id)', 'daily_shifts_count')
+      .addSelect('COUNT(partial.id)', 'partial_shifts_count')
+      .where('shift.tenant_id = :tenantId', { tenantId })
+      .andWhere('shift.billing_branch_id = :branchId', {
+        branchId: filters.billing_branch_id,
+      })
+      .andWhere('shift.created_at >= :dateFrom', { dateFrom })
+      .andWhere('shift.created_at <= :dateTo', { dateTo })
+      .getRawOne<{
+        daily_shifts_count: string;
+        partial_shifts_count: string;
+      }>();
+
+    const openDailyShift = await this.dailyShiftRepo.findOne({
+      where: {
+        tenant_id: tenantId,
+        billing_branch_id: filters.billing_branch_id,
+        status: PosDailyShiftStatus.OPEN,
+      },
+      relations: ['partial_shifts'],
+      order: { created_at: 'DESC' },
+    });
+
+    const ordersCollected = Number(collectionRows?.orders_collected || 0);
+    const amountCollected = Number(collectionRows?.amount_collected || 0);
+    const walkInCount = Number(collectionRows?.walk_in_count || 0);
+    const invoicedCount = Number(collectionRows?.invoiced_count || 0);
+    const dailyShiftsCount = Number(shiftStats?.daily_shifts_count || 0);
+    const partialShiftsCount = Number(shiftStats?.partial_shifts_count || 0);
+
     const cobranzaTerminal = await this.userRepo.findOne({
       where: {
         tenant_id: tenantId,
@@ -113,6 +156,13 @@ export class AccountingService {
       },
     });
 
+    const salesTerminals = terminalRows.map((row) => ({
+      terminal_user_id: row.terminal_user_id,
+      terminal_name: this.buildUserName(row.first_name, row.last_name),
+      sales_count: Number(row.sales_count || 0),
+      amount_sold: Number(row.amount_sold || 0),
+    }));
+
     return {
       filters_applied: {
         billing_branch_id: filters.billing_branch_id,
@@ -120,21 +170,26 @@ export class AccountingService {
         date_from: dateFrom.toISOString(),
         date_to: dateTo.toISOString(),
       },
-      sales_terminals: terminalRows.map((row) => ({
-        terminal_user_id: row.terminal_user_id,
-        terminal_name: this.buildUserName(row.first_name, row.last_name),
-        sales_count: Number(row.sales_count || 0),
-        amount_sold: Number(row.amount_sold || 0),
-      })),
+      sales_terminals: salesTerminals,
       collection_terminal: {
         terminal_user_id: cobranzaTerminal?.id ?? null,
         terminal_name: cobranzaTerminal
           ? this.buildUserName(cobranzaTerminal.first_name, cobranzaTerminal.last_name)
           : null,
-        orders_collected: Number(collectionRows?.orders_collected || 0),
-        amount_collected: Number(collectionRows?.amount_collected || 0),
-        walk_in_count: Number(collectionRows?.walk_in_count || 0),
-        invoiced_count: Number(collectionRows?.invoiced_count || 0),
+        orders_collected: ordersCollected,
+        amount_collected: amountCollected,
+        walk_in_count: walkInCount,
+        invoiced_count: invoicedCount,
+        daily_shifts_count: dailyShiftsCount,
+        partial_shifts_count: partialShiftsCount,
+        open_daily_shift: openDailyShift
+          ? {
+              id: openDailyShift.id,
+              shift_date: openDailyShift.shift_date,
+              status: openDailyShift.status,
+              partial_shifts_count: openDailyShift.partial_shifts?.length ?? 0,
+            }
+          : null,
       },
     };
   }
@@ -255,21 +310,12 @@ export class AccountingService {
       .andWhere('collection.created_at <= :dateTo', { dateTo });
 
     if (customerType === PosCollectionCustomerType.WALK_IN) {
-      qb.andWhere(
-        '(customer.fiscal_razon_social = :walkInFiscal OR customer.name = :walkInName)',
-        {
-          walkInFiscal: WALK_IN_FISCAL_NAME,
-          walkInName: WALK_IN_DISPLAY_NAME,
-        },
-      );
+      qb.andWhere(this.walkInCustomerSql('customer'), {
+        walkInFiscal: WALK_IN_FISCAL_NAME,
+        walkInName: WALK_IN_DISPLAY_NAME,
+      }).andWhere(`NOT ${this.stampedInvoiceExistsSql('so')}`);
     } else if (customerType === PosCollectionCustomerType.INVOICED) {
-      qb.andWhere(
-        'NOT (customer.fiscal_razon_social = :walkInFiscal OR customer.name = :walkInName)',
-        {
-          walkInFiscal: WALK_IN_FISCAL_NAME,
-          walkInName: WALK_IN_DISPLAY_NAME,
-        },
-      );
+      qb.andWhere(this.stampedInvoiceExistsSql('so'));
     }
 
     qb.orderBy('collection.created_at', 'DESC')
@@ -277,6 +323,11 @@ export class AccountingService {
       .take(limit);
 
     const [collections, total] = await qb.getManyAndCount();
+
+    const orderIds = collections
+      .map((collection) => collection.sales_order_id)
+      .filter((id): id is string => Boolean(id));
+    const stampedOrderIds = await this.getStampedInvoiceOrderIds(tenantId, orderIds);
 
     return {
       terminal_user_id: cobranzaTerminal?.id ?? null,
@@ -294,6 +345,9 @@ export class AccountingService {
         const order = collection.sales_order;
         const customer = collection.customer;
         const customerFields = this.buildCustomerFields(customer);
+        const hasStampedInvoice = order
+          ? stampedOrderIds.has(order.id)
+          : false;
         return {
           id: order?.id ?? collection.sales_order_id,
           collection_id: collection.id,
@@ -304,6 +358,7 @@ export class AccountingService {
           created_at: order?.created_at ?? null,
           collected_at: collection.created_at,
           payment_method: collection.payment_method,
+          has_stamped_invoice: hasStampedInvoice,
           ...customerFields,
           is_walk_in: customer ? isWalkInCustomer(customer) : false,
           seller_user: order?.seller_user
@@ -643,6 +698,42 @@ export class AccountingService {
           : null,
       })),
     };
+  }
+
+  private walkInCustomerSql(customerAlias: string): string {
+    return `(${customerAlias}.fiscal_razon_social = :walkInFiscal OR ${customerAlias}.name = :walkInName)`;
+  }
+
+  private stampedInvoiceExistsSql(salesOrderAlias: string): string {
+    return `EXISTS (
+      SELECT 1 FROM electronic_invoices ei
+      WHERE ei.tenant_id = collection.tenant_id
+        AND ei.source_module = 'sales_orders'
+        AND ei.source_id = ${salesOrderAlias}.id
+        AND ei.stamp_status IN ('stamped', 'cancel_pending', 'cancelled')
+    )`;
+  }
+
+  private async getStampedInvoiceOrderIds(
+    tenantId: string,
+    orderIds: string[],
+  ): Promise<Set<string>> {
+    if (!orderIds.length) {
+      return new Set();
+    }
+
+    const rows = await this.electronicInvoiceRepo
+      .createQueryBuilder('ei')
+      .select('DISTINCT ei.source_id', 'source_id')
+      .where('ei.tenant_id = :tenantId', { tenantId })
+      .andWhere('ei.source_module = :module', { module: 'sales_orders' })
+      .andWhere('ei.source_id IN (:...orderIds)', { orderIds })
+      .andWhere('ei.stamp_status IN (:...statuses)', {
+        statuses: ['stamped', 'cancel_pending', 'cancelled'],
+      })
+      .getRawMany<{ source_id: string }>();
+
+    return new Set(rows.map((row) => row.source_id));
   }
 
   private buildPurchaseOrderPaymentSummary(order: PurchaseOrderBatch) {

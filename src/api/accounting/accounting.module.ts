@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SalesOrder } from '../../entities/sales-orders/sales-order.entity';
 import { PosSaleCollection } from '../../entities/pos/pos-sale-collection.entity';
+import { PosDailyShift } from '../../entities/pos/pos-daily-shift.entity';
+import { ElectronicInvoice } from '../../entities/electronic-invoicing/electronic-invoice.entity';
 import { PurchaseOrderBatch } from '../../entities/purchase-orders/purchase-order-batch.entity';
 import { User } from '../../entities/users/user.entity';
 import { RBACModule } from '../rbac/rbac.module';
@@ -13,6 +15,8 @@ import { AccountingService } from './accounting.service';
     TypeOrmModule.forFeature([
       SalesOrder,
       PosSaleCollection,
+      PosDailyShift,
+      ElectronicInvoice,
       PurchaseOrderBatch,
       User,
     ]),

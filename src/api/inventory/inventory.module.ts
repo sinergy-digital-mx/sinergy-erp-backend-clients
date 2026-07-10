@@ -14,6 +14,7 @@ import { InventoryController } from './inventory.controller';
 import { InventoryTransferController } from './inventory-transfer.controller';
 import { InventoryTransferService } from './services/inventory-transfer.service';
 import { InventoryTransferFolioService } from './services/inventory-transfer-folio.service';
+import { InventoryExportService } from './services/inventory-export.service';
 import { RBACModule } from '../rbac/rbac.module';
 import { PurchaseOrdersModule } from '../purchase-orders/purchase-orders.module';
 
@@ -36,6 +37,7 @@ import { PurchaseOrdersModule } from '../purchase-orders/purchase-orders.module'
     InventoryService,
     InventoryTransferService,
     InventoryTransferFolioService,
+    InventoryExportService,
     S3Service,
   ],
   controllers: [InventoryController, InventoryTransferController],

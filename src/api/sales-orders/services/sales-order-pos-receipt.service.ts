@@ -286,6 +286,7 @@ export class SalesOrderPosReceiptService {
       .leftJoinAndSelect('line_items.product_uom', 'product_uom')
       .leftJoinAndSelect('product_uom.uom', 'uom')
       .leftJoinAndSelect('line_items.product_discount', 'product_discount')
+      .leftJoinAndSelect('so.global_discount', 'global_discount')
       .getOne();
 
     if (!order) {
@@ -349,7 +350,7 @@ export class SalesOrderPosReceiptService {
 
     let totalQty = 0;
     let subtotalBeforeDiscount = 0;
-    let totalDiscountAmount = 0;
+    let totalLineDiscountAmount = 0;
 
     for (const item of order.line_items ?? []) {
       const qty = Number(item.quantity) || 0;
@@ -360,7 +361,7 @@ export class SalesOrderPosReceiptService {
       const lineTotal = lineSubtotal - lineDiscount;
       totalQty += qty;
       subtotalBeforeDiscount += lineSubtotal;
-      totalDiscountAmount += lineDiscount;
+      totalLineDiscountAmount += lineDiscount;
 
       const description = (item.product?.name ?? 'PRODUCTO').toUpperCase();
       lines.push(
@@ -375,19 +376,28 @@ export class SalesOrderPosReceiptService {
 
       if (lineDiscount > 0) {
         const discountLabel = item.product_discount?.name
-          ? `DESC: ${item.product_discount.name.toUpperCase()}`
-          : 'DESCUENTO';
+          ? `DESC PROD: ${item.product_discount.name.toUpperCase()}`
+          : 'DESCUENTO PRODUCTO';
         lines.push(`!N!${compactMoneyLine(`  ${discountLabel}`, `-${formatMoney(lineDiscount)}`)}`);
       }
     }
 
+    const globalDiscountAmount = Number(order.global_discount_amount) || 0;
     const orderTotal = Number(collection.order_total_mxn) || Number(order.total) || 0;
     const lineCount = order.line_items?.length ?? 0;
 
     lines.push('');
     lines.push(`!N!${compactMoneyLine('Subtotal:', formatMoney(subtotalBeforeDiscount))}`);
-    if (totalDiscountAmount > 0) {
-      lines.push(`!N!${compactMoneyLine('Descuentos:', `-${formatMoney(totalDiscountAmount)}`)}`);
+    if (totalLineDiscountAmount > 0) {
+      lines.push(
+        `!N!${compactMoneyLine('Desc. por producto:', `-${formatMoney(totalLineDiscountAmount)}`)}`,
+      );
+    }
+    if (globalDiscountAmount > 0) {
+      const globalLabel = order.global_discount?.name
+        ? `Desc. global (${order.global_discount.name})`
+        : 'Desc. global';
+      lines.push(`!N!${compactMoneyLine(`${globalLabel}:`, `-${formatMoney(globalDiscountAmount)}`)}`);
     }
     lines.push(`!N!${compactMoneyLine('Total:', formatMoney(orderTotal))}`);
     lines.push(`!N!${'-'.repeat(ESCPOS_CHARS_PER_LINE)}`);

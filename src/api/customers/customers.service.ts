@@ -147,9 +147,31 @@ export class CustomersService {
             .where('customer.tenant_id = :tenantId', { tenantId });
 
         if (query?.search) {
+            const term = `%${query.search.trim()}%`;
             queryBuilder.andWhere(
-                '(LOWER(customer.name) LIKE LOWER(:search) OR LOWER(customer.lastname) LIKE LOWER(:search) OR LOWER(customer.email) LIKE LOWER(:search) OR LOWER(customer.phone) LIKE LOWER(:search) OR LOWER(customer.company_name) LIKE LOWER(:search) OR LOWER(property.code) LIKE LOWER(:search) OR LOWER(property.name) LIKE LOWER(:search) OR LOWER(contracts.contract_number) LIKE LOWER(:search))',
-                { search: `%${query.search}%` }
+                `(
+                    LOWER(customer.name) LIKE LOWER(:search)
+                    OR LOWER(customer.lastname) LIKE LOWER(:search)
+                    OR LOWER(CONCAT(customer.name, ' ', COALESCE(customer.lastname, ''))) LIKE LOWER(:search)
+                    OR LOWER(CONCAT(COALESCE(customer.lastname, ''), ' ', customer.name)) LIKE LOWER(:search)
+                    OR LOWER(customer.email) LIKE LOWER(:search)
+                    OR LOWER(customer.phone) LIKE LOWER(:search)
+                    OR LOWER(customer.phone_code) LIKE LOWER(:search)
+                    OR LOWER(CONCAT(COALESCE(customer.phone_code, ''), customer.phone)) LIKE LOWER(:search)
+                    OR LOWER(customer.company_name) LIKE LOWER(:search)
+                    OR LOWER(customer.website) LIKE LOWER(:search)
+                    OR LOWER(customer.additional_name) LIKE LOWER(:search)
+                    OR LOWER(customer.additional_lastname) LIKE LOWER(:search)
+                    OR LOWER(CONCAT(customer.additional_name, ' ', COALESCE(customer.additional_lastname, ''))) LIKE LOWER(:search)
+                    OR LOWER(customer.additional_email) LIKE LOWER(:search)
+                    OR LOWER(customer.additional_phone) LIKE LOWER(:search)
+                    OR LOWER(customer.fiscal_rfc) LIKE LOWER(:search)
+                    OR LOWER(customer.fiscal_razon_social) LIKE LOWER(:search)
+                    OR LOWER(property.code) LIKE LOWER(:search)
+                    OR LOWER(property.name) LIKE LOWER(:search)
+                    OR LOWER(contracts.contract_number) LIKE LOWER(:search)
+                )`,
+                { search: term },
             );
         }
 

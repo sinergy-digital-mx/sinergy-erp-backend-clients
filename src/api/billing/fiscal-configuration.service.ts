@@ -16,11 +16,16 @@ export class FiscalConfigurationService {
     private readonly s3Service: S3Service,
   ) {}
 
-  async create(dto: CreateFiscalConfigurationDto, tenantId: string): Promise<FiscalConfiguration> {
+  async create(
+    dto: CreateFiscalConfigurationDto,
+    tenantId: string,
+    userId?: string,
+  ): Promise<FiscalConfiguration> {
     const config = this.repo.create({
       ...dto,
       tenant_id: tenantId,
       status: dto.status || 'active',
+      created_by: userId ?? null,
     });
     const saved = await this.repo.save(config);
     return Array.isArray(saved) ? saved[0] : saved;

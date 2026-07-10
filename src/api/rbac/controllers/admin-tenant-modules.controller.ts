@@ -83,7 +83,7 @@ export class AdminTenantModulesController {
     }
 
     const allModules = await this.moduleRepository.find({
-      order: { name: 'ASC' },
+      order: { category: 'ASC', sort_order: 'ASC', name: 'ASC' },
     });
 
     const tenantModules = await this.tenantModuleRepository.find({
@@ -105,6 +105,8 @@ export class AdminTenantModulesController {
         name: m.name,
         code: m.code,
         description: m.description,
+        category: m.category,
+        sort_order: m.sort_order,
         isEnabled: tenantModuleMap.get(m.id) || false,
       })),
     };

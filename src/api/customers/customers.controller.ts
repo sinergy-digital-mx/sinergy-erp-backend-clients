@@ -10,12 +10,15 @@ import {
     UseGuards,
     Delete,
     Query,
+    Res,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { QueryCustomersDto } from './dto/query-customers.dto';
+import { QueryCustomersExportDto } from './dto/query-customers-export.dto';
+import { CustomersExportService } from './services/customers-export.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionGuard } from '../rbac/guards/permission.guard';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator';
@@ -25,7 +28,10 @@ import { RequirePermissions } from '../rbac/decorators/require-permissions.decor
 @ApiTags('Customers')
 @ApiBearerAuth()
 export class CustomersController {
-    constructor(private readonly customersService: CustomersService) { }
+    constructor(
+        private readonly customersService: CustomersService,
+        private readonly exportService: CustomersExportService,
+    ) { }
 
     @Post()
     @RequirePermissions({ entityType: 'customers', action: 'Create' })
@@ -61,12 +67,33 @@ export class CustomersController {
         return this.customersService.findAllStatuses();
     }
 
+    @Get('export/excel')
+    @RequirePermissions({ entityType: 'customers', action: 'Read' })
+    @ApiOperation({ summary: 'Descargar Excel de clientes' })
+    @ApiResponse({ status: 200, description: 'Archivo Excel generado' })
+    async exportExcel(
+        @Query() query: QueryCustomersExportDto,
+        @Req() req,
+        @Res() res,
+    ) {
+        const buffer = await this.exportService.exportCustomers(req.user.tenantId, query);
+        res.setHeader(
+            'Content-Type',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        );
+        res.setHeader(
+            'Content-Disposition',
+            `attachment; filename="${this.exportService.getFilename()}"`,
+        );
+        res.send(buffer);
+    }
+
     @Get()
     @RequirePermissions({ entityType: 'customers', action: 'Read' })
     @ApiOperation({ summary: 'Get paginated customers with search and filters' })
     @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (1-based)', example: 1 })
     @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (max 100)', example: 20 })
-    @ApiQuery({ name: 'search', required: false, type: String, description: 'Search term for name, email, phone, or company' })
+    @ApiQuery({ name: 'search', required: false, type: String, description: 'Search by name, email, phone, company, RFC, fiscal name, etc.' })
     @ApiQuery({ name: 'status_id', required: false, type: Number, description: 'Filter by status ID' })
     @ApiQuery({ name: 'group_id', required: false, type: String, description: 'Filter by customer group ID' })
     @ApiResponse({ status: 200, description: 'List of customers retrieved successfully' })

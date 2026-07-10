@@ -101,6 +101,15 @@ export class CreateSalesOrderDto {
   @IsString()
   notes?: string;
 
+  @ApiProperty({
+    required: false,
+    description:
+      'Descuento global seleccionado en POS/venta (ej. Descuento de carpintero). Se aplica sobre el subtotal neto después de descuentos por línea.',
+  })
+  @IsOptional()
+  @IsUUID()
+  global_discount_id?: string;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateSalesOrderLineItemDto)

@@ -28,13 +28,19 @@ import { SalesOrderPdfService } from './sales-order-pdf.service';
 import { SalesOrderDocumentsService } from './sales-order-documents.service';
 import { PosShiftsService } from '../../pos-shifts/pos-shifts.service';
 import { ProductDiscountService } from '../../products/product-discount.service';
+import { GlobalDiscountService } from '../../global-discounts/global-discount.service';
 import {
   assertProductDiscountApplicable,
   calculateProductDiscountLineAmounts,
 } from '../../products/utils/product-discount.util';
 import {
-  mapAppliedDiscountsFromOrder,
+  assertGlobalDiscountApplicable,
+  calculateGlobalDiscountAmount,
+} from '../../global-discounts/utils/global-discount.util';
+import {
+  mapAppliedLineDiscountsFromOrder,
   mapLineItemWithDiscount,
+  mapOrderDiscountSummary,
 } from '../mappers/sales-order-discount.mapper';
 import { PosUserType } from '../../../entities/users/pos-user-type.enum';
 import { DocumentLanguage } from '../../../common/enums/document-language.enum';
@@ -64,6 +70,7 @@ export class SalesOrderService {
     @Inject(forwardRef(() => PosShiftsService))
     private readonly posShiftsService: PosShiftsService,
     private readonly productDiscountService: ProductDiscountService,
+    private readonly globalDiscountService: GlobalDiscountService,
     private readonly pdfService: SalesOrderPdfService,
     private readonly documentsService: SalesOrderDocumentsService,
     private readonly s3Service: S3Service,
@@ -101,6 +108,7 @@ export class SalesOrderService {
       .leftJoinAndSelect('line_items.product', 'product')
       .leftJoinAndSelect('line_items.product_uom', 'product_uom')
       .leftJoinAndSelect('product_uom.uom', 'uom')
+      .leftJoinAndSelect('so.global_discount', 'global_discount')
       .getOne();
   }
 
@@ -210,6 +218,42 @@ export class SalesOrderService {
     };
   }
 
+  private async resolveGlobalDiscountAmounts(
+    tenantId: string,
+    globalDiscountId: string | undefined,
+    netSubtotal: number,
+  ): Promise<{ global_discount_id: string | null; global_discount_amount: number }> {
+    if (!globalDiscountId) {
+      return { global_discount_id: null, global_discount_amount: 0 };
+    }
+
+    const discount = await this.globalDiscountService.findByIdForOrder(globalDiscountId, tenantId);
+    assertGlobalDiscountApplicable(discount);
+
+    return {
+      global_discount_id: discount.id,
+      global_discount_amount: calculateGlobalDiscountAmount(netSubtotal, discount),
+    };
+  }
+
+  private computeOrderTotal(
+    subtotal: number,
+    lineDiscountTotal: number,
+    globalDiscountAmount: number,
+    ivaTotal: number,
+    iepsTotal: number,
+  ): number {
+    return Number(
+      (
+        subtotal -
+        lineDiscountTotal -
+        globalDiscountAmount +
+        ivaTotal +
+        iepsTotal
+      ).toFixed(2),
+    );
+  }
+
   async create(dto: CreateSalesOrderDto, tenantId: string, userId: string): Promise<SalesOrder> {
     const isPosSale = dto.sales_order_type === 'POS';
     let posDailyShiftId: string | null = null;
@@ -229,6 +273,12 @@ export class SalesOrderService {
       if (!dto.seller_user_id) {
         throw new BadRequestException('Las ventas POS requieren seller_user_id');
       }
+
+      await this.posShiftsService.assertPosWarehouseForTerminal(
+        tenantId,
+        userId,
+        dto.warehouse_id,
+      );
 
       const { shift, terminalUser, queued } =
         await this.posShiftsService.resolvePosSaleContext(
@@ -346,9 +396,24 @@ export class SalesOrderService {
 
       savedSO.subtotal = subtotal;
       savedSO.discount_total = discount_total;
+
+      const globalDiscountAmounts = await this.resolveGlobalDiscountAmounts(
+        tenantId,
+        dto.global_discount_id,
+        subtotal - discount_total,
+      );
+      savedSO.global_discount_id = globalDiscountAmounts.global_discount_id;
+      savedSO.global_discount_amount = globalDiscountAmounts.global_discount_amount;
+
       savedSO.iva_total = iva_total;
       savedSO.ieps_total = ieps_total;
-      savedSO.total = subtotal - discount_total + iva_total + ieps_total;
+      savedSO.total = this.computeOrderTotal(
+        subtotal,
+        discount_total,
+        globalDiscountAmounts.global_discount_amount,
+        iva_total,
+        ieps_total,
+      );
       await qr.manager.save(SalesOrder, savedSO);
 
       if ((dto.sales_order_type || 'MANUAL') === 'POS') {
@@ -419,6 +484,7 @@ export class SalesOrderService {
         'seller_user', 'terminal_user', 'collected_by_user',
         'line_items', 'line_items.product', 'line_items.product_uom', 'line_items.product_uom.uom',
         'line_items.product_discount',
+        'global_discount',
         'line_items.base_uom',
         'line_items.batch_allocations', 'line_items.batch_allocations.inventory_batch',
       ],
@@ -444,7 +510,8 @@ export class SalesOrderService {
     }
 
     const customerSummary = mapPosCustomer(so.customer);
-    const appliedDiscounts = mapAppliedDiscountsFromOrder(so);
+    const appliedLineDiscounts = mapAppliedLineDiscountsFromOrder(so);
+    const discountSummary = mapOrderDiscountSummary(so);
     const paymentData = await this.getPaymentsForOrder(so);
     const header = {
       ...so,
@@ -456,11 +523,10 @@ export class SalesOrderService {
       pos_collection: posCollection ? mapPosSaleCollection(posCollection) : null,
       payments: paymentData.payments,
       payments_summary: paymentData.summary,
-      applied_discounts: appliedDiscounts,
-      discount_summary: {
-        discount_total: Number(so.discount_total) || 0,
-        items: appliedDiscounts,
-      },
+      applied_line_discounts: appliedLineDiscounts,
+      applied_global_discount: discountSummary.global_discount,
+      applied_discounts: appliedLineDiscounts,
+      discount_summary: discountSummary,
     };
 
     return {
@@ -472,7 +538,10 @@ export class SalesOrderService {
       pos_collection: header.pos_collection,
       payments: paymentData.payments,
       payments_summary: paymentData.summary,
-      applied_discounts: appliedDiscounts,
+      applied_line_discounts: appliedLineDiscounts,
+      applied_global_discount: discountSummary.global_discount,
+      applied_discounts: appliedLineDiscounts,
+      discount_summary: discountSummary,
     };
   }
 
@@ -1068,9 +1137,27 @@ export class SalesOrderService {
     }
     so.subtotal = subtotal;
     so.discount_total = discount_total;
+
+    const netSubtotal = subtotal - discount_total;
+    if (so.global_discount_id) {
+      const discount = await this.globalDiscountService.findByIdForOrder(
+        so.global_discount_id,
+        tenantId,
+      );
+      so.global_discount_amount = calculateGlobalDiscountAmount(netSubtotal, discount);
+    } else {
+      so.global_discount_amount = 0;
+    }
+
     so.iva_total = iva_total;
     so.ieps_total = ieps_total;
-    so.total = subtotal - discount_total + iva_total + ieps_total;
+    so.total = this.computeOrderTotal(
+      subtotal,
+      discount_total,
+      Number(so.global_discount_amount) || 0,
+      iva_total,
+      ieps_total,
+    );
     so.updated_by = userId;
     await qr.manager.save(SalesOrder, so);
   }

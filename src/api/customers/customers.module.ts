@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CustomersController } from './customers.controller';
 import { CustomersService } from './customers.service';
+import { CustomersExportService } from './services/customers-export.service';
 import { CustomerGroupsController } from './customer-groups.controller';
 import { CustomerGroupsService } from './customer-groups.service';
 import { CustomerActivitiesController } from './customer-activities.controller';
@@ -34,6 +35,7 @@ import { RBACModule } from '../rbac/rbac.module';
     ],
     providers: [
         CustomersService,
+        CustomersExportService,
         CustomerGroupsService,
         CustomerActivitiesService,
         CustomerDocumentsService,

@@ -11,6 +11,9 @@ import { SalesOrderService } from '../services/sales-order.service';
 import { SalesOrderDocumentsService } from '../services/sales-order-documents.service';
 import { SalesOrderPosReceiptService } from '../services/sales-order-pos-receipt.service';
 import { SalesOrderExportService } from '../services/sales-order-export.service';
+import { SalesOrderInvoicingService } from '../services/sales-order-invoicing.service';
+import { CancelElectronicInvoiceDto } from '../../electronic-invoicing/dto/cancel-electronic-invoice.dto';
+import { StampSalesOrderInvoiceDto } from '../dto/stamp-sales-order-invoice.dto';
 import { InventoryService } from '../../inventory/inventory.service';
 import {
   CreateSalesOrderDto,
@@ -35,6 +38,7 @@ export class SalesOrderController {
     private readonly posReceiptService: SalesOrderPosReceiptService,
     private readonly inventoryService: InventoryService,
     private readonly exportService: SalesOrderExportService,
+    private readonly invoicingService: SalesOrderInvoicingService,
   ) {}
 
   @Post()
@@ -197,6 +201,79 @@ export class SalesOrderController {
       paymentId,
       documentId,
       req.user.tenant_id,
+    );
+  }
+
+  @Get(':id/invoices')
+  @ApiOperation({ summary: 'Listar facturas electrónicas de la orden de venta' })
+  async getInvoices(@Param('id') id: string, @Req() req: any) {
+    return this.invoicingService.listInvoices(id, req.user.tenant_id);
+  }
+
+  @Post(':id/invoices/stamp')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Timbrar factura de la orden de venta',
+    description:
+      'Timbrado vía Finkok Sign_Stamp. Requiere XML CFDI 4.0 en el body hasta implementar generador automático.',
+  })
+  async stampInvoice(
+    @Param('id') id: string,
+    @Body() dto: StampSalesOrderInvoiceDto,
+    @Req() req: any,
+  ) {
+    return this.invoicingService.stampInvoice(id, req.user.tenant_id, req.user.id, dto);
+  }
+
+  @Post(':id/invoices/:invoiceId/cancel')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Cancelar factura electrónica de la orden' })
+  async cancelInvoice(
+    @Param('id') id: string,
+    @Param('invoiceId') invoiceId: string,
+    @Body() dto: CancelElectronicInvoiceDto,
+    @Req() req: any,
+  ) {
+    return this.invoicingService.cancelInvoice(
+      id,
+      invoiceId,
+      req.user.tenant_id,
+      req.user.id,
+      dto,
+    );
+  }
+
+  @Post(':id/invoices/:invoiceId/sync-sat')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Sincronizar estatus SAT de una factura de la orden' })
+  async syncInvoiceSat(
+    @Param('id') id: string,
+    @Param('invoiceId') invoiceId: string,
+    @Req() req: any,
+  ) {
+    return this.invoicingService.syncInvoiceSat(
+      id,
+      invoiceId,
+      req.user.tenant_id,
+      req.user.id,
+    );
+  }
+
+  @Get(':id/invoices/:invoiceId/pdf')
+  @ApiOperation({ summary: 'Obtener URL firmada del PDF CFDI de la factura' })
+  async getInvoicePdf(
+    @Param('id') id: string,
+    @Param('invoiceId') invoiceId: string,
+    @Query('regenerate') regenerate: string | undefined,
+    @Query('preview') preview: string | undefined,
+    @Req() req: any,
+  ) {
+    return this.invoicingService.getInvoicePdf(
+      id,
+      invoiceId,
+      req.user.tenant_id,
+      regenerate === 'true' || regenerate === '1',
+      preview === 'true' || preview === '1',
     );
   }
 

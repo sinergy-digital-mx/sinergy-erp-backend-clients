@@ -15,6 +15,7 @@ import { RBACModule } from '../rbac/rbac.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { PosShiftsModule } from '../pos-shifts/pos-shifts.module';
 import { ProductsModule } from '../products/products.module';
+import { GlobalDiscountsModule } from '../global-discounts/global-discounts.module';
 import { S3Service } from '../../common/services/s3.service';
 import { SalesOrderController } from './controllers/sales-order.controller';
 import { SalesOrderService } from './services/sales-order.service';
@@ -27,6 +28,9 @@ import { SalesOrderExportService } from './services/sales-order-export.service';
 import { PosSaleCollection } from '../../entities/pos/pos-sale-collection.entity';
 import { BillingBranch } from '../../entities/billing/billing-branch.entity';
 import { User } from '../../entities/users/user.entity';
+import { Customer } from '../../entities/customers/customer.entity';
+import { ElectronicInvoicingModule } from '../electronic-invoicing/electronic-invoicing.module';
+import { SalesOrderInvoicingService } from './services/sales-order-invoicing.service';
 
 @Module({
   imports: [
@@ -42,11 +46,14 @@ import { User } from '../../entities/users/user.entity';
       PosSaleCollection,
       BillingBranch,
       User,
+      Customer,
     ]),
     AuthModule,
     RBACModule,
     InventoryModule,
     ProductsModule,
+    GlobalDiscountsModule,
+    ElectronicInvoicingModule,
     forwardRef(() => PosShiftsModule),
   ],
   controllers: [SalesOrderController],
@@ -58,6 +65,7 @@ import { User } from '../../entities/users/user.entity';
     SalesOrderDocumentsService,
     SalesOrderPosReceiptService,
     SalesOrderExportService,
+    SalesOrderInvoicingService,
     S3Service,
   ],
   exports: [SalesOrderService, SalesOrderPosReceiptService],

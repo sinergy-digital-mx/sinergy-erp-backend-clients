@@ -16,6 +16,7 @@ import { Customer } from '../customers/customer.entity';
 import { User } from '../users/user.entity';
 import { PosDailyShift } from '../pos/pos-daily-shift.entity';
 import { SalesOrderDetail } from './sales-order-detail.entity';
+import { GlobalDiscount } from '../global-discounts/global-discount.entity';
 
 @Entity('inv_s_sales_orders')
 @Index('idx_so_tenant', ['tenant_id'])
@@ -100,6 +101,16 @@ export class SalesOrder {
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   discount_total: number;
+
+  @ManyToOne(() => GlobalDiscount, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'global_discount_id' })
+  global_discount: GlobalDiscount | null;
+
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  global_discount_id: string | null;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  global_discount_amount: number;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   total: number;

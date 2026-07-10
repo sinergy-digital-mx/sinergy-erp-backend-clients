@@ -1,4 +1,4 @@
-import { Controller, UseGuards, Get, Query, Param, Req } from '@nestjs/common';
+import { Controller, UseGuards, Get, Query, Param, Req, Res } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { InventoryService } from './inventory.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -11,13 +11,61 @@ import { BatchDetailResponseDto } from './dto/batch-detail-response.dto';
 import { InventorySummaryFilterDto } from './dto/inventory-summary-filter.dto';
 import { InventorySummaryResponseDto } from './dto/inventory-summary-response.dto';
 import { PosSessionInventorySummaryResponseDto } from './dto/pos-session-inventory-summary-response.dto';
+import { InventoryExportService } from './services/inventory-export.service';
+import {
+  QueryInventoryBatchExportDto,
+  QueryInventorySummaryExportDto,
+} from './dto/query-inventory-export.dto';
 
 @Controller('tenant/inventory')
 @ApiTags('Inventory')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, PermissionGuard)
 export class InventoryController {
-  constructor(private readonly inventoryService: InventoryService) {}
+  constructor(
+    private readonly inventoryService: InventoryService,
+    private readonly exportService: InventoryExportService,
+  ) {}
+
+  @Get('export/excel/batches')
+  @RequirePermissions({ entityType: 'inventory', action: 'read' })
+  @ApiOperation({ summary: 'Descargar Excel de lotes de inventario' })
+  async exportBatchesExcel(
+    @Query() filters: QueryInventoryBatchExportDto,
+    @Req() req: any,
+    @Res() res: any,
+  ) {
+    const buffer = await this.exportService.exportBatches(req.user.tenant_id, filters);
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${this.exportService.getBatchesFilename()}"`,
+    );
+    res.send(buffer);
+  }
+
+  @Get('export/excel/summary')
+  @RequirePermissions({ entityType: 'inventory', action: 'read' })
+  @ApiOperation({ summary: 'Descargar Excel de inventario totalizado por producto y almacén' })
+  async exportSummaryExcel(
+    @Query() filters: QueryInventorySummaryExportDto,
+    @Req() req: any,
+    @Res() res: any,
+  ) {
+    const buffer = await this.exportService.exportSummary(req.user.tenant_id, filters);
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${this.exportService.getSummaryFilename()}"`,
+    );
+    res.send(buffer);
+  }
 
   @Get('batches')
   @RequirePermissions({ entityType: 'inventory', action: 'read' })

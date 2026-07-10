@@ -9,3 +9,4 @@ export {
 } from './query-sales-order-export.dto';
 export { CreateSalesOrderPaymentDto } from './create-sales-order-payment.dto';
 export { UpdateSalesOrderSellerDto } from './update-sales-order-seller.dto';
+export { StampSalesOrderInvoiceDto } from './stamp-sales-order-invoice.dto';

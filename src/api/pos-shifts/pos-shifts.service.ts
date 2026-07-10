@@ -21,6 +21,7 @@ import { User } from '../../entities/users/user.entity';
 import { PosUserType } from '../../entities/users/pos-user-type.enum';
 import { SalesOrder } from '../../entities/sales-orders/sales-order.entity';
 import { Customer } from '../../entities/customers/customer.entity';
+import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { OpenDailyShiftDto } from './dto/open-daily-shift.dto';
 import { CreatePartialShiftDto } from './dto/create-partial-shift.dto';
 import { QueryDailyShiftDto } from './dto/query-daily-shift.dto';
@@ -55,6 +56,8 @@ export class PosShiftsService {
     private readonly salesOrderRepo: Repository<SalesOrder>,
     @InjectRepository(Customer)
     private readonly customerRepo: Repository<Customer>,
+    @InjectRepository(Warehouse)
+    private readonly warehouseRepo: Repository<Warehouse>,
     @InjectRepository(PosSaleCollection)
     private readonly collectionRepo: Repository<PosSaleCollection>,
     @Inject(forwardRef(() => SalesOrderPosReceiptService))
@@ -95,30 +98,10 @@ export class PosShiftsService {
   async getCurrentDailyShift(tenantId: string, terminalUserId: string) {
     const terminalUser = await this.requirePosTerminal(tenantId, terminalUserId);
 
-    if (terminalUser.pos_user_type === PosUserType.COBRANZA) {
-      const shiftDate = this.getTodayDateString();
-      return this.dailyShiftRepo.findOne({
-        where: {
-          tenant_id: tenantId,
-          terminal_user_id: terminalUserId,
-          shift_date: shiftDate,
-          status: PosDailyShiftStatus.OPEN,
-        },
-        relations: [
-          'terminal_user',
-          'billing_branch',
-          'billing_branch.fiscal_configuration',
-          'partial_shifts',
-          'partial_shifts.denominations',
-          'partial_shifts.performed_by_user',
-        ],
-        order: {
-          partial_shifts: { partial_number: 'ASC' },
-        },
-      });
-    }
-
-    return this.getBranchOpenDailyShift(tenantId, terminalUser.billing_branch_id!);
+    return this.getBranchOpenDailyShift(
+      tenantId,
+      terminalUser.billing_branch_id!,
+    );
   }
 
   async resolveOpenDailyShiftId(tenantId: string, terminalUserId: string) {
@@ -138,8 +121,6 @@ export class PosShiftsService {
   }
 
   async getBranchOpenDailyShift(tenantId: string, billingBranchId: string) {
-    const shiftDate = this.getTodayDateString();
-
     return this.dailyShiftRepo
       .createQueryBuilder('shift')
       .innerJoinAndSelect('shift.terminal_user', 'terminal_user')
@@ -150,13 +131,23 @@ export class PosShiftsService {
       .leftJoinAndSelect('partial_shifts.performed_by_user', 'performed_by_user')
       .where('shift.tenant_id = :tenantId', { tenantId })
       .andWhere('shift.billing_branch_id = :billingBranchId', { billingBranchId })
-      .andWhere('shift.shift_date = :shiftDate', { shiftDate })
       .andWhere('shift.status = :status', { status: PosDailyShiftStatus.OPEN })
       .andWhere('terminal_user.pos_user_type = :posType', {
         posType: PosUserType.COBRANZA,
       })
       .orderBy('partial_shifts.partial_number', 'ASC')
       .getOne();
+  }
+
+  private buildOpenShiftConflictMessage(
+    openShift: PosDailyShift,
+    requestedShiftDate: string,
+  ) {
+    if (openShift.shift_date !== requestedShiftDate) {
+      return `Hay un corte abierto del ${openShift.shift_date} sin cerrar. Ciérralo antes de abrir otro.`;
+    }
+
+    return 'Ya existe un corte global abierto en la sucursal. Ciérralo antes de abrir otro.';
   }
 
   async openDailyShift(
@@ -166,26 +157,23 @@ export class PosShiftsService {
   ) {
     const terminalUser = await this.requireCobranzaTerminal(tenantId, terminalUserId);
     const shiftDate = this.getTodayDateString();
+    const billingBranchId = terminalUser.billing_branch_id!;
 
-    const existing = await this.dailyShiftRepo.findOne({
-      where: {
-        tenant_id: tenantId,
-        billing_branch_id: terminalUser.billing_branch_id!,
-        shift_date: shiftDate,
-      },
-    });
+    const openShift = await this.getBranchOpenDailyShift(
+      tenantId,
+      billingBranchId,
+    );
 
-    if (existing) {
-      if (existing.status === PosDailyShiftStatus.OPEN) {
-        throw new BadRequestException('Ya existe un corte global abierto para hoy');
-      }
-      throw new BadRequestException('Ya existe un corte global para hoy y está cerrado');
+    if (openShift) {
+      throw new BadRequestException(
+        this.buildOpenShiftConflictMessage(openShift, shiftDate),
+      );
     }
 
     const shift = this.dailyShiftRepo.create({
       tenant_id: tenantId,
       terminal_user_id: terminalUserId,
-      billing_branch_id: terminalUser.billing_branch_id!,
+      billing_branch_id: billingBranchId,
       shift_date: shiftDate,
       opening_cash_mxn: dto.opening_cash_mxn,
       opening_cash_usd: dto.opening_cash_usd ?? 0,
@@ -391,6 +379,32 @@ export class PosShiftsService {
     return { shift, terminalUser, queued: false };
   }
 
+  async assertPosWarehouseForTerminal(
+    tenantId: string,
+    terminalUserId: string,
+    warehouseId: string,
+  ): Promise<void> {
+    const terminalUser = await this.requirePosTerminal(tenantId, terminalUserId);
+
+    if (!terminalUser.billing_branch_id) {
+      throw new BadRequestException('El usuario POS no tiene una sucursal asignada');
+    }
+
+    const warehouse = await this.warehouseRepo.findOne({
+      where: { id: warehouseId, tenant_id: tenantId },
+    });
+
+    if (!warehouse) {
+      throw new BadRequestException('Almacén no encontrado');
+    }
+
+    if (warehouse.billing_branch_id !== terminalUser.billing_branch_id) {
+      throw new BadRequestException(
+        `El almacén "${warehouse.name}" no pertenece a la sucursal de esta terminal POS`,
+      );
+    }
+  }
+
   /** @deprecated Usar resolvePosSaleContext */
   async assertOpenShiftForSale(
     tenantId: string,
@@ -434,22 +448,30 @@ export class PosShiftsService {
 
   async getPendingSales(tenantId: string, terminalUserId: string) {
     const terminalUser = await this.requireCobranzaTerminal(tenantId, terminalUserId);
+    const branchId = terminalUser.billing_branch_id!;
+    const openShift = await this.getBranchOpenDailyShift(tenantId, branchId);
 
-    const orders = await this.salesOrderRepo
+    const qb = this.salesOrderRepo
       .createQueryBuilder('so')
-      .innerJoin('so.warehouse', 'warehouse')
       .leftJoinAndSelect('so.seller_user', 'seller_user')
       .leftJoinAndSelect('so.terminal_user', 'terminal_user')
       .leftJoinAndSelect('so.customer', 'customer')
       .where('so.tenant_id = :tenantId', { tenantId })
       .andWhere('so.sales_order_type = :type', { type: 'POS' })
       .andWhere('so.general_status = :generalStatus', { generalStatus: 'Surtida' })
-      .andWhere('so.payment_status = :paymentStatus', { paymentStatus: 'Pendiente' })
-      .andWhere('warehouse.billing_branch_id = :branchId', {
-        branchId: terminalUser.billing_branch_id,
-      })
-      .orderBy('so.created_at', 'ASC')
-      .getMany();
+      .andWhere('so.payment_status = :paymentStatus', { paymentStatus: 'Pendiente' });
+
+    if (openShift) {
+      // Misma fuente que sales_summary del corte: órdenes ligadas al corte abierto.
+      qb.andWhere('so.pos_daily_shift_id = :shiftId', { shiftId: openShift.id });
+    } else {
+      qb.innerJoin('so.warehouse', 'warehouse').andWhere(
+        'warehouse.billing_branch_id = :branchId',
+        { branchId },
+      );
+    }
+
+    const orders = await qb.orderBy('so.created_at', 'ASC').getMany();
 
     return Promise.all(
       orders.map(async (order) => {
@@ -582,7 +604,21 @@ export class PosShiftsService {
       );
     }
 
-    if (order.warehouse?.billing_branch_id !== cobranzaUser.billing_branch_id) {
+    const shift = await this.getBranchOpenDailyShift(
+      tenantId,
+      cobranzaUser.billing_branch_id!,
+    );
+    if (!shift) {
+      throw new BadRequestException(
+        'Debe haber un corte global abierto para cobrar ventas',
+      );
+    }
+
+    const belongsToOpenShift = order.pos_daily_shift_id === shift.id;
+    const belongsToBranch =
+      order.warehouse?.billing_branch_id === cobranzaUser.billing_branch_id;
+
+    if (!belongsToOpenShift && !belongsToBranch) {
       throw new BadRequestException(
         'La orden no pertenece a la sucursal de esta terminal de cobranza',
       );
@@ -593,16 +629,6 @@ export class PosShiftsService {
     });
     if (existingCollection) {
       throw new ConflictException('Esta orden ya fue cobrada');
-    }
-
-    const shift = await this.getBranchOpenDailyShift(
-      tenantId,
-      cobranzaUser.billing_branch_id!,
-    );
-    if (!shift) {
-      throw new BadRequestException(
-        'Debe haber un corte global abierto para cobrar ventas',
-      );
     }
 
     const orderTotal = Number(order.total);
@@ -1234,11 +1260,33 @@ export class PosShiftsService {
   }
 
   private mapPartialShift(partial: PosPartialShift) {
+    const denominations = (partial.denominations ?? []).map((denom) => ({
+      id: denom.id,
+      currency: denom.currency,
+      denomination: Number(denom.denomination),
+      bill_count: denom.bill_count,
+      amount: Number(denom.amount),
+    }));
+
+    const removedTotalMxn = Number(partial.removed_total_mxn);
+    const removedTotalUsd = Number(partial.removed_total_usd);
+    const mxnFromDenominations = denominations
+      .filter((denom) => denom.currency === 'MXN')
+      .reduce((sum, denom) => sum + denom.amount, 0);
+    const usdFromDenominations = denominations
+      .filter((denom) => denom.currency === 'USD')
+      .reduce((sum, denom) => sum + denom.amount, 0);
+
+    const totalMxn = removedTotalMxn > 0 ? removedTotalMxn : mxnFromDenominations;
+    const totalUsd = removedTotalUsd > 0 ? removedTotalUsd : usdFromDenominations;
+
     return {
       id: partial.id,
       partial_number: partial.partial_number,
-      removed_total_mxn: Number(partial.removed_total_mxn),
-      removed_total_usd: Number(partial.removed_total_usd),
+      removed_total_mxn: totalMxn,
+      removed_total_usd: totalUsd,
+      total_mxn: totalMxn,
+      total_usd: totalUsd,
       sales_total_mxn: Number(partial.sales_total_mxn),
       sales_count: partial.sales_count,
       notes: partial.notes,
@@ -1246,13 +1294,7 @@ export class PosShiftsService {
       performed_by_user: partial.performed_by_user
         ? this.mapSeller(partial.performed_by_user)
         : null,
-      denominations: (partial.denominations ?? []).map((denom) => ({
-        id: denom.id,
-        currency: denom.currency,
-        denomination: Number(denom.denomination),
-        bill_count: denom.bill_count,
-        amount: Number(denom.amount),
-      })),
+      denominations,
     };
   }
 }

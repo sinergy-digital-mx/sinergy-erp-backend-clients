@@ -16,6 +16,7 @@ import { VendorModule } from './api/vendor/vendor.module';
 import { WarehouseModule } from './api/warehouse/warehouse.module';
 import { CategoriesModule } from './api/categories/categories.module';
 import { BillingModule } from './api/billing/billing.module';
+import { ElectronicInvoicingModule } from './api/electronic-invoicing/electronic-invoicing.module';
 import { PosShiftsModule } from './api/pos-shifts/pos-shifts.module';
 import { UoMCatalogModule } from './api/uom-catalog/uom-catalog.module';
 import { ProductsModule } from './api/products/products.module';
@@ -29,6 +30,7 @@ import { AccountingModule } from './api/accounting/accounting.module';
 import { ExchangeRateModule } from './api/exchange-rate/exchange-rate.module';
 import { DivinoDashboardModule } from './api/divino-dashboard/divino-dashboard.module';
 import { GoalsModule } from './api/goals/goals.module';
+import { GlobalDiscountsModule } from './api/global-discounts/global-discounts.module';
 import { PermissionVersionGuard } from './api/auth/guards/permission-version.guard';
 
 @Module({
@@ -50,6 +52,7 @@ import { PermissionVersionGuard } from './api/auth/guards/permission-version.gua
     WarehouseModule,
     CategoriesModule,
     BillingModule,
+    ElectronicInvoicingModule,
     PosShiftsModule,
     UoMCatalogModule,
     ProductsModule,
@@ -61,6 +64,7 @@ import { PermissionVersionGuard } from './api/auth/guards/permission-version.gua
     ExchangeRateModule,
     DivinoDashboardModule,
     GoalsModule,
+    GlobalDiscountsModule,
   ],
   providers: [],
 })

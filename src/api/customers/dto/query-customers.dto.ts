@@ -32,7 +32,7 @@ export class QueryCustomersDto {
     limit?: number;
 
     @ApiPropertyOptional({
-        description: 'Search term for name, lastname, email, phone, or company_name',
+        description: 'Search term: name, full name, email, phone, company, RFC, fiscal name, contacts, contracts',
         example: 'john'
     })
     @IsOptional()

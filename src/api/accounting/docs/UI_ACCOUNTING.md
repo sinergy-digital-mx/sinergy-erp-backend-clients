@@ -135,6 +135,9 @@ GET /api/tenant/accounting/pos-summary?billing_branch_id={uuid}&period=month
 | Card cobranza — monto | `response.collection_terminal.amount_collected` |
 | Card cobranza — mostrador | `response.collection_terminal.walk_in_count` |
 | Card cobranza — facturadas | `response.collection_terminal.invoiced_count` |
+| Card cobranza — cortes globales | `response.collection_terminal.daily_shifts_count` |
+| Card cobranza — cortes parciales | `response.collection_terminal.partial_shifts_count` |
+| Card cobranza — corte abierto | `response.collection_terminal.open_daily_shift` |
 | Filtros aplicados (debug) | `response.filters_applied` |
 
 **Respuesta vacía válida (sin error):**
@@ -448,21 +451,29 @@ GET /api/tenant/accounting/pos-summary
     "orders_collected": 15,
     "amount_collected": 89400.00,
     "walk_in_count": 9,
-    "invoiced_count": 6
+    "invoiced_count": 6,
+    "daily_shifts_count": 3,
+    "partial_shifts_count": 5,
+    "open_daily_shift": {
+      "id": "uuid",
+      "shift_date": "2026-07-10",
+      "status": "open",
+      "partial_shifts_count": 1
+    }
   }
 }
 ```
 
 ### UI — Sección A: Terminales de venta
 
-Tabla o cards, una fila por terminal VENTAS:
+Tabla o cards, **solo terminales VENTAS** (cobranza va en la card azul `collection_terminal`):
 
-| Columna | Campo |
-|---------|-------|
-| Terminal | `terminal_name` |
-| # Ventas | `sales_count` |
-| Monto vendido | `amount_sold` (MXN, formato moneda) |
-| Acción | Ver detalle → |
+| Columna | Campo | Notas |
+|---------|-------|-------|
+| Terminal | `terminal_name` | |
+| # Ventas | `sales_count` | Órdenes POS creadas en el periodo |
+| Monto vendido | `amount_sold` | MXN, formato moneda |
+| Acción | Ver detalle → | `GET .../pos-terminals/{terminal_user_id}/sales` |
 
 **Click en fila / botón "Ver detalle":**
 
@@ -497,16 +508,21 @@ Card resumen debajo o al lado de las terminales de venta:
 |---------|-------|-------------|-------|
 | Órdenes cobradas | `orders_collected` | Cobros registrados en el periodo | Abrir modal con `customer_type=all` |
 | Total cobrado | `amount_collected` | Suma MXN de `pos_sale_collections` | (opcional) mismo modal `all` |
-| Público en General | `walk_in_count` | Cliente mostrador al cobrar | Abrir modal con `customer_type=walk_in` |
-| Facturadas | `invoiced_count` | Cliente distinto de mostrador | Abrir modal con `customer_type=invoiced` |
+| Público en General | `walk_in_count` | Cobro a mostrador **sin** CFDI timbrado | Abrir modal con `customer_type=walk_in` |
+| Facturadas | `invoiced_count` | Orden con CFDI timbrado (`stamp_status` stamped / cancel_pending / cancelled) | Abrir modal con `customer_type=invoiced` |
+| Cortes globales | `daily_shifts_count` | Cortes del día abiertos/cerrados en el periodo | (opcional) link a historial POS |
+| Cortes parciales | `partial_shifts_count` | Retiros parciales en el periodo | (opcional) link a historial POS |
+| Corte abierto | `open_daily_shift` | Corte global actual de la sucursal | Chip si `status === 'open'` |
 
 **Definición "facturada" vs "Público en General":**
 
 | Tipo | Regla backend | `customer_type` |
 |------|---------------|-----------------|
 | Todas | Sin filtro de cliente | `all` |
-| Público en General | `fiscal_razon_social = 'VENTA DE MOSTRADOR'` **o** `name = 'Público en General'` | `walk_in` |
-| Facturada | Cualquier otro cliente | `invoiced` |
+| Público en General | Cliente mostrador **y** la orden **no** tiene CFDI timbrado | `walk_in` |
+| Facturada | La orden tiene al menos un CFDI con `stamp_status` en `stamped`, `cancel_pending` o `cancelled` | `invoiced` |
+
+> **Importante:** ya no basta con que el cliente sea distinto de “Público en General”. **Facturada** = timbrado real en `electronic_invoices`.
 
 > **Nota:** este conteo usa fecha de **cobro**, no de venta. Puede ser mayor que `# VENTAS` de una terminal (órdenes vendidas antes y cobradas en el periodo, u otras terminales).
 
@@ -543,6 +559,7 @@ GET /api/tenant/accounting/pos-collections
 | Cliente empresa | `data[i].customer_company_name` |
 | Cliente persona | `data[i].customer_person_name` |
 | Es mostrador | `data[i].is_walk_in` |
+| CFDI timbrado | `data[i].has_stamped_invoice` |
 | Vendedor | `data[i].seller_user` |
 | Cajero | `data[i].collected_by_user` |
 | Método pago | `data[i].payment_method` |

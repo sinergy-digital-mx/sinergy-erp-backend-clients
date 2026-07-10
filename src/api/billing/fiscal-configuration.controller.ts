@@ -25,6 +25,9 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { FiscalConfigurationService } from './fiscal-configuration.service';
+import { FiscalConfigurationFinkokService } from '../electronic-invoicing/services/fiscal-configuration-finkok.service';
+import { RegisterFiscalConfigurationFinkokDto } from '../electronic-invoicing/dto/register-fiscal-configuration-finkok.dto';
+import type { FinkokEnvironment } from '../../entities/electronic-invoicing/finkok-provider-configuration.entity';
 import { CreateFiscalConfigurationDto } from './dto/create-fiscal-configuration.dto';
 import { UpdateFiscalConfigurationDto } from './dto/update-fiscal-configuration.dto';
 import { QueryFiscalConfigurationDto } from './dto/query-fiscal-configuration.dto';
@@ -38,10 +41,13 @@ import { RequirePermissions } from '../rbac/decorators/require-permissions.decor
 @ApiTags('Fiscal Configurations')
 @ApiBearerAuth()
 export class FiscalConfigurationController {
-  constructor(private readonly service: FiscalConfigurationService) {}
+  constructor(
+    private readonly service: FiscalConfigurationService,
+    private readonly finkokService: FiscalConfigurationFinkokService,
+  ) {}
 
   @Post()
-  @RequirePermissions({ entityType: 'fiscal_configurations', action: 'Create' })
+  @RequirePermissions({ entityType: 'FiscalConfiguration', action: 'Create' })
   @ApiOperation({ summary: 'Create a new fiscal configuration' })
   @ApiBody({ type: CreateFiscalConfigurationDto })
   @ApiResponse({ status: 201, description: 'Fiscal configuration created successfully' })
@@ -49,11 +55,11 @@ export class FiscalConfigurationController {
   @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing token' })
   @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
   create(@Body() dto: CreateFiscalConfigurationDto, @Req() req) {
-    return this.service.create(dto, req.user.tenantId);
+    return this.service.create(dto, req.user.tenantId, req.user.id);
   }
 
   @Get()
-  @RequirePermissions({ entityType: 'fiscal_configurations', action: 'Read' })
+  @RequirePermissions({ entityType: 'FiscalConfiguration', action: 'Read' })
   @ApiOperation({ summary: 'Get paginated fiscal configurations with search and filters' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
@@ -66,8 +72,34 @@ export class FiscalConfigurationController {
     return this.service.findAll(req.user.tenantId, query);
   }
 
+  @Get(':id/finkok-status')
+  @RequirePermissions({ entityType: 'FiscalConfiguration', action: 'Read' })
+  @ApiOperation({
+    summary: 'Consultar si el RFC de la razón emisora existe en Finkok',
+  })
+  @ApiQuery({ name: 'environment', required: false, enum: ['demo', 'production'] })
+  getFinkokStatus(
+    @Param('id') id: string,
+    @Query('environment') environment: FinkokEnvironment | undefined,
+    @Req() req: { user: { tenantId: string } },
+  ) {
+    return this.finkokService.getFinkokStatus(id, req.user.tenantId, environment);
+  }
+
+  @Post(':id/register-finkok')
+  @HttpCode(200)
+  @RequirePermissions({ entityType: 'FiscalConfiguration', action: 'Update' })
+  @ApiOperation({ summary: 'Vincular o registrar razón emisora en Finkok' })
+  registerFinkok(
+    @Param('id') id: string,
+    @Body() dto: RegisterFiscalConfigurationFinkokDto,
+    @Req() req: { user: { tenantId: string; id: string } },
+  ) {
+    return this.finkokService.registerIssuer(id, req.user.tenantId, req.user.id, dto);
+  }
+
   @Get(':id')
-  @RequirePermissions({ entityType: 'fiscal_configurations', action: 'Read' })
+  @RequirePermissions({ entityType: 'FiscalConfiguration', action: 'Read' })
   @ApiOperation({ summary: 'Get a specific fiscal configuration by ID' })
   @ApiParam({ name: 'id', type: 'string', description: 'Fiscal Configuration ID' })
   @ApiResponse({ status: 200, description: 'Fiscal configuration retrieved successfully' })
@@ -81,7 +113,7 @@ export class FiscalConfigurationController {
 
 
   @Put(':id')
-  @RequirePermissions({ entityType: 'fiscal_configurations', action: 'Update' })
+  @RequirePermissions({ entityType: 'FiscalConfiguration', action: 'Update' })
   @ApiOperation({ summary: 'Update an existing fiscal configuration' })
   @ApiParam({ name: 'id', type: 'string' })
   @ApiBody({ type: UpdateFiscalConfigurationDto })
@@ -96,7 +128,7 @@ export class FiscalConfigurationController {
 
   @Post(':id/logo')
   @UseInterceptors(FileInterceptor('file'))
-  @RequirePermissions({ entityType: 'fiscal_configurations', action: 'Update' })
+  @RequirePermissions({ entityType: 'FiscalConfiguration', action: 'Update' })
   @ApiOperation({ summary: 'Upload logo for a fiscal configuration' })
   @ApiParam({ name: 'id', type: 'string' })
   @ApiResponse({ status: 200, description: 'Logo uploaded successfully' })
@@ -114,7 +146,7 @@ export class FiscalConfigurationController {
 
   @Delete(':id')
   @HttpCode(200)
-  @RequirePermissions({ entityType: 'fiscal_configurations', action: 'Delete' })
+  @RequirePermissions({ entityType: 'FiscalConfiguration', action: 'Delete' })
   @ApiOperation({ summary: 'Delete a fiscal configuration by ID' })
   @ApiParam({ name: 'id', type: 'string' })
   @ApiResponse({ status: 200, description: 'Fiscal configuration deleted successfully' })

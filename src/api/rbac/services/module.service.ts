@@ -7,6 +7,7 @@ import { Permission } from '../../../entities/rbac/permission.entity';
 import { TenantContextService } from './tenant-context.service';
 import { PermissionVersionService } from './permission-version.service';
 import { PermissionCacheService } from './permission-cache.service';
+import { getModuleCategoryLabel } from '../constants/module-categories.constants';
 
 @Injectable()
 export class ModuleService {
@@ -49,7 +50,9 @@ export class ModuleService {
       .leftJoinAndSelect('module.permissions', 'permissions')
       .where('tm.tenant_id = :tenantId', { tenantId })
       .andWhere('tm.is_enabled = :isEnabled', { isEnabled: true })
-      .orderBy('module.name', 'ASC')
+      .orderBy('module.category', 'ASC')
+      .addOrderBy('module.sort_order', 'ASC')
+      .addOrderBy('module.name', 'ASC')
       .addOrderBy('permissions.action', 'ASC')
       .getMany();
 
@@ -59,6 +62,9 @@ export class ModuleService {
         name: tm.module.name,
         code: tm.module.code,
         description: tm.module.description,
+        category: tm.module.category,
+        category_label: getModuleCategoryLabel(tm.module.category),
+        sort_order: tm.module.sort_order,
         is_enabled: tm.is_enabled,
         permissions: tm.module.permissions.map(p => ({
           id: p.id,
@@ -76,7 +82,9 @@ export class ModuleService {
     const modules = await this.moduleRepository
       .createQueryBuilder('m')
       .leftJoinAndSelect('m.permissions', 'permissions')
-      .orderBy('m.name', 'ASC')
+      .orderBy('m.category', 'ASC')
+      .addOrderBy('m.sort_order', 'ASC')
+      .addOrderBy('m.name', 'ASC')
       .addOrderBy('permissions.action', 'ASC')
       .getMany();
 
@@ -86,6 +94,9 @@ export class ModuleService {
         name: m.name,
         code: m.code,
         description: m.description,
+        category: m.category,
+        category_label: getModuleCategoryLabel(m.category),
+        sort_order: m.sort_order,
         permissions: m.permissions.map(p => ({
           id: p.id,
           action: p.action,
@@ -102,6 +113,8 @@ export class ModuleService {
     name: string;
     code: string;
     description?: string;
+    category?: string;
+    sort_order?: number;
   }) {
     // Check if module with same code already exists
     const existingModule = await this.moduleRepository.findOne({

@@ -840,6 +840,7 @@ create table if not exists properties
     location            varchar(255)                                                                                            null,
     total_area          decimal(12, 2)                                                                                          not null,
     total_price         decimal(15, 2)                                                                                          not null,
+    list_price          decimal(15, 2)                                                                                          null,
     currency            varchar(10)                                              default 'MXN'                                  not null,
     status              enum ('disponible', 'vendido', 'reservado', 'cancelado') default 'disponible'                           not null,
     metadata            json                                                                                                    null,
@@ -1289,24 +1290,35 @@ create index FK_users_rbac_tenant_id
 
 create table if not exists vendors
 (
-    id           varchar(36)                                           not null
+    id                  varchar(36)                                                  not null
         primary key,
-    tenant_id    varchar(36)                                           not null,
-    name         varchar(255)                                          not null,
-    company_name varchar(255)                                          not null,
-    street       varchar(255)                                          not null,
-    city         varchar(255)                                          not null,
-    state        varchar(255)                                          not null,
-    zip_code     varchar(255)                                          not null,
-    country      varchar(255)                                          not null,
-    razon_social varchar(255)                                          not null,
-    rfc          varchar(255)                                          not null,
-    persona_type enum ('Persona Física', 'Persona Moral')              not null,
-    status       enum ('active', 'inactive') default 'active'          not null,
-    created_at   timestamp                   default CURRENT_TIMESTAMP not null,
-    updated_at   timestamp                   default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP,
-    credit_days  int                                                   null,
-    credit_limit decimal(15, 2)                                        null,
+    tenant_id           varchar(36)                                                  not null,
+    name                varchar(255)                                                 not null,
+    company_name        varchar(255)                                                 not null,
+    street              varchar(255)                                                 not null,
+    city                varchar(255)                                                 not null,
+    state               varchar(255)                                                 not null,
+    zip_code            varchar(255)                                                 not null,
+    country             varchar(255)                                                 not null,
+    razon_social        varchar(255)                                                 not null,
+    rfc                 varchar(255)                                                 not null,
+    persona_type        enum ('Persona Física', 'Persona Moral')                     not null,
+    status              enum ('active', 'inactive')        default 'active'          not null,
+    created_at          timestamp                          default CURRENT_TIMESTAMP not null,
+    updated_at          timestamp                          default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP,
+    credit_days         int                                                          null,
+    credit_limit        decimal(15, 2)                                               null,
+    vendor_type         enum ('NATIONAL', 'INTERNATIONAL') default 'NATIONAL'        not null,
+    tax_id              varchar(64)                                                  null,
+    legal_name          varchar(255)                                                 null,
+    bank_name           varchar(120)                                                 null,
+    bank_account_holder varchar(255)                                                 null,
+    bank_account_number varchar(34)                                                  null,
+    bank_clabe          varchar(18)                                                  null,
+    bank_swift_bic      varchar(11)                                                  null,
+    bank_iban           varchar(34)                                                  null,
+    bank_currency       varchar(3)                                                   null,
+    vendor_code         varchar(32)                                                  null,
     constraint FK_b362795545b91a886939d70beae
         foreign key (tenant_id) references rbac_tenants (id)
             on delete cascade
@@ -1350,6 +1362,9 @@ create index product_uom_index
 create index vendor_index
     on product_vendor_costs (vendor_id);
 
+create index IDX_vendors_tenant_vendor_code
+    on vendors (tenant_id, vendor_code);
+
 create index rfc_index
     on vendors (rfc);
 
@@ -1358,6 +1373,9 @@ create index status_index
 
 create index tenant_index
     on vendors (tenant_id);
+
+create index vendor_type_index
+    on vendors (vendor_type);
 
 create table if not exists warehouses
 (
@@ -1428,6 +1446,7 @@ create table if not exists customers
     warehouse_id             varchar(36)                         null,
     credit_days              int                                 null,
     credit_amount            decimal(14, 2)                      null,
+    legacy_customer_id       int                                 null,
     constraint FK_9d666fe1125d410ff9d110e2d2e
         foreign key (status_id) references customer_status (id),
     constraint fk_customers_warehouse_id
@@ -1445,7 +1464,9 @@ create table if not exists contracts
     contract_number                 varchar(50) collate utf8mb4_unicode_ci                                             null,
     contract_date                   date                                                                               not null,
     total_price                     decimal(15, 2)                                                                     not null,
+    list_price                      decimal(15, 2)                                                                     null,
     down_payment                    decimal(15, 2)                                                                     not null,
+    down_payment_target             decimal(15, 2)                                                                     null,
     down_payment_financed           tinyint                                                  default 0                 not null,
     down_payment_months             int                                                                                null,
     down_payment_monthly_amount     decimal(15, 2)                                                                     null,
@@ -1464,6 +1485,8 @@ create table if not exists contracts
     payment_due_day                 int                                                                                null,
     interest_rate                   decimal(5, 2)                                                                      null,
     seller_id                       varchar(36)                                                                        null,
+    lead_id                         int                                                                                null,
+    lead_group_id                   varchar(36)                                                                        null,
     constraint FK_2e66f7950711366031e3200413d
         foreign key (customer_id) references customers (id),
     constraint FK_5d074ef9e0a3c47bace58d850b0
@@ -1524,6 +1547,7 @@ create table if not exists contract_hoa_payments
     amount                     decimal(15, 2)                                                                    not null,
     amount_paid                decimal(15, 2)                                       default 0.00                 not null,
     amount_pending             decimal(15, 2)                                                                    not null,
+    currency                   varchar(10)                                          default 'MXN'                not null,
     due_date                   date                                                                              not null,
     paid_date                  date                                                                              null,
     first_partial_payment_date date                                                                              null,
@@ -1650,8 +1674,8 @@ create index tenant_index
 create index FK_3c205d25767606602d2a84bf8eb
     on customers (group_id);
 
-create index FK_customers_rbac_tenant_id
-    on customers (tenant_id);
+create index IDX_customers_tenant_legacy_customer_id
+    on customers (tenant_id, legacy_customer_id);
 
 create index idx_customers_warehouse_id
     on customers (warehouse_id);
@@ -2100,6 +2124,39 @@ BEGIN
 END;
 
 create
+    definer = victor@`%` procedure proc_assert_sales_order_warehouse_picked(IN p_sales_order_id int, OUT p_error_message varchar(500))
+BEGIN
+  DECLARE v_pending INT DEFAULT 0;
+  DECLARE v_is_legacy TINYINT DEFAULT 0;
+
+  SET p_error_message = NULL;
+
+  SELECT
+    CASE
+      WHEN so.source = 'LEGACY_IMPORT'
+        OR (so.order_number LIKE 'LEG-OV-%')
+        OR (so.legacy_transaction_id IS NOT NULL AND so.legacy_transaction_id > 0)
+      THEN 1
+      ELSE 0
+    END
+  INTO v_is_legacy
+  FROM sales_orders so
+  WHERE so.id = p_sales_order_id
+  LIMIT 1;
+
+  IF COALESCE(v_is_legacy, 0) = 0 THEN
+    SELECT COUNT(*) INTO v_pending
+    FROM sales_orders_batches
+    WHERE sales_order_id = p_sales_order_id
+      AND COALESCE(pick_confirmed, 0) = 0;
+
+    IF v_pending > 0 THEN
+      SET p_error_message = 'Corrobore todos los lotes en almacén antes de entregar la OV';
+    END IF;
+  END IF;
+END;
+
+create
     definer = victor@`%` procedure proc_cancel_inv_requisition(IN p_requisition_id int)
 BEGIN
   UPDATE inv_requisition
@@ -2204,6 +2261,284 @@ BEGIN
     total_ordered = IFNULL((SELECT SUM(ordered_quantity) FROM inv_requisition_detail WHERE requisition_id = v_requisition_id), 0)
   WHERE id = v_requisition_id;
 END;
+
+create
+    definer = victor@`%` procedure proc_deliver_sales_order(IN p_order_id int, IN p_lines_json json,
+                                                            IN p_is_full_delivery tinyint,
+                                                            IN p_delivered_by int unsigned,
+                                                            OUT p_error_message varchar(500),
+                                                            OUT p_new_status varchar(50))
+proc_deliver: BEGIN
+  DECLARE v_status VARCHAR(50);
+  DECLARE v_order_number VARCHAR(20);
+  DECLARE v_is_legacy TINYINT DEFAULT 0;
+  DECLARE v_detail_count INT DEFAULT 0;
+  DECLARE v_detail_id INT;
+  DECLARE v_qty_requested DECIMAL(10,2);
+  DECLARE v_qty_delivered DECIMAL(10,2);
+  DECLARE v_conv DECIMAL(10,4);
+  DECLARE v_storage_delivered DECIMAL(10,2);
+  DECLARE v_remaining_consume DECIMAL(10,2);
+  DECLARE v_hold_id INT;
+  DECLARE v_batch_id INT UNSIGNED;
+  DECLARE v_hold_qty DECIMAL(10,2);
+  DECLARE v_take DECIMAL(10,2);
+  DECLARE v_lines_in_json INT DEFAULT 0;
+  DECLARE v_i INT DEFAULT 0;
+  DECLARE v_json_detail_id INT;
+  DECLARE v_json_qty DECIMAL(10,2);
+  DECLARE v_active_holds INT DEFAULT 0;
+  DECLARE v_done INT DEFAULT 0;
+  DECLARE v_blocked_batch VARCHAR(20);
+  DECLARE v_line_in_delivery TINYINT DEFAULT 0;
+
+  DECLARE detail_cursor CURSOR FOR
+    SELECT id, quantity_requested, quantity_delivered, IFNULL(NULLIF(conversion_factor, 0), 1)
+    FROM sales_orders_detail WHERE sales_order_id = p_order_id;
+
+  DECLARE hold_consume_cursor CURSOR FOR
+    SELECT h.id, h.batch_id, h.quantity_held
+    FROM inv_batch_holds h
+    INNER JOIN inv_batches b ON b.id = h.batch_id
+    WHERE h.sales_order_detail_id = v_detail_id AND h.sales_order_id = p_order_id
+      AND h.status = 'ACTIVE' AND h.quantity_held > 0
+    ORDER BY b.created_at ASC, b.expiration_date ASC, b.id ASC;
+
+  DECLARE hold_release_cursor CURSOR FOR
+    SELECT h.id, h.batch_id, h.quantity_held
+    FROM inv_batch_holds h
+    INNER JOIN inv_batches b ON b.id = h.batch_id
+    WHERE h.sales_order_detail_id = v_detail_id AND h.sales_order_id = p_order_id
+      AND h.status = 'ACTIVE' AND h.quantity_held > 0
+    ORDER BY b.created_at DESC, b.id DESC;
+
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_done = 1;
+
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    GET DIAGNOSTICS CONDITION 1 @errno = MYSQL_ERRNO, @msg = MESSAGE_TEXT;
+    SET p_error_message = LEFT(CONCAT('Error en entrega OV: ', IFNULL(@msg, 'SQL')), 500);
+    ROLLBACK;
+  END;
+
+  SET p_error_message = NULL;
+  SET p_new_status = NULL;
+
+  SELECT status, order_number,
+    IF(
+      source = 'LEGACY_IMPORT'
+      OR (order_number COLLATE utf8mb4_unicode_ci) LIKE 'LEG-OV-%'
+      OR legacy_transaction_id IS NOT NULL,
+      1, 0
+    )
+  INTO v_status, v_order_number, v_is_legacy
+  FROM sales_orders WHERE id = p_order_id;
+
+  IF v_order_number IS NULL THEN
+    SET p_error_message = 'Orden de venta no encontrada';
+    LEAVE proc_deliver;
+  END IF;
+
+  IF v_is_legacy = 1 AND NOT EXISTS (
+    SELECT 1 FROM sales_orders_batches WHERE sales_order_id = p_order_id
+  ) THEN
+    SET p_error_message = 'Orden LEG-OV sin lotes: use entrega histórica (sin consumo de inventario). No ejecutar proc_deliver en legacy sin asignación.';
+    LEAVE proc_deliver;
+  END IF;
+
+  IF v_status IN ('Cancelada', 'Entregada') THEN
+    SET p_error_message = CONCAT('No se puede entregar una orden en estado ', v_status);
+    LEAVE proc_deliver;
+  END IF;
+
+  IF v_status NOT IN ('En Camino', 'Lista para envio') THEN
+    SET p_error_message = CONCAT('La entrega solo aplica en En Camino o Lista para envio. Estado: ', v_status);
+    LEAVE proc_deliver;
+  END IF;
+
+  SET v_blocked_batch = NULL;
+  SELECT b.batch_number INTO v_blocked_batch
+  FROM inv_batch_holds h
+  INNER JOIN inv_batches b ON b.id = h.batch_id
+  WHERE h.sales_order_id = p_order_id AND h.status = 'ACTIVE'
+    AND EXISTS (
+      SELECT 1 FROM inv_batches b
+      WHERE b.id = h.batch_id
+        AND (
+          COALESCE(b.is_locked, 0) = 1
+          OR EXISTS (
+            SELECT 1 FROM inv_batch_audits a
+            WHERE a.batch_id = b.id
+              AND a.status IN ('IN_PROGRESS', 'PENDING_APPROVAL')
+          )
+        )
+    )
+  LIMIT 1;
+  SET v_done = 0;
+
+  IF v_blocked_batch IS NOT NULL THEN
+    SET p_error_message = CONCAT('Lote ', v_blocked_batch, ' bloqueado por auditoría; no se puede entregar');
+    LEAVE proc_deliver;
+  END IF;
+
+  SELECT COUNT(*) INTO v_detail_count FROM sales_orders_detail WHERE sales_order_id = p_order_id;
+  IF v_detail_count = 0 THEN
+    SET p_error_message = 'La orden no tiene líneas de producto';
+    LEAVE proc_deliver;
+  END IF;
+
+  START TRANSACTION;
+
+  IF COALESCE(p_is_full_delivery, 0) = 1 THEN
+    UPDATE sales_orders_detail SET quantity_delivered = quantity_requested, updated_at = CURRENT_TIMESTAMP
+    WHERE sales_order_id = p_order_id;
+  ELSE
+    IF p_lines_json IS NULL OR JSON_TYPE(p_lines_json) <> 'ARRAY' THEN
+      SET p_error_message = 'Entrega parcial requiere lines[] en JSON';
+      ROLLBACK;
+      LEAVE proc_deliver;
+    END IF;
+    SET v_lines_in_json = JSON_LENGTH(p_lines_json);
+    SET v_i = 0;
+    WHILE v_i < v_lines_in_json DO
+      SET v_json_detail_id = CAST(JSON_UNQUOTE(JSON_EXTRACT(p_lines_json, CONCAT('$[', v_i, '].sales_order_detail_id'))) AS UNSIGNED);
+      SET v_json_qty = CAST(JSON_UNQUOTE(JSON_EXTRACT(p_lines_json, CONCAT('$[', v_i, '].quantity_delivered'))) AS DECIMAL(10,2));
+      IF v_json_detail_id IS NULL OR v_json_qty IS NULL THEN
+        SET p_error_message = 'Cada línea requiere sales_order_detail_id y quantity_delivered';
+        ROLLBACK;
+        LEAVE proc_deliver;
+      END IF;
+      SELECT quantity_requested INTO v_qty_requested FROM sales_orders_detail
+      WHERE id = v_json_detail_id AND sales_order_id = p_order_id;
+      IF v_qty_requested IS NULL OR v_json_qty < 0 OR v_json_qty > v_qty_requested THEN
+        SET p_error_message = CONCAT('Cantidad inválida para ', fn_sales_order_detail_product_label(v_json_detail_id));
+        ROLLBACK;
+        LEAVE proc_deliver;
+      END IF;
+      UPDATE sales_orders_detail SET quantity_delivered = v_json_qty, updated_at = CURRENT_TIMESTAMP
+      WHERE id = v_json_detail_id AND sales_order_id = p_order_id;
+      SET v_i = v_i + 1;
+    END WHILE;
+  END IF;
+
+  SET v_done = 0;
+  OPEN detail_cursor;
+  detail_loop: LOOP
+    FETCH detail_cursor INTO v_detail_id, v_qty_requested, v_qty_delivered, v_conv;
+    IF v_done THEN SET v_done = 0; LEAVE detail_loop; END IF;
+
+    SET v_line_in_delivery = IF(COALESCE(p_is_full_delivery, 0) = 1, 1, 0);
+    IF COALESCE(p_is_full_delivery, 0) = 0 THEN
+      SET v_i = 0;
+      json_search: WHILE v_i < v_lines_in_json DO
+        SET v_json_detail_id = CAST(JSON_UNQUOTE(JSON_EXTRACT(p_lines_json, CONCAT('$[', v_i, '].sales_order_detail_id'))) AS UNSIGNED);
+        IF v_json_detail_id = v_detail_id THEN
+          SET v_line_in_delivery = 1;
+          LEAVE json_search;
+        END IF;
+        SET v_i = v_i + 1;
+      END WHILE json_search;
+      IF v_line_in_delivery = 0 THEN
+        IF v_qty_delivered > 0 AND EXISTS (
+          SELECT 1 FROM inv_batch_holds h
+          WHERE h.sales_order_detail_id = v_detail_id
+            AND h.sales_order_id = p_order_id
+            AND h.status = 'ACTIVE'
+            AND h.quantity_held > 0
+        ) THEN
+          SET v_line_in_delivery = 1;
+        ELSE
+          ITERATE detail_loop;
+        END IF;
+      END IF;
+    END IF;
+
+    SET v_storage_delivered = v_qty_delivered * v_conv;
+    SET v_remaining_consume = v_storage_delivered;
+
+    OPEN hold_consume_cursor;
+    consume_loop: LOOP
+      FETCH hold_consume_cursor INTO v_hold_id, v_batch_id, v_hold_qty;
+      IF v_done THEN SET v_done = 0; LEAVE consume_loop; END IF;
+      IF v_remaining_consume <= 0 THEN LEAVE consume_loop; END IF;
+
+      IF EXISTS (
+        SELECT 1 FROM inv_batches b
+        WHERE b.id = v_batch_id
+          AND (
+            COALESCE(b.is_locked, 0) = 1
+            OR EXISTS (
+              SELECT 1 FROM inv_batch_audits a
+              WHERE a.batch_id = b.id
+                AND a.status IN ('IN_PROGRESS', 'PENDING_APPROVAL')
+            )
+          )
+      ) THEN
+        SELECT batch_number INTO v_blocked_batch FROM inv_batches WHERE id = v_batch_id;
+        SET p_error_message = CONCAT('Lote ', IFNULL(v_blocked_batch, v_batch_id), ' bloqueado por auditoría');
+        ROLLBACK;
+        LEAVE proc_deliver;
+      END IF;
+
+      SET v_take = LEAST(v_remaining_consume, v_hold_qty);
+      UPDATE inv_batches SET available_quantity = GREATEST(0, available_quantity - v_take),
+        held_quantity = GREATEST(0, COALESCE(held_quantity, 0) - v_take),
+        status = IF(GREATEST(0, available_quantity - v_take) <= 0, 'AGOTADO', status),
+        updated_at = CURRENT_TIMESTAMP WHERE id = v_batch_id;
+      UPDATE inv_batch_holds SET quantity_held = quantity_held - v_take,
+        status = IF(quantity_held - v_take <= 0, 'FULFILLED', 'ACTIVE'), updated_at = CURRENT_TIMESTAMP WHERE id = v_hold_id;
+      UPDATE sales_orders_batches SET quantity_allocated = GREATEST(0, quantity_allocated - v_take),
+        has_hold = IF(quantity_allocated - v_take > 0, TRUE, FALSE)
+      WHERE sales_order_id = p_order_id AND sales_order_detail_id = v_detail_id AND batch_id = v_batch_id;
+      INSERT INTO inv_batch_movements (batch_id, movement_type, movement_id, quantity, reference, notes, created_by, movement_uom_id)
+      SELECT v_batch_id, 'ORDER', p_order_id, -v_take, v_order_number,
+        CONCAT('Entrega OV ', v_order_number, ' línea ', v_detail_id), p_delivered_by, b.product_uom_id
+      FROM inv_batches b WHERE b.id = v_batch_id;
+      SET v_remaining_consume = v_remaining_consume - v_take;
+    END LOOP consume_loop;
+    CLOSE hold_consume_cursor;
+
+    IF v_remaining_consume > 0.0001 AND v_storage_delivered > 0 THEN
+      SET p_error_message = fn_sales_order_reserved_insufficient_message(v_detail_id, v_remaining_consume);
+      ROLLBACK;
+      LEAVE proc_deliver;
+    END IF;
+
+    OPEN hold_release_cursor;
+    release_loop: LOOP
+      FETCH hold_release_cursor INTO v_hold_id, v_batch_id, v_hold_qty;
+      IF v_done THEN SET v_done = 0; LEAVE release_loop; END IF;
+      SET v_take = v_hold_qty;
+      UPDATE inv_batches SET held_quantity = GREATEST(0, COALESCE(held_quantity, 0) - v_take), updated_at = CURRENT_TIMESTAMP WHERE id = v_batch_id;
+      UPDATE inv_batch_holds SET quantity_held = 0, status = 'RELEASED', updated_at = CURRENT_TIMESTAMP WHERE id = v_hold_id;
+      UPDATE sales_orders_batches SET quantity_allocated = GREATEST(0, quantity_allocated - v_take), has_hold = FALSE
+      WHERE sales_order_id = p_order_id AND sales_order_detail_id = v_detail_id AND batch_id = v_batch_id;
+    END LOOP release_loop;
+    CLOSE hold_release_cursor;
+  END LOOP detail_loop;
+  CLOSE detail_cursor;
+
+  SELECT COUNT(*)
+  INTO v_active_holds
+  FROM inv_batch_holds
+  WHERE sales_order_id = p_order_id
+    AND status = 'ACTIVE'
+    AND quantity_held > 0;
+
+  IF v_active_holds = 0 THEN
+    SET p_new_status = 'Entregada';
+  ELSE
+    SET p_new_status = 'En Camino';
+  END IF;
+
+  UPDATE sales_orders SET status = p_new_status,
+    total_delivered = (SELECT COALESCE(SUM(quantity_delivered), 0) FROM sales_orders_detail WHERE sales_order_id = p_order_id),
+    delivered_at = CURRENT_TIMESTAMP, delivered_by = p_delivered_by, updated_at = CURRENT_TIMESTAMP
+  WHERE id = p_order_id;
+
+  SET p_error_message = NULL;
+  COMMIT;
+END proc_deliver;
 
 create
     definer = victor@`%` procedure proc_get_inv_requisition_detail(IN p_requisition_id int)
@@ -2430,6 +2765,228 @@ BEGIN
 
   SELECT v_batch_id as batch_id, p_batch_number as batch_number;
 END;
+
+create
+    definer = victor@`%` procedure proc_reopen_sales_order(IN p_order_id int, IN p_reopened_by int unsigned,
+                                                           OUT p_error_message varchar(500),
+                                                           OUT p_new_status varchar(50))
+proc_reopen_label: BEGIN
+  DECLARE v_status VARCHAR(50);
+  DECLARE v_order_number VARCHAR(20);
+  DECLARE v_is_legacy TINYINT DEFAULT 0;
+  DECLARE v_has_delivery_movements TINYINT DEFAULT 0;
+  DECLARE v_detail_id INT;
+  DECLARE v_detail_count INT DEFAULT 0;
+  DECLARE v_fully_selected_count INT DEFAULT 0;
+  DECLARE v_batch_id INT UNSIGNED;
+  DECLARE v_restore_qty DECIMAL(10,2);
+  DECLARE v_fifo_err VARCHAR(500);
+  DECLARE v_done INT DEFAULT 0;
+  DECLARE v_has_invoice INT DEFAULT 0;
+
+  DECLARE batch_restore_cursor CURSOR FOR
+    SELECT batch_id, ABS(SUM(quantity)) AS restore_qty
+    FROM inv_batch_movements
+    WHERE movement_type = 'ORDER'
+      AND movement_id = p_order_id
+      AND quantity < 0
+    GROUP BY batch_id
+    HAVING SUM(quantity) < 0;
+
+  DECLARE detail_cursor CURSOR FOR
+    SELECT id FROM sales_orders_detail WHERE sales_order_id = p_order_id ORDER BY id ASC;
+
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_done = 1;
+
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    GET DIAGNOSTICS CONDITION 1 @errno = MYSQL_ERRNO, @msg = MESSAGE_TEXT;
+    SET p_error_message = LEFT(CONCAT('Error al reabrir OV: ', IFNULL(@msg, 'SQL')), 500);
+    SET p_new_status = NULL;
+    ROLLBACK;
+  END;
+
+  SET p_error_message = NULL;
+  SET p_new_status = NULL;
+
+  SELECT
+    so.status,
+    so.order_number,
+    CASE
+      WHEN so.source = 'LEGACY_IMPORT'
+        OR so.order_number LIKE 'LEG-OV-%'
+        OR so.legacy_transaction_id IS NOT NULL
+      THEN 1
+      ELSE 0
+    END
+  INTO v_status, v_order_number, v_is_legacy
+  FROM sales_orders so
+  WHERE so.id = p_order_id;
+
+  IF v_order_number IS NULL THEN
+    SET p_error_message = 'Orden de venta no encontrada';
+    LEAVE proc_reopen_label;
+  END IF;
+
+  IF v_is_legacy = 1 THEN
+    SET p_error_message =
+      'Las órdenes legacy (LEG-OV) no se reabren con inventario. Use corrección legacy en el detalle.';
+    LEAVE proc_reopen_label;
+  END IF;
+
+  IF v_status <> 'Entregada' THEN
+    SET p_error_message = CONCAT(
+      'Solo se pueden reabrir órdenes entregadas. Estado actual: ',
+      IFNULL(v_status, '(vacío)')
+    );
+    LEAVE proc_reopen_label;
+  END IF;
+
+  SELECT CASE
+    WHEN EXISTS (
+      SELECT 1 FROM sales_order_cfdi_invoices ci
+      WHERE ci.sales_order_id = p_order_id
+        AND ci.invoice_kind = 'factura'
+        AND ci.status_id = 1
+        AND ci.env = 'prod'
+        AND (ci.cfdi_estado IS NULL OR ci.cfdi_estado = 'Vigente')
+    ) THEN 1
+    ELSE 0
+  END
+  INTO v_has_invoice;
+
+  IF v_has_invoice = 1 THEN
+    SET p_error_message = 'No se puede reabrir: la orden tiene factura CFDI vigente';
+    LEAVE proc_reopen_label;
+  END IF;
+
+  SELECT CASE
+    WHEN EXISTS (
+      SELECT 1 FROM inv_batch_movements
+      WHERE movement_type = 'ORDER' AND movement_id = p_order_id AND quantity < 0
+    ) THEN 1
+    ELSE 0
+  END
+  INTO v_has_delivery_movements;
+
+  IF v_has_delivery_movements = 0 THEN
+    SET p_error_message =
+      'La orden no tiene movimientos de entrega en lotes; no aplica re-ingreso de inventario.';
+    LEAVE proc_reopen_label;
+  END IF;
+
+  SELECT COUNT(*) INTO v_detail_count
+  FROM sales_orders_detail
+  WHERE sales_order_id = p_order_id;
+
+  IF v_detail_count = 0 THEN
+    SET p_error_message = 'La orden no tiene líneas de producto';
+    LEAVE proc_reopen_label;
+  END IF;
+
+  START TRANSACTION;
+
+  OPEN batch_restore_cursor;
+  restore_loop: LOOP
+    FETCH batch_restore_cursor INTO v_batch_id, v_restore_qty;
+    IF v_done THEN
+      SET v_done = 0;
+      LEAVE restore_loop;
+    END IF;
+
+    IF v_restore_qty IS NULL OR v_restore_qty <= 0 THEN
+      ITERATE restore_loop;
+    END IF;
+
+    UPDATE inv_batches
+    SET
+      available_quantity = available_quantity + v_restore_qty,
+      status = CASE
+        WHEN status = 'AGOTADO' AND (available_quantity + v_restore_qty) > 0 THEN 'ACTIVO'
+        ELSE status
+      END,
+      updated_at = CURRENT_TIMESTAMP
+    WHERE id = v_batch_id;
+
+    INSERT INTO inv_batch_movements (
+      batch_id, movement_type, movement_id, quantity, reference, notes, created_by, movement_uom_id
+    )
+    SELECT
+      v_batch_id, 'ORDER', p_order_id, v_restore_qty, v_order_number,
+      CONCAT('Reapertura OV ', v_order_number, ' (revierte entrega)'),
+      p_reopened_by, b.product_uom_id
+    FROM inv_batches b WHERE b.id = v_batch_id;
+  END LOOP restore_loop;
+  CLOSE batch_restore_cursor;
+
+  UPDATE inv_batches ib
+  INNER JOIN inv_batch_holds h
+    ON h.batch_id = ib.id
+    AND h.sales_order_id = p_order_id
+    AND h.status = 'ACTIVE'
+    AND h.quantity_held > 0
+  SET ib.held_quantity = GREATEST(0, COALESCE(ib.held_quantity, 0) - COALESCE(h.quantity_held, 0));
+
+  DELETE FROM sales_orders_batches WHERE sales_order_id = p_order_id;
+  DELETE FROM inv_batch_holds WHERE sales_order_id = p_order_id;
+
+  UPDATE sales_orders_detail
+  SET quantity_delivered = 0, updated_at = CURRENT_TIMESTAMP
+  WHERE sales_order_id = p_order_id;
+
+  OPEN detail_cursor;
+  fifo_loop: LOOP
+    FETCH detail_cursor INTO v_detail_id;
+    IF v_done THEN
+      SET v_done = 0;
+      LEAVE fifo_loop;
+    END IF;
+
+    SET v_fifo_err = NULL;
+    CALL proc_select_batches_fifo(p_order_id, v_detail_id, v_fifo_err);
+    IF v_fifo_err IS NOT NULL AND TRIM(v_fifo_err) <> '' THEN
+      SET p_error_message = v_fifo_err;
+      ROLLBACK;
+      LEAVE proc_reopen_label;
+    END IF;
+  END LOOP fifo_loop;
+  CLOSE detail_cursor;
+
+  SELECT COUNT(*)
+  INTO v_fully_selected_count
+  FROM sales_orders_detail sod
+  WHERE sod.sales_order_id = p_order_id
+    AND COALESCE((
+      SELECT SUM(sob.quantity_allocated)
+      FROM sales_orders_batches sob
+      WHERE sob.sales_order_detail_id = sod.id
+    ), 0) >= (sod.quantity_requested * IFNULL(NULLIF(sod.conversion_factor, 0), 1));
+
+  IF v_fully_selected_count >= v_detail_count THEN
+    SET p_new_status = 'Lista para envio';
+  ELSE
+    SET p_new_status = 'Seleccion y Armado - No tiene seleccion';
+  END IF;
+
+  UPDATE sales_orders
+  SET
+    status = p_new_status,
+    total_delivered = 0,
+    delivered_at = NULL,
+    delivered_by = NULL,
+    updated_at = CURRENT_TIMESTAMP
+  WHERE id = p_order_id;
+
+  CALL proc_calculate_order_totals(p_order_id, v_fifo_err);
+  IF v_fifo_err IS NOT NULL AND TRIM(v_fifo_err) <> '' THEN
+    SET p_error_message = v_fifo_err;
+    ROLLBACK;
+    LEAVE proc_reopen_label;
+  END IF;
+
+  SET p_error_message = NULL;
+  COMMIT;
+END proc_reopen_label;
 
 create
     definer = victor@`%` procedure proc_update_requisition_product(IN p_detail_id int,

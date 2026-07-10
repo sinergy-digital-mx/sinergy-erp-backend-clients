@@ -2,7 +2,7 @@ import { InventoryController } from './inventory.controller';
 import { InventoryService } from './inventory.service';
 import { BatchListResponseDto } from './dto/batch-list-response.dto';
 import { BatchResponseDto } from './dto/batch-response.dto';
-import { NotFoundException } from '@nestjs/common';
+import { InventoryExportService } from './services/inventory-export.service';
 
 describe('InventoryController', () => {
   let controller: InventoryController;
@@ -46,7 +46,13 @@ describe('InventoryController', () => {
     };
 
     service = mockInventoryService as any;
-    controller = new InventoryController(service);
+    const mockExportService = {
+      exportBatches: jest.fn(),
+      exportSummary: jest.fn(),
+      getBatchesFilename: jest.fn(),
+      getSummaryFilename: jest.fn(),
+    };
+    controller = new InventoryController(service, mockExportService as any);
   });
 
   it('should be defined', () => {

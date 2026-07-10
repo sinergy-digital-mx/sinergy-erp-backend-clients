@@ -1,8 +1,9 @@
 import { SalesOrder } from '../../../entities/sales-orders/sales-order.entity';
 import { SalesOrderDetail } from '../../../entities/sales-orders/sales-order-detail.entity';
 import { ProductDiscountType } from '../../../entities/products/product-discount.entity';
+import { GlobalDiscountType } from '../../../entities/global-discounts/global-discount.entity';
 
-export interface SalesOrderAppliedDiscountDto {
+export interface SalesOrderAppliedLineDiscountDto {
   line_item_id: string;
   product_id: string;
   product_name: string;
@@ -16,10 +17,18 @@ export interface SalesOrderAppliedDiscountDto {
   discount_amount: number;
 }
 
-export function mapAppliedDiscountsFromOrder(
+export interface SalesOrderAppliedGlobalDiscountDto {
+  global_discount_id: string;
+  discount_name: string;
+  discount_type: GlobalDiscountType;
+  discount_value: number;
+  discount_amount: number;
+}
+
+export function mapAppliedLineDiscountsFromOrder(
   order: Pick<SalesOrder, 'line_items'>,
-): SalesOrderAppliedDiscountDto[] {
-  const applied: SalesOrderAppliedDiscountDto[] = [];
+): SalesOrderAppliedLineDiscountDto[] {
+  const applied: SalesOrderAppliedLineDiscountDto[] = [];
 
   for (const item of order.line_items ?? []) {
     if (!item.product_discount_id) continue;
@@ -45,6 +54,27 @@ export function mapAppliedDiscountsFromOrder(
   return applied;
 }
 
+export function mapAppliedGlobalDiscountFromOrder(
+  order: Pick<SalesOrder, 'global_discount_id' | 'global_discount_amount' | 'global_discount'>,
+): SalesOrderAppliedGlobalDiscountDto | null {
+  if (!order.global_discount_id) return null;
+
+  return {
+    global_discount_id: order.global_discount_id,
+    discount_name: order.global_discount?.name ?? 'Descuento global',
+    discount_type: order.global_discount?.discount_type ?? GlobalDiscountType.PERCENTAGE,
+    discount_value: Number(order.global_discount?.value ?? 0),
+    discount_amount: Number(order.global_discount_amount) || 0,
+  };
+}
+
+/** @deprecated Usar mapAppliedLineDiscountsFromOrder */
+export function mapAppliedDiscountsFromOrder(
+  order: Pick<SalesOrder, 'line_items'>,
+): SalesOrderAppliedLineDiscountDto[] {
+  return mapAppliedLineDiscountsFromOrder(order);
+}
+
 export function mapLineItemWithDiscount(item: SalesOrderDetail) {
   const qty = Number(item.quantity) || 0;
   const discountUnit = Number(item.discount_unit) || 0;
@@ -62,5 +92,20 @@ export function mapLineItemWithDiscount(item: SalesOrderDetail) {
           value: item.product_discount ? Number(item.product_discount.value) : null,
         }
       : null,
+  };
+}
+
+export function mapOrderDiscountSummary(order: SalesOrder) {
+  const lineDiscounts = mapAppliedLineDiscountsFromOrder(order);
+  const globalDiscount = mapAppliedGlobalDiscountFromOrder(order);
+  const lineDiscountTotal = Number(order.discount_total) || 0;
+  const globalDiscountAmount = Number(order.global_discount_amount) || 0;
+
+  return {
+    line_discount_total: lineDiscountTotal,
+    global_discount_amount: globalDiscountAmount,
+    discount_total: Number((lineDiscountTotal + globalDiscountAmount).toFixed(2)),
+    line_items: lineDiscounts,
+    global_discount: globalDiscount,
   };
 }

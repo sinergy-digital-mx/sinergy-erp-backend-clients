@@ -74,6 +74,40 @@ export class FiscalConfiguration {
   })
   status: string;
 
+  /** Usuario interno que registró la razón emisora */
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  created_by: string | null;
+
+  /** Número de certificado CSD (NoCertificado) usado en Finkok */
+  @Column({ type: 'varchar', length: 30, nullable: true })
+  certificate_serial_number: string | null;
+
+  @Column({
+    type: 'enum',
+    enum: ['pending', 'registered', 'failed', 'not_required'],
+    default: 'pending',
+  })
+  finkok_registration_status: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  finkok_registered_at: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  finkok_registration_error: string | null;
+
+  /** Status remoto en Finkok (ej. A=activo) devuelto por Registration get */
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  finkok_remote_status: string | null;
+
+  @Column({ type: 'int', nullable: true })
+  finkok_stamps_counter: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  finkok_stamps_credit: number | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  last_finkok_sync_at: Date | null;
+
   @OneToMany(() => BillingBranch, (branch) => branch.fiscal_configuration)
   branches: BillingBranch[];
 

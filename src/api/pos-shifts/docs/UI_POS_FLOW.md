@@ -7,7 +7,7 @@ Documento de referencia del nuevo modelo POS. Reemplaza **Equipos** (`pos_config
 | Concepto anterior | Concepto nuevo |
 |-------------------|----------------|
 | Equipo POS | Usuario con `is_pos_user: true` |
-| Sesión POS | **Corte global** (`pos_daily_shifts`) — uno por sucursal por día |
+| Sesión POS | **Corte global** (`pos_daily_shifts`) — varios por sucursal por día, **uno abierto** a la vez |
 | Usuario en sesión | Vendedor identificado por **código numérico** (`pos_user_code`) |
 | Retiro de efectivo | **Corte parcial** con desglose de billetes MXN/USD |
 | Ventas sin corte abierto | Órdenes en **cola** (`En cola`, sin `pos_daily_shift_id`) hasta que Cobranza abra el día |
@@ -225,8 +225,10 @@ POST /api/tenant/pos/daily-shift/open
 ```
 
 Reglas:
-- Un corte por **sucursal** por **día**.
-- Si ya existe corte cerrado ese día, no se puede abrir otro.
+- Varios cortes **completos** (abierto → cerrado) por **sucursal** el mismo día.
+- Solo puede haber **un corte abierto** a la vez por sucursal (aunque sea de un día anterior).
+- Tras cerrar un corte, se puede abrir otro el mismo día con nuevo efectivo inicial.
+- Si quedó un corte abierto de otro día, `GET daily-shift/current` lo devuelve; la UI debe permitir cerrarlo antes de abrir uno nuevo.
 
 **Al abrir el corte (automático):** el backend asigna al corte todas las órdenes POS de la **misma sucursal** que estén en cola (`general_status: En cola`, `pos_daily_shift_id: null`, del día). Pasan a `Surtida` + `Pendiente` con `pos_daily_shift_id` del corte nuevo.
 
@@ -264,7 +266,9 @@ Devuelve órdenes con:
 - `general_status: Surtida`
 - `payment_status: Pendiente`
 - `sales_order_type: POS`
-- De la misma sucursal que la terminal cobranza
+- **`pos_daily_shift_id` = corte abierto** (misma fuente que `sales_summary.total_mxn` del dashboard)
+
+Si hay corte abierto, no filtra por almacén: las órdenes ligadas al corte aparecen aunque el `warehouse_id` venga mal del frontend.
 
 ```json
 {
@@ -489,6 +493,26 @@ El parcial queda ligado al corte global. El detalle del corte muestra historial:
 - Corte Parcial #1 — $X — desglose billetes
 - Corte Parcial #2 — ...
 - Total ventas acumulado
+
+Cada ítem en `partial_shifts[]` incluye el monto retirado en **`total_mxn`** (alias de `removed_total_mxn`). Usar ese campo para el importe a la derecha en el historial; no inferir solo desde `denominations`.
+
+```json
+{
+  "id": "uuid",
+  "partial_number": 1,
+  "total_mxn": 200,
+  "total_usd": 0,
+  "removed_total_mxn": 200,
+  "removed_total_usd": 0,
+  "sales_total_mxn": 13.92,
+  "sales_count": 1,
+  "notes": "Retiro del día",
+  "created_at": "2026-07-10T15:31:00.000Z",
+  "denominations": [
+    { "currency": "MXN", "denomination": 200, "bill_count": 1, "amount": 200 }
+  ]
+}
+```
 
 ### Paso 8 — Cerrar corte del día
 ```

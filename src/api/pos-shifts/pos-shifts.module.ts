@@ -7,6 +7,7 @@ import { User } from '../../entities/users/user.entity';
 import { SalesOrder } from '../../entities/sales-orders/sales-order.entity';
 import { PosSaleCollection } from '../../entities/pos/pos-sale-collection.entity';
 import { Customer } from '../../entities/customers/customer.entity';
+import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { RBACModule } from '../rbac/rbac.module';
 import { SalesOrdersModule } from '../sales-orders/sales-orders.module';
 import { PosShiftsService } from './pos-shifts.service';
@@ -22,6 +23,7 @@ import { PosShiftsController } from './pos-shifts.controller';
       SalesOrder,
       Customer,
       PosSaleCollection,
+      Warehouse,
     ]),
     RBACModule,
     forwardRef(() => SalesOrdersModule),
