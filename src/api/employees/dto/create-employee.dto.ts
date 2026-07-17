@@ -7,6 +7,6 @@ import { EmployeeProfileDto } from './employee-profile.dto';
  */
 export class CreateEmployeeDto extends EmployeeProfileDto {
   @ApiProperty({ description: 'ID del usuario del sistema a marcar como empleado' })
-  @IsUUID()
+  @IsUUID('4', { message: 'El user_id debe ser un UUID válido' })
   user_id: string;
 }

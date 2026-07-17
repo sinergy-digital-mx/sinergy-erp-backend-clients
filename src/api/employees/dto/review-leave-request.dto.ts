@@ -10,12 +10,16 @@ export class ReviewLeaveRequestDto {
     enum: [LeaveStatus.APPROVED, LeaveStatus.REJECTED],
     description: 'Resolución de la solicitud',
   })
-  @IsEnum(LeaveStatus)
+  @IsEnum(LeaveStatus, {
+    message: 'El estatus debe ser approved o rejected',
+  })
   status: LeaveStatus;
 
   @ApiProperty({ required: false, description: 'Notas de la resolución' })
   @IsOptional()
-  @IsString()
-  @MaxLength(500)
+  @IsString({ message: 'Las notas de revisión deben ser texto' })
+  @MaxLength(500, {
+    message: 'Las notas de revisión no pueden superar 500 caracteres',
+  })
   review_notes?: string;
 }

@@ -120,7 +120,10 @@ export class EmployeesService {
     ];
     for (const field of fields) {
       if (profile[field] !== undefined) {
-        (employee as any)[field] = profile[field];
+        // Strings vacíos se guardan como null (el UI suele enviar "").
+        const value = profile[field];
+        (employee as any)[field] =
+          value === '' ? null : value;
       }
     }
   }
