@@ -73,6 +73,9 @@ export class User {
     })
     pos_user_type: PosUserType | null;
 
+    @Column({ type: 'tinyint', default: 0 })
+    is_employee: boolean;
+
     @CreateDateColumn({ type: 'timestamp' })
     created_at: Date;
 

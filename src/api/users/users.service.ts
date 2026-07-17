@@ -17,6 +17,7 @@ import { BillingBranch } from '../../entities/billing/billing-branch.entity';
 import { PosUserType } from '../../entities/users/pos-user-type.enum';
 import { PosDailyShift } from '../../entities/pos/pos-daily-shift.entity';
 import { PosDailyShiftStatus } from '../../entities/pos/pos-daily-shift-status.enum';
+import { EmployeesService } from '../employees/employees.service';
 
 @Injectable()
 export class UsersService {
@@ -28,6 +29,7 @@ export class UsersService {
     private branchRepo: Repository<BillingBranch>,
     @InjectRepository(PosDailyShift)
     private dailyShiftRepo: Repository<PosDailyShift>,
+    private employeesService: EmployeesService,
   ) {}
 
   async create(dto: CreateUserDto, tenantId: string) {
@@ -41,7 +43,15 @@ export class UsersService {
     await this.validatePosFields(tenantId, isPosUser, dto.pos_user_code);
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
-    const { is_pos_user, pos_user_code, billing_branch_id, pos_user_type, ...userFields } = dto;
+    const {
+      is_pos_user,
+      pos_user_code,
+      billing_branch_id,
+      pos_user_type,
+      is_employee,
+      employee,
+      ...userFields
+    } = dto;
 
     const user = await this.userRepo.save({
       ...userFields,
@@ -54,7 +64,12 @@ export class UsersService {
       pos_user_code: isPosUser ? null : dto.pos_user_code ?? null,
       pos_user_type: isPosUser ? dto.pos_user_type ?? null : null,
       billing_branch_id: billingBranchId,
+      is_employee: false,
     });
+
+    if (dto.is_employee) {
+      await this.employeesService.upsertForUser(tenantId, user.id, employee ?? {});
+    }
 
     const created = await this.findOne(user.id, tenantId);
     if (!created) {
@@ -113,7 +128,15 @@ export class UsersService {
       nextBillingBranchId,
     );
 
-    const { is_pos_user, pos_user_code, billing_branch_id, pos_user_type, ...userFields } = dto;
+    const {
+      is_pos_user,
+      pos_user_code,
+      billing_branch_id,
+      pos_user_type,
+      is_employee,
+      employee,
+      ...userFields
+    } = dto;
 
     if (dto.is_pos_user === true) {
       user.is_pos_user = true;
@@ -139,6 +162,15 @@ export class UsersService {
 
     Object.assign(user, userFields);
     await this.userRepo.save(user);
+
+    // Perfil de empleado (tab "Empleado" del modal de usuario).
+    if (dto.is_employee === true) {
+      await this.employeesService.upsertForUser(tenantId, id, employee ?? {});
+    } else if (dto.is_employee === false) {
+      await this.employeesService.setEmployeeFlag(tenantId, id, false);
+    } else if (employee) {
+      await this.employeesService.upsertForUser(tenantId, id, employee);
+    }
 
     const updated = await this.findOne(id, tenantId);
     if (!updated) {
@@ -190,11 +222,23 @@ export class UsersService {
     });
   }
 
-  findOne(id: string, tenantId: string) {
-    return this.userRepo.findOne({
+  async findOne(id: string, tenantId: string) {
+    const user = await this.userRepo.findOne({
       where: { id, tenant_id: tenantId },
       relations: ['status', 'tenant', 'billing_branch', 'billing_branch.fiscal_configuration'],
     });
+
+    if (user && user.is_employee) {
+      const employee = await this.employeesService.findEntityByUser(tenantId, id);
+      if (employee) {
+        (user as any).employeeProfile = await this.employeesService.mapEmployee(
+          employee,
+          { withRequests: false },
+        );
+      }
+    }
+
+    return user;
   }
 
   mapUserResponse(user: User) {
@@ -211,6 +255,8 @@ export class UsersService {
       is_pos_user: Boolean(user.is_pos_user),
       pos_user_type: user.pos_user_type,
       pos_user_code: user.pos_user_code,
+      is_employee: Boolean(user.is_employee),
+      employee: (user as any).employeeProfile ?? null,
       ...this.mapUserBranchResponse(user),
     };
   }

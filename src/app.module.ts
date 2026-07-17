@@ -29,8 +29,11 @@ import { SalesReportsModule } from './api/sales-reports/sales-reports.module';
 import { AccountingModule } from './api/accounting/accounting.module';
 import { ExchangeRateModule } from './api/exchange-rate/exchange-rate.module';
 import { DivinoDashboardModule } from './api/divino-dashboard/divino-dashboard.module';
+import { DivinoReservationFormatsModule } from './api/divino-reservation-formats/divino-reservation-formats.module';
 import { GoalsModule } from './api/goals/goals.module';
 import { GlobalDiscountsModule } from './api/global-discounts/global-discounts.module';
+import { EmployeesModule } from './api/employees/employees.module';
+import { EmployeePortalModule } from './api/employee-portal/employee-portal.module';
 import { PermissionVersionGuard } from './api/auth/guards/permission-version.guard';
 
 @Module({
@@ -63,8 +66,11 @@ import { PermissionVersionGuard } from './api/auth/guards/permission-version.gua
     AccountingModule,
     ExchangeRateModule,
     DivinoDashboardModule,
+    DivinoReservationFormatsModule,
     GoalsModule,
     GlobalDiscountsModule,
+    EmployeesModule,
+    EmployeePortalModule,
   ],
   providers: [],
 })
