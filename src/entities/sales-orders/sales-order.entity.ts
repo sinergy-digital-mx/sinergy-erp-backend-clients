@@ -82,7 +82,7 @@ export class SalesOrder {
 
   @Column({
     type: 'enum',
-    enum: ['Creada', 'Surtida', 'Cancelada', 'En cola'],
+    enum: ['Creada', 'Surtida', 'Cancelada', 'En cola', 'En Camino'],
     default: 'Creada',
   })
   general_status: string;

@@ -63,6 +63,8 @@ GET /api/tenant/fiscal-configurations/:fiscalConfigId/branches/:branchId
   "country": "México",
   "postal_code": "22000",
   "phone": null,
+  "latitude": 32.5149,
+  "longitude": -117.0382,
   "status": 1,
   "warehouses_count": 2,
   "warehouses": [
@@ -77,6 +79,8 @@ GET /api/tenant/fiscal-configurations/:fiscalConfigId/branches/:branchId
       "state": "Baja California",
       "zip_code": "22000",
       "country": "México",
+      "latitude": 32.5201,
+      "longitude": -117.041,
       "status": "active",
       "metadata": null,
       "created_at": "2026-06-01T12:00:00.000Z",
@@ -101,6 +105,8 @@ GET /api/tenant/fiscal-configurations/:fiscalConfigId/branches/:branchId
   "country": "México",
   "postal_code": "22000",
   "phone": "6641234567",
+  "latitude": 32.5149,
+  "longitude": -117.0382,
   "status": 1,
   "warehouses": [
     {
@@ -111,39 +117,15 @@ GET /api/tenant/fiscal-configurations/:fiscalConfigId/branches/:branchId
       "state": "Baja California",
       "zip_code": "22000",
       "country": "México",
+      "latitude": 32.5201,
+      "longitude": -117.041,
       "status": "active"
     }
   ]
 }
 ```
 
-| Campo sucursal | Tipo | Obligatorio | Validación UI |
-|----------------|------|-------------|---------------|
-| `code` | string | Sí | Nombre/código de sucursal |
-| `address` | string | Sí | Calle y número |
-| `city` | string | Sí | Ciudad |
-| `state` | string | Sí | Estado |
-| `country` | string | Sí | País |
-| `postal_code` | string | Sí | C.P. |
-| `phone` | string \| null | No | Teléfono de contacto (hasta 50 caracteres) |
-| `status` | 0 \| 1 | No | Default `1` (Activo) |
-| `warehouses` | array | No | Almacenes iniciales (puede ir vacío `[]`) |
-
-### Campos de cada almacén (`warehouses[]`)
-
-| Campo | Tipo | Obligatorio | Notas |
-|-------|------|-------------|-------|
-| `name` | string | Sí (al crear) | Nombre del almacén |
-| `code` | string | No | Código interno |
-| `prefix` | string | No | Prefijo (máx. 10) |
-| `description` | string | No | |
-| `street` | string | No | Calle |
-| `city` | string | No | Ciudad |
-| `state` | string | No | Estado |
-| `zip_code` | string | No | C.P. |
-| `country` | string | No | País |
-| `status` | `active` \| `inactive` | No | Default `active` |
-| `metadata` | object | No | Extensible |
+Ver tablas de campos en la sección **Modal — Agregar / Editar sucursal** más abajo.
 
 ---
 
@@ -200,6 +182,12 @@ Para vaciar todos los almacenes, enviar `"warehouses": []`.
 
 ## Modal — Agregar / Editar sucursal
 
+Reutilizar el **mismo componente de dirección + Google Maps** que direcciones de cliente.
+
+**Diferencias vs cliente:**
+- **No hay campo `type`** (billing / shipping). La dirección es de la sucursal misma.
+- Campos de dirección de sucursal: `address`, `city`, `state`, `country`, `postal_code`, `latitude`, `longitude`.
+
 ```
 ┌──────────────────────────────────────────────────────┐
 │  Editar sucursal                               [ X ] │
@@ -207,52 +195,98 @@ Para vaciar todos los almacenes, enviar `"warehouses": []`.
 │  Código *                                            │
 │  [ Zona Norte Tijuana___________________________ ]   │
 │                                                      │
-│  Dirección *                                         │
-│  [ Test 123____________________________________ ]   │
-│                                                      │
-│  Ciudad *          Estado *                          │
-│  [ Tijuana____ ]   [ Baja California_________ ]    │
-│                                                      │
-│  País *            C.P. *                            │
-│  [ México____ ]    [ 22000____________________ ]    │
+│  ── Ubicación (Google Maps) ─────────────────────── │
+│  [ buscador Places / pin en mapa ]                   │
+│  Dirección *  Ciudad *  Estado *  País *  C.P. *    │
+│  Lat / Lng (llenados por el mapa)                    │
 │                                                      │
 │  Teléfono                                            │
-│  [ 6641234567_________________________________ ]    │
-│                                                      │
-│  [x] Activo                                          │
+│  Status                                              │
 │                                                      │
 │  ── Almacenes ───────────────────── [ + Agregar ]   │
-│  ┌──────────┬────────┬────────┬────────┬──────────┐   │
-│  │ Nombre   │ Código │ Ciudad │ Status │ Acciones │   │
-│  ├──────────┼────────┼────────┼────────┼──────────┤   │
-│  │ Alm Ppal │ ALM-01 │ Tijuana│ Activo │ ✏️ 🗑    │   │
-│  └──────────┴────────┴────────┴────────┴──────────┘   │
+│  (sub-modal almacén: misma UX de mapa, sin type)    │
 │                                                      │
 │                    [ Cancelar ]  [ Guardar ]         │
 └──────────────────────────────────────────────────────┘
 ```
 
-Al editar un almacén en sub-modal, los campos son los de la tabla **Campos de cada almacén**.
+### Body sucursal (POST/PUT) — GPS
 
+```json
+{
+  "code": "Zona Norte Tijuana",
+  "address": "Test 123",
+  "city": "Tijuana",
+  "state": "Baja California",
+  "country": "México",
+  "postal_code": "22000",
+  "phone": "6641234567",
+  "latitude": 32.5149,
+  "longitude": -117.0382,
+  "status": 1,
+  "warehouses": [
+    {
+      "id": "warehouse-uuid",
+      "name": "Almacén Principal",
+      "street": "Av. Industrial 100",
+      "city": "Tijuana",
+      "state": "Baja California",
+      "zip_code": "22000",
+      "country": "México",
+      "latitude": 32.5201,
+      "longitude": -117.0410,
+      "status": "active"
+    }
+  ]
+}
+```
+
+| Campo GPS | Sucursal | Almacén (`warehouses[]`) |
+|-----------|----------|--------------------------|
+| Latitud | `latitude` | `latitude` |
+| Longitud | `longitude` | `longitude` |
+| Calle | `address` | `street` |
+
+> **Logística / CEDIS:** el origen de ruta es el **almacén** (`warehouses.latitude/longitude`), no la sucursal. Igual conviene cargar GPS en ambos.
+
+### Campos de cada almacén (`warehouses[]`)
+
+| Campo | Tipo | Obligatorio | Notas |
+|-------|------|-------------|-------|
+| `name` | string | Sí (al crear) | Nombre del almacén |
+| `code` | string | No | Código interno |
+| `prefix` | string | No | Prefijo (máx. 10) |
+| `description` | string | No | |
+| `street` | string | No | Calle |
+| `city` | string | No | Ciudad |
+| `state` | string | No | Estado |
+| `zip_code` | string | No | C.P. |
+| `country` | string | No | País |
+| `latitude` | number \| null | No | GPS (Google Maps) |
+| `longitude` | number \| null | No | GPS (Google Maps) |
+| `status` | `active` \| `inactive` | No | Default `active` |
+| `metadata` | object | No | Extensible |
+
+### Campos sucursal
+
+| Campo sucursal | Tipo | Obligatorio | Validación UI |
+|----------------|------|-------------|---------------|
+| `code` | string | Sí | Nombre/código de sucursal |
+| `address` | string | Sí | Calle y número |
+| `city` | string | Sí | Ciudad |
+| `state` | string | Sí | Estado |
+| `country` | string | Sí | País |
+| `postal_code` | string | Sí | C.P. |
+| `phone` | string \| null | No | Teléfono de contacto (hasta 50 caracteres) |
+| `latitude` | number \| null | No | GPS desde Google Maps |
+| `longitude` | number \| null | No | GPS desde Google Maps |
+| `status` | 0 \| 1 | No | Default `1` (Activo) |
+| `warehouses` | array | No | Almacenes iniciales (puede ir vacío `[]`) |
 ---
 
 ## Flujo en componente
 
 ```typescript
-async loadBranches(fiscalConfigId: string) {
-  this.branches = await api.get(
-    `/tenant/fiscal-configurations/${fiscalConfigId}/branches`,
-  );
-}
-
-async openEditBranch(fiscalConfigId: string, branchId: string) {
-  const branch = await api.get(
-    `/tenant/fiscal-configurations/${fiscalConfigId}/branches/${branchId}`,
-  );
-  this.form = { ...branch };
-  this.warehouses = branch.warehouses ?? [];
-}
-
 async saveBranch(fiscalConfigId: string, form: BranchForm, editingId?: string) {
   const body = {
     code: form.code.trim(),
@@ -262,18 +296,20 @@ async saveBranch(fiscalConfigId: string, form: BranchForm, editingId?: string) {
     country: form.country.trim(),
     postal_code: form.postalCode.trim(),
     phone: form.phone?.trim() || null,
+    latitude: form.latitude ?? null,
+    longitude: form.longitude ?? null,
     status: form.isActive ? 1 : 0,
     warehouses: this.warehouses.map((warehouse) => ({
       ...(warehouse.id ? { id: warehouse.id } : {}),
       name: warehouse.name.trim(),
       code: warehouse.code?.trim() || undefined,
-      prefix: warehouse.prefix?.trim() || undefined,
-      description: warehouse.description?.trim() || undefined,
       street: warehouse.street?.trim() || undefined,
       city: warehouse.city?.trim() || undefined,
       state: warehouse.state?.trim() || undefined,
       zip_code: warehouse.zipCode?.trim() || undefined,
       country: warehouse.country?.trim() || undefined,
+      latitude: warehouse.latitude ?? null,
+      longitude: warehouse.longitude ?? null,
       status: warehouse.isActive ? 'active' : 'inactive',
     })),
   };
@@ -289,8 +325,6 @@ async saveBranch(fiscalConfigId: string, form: BranchForm, editingId?: string) {
       body,
     );
   }
-
-  await this.loadBranches(fiscalConfigId);
 }
 ```
 
@@ -298,11 +332,9 @@ async saveBranch(fiscalConfigId: string, form: BranchForm, editingId?: string) {
 
 ## Checklist Pollux
 
-- [ ] Quitar pantalla/flujo separado de almacenes en config fiscal
-- [ ] Al editar sucursal: `GET .../branches/:id` y precargar `warehouses`
-- [ ] Sección **Almacenes** dentro del modal de sucursal (tabla + agregar/editar/eliminar local)
-- [ ] En guardar: enviar `warehouses` en POST/PUT (sincronización completa)
-- [ ] Columna **Almacenes** en tabla de sucursales (`warehouses_count`)
-- [ ] Columna **Teléfono** en tabla de sucursales (`phone` o "—")
-- [ ] Campo **Teléfono** en modal crear/editar sucursal
-- [ ] Enviar `phone` en POST y PUT; permitir `null` al borrar teléfono
+- [ ] Reusar componente Google Maps de direcciones de cliente (**sin campo `type`**)
+- [ ] Modal sucursal: dirección + lat/lng desde mapa
+- [ ] Sub-modal almacén: misma UX de mapa (`street` + lat/lng)
+- [ ] Enviar `latitude` / `longitude` en POST/PUT de sucursal y de `warehouses[]`
+- [ ] Al editar: `GET .../branches/:id` y precargar coords
+- [ ] Modal CEDIS en preview de ruta: mismo componente → `PUT /tenant/warehouses/:id`

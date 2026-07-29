@@ -5,8 +5,12 @@ import {
   IsNotEmpty,
   IsUUID,
   ValidateIf,
+  IsNumber,
+  Min,
+  Max,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 export class BranchWarehouseDto {
   @ApiPropertyOptional({ description: 'Warehouse ID (omit to create)' })
@@ -59,6 +63,30 @@ export class BranchWarehouseDto {
   @IsOptional()
   @IsString()
   country?: string;
+
+  @ApiPropertyOptional({
+    description: 'Latitud GPS (Google Maps)',
+    example: 32.5149,
+    nullable: true,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude?: number | null;
+
+  @ApiPropertyOptional({
+    description: 'Longitud GPS (Google Maps)',
+    example: -117.0382,
+    nullable: true,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude?: number | null;
 
   @ApiPropertyOptional({ enum: ['active', 'inactive'] })
   @IsOptional()

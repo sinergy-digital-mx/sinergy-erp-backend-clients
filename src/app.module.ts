@@ -34,6 +34,8 @@ import { GoalsModule } from './api/goals/goals.module';
 import { GlobalDiscountsModule } from './api/global-discounts/global-discounts.module';
 import { EmployeesModule } from './api/employees/employees.module';
 import { EmployeePortalModule } from './api/employee-portal/employee-portal.module';
+import { TrucksModule } from './api/trucks/trucks.module';
+import { ShippingsModule } from './api/shippings/shippings.module';
 import { PermissionVersionGuard } from './api/auth/guards/permission-version.guard';
 
 @Module({
@@ -71,6 +73,8 @@ import { PermissionVersionGuard } from './api/auth/guards/permission-version.gua
     GlobalDiscountsModule,
     EmployeesModule,
     EmployeePortalModule,
+    TrucksModule,
+    ShippingsModule,
   ],
   providers: [],
 })

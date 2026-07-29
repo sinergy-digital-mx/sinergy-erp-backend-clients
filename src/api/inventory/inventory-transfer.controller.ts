@@ -6,6 +6,7 @@ import {
   Param,
   Query,
   Req,
+  Res,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -16,11 +17,13 @@ import {
   ApiOperation,
   ApiResponse,
   ApiParam,
+  ApiProduces,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionGuard } from '../rbac/guards/permission.guard';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator';
 import { InventoryTransferService } from './services/inventory-transfer.service';
+import { InventoryTransferPdfService } from './services/inventory-transfer-pdf.service';
 import { CreateInventoryTransferDto } from './dto/create-inventory-transfer.dto';
 import { QueryInventoryTransferDto } from './dto/query-inventory-transfer.dto';
 import { TransferContextQueryDto } from './dto/transfer-context-query.dto';
@@ -35,14 +38,17 @@ import { TransferContextResponseDto } from './dto/transfer-context-response.dto'
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, PermissionGuard)
 export class InventoryTransferController {
-  constructor(private readonly transferService: InventoryTransferService) {}
+  constructor(
+    private readonly transferService: InventoryTransferService,
+    private readonly transferPdfService: InventoryTransferPdfService,
+  ) {}
 
   @Get('context')
-  @RequirePermissions({ entityType: 'inventory', action: 'read' })
+  @RequirePermissions({ entityType: 'Inventory', action: 'Transfer' })
   @ApiOperation({
     summary: 'Contexto para modal de transferencia',
     description:
-      'Devuelve lotes disponibles, stock totalizado y almacén/sucursal de origen para un producto+almacén',
+      'Devuelve lotes disponibles, stock totalizado y almacén/sucursal de origen para un producto+almacén. Requiere Inventory:Transfer.',
   })
   @ApiResponse({ status: 200, type: TransferContextResponseDto })
   getContext(
@@ -57,7 +63,7 @@ export class InventoryTransferController {
   }
 
   @Get()
-  @RequirePermissions({ entityType: 'inventory', action: 'read' })
+  @RequirePermissions({ entityType: 'Inventory', action: 'Read' })
   @ApiOperation({ summary: 'Listar transferencias de inventario' })
   @ApiResponse({ status: 200, type: InventoryTransferListResponseDto })
   findAll(
@@ -67,8 +73,34 @@ export class InventoryTransferController {
     return this.transferService.findAll(req.user.tenant_id, filters);
   }
 
+  @Get(':id/pdf')
+  @RequirePermissions({ entityType: 'Inventory', action: 'Read' })
+  @ApiOperation({
+    summary: 'Descargar PDF de transferencia',
+    description:
+      'Comprobante PDF con folio, usuario, fecha, ruta origen→destino, producto y líneas de lotes',
+  })
+  @ApiParam({ name: 'id', type: String })
+  @ApiProduces('application/pdf')
+  @ApiResponse({ status: 200, description: 'PDF generado' })
+  async downloadPdf(
+    @Param('id') id: string,
+    @Req() req: any,
+    @Res() res: any,
+  ) {
+    const { buffer, filename } = await this.transferPdfService.generatePdf(
+      id,
+      req.user.tenant_id,
+    );
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', buffer.length);
+    res.send(buffer);
+  }
+
   @Get(':id')
-  @RequirePermissions({ entityType: 'inventory', action: 'read' })
+  @RequirePermissions({ entityType: 'Inventory', action: 'Read' })
   @ApiOperation({ summary: 'Detalle de una transferencia' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, type: InventoryTransferResponseDto })
@@ -81,11 +113,11 @@ export class InventoryTransferController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @RequirePermissions({ entityType: 'inventory', action: 'write' })
+  @RequirePermissions({ entityType: 'Inventory', action: 'Transfer' })
   @ApiOperation({
     summary: 'Crear transferencia de inventario',
     description:
-      'Toma cantidad de uno o más lotes en almacén origen y crea lotes destino en el almacén de llegada',
+      'Toma cantidad de uno o más lotes en almacén origen y crea lotes destino. Requiere Inventory:Transfer (no Write genérico).',
   })
   @ApiResponse({ status: 201, type: InventoryTransferResponseDto })
   create(

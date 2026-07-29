@@ -45,6 +45,12 @@ export class BillingBranch {
   @Column({ type: 'varchar', length: 50, nullable: true })
   phone: string | null;
 
+  @Column({ type: 'decimal', precision: 10, scale: 6, nullable: true })
+  latitude: number | null;
+
+  @Column({ type: 'decimal', precision: 10, scale: 6, nullable: true })
+  longitude: number | null;
+
   @Column({ type: 'tinyint', default: 1 })
   status: number;
 

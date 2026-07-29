@@ -3,7 +3,11 @@ import {
   IsOptional,
   IsEnum,
   IsUUID,
+  IsNumber,
+  Min,
+  Max,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class UpdateWarehouseDto {
   @IsOptional()
@@ -37,6 +41,20 @@ export class UpdateWarehouseDto {
   @IsOptional()
   @IsString()
   country?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude?: number | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude?: number | null;
 
   @IsOptional()
   @IsUUID()

@@ -4,7 +4,11 @@ import {
   IsEnum,
   IsNotEmpty,
   IsUUID,
+  IsNumber,
+  Min,
+  Max,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateWarehouseDto {
   @IsNotEmpty()
@@ -38,6 +42,20 @@ export class CreateWarehouseDto {
   @IsOptional()
   @IsString()
   country?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude?: number;
 
   @IsOptional()
   @IsUUID()

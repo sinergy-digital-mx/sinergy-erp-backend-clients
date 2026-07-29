@@ -12,6 +12,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { BranchWarehouseDto } from './branch-warehouse.dto';
 
+
 export class CreateBillingBranchDto {
   @ApiProperty({ description: 'Branch code', example: 'BRANCH-001' })
   @IsNotEmpty()
@@ -52,6 +53,30 @@ export class CreateBillingBranchDto {
   @IsOptional()
   @IsString()
   phone?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Latitud GPS (Google Maps)',
+    example: 32.5149,
+    nullable: true,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude?: number | null;
+
+  @ApiPropertyOptional({
+    description: 'Longitud GPS (Google Maps)',
+    example: -117.0382,
+    nullable: true,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude?: number | null;
 
   @ApiProperty({ description: 'Status: 1 = active, 0 = inactive', example: 1, required: false })
   @IsOptional()
