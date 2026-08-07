@@ -29,7 +29,7 @@ Organización
 3. Cada lote solo puede aparecer **una vez** en las líneas.
 4. La cantidad por línea no puede exceder `available_quantity` del lote.
 5. Al confirmar: se descuenta origen, se crea lote nuevo en destino con número `{prefix}-LOTE-{secuencial}`.
-6. Permisos: `inventory:read` para consultas, `inventory:write` para crear transferencias.
+6. Permisos: `Inventory:Read` para consultar; `Inventory:Transfer` para crear (separado de `Write`).
 
 ---
 
@@ -40,10 +40,11 @@ Base: `/api/tenant/inventory`
 | Método | Ruta | Permiso | Uso |
 |--------|------|---------|-----|
 | `GET` | `/summary` | read | Lista totalizada producto+almacén con desglose de lotes |
-| `GET` | `/transfers/context?product_id=&warehouse_id=` | read | Contexto para abrir modal de transferencia |
-| `POST` | `/transfers` | write | Crear transferencia |
-| `GET` | `/transfers` | read | Historial de transferencias |
-| `GET` | `/transfers/:id` | read | Detalle de una transferencia |
+| `GET` | `/transfers/context?product_id=&warehouse_id=` | Transfer | Contexto para abrir modal de transferencia |
+| `POST` | `/transfers` | Transfer | Crear transferencia |
+| `GET` | `/transfers` | Read | Historial de transferencias |
+| `GET` | `/transfers/:id` | Read | Detalle de una transferencia |
+| `GET` | `/transfers/:id/pdf` | Read | Descargar PDF comprobante |
 | `GET` | `/batches/:id` | read | Detalle de lote (incluye `transfer_history`) |
 | `GET` | `/tenant/warehouses` | Warehouse:Read | Almacenes destino |
 | `GET` | `/tenant/billing/branches` | — | Sucursales para selector |
@@ -316,6 +317,36 @@ Mostrar encabezado + tabla de líneas:
 
 Links a detalle de cada lote.
 
+### Descargar PDF
+
+**API:** `GET /api/tenant/inventory/transfers/:id/pdf`
+
+- Permiso: `Inventory:Read`
+- Response: `application/pdf` (attachment)
+- Filename: `transferencia-TRF-000001.pdf`
+
+Contenido del PDF:
+- Folio + estado + fecha/hora
+- Quién transfirió (nombre + correo)
+- Ruta origen → destino (almacén, código, sucursal)
+- Producto (nombre, SKU, UOM, cantidad total)
+- Tabla de líneas (lote origen → cantidad → lote destino)
+- Notas (si hay)
+
+**UI:** botón **Descargar PDF** en detalle de transferencia y en historial (acción por fila). Abrir blob / `window.open` con el token Authorization.
+
+```ts
+async downloadTransferPdf(transferId: string, folio: string) {
+  const blob = await api.getBlob(`/tenant/inventory/transfers/${transferId}/pdf`);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `transferencia-${folio}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+```
+
 ---
 
 ## Diagrama de flujo (totalizado)
@@ -348,8 +379,15 @@ flowchart TD
 
 | Acción UI | Permiso requerido |
 |-----------|-------------------|
-| Ver resumen / lotes / transferencias | `inventory:read` |
-| Crear transferencia | `inventory:write` |
+| Ver menú Inventario | `Inventory:ViewMenu` |
+| Ver resumen / lotes / historial / PDF | `Inventory:Read` |
+| **Crear transferencia** (botón + modal + POST) | `Inventory:Transfer` |
+| Editar otros datos de inventario (si aplica) | `Inventory:Write` |
+
+> **Importante:** crear transferencia **ya no usa** `Write`. Es un permiso separado: `Inventory:Transfer`.
+> Si el usuario ve Inventario pero no el botón, falta `Transfer` en su rol (no alcanza con Read).
+
+Tras asignar permisos: **cerrar sesión / refresh token** (`permissions_version`).
 
 Sugerencia de menú:
 - **Inventario** → Resumen (totalizado)

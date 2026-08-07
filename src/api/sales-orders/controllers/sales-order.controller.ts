@@ -12,6 +12,7 @@ import { SalesOrderDocumentsService } from '../services/sales-order-documents.se
 import { SalesOrderPosReceiptService } from '../services/sales-order-pos-receipt.service';
 import { SalesOrderExportService } from '../services/sales-order-export.service';
 import { SalesOrderInvoicingService } from '../services/sales-order-invoicing.service';
+import { ShippingsService } from '../../shippings/shippings.service';
 import { CancelElectronicInvoiceDto } from '../../electronic-invoicing/dto/cancel-electronic-invoice.dto';
 import { StampSalesOrderInvoiceDto } from '../dto/stamp-sales-order-invoice.dto';
 import { InventoryService } from '../../inventory/inventory.service';
@@ -39,6 +40,7 @@ export class SalesOrderController {
     private readonly inventoryService: InventoryService,
     private readonly exportService: SalesOrderExportService,
     private readonly invoicingService: SalesOrderInvoicingService,
+    private readonly shippingsService: ShippingsService,
   ) {}
 
   @Post()
@@ -445,6 +447,10 @@ export class SalesOrderController {
   async findOne(@Param('id') id: string, @Req() req: any) {
     const detail = await this.salesOrderService.findOneDetail(id, req.user.tenant_id);
     const documents = await this.documentsService.getDocuments(id);
+    const shipping = await this.shippingsService.getShippingSummaryForOrder(
+      id,
+      req.user.tenant_id,
+    );
     const lineItems = (detail.sales_order.line_items ?? []).map((lineItem: any) => ({
       ...lineItem,
       uom_name: lineItem.product_uom?.uom?.name ?? null,
@@ -460,6 +466,7 @@ export class SalesOrderController {
         discount_summary: detail.discount_summary,
         applied_line_discounts: detail.applied_line_discounts,
         applied_global_discount: detail.applied_global_discount,
+        shipping,
       },
     };
   }

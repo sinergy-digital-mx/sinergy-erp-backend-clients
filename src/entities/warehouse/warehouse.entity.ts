@@ -54,6 +54,12 @@ export class Warehouse {
   @Column({ nullable: true })
   country: string;
 
+  @Column({ type: 'decimal', precision: 10, scale: 6, nullable: true })
+  latitude: number | null;
+
+  @Column({ type: 'decimal', precision: 10, scale: 6, nullable: true })
+  longitude: number | null;
+
   // Status
   @Column({
     type: 'enum',

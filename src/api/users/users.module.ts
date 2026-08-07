@@ -10,6 +10,7 @@ import { BillingBranch } from '../../entities/billing/billing-branch.entity';
 import { PosDailyShift } from '../../entities/pos/pos-daily-shift.entity';
 import { RBACModule } from '../rbac/rbac.module';
 import { UsersRolesController } from '../rbac/controllers/users-roles.controller';
+import { EmployeesModule } from '../employees/employees.module';
 
 @Module({
     imports: [
@@ -21,6 +22,7 @@ import { UsersRolesController } from '../rbac/controllers/users-roles.controller
             PosDailyShift,
         ]),
         RBACModule,
+        EmployeesModule,
     ],
     controllers: [UsersController, UsersRolesController],
     providers: [UsersService],

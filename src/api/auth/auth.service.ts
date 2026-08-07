@@ -175,6 +175,7 @@ export class AuthService {
             is_pos_user: Boolean(user.is_pos_user),
             pos_user_type: user.is_pos_user ? user.pos_user_type : null,
             billing_branch_id: user.billing_branch_id ?? null,
+            is_employee: Boolean(user.is_employee),
         };
     }
 

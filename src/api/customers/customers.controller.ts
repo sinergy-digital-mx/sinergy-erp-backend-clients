@@ -18,6 +18,10 @@ import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { QueryCustomersDto } from './dto/query-customers.dto';
 import { QueryCustomersExportDto } from './dto/query-customers-export.dto';
+import {
+    CreateCustomerAddressDto,
+    UpdateCustomerAddressDto,
+} from './dto/customer-address.dto';
 import { CustomersExportService } from './services/customers-export.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionGuard } from '../rbac/guards/permission.guard';
@@ -138,6 +142,38 @@ export class CustomersController {
     async getAddresses(@Param('id') id: string, @Req() req) {
         const customer = await this.customersService.findOneWithAddresses(Number(id), req.user.tenantId);
         return customer?.addresses || [];
+    }
+
+    @Post(':id/addresses')
+    @RequirePermissions({ entityType: 'customers', action: 'Update' })
+    @ApiOperation({ summary: 'Crear dirección de cliente (con o sin GPS)' })
+    async createAddress(
+        @Param('id') id: string,
+        @Body() dto: CreateCustomerAddressDto,
+        @Req() req,
+    ) {
+        return this.customersService.createAddress(
+            Number(id),
+            dto,
+            req.user.tenant_id ?? req.user.tenantId,
+        );
+    }
+
+    @Put(':id/addresses/:addressId')
+    @RequirePermissions({ entityType: 'customers', action: 'Update' })
+    @ApiOperation({ summary: 'Actualizar dirección de cliente (recalcula has_gps)' })
+    async updateAddress(
+        @Param('id') id: string,
+        @Param('addressId') addressId: string,
+        @Body() dto: UpdateCustomerAddressDto,
+        @Req() req,
+    ) {
+        return this.customersService.updateAddress(
+            Number(id),
+            Number(addressId),
+            dto,
+            req.user.tenant_id ?? req.user.tenantId,
+        );
     }
 
     @Get(':id/activities')

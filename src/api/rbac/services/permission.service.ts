@@ -298,6 +298,9 @@ export class PermissionService {
       'Download_Report',
       'Bulk_Update',
       'Bulk_Delete',
+      'ViewMenu',
+      'Transfer',
+      'Write',
     ];
   }
 

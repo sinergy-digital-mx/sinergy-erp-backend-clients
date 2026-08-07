@@ -24,6 +24,8 @@ type BranchWarehouseResponse = {
   state: string | null;
   zip_code: string | null;
   country: string | null;
+  latitude: number | null;
+  longitude: number | null;
   status: string;
   metadata: Record<string, any> | null;
   created_at: Date;
@@ -283,6 +285,8 @@ export class BillingBranchService {
       state: item.state,
       zip_code: item.zip_code,
       country: item.country,
+      latitude: item.latitude ?? null,
+      longitude: item.longitude ?? null,
       metadata: item.metadata,
     };
   }
@@ -304,6 +308,8 @@ export class BillingBranchService {
     if (item.state !== undefined) payload.state = item.state;
     if (item.zip_code !== undefined) payload.zip_code = item.zip_code;
     if (item.country !== undefined) payload.country = item.country;
+    if (item.latitude !== undefined) payload.latitude = item.latitude;
+    if (item.longitude !== undefined) payload.longitude = item.longitude;
     if (item.status !== undefined) payload.status = item.status;
     if (item.metadata !== undefined) payload.metadata = item.metadata;
 
@@ -322,6 +328,8 @@ export class BillingBranchService {
       state: warehouse.state,
       zip_code: warehouse.zip_code,
       country: warehouse.country,
+      latitude: warehouse.latitude != null ? Number(warehouse.latitude) : null,
+      longitude: warehouse.longitude != null ? Number(warehouse.longitude) : null,
       status: warehouse.status,
       metadata: warehouse.metadata,
       created_at: warehouse.created_at,

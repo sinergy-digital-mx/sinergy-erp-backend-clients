@@ -1,17 +1,21 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   IsBoolean,
   IsEmail,
   IsEnum,
   IsInt,
   IsNotEmpty,
+  IsObject,
   IsOptional,
   IsString,
   IsUUID,
   Min,
   ValidateIf,
+  ValidateNested,
 } from 'class-validator';
 import { PosUserType } from '../../../entities/users/pos-user-type.enum';
+import { EmployeeProfileDto } from '../../employees/dto/employee-profile.dto';
 
 export class CreateUserDto {
   @ApiProperty({ description: 'User status ID', example: 1 })
@@ -86,4 +90,24 @@ export class CreateUserDto {
   @ValidateIf((dto: CreateUserDto) => dto.is_pos_user === true)
   @IsEnum(PosUserType)
   pos_user_type?: PosUserType;
+
+  @ApiProperty({
+    required: false,
+    description: 'Indica si el usuario es empleado (tab "Empleado" del modal)',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  is_employee?: boolean;
+
+  @ApiProperty({
+    required: false,
+    type: EmployeeProfileDto,
+    description: 'Datos de RH/nómina. Requerido cuando is_employee es true.',
+  })
+  @ValidateIf((dto: CreateUserDto) => dto.is_employee === true)
+  @IsObject()
+  @ValidateNested()
+  @Type(() => EmployeeProfileDto)
+  employee?: EmployeeProfileDto;
 }

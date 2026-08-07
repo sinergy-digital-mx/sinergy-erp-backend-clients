@@ -99,6 +99,10 @@ export async function seedModulePermissions(
       import: `Import access to ${moduleName}`,
       approve: `Approve access to ${moduleName}`,
       reject: `Reject access to ${moduleName}`,
+      Transfer: `Crear transferencias de inventario entre almacenes`,
+      Read: `Ver ${moduleName}`,
+      Write: `Crear y editar ${moduleName}`,
+      Delete: `Eliminar ${moduleName}`,
     };
 
     let createdPermissions = 0;

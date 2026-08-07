@@ -31,6 +31,7 @@ import { User } from '../../entities/users/user.entity';
 import { Customer } from '../../entities/customers/customer.entity';
 import { ElectronicInvoicingModule } from '../electronic-invoicing/electronic-invoicing.module';
 import { SalesOrderInvoicingService } from './services/sales-order-invoicing.service';
+import { ShippingsModule } from '../shippings/shippings.module';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { SalesOrderInvoicingService } from './services/sales-order-invoicing.ser
     GlobalDiscountsModule,
     ElectronicInvoicingModule,
     forwardRef(() => PosShiftsModule),
+    ShippingsModule,
   ],
   controllers: [SalesOrderController],
   providers: [

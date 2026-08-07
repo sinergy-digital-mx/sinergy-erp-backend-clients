@@ -1,15 +1,21 @@
 // src/customers/customers.service.ts
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { QueryCustomersDto } from './dto/query-customers.dto';
+import {
+  CreateCustomerAddressDto,
+  UpdateCustomerAddressDto,
+} from './dto/customer-address.dto';
 import { CustomerStatus } from '../../entities/customers/customer-status.entity';
 import { Customer } from '../../entities/customers/customer.entity';
+import { CustomerAddress } from '../../entities/customers/customer-address.entity';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { parsePhoneNumber } from '../../common/utils/phone.validator';
+import { hasValidGps } from '../../common/utils/geo.helper';
 
 interface PaginatedCustomersDto {
     data: Customer[];
@@ -27,6 +33,8 @@ export class CustomersService {
         @InjectRepository(Customer) private customerRepo: Repository<Customer>,
         @InjectRepository(CustomerStatus) private statusRepo: Repository<CustomerStatus>,
         @InjectRepository(Warehouse) private warehouseRepo: Repository<Warehouse>,
+        @InjectRepository(CustomerAddress)
+        private addressRepo: Repository<CustomerAddress>,
     ) { }
 
     private async resolveDefaultStatus(): Promise<CustomerStatus> {
@@ -241,6 +249,67 @@ export class CustomersService {
             .getOne();
     }
 
+    async createAddress(
+        customerId: number,
+        dto: CreateCustomerAddressDto,
+        tenantId: string,
+    ): Promise<CustomerAddress> {
+        const customer = await this.customerRepo.findOne({
+            where: { id: customerId, tenant_id: tenantId },
+        });
+        if (!customer) {
+            throw new NotFoundException('Cliente no encontrado');
+        }
+
+        const lat = dto.latitude ?? null;
+        const lng = dto.longitude ?? null;
+        const gpsOk = hasValidGps({ latitude: lat, longitude: lng });
+
+        const address = this.addressRepo.create({
+            ...dto,
+            customer_id: customerId,
+            tenant_id: tenantId,
+            latitude: lat,
+            longitude: lng,
+            has_gps: gpsOk ? 1 : 0,
+            address_source: dto.address_source || (gpsOk ? 'manual' : 'without_location'),
+            status: 1,
+            is_primary: dto.is_primary ?? false,
+        });
+
+        return this.addressRepo.save(address);
+    }
+
+    async updateAddress(
+        customerId: number,
+        addressId: number,
+        dto: UpdateCustomerAddressDto,
+        tenantId: string,
+    ): Promise<CustomerAddress> {
+        const address = await this.addressRepo.findOne({
+            where: {
+                id: addressId,
+                customer_id: customerId,
+                tenant_id: tenantId,
+            },
+        });
+        if (!address) {
+            throw new NotFoundException('Dirección no encontrada');
+        }
+
+        Object.assign(address, dto);
+
+        const gpsOk = hasValidGps(address);
+        address.has_gps = gpsOk ? 1 : 0;
+        if (dto.latitude !== undefined || dto.longitude !== undefined) {
+            address.address_source =
+                dto.address_source ||
+                (gpsOk ? 'manual' : 'without_location');
+        }
+
+        return this.addressRepo.save(address);
+    }
+
     private async resolveWarehouseOrThrow(
         warehouseId: string | null | undefined,
         tenantId: string,
@@ -257,7 +326,9 @@ export class CustomersService {
         });
 
         if (!warehouse) {
-            throw new BadRequestException('warehouse_id is invalid for this tenant');
+            throw new BadRequestException(
+                'warehouse_id no es válido para esta organización',
+            );
         }
 
         return warehouse;

@@ -20,6 +20,9 @@ export class CustomerAddress {
     @JoinColumn({ name: 'customer_id' })
     customer: Customer;
 
+    @Column()
+    customer_id: number;
+
     @ManyToOne(() => RBACTenant)
     @JoinColumn({ name: 'tenant_id' })
     tenant: RBACTenant;
@@ -50,6 +53,24 @@ export class CustomerAddress {
 
     @Column({ default: false })
     is_primary: boolean;
+
+    @Column({ type: 'decimal', precision: 10, scale: 6, nullable: true })
+    latitude: number | null;
+
+    @Column({ type: 'decimal', precision: 10, scale: 6, nullable: true })
+    longitude: number | null;
+
+    @Column({ type: 'tinyint', default: 0 })
+    has_gps: number;
+
+    @Column({ type: 'varchar', length: 40, nullable: true })
+    address_source: string | null;
+
+    @Column({ type: 'tinyint', default: 1 })
+    status: number;
+
+    @Column({ type: 'text', nullable: true })
+    notes: string | null;
 
     @CreateDateColumn({ type: 'timestamp' })
     created_at: Date;
