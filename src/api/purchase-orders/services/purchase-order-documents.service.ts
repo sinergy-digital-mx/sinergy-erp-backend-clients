@@ -36,7 +36,7 @@ export class PurchaseOrderDocumentsService {
     });
 
     if (!docType) {
-      throw new NotFoundException(`Document type not found: ${documentTypeId}`);
+      throw new NotFoundException(`Tipo de documento no encontrado: ${documentTypeId}`);
     }
 
     const document = this.documentRepository.create({
@@ -69,7 +69,7 @@ export class PurchaseOrderDocumentsService {
     });
 
     if (!docType) {
-      throw new NotFoundException(`Document type not found: ${documentTypeId}`);
+      throw new NotFoundException(`Tipo de documento no encontrado: ${documentTypeId}`);
     }
 
     const s3Key = await this.s3Service.uploadEntityFile(
@@ -164,7 +164,7 @@ export class PurchaseOrderDocumentsService {
   async deleteDocument(documentId: string): Promise<void> {
     const result = await this.documentRepository.delete(documentId);
     if (result.affected === 0) {
-      throw new NotFoundException(`Document not found: ${documentId}`);
+      throw new NotFoundException(`Documento no encontrado: ${documentId}`);
     }
   }
 

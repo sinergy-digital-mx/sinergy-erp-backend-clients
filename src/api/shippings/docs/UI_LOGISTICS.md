@@ -2,7 +2,7 @@
 
 ## Pantallas mínimas
 
-1. **Catálogo camiones** — CRUD `/tenant/trucks`.
+1. **Catálogo camiones** — CRUD `/tenant/trucks`. Modal con tabs **General** + **Fotos** (mismo patrón que catálogo de productos). Ver `src/api/trucks/docs/UI_TRUCK_PHOTO.md`.
 2. **Lista / calendario envíos** — filtros status / chofer / camión / fechas.
 3. **Wizard crear envío** — form + **Vista previa** (lista A/B/C + mapa).
 4. **Detalle envío** — paradas, km, cambiar status.
@@ -156,7 +156,7 @@ Misma lógica con `origin.location_status` / `origin_missing_location` → modal
 
 ## Flujo wizard
 
-1. Form: CEDIS origen, fecha, chofer, camión, notas, OV `Surtida` del mismo almacén.
+1. Form: CEDIS origen, fecha, chofer, camión, notas, OV `Surtida` o `Lista para entrega` del mismo almacén.
 2. **Vista previa** → `POST /preview`.
 3. Completar ubicaciones faltantes (CEDIS y/o clientes) sin salir del wizard.
 4. Re-preview hasta `missing_location_count === 0` (ideal) o permitir crear con aviso.
@@ -201,7 +201,9 @@ Selector de usuarios activos. `driver_id` = `user.id`.
 
 ## Órdenes elegibles
 
-Solo OV con `general_status = Surtida` del mismo almacén. Al crear/agregar → `En Camino`. Al cancelar envío → `Surtida`.
+OV con `general_status` = `Surtida` **o** `Lista para entrega` del mismo almacén. Al crear/agregar → `En Camino`. Al cancelar envío → se restaura `Lista para entrega` si la orden tuvo corroboración / `requires_selection_assembly`; si no, `Surtida`.
+
+Las OV en **Lista para entrega** vienen del módulo **Control de almacén** (corroboración). Ver `src/api/warehouse-control/docs/UI_WAREHOUSE_CONTROL.md`.
 
 ## Distancia
 

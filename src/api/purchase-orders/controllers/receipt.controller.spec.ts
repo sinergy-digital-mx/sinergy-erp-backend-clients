@@ -287,7 +287,7 @@ describe('ReceiptController - Integration Tests', () => {
       };
 
       (mockReceiptService.receive as jest.Mock).mockRejectedValue(
-        new Error('Purchase order not found'),
+        new Error('Orden de compra no encontrada'),
       );
 
       const mockReq = {
@@ -298,7 +298,7 @@ describe('ReceiptController - Integration Tests', () => {
       };
 
       await expect(controller.receive(poId, dto, mockReq)).rejects.toThrow(
-        'Purchase order not found',
+        'Orden de compra no encontrada',
       );
     });
 

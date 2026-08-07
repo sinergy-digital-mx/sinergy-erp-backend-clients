@@ -49,8 +49,18 @@ export class ProductUoMService {
       }
     }
 
+    const parentUomCatalogId = await this.resolveParentUomCatalogId(
+      productId,
+      dto.parent_uom_id,
+      dto.uom_catalog_id,
+      tenantId,
+    );
+
     const productUoM = this.productUoMRepository.create({
-      ...dto,
+      uom_catalog_id: dto.uom_catalog_id,
+      factor: dto.factor,
+      is_base: dto.is_base,
+      parent_uom_id: parentUomCatalogId,
       product_id: productId,
     });
 
@@ -148,7 +158,17 @@ export class ProductUoMService {
     if (dto.uom_catalog_id !== undefined) patch.uom_catalog_id = dto.uom_catalog_id;
     if (dto.factor !== undefined) patch.factor = dto.factor;
     if (dto.is_base !== undefined) patch.is_base = dto.is_base;
-    if (dto.parent_uom_id !== undefined) patch.parent_uom_id = dto.parent_uom_id;
+
+    if (dto.parent_uom_id !== undefined) {
+      const nextCatalogId = dto.uom_catalog_id ?? productUoM.uom_catalog_id;
+      patch.parent_uom_id = await this.resolveParentUomCatalogId(
+        productId,
+        dto.parent_uom_id,
+        nextCatalogId,
+        tenantId,
+        id,
+      );
+    }
 
     if (Object.keys(patch).length > 0) {
       await this.productUoMRepository.update({ id, product_id: productId }, patch);
@@ -165,5 +185,52 @@ export class ProductUoMService {
     }
 
     await this.productUoMRepository.remove(productUoM);
+  }
+
+  /**
+   * `parent_uom_id` en BD referencia `uom_catalog.id`.
+   * La UI suele enviar el id de la fila en `product_uoms` del padre; se resuelve a su `uom_catalog_id`.
+   * También se acepta directamente un `uom_catalog.id`.
+   */
+  private async resolveParentUomCatalogId(
+    productId: string,
+    parentUomId: string | null | undefined,
+    childUomCatalogId: string,
+    tenantId: string,
+    currentProductUomId?: string,
+  ): Promise<string | null> {
+    if (parentUomId === undefined || parentUomId === null || parentUomId === '') {
+      return null;
+    }
+
+    if (currentProductUomId && parentUomId === currentProductUomId) {
+      throw new BadRequestException('Una UoM no puede ser padre de sí misma');
+    }
+
+    const parentAsProductUom = await this.productUoMRepository.findOne({
+      where: { id: parentUomId, product_id: productId },
+    });
+
+    if (parentAsProductUom) {
+      if (parentAsProductUom.uom_catalog_id === childUomCatalogId) {
+        throw new BadRequestException('Una UoM no puede ser padre de sí misma');
+      }
+      return parentAsProductUom.uom_catalog_id;
+    }
+
+    try {
+      await this.uomCatalogService.findOne(parentUomId, tenantId);
+    } catch {
+      throw new BadRequestException(
+        'parent_uom_id debe ser el id de otra UoM del mismo producto (product_uoms.id) ' +
+          'o un id válido del catálogo (uom_catalog.id)',
+      );
+    }
+
+    if (parentUomId === childUomCatalogId) {
+      throw new BadRequestException('Una UoM no puede ser padre de sí misma');
+    }
+
+    return parentUomId;
   }
 }

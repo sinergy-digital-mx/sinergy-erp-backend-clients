@@ -40,11 +40,11 @@ export class PurchaseOrderDocumentsController {
     const userId = req.user.id;
 
     if (!file) {
-      throw new BadRequestException('No file uploaded');
+      throw new BadRequestException('No se subió ningún archivo');
     }
 
     if (!documentTypeId) {
-      throw new BadRequestException('document_type_id is required');
+      throw new BadRequestException('El tipo de documento es obligatorio');
     }
 
     // Verify purchase order exists
@@ -59,7 +59,7 @@ export class PurchaseOrderDocumentsController {
     );
 
     return {
-      message: 'Document uploaded successfully',
+      message: 'Documento subido correctamente',
       data: document,
     };
   }
@@ -90,7 +90,7 @@ export class PurchaseOrderDocumentsController {
     await this.documentsService.deleteDocument(documentId);
 
     return {
-      message: 'Document deleted successfully',
+      message: 'Documento eliminado correctamente',
     };
   }
 

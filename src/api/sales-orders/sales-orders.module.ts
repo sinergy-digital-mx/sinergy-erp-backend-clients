@@ -70,6 +70,6 @@ import { ShippingsModule } from '../shippings/shippings.module';
     SalesOrderInvoicingService,
     S3Service,
   ],
-  exports: [SalesOrderService, SalesOrderPosReceiptService],
+  exports: [SalesOrderService, SalesOrderPosReceiptService, SalesOrderFulfillmentService],
 })
 export class SalesOrdersModule {}

@@ -158,7 +158,7 @@ export class InventoryBatchService {
     });
 
     if (!batch) {
-      throw new NotFoundException(`Inventory Batch with ID ${id} not found`);
+      throw new NotFoundException(`Lote de inventario con ID ${id} no encontrado`);
     }
 
     return batch;

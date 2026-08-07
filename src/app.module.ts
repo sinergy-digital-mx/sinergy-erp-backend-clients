@@ -36,6 +36,7 @@ import { EmployeesModule } from './api/employees/employees.module';
 import { EmployeePortalModule } from './api/employee-portal/employee-portal.module';
 import { TrucksModule } from './api/trucks/trucks.module';
 import { ShippingsModule } from './api/shippings/shippings.module';
+import { WarehouseControlModule } from './api/warehouse-control/warehouse-control.module';
 import { PermissionVersionGuard } from './api/auth/guards/permission-version.guard';
 
 @Module({
@@ -75,6 +76,7 @@ import { PermissionVersionGuard } from './api/auth/guards/permission-version.gua
     EmployeePortalModule,
     TrucksModule,
     ShippingsModule,
+    WarehouseControlModule,
   ],
   providers: [],
 })

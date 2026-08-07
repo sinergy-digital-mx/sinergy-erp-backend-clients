@@ -53,7 +53,7 @@ export class UnitConversionService {
     if (!productUom) {
       this.logger.error(`ProductUoM not found for product ${productId} with UOM ${uomId}`);
       throw new BadRequestException(
-        `Unit of measurement not supported for this product`,
+        `Unidad de medida no soportada para este producto`,
       );
     }
 
@@ -73,7 +73,7 @@ export class UnitConversionService {
 
     if (!productUom) {
       throw new BadRequestException(
-        `Unit of measurement not found: ${productUomId}`,
+        `Unidad de medida no encontrada: ${productUomId}`,
       );
     }
 
@@ -96,9 +96,9 @@ export class UnitConversionService {
     });
 
     if (!baseUom) {
-      this.logger.error(`Base unit of measurement not found for product: ${productId}`);
+      this.logger.error(`Unidad de medida base no encontrada para el producto: ${productId}`);
       throw new BadRequestException(
-        `Base unit of measurement not found for product: ${productId}`,
+        `Unidad de medida base no encontrada para el producto: ${productId}`,
       );
     }
 
@@ -131,7 +131,7 @@ export class UnitConversionService {
     if (!productUom) {
       this.logger.error(`ProductUoM not found for product ${productId} with ID ${productUomId}`);
       throw new BadRequestException(
-        `Unit of measurement not supported for this product`,
+        `Unidad de medida no soportada para este producto`,
       );
     }
 

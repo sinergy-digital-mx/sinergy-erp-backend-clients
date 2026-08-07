@@ -36,20 +36,20 @@ export class ReceiptValidatorService {
       // Validation 2: All quantities are non-negative
       if (effectiveQuantity < 0) {
         throw new BadRequestException(
-          `Received quantity cannot be negative for line item ${item.line_item_id}`,
+          `La cantidad recibida no puede ser negativa para la línea ${item.line_item_id}`,
         );
       }
 
       // Validation 3: Quantities do not exceed 999,999.999
       if (effectiveQuantity > 999999.999) {
         throw new BadRequestException(
-          `Received quantity exceeds maximum limit (999,999.999) for line item ${item.line_item_id}`,
+          `La cantidad recibida excede el límite máximo (999,999.999) para la línea ${item.line_item_id}`,
         );
       }
 
       if (lotMode === ReceiptLotMode.MULTIPLE && !hasLots) {
         throw new BadRequestException(
-          `At least one lot is required in multiple lot mode for line item ${item.line_item_id}`,
+          `Se requiere al menos un lote en modo múltiple para la línea ${item.line_item_id}`,
         );
       }
 
@@ -57,19 +57,19 @@ export class ReceiptValidatorService {
         for (const lot of lots) {
           if (!lot.tag_identifier?.trim()) {
             throw new BadRequestException(
-              `Tag/identifier is required for each lot in line item ${item.line_item_id}`,
+              `Se requiere etiqueta/identificador para cada lote de la línea ${item.line_item_id}`,
             );
           }
 
           if (Number(lot.quantity || 0) <= 0) {
             throw new BadRequestException(
-              `Lot quantity must be greater than zero for line item ${item.line_item_id}`,
+              `La cantidad del lote debe ser mayor a cero para la línea ${item.line_item_id}`,
             );
           }
 
           if (lot.product_uom_id !== item.product_uom_id) {
             throw new BadRequestException(
-              `Lot UOM must match line item UOM for line item ${item.line_item_id}`,
+              `La UoM del lote debe coincidir con la UoM de la línea ${item.line_item_id}`,
             );
           }
         }
@@ -81,7 +81,7 @@ export class ReceiptValidatorService {
       });
 
       if (!lineItem) {
-        throw new NotFoundException(`Line item not found: ${item.line_item_id}`);
+        throw new NotFoundException(`Línea no encontrada: ${item.line_item_id}`);
       }
     }
 
@@ -96,7 +96,7 @@ export class ReceiptValidatorService {
       return Number(item.quantity || 0) > 0;
     });
     if (!hasAtLeastOneItem) {
-      throw new BadRequestException('At least one product must be received with quantity greater than zero');
+      throw new BadRequestException('Se debe recibir al menos un producto con cantidad mayor a cero');
     }
   }
 }

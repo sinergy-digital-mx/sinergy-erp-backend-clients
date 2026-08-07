@@ -5,6 +5,7 @@ import { PurchaseOrderBatch } from '../../../entities/purchase-orders/purchase-o
 import { PurchaseOrderBatchDetail } from '../../../entities/purchase-orders/purchase-order-batch-detail.entity';
 import { InventoryBatch } from '../../../entities/purchase-orders/inventory-batch.entity';
 import { PurchaseOrderPayment } from '../../../entities/purchase-orders/purchase-order-payment.entity';
+import { ProductUoM } from '../../../entities/products';
 import { CreatePurchaseOrderDto, CreateLineItemDto } from '../dto/create-purchase-order.dto';
 import { ReceivePurchaseOrderDto } from '../dto/receive-purchase-order.dto';
 import { UpdateLineItemDto } from '../dto/update-line-item.dto';
@@ -339,7 +340,42 @@ export class PurchaseOrderService {
       .getOne();
 
     if (!purchaseOrder) {
-      throw new NotFoundException(`Purchase order not found: ${id}`);
+      throw new NotFoundException(`Orden de compra no encontrada: ${id}`);
+    }
+
+    // Recepción a medias: hay lotes pero el estado quedó en Creada → pasar a Recibida
+    if (
+      purchaseOrder.general_status === 'Creada' &&
+      (purchaseOrder.batches?.length ?? 0) > 0
+    ) {
+      const lines = purchaseOrder.line_items || [];
+      let subtotal = 0;
+      let iva = 0;
+      let ieps = 0;
+      for (const line of lines) {
+        const qty = Number(line.received_original_quantity || 0);
+        if (qty <= 0) continue;
+        subtotal += qty * Number(line.received_original_unit_total || 0);
+        iva += qty * Number(line.received_original_iva_unit || 0);
+        ieps += qty * Number(line.received_original_ieps_unit || 0);
+      }
+      const round = (n: number) => Math.round(n * 100) / 100;
+
+      await this.purchaseOrderBatchRepository.update(
+        { id, tenant_id: tenantId },
+        {
+          general_status: 'Recibida',
+          received_subtotal: round(subtotal),
+          received_iva_total: round(iva),
+          received_ieps_total: round(ieps),
+          received_total: round(subtotal + iva + ieps),
+        },
+      );
+      purchaseOrder.general_status = 'Recibida';
+      purchaseOrder.received_subtotal = round(subtotal);
+      purchaseOrder.received_iva_total = round(iva);
+      purchaseOrder.received_ieps_total = round(ieps);
+      purchaseOrder.received_total = round(subtotal + iva + ieps);
     }
 
     // Never leak credential hashes in API responses.
@@ -508,7 +544,7 @@ export class PurchaseOrderService {
     });
 
     if (!payment) {
-      throw new NotFoundException(`Payment not found: ${paymentId}`);
+      throw new NotFoundException(`Pago no encontrado: ${paymentId}`);
     }
 
     await this.purchaseOrderPaymentRepository.remove(payment);
@@ -541,6 +577,16 @@ export class PurchaseOrderService {
     try {
       const purchaseOrder = await this.findOne(id, tenantId);
 
+      if (purchaseOrder.general_status === 'Recibida') {
+        return purchaseOrder;
+      }
+
+      if (purchaseOrder.general_status !== 'Creada') {
+        throw new BadRequestException(
+          `No se puede recibir la orden de compra. Estado actual: ${purchaseOrder.general_status}`,
+        );
+      }
+
       // Calculate received totals
       let received_subtotal = 0;
       let received_iva_total = 0;
@@ -554,13 +600,23 @@ export class PurchaseOrderService {
 
         if (!lineItem) {
           throw new NotFoundException(
-            `Line item not found: ${receivedItem.line_item_id}`,
+            `Línea no encontrada: ${receivedItem.line_item_id}`,
           );
         }
 
         // Set received original data
         lineItem.received_original_product_id = receivedItem.product_id;
-        lineItem.received_original_uom_id = receivedItem.product_uom_id;
+        // received_original_uom_id referencia uom_catalog.id (no product_uoms.id)
+        const productUomIdForLine = await this.unitConversionService.getProductUomId(
+          receivedItem.product_uom_id,
+          receivedItem.product_id,
+        );
+        const productUomRow = await this.dataSource.getRepository(ProductUoM).findOne({
+          where: { id: productUomIdForLine },
+        });
+        lineItem.product_uom_id = productUomIdForLine;
+        lineItem.received_original_uom_id =
+          productUomRow?.uom_catalog_id || receivedItem.product_uom_id;
         lineItem.received_original_quantity = receivedItem.quantity;
         lineItem.received_original_unit_total = receivedItem.unit_total;
         lineItem.received_original_iva_percentage = receivedItem.iva_percentage;
@@ -571,7 +627,7 @@ export class PurchaseOrderService {
         // Convert to base unit
         const convertedQuantity = await this.unitConversionService.convertToBaseUnit(
           receivedItem.quantity,
-          receivedItem.product_uom_id,
+          productUomIdForLine,
           receivedItem.product_id,
         );
         const baseUomId = await this.unitConversionService.getBaseUom(
@@ -623,7 +679,18 @@ export class PurchaseOrderService {
       purchaseOrder.received_total = received_subtotal + received_iva_total + received_ieps_total;
       purchaseOrder.general_status = 'Recibida';
       purchaseOrder.updated_by = userId;
-      await queryRunner.manager.save(purchaseOrder);
+      await queryRunner.manager.update(
+        PurchaseOrderBatch,
+        { id: purchaseOrder.id },
+        {
+          received_subtotal: purchaseOrder.received_subtotal,
+          received_iva_total: purchaseOrder.received_iva_total,
+          received_ieps_total: purchaseOrder.received_ieps_total,
+          received_total: purchaseOrder.received_total,
+          general_status: 'Recibida',
+          updated_by: userId,
+        },
+      );
 
       await queryRunner.commitTransaction();
       return this.findOne(id, tenantId);
@@ -665,7 +732,7 @@ export class PurchaseOrderService {
 
     if (purchaseOrder.general_status !== 'Creada') {
       throw new BadRequestException(
-        `Cannot cancel purchase order with status: ${purchaseOrder.general_status}`,
+        `No se puede cancelar la orden de compra con estado: ${purchaseOrder.general_status}`,
       );
     }
 
@@ -691,7 +758,7 @@ export class PurchaseOrderService {
 
     if (existing.general_status !== 'Creada') {
       throw new BadRequestException(
-        `Cannot replace purchase order with status: ${existing.general_status}`,
+        `No se puede reemplazar la orden de compra con estado: ${existing.general_status}`,
       );
     }
 
@@ -715,7 +782,7 @@ export class PurchaseOrderService {
         where: { id, tenant_id: tenantId },
       });
       if (!batch) {
-        throw new NotFoundException(`Purchase order not found: ${id}`);
+        throw new NotFoundException(`Orden de compra no encontrada: ${id}`);
       }
 
       batch.fiscal_configuration_id = dto.fiscal_configuration_id;
@@ -773,7 +840,7 @@ export class PurchaseOrderService {
 
     if (purchaseOrder.general_status !== 'Creada') {
       throw new BadRequestException(
-        `Cannot add line item to purchase order with status: ${purchaseOrder.general_status}`,
+        `No se puede agregar una línea a la orden de compra con estado: ${purchaseOrder.general_status}`,
       );
     }
 
@@ -875,7 +942,7 @@ export class PurchaseOrderService {
       where: { id: purchaseOrderId, tenant_id: tenantId },
     });
     if (!batch) {
-      throw new NotFoundException(`Purchase order not found: ${purchaseOrderId}`);
+      throw new NotFoundException(`Orden de compra no encontrada: ${purchaseOrderId}`);
     }
     batch.requested_subtotal = totals.requested_subtotal;
     batch.requested_iva_total = totals.requested_iva_total;
@@ -915,14 +982,14 @@ export class PurchaseOrderService {
 
     if (purchaseOrder.general_status !== 'Creada') {
       throw new BadRequestException(
-        `Cannot update line item for purchase order with status: ${purchaseOrder.general_status}`,
+        `No se puede actualizar la línea de la orden de compra con estado: ${purchaseOrder.general_status}`,
       );
     }
 
     const lineItem = purchaseOrder.line_items.find((li) => li.id === lineItemId);
 
     if (!lineItem) {
-      throw new NotFoundException(`Line item not found: ${lineItemId}`);
+      throw new NotFoundException(`Línea no encontrada: ${lineItemId}`);
     }
 
     if (dto.uom_id !== undefined) {
@@ -946,7 +1013,7 @@ export class PurchaseOrderService {
 
     const qty = Number(lineItem.quantity);
     if (qty <= 0 || !Number.isFinite(qty)) {
-      throw new BadRequestException('quantity must be a positive number');
+      throw new BadRequestException('La cantidad debe ser un número positivo');
     }
 
     this.applyLineTaxesFromPercentages(lineItem);
@@ -987,14 +1054,14 @@ export class PurchaseOrderService {
 
     if (purchaseOrder.general_status !== 'Creada') {
       throw new BadRequestException(
-        `Cannot remove line item for purchase order with status: ${purchaseOrder.general_status}`,
+        `No se puede eliminar la línea de la orden de compra con estado: ${purchaseOrder.general_status}`,
       );
     }
 
     const lineItem = purchaseOrder.line_items.find((li) => li.id === lineItemId);
 
     if (!lineItem) {
-      throw new NotFoundException(`Line item not found: ${lineItemId}`);
+      throw new NotFoundException(`Línea no encontrada: ${lineItemId}`);
     }
 
     const queryRunner = this.dataSource.createQueryRunner();

@@ -148,7 +148,7 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
         undefined,
       );
       (mockReceiptValidatorService.validateReceivedItems as jest.Mock).mockRejectedValue(
-        new NotFoundException(`Line item not found: ${lineItemId}`),
+        new NotFoundException(`Línea no encontrada: ${lineItemId}`),
       );
 
       await expect(
@@ -193,7 +193,7 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
       );
       (mockQueryRunner.manager.findOne as jest.Mock).mockResolvedValue(mockPO);
       (mockReceiptValidatorService.validateReceivedItems as jest.Mock).mockRejectedValue(
-        new NotFoundException(`Line item not found: ${lineItemId}`),
+        new NotFoundException(`Línea no encontrada: ${lineItemId}`),
       );
 
       // Verify that the error is thrown with the line item ID in the message
@@ -227,7 +227,7 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
 
       // Mock tenant validator to throw NotFoundException
       (mockTenantValidatorService.validatePOBelongsToTenant as jest.Mock).mockRejectedValue(
-        new NotFoundException(`Purchase order not found: ${poId}`),
+        new NotFoundException(`Orden de compra no encontrada: ${poId}`),
       );
 
       await expect(
@@ -327,7 +327,7 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
 
       // Mock validator to throw BadRequestException
       (mockReceiptValidatorService.validateReceivedItems as jest.Mock).mockRejectedValue(
-        new BadRequestException('Received quantity cannot be negative'),
+        new BadRequestException('La cantidad recibida no puede ser negativa'),
       );
 
       await expect(
@@ -374,7 +374,7 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
       (mockQueryRunner.manager.findOne as jest.Mock).mockResolvedValue(mockPO);
 
       (mockReceiptValidatorService.validateReceivedItems as jest.Mock).mockRejectedValue(
-        new BadRequestException('At least one product must be received'),
+        new BadRequestException('Se debe recibir al menos un producto'),
       );
 
       try {
@@ -429,7 +429,7 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
 
       // Mock unit conversion error
       (mockUnitConversionService.getBaseUom as jest.Mock).mockRejectedValue(
-        new BadRequestException('Unit conversion not supported'),
+        new BadRequestException('Conversión de unidad no soportada'),
       );
 
       await expect(
@@ -570,13 +570,13 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
       (mockQueryRunner.manager.findOne as jest.Mock).mockResolvedValue(mockPO);
 
       (mockReceiptValidatorService.validateReceivedItems as jest.Mock).mockRejectedValue(
-        new BadRequestException('At least one product must be received'),
+        new BadRequestException('Se debe recibir al menos un producto'),
       );
 
       // Verify that the error is thrown
       const error = await service.receive(poId, dto, tenantId, userId).catch(e => e);
       expect(error).toBeInstanceOf(BadRequestException);
-      expect(error.message).toContain('At least one product must be received');
+      expect(error.message).toContain('Se debe recibir al menos un producto');
     });
   });
 
@@ -675,7 +675,7 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
       };
 
       (mockTenantValidatorService.validatePOBelongsToTenant as jest.Mock).mockRejectedValue(
-        new NotFoundException(`Purchase order not found: ${poId}`),
+        new NotFoundException(`Orden de compra no encontrada: ${poId}`),
       );
 
       const error = await service.receive(poId, dto, tenantId, userId).catch(e => e);
@@ -715,7 +715,7 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
       (mockQueryRunner.manager.findOne as jest.Mock).mockResolvedValue(mockPO);
 
       (mockReceiptValidatorService.validateReceivedItems as jest.Mock).mockRejectedValue(
-        new BadRequestException('Received quantity cannot be negative'),
+        new BadRequestException('La cantidad recibida no puede ser negativa'),
       );
 
       const error = await service.receive(poId, dto, tenantId, userId).catch(e => e);

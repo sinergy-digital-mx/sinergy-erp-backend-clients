@@ -87,7 +87,7 @@ export class WarehouseService {
     });
 
     if (!warehouse) {
-      throw new NotFoundException(`Warehouse with ID ${id} not found`);
+      throw new NotFoundException(`Almacén con ID ${id} no encontrado`);
     }
 
     return warehouse;

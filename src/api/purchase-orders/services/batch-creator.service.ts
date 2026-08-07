@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { InventoryBatch } from '../../../entities/purchase-orders/inventory-batch.entity';
 import { PurchaseOrderBatch } from '../../../entities/purchase-orders/purchase-order-batch.entity';
 import { ReceivedItemDto } from '../dto/receive-purchase-order.dto';
@@ -21,9 +21,8 @@ export class BatchCreatorService {
   ) {}
 
   /**
-   * Create an inventory batch record for a received item
-   * Sets all required fields including batch number, warehouse, product, quantity, and references
-   * Persists to inv_s_batches table
+   * Create an inventory batch record for a received item.
+   * Si se pasa `manager`, persiste dentro de esa transacción.
    */
   async createBatchForReceivedItem(
     receivedItem: ReceivedItemDto,
@@ -32,6 +31,7 @@ export class BatchCreatorService {
     userId: string,
     productUoms?: any[],
     sourceTagIdentifier?: string,
+    manager?: EntityManager,
   ): Promise<InventoryBatch> {
     try {
       const batchNumber = await this.batchNumberGeneratorService.generateBatchNumber(
@@ -40,17 +40,17 @@ export class BatchCreatorService {
       );
 
       const uoms = productUoms || [];
-      const baseUom = uoms.find(u => u.is_base);
+      const baseUom = uoms.find((u) => u.is_base);
       if (!baseUom) {
         throw new BadRequestException(
-          `Base unit of measurement not found for product: ${receivedItem.product_id}`,
+          `Unidad de medida base no encontrada para el producto: ${receivedItem.product_id}`,
         );
       }
 
-      const productUom = uoms.find(u => u.id === receivedItem.product_uom_id);
+      const productUom = uoms.find((u) => u.id === receivedItem.product_uom_id);
       if (!productUom) {
         throw new BadRequestException(
-          `Unit of measurement not supported for this product`,
+          `Unidad de medida no soportada para este producto`,
         );
       }
 
@@ -59,7 +59,11 @@ export class BatchCreatorService {
         ? receivedItem.quantity
         : receivedItem.quantity * factor;
 
-      const batch = this.inventoryBatchRepository.create({
+      const repo = manager
+        ? manager.getRepository(InventoryBatch)
+        : this.inventoryBatchRepository;
+
+      const batch = repo.create({
         tenant_id: purchaseOrder.tenant_id,
         batch_number: batchNumber,
         source_tag_identifier: sourceTagIdentifier || null,
@@ -74,7 +78,7 @@ export class BatchCreatorService {
         created_at: new Date(),
       });
 
-      const savedBatch = await this.inventoryBatchRepository.save(batch);
+      const savedBatch = await repo.save(batch);
 
       this.logger.log(
         `Batch created: ${batchNumber} for product ${receivedItem.product_id}`,

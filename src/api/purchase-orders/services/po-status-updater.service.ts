@@ -34,7 +34,7 @@ export class POStatusUpdaterService {
     });
 
     if (!purchaseOrder) {
-      throw new NotFoundException(`Purchase order not found: ${purchaseOrderId}`);
+      throw new NotFoundException(`Orden de compra no encontrada: ${purchaseOrderId}`);
     }
 
     // Update general_status to "Recibida" (Requirement 4.1)

@@ -70,7 +70,7 @@ describe('TenantValidatorService', () => {
         ).rejects.toThrow(NotFoundException);
         await expect(
           service.validatePOBelongsToTenant(purchaseOrderId, tenantId),
-        ).rejects.toThrow(`Purchase order not found: ${purchaseOrderId}`);
+        ).rejects.toThrow(`Orden de compra no encontrada: ${purchaseOrderId}`);
       });
 
       it('should throw NotFoundException when PO belongs to different tenant', async () => {
@@ -133,7 +133,7 @@ describe('TenantValidatorService', () => {
         ).rejects.toThrow(BadRequestException);
         await expect(
           service.verifyBatchNumberUniquenessWithinTenant(batchNumber, tenantId),
-        ).rejects.toThrow(`Batch number ${batchNumber} already exists`);
+        ).rejects.toThrow(`El número de lote ${batchNumber} ya existe`);
       });
 
       it('should query with correct batch_number and tenant_id filters', async () => {
@@ -246,7 +246,7 @@ describe('TenantValidatorService', () => {
         ).rejects.toThrow(NotFoundException);
         await expect(
           service.validatePOBelongsToTenant(purchaseOrderId, requestedTenantId),
-        ).rejects.toThrow(`Purchase order not found: ${purchaseOrderId}`);
+        ).rejects.toThrow(`Orden de compra no encontrada: ${purchaseOrderId}`);
       });
 
       it('should return NotFoundException (not Forbidden) for cross-tenant access', async () => {
@@ -261,7 +261,7 @@ describe('TenantValidatorService', () => {
           .catch((e) => e);
 
         expect(error).toBeInstanceOf(NotFoundException);
-        expect(error.message).toContain('Purchase order not found');
+        expect(error.message).toContain('Orden de compra no encontrada');
       });
 
       it('should use tenant_id in query to prevent cross-tenant access', async () => {

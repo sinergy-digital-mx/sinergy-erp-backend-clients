@@ -58,6 +58,10 @@ export class Truck {
   @Column({ type: 'varchar', length: 50, nullable: true })
   placa_remolque1: string | null;
 
+  /** Clave S3 de la foto; en respuestas API se sustituye por URL firmada. */
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  photo: string | null;
+
   @Column({
     type: 'enum',
     enum: ['active', 'inactive'],

@@ -44,17 +44,18 @@ describe('BatchNumberGeneratorService', () => {
 
   describe('Unit Tests', () => {
     describe('getWarehousePrefix', () => {
-      it('should return warehouse prefix when warehouse exists', async () => {
+      it('should return warehouse code when warehouse exists', async () => {
         const warehouseId = '550e8400-e29b-41d4-a716-446655440000';
-        const prefix = 'MH';
+        const code = 'FFF';
 
         mockWarehouseRepository.findOne.mockResolvedValue({
           id: warehouseId,
-          prefix,
+          code,
+          prefix: 'IGNORE',
         });
 
         const result = await service.getWarehousePrefix(warehouseId);
-        expect(result).toBe(prefix);
+        expect(result).toBe(code);
       });
 
       it('should throw NotFoundException when warehouse does not exist', async () => {
@@ -66,23 +67,25 @@ describe('BatchNumberGeneratorService', () => {
           NotFoundException,
         );
         await expect(service.getWarehousePrefix(warehouseId)).rejects.toThrow(
-          `Warehouse not found: ${warehouseId}`,
+          `Almacén no encontrado: ${warehouseId}`,
         );
       });
 
-      it('should throw BadRequestException when warehouse has no prefix', async () => {
+      it('should throw BadRequestException when warehouse has no code', async () => {
         const warehouseId = '550e8400-e29b-41d4-a716-446655440000';
 
         mockWarehouseRepository.findOne.mockResolvedValue({
           id: warehouseId,
-          prefix: null,
+          name: 'Almacen Frio',
+          prefix: 'MH',
+          code: null,
         });
 
         await expect(service.getWarehousePrefix(warehouseId)).rejects.toThrow(
           BadRequestException,
         );
         await expect(service.getWarehousePrefix(warehouseId)).rejects.toThrow(
-          'does not have a prefix configured',
+          'no tiene código',
         );
       });
     });
@@ -94,7 +97,7 @@ describe('BatchNumberGeneratorService', () => {
 
         mockWarehouseRepository.findOne.mockResolvedValue({
           id: warehouseId,
-          prefix: 'MH',
+          code: 'MH',
         });
 
         const mockQueryBuilder = {
@@ -116,7 +119,7 @@ describe('BatchNumberGeneratorService', () => {
 
         mockWarehouseRepository.findOne.mockResolvedValue({
           id: warehouseId,
-          prefix: 'MH',
+          code: 'MH',
         });
 
         const mockQueryBuilder = {
@@ -138,7 +141,7 @@ describe('BatchNumberGeneratorService', () => {
 
         mockWarehouseRepository.findOne.mockResolvedValue({
           id: warehouseId,
-          prefix: 'CD',
+          code: 'CD',
         });
 
         const mockQueryBuilder = {
@@ -160,7 +163,7 @@ describe('BatchNumberGeneratorService', () => {
 
         mockWarehouseRepository.findOne.mockResolvedValue({
           id: warehouseId,
-          prefix: 'MH',
+          code: 'MH',
         });
 
         const mockQueryBuilder = {
@@ -184,7 +187,7 @@ describe('BatchNumberGeneratorService', () => {
 
         mockWarehouseRepository.findOne.mockResolvedValue({
           id: warehouseId,
-          prefix: 'MH',
+          code: 'MH',
         });
 
         const mockQueryBuilder = {
@@ -207,7 +210,7 @@ describe('BatchNumberGeneratorService', () => {
 
         mockWarehouseRepository.findOne.mockResolvedValue({
           id: warehouseId,
-          prefix: 'CD',
+          code: 'CD',
         });
 
         const mockQueryBuilder = {
@@ -230,7 +233,7 @@ describe('BatchNumberGeneratorService', () => {
 
         mockWarehouseRepository.findOne.mockResolvedValue({
           id: warehouseId,
-          prefix: 'MH',
+          code: 'MH',
         });
 
         const mockQueryBuilder = {
@@ -251,7 +254,7 @@ describe('BatchNumberGeneratorService', () => {
         ).rejects.toThrow(BadRequestException);
         await expect(
           service.generateBatchNumber(warehouseId, tenantId),
-        ).rejects.toThrow('Unable to generate a unique batch number');
+        ).rejects.toThrow('No se pudo generar un número de lote único');
       });
 
       it('should throw NotFoundException when warehouse does not exist', async () => {
@@ -265,13 +268,15 @@ describe('BatchNumberGeneratorService', () => {
         ).rejects.toThrow(NotFoundException);
       });
 
-      it('should throw BadRequestException when warehouse has no prefix', async () => {
+      it('should throw BadRequestException when warehouse has no code', async () => {
         const warehouseId = '550e8400-e29b-41d4-a716-446655440000';
         const tenantId = '550e8400-e29b-41d4-a716-446655440001';
 
         mockWarehouseRepository.findOne.mockResolvedValue({
           id: warehouseId,
-          prefix: null,
+          name: 'Almacen Frio',
+          prefix: 'MH',
+          code: null,
         });
 
         await expect(
@@ -297,7 +302,7 @@ describe('BatchNumberGeneratorService', () => {
         for (const [prefix, warehouseId, tenantId] of testCases) {
           mockWarehouseRepository.findOne.mockResolvedValue({
             id: warehouseId,
-            prefix,
+            code: prefix,
           });
 
           const mockQueryBuilder = {
@@ -328,7 +333,7 @@ describe('BatchNumberGeneratorService', () => {
 
         mockWarehouseRepository.findOne.mockResolvedValue({
           id: warehouseId,
-          prefix: 'MH',
+          code: 'MH',
         });
 
         const mockQueryBuilder = {
@@ -365,7 +370,7 @@ describe('BatchNumberGeneratorService', () => {
 
         mockWarehouseRepository.findOne.mockResolvedValue({
           id: warehouseId,
-          prefix: 'MH',
+          code: 'MH',
         });
 
         mockInventoryBatchRepository.findOne.mockResolvedValue(null);
@@ -404,7 +409,7 @@ describe('BatchNumberGeneratorService', () => {
 
         mockWarehouseRepository.findOne.mockResolvedValue({
           id: warehouseId,
-          prefix: 'MH',
+          code: 'MH',
         });
 
         const mockQueryBuilder = {

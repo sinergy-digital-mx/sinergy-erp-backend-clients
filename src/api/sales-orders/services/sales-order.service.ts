@@ -305,6 +305,11 @@ export class SalesOrderService {
     try {
       const folio = await this.folioService.generateFolio(tenantId);
 
+      const salesOrderType = dto.sales_order_type || 'MANUAL';
+      const requiresSelectionAssembly =
+        !isPosSale && salesOrderType === 'MANUAL' && !!dto.requires_selection_assembly;
+      const initialStatus = requiresSelectionAssembly ? 'En Selección' : 'Creada';
+
       const so = qr.manager.create(SalesOrder, {
         id: uuidv4(),
         tenant_id: tenantId,
@@ -313,14 +318,16 @@ export class SalesOrderService {
         warehouse_id: dto.warehouse_id,
         customer_id: customerId,
         expected_delivery_date: new Date(dto.expected_delivery_date),
-        sales_order_type: dto.sales_order_type || 'MANUAL',
+        sales_order_type: salesOrderType,
         fiscal_razon_social: dto.fiscal_razon_social,
         payment_status: paymentStatus,
-        general_status: 'Creada',
+        general_status: initialStatus,
         notes: dto.notes,
+        requires_selection_assembly: requiresSelectionAssembly,
         created_by: userId,
         terminal_user_id: isPosSale ? userId : null,
-        seller_user_id: isPosSale ? dto.seller_user_id! : null,
+        // Manual: vendedor = el que crea (o seller_user_id si viene en el body)
+        seller_user_id: isPosSale ? dto.seller_user_id! : (dto.seller_user_id ?? userId),
         pos_daily_shift_id: isPosSale ? posDailyShiftId : null,
         collected_by_user_id: collectedByUserId,
       });
@@ -416,7 +423,7 @@ export class SalesOrderService {
       );
       await qr.manager.save(SalesOrder, savedSO);
 
-      if ((dto.sales_order_type || 'MANUAL') === 'POS') {
+      if (salesOrderType === 'POS') {
         await this.fulfillOrderLines(
           qr,
           savedSO.id,
@@ -481,7 +488,7 @@ export class SalesOrderService {
       where: { id, tenant_id: tenantId },
       relations: [
         'customer', 'warehouse', 'fiscal_configuration',
-        'seller_user', 'terminal_user', 'collected_by_user',
+        'seller_user', 'terminal_user', 'collected_by_user', 'corroborator',
         'line_items', 'line_items.product', 'line_items.product_uom', 'line_items.product_uom.uom',
         'line_items.product_discount',
         'global_discount',
@@ -520,6 +527,7 @@ export class SalesOrderService {
       seller_user: mapPosUser(so.seller_user),
       terminal_user: mapPosUser(so.terminal_user),
       collected_by_user: mapPosUser(so.collected_by_user),
+      corroborated_by_user: mapPosUser(so.corroborator),
       pos_collection: posCollection ? mapPosSaleCollection(posCollection) : null,
       payments: paymentData.payments,
       payments_summary: paymentData.summary,
@@ -905,6 +913,12 @@ export class SalesOrderService {
   async fulfill(id: string, dto: FulfillSalesOrderDto, tenantId: string, userId: string): Promise<SalesOrder> {
     const so = await this.findOne(id, tenantId);
 
+    if (so.general_status === 'En Selección') {
+      throw new BadRequestException(
+        `La orden ${so.folio} está en selección; debe corroborarse en Control de almacén`,
+      );
+    }
+
     if (so.general_status !== 'Creada') {
       throw new BadRequestException(`La orden ${so.folio} ya fue ${so.general_status.toLowerCase()}`);
     }
@@ -946,8 +960,12 @@ export class SalesOrderService {
     await qr.startTransaction();
 
     try {
-      // If already fulfilled, release inventory back
-      if (so.general_status === 'Surtida') {
+      // Si ya tiene inventario asignado, devolver lotes
+      if (
+        so.general_status === 'Surtida' ||
+        so.general_status === 'Lista para entrega' ||
+        so.general_status === 'En Camino'
+      ) {
         const allAllocations = so.line_items.flatMap((d) => d.batch_allocations ?? []);
         await this.fulfillmentService.releaseAllocations(allAllocations, qr.manager);
       }
@@ -974,7 +992,10 @@ export class SalesOrderService {
     userId: string,
   ): Promise<SalesOrder> {
     const existing = await this.findOne(id, tenantId);
-    if (existing.general_status !== 'Creada') {
+    if (
+      existing.general_status !== 'Creada' &&
+      existing.general_status !== 'En Selección'
+    ) {
       throw new BadRequestException(
         `Cannot edit sales order with status: ${existing.general_status}`,
       );
@@ -1004,6 +1025,12 @@ export class SalesOrderService {
       so.payment_status = dto.payment_status || so.payment_status;
       if (dto.notes !== undefined) {
         so.notes = dto.notes;
+      }
+      if (dto.requires_selection_assembly !== undefined && so.sales_order_type === 'MANUAL') {
+        so.requires_selection_assembly = !!dto.requires_selection_assembly;
+        so.general_status = so.requires_selection_assembly
+          ? 'En Selección'
+          : 'Creada';
       }
       so.updated_by = userId;
 

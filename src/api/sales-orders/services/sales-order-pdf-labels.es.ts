@@ -30,6 +30,8 @@ export const SALES_ORDER_PDF_LABELS_ES: SalesOrderPdfLabels = {
   ieps: 'IEPS',
   totalLabel: 'TOTAL',
   statusCreated: 'Creada',
+  statusInSelection: 'En Selección',
+  statusReadyForDelivery: 'Lista para entrega',
   statusFulfilled: 'Surtida',
   statusCancelled: 'Cancelada',
   paymentPending: 'Pendiente',

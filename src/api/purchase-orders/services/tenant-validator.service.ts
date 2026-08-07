@@ -41,7 +41,7 @@ export class TenantValidatorService {
 
     if (!purchaseOrder) {
       // Return NotFoundException for both missing PO and cross-tenant access (Requirement 11.2)
-      throw new NotFoundException(`Purchase order not found: ${purchaseOrderId}`);
+      throw new NotFoundException(`Orden de compra no encontrada: ${purchaseOrderId}`);
     }
   }
 
@@ -68,7 +68,7 @@ export class TenantValidatorService {
 
     if (existingBatch) {
       throw new BadRequestException(
-        `Batch number ${batchNumber} already exists`,
+        `El número de lote ${batchNumber} ya existe`,
       );
     }
   }

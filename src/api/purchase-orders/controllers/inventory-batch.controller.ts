@@ -184,7 +184,7 @@ export class InventoryBatchController {
     @Req() req: any,
   ) {
     if (!file) {
-      throw new BadRequestException('No file uploaded');
+      throw new BadRequestException('No se subió ningún archivo');
     }
 
     const tenantId = req.user.tenant_id;

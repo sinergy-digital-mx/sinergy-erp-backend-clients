@@ -80,7 +80,7 @@ describe('ReceiptValidatorService', () => {
           BadRequestException,
         );
         await expect(service.validateReceivedItems(items)).rejects.toThrow(
-          'At least one product must be received with quantity greater than zero',
+          'Se debe recibir al menos un producto con cantidad mayor a cero',
         );
       });
 
@@ -103,7 +103,7 @@ describe('ReceiptValidatorService', () => {
           BadRequestException,
         );
         await expect(service.validateReceivedItems(items)).rejects.toThrow(
-          'Received quantity cannot be negative for line item',
+          'La cantidad recibida no puede ser negativa para la línea',
         );
       });
 
@@ -151,7 +151,7 @@ describe('ReceiptValidatorService', () => {
           NotFoundException,
         );
         await expect(service.validateReceivedItems(items)).rejects.toThrow(
-          'Line item not found',
+          'Línea no encontrada',
         );
       });
 

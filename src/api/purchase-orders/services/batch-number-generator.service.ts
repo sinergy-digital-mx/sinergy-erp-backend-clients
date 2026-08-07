@@ -14,7 +14,8 @@ export class BatchNumberGeneratorService {
   ) {}
 
   /**
-   * Retrieve the warehouse prefix from the warehouse record
+   * Prefijo de lotes = código del almacén.
+   * Formato resultante: {codigo}-LOTE-000001
    */
   async getWarehousePrefix(warehouseId: string): Promise<string> {
     const warehouse = await this.warehouseRepository.findOne({
@@ -22,16 +23,17 @@ export class BatchNumberGeneratorService {
     });
 
     if (!warehouse) {
-      throw new NotFoundException(`Warehouse not found: ${warehouseId}`);
+      throw new NotFoundException(`Almacén no encontrado: ${warehouseId}`);
     }
 
-    if (!warehouse.prefix) {
+    const code = (warehouse.code || '').trim();
+    if (!code) {
       throw new BadRequestException(
-        `Warehouse ${warehouseId} does not have a prefix configured`,
+        `El almacén "${warehouse.name}" no tiene código. Asigna un código (ej. FFF) para poder generar lotes.`,
       );
     }
 
-    return warehouse.prefix;
+    return code.substring(0, 10);
   }
 
   /**
@@ -86,7 +88,7 @@ export class BatchNumberGeneratorService {
     }
 
     throw new BadRequestException(
-      `Unable to generate a unique batch number for warehouse ${warehouseId}`,
+      `No se pudo generar un número de lote único para el almacén ${warehouseId}`,
     );
   }
 }

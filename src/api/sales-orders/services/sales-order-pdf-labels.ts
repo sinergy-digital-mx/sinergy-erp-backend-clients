@@ -32,6 +32,8 @@ export interface SalesOrderPdfLabels {
   ieps: string;
   totalLabel: string;
   statusCreated: string;
+  statusInSelection?: string;
+  statusReadyForDelivery?: string;
   statusFulfilled: string;
   statusCancelled: string;
   paymentPending: string;
@@ -57,6 +59,10 @@ export function translateGeneralStatus(
   switch (status) {
     case 'Creada':
       return labels.statusCreated;
+    case 'En Selección':
+      return labels.statusInSelection ?? status;
+    case 'Lista para entrega':
+      return labels.statusReadyForDelivery ?? status;
     case 'Surtida':
       return labels.statusFulfilled;
     case 'Cancelada':

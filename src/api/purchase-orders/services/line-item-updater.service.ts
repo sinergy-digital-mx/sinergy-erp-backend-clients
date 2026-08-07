@@ -43,7 +43,7 @@ export class LineItemUpdaterService {
     });
 
     if (!lineItem) {
-      throw new NotFoundException(`Line item not found: ${lineItemId}`);
+      throw new NotFoundException(`Línea no encontrada: ${lineItemId}`);
     }
 
     // Update received original fields (Requirement 7.1-7.8)

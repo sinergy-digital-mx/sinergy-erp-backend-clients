@@ -14,7 +14,7 @@ Scoped por organización vía JWT. No enviar `tenant_id` / `organization_id` en 
 
 ## Flujo UI
 
-1. Elegir fecha, camión, chofer, **almacén origen (CEDIS)**, OV `Surtida`.
+1. Elegir fecha, camión, chofer, **almacén origen (CEDIS)**, OV `Surtida` o `Lista para entrega`.
 2. `POST /preview` → ruta A/B/C + km + alertas sin GPS (origen y paradas).
 3. Completar GPS faltante:
    - CEDIS: `PUT /tenant/warehouses/:id` (`latitude` / `longitude` + dirección).
@@ -33,7 +33,7 @@ En Ruta → Completado | Cancelado
 Completado / Cancelado → terminal
 ```
 
-Al cancelar, las OV vuelven a `Surtida` y pueden reasignarse (historial de paradas se conserva).
+Al cancelar, las OV vuelven a `Lista para entrega` (si tuvieron corroboración / selección) o `Surtida`, y pueden reasignarse (historial de paradas se conserva).
 
 ## Endpoints
 
@@ -68,7 +68,7 @@ Al cancelar, las OV vuelven a `Surtida` y pueden reasignarse (historial de parad
 
 1. Misma organización.
 2. Mismo `warehouse_id` que el origen.
-3. `general_status = Surtida`.
+3. `general_status` ∈ `Surtida` | `Lista para entrega`.
 4. No está en otro envío activo (≠ Cancelado).
 
 ## Embebido en OV

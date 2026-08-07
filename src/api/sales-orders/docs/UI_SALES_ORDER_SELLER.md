@@ -21,6 +21,13 @@ En `data.header` / respuesta:
 
 Mostrar: **Vendedor Perez (140696)**. Si `seller_user` es `null` → "Sin vendedor".
 
+### Alta (crear orden)
+
+| Tipo | `seller_user_id` |
+|------|------------------|
+| `POS` | Obligatorio en el body |
+| `MANUAL` | Opcional: si se omite, el backend asigna al usuario que crea la orden |
+
 ---
 
 ## Editar vendedor

@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Truck } from '../../entities/logistics/truck.entity';
+import { S3Service } from '../../common/services/s3.service';
 import { CreateTruckDto } from './dto/create-truck.dto';
 import { UpdateTruckDto } from './dto/update-truck.dto';
 import { QueryTruckDto } from './dto/query-truck.dto';
@@ -15,6 +16,7 @@ export class TrucksService {
   constructor(
     @InjectRepository(Truck)
     private readonly repo: Repository<Truck>,
+    private readonly s3Service: S3Service,
   ) {}
 
   async create(dto: CreateTruckDto, tenantId: string): Promise<Truck> {
@@ -27,7 +29,8 @@ export class TrucksService {
       tenant_id: tenantId,
       status: dto.status || 'active',
     });
-    return this.repo.save(truck);
+    const saved = await this.repo.save(truck);
+    return this.toResponseWithPhotoUrl(saved);
   }
 
   async findAll(tenantId: string, query?: QueryTruckDto) {
@@ -55,10 +58,13 @@ export class TrucksService {
     qb.orderBy('truck.created_at', 'DESC');
 
     const total = await qb.getCount();
-    const data = await qb
+    const rows = await qb
       .skip((page - 1) * limit)
       .take(limit)
       .getMany();
+    const data = await Promise.all(
+      rows.map((truck) => this.toResponseWithPhotoUrl(truck)),
+    );
     const totalPages = Math.ceil(total / limit) || 1;
 
     return {
@@ -73,6 +79,58 @@ export class TrucksService {
   }
 
   async findOne(id: string, tenantId: string): Promise<Truck> {
+    const truck = await this.getByIdOrFail(id, tenantId);
+    return this.toResponseWithPhotoUrl(truck);
+  }
+
+  async update(
+    id: string,
+    dto: UpdateTruckDto,
+    tenantId: string,
+  ): Promise<Truck> {
+    const truck = await this.getByIdOrFail(id, tenantId);
+    if (dto.placa && dto.placa !== truck.placa) {
+      await this.assertPlacaUnique(tenantId, dto.placa, id);
+    }
+    Object.assign(truck, dto);
+    const saved = await this.repo.save(truck);
+    return this.toResponseWithPhotoUrl(saved);
+  }
+
+  async deactivate(id: string, tenantId: string): Promise<Truck> {
+    const truck = await this.getByIdOrFail(id, tenantId);
+    truck.status = 'inactive';
+    const saved = await this.repo.save(truck);
+    return this.toResponseWithPhotoUrl(saved);
+  }
+
+  async uploadPhoto(
+    id: string,
+    tenantId: string,
+    file: Express.Multer.File,
+  ): Promise<Truck> {
+    const truck = await this.getByIdOrFail(id, tenantId);
+
+    if (truck.photo) {
+      await this.s3Service.deleteFile(truck.photo).catch(() => undefined);
+    }
+
+    const s3Key = await this.s3Service.uploadEntityFile(
+      tenantId,
+      'trucks',
+      id,
+      'photo',
+      file.buffer,
+      file.originalname,
+      file.mimetype,
+    );
+
+    truck.photo = s3Key;
+    const saved = await this.repo.save(truck);
+    return this.toResponseWithPhotoUrl(saved);
+  }
+
+  private async getByIdOrFail(id: string, tenantId: string): Promise<Truck> {
     const truck = await this.repo.findOne({
       where: { id, tenant_id: tenantId },
     });
@@ -82,23 +140,19 @@ export class TrucksService {
     return truck;
   }
 
-  async update(
-    id: string,
-    dto: UpdateTruckDto,
-    tenantId: string,
-  ): Promise<Truck> {
-    const truck = await this.findOne(id, tenantId);
-    if (dto.placa && dto.placa !== truck.placa) {
-      await this.assertPlacaUnique(tenantId, dto.placa, id);
+  private async toResponseWithPhotoUrl(truck: Truck): Promise<Truck> {
+    if (!truck.photo) {
+      return truck;
     }
-    Object.assign(truck, dto);
-    return this.repo.save(truck);
-  }
 
-  async deactivate(id: string, tenantId: string): Promise<Truck> {
-    const truck = await this.findOne(id, tenantId);
-    truck.status = 'inactive';
-    return this.repo.save(truck);
+    const photoUrl = await this.s3Service
+      .getSignedUrl(truck.photo, 900)
+      .catch(() => truck.photo);
+
+    return {
+      ...truck,
+      photo: photoUrl,
+    };
   }
 
   private async assertPlacaUnique(

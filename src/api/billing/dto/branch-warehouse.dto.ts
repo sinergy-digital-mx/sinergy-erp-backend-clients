@@ -29,7 +29,12 @@ export class BranchWarehouseDto {
   @IsString()
   code?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description:
+      'Prefijo de lotes al recibir OC (máx. 10). Obligatorio antes de recibir mercancía en este almacén. Formato: {prefix}-LOTE-000001',
+    example: 'MZN',
+    maxLength: 10,
+  })
   @IsOptional()
   @IsString()
   prefix?: string;

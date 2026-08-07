@@ -218,7 +218,7 @@ describe('LineItemUpdaterService', () => {
           baseUomId,
           userId,
         ),
-      ).rejects.toThrow(`Line item not found: ${lineItemId}`);
+      ).rejects.toThrow(`Línea no encontrada: ${lineItemId}`);
     });
 
     it('should persist changes to database', async () => {

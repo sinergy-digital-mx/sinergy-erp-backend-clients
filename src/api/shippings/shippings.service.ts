@@ -430,12 +430,22 @@ export class ShippingsService {
       );
 
       if (next === 'Cancelado') {
-        const orderIds = (shipping.stops || []).map((s) => s.sales_order_id);
-        if (orderIds.length) {
+        const stops = shipping.stops || [];
+        for (const stop of stops) {
+          const order = await qr.manager.findOne(SalesOrder, {
+            where: { id: stop.sales_order_id, tenant_id: tenantId },
+          });
+          if (!order) continue;
+
+          const restoreStatus =
+            order.corroborated_at || order.requires_selection_assembly
+              ? 'Lista para entrega'
+              : 'Surtida';
+
           await qr.manager.update(
             SalesOrder,
-            { id: In(orderIds), tenant_id: tenantId },
-            { general_status: 'Surtida' },
+            { id: order.id, tenant_id: tenantId },
+            { general_status: restoreStatus },
           );
         }
       }
@@ -639,7 +649,10 @@ export class ShippingsService {
             `La orden ${so.folio} no pertenece al almacén de origen`,
           );
         }
-        if (so.general_status !== 'Surtida') {
+        if (
+          so.general_status !== 'Surtida' &&
+          so.general_status !== 'Lista para entrega'
+        ) {
           throw new BadRequestException(
             `La orden ${so.folio} no está lista para envío (estado: ${so.general_status})`,
           );

@@ -7,6 +7,7 @@ import {
   IsNumber,
   Min,
   Max,
+  MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -18,6 +19,12 @@ export class CreateWarehouseDto {
   @IsOptional()
   @IsString()
   code?: string;
+
+  /** Prefijo para números de lote al recibir OC: `{prefix}-LOTE-000001` */
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  prefix?: string;
 
   @IsOptional()
   @IsString()

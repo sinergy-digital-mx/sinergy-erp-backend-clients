@@ -20,8 +20,12 @@ export class CreateProductUoMDto {
   @IsBoolean()
   is_base: boolean;
 
-  @ApiPropertyOptional({ example: 'uuid-parent-uom', description: 'ID de la UoM padre' })
+  @ApiPropertyOptional({
+    example: 'uuid-parent-uom',
+    description:
+      'UoM padre: preferible product_uoms.id de otra UoM del mismo producto; también acepta uom_catalog.id. En BD se guarda siempre como uom_catalog.id.',
+  })
   @IsOptional()
   @IsUUID()
-  parent_uom_id?: string;
+  parent_uom_id?: string | null;
 }

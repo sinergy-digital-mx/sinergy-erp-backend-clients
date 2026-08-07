@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import {
   IsArray,
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsNumber,
@@ -78,6 +79,11 @@ export class CreateSalesOrderDto {
 
   @ValidateIf((dto: CreateSalesOrderDto) => dto.sales_order_type === 'POS')
   @IsUUID()
+  @ApiProperty({
+    required: false,
+    description:
+      'Vendedor. Obligatorio en POS. En MANUAL, si se omite se usa el usuario que crea la orden.',
+  })
   seller_user_id?: string;
 
   @ApiProperty({
@@ -100,6 +106,16 @@ export class CreateSalesOrderDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiProperty({
+    required: false,
+    default: false,
+    description:
+      'Si true (solo MANUAL), la orden entra en En Selección y requiere corroboración en Control de almacén. Ignorado en POS.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  requires_selection_assembly?: boolean;
 
   @ApiProperty({
     required: false,

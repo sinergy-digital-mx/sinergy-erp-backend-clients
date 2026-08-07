@@ -82,13 +82,35 @@ export class SalesOrder {
 
   @Column({
     type: 'enum',
-    enum: ['Creada', 'Surtida', 'Cancelada', 'En cola', 'En Camino'],
+    enum: [
+      'Creada',
+      'En Selección',
+      'Lista para entrega',
+      'Surtida',
+      'Cancelada',
+      'En cola',
+      'En Camino',
+    ],
     default: 'Creada',
   })
   general_status: string;
 
   @Column({ type: 'text', nullable: true })
   notes: string | null;
+
+  /** Si true, la OV entra en proceso de selección/armado (Control de almacén). */
+  @Column({ type: 'boolean', default: false })
+  requires_selection_assembly: boolean;
+
+  @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'corroborated_by' })
+  corroborator: User | null;
+
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  corroborated_by: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  corroborated_at: Date | null;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   subtotal: number;

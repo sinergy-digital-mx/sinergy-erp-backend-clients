@@ -65,7 +65,7 @@ describe('UnitConversionService', () => {
           BadRequestException,
         );
         await expect(service.getBaseUom(productId)).rejects.toThrow(
-          'Base unit of measurement not found for product',
+          'Unidad de medida base no encontrada para el producto',
         );
       });
     });
@@ -110,7 +110,7 @@ describe('UnitConversionService', () => {
           BadRequestException,
         );
         await expect(service.getConversionFactor(productUomId)).rejects.toThrow(
-          'Unit of measurement not found',
+          'Unidad de medida no encontrada',
         );
       });
     });
@@ -177,7 +177,7 @@ describe('UnitConversionService', () => {
         ).rejects.toThrow(BadRequestException);
         await expect(
           service.convertToBaseUnit(quantity, fromUomId, productId),
-        ).rejects.toThrow('Unit of measurement not supported for this product');
+        ).rejects.toThrow('Unidad de medida no soportada para este producto');
       });
 
       it('should handle decimal quantities correctly', async () => {
@@ -340,7 +340,7 @@ describe('UnitConversionService', () => {
           fail('Should have thrown BadRequestException');
         } catch (error) {
           expect(error).toBeInstanceOf(BadRequestException);
-          expect(error.message).toContain('Unit of measurement not supported');
+          expect(error.message).toContain('Unidad de medida no soportada');
         }
       });
     });

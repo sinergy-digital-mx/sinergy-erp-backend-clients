@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -8,10 +9,14 @@ import {
   Put,
   Query,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
+  ApiConsumes,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
@@ -60,6 +65,22 @@ export class TrucksController {
     @Req() req: any,
   ) {
     return this.service.update(id, dto, req.user.tenant_id);
+  }
+
+  @Post(':id/photo')
+  @RequirePermissions({ entityType: 'Truck', action: 'Update' })
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Subir foto del camión' })
+  uploadPhoto(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: any,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No se envió ningún archivo');
+    }
+    return this.service.uploadPhoto(id, req.user.tenant_id, file);
   }
 
   @Delete(':id')

@@ -64,7 +64,7 @@ describe('POStatusUpdaterService', () => {
       await expect(
         service.updatePOStatusToRecibida(purchaseOrderId, userId),
       ).rejects.toThrow(
-        new NotFoundException(`Purchase order not found: ${purchaseOrderId}`),
+        new NotFoundException(`Orden de compra no encontrada: ${purchaseOrderId}`),
       );
 
       expect(mockRepository.findOne).toHaveBeenCalledWith({
