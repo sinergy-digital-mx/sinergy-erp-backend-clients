@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, QueryRunner, Brackets } from 'typeorm';
+import { Repository, DataSource, QueryRunner, Brackets, QueryFailedError } from 'typeorm';
 import { PurchaseOrderBatch } from '../../../entities/purchase-orders/purchase-order-batch.entity';
 import { PurchaseOrderBatchDetail } from '../../../entities/purchase-orders/purchase-order-batch-detail.entity';
 import { InventoryBatch } from '../../../entities/purchase-orders/inventory-batch.entity';
@@ -169,6 +169,21 @@ export class PurchaseOrderService {
       return this.findOne(savedOrder.id, tenantId);
     } catch (error) {
       await queryRunner.rollbackTransaction();
+      if (error instanceof QueryFailedError) {
+        const driverError = (error as QueryFailedError & {
+          driverError?: { code?: string; message?: string };
+        }).driverError;
+        if (driverError?.code === 'ER_DUP_ENTRY') {
+          throw new BadRequestException(
+            'Folio de orden de compra duplicado. Reintente crear la orden.',
+          );
+        }
+        if (driverError?.code === 'ER_NO_REFERENCED_ROW_2') {
+          throw new BadRequestException(
+            'Referencia inválida (almacén, proveedor, razón fiscal, producto o UOM).',
+          );
+        }
+      }
       throw error;
     } finally {
       await queryRunner.release();

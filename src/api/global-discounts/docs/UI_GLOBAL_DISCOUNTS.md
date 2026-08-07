@@ -104,25 +104,57 @@ Al crear la orden (`POST /api/tenant/sales-orders`), enviar opcionalmente:
 
 ### Respuesta detalle orden
 
-`GET .../sales-orders/:id/detail` incluye:
+`GET /api/tenant/sales-orders/:id` incluye en `data`:
 
 ```json
 {
-  "discount_summary": {
-    "line_discount_total": 30,
-    "global_discount_amount": 45,
-    "discount_total": 75,
-    "line_items": [ /* descuentos por producto aplicados */ ],
-    "global_discount": {
-      "global_discount_id": "...",
-      "discount_name": "Descuento de carpintero",
-      "discount_type": "percentage",
-      "discount_value": 15,
-      "discount_amount": 45
-    }
+  "data": {
+    "header": { "subtotal": 300, "discount_total": 30, "global_discount_amount": 45, "total": 325, "...": "..." },
+    "discount_summary": {
+      "line_discount_total": 30,
+      "global_discount_amount": 45,
+      "discount_total": 75,
+      "line_items": [
+        {
+          "line_item_id": "uuid",
+          "product_name": "Producto A",
+          "discount_name": "PROMO",
+          "discount_type": "percentage",
+          "discount_value": 10,
+          "discount_amount": 30
+        }
+      ],
+      "global_discount": {
+        "global_discount_id": "uuid",
+        "discount_name": "Descuento de carpintero",
+        "discount_type": "percentage",
+        "discount_value": 15,
+        "discount_amount": 45
+      }
+    },
+    "applied_line_discounts": [ /* mismo que discount_summary.line_items */ ],
+    "applied_global_discount": { /* mismo que discount_summary.global_discount o null */ },
+    "line_items": [
+      {
+        "line_discount_amount": 30,
+        "applied_product_discount": { "id", "name", "discount_type", "value" }
+      }
+    ]
   }
 }
 ```
+
+**UI detalle OV — sección TOTALES:** mostrar siempre (aunque sea $0):
+
+| Línea | Campo |
+|-------|-------|
+| Subtotal | `header.subtotal` |
+| Desc. por producto | `discount_summary.line_discount_total` |
+| Desc. global | `discount_summary.global_discount_amount` + nombre en `discount_summary.global_discount.discount_name` |
+| IVA / IEPS | `header.iva_total` / `header.ieps_total` |
+| Total | `header.total` |
+
+Si `discount_summary.global_discount` es `null` y `line_discount_total` es 0, ocultar las filas de descuento o mostrar `$0.00`.
 
 ---
 

@@ -457,6 +457,9 @@ export class SalesOrderController {
         line_items: lineItems,
         documents,
         pos_collection: detail.pos_collection,
+        discount_summary: detail.discount_summary,
+        applied_line_discounts: detail.applied_line_discounts,
+        applied_global_discount: detail.applied_global_discount,
       },
     };
   }
