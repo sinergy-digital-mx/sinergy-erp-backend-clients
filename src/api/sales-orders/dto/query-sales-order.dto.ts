@@ -1,5 +1,32 @@
-import { Type } from 'class-transformer';
-import { IsDateString, IsEnum, IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import {
+  IsDateString,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Min,
+} from 'class-validator';
+
+const GENERAL_STATUS_VALUES = [
+  'Creada',
+  'En Selección',
+  'Lista para entrega',
+  'Surtida',
+  'Cancelada',
+  'En cola',
+  'En Camino',
+] as const;
+
+/** Acepta un status, varios (`?general_status=A&general_status=B`) o CSV. Siempre normaliza a array. */
+function parseGeneralStatuses(value: unknown): string[] | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  const parts = (Array.isArray(value) ? value : String(value).split(','))
+    .map((v) => String(v).trim())
+    .filter(Boolean);
+  return parts.length > 0 ? parts : undefined;
+}
 
 export class QuerySalesOrderDto {
   @IsOptional()
@@ -7,16 +34,9 @@ export class QuerySalesOrderDto {
   search?: string;
 
   @IsOptional()
-  @IsEnum([
-    'Creada',
-    'En Selección',
-    'Lista para entrega',
-    'Surtida',
-    'Cancelada',
-    'En cola',
-    'En Camino',
-  ])
-  general_status?: string;
+  @Transform(({ value }) => parseGeneralStatuses(value))
+  @IsEnum(GENERAL_STATUS_VALUES, { each: true })
+  general_status?: string[];
 
   @IsOptional()
   @IsEnum(['Pendiente', 'Pagado'])

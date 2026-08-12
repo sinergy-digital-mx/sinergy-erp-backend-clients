@@ -208,7 +208,18 @@ export class SalesOrderExportService {
       );
     }
     if (filters.general_status) {
-      qb.andWhere('so.general_status = :general_status', { general_status: filters.general_status });
+      const statuses = Array.isArray(filters.general_status)
+        ? filters.general_status
+        : [filters.general_status];
+      if (statuses.length === 1) {
+        qb.andWhere('so.general_status = :general_status', {
+          general_status: statuses[0],
+        });
+      } else if (statuses.length > 1) {
+        qb.andWhere('so.general_status IN (:...general_statuses)', {
+          general_statuses: statuses,
+        });
+      }
     }
     if (filters.payment_status) {
       qb.andWhere('so.payment_status = :payment_status', { payment_status: filters.payment_status });
@@ -233,7 +244,12 @@ export class SalesOrderExportService {
     return details.filter((d) => {
       const so = d.sales_order;
       if (!so) return false;
-      if (filters.general_status && so.general_status !== filters.general_status) return false;
+      if (filters.general_status) {
+        const statuses = Array.isArray(filters.general_status)
+          ? filters.general_status
+          : [filters.general_status];
+        if (!statuses.includes(so.general_status)) return false;
+      }
       if (filters.payment_status && so.payment_status !== filters.payment_status) return false;
       if (filters.sales_order_type && so.sales_order_type !== filters.sales_order_type) return false;
       if (filters.warehouse_id && so.warehouse_id !== filters.warehouse_id) return false;

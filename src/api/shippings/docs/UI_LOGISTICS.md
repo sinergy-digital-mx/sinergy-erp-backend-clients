@@ -156,7 +156,9 @@ Misma lógica con `origin.location_status` / `origin_missing_location` → modal
 
 ## Flujo wizard
 
-1. Form: CEDIS origen, fecha, chofer, camión, notas, OV `Surtida` o `Lista para entrega` del mismo almacén.
+1. Form: CEDIS origen, fecha, chofer, camión, notas. Cargar OV con  
+   `GET /tenant/shippings/available-orders?origin_warehouse_id={cedisId}`.  
+   Seleccionar OV `Surtida` o `Lista para entrega` del mismo almacén.
 2. **Vista previa** → `POST /preview`.
 3. Completar ubicaciones faltantes (CEDIS y/o clientes) sin salir del wizard.
 4. Re-preview hasta `missing_location_count === 0` (ideal) o permitir crear con aviso.
@@ -201,7 +203,15 @@ Selector de usuarios activos. `driver_id` = `user.id`.
 
 ## Órdenes elegibles
 
-OV con `general_status` = `Surtida` **o** `Lista para entrega` del mismo almacén. Al crear/agregar → `En Camino`. Al cancelar envío → se restaura `Lista para entrega` si la orden tuvo corroboración / `requires_selection_assembly`; si no, `Surtida`.
+```http
+GET /api/tenant/shippings/available-orders?origin_warehouse_id={cedisId}&search=&page=1&limit=50
+```
+
+OV con `general_status` = `Surtida` **o** `Lista para entrega` del mismo almacén, sin envío activo. Al crear/agregar → `En Camino`. Al cancelar envío → se restaura `Lista para entrega` si la orden tuvo corroboración / `requires_selection_assembly`; si no, `Surtida`.
+
+Alternativa (listado OV genérico):  
+`GET /api/tenant/sales-orders?warehouse_id={cedisId}&general_status=Surtida&general_status=Lista%20para%20entrega`  
+(o CSV: `general_status=Surtida,Lista%20para%20entrega`).
 
 Las OV en **Lista para entrega** vienen del módulo **Control de almacén** (corroboración). Ver `src/api/warehouse-control/docs/UI_WAREHOUSE_CONTROL.md`.
 

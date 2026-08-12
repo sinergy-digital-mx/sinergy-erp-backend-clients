@@ -9,6 +9,20 @@ import {
   getDownPaymentTarget,
   resolveContractFinancials,
 } from '../contract-financial.util';
+import { GenerateContractPaymentsDto } from './dto/generate-contract-payments.dto';
+
+export interface PaymentSchedulePreview {
+  start_date: string;
+  end_date: string;
+  payment_months: number;
+  payment_day: number;
+  payments_count: number;
+  monthly_payment: number;
+}
+
+export interface GeneratedPaymentsResult extends PaymentSchedulePreview {
+  payments: Payment[];
+}
 
 @Injectable()
 export class PaymentsService {
@@ -22,19 +36,27 @@ export class PaymentsService {
   ) {}
 
   /**
+   * Preview del calendario: inicio indicado, fin = inicio + (payment_months - 1) meses.
+   */
+  async previewPaymentSchedule(
+    tenantId: string,
+    contractId: string,
+    startDateRaw?: string,
+  ): Promise<PaymentSchedulePreview> {
+    const contract = await this.getContractOrThrow(tenantId, contractId);
+    const startDate = this.resolveStartDate(startDateRaw, contract);
+    return this.buildSchedulePreview(contract, startDate);
+  }
+
+  /**
    * Auto-generate all payments for a contract
    */
   async generatePaymentsForContract(
     tenantId: string,
     contractId: string,
-  ): Promise<Payment[]> {
-    const contract = await this.contractRepo.findOne({
-      where: { id: contractId, tenant_id: tenantId },
-    });
-
-    if (!contract) {
-      throw new NotFoundException('Contract not found');
-    }
+    dto: GenerateContractPaymentsDto = {},
+  ): Promise<GeneratedPaymentsResult> {
+    const contract = await this.getContractOrThrow(tenantId, contractId);
 
     if (await this.hasPendingDownpaymentPayments(tenantId, contractId)) {
       throw new BadRequestException(
@@ -42,32 +64,29 @@ export class PaymentsService {
       );
     }
 
-    // Check if payments already exist
     const existingPayments = await this.paymentRepo.count({
       where: { contract_id: contractId, tenant_id: tenantId },
     });
 
     if (existingPayments > 0) {
-      throw new BadRequestException('Payments already generated for this contract');
+      throw new BadRequestException(
+        'Los pagos de este contrato ya fueron generados. Si te equivocaste, regenera siempre que no haya pagos pagados o parciales.',
+      );
     }
 
-    return this.createPaymentsForContract(tenantId, contract);
+    const startDate = this.resolveStartDate(dto.start_date, contract);
+    return this.createPaymentsForContract(tenantId, contract, startDate);
   }
 
   /**
-   * Regenerate all payments for a contract (deletes existing ones first)
+   * Regenera el calendario desde 0. Bloqueado si hay pagos pagados o parciales.
    */
   async regeneratePaymentsForContract(
     tenantId: string,
     contractId: string,
-  ): Promise<Payment[]> {
-    const contract = await this.contractRepo.findOne({
-      where: { id: contractId, tenant_id: tenantId },
-    });
-
-    if (!contract) {
-      throw new NotFoundException('Contract not found');
-    }
+    dto: GenerateContractPaymentsDto = {},
+  ): Promise<GeneratedPaymentsResult> {
+    const contract = await this.getContractOrThrow(tenantId, contractId);
 
     if (await this.hasPendingDownpaymentPayments(tenantId, contractId)) {
       throw new BadRequestException(
@@ -75,48 +94,68 @@ export class PaymentsService {
       );
     }
 
-    // Delete existing payments
+    const paidOrPartialCount = await this.countPaidOrPartialPayments(tenantId, contractId);
+    if (paidOrPartialCount > 0) {
+      throw new BadRequestException(
+        `No se pueden regenerar los pagos porque hay ${paidOrPartialCount} pago(s) pagado(s) o parcial(es). Debes revertir esos pagos antes de regenerar.`,
+      );
+    }
+
     await this.paymentRepo.delete({
       contract_id: contractId,
       tenant_id: tenantId,
     });
 
-    return this.createPaymentsForContract(tenantId, contract);
+    const startDate = this.resolveStartDate(dto.start_date, contract);
+    return this.createPaymentsForContract(tenantId, contract, startDate);
   }
 
-  /**
-   * Private method to create payments for a contract
-   */
   private async createPaymentsForContract(
     tenantId: string,
-    contract: any,
-  ): Promise<Payment[]> {
-    const payments: Payment[] = [];
-    const firstPaymentDate = new Date(contract.first_payment_date);
-
-    for (let i = 0; i < contract.payment_months; i++) {
-      // Calculate due date: day 5 of each month starting from first payment date
-      const dueDate = new Date(firstPaymentDate.getFullYear(), firstPaymentDate.getMonth() + i, 5);
-
-      const paymentData = {
-        tenant_id: tenantId,
-        contract_id: contract.id,
-        payment_number: String(i + 1),
-        payment_date: dueDate, // Required field - use due date as default
-        due_date: dueDate, // VENCIMIENTO - día 5 de cada mes
-        amount: contract.monthly_payment, // MONTO - total mensual a pagar
-        amount_paid: 0, // PAGADO - $0 para pendientes
-        amount_pending: contract.monthly_payment, // PENDIENTE - monto completo
-        payment_method: 'transferencia',
-        status: 'pendiente' as const,
-        is_overdue: false,
-      };
-
-      const payment = this.paymentRepo.create(paymentData);
-      payments.push(payment);
+    contract: Contract,
+    startDate: Date,
+  ): Promise<GeneratedPaymentsResult> {
+    const paymentMonths = Number(contract.payment_months);
+    if (!paymentMonths || paymentMonths < 1) {
+      throw new BadRequestException(
+        'El contrato no tiene meses de pago definidos para generar el calendario',
+      );
     }
 
-    return this.paymentRepo.save(payments);
+    const payments: Payment[] = [];
+
+    for (let i = 0; i < paymentMonths; i++) {
+      const dueDate = this.addMonthsClamped(startDate, i);
+
+      payments.push(
+        this.paymentRepo.create({
+          tenant_id: tenantId,
+          contract_id: contract.id,
+          payment_number: String(i + 1),
+          payment_date: dueDate,
+          due_date: dueDate,
+          amount: contract.monthly_payment,
+          amount_paid: 0,
+          amount_pending: contract.monthly_payment,
+          payment_method: 'transferencia',
+          status: 'pendiente',
+          is_overdue: false,
+        }),
+      );
+    }
+
+    const saved = await this.paymentRepo.save(payments);
+    const schedule = this.buildSchedulePreview(contract, startDate);
+
+    await this.contractRepo.update(
+      { id: contract.id, tenant_id: tenantId },
+      { first_payment_date: schedule.start_date as unknown as Date },
+    );
+
+    return {
+      ...schedule,
+      payments: saved,
+    };
   }
 
   /**
@@ -219,6 +258,10 @@ export class PaymentsService {
       return sum + Number(p.amount_pending ?? p.amount ?? 0);
     }, 0);
 
+    const paidOrPartialCount = payments.filter(
+      (p) => p.status === 'pagado' || p.status === 'parcial',
+    ).length;
+
     const stats = {
       total_payments: payments.length,
       paid_count: payments.filter(p => p.status === 'pagado').length,
@@ -255,6 +298,17 @@ export class PaymentsService {
       down_payment_target_defined:
         contract.down_payment_financed && contract.down_payment_target != null,
       
+      can_generate: payments.length === 0,
+      can_regenerate: payments.length > 0 && paidOrPartialCount === 0,
+      paid_or_partial_count: paidOrPartialCount,
+      cannot_regenerate_reason:
+        payments.length === 0
+          ? null
+          : paidOrPartialCount > 0
+            ? `Hay ${paidOrPartialCount} pago(s) pagado(s) o parcial(es). Debes revertirlos antes de regenerar.`
+            : null,
+      schedule: this.resolveScheduleFromPayments(contract, payments),
+
       // Partial payment details for frontend
       partial_payment: partialPayment ? {
         id: partialPayment.id,
@@ -639,6 +693,156 @@ export class PaymentsService {
       .execute();
 
     return result.affected || 0;
+  }
+
+  private async getContractOrThrow(tenantId: string, contractId: string): Promise<Contract> {
+    const contract = await this.contractRepo.findOne({
+      where: { id: contractId, tenant_id: tenantId },
+    });
+
+    if (!contract) {
+      throw new NotFoundException('Contrato no encontrado');
+    }
+
+    return contract;
+  }
+
+  private async countPaidOrPartialPayments(
+    tenantId: string,
+    contractId: string,
+  ): Promise<number> {
+    return this.paymentRepo
+      .createQueryBuilder('p')
+      .where('p.tenant_id = :tenantId', { tenantId })
+      .andWhere('p.contract_id = :contractId', { contractId })
+      .andWhere('p.status IN (:...statuses)', { statuses: ['pagado', 'parcial'] })
+      .getCount();
+  }
+
+  private resolveStartDate(
+    startDateRaw: string | Date | undefined,
+    contract: Contract,
+  ): Date {
+    const raw = startDateRaw ?? contract.first_payment_date;
+    if (!raw) {
+      throw new BadRequestException(
+        'Indica la fecha de inicio de los pagos (día, mes y año)',
+      );
+    }
+
+    return this.parseDateOnly(raw);
+  }
+
+  private buildSchedulePreview(
+    contract: Contract,
+    startDate: Date,
+  ): PaymentSchedulePreview {
+    const paymentMonths = Number(contract.payment_months) || 0;
+    if (paymentMonths < 1) {
+      throw new BadRequestException(
+        'El contrato no tiene meses de pago definidos para calcular el calendario',
+      );
+    }
+
+    const endDate = this.addMonthsClamped(startDate, paymentMonths - 1);
+
+    return {
+      start_date: this.formatDateOnly(startDate),
+      end_date: this.formatDateOnly(endDate),
+      payment_months: paymentMonths,
+      payment_day: startDate.getDate(),
+      payments_count: paymentMonths,
+      monthly_payment: Math.round(Number(contract.monthly_payment || 0) * 100) / 100,
+    };
+  }
+
+  private resolveScheduleFromPayments(
+    contract: Contract,
+    payments: Payment[],
+  ): PaymentSchedulePreview | null {
+    const paymentMonths = Number(contract.payment_months) || 0;
+    if (paymentMonths < 1 && payments.length === 0) {
+      return null;
+    }
+
+    if (payments.length > 0) {
+      const firstDue = this.parseDateOnly(payments[0].due_date);
+      const lastDue = this.parseDateOnly(payments[payments.length - 1].due_date);
+      return {
+        start_date: this.formatDateOnly(firstDue),
+        end_date: this.formatDateOnly(lastDue),
+        payment_months: paymentMonths || payments.length,
+        payment_day: firstDue.getDate(),
+        payments_count: payments.length,
+        monthly_payment: Math.round(Number(contract.monthly_payment || 0) * 100) / 100,
+      };
+    }
+
+    if (!contract.first_payment_date) {
+      return null;
+    }
+
+    return this.buildSchedulePreview(
+      contract,
+      this.parseDateOnly(contract.first_payment_date),
+    );
+  }
+
+  private parseDateOnly(value: string | Date): Date {
+    const raw =
+      typeof value === 'string'
+        ? value.slice(0, 10)
+        : this.formatDateOnlyFromUnknown(value);
+
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+    if (!match) {
+      throw new BadRequestException(
+        'Fecha de inicio inválida. Usa formato YYYY-MM-DD',
+      );
+    }
+
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const date = new Date(year, month - 1, day);
+
+    if (
+      date.getFullYear() !== year ||
+      date.getMonth() !== month - 1 ||
+      date.getDate() !== day
+    ) {
+      throw new BadRequestException('Fecha de inicio inválida');
+    }
+
+    return date;
+  }
+
+  private formatDateOnlyFromUnknown(value: Date): string {
+    const isUtcMidnight =
+      value.getUTCHours() === 0 &&
+      value.getUTCMinutes() === 0 &&
+      value.getUTCSeconds() === 0;
+
+    const year = isUtcMidnight ? value.getUTCFullYear() : value.getFullYear();
+    const month = (isUtcMidnight ? value.getUTCMonth() : value.getMonth()) + 1;
+    const day = isUtcMidnight ? value.getUTCDate() : value.getDate();
+
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
+
+  private formatDateOnly(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  private addMonthsClamped(startDate: Date, monthsToAdd: number): Date {
+    const year = startDate.getFullYear();
+    const month = startDate.getMonth() + monthsToAdd;
+    const day = startDate.getDate();
+    const lastDayOfTargetMonth = new Date(year, month + 1, 0).getDate();
+    return new Date(year, month, Math.min(day, lastDayOfTargetMonth));
   }
 
   private async hasPendingDownpaymentPayments(

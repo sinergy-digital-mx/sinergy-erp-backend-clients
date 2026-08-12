@@ -27,11 +27,14 @@ import {
   AddShippingStopsDto,
   CreateShippingDto,
   PreviewShippingDto,
+  QueryAvailableShippingOrdersDto,
   QueryShippingDto,
   ResolveOrdersDto,
   ShippingOrderItemDto,
   UpdateShippingStatusDto,
 } from './dto/shipping.dto';
+
+const ELIGIBLE_SHIPPING_STATUSES = ['Surtida', 'Lista para entrega'] as const;
 
 const ALLOWED_TRANSITIONS: Record<ShippingStatus, ShippingStatus[]> = {
   Creado: ['En Ruta', 'Cancelado'],
@@ -201,6 +204,95 @@ export class ShippingsService {
       .getMany();
     const totalPages = Math.ceil(total / limit) || 1;
 
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages,
+      hasNext: page < totalPages,
+      hasPrev: page > 1,
+    };
+  }
+
+  /**
+   * OV elegibles para el wizard: Surtida | Lista para entrega del CEDIS,
+   * sin envío activo (≠ Cancelado).
+   */
+  async findAvailableOrders(
+    tenantId: string,
+    query: QueryAvailableShippingOrdersDto,
+  ) {
+    await this.getWarehouse(query.origin_warehouse_id, tenantId);
+
+    let page = Number(query.page) || 1;
+    let limit = Number(query.limit) || 50;
+    if (page < 1) page = 1;
+    if (limit < 1) limit = 1;
+    if (limit > 100) limit = 100;
+
+    const qb = this.soRepo
+      .createQueryBuilder('so')
+      .leftJoinAndSelect('so.customer', 'customer')
+      .leftJoinAndSelect('so.warehouse', 'warehouse')
+      .where('so.tenant_id = :tenantId', { tenantId })
+      .andWhere('so.warehouse_id = :warehouseId', {
+        warehouseId: query.origin_warehouse_id,
+      })
+      .andWhere('so.general_status IN (:...statuses)', {
+        statuses: [...ELIGIBLE_SHIPPING_STATUSES],
+      })
+      .andWhere(
+        `NOT EXISTS (
+          SELECT 1 FROM shipping_stops ss
+          INNER JOIN shippings s ON s.id = ss.shipping_id
+          WHERE ss.sales_order_id = so.id
+            AND ss.tenant_id = :tenantId
+            AND s.status <> 'Cancelado'
+        )`,
+      );
+
+    if (query.search?.trim()) {
+      const term = `%${query.search.trim()}%`;
+      qb.andWhere(
+        `(so.folio LIKE :term
+          OR customer.name LIKE :term
+          OR customer.lastname LIKE :term
+          OR customer.company_name LIKE :term
+          OR CONCAT(COALESCE(customer.name, ''), ' ', COALESCE(customer.lastname, '')) LIKE :term)`,
+        { term },
+      );
+    }
+
+    qb.orderBy('so.created_at', 'DESC');
+
+    const total = await qb.getCount();
+    const rows = await qb.skip((page - 1) * limit).take(limit).getMany();
+
+    const data = rows.map((so) => ({
+      id: so.id,
+      folio: so.folio,
+      general_status: so.general_status,
+      payment_status: so.payment_status,
+      total: so.total,
+      created_at: so.created_at,
+      warehouse_id: so.warehouse_id,
+      warehouse: so.warehouse
+        ? { id: so.warehouse.id, name: so.warehouse.name }
+        : null,
+      customer_id: so.customer_id,
+      customer_name: this.customerName(so),
+      customer: so.customer
+        ? {
+            id: so.customer.id,
+            name: so.customer.name,
+            lastname: so.customer.lastname,
+            company_name: so.customer.company_name,
+          }
+        : null,
+    }));
+
+    const totalPages = Math.ceil(total / limit) || 1;
     return {
       data,
       total,

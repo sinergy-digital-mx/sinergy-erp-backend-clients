@@ -468,7 +468,17 @@ export class SalesOrderService {
         { s: `%${search}%` },
       );
     }
-    if (general_status) qb.andWhere('so.general_status = :general_status', { general_status });
+    if (general_status?.length) {
+      if (general_status.length === 1) {
+        qb.andWhere('so.general_status = :general_status', {
+          general_status: general_status[0],
+        });
+      } else {
+        qb.andWhere('so.general_status IN (:...general_statuses)', {
+          general_statuses: general_status,
+        });
+      }
+    }
     if (payment_status) qb.andWhere('so.payment_status = :payment_status', { payment_status });
     if (sales_order_type) qb.andWhere('so.sales_order_type = :sales_order_type', { sales_order_type });
     if (warehouse_id) qb.andWhere('so.warehouse_id = :warehouse_id', { warehouse_id });

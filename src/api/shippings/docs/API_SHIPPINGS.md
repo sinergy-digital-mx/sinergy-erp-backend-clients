@@ -43,6 +43,7 @@ Al cancelar, las OV vuelven a `Lista para entrega` (si tuvieron corroboración /
 | `POST` | `/resolve-orders` | `{ sales_order_ids }` → GPS |
 | `POST` | `/` | Crear |
 | `GET` | `/` | Filtros: status, driver_id, truck_id, origin_warehouse_id, date_from/to |
+| `GET` | `/available-orders` | OV `Surtida` \| `Lista para entrega` del CEDIS (sin envío activo) |
 | `GET` | `/:id` | Detalle + stops |
 | `POST` | `/:id/stops` | Agregar OV (solo `Creado`) |
 | `POST` | `/:id/recalculate-distance` | Tras cargar GPS |
@@ -70,6 +71,14 @@ Al cancelar, las OV vuelven a `Lista para entrega` (si tuvieron corroboración /
 2. Mismo `warehouse_id` que el origen.
 3. `general_status` ∈ `Surtida` | `Lista para entrega`.
 4. No está en otro envío activo (≠ Cancelado).
+
+Listado para el wizard:
+
+```http
+GET /api/tenant/shippings/available-orders?origin_warehouse_id={uuid}&search=&page=1&limit=50
+```
+
+Respuesta: `{ data, total, page, limit, ... }` con `folio`, `general_status`, `customer_name`, `total`, etc.
 
 ## Embebido en OV
 

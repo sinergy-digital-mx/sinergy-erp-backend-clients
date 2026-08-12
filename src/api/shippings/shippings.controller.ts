@@ -18,6 +18,7 @@ import {
   AddShippingStopsDto,
   CreateShippingDto,
   PreviewShippingDto,
+  QueryAvailableShippingOrdersDto,
   QueryShippingDto,
   ResolveOrdersDto,
   UpdateShippingStatusDto,
@@ -56,6 +57,19 @@ export class ShippingsController {
   @ApiOperation({ summary: 'Listar envíos' })
   findAll(@Query() query: QueryShippingDto, @Req() req: any) {
     return this.service.findAll(req.user.tenant_id, query);
+  }
+
+  @Get('available-orders')
+  @RequirePermissions({ entityType: 'Shipping', action: 'Read' })
+  @ApiOperation({
+    summary:
+      'Órdenes Surtida / Lista para entrega del CEDIS (elegibles para envío)',
+  })
+  findAvailableOrders(
+    @Query() query: QueryAvailableShippingOrdersDto,
+    @Req() req: any,
+  ) {
+    return this.service.findAvailableOrders(req.user.tenant_id, query);
   }
 
   @Get(':id')

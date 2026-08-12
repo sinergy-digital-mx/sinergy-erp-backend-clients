@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   Req,
 } from '@nestjs/common';
@@ -15,6 +16,7 @@ import { RequirePermissions } from '../../rbac/decorators/require-permissions.de
 import { TenantContextService } from '../../rbac/services/tenant-context.service';
 import { PaymentsService } from './payments.service';
 import { RecordPartialPaymentDto } from '../dto/record-partial-payment.dto';
+import { GenerateContractPaymentsDto } from './dto/generate-contract-payments.dto';
 
 @Controller('tenant/contracts/:contractId/payments')
 @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -26,24 +28,40 @@ export class PaymentsController {
 
   @Post('generate')
   @RequirePermissions({ entityType: 'Contract', action: 'Create' })
-  async generatePayments(@Param('contractId') contractId: string, @Req() req: any) {
+  async generatePayments(
+    @Param('contractId') contractId: string,
+    @Body() dto: GenerateContractPaymentsDto = {},
+    @Req() req: any,
+  ) {
     const tenantId = this.tenantContext.getCurrentTenantId();
     if (!tenantId) {
       throw new Error('Tenant context is required');
     }
 
-    return this.paymentsService.generatePaymentsForContract(tenantId, contractId);
+    return this.paymentsService.generatePaymentsForContract(
+      tenantId,
+      contractId,
+      dto ?? {},
+    );
   }
 
   @Post('regenerate')
   @RequirePermissions({ entityType: 'Contract', action: 'Create' })
-  async regeneratePayments(@Param('contractId') contractId: string, @Req() req: any) {
+  async regeneratePayments(
+    @Param('contractId') contractId: string,
+    @Body() dto: GenerateContractPaymentsDto = {},
+    @Req() req: any,
+  ) {
     const tenantId = this.tenantContext.getCurrentTenantId();
     if (!tenantId) {
       throw new Error('Tenant context is required');
     }
 
-    return this.paymentsService.regeneratePaymentsForContract(tenantId, contractId);
+    return this.paymentsService.regeneratePaymentsForContract(
+      tenantId,
+      contractId,
+      dto ?? {},
+    );
   }
 
   @Get()
@@ -66,6 +84,20 @@ export class PaymentsController {
     }
 
     return this.paymentsService.getContractPaymentStats(tenantId, contractId);
+  }
+
+  @Get('schedule-preview')
+  @RequirePermissions({ entityType: 'Contract', action: 'Read' })
+  async previewSchedule(
+    @Param('contractId') contractId: string,
+    @Query('start_date') startDate: string | undefined,
+  ) {
+    const tenantId = this.tenantContext.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+
+    return this.paymentsService.previewPaymentSchedule(tenantId, contractId, startDate);
   }
 
   @Get(':paymentId')
