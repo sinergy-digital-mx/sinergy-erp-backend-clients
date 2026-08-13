@@ -6,6 +6,7 @@ import { InventoryTransferLine } from '../../entities/inventory/inventory-transf
 import { ProductPrice } from '../../entities/products/product-price.entity';
 import { ProductDiscount } from '../../entities/products/product-discount.entity';
 import { ProductUoM } from '../../entities/products/product-uom.entity';
+import { ProductVendorCost } from '../../entities/products/product-vendor-cost.entity';
 import {
   isProductDiscountApplicable,
   mapApplicableProductDiscount,
@@ -60,6 +61,8 @@ export class InventoryService {
     private readonly productDiscountRepo: Repository<ProductDiscount>,
     @InjectRepository(ProductUoM)
     private readonly productUomRepo: Repository<ProductUoM>,
+    @InjectRepository(ProductVendorCost)
+    private readonly productVendorCostRepo: Repository<ProductVendorCost>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     @InjectRepository(Warehouse)
@@ -151,23 +154,6 @@ export class InventoryService {
       .addSelect('COUNT(DISTINCT batch.warehouse_id)', 'total_warehouses')
       .addSelect('COALESCE(SUM(batch.available_quantity), 0)', 'total_available_quantity')
       .addSelect('COALESCE(SUM(batch.initial_quantity), 0)', 'total_initial_quantity')
-      .addSelect(
-        `COALESCE(SUM(batch.available_quantity * ${UNIT_COST_SQL}), 0)`,
-        'total_cost',
-      )
-      .addSelect(
-        `SUM(CASE
-          WHEN batch.available_quantity > 0
-           AND (pod.id IS NULL OR (pod.unit_total IS NULL AND pod.received_original_unit_total IS NULL))
-          THEN 1 ELSE 0 END)`,
-        'batches_without_cost',
-      )
-      .addSelect(
-        `COALESCE(SUM(CASE
-          WHEN pod.id IS NULL OR (pod.unit_total IS NULL AND pod.received_original_unit_total IS NULL)
-          THEN batch.available_quantity ELSE 0 END), 0)`,
-        'quantity_without_cost',
-      )
       .getRawOne();
 
     const byProductUom = await this.buildStatsBaseQuery(tenantId, filters)
@@ -175,35 +161,67 @@ export class InventoryService {
       .select('batch.product_id', 'product_id')
       .addSelect('batch.uom_id', 'uom_id')
       .addSelect('COALESCE(SUM(batch.available_quantity), 0)', 'qty')
+      .addSelect(
+        `COALESCE(SUM(batch.available_quantity * ${UNIT_COST_SQL}), 0)`,
+        'po_cost',
+      )
+      .addSelect(
+        `COALESCE(SUM(CASE
+          WHEN pod.id IS NOT NULL
+           AND (pod.unit_total IS NOT NULL OR pod.received_original_unit_total IS NOT NULL)
+          THEN batch.available_quantity ELSE 0 END), 0)`,
+        'qty_with_po_cost',
+      )
+      .addSelect('COUNT(batch.id)', 'batches')
       .groupBy('batch.product_id')
       .addGroupBy('batch.uom_id')
       .getRawMany();
 
     const productIds = Array.from(new Set(byProductUom.map((row) => row.product_id).filter(Boolean)));
     const uomIds = Array.from(new Set(byProductUom.map((row) => row.uom_id).filter(Boolean)));
-    const priceMap = await this.buildPriceMap(productIds, uomIds);
+    const [priceMap, costMaps] = await Promise.all([
+      this.buildPriceMap(productIds, uomIds),
+      this.buildCostMap(productIds),
+    ]);
 
     let totalSaleValue = 0;
+    let totalCost = 0;
     let quantityWithoutPrice = 0;
     let productsWithoutPrice = 0;
+    let batchesWithoutCost = 0;
+    let quantityWithoutCost = 0;
 
     for (const row of byProductUom) {
       const qty = this.parseDecimal(row.qty);
+      const poCost = this.parseDecimal(row.po_cost);
+      const qtyWithPoCost = this.parseDecimal(row.qty_with_po_cost);
+      const batches = this.parseIntSafe(row.batches);
       const suggested = priceMap.get(`${row.product_id}|${row.uom_id}`)?.[0];
       const unitPrice = suggested ? this.parseDecimal(suggested.price) : 0;
+      const vendorUnitCost =
+        costMaps.byProductUom.get(`${row.product_id}|${row.uom_id}`)
+        ?? costMaps.byProduct.get(row.product_id)
+        ?? 0;
 
       if (!suggested) {
         productsWithoutPrice += 1;
         quantityWithoutPrice += qty;
       }
 
+      const qtyWithoutPoCost = Math.max(qty - qtyWithPoCost, 0);
+      const lineCost = poCost + qtyWithoutPoCost * vendorUnitCost;
       totalSaleValue += qty * unitPrice;
+      totalCost += lineCost;
+
+      if (poCost <= 0 && vendorUnitCost <= 0) {
+        batchesWithoutCost += batches;
+        quantityWithoutCost += qty;
+      }
     }
 
     const totalBatches = this.parseIntSafe(totals?.total_batches);
     const batchesWithStock = this.parseIntSafe(totals?.batches_with_stock);
     const totalAvailable = this.parseDecimal(totals?.total_available_quantity);
-    const totalCost = this.parseDecimal(totals?.total_cost);
     const grossMargin = totalSaleValue - totalCost;
 
     return {
@@ -223,8 +241,8 @@ export class InventoryService {
       gross_margin_percentage: this.formatMoney(
         totalSaleValue > 0 ? (grossMargin / totalSaleValue) * 100 : 0,
       ),
-      batches_without_cost: this.parseIntSafe(totals?.batches_without_cost),
-      quantity_without_cost: this.formatQty(this.parseDecimal(totals?.quantity_without_cost)),
+      batches_without_cost: batchesWithoutCost,
+      quantity_without_cost: this.formatQty(quantityWithoutCost),
       products_without_price: productsWithoutPrice,
       quantity_without_price: this.formatQty(quantityWithoutPrice),
     };
@@ -505,6 +523,63 @@ export class InventoryService {
       limit,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  /**
+   * Costo promedio por producto/UOM desde product_vendor_costs (importación / proveedores).
+   * byProductUom: costo en esa UOM. byProduct: costo convertido a UOM base (cost / factor).
+   */
+  private async buildCostMap(productIds: string[]): Promise<{
+    byProductUom: Map<string, number>;
+    byProduct: Map<string, number>;
+  }> {
+    const byProductUom = new Map<string, number>();
+    const byProduct = new Map<string, number>();
+    if (productIds.length === 0) {
+      return { byProductUom, byProduct };
+    }
+
+    const costs = await this.productVendorCostRepo
+      .createQueryBuilder('pvc')
+      .leftJoinAndSelect('pvc.product_uom', 'product_uom')
+      .where('pvc.product_id IN (:...productIds)', { productIds })
+      .getMany();
+
+    const exact: Map<string, number[]> = new Map();
+    const base: Map<string, number[]> = new Map();
+
+    for (const row of costs) {
+      const cost = this.parseDecimal(row.cost);
+      if (cost <= 0) continue;
+
+      const catalogId = row.product_uom?.uom_catalog_id;
+      const factor = this.parseDecimal(row.product_uom?.factor) || 1;
+
+      if (catalogId) {
+        const key = `${row.product_id}|${catalogId}`;
+        const list = exact.get(key) ?? [];
+        list.push(cost);
+        exact.set(key, list);
+      }
+
+      const baseList = base.get(row.product_id) ?? [];
+      baseList.push(cost / factor);
+      base.set(row.product_id, baseList);
+    }
+
+    for (const [key, values] of exact) {
+      byProductUom.set(key, this.average(values));
+    }
+    for (const [key, values] of base) {
+      byProduct.set(key, this.average(values));
+    }
+
+    return { byProductUom, byProduct };
+  }
+
+  private average(values: number[]): number {
+    if (values.length === 0) return 0;
+    return values.reduce((sum, value) => sum + value, 0) / values.length;
   }
 
   private async buildPriceMap(

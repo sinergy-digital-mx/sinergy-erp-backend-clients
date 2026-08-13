@@ -82,14 +82,14 @@ Montos: string 2 decimales. Cantidades: string 3 decimales. Contadores: number.
 
 | Campo | Fórmula |
 |-------|---------|
-| `total_cost` | Σ existencia × costo unitario OC (con conversión de UOM si aplica) |
+| `total_cost` | Σ existencia × costo. Prioridad: costo de OC; si no hay, costo promedio de proveedores (`product_vendor_costs`, p. ej. COSTO PROM de importación) |
 | `total_sale_value` | Σ existencia × precio sugerido (primera lista activa, mismo que el totalizado) |
 | `average_unit_cost` | `total_cost / total_available_quantity` |
 | `average_unit_price` | `total_sale_value / total_available_quantity` |
 | `gross_margin` | `total_sale_value − total_cost` |
 | `gross_margin_percentage` | `gross_margin / total_sale_value × 100` (0 si venta = 0) |
 
-Lotes importados sin OC → costo 0 y entran en `batches_without_cost`. Productos sin lista de precios → venta 0 y entran en `products_without_price`.
+Lotes sin OC y sin costo de proveedor → `batches_without_cost`. Productos sin lista de precios → `products_without_price`.
 
 ---
 

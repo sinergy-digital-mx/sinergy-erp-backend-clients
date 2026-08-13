@@ -186,18 +186,19 @@ export class CustomersService {
 
         if (dto.registered_billing_branch_id !== undefined) {
             customer.registered_billing_branch_id =
-                await this.resolveRegisteredBranchOrThrow(
+                (await this.resolveRegisteredBranchOrThrow(
                     dto.registered_billing_branch_id,
                     tenantId,
-                );
+                )) ?? null;
             delete dto.registered_billing_branch_id;
         }
 
         if (dto.registered_by_user_id !== undefined) {
-            customer.registered_by_user_id = await this.resolveRegisteredByUserOrThrow(
-                dto.registered_by_user_id,
-                tenantId,
-            );
+            customer.registered_by_user_id =
+                (await this.resolveRegisteredByUserOrThrow(
+                    dto.registered_by_user_id,
+                    tenantId,
+                )) ?? null;
             delete dto.registered_by_user_id;
         }
 
@@ -458,7 +459,6 @@ export class CustomersService {
                 .createQueryBuilder('branch')
                 .innerJoin('branch.fiscal_configuration', 'fc')
                 .where('fc.tenant_id = :tenantId', { tenantId })
-                .andWhere('branch.status = :status', { status: 1 })
                 .orderBy('branch.code', 'ASC')
                 .getMany(),
             this.userRepo.find({

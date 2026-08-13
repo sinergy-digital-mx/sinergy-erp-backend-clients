@@ -7,6 +7,7 @@ import { InventoryTransferLine } from '../../entities/inventory/inventory-transf
 import { ProductPrice } from '../../entities/products/product-price.entity';
 import { ProductDiscount } from '../../entities/products/product-discount.entity';
 import { ProductUoM } from '../../entities/products/product-uom.entity';
+import { ProductVendorCost } from '../../entities/products/product-vendor-cost.entity';
 import { User } from '../../entities/users/user.entity';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { FiscalConfiguration } from '../../entities/billing/fiscal-configuration.entity';
@@ -19,6 +20,7 @@ describe('InventoryService', () => {
   let service: InventoryService;
   let mockRepository: any;
   let mockProductPriceRepository: any;
+  let mockProductVendorCostRepository: any;
   let mockWarehouseRepository: any;
   let mockFiscalConfigRepository: any;
   let mockBillingBranchRepository: any;
@@ -56,6 +58,13 @@ describe('InventoryService', () => {
     };
     mockProductPriceRepository = {
       createQueryBuilder: jest.fn(),
+    };
+    mockProductVendorCostRepository = {
+      createQueryBuilder: jest.fn().mockReturnValue({
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([]),
+      }),
     };
     mockWarehouseRepository = {
       find: jest.fn(),
@@ -104,6 +113,10 @@ describe('InventoryService', () => {
         {
           provide: getRepositoryToken(ProductUoM),
           useValue: emptyRepo,
+        },
+        {
+          provide: getRepositoryToken(ProductVendorCost),
+          useValue: mockProductVendorCostRepository,
         },
         {
           provide: getRepositoryToken(User),
@@ -789,9 +802,6 @@ describe('InventoryService', () => {
             total_warehouses: '0',
             total_available_quantity: '0',
             total_initial_quantity: '0',
-            total_cost: '0',
-            batches_without_cost: '0',
-            quantity_without_cost: '0',
           }),
         }))
         .mockReturnValueOnce(chainableQuery({
@@ -819,14 +829,18 @@ describe('InventoryService', () => {
             total_warehouses: '1',
             total_available_quantity: '100',
             total_initial_quantity: '120',
-            total_cost: '2000',
-            batches_without_cost: '0',
-            quantity_without_cost: '0',
           }),
         }))
         .mockReturnValueOnce(chainableQuery({
           getRawMany: jest.fn().mockResolvedValue([
-            { product_id: 'prod-1', uom_id: 'uom-1', qty: '100' },
+            {
+              product_id: 'prod-1',
+              uom_id: 'uom-1',
+              qty: '100',
+              po_cost: '2000',
+              qty_with_po_cost: '100',
+              batches: '10',
+            },
           ]),
         }));
 
@@ -875,14 +889,18 @@ describe('InventoryService', () => {
             total_warehouses: '1',
             total_available_quantity: '10',
             total_initial_quantity: '10',
-            total_cost: '100',
-            batches_without_cost: '0',
-            quantity_without_cost: '0',
           }),
         }))
         .mockReturnValueOnce(chainableQuery({
           getRawMany: jest.fn().mockResolvedValue([
-            { product_id: 'prod-2', uom_id: 'uom-2', qty: '10' },
+            {
+              product_id: 'prod-2',
+              uom_id: 'uom-2',
+              qty: '10',
+              po_cost: '100',
+              qty_with_po_cost: '10',
+              batches: '1',
+            },
           ]),
         }));
 
@@ -902,6 +920,74 @@ describe('InventoryService', () => {
       expect(result.quantity_without_price).toBe('10.000');
       expect(result.gross_margin).toBe('-100.00');
       expect(result.gross_margin_percentage).toBe('0.00');
+    });
+
+    it('should use vendor average cost when the batch has no purchase order', async () => {
+      mockRepository.createQueryBuilder
+        .mockReturnValueOnce(chainableQuery({
+          getRawOne: jest.fn().mockResolvedValue({
+            total_batches: '2536',
+            batches_with_stock: '2536',
+            total_products: '1',
+            products_with_stock: '1',
+            total_warehouses: '3',
+            total_available_quantity: '100',
+            total_initial_quantity: '100',
+          }),
+        }))
+        .mockReturnValueOnce(chainableQuery({
+          getRawMany: jest.fn().mockResolvedValue([
+            {
+              product_id: 'prod-imp',
+              uom_id: 'uom-pieza',
+              qty: '100',
+              po_cost: '0',
+              qty_with_po_cost: '0',
+              batches: '2536',
+            },
+          ]),
+        }));
+
+      mockProductPriceRepository.createQueryBuilder.mockReturnValue({
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([
+          {
+            product_id: 'prod-imp',
+            product_uom: { uom_catalog_id: 'uom-pieza' },
+            price: 80,
+            iva_percentage: 16,
+            ieps_percentage: 0,
+            total: 92.8,
+            price_list_id: 'pl-1',
+            price_list: { name: 'General' },
+          },
+        ]),
+      });
+
+      mockProductVendorCostRepository.createQueryBuilder.mockReturnValue({
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([
+          {
+            product_id: 'prod-imp',
+            cost: 20,
+            product_uom: { uom_catalog_id: 'uom-pieza', factor: 1 },
+          },
+        ]),
+      });
+
+      const result = await service.getStats(mockTenantId, {});
+
+      expect(result.total_cost).toBe('2000.00');
+      expect(result.average_unit_cost).toBe('20.00');
+      expect(result.total_sale_value).toBe('8000.00');
+      expect(result.gross_margin).toBe('6000.00');
+      expect(result.gross_margin_percentage).toBe('75.00');
+      expect(result.batches_without_cost).toBe(0);
     });
 
     it('should reject warehouse filter without branch', async () => {

@@ -6,6 +6,7 @@ import { InventoryTransferLine } from '../../entities/inventory/inventory-transf
 import { ProductPrice } from '../../entities/products/product-price.entity';
 import { ProductDiscount } from '../../entities/products/product-discount.entity';
 import { ProductUoM } from '../../entities/products/product-uom.entity';
+import { ProductVendorCost } from '../../entities/products/product-vendor-cost.entity';
 import { User } from '../../entities/users/user.entity';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { FiscalConfiguration } from '../../entities/billing/fiscal-configuration.entity';
@@ -30,6 +31,7 @@ import { PurchaseOrdersModule } from '../purchase-orders/purchase-orders.module'
       ProductPrice,
       ProductDiscount,
       ProductUoM,
+      ProductVendorCost,
       User,
       Warehouse,
       FiscalConfiguration,

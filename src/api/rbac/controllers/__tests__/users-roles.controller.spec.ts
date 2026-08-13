@@ -47,6 +47,18 @@ describe('UsersRolesController', () => {
             findOne: jest.fn(),
             create: jest.fn(),
             update: jest.fn(),
+            changePassword: jest.fn(),
+            mapUserResponse: jest.fn((user) => ({
+              id: user.id,
+              email: user.email,
+              first_name: user.first_name,
+              last_name: user.last_name,
+              phone: user.phone,
+              status: user.status,
+              language_code: user.language_code,
+              last_login_at: user.last_login_at,
+              created_at: user.created_at,
+            })),
           },
         },
       ],
@@ -163,6 +175,40 @@ describe('UsersRolesController', () => {
       jest.spyOn(tenantContextService, 'getCurrentTenantId').mockReturnValue(null);
 
       await expect(controller.getTenantUsers()).rejects.toThrow('Tenant context is required');
+    });
+  });
+
+  describe('changePassword', () => {
+    const dto = {
+      new_password: 'NuevaClave123',
+      confirm_password: 'NuevaClave123',
+    };
+
+    it('should change password for the logged-in user', async () => {
+      jest.spyOn(tenantContextService, 'getCurrentTenantId').mockReturnValue(mockTenantId);
+      jest.spyOn(tenantContextService, 'getCurrentUserId').mockReturnValue(mockUserId);
+      jest.spyOn(usersService, 'changePassword').mockResolvedValue({
+        message: 'Contraseña actualizada correctamente',
+      });
+
+      const result = await controller.changePassword(mockUserId, dto);
+
+      expect(usersService.changePassword).toHaveBeenCalledWith(
+        mockUserId,
+        dto,
+        mockTenantId,
+        mockUserId,
+      );
+      expect(result).toEqual({ message: 'Contraseña actualizada correctamente' });
+    });
+
+    it('should throw when user context is missing', async () => {
+      jest.spyOn(tenantContextService, 'getCurrentTenantId').mockReturnValue(mockTenantId);
+      jest.spyOn(tenantContextService, 'getCurrentUserId').mockReturnValue(null);
+
+      await expect(controller.changePassword(mockUserId, dto)).rejects.toThrow(
+        'User context is required',
+      );
     });
   });
 });

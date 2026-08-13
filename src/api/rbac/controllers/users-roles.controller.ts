@@ -28,6 +28,7 @@ import { UsersService } from '../../users/users.service';
 import { CreateUserDto } from '../../users/dto/create-user.dto';
 import { UpdateUserDto } from '../../users/dto/update-user.dto';
 import { AssignUserBranchDto } from '../../users/dto/assign-user-branch.dto';
+import { ChangePasswordDto } from '../../users/dto/change-password.dto';
 
 @ApiTags('Tenant - Users & Roles')
 @Controller('tenant/users')
@@ -174,6 +175,46 @@ export class UsersRolesController {
       message: 'Branch assignment updated successfully',
       ...branch,
     };
+  }
+
+  @Put(':userId/password')
+  @RequirePermissions({ entityType: 'User', action: 'Update' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Change own password',
+    description:
+      'Cambia la contraseña del usuario autenticado. Solo aplica si userId es el mismo que el usuario logueado.',
+  })
+  @ApiParam({ name: 'userId', description: 'User ID' })
+  @ApiBody({ type: ChangePasswordDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Password updated successfully',
+    schema: {
+      example: { message: 'Contraseña actualizada correctamente' },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Passwords do not match' })
+  @ApiResponse({
+    status: 403,
+    description: 'Cannot change another user password',
+  })
+  async changePassword(
+    @Param('userId') userId: string,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    const tenantId = this.tenantContextService.getCurrentTenantId();
+    const currentUserId = this.tenantContextService.getCurrentUserId();
+    if (!tenantId || !currentUserId) {
+      throw new Error('User context is required');
+    }
+
+    return this.usersService.changePassword(
+      userId,
+      dto,
+      tenantId,
+      currentUserId,
+    );
   }
 
   @Put(':userId')

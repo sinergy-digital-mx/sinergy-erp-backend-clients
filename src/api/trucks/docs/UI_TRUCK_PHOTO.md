@@ -78,8 +78,8 @@ Opcional: thumbnail con `photo` del listado (`GET /tenant/trucks`). Si es `null`
 
 ## Flujo recomendado (editar)
 
-1. Abrir modal → `GET /tenant/trucks/:id` → precargar General + preview Fotos.
-2. Guardar General → `PUT /tenant/trucks/:id`.
+1. Abrir modal → `GET /tenant/trucks/:id` → precargar General (incluye `serial_number`) + preview Fotos.
+2. Guardar General → `PUT /tenant/trucks/:id`. El response trae `serial_number`; usarlo para form y fila.
 3. En Fotos, al elegir imagen → `POST /tenant/trucks/:id/photo` (no va en el PUT).
 4. Actualizar preview con `response.photo`.
 

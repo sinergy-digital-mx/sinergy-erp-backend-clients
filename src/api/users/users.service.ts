@@ -2,12 +2,14 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserStatus } from '../../entities/users/user-status.entity';
@@ -177,6 +179,40 @@ export class UsersService {
       throw new NotFoundException('User not found after update');
     }
     return updated;
+  }
+
+  /**
+   * Cambia la contraseña solo si el usuario editado es el mismo que el autenticado.
+   */
+  async changePassword(
+    userId: string,
+    dto: ChangePasswordDto,
+    tenantId: string,
+    currentUserId: string,
+  ) {
+    if (userId !== currentUserId) {
+      throw new ForbiddenException(
+        'Solo puedes cambiar la contraseña de tu propia cuenta',
+      );
+    }
+
+    if (dto.new_password !== dto.confirm_password) {
+      throw new BadRequestException('Las contraseñas no coinciden');
+    }
+
+    const user = await this.userRepo.findOneBy({
+      id: userId,
+      tenant_id: tenantId,
+    });
+
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    user.password = await bcrypt.hash(dto.new_password, 10);
+    await this.userRepo.save(user);
+
+    return { message: 'Contraseña actualizada correctamente' };
   }
 
   async assignBranch(
