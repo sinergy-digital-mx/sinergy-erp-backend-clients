@@ -23,6 +23,8 @@ import {
     UpdateCustomerAddressDto,
 } from './dto/customer-address.dto';
 import { CustomersExportService } from './services/customers-export.service';
+import { CustomerProductInsightsService } from './services/customer-product-insights.service';
+import { QueryCustomerProductInsightsDto } from './dto/query-customer-product-insights.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionGuard } from '../rbac/guards/permission.guard';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator';
@@ -35,6 +37,7 @@ export class CustomersController {
     constructor(
         private readonly customersService: CustomersService,
         private readonly exportService: CustomersExportService,
+        private readonly productInsightsService: CustomerProductInsightsService,
     ) { }
 
     @Post()
@@ -117,6 +120,25 @@ export class CustomersController {
     @ApiResponse({ status: 404, description: 'Not found - Customer does not exist' })
     findOne(@Param('id') id: string, @Req() req) {
         return this.customersService.findOne(Number(id), req.user.tenantId);
+    }
+
+    @Get(':id/product-insights')
+    @RequirePermissions({ entityType: 'customers', action: 'Read' })
+    @ApiOperation({
+        summary:
+            'Productos más comprados y sugerencias (misma categoría/subcategoría) para el detalle del cliente',
+    })
+    @ApiParam({ name: 'id', type: 'number', description: 'Customer ID' })
+    getProductInsights(
+        @Param('id') id: string,
+        @Query() query: QueryCustomerProductInsightsDto,
+        @Req() req,
+    ) {
+        return this.productInsightsService.getInsights(
+            Number(id),
+            req.user.tenant_id ?? req.user.tenantId,
+            query,
+        );
     }
 
     @Delete(':id')

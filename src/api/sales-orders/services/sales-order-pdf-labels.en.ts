@@ -22,6 +22,8 @@ export const SALES_ORDER_PDF_LABELS_EN: SalesOrderPdfLabels = {
   total: 'Total',
   unitPrefix: 'Unit',
   notesPrefix: 'Notes',
+  notesEmpty: 'No notes',
+  pageLabel: 'Page',
   subtotal: 'Subtotal',
   discountTotal: 'Discount',
   lineDiscountTotal: 'Product discounts',

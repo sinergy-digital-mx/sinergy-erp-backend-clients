@@ -24,6 +24,8 @@ export interface SalesOrderPdfLabels {
   total: string;
   unitPrefix: string;
   notesPrefix: string;
+  notesEmpty: string;
+  pageLabel: string;
   subtotal: string;
   discountTotal: string;
   lineDiscountTotal: string;

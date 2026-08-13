@@ -18,8 +18,12 @@ import { CustomerDocument } from '../../entities/customers/customer-document.ent
 import { DocumentType } from '../../entities/customers/document-type.entity';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { CustomerAddress } from '../../entities/customers/customer-address.entity';
+import { SalesOrder } from '../../entities/sales-orders/sales-order.entity';
+import { SalesOrderDetail } from '../../entities/sales-orders/sales-order-detail.entity';
+import { Product } from '../../entities/products/product.entity';
 import { S3Service } from '../../common/services/s3.service';
 import { RBACModule } from '../rbac/rbac.module';
+import { CustomerProductInsightsService } from './services/customer-product-insights.service';
 
 @Module({
     imports: [
@@ -32,6 +36,9 @@ import { RBACModule } from '../rbac/rbac.module';
             DocumentType,
             Warehouse,
             CustomerAddress,
+            SalesOrder,
+            SalesOrderDetail,
+            Product,
         ]),
         RBACModule,
     ],
@@ -41,6 +48,7 @@ import { RBACModule } from '../rbac/rbac.module';
         CustomerGroupsService,
         CustomerActivitiesService,
         CustomerDocumentsService,
+        CustomerProductInsightsService,
         S3Service,
     ],
     controllers: [
