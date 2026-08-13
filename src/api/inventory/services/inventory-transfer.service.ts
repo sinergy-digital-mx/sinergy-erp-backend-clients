@@ -221,6 +221,7 @@ export class InventoryTransferService {
         const destBatchNumber = await this.batchNumberGenerator.generateBatchNumber(
           dto.destination_warehouse_id,
           tenantId,
+          qr.manager,
         );
 
         const destinationBatch = qr.manager.create(InventoryBatch, {

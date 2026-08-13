@@ -37,6 +37,7 @@ export class BatchCreatorService {
       const batchNumber = await this.batchNumberGeneratorService.generateBatchNumber(
         purchaseOrder.warehouse_id,
         purchaseOrder.tenant_id,
+        manager,
       );
 
       const uoms = productUoms || [];

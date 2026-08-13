@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { Warehouse } from '../../../entities/warehouse/warehouse.entity';
 import { InventoryBatch } from '../../../entities/purchase-orders/inventory-batch.entity';
 
@@ -26,8 +26,16 @@ export class BatchNumberGeneratorService {
   /**
    * Serie de lote: `{razon}-{sucursal}-{almacen}` → `MZN-SBA-BDGA-00011`
    */
-  async resolveLotSeries(warehouseId: string, organizationId: string): Promise<LotSeries> {
-    const warehouse = await this.warehouseRepository.findOne({
+  async resolveLotSeries(
+    warehouseId: string,
+    organizationId: string,
+    manager?: EntityManager,
+  ): Promise<LotSeries> {
+    const warehouseRepo = manager
+      ? manager.getRepository(Warehouse)
+      : this.warehouseRepository;
+
+    const warehouse = await warehouseRepo.findOne({
       where: { id: warehouseId, tenant_id: organizationId },
       relations: ['billing_branch', 'billing_branch.fiscal_configuration'],
     });
@@ -76,11 +84,15 @@ export class BatchNumberGeneratorService {
   async getNextSequentialNumber(
     warehouseId: string,
     tenantId: string,
+    manager?: EntityManager,
   ): Promise<number> {
-    const { series } = await this.resolveLotSeries(warehouseId, tenantId);
+    const { series } = await this.resolveLotSeries(warehouseId, tenantId, manager);
     const pattern = `${series}-%`;
+    const batchRepo = manager
+      ? manager.getRepository(InventoryBatch)
+      : this.inventoryBatchRepository;
 
-    const result = await this.inventoryBatchRepository
+    const result = await batchRepo
       .createQueryBuilder('batch')
       .select(
         "MAX(CAST(SUBSTRING_INDEX(batch.batch_number, '-', -1) AS UNSIGNED))",
@@ -97,16 +109,29 @@ export class BatchNumberGeneratorService {
   /**
    * Genera número de lote: `{razon}-{sucursal}-{almacen}-{5 dígitos}`
    * Ejemplo: MZN-SBA-BDGA-00011
+   *
+   * Si se pasa `manager` (misma transacción que el INSERT), ve lotes aún no committeados.
    */
-  async generateBatchNumber(warehouseId: string, tenantId: string): Promise<string> {
-    const { series } = await this.resolveLotSeries(warehouseId, tenantId);
-    let sequenceNumber = await this.getNextSequentialNumber(warehouseId, tenantId);
+  async generateBatchNumber(
+    warehouseId: string,
+    tenantId: string,
+    manager?: EntityManager,
+  ): Promise<string> {
+    const { series } = await this.resolveLotSeries(warehouseId, tenantId, manager);
+    let sequenceNumber = await this.getNextSequentialNumber(
+      warehouseId,
+      tenantId,
+      manager,
+    );
+    const batchRepo = manager
+      ? manager.getRepository(InventoryBatch)
+      : this.inventoryBatchRepository;
 
     for (let attempt = 0; attempt < 20; attempt++) {
       const paddedNumber = String(sequenceNumber).padStart(SEQUENCE_PAD, '0');
       const batchNumber = `${series}-${paddedNumber}`;
 
-      const existingBatch = await this.inventoryBatchRepository.findOne({
+      const existingBatch = await batchRepo.findOne({
         where: {
           tenant_id: tenantId,
           batch_number: batchNumber,

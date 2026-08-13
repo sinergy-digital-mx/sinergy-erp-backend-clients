@@ -737,6 +737,7 @@ export class PurchaseOrderService {
         const batchNumber = await this.batchNumberGenerator.generateBatchNumber(
           purchaseOrder.warehouse_id,
           tenantId,
+          queryRunner.manager,
         );
 
         const batch = this.inventoryBatchRepository.create({

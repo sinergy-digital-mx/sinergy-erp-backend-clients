@@ -390,6 +390,7 @@ export class MadereriaInventoryImportService {
     const batchNumber = await this.batchNumberGenerator.generateBatchNumber(
       ctx.warehouseId,
       ctx.organizationId,
+      manager,
     );
 
     const batchRepo = manager.getRepository(InventoryBatch);
