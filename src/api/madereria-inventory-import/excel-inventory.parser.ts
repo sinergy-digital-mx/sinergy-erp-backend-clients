@@ -56,6 +56,22 @@ function cleanText(value: unknown): string | null {
   return text || null;
 }
 
+function isFooterOrJunkRow(sku: string, name: string): boolean {
+  const s = sku.toUpperCase();
+  const n = name.toUpperCase();
+  const blob = `${s} ${n}`;
+
+  // Totales / pie del export Madereria (ej. "Cant. Arts:", "TOTAL POR CANTIDAD")
+  if (/CANT\.?\s*ART/.test(blob)) return true;
+  if (/TOTAL\s+POR\s+CANTIDAD/.test(blob)) return true;
+  if (/^TOTAL\b/.test(s) || /^TOTAL\b/.test(n)) return true;
+  if (/PRECIOS\s+Y\s+COSTOS/.test(blob)) return true;
+  if (/^P[AÁ]GINA\b/.test(s)) return true;
+  if (/^MONEDA\b/.test(s)) return true;
+
+  return false;
+}
+
 /**
  * Lee el export de inventario Madereria (.xls / .xlsx).
  * Busca la fila de encabezados (CODIGO, DESCRIPCION, PRECIO1, COSTO PROM, CANTIDAD).
@@ -107,11 +123,13 @@ export function parseMadereriaInventoryExcel(buffer: Buffer): InventoryExcelRow[
     if (!sku) {
       continue;
     }
-    if (/^p[aá]gina\b/i.test(sku)) {
-      continue;
-    }
 
     const name = cleanText(row[columnIndex.name ?? 1]) ?? sku;
+    if (isFooterOrJunkRow(sku, name)) {
+      // Al llegar al pie de totales, cortar: lo de abajo no es catálogo.
+      break;
+    }
+
     const alternateRaw =
       columnIndex.alternate_sku !== undefined
         ? cleanText(row[columnIndex.alternate_sku])
