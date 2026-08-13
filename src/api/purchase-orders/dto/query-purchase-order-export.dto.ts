@@ -19,6 +19,18 @@ export class QueryPurchaseOrderHeaderExportDto {
   vendor_id?: string;
 
   @IsOptional()
+  @IsUUID()
+  fiscal_configuration_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  billing_branch_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  warehouse_id?: string;
+
+  @IsOptional()
   @IsDateString()
   created_from?: string;
 

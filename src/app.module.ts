@@ -37,6 +37,7 @@ import { EmployeePortalModule } from './api/employee-portal/employee-portal.modu
 import { TrucksModule } from './api/trucks/trucks.module';
 import { ShippingsModule } from './api/shippings/shippings.module';
 import { WarehouseControlModule } from './api/warehouse-control/warehouse-control.module';
+import { MadereriaInventoryImportModule } from './api/madereria-inventory-import/madereria-inventory-import.module';
 import { PermissionVersionGuard } from './api/auth/guards/permission-version.guard';
 
 @Module({
@@ -77,6 +78,7 @@ import { PermissionVersionGuard } from './api/auth/guards/permission-version.gua
     TrucksModule,
     ShippingsModule,
     WarehouseControlModule,
+    MadereriaInventoryImportModule,
   ],
   providers: [],
 })

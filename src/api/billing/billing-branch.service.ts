@@ -12,6 +12,8 @@ import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { CreateBillingBranchDto } from './dto/create-billing-branch.dto';
 import { UpdateBillingBranchDto } from './dto/update-billing-branch.dto';
 import { BranchWarehouseDto } from './dto/branch-warehouse.dto';
+import { normalizeDocumentPrefix } from '../../common/utils/document-prefix.util';
+import { randomUUID } from 'crypto';
 
 type BranchWarehouseResponse = {
   id: string;
@@ -33,6 +35,7 @@ type BranchWarehouseResponse = {
 };
 
 type BillingBranchDetail = BillingBranch & {
+  name: string;
   warehouses_count: number;
   warehouses: BranchWarehouseResponse[];
 };
@@ -53,25 +56,27 @@ export class BillingBranchService {
     tenantId: string,
     dto: CreateBillingBranchDto,
   ): Promise<BillingBranchDetail> {
+    const name = this.resolveBranchName(dto);
     await this.assertFiscalConfiguration(fiscalConfigId, tenantId);
 
-    const existingBranch = await this.branchRepository.findOne({
-      where: {
-        fiscal_configuration_id: fiscalConfigId,
-        code: dto.code,
-      },
-    });
+    const existingBranch = await this.branchRepository
+      .createQueryBuilder('branch')
+      .where('branch.fiscal_configuration_id = :fiscalConfigId', { fiscalConfigId })
+      .andWhere('LOWER(branch.code) = LOWER(:name)', { name })
+      .getOne();
 
     if (existingBranch) {
       throw new ConflictException(
-        `Branch with code '${dto.code}' already exists for this fiscal configuration`,
+        'Ya existe una sucursal con ese nombre',
       );
     }
 
-    const { warehouses, ...branchData } = dto;
+    const { warehouses, name: _name, code: _code, ...branchData } = dto;
 
     const branch = this.branchRepository.create({
       ...branchData,
+      code: name,
+      prefix: normalizeDocumentPrefix(dto.prefix),
       fiscal_configuration_id: fiscalConfigId,
       status: dto.status ?? 1,
     });
@@ -88,7 +93,7 @@ export class BillingBranchService {
   async findAll(
     fiscalConfigId: string,
     tenantId: string,
-  ): Promise<(BillingBranch & { warehouses_count: number })[]> {
+  ): Promise<(BillingBranch & { name: string; warehouses_count: number })[]> {
     await this.assertFiscalConfiguration(fiscalConfigId, tenantId);
 
     const branches = await this.branchRepository
@@ -105,6 +110,7 @@ export class BillingBranchService {
 
       return {
         ...rest,
+        name: rest.code,
         warehouses_count: warehousesCount ?? 0,
       };
     });
@@ -150,21 +156,25 @@ export class BillingBranchService {
 
     await this.assertFiscalConfiguration(fiscalConfigId, tenantId);
 
-    const { warehouses, ...branchData } = dto;
+    const { warehouses, name: incomingName, ...branchData } = dto;
 
-    if (branchData.code && branchData.code !== branch.code) {
-      const existingBranch = await this.branchRepository.findOne({
-        where: {
-          fiscal_configuration_id: fiscalConfigId,
-          code: branchData.code,
-        },
-      });
+    if (branchData.prefix !== undefined) {
+      branchData.prefix = normalizeDocumentPrefix(branchData.prefix);
+    }
+
+    if (incomingName !== undefined || branchData.code !== undefined) {
+      const name = this.resolveBranchName({ name: incomingName, code: branchData.code });
+      const existingBranch = await this.branchRepository
+        .createQueryBuilder('branch')
+        .where('branch.fiscal_configuration_id = :fiscalConfigId', { fiscalConfigId })
+        .andWhere('LOWER(branch.code) = LOWER(:name)', { name })
+        .andWhere('branch.id != :id', { id })
+        .getOne();
 
       if (existingBranch) {
-        throw new ConflictException(
-          `Branch with code '${branchData.code}' already exists for this fiscal configuration`,
-        );
+        throw new ConflictException('Ya existe una sucursal con ese nombre');
       }
+      branchData.code = name;
     }
 
     Object.assign(branch, branchData);
@@ -192,7 +202,7 @@ export class BillingBranchService {
     await this.branchRepository.remove(branch);
   }
 
-  async findAllByTenant(tenantId: string): Promise<(BillingBranch & { display_name: string })[]> {
+  async findAllByTenant(tenantId: string): Promise<(BillingBranch & { name: string; display_name: string })[]> {
     const branches = await this.branchRepository
       .createQueryBuilder('branch')
       .innerJoinAndSelect('branch.fiscal_configuration', 'fc')
@@ -202,8 +212,17 @@ export class BillingBranchService {
 
     return branches.map((branch) => ({
       ...branch,
+      name: branch.code,
       display_name: `${branch.fiscal_configuration.rfc} - ${branch.code}`,
     }));
+  }
+
+  private resolveBranchName(dto: { name?: string; code?: string }): string {
+    const name = (dto.name ?? dto.code ?? '').trim();
+    if (!name) {
+      throw new BadRequestException('El nombre de la sucursal es obligatorio');
+    }
+    return name;
   }
 
   private async assertFiscalConfiguration(
@@ -266,6 +285,7 @@ export class BillingBranchService {
         name: item.name.trim(),
         status: item.status ?? 'active',
       });
+      created.code = created.id || randomUUID();
 
       await this.warehouseRepository.save(created);
     }
@@ -275,10 +295,11 @@ export class BillingBranchService {
     item: BranchWarehouseDto,
     branchId: string,
   ): Partial<Warehouse> {
+    const prefix =
+      item.prefix !== undefined ? normalizeDocumentPrefix(item.prefix) : undefined;
     return {
       billing_branch_id: branchId,
-      code: item.code,
-      prefix: item.prefix,
+      prefix,
       description: item.description,
       street: item.street,
       city: item.city,
@@ -300,8 +321,9 @@ export class BillingBranchService {
     };
 
     if (item.name !== undefined) payload.name = item.name.trim();
-    if (item.code !== undefined) payload.code = item.code;
-    if (item.prefix !== undefined) payload.prefix = item.prefix;
+    if (item.prefix !== undefined) {
+      payload.prefix = normalizeDocumentPrefix(item.prefix);
+    }
     if (item.description !== undefined) payload.description = item.description;
     if (item.street !== undefined) payload.street = item.street;
     if (item.city !== undefined) payload.city = item.city;
@@ -342,6 +364,7 @@ export class BillingBranchService {
 
     return {
       ...branch,
+      name: branch.code,
       warehouses: mappedWarehouses,
       warehouses_count: mappedWarehouses.length,
     };

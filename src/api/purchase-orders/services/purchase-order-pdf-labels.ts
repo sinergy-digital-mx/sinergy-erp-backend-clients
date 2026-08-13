@@ -18,6 +18,7 @@ export interface PurchaseOrderPdfLabels {
   rfcPrefix: string;
   addressPrefix: string;
   destinationWarehouse: string;
+  branchPrefix: string;
   requestedProductsDetail: string;
   receivedProductsDetail: string;
   product: string;

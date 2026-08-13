@@ -21,6 +21,9 @@ Ambos devuelven un archivo `.xlsx` (`Content-Type: application/vnd.openxmlformat
 | `general_status` | enum | `Creada`, `Recibida`, `Cancelada` |
 | `payment_status` | enum | `Pendiente`, `Pagado` |
 | `vendor_id` | uuid | Proveedor |
+| `fiscal_configuration_id` | uuid | Razón social |
+| `billing_branch_id` | uuid | Sucursal |
+| `warehouse_id` | uuid | Almacén |
 | `created_from` | date (ISO) | Opcional |
 | `created_to` | date (ISO) | Opcional |
 
@@ -49,13 +52,13 @@ GET /api/tenant/purchase-orders/export/excel/details?created_from=2026-06-01&cre
 
 ### Cabeceras (`compras-cabeceras-YYYY-MM-DD.xlsx`)
 
-Columnas: Folio, Fecha creación, Proveedor, Almacén, Estado, Pago, Moneda, Entrega esperada, Subtotal sol., IVA sol., IEPS sol., Total sol., Subtotal rec., Total rec., Notas.
+Columnas: Folio, Fecha creación, Proveedor, Razón social, Sucursal, Almacén, Estado, Pago, Moneda, Entrega esperada, Subtotal sol., IVA sol., IEPS sol., Total sol., Subtotal rec., Total rec., Notas.
 
 Estilo: título morado oscuro, encabezados morado (`#5B4B8A`), filas alternadas.
 
 ### Detalle (`compras-detalle-YYYY-MM-DD_YYYY-MM-DD.xlsx`)
 
-Una fila por línea de producto. Columnas: Folio orden, Fecha orden, Estado orden, Proveedor, SKU, Producto, UOM, Cantidad, Total unit., IVA %, IEPS %, Subtotal línea.
+Una fila por línea de producto. Columnas: Folio orden, Fecha orden, Estado orden, Proveedor, Razón social, Sucursal, Almacén, SKU, Producto, UOM, Cantidad, Total unit., IVA %, IEPS %, Subtotal línea.
 
 Estilo: morado claro en encabezados (`#6A5ACD`).
 
@@ -107,7 +110,7 @@ Al pulsar **Descargar Excel** → abrir modal.
 |-------|----------------|
 | Tipo **Cabecera** | Fechas opcionales (heredar del listado si existen) |
 | Tipo **Detalle** | Fechas **obligatorias**; botón Descargar deshabilitado sin ambas |
-| Filtros del listado | `search`, `general_status`, `payment_status`, `vendor_id`, fechas |
+| Filtros del listado | `search`, `general_status`, `payment_status`, `vendor_id`, `fiscal_configuration_id`, `billing_branch_id`, `warehouse_id`, fechas |
 | Loading | Spinner + botón deshabilitado durante la descarga |
 
 ---
@@ -122,6 +125,9 @@ interface PurchaseOrderExportFilters {
   general_status?: string;
   payment_status?: string;
   vendor_id?: string;
+  fiscal_configuration_id?: string;
+  billing_branch_id?: string;
+  warehouse_id?: string;
   created_from?: string;
   created_to?: string;
 }
@@ -215,6 +221,9 @@ async confirmExport() {
       general_status: this.listFilters.general_status,
       payment_status: this.listFilters.payment_status,
       vendor_id: this.listFilters.vendor_id,
+      fiscal_configuration_id: this.listFilters.fiscal_configuration_id || undefined,
+      billing_branch_id: this.listFilters.billing_branch_id || undefined,
+      warehouse_id: this.listFilters.warehouse_id || undefined,
     };
 
     if (this.exportType === 'details') {

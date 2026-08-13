@@ -12,6 +12,8 @@ import {
 } from '../products/utils/product-discount.util';
 import { User } from '../../entities/users/user.entity';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
+import { FiscalConfiguration } from '../../entities/billing/fiscal-configuration.entity';
+import { BillingBranch } from '../../entities/billing/billing-branch.entity';
 import { S3Service } from '../../common/services/s3.service';
 import { BatchFilterDto } from './dto/batch-filter.dto';
 import { BatchListResponseDto } from './dto/batch-list-response.dto';
@@ -20,6 +22,13 @@ import { BatchDetailResponseDto } from './dto/batch-detail-response.dto';
 import { InventorySummaryFilterDto } from './dto/inventory-summary-filter.dto';
 import { InventorySummaryResponseDto, ProductInventorySummaryDto } from './dto/inventory-summary-response.dto';
 import { PosSessionInventorySummaryResponseDto, PosSessionProductInventorySummaryDto } from './dto/pos-session-inventory-summary-response.dto';
+import { InventoryLocationTreeResponseDto } from './dto/inventory-location-tree-response.dto';
+import {
+  applyInventoryLocationFilters,
+  assertInventoryLocationCascade,
+  InventoryLocationQuery,
+  joinInventoryLocation,
+} from './utils/inventory-location-filter.util';
 
 @Injectable()
 export class InventoryService {
@@ -40,12 +49,121 @@ export class InventoryService {
     private readonly userRepo: Repository<User>,
     @InjectRepository(Warehouse)
     private readonly warehouseRepo: Repository<Warehouse>,
+    @InjectRepository(FiscalConfiguration)
+    private readonly fiscalConfigRepo: Repository<FiscalConfiguration>,
+    @InjectRepository(BillingBranch)
+    private readonly billingBranchRepo: Repository<BillingBranch>,
     private readonly s3Service: S3Service,
   ) {}
 
   private async getSignedPhotoUrl(photoKey: string | null | undefined): Promise<string | null> {
     if (!photoKey) return null;
     return this.s3Service.getSignedUrl(photoKey, 900).catch(() => photoKey);
+  }
+
+  /** Árbol razón social → sucursal → almacén para los dropdowns de inventario. */
+  async getLocationTree(tenantId: string): Promise<InventoryLocationTreeResponseDto> {
+    const fiscals = await this.fiscalConfigRepo.find({
+      where: { tenant_id: tenantId },
+      order: { razon_social: 'ASC' },
+    });
+
+    const branches = await this.billingBranchRepo
+      .createQueryBuilder('branch')
+      .innerJoin('branch.fiscal_configuration', 'fc')
+      .where('fc.tenant_id = :tenantId', { tenantId })
+      .orderBy('branch.code', 'ASC')
+      .getMany();
+
+    const warehouses = await this.warehouseRepo.find({
+      where: { tenant_id: tenantId },
+      order: { name: 'ASC' },
+    });
+
+    const warehousesByBranch = new Map<string, Warehouse[]>();
+    for (const warehouse of warehouses) {
+      if (!warehouse.billing_branch_id) continue;
+      const list = warehousesByBranch.get(warehouse.billing_branch_id) ?? [];
+      list.push(warehouse);
+      warehousesByBranch.set(warehouse.billing_branch_id, list);
+    }
+
+    const branchesByFiscal = new Map<string, BillingBranch[]>();
+    for (const branch of branches) {
+      const list = branchesByFiscal.get(branch.fiscal_configuration_id) ?? [];
+      list.push(branch);
+      branchesByFiscal.set(branch.fiscal_configuration_id, list);
+    }
+
+    return {
+      data: fiscals.map((fiscal) => ({
+        id: fiscal.id,
+        razon_social: fiscal.razon_social,
+        rfc: fiscal.rfc,
+        status: fiscal.status,
+        branches: (branchesByFiscal.get(fiscal.id) ?? []).map((branch) => ({
+          id: branch.id,
+          name: branch.code,
+          status: branch.status,
+          warehouses: (warehousesByBranch.get(branch.id) ?? []).map((warehouse) => ({
+            id: warehouse.id,
+            name: warehouse.name,
+            status: warehouse.status,
+          })),
+        })),
+      })),
+    };
+  }
+
+  private mapLocationFields(warehouse?: Warehouse | null) {
+    const branch = warehouse?.billing_branch ?? null;
+    const fiscal = branch?.fiscal_configuration ?? null;
+
+    return {
+      fiscal_configuration_id: fiscal?.id ?? branch?.fiscal_configuration_id ?? null,
+      razon_social: fiscal?.razon_social ?? null,
+      billing_branch_id: warehouse?.billing_branch_id ?? null,
+      sucursal: branch?.code ?? null,
+    };
+  }
+
+  private async assertLocationHierarchy(
+    tenantId: string,
+    filters: InventoryLocationQuery,
+  ): Promise<void> {
+    assertInventoryLocationCascade(filters);
+
+    if (filters.billing_branch_id && filters.fiscal_configuration_id) {
+      const branch = await this.billingBranchRepo
+        .createQueryBuilder('branch')
+        .innerJoin('branch.fiscal_configuration', 'fc')
+        .where('branch.id = :branchId', { branchId: filters.billing_branch_id })
+        .andWhere('fc.id = :fiscalId', { fiscalId: filters.fiscal_configuration_id })
+        .andWhere('fc.tenant_id = :tenantId', { tenantId })
+        .getOne();
+
+      if (!branch) {
+        throw new BadRequestException(
+          'La sucursal no pertenece a la razón social seleccionada',
+        );
+      }
+    }
+
+    if (filters.warehouse_id && filters.billing_branch_id) {
+      const warehouse = await this.warehouseRepo.findOne({
+        where: {
+          id: filters.warehouse_id,
+          tenant_id: tenantId,
+          billing_branch_id: filters.billing_branch_id,
+        },
+      });
+
+      if (!warehouse) {
+        throw new BadRequestException(
+          'El almacén no pertenece a la sucursal seleccionada',
+        );
+      }
+    }
   }
 
   async getPosTerminalInventorySummary(
@@ -373,6 +491,10 @@ export class InventoryService {
         .leftJoinAndSelect('batch.uom', 'uom')
         .leftJoinAndSelect('batch.purchase_order_batch', 'purchase_order_batch');
 
+      joinInventoryLocation(query);
+      await this.assertLocationHierarchy(tenantId, filters);
+      applyInventoryLocationFilters(query, filters);
+
       // Apply filters
       if (filters.search) {
         query.andWhere(
@@ -390,12 +512,6 @@ export class InventoryService {
       if (filters.product_id) {
         query.andWhere('batch.product_id = :product_id', {
           product_id: filters.product_id,
-        });
-      }
-
-      if (filters.warehouse_id) {
-        query.andWhere('batch.warehouse_id = :warehouse_id', {
-          warehouse_id: filters.warehouse_id,
         });
       }
 
@@ -481,16 +597,19 @@ export class InventoryService {
         .leftJoinAndSelect('batch.warehouse', 'warehouse')
         .leftJoinAndSelect('batch.uom', 'uom')
         .leftJoinAndSelect('batch.purchase_order_batch', 'purchase_order_batch')
-        .leftJoinAndSelect('batch.transferred_from_batch', 'transferred_from_batch')
-        .getOne();
+        .leftJoinAndSelect('batch.transferred_from_batch', 'transferred_from_batch');
 
-      if (!batch) {
+      joinInventoryLocation(batch);
+
+      const found = await batch.getOne();
+
+      if (!found) {
         this.logger.warn(`Batch not found: ${id} for tenant: ${tenantId}`);
         throw new NotFoundException(`Batch not found: ${id}`);
       }
 
       this.logger.log(`Successfully retrieved batch: ${id}`);
-      return this.mapToDetailResponseDto(batch, await this.loadTransferHistory(batch.id));
+      return this.mapToDetailResponseDto(found, await this.loadTransferHistory(found.id));
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -528,6 +647,8 @@ export class InventoryService {
         .leftJoinAndSelect('batch.warehouse', 'warehouse')
         .leftJoinAndSelect('batch.uom', 'uom')
         .leftJoinAndSelect('batch.purchase_order_batch', 'purchase_order_batch');
+
+      joinInventoryLocation(query);
 
       // Apply filters
       if (filters.search) {
@@ -647,6 +768,7 @@ export class InventoryService {
       source_tag_identifier: batch.source_tag_identifier ?? null,
       warehouse_id: batch.warehouse_id,
       warehouse_name: batch.warehouse?.name,
+      ...this.mapLocationFields(batch.warehouse),
       product_id: batch.product_id,
       product_name: batch.product?.name,
       product_sku: batch.product?.sku,
@@ -682,18 +804,16 @@ export class InventoryService {
         .leftJoinAndSelect('batch.purchase_order_batch', 'po')
         .where('batch.tenant_id = :tenantId', { tenantId });
 
+      joinInventoryLocation(query);
+      await this.assertLocationHierarchy(tenantId, filters);
+      applyInventoryLocationFilters(query, filters);
+
       // Apply filters
       if (filters.search) {
         query = query.andWhere(
           '(LOWER(product.name) LIKE LOWER(:search) OR LOWER(product.sku) LIKE LOWER(:search))',
           { search: `%${filters.search}%` },
         );
-      }
-
-      if (filters.warehouse_id) {
-        query = query.andWhere('batch.warehouse_id = :warehouse_id', {
-          warehouse_id: filters.warehouse_id,
-        });
       }
 
       if (filters.product_id) {
@@ -745,6 +865,7 @@ export class InventoryService {
           product_photo: await this.getSignedPhotoUrl(first.product?.photo),
           warehouse_id: first.warehouse_id,
           warehouse_name: first.warehouse?.name ?? '',
+          ...this.mapLocationFields(first.warehouse),
           uom_id: first.uom_id,
           uom_name: first.uom?.name ?? '',
           suggested_unit_price: suggestedPrice?.price ?? null,
@@ -891,6 +1012,7 @@ export class InventoryService {
       product_sku: batch.product?.sku ?? null,
       warehouse_id: batch.warehouse_id,
       warehouse_name: batch.warehouse?.name ?? null,
+      ...this.mapLocationFields(batch.warehouse),
       purchase_order_id: batch.purchase_order_batch_id ?? null,
       purchase_order_batch_id: batch.purchase_order_batch_id ?? null,
       purchase_order_detail_id: batch.purchase_order_detail_id ?? null,

@@ -16,6 +16,7 @@ export const PURCHASE_ORDER_PDF_LABELS_EN: PurchaseOrderPdfLabels = {
   rfcPrefix: 'Tax ID',
   addressPrefix: 'Address',
   destinationWarehouse: 'Destination warehouse',
+  branchPrefix: 'Branch',
   requestedProductsDetail: 'Requested products detail',
   receivedProductsDetail: 'Received products detail',
   product: 'Product',

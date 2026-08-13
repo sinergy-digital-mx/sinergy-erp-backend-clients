@@ -18,6 +18,14 @@ export class ProductInventorySummaryDto {
   product_photo: string | null;
   @ApiProperty() warehouse_id: string;
   @ApiProperty() warehouse_name: string;
+  @ApiProperty({ nullable: true, description: 'Razón social ID' })
+  fiscal_configuration_id: string | null;
+  @ApiProperty({ nullable: true, description: 'Razón social' })
+  razon_social: string | null;
+  @ApiProperty({ nullable: true, description: 'Sucursal ID' })
+  billing_branch_id: string | null;
+  @ApiProperty({ nullable: true, description: 'Nombre de sucursal' })
+  sucursal: string | null;
   @ApiProperty() uom_id: string;
   @ApiProperty() uom_name: string;
 

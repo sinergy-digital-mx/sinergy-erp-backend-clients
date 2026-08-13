@@ -51,6 +51,7 @@ import {
   mapPosSaleCollection,
   mapPosUser,
 } from '../../pos-shifts/mappers/pos-sale-collection.mapper';
+import { ElectronicInvoiceService } from '../../electronic-invoicing/services/electronic-invoice.service';
 
 @Injectable()
 export class SalesOrderService {
@@ -82,6 +83,7 @@ export class SalesOrderService {
     private readonly paymentDocumentRepo: Repository<SalesOrderPaymentDocument>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    private readonly electronicInvoiceService: ElectronicInvoiceService,
   ) {}
 
   private async deleteDocumentsByType(
@@ -585,6 +587,7 @@ export class SalesOrderService {
     const appliedLineDiscounts = mapAppliedLineDiscountsFromOrder(so);
     const discountSummary = mapOrderDiscountSummary(so);
     const paymentData = await this.getPaymentsForOrder(so);
+    const cancelBlockedReason = await this.getCancelBlockedReason(so, tenantId);
     const header = {
       ...this.mapOrderLocation(so),
       customer_display_name: customerSummary?.display_name ?? formatCustomerDisplayName(so.customer),
@@ -600,6 +603,8 @@ export class SalesOrderService {
       applied_global_discount: discountSummary.global_discount,
       applied_discounts: appliedLineDiscounts,
       discount_summary: discountSummary,
+      can_cancel: cancelBlockedReason === null,
+      cancel_blocked_reason: cancelBlockedReason,
     };
 
     return {
@@ -1046,9 +1051,9 @@ export class SalesOrderService {
 
   async cancel(id: string, tenantId: string, userId: string): Promise<SalesOrder> {
     const so = await this.findOne(id, tenantId);
-
-    if (so.general_status === 'Cancelada') {
-      throw new BadRequestException('La orden ya está cancelada');
+    const blockedReason = await this.getCancelBlockedReason(so, tenantId);
+    if (blockedReason) {
+      throw new BadRequestException(blockedReason);
     }
 
     const qr = this.dataSource.createQueryRunner();
@@ -1056,14 +1061,12 @@ export class SalesOrderService {
     await qr.startTransaction();
 
     try {
-      // Si ya tiene inventario asignado, devolver lotes
-      if (
-        so.general_status === 'Surtida' ||
-        so.general_status === 'Lista para entrega' ||
-        so.general_status === 'En Camino'
-      ) {
-        const allAllocations = so.line_items.flatMap((d) => d.batch_allocations ?? []);
+      const allAllocations = (so.line_items ?? []).flatMap((d) => d.batch_allocations ?? []);
+      if (allAllocations.length) {
         await this.fulfillmentService.releaseAllocations(allAllocations, qr.manager);
+        this.logger.log(
+          `Sales order ${so.folio}: released ${allAllocations.length} batch allocation(s) on cancel`,
+        );
       }
 
       await qr.manager.update(SalesOrder, { id }, {
@@ -1072,6 +1075,7 @@ export class SalesOrderService {
       });
 
       await qr.commitTransaction();
+      this.logger.log(`Sales order ${so.folio} cancelled by user ${userId}`);
       return this.findOne(id, tenantId);
     } catch (err) {
       await qr.rollbackTransaction();
@@ -1079,6 +1083,28 @@ export class SalesOrderService {
     } finally {
       await qr.release();
     }
+  }
+
+  private async getCancelBlockedReason(
+    so: SalesOrder,
+    tenantId: string,
+  ): Promise<string | null> {
+    if (so.general_status === 'Cancelada') {
+      return 'La orden ya está cancelada';
+    }
+
+    const vigentes = await this.electronicInvoiceService.findVigenteBySource(
+      tenantId,
+      'sales_orders',
+      so.id,
+    );
+    if (!vigentes.length) {
+      return null;
+    }
+
+    const first = vigentes[0];
+    const uuidLabel = first.uuid ? ` (UUID ${first.uuid})` : '';
+    return `No se puede cancelar la orden: tiene una factura CFDI vigente${uuidLabel}. Cancela la factura primero.`;
   }
 
   async replace(

@@ -1,12 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { InventoryService } from './inventory.service';
 import { InventoryBatch } from '../../entities/purchase-orders/inventory-batch.entity';
+import { InventoryTransferLine } from '../../entities/inventory/inventory-transfer-line.entity';
 import { ProductPrice } from '../../entities/products/product-price.entity';
-import { PosSession } from '../../entities/pos/pos-session.entity';
-import { PosConfiguration } from '../../entities/billing/pos-configuration.entity';
+import { ProductDiscount } from '../../entities/products/product-discount.entity';
+import { ProductUoM } from '../../entities/products/product-uom.entity';
+import { User } from '../../entities/users/user.entity';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
+import { FiscalConfiguration } from '../../entities/billing/fiscal-configuration.entity';
+import { BillingBranch } from '../../entities/billing/billing-branch.entity';
 import { S3Service } from '../../common/services/s3.service';
 import { BatchFilterDto } from './dto/batch-filter.dto';
 import { BatchResponseDto } from './dto/batch-response.dto';
@@ -15,9 +19,10 @@ describe('InventoryService', () => {
   let service: InventoryService;
   let mockRepository: any;
   let mockProductPriceRepository: any;
-  let mockPosSessionRepository: any;
-  let mockPosConfigurationRepository: any;
   let mockWarehouseRepository: any;
+  let mockFiscalConfigRepository: any;
+  let mockBillingBranchRepository: any;
+  let mockTransferLineRepository: any;
   let mockS3Service: any;
 
   const mockTenantId = '550e8400-e29b-41d4-a716-446655440000';
@@ -34,6 +39,8 @@ describe('InventoryService', () => {
     uom_id: '550e8400-e29b-41d4-a716-446655440030',
     uom: { id: '550e8400-e29b-41d4-a716-446655440030', name: 'Unit' } as any,
     quantity: 100,
+    initial_quantity: 100,
+    available_quantity: 100,
     purchase_order_batch_id: '550e8400-e29b-41d4-a716-446655440040',
     purchase_order_batch: {} as any,
     purchase_order_detail_id: '550e8400-e29b-41d4-a716-446655440050',
@@ -50,18 +57,30 @@ describe('InventoryService', () => {
     mockProductPriceRepository = {
       createQueryBuilder: jest.fn(),
     };
-    mockPosSessionRepository = {
-      findOne: jest.fn(),
-    };
-    mockPosConfigurationRepository = {
-      findOne: jest.fn(),
-    };
     mockWarehouseRepository = {
       find: jest.fn(),
+      findOne: jest.fn(),
+    };
+    mockFiscalConfigRepository = {
+      find: jest.fn(),
+    };
+    mockBillingBranchRepository = {
+      createQueryBuilder: jest.fn(),
+    };
+    mockTransferLineRepository = {
+      createQueryBuilder: jest.fn().mockReturnValue({
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        orWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([]),
+      }),
     };
     mockS3Service = {
       getSignedUrl: jest.fn().mockResolvedValue('https://signed.example/photo.jpg'),
     };
+
+    const emptyRepo = {};
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -71,20 +90,36 @@ describe('InventoryService', () => {
           useValue: mockRepository,
         },
         {
+          provide: getRepositoryToken(InventoryTransferLine),
+          useValue: mockTransferLineRepository,
+        },
+        {
           provide: getRepositoryToken(ProductPrice),
           useValue: mockProductPriceRepository,
         },
         {
-          provide: getRepositoryToken(PosSession),
-          useValue: mockPosSessionRepository,
+          provide: getRepositoryToken(ProductDiscount),
+          useValue: emptyRepo,
         },
         {
-          provide: getRepositoryToken(PosConfiguration),
-          useValue: mockPosConfigurationRepository,
+          provide: getRepositoryToken(ProductUoM),
+          useValue: emptyRepo,
+        },
+        {
+          provide: getRepositoryToken(User),
+          useValue: emptyRepo,
         },
         {
           provide: getRepositoryToken(Warehouse),
           useValue: mockWarehouseRepository,
+        },
+        {
+          provide: getRepositoryToken(FiscalConfiguration),
+          useValue: mockFiscalConfigRepository,
+        },
+        {
+          provide: getRepositoryToken(BillingBranch),
+          useValue: mockBillingBranchRepository,
         },
         {
           provide: S3Service,
@@ -173,7 +208,7 @@ describe('InventoryService', () => {
       );
     });
 
-    it('should apply warehouse_id filter', async () => {
+    it('should reject warehouse_id without sucursal', async () => {
       const mockQueryBuilder = {
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
@@ -188,8 +223,79 @@ describe('InventoryService', () => {
 
       const warehouseId = '550e8400-e29b-41d4-a716-446655440010';
       const filters: BatchFilterDto = { warehouse_id: warehouseId, page: 1, limit: 20 };
+
+      await expect(service.findAll(mockTenantId, filters)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject billing_branch_id without razón social', async () => {
+      const mockQueryBuilder = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[mockInventoryBatch], 1]),
+      };
+
+      mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+
+      const filters: BatchFilterDto = {
+        billing_branch_id: '550e8400-e29b-41d4-a716-446655440011',
+        page: 1,
+        limit: 20,
+      };
+
+      await expect(service.findAll(mockTenantId, filters)).rejects.toThrow(
+        'Selecciona una razón social antes de filtrar por sucursal',
+      );
+    });
+
+    it('should apply fiscal + branch + warehouse cascade', async () => {
+      const mockQueryBuilder = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[mockInventoryBatch], 1]),
+      };
+      const mockBranchQuery = {
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue({ id: '550e8400-e29b-41d4-a716-446655440011' }),
+      };
+
+      mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockBillingBranchRepository.createQueryBuilder.mockReturnValue(mockBranchQuery);
+      mockWarehouseRepository.findOne.mockResolvedValue({
+        id: '550e8400-e29b-41d4-a716-446655440010',
+        billing_branch_id: '550e8400-e29b-41d4-a716-446655440011',
+      });
+
+      const fiscalId = '550e8400-e29b-41d4-a716-446655440099';
+      const branchId = '550e8400-e29b-41d4-a716-446655440011';
+      const warehouseId = '550e8400-e29b-41d4-a716-446655440010';
+      const filters: BatchFilterDto = {
+        fiscal_configuration_id: fiscalId,
+        billing_branch_id: branchId,
+        warehouse_id: warehouseId,
+        page: 1,
+        limit: 20,
+      };
+
       await service.findAll(mockTenantId, filters);
 
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'billing_branch.fiscal_configuration_id = :fiscalConfigurationId',
+        { fiscalConfigurationId: fiscalId },
+      );
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'warehouse.billing_branch_id = :billingBranchId',
+        { billingBranchId: branchId },
+      );
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
         'batch.warehouse_id = :warehouse_id',
         { warehouse_id: warehouseId },
@@ -433,7 +539,7 @@ describe('InventoryService', () => {
       expect(result).toHaveProperty('product_sku');
       expect(result).toHaveProperty('uom_id');
       expect(result).toHaveProperty('uom_name');
-      expect(result).toHaveProperty('quantity');
+      expect(result).toHaveProperty('available_quantity');
       expect(result).toHaveProperty('created_by');
       expect(result).toHaveProperty('created_at');
     });
@@ -615,9 +721,46 @@ describe('InventoryService', () => {
       expect(result.product_sku).toBe(mockInventoryBatch.product.sku);
       expect(result.uom_id).toBe(mockInventoryBatch.uom_id);
       expect(result.uom_name).toBe(mockInventoryBatch.uom.name);
-      expect(result.quantity).toBe(mockInventoryBatch.quantity.toString());
+      expect(result.available_quantity).toBe('100.000');
       expect(result.created_by).toBe(mockInventoryBatch.created_by);
       expect(result.created_at).toBe(mockInventoryBatch.created_at);
+    });
+  });
+
+  describe('getLocationTree', () => {
+    it('should nest warehouses under branches under razones sociales', async () => {
+      mockFiscalConfigRepository.find.mockResolvedValue([
+        {
+          id: 'fiscal-1',
+          razon_social: 'MADERERIA ZONA NORTE',
+          rfc: 'MZN010101XXX',
+          status: 'active',
+        },
+      ]);
+
+      const mockBranchQuery = {
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([
+          { id: 'branch-1', fiscal_configuration_id: 'fiscal-1', code: 'Tijuana', status: 1 },
+        ]),
+      };
+      mockBillingBranchRepository.createQueryBuilder.mockReturnValue(mockBranchQuery);
+      mockWarehouseRepository.find.mockResolvedValue([
+        { id: 'wh-1', name: 'Mostrador', status: 'active', billing_branch_id: 'branch-1' },
+        { id: 'wh-orphan', name: 'Sin sucursal', status: 'active', billing_branch_id: null },
+      ]);
+
+      const result = await service.getLocationTree(mockTenantId);
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].razon_social).toBe('MADERERIA ZONA NORTE');
+      expect(result.data[0].branches).toHaveLength(1);
+      expect(result.data[0].branches[0].name).toBe('Tijuana');
+      expect(result.data[0].branches[0].warehouses).toEqual([
+        { id: 'wh-1', name: 'Mostrador', status: 'active' },
+      ]);
     });
   });
 });

@@ -316,6 +316,12 @@ export class PurchaseOrderPdfService {
                 color: COLORS.text,
                 margin: [0, 0, 0, 3],
               },
+              {
+                text: `${labels.branchPrefix}: ${purchaseOrder.warehouse?.billing_branch?.code || 'N/A'}`,
+                fontSize: 8,
+                color: COLORS.muted,
+                margin: [0, 0, 0, 1],
+              },
               { text: warehouseLocation, fontSize: 8, color: COLORS.muted },
             ]),
           ],

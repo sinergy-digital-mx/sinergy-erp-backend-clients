@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PurchaseOrderBatch, PurchaseOrderBatchDetail, InventoryBatch, PurchaseOrderDocument, PurchaseOrderDocumentType, PurchaseOrderPayment } from '../../entities/purchase-orders';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
+import { BillingBranch } from '../../entities/billing/billing-branch.entity';
+import { FiscalConfiguration } from '../../entities/billing/fiscal-configuration.entity';
 import { Product, ProductUoM, ProductVendorCost } from '../../entities/products';
 import { TenantModule, Module as ModuleEntity } from '../../entities/rbac';
 import { AuthModule } from '../auth/auth.module';
@@ -36,6 +38,8 @@ import {
       PurchaseOrderDocumentType,
       PurchaseOrderPayment,
       Warehouse,
+      BillingBranch,
+      FiscalConfiguration,
       Product,
       ProductUoM,
       ProductVendorCost,

@@ -30,6 +30,12 @@ export class FiscalConfiguration {
   @IsString()
   rfc: string;
 
+  /** Prefijo para lotes de recepción OC: `{razon}-{sucursal}-{almacen}-{numero}` */
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  @IsOptional()
+  @IsString()
+  prefix: string | null;
+
   @Column({
     type: 'enum',
     enum: ['Persona Física', 'Persona Moral'],

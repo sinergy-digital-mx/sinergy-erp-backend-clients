@@ -14,7 +14,7 @@ async function seedCustomerGroupsPermissions(tenantId?: string) {
       moduleCode: 'customer-groups',
       entityCode: 'CustomerGroup',
       description: 'Module for managing customer groups and segmentation',
-      actions: ['ViewMenu', 'read', 'write', 'delete'],
+      actions: ['ViewMenu', 'Create', 'Read', 'Update', 'Delete'],
       tenantId: tenantId,
     });
   } catch (error) {

@@ -1,7 +1,7 @@
 // src/customers/dto/update-customer.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsOptional, IsString, IsNumber, IsEmail, IsIn, Min } from 'class-validator';
+import { IsOptional, IsString, IsNumber, IsEmail, IsIn, Min, ValidateIf } from 'class-validator';
 
 export class UpdateCustomerDto {
     @ApiProperty({ description: 'Customer status ID', example: 1, required: false })
@@ -53,10 +53,12 @@ export class UpdateCustomerDto {
     @IsOptional()
     website?: string;
 
-    @ApiProperty({ description: 'Customer group ID', example: 'uuid-here', required: false })
-    @IsString()
+    @ApiProperty({ description: 'Customer group ID', example: 'uuid-here', required: false, nullable: true })
+    @Transform(({ value }) => (value === '' ? null : value))
     @IsOptional()
-    group_id?: string;
+    @ValidateIf((_, v) => v !== null)
+    @IsString()
+    group_id?: string | null;
 
     @ApiProperty({ description: 'Additional contact first name', required: false })
     @IsString()

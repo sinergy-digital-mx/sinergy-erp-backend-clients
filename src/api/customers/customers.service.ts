@@ -16,6 +16,7 @@ import { CustomerAddress } from '../../entities/customers/customer-address.entit
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { parsePhoneNumber } from '../../common/utils/phone.validator';
 import { hasValidGps } from '../../common/utils/geo.helper';
+import { CustomerGroupsService } from './customer-groups.service';
 
 interface PaginatedCustomersDto {
     data: Customer[];
@@ -35,6 +36,7 @@ export class CustomersService {
         @InjectRepository(Warehouse) private warehouseRepo: Repository<Warehouse>,
         @InjectRepository(CustomerAddress)
         private addressRepo: Repository<CustomerAddress>,
+        private readonly customerGroupsService: CustomerGroupsService,
     ) { }
 
     private async resolveDefaultStatus(): Promise<CustomerStatus> {
@@ -81,8 +83,14 @@ export class CustomersService {
                 ? await this.resolveWarehouseOrThrow(dto.warehouse_id, tenantId)
                 : undefined;
 
+        const groupId = await this.customerGroupsService.assertBelongsToOrganization(
+            dto.group_id,
+            tenantId,
+        );
+
         return this.customerRepo.save({
             ...dto,
+            group_id: groupId,
             phone,
             phone_code: phoneCode,
             additional_phone: additionalPhone,
@@ -131,6 +139,14 @@ export class CustomersService {
             customer.warehouse = await this.resolveWarehouseOrThrow(dto.warehouse_id, tenantId);
         }
 
+        if (dto.group_id !== undefined) {
+            customer.group_id = await this.customerGroupsService.assertBelongsToOrganization(
+                dto.group_id,
+                tenantId,
+            );
+            delete dto.group_id;
+        }
+
         Object.assign(customer, dto);
         return this.customerRepo.save(customer);
     }
@@ -147,7 +163,11 @@ export class CustomersService {
 
         const queryBuilder = this.customerRepo.createQueryBuilder('customer')
             .leftJoinAndSelect('customer.status', 'status')
-            .leftJoinAndSelect('customer.group', 'group')
+            .leftJoinAndSelect(
+                'customer.group',
+                'group',
+                'group.tenant_id = customer.tenant_id',
+            )
             .leftJoinAndSelect('customer.warehouse', 'warehouse')
             .leftJoin('customer.contracts', 'contracts')
             .leftJoin('contracts.property', 'property')
@@ -216,7 +236,11 @@ export class CustomersService {
         return this.customerRepo
             .createQueryBuilder('customer')
             .leftJoinAndSelect('customer.status', 'status')
-            .leftJoinAndSelect('customer.group', 'group')
+            .leftJoinAndSelect(
+                'customer.group',
+                'group',
+                'group.tenant_id = customer.tenant_id',
+            )
             .leftJoinAndSelect('customer.warehouse', 'warehouse')
             .leftJoinAndSelect('customer.contracts', 'contracts')
             .leftJoinAndSelect('contracts.property', 'property')
@@ -229,7 +253,11 @@ export class CustomersService {
         return this.customerRepo
             .createQueryBuilder('customer')
             .leftJoinAndSelect('customer.status', 'status')
-            .leftJoinAndSelect('customer.group', 'group')
+            .leftJoinAndSelect(
+                'customer.group',
+                'group',
+                'group.tenant_id = customer.tenant_id',
+            )
             .leftJoinAndSelect('customer.warehouse', 'warehouse')
             .leftJoinAndSelect('customer.addresses', 'addresses')
             .where('customer.id = :id', { id })
@@ -241,7 +269,11 @@ export class CustomersService {
         return this.customerRepo
             .createQueryBuilder('customer')
             .leftJoinAndSelect('customer.status', 'status')
-            .leftJoinAndSelect('customer.group', 'group')
+            .leftJoinAndSelect(
+                'customer.group',
+                'group',
+                'group.tenant_id = customer.tenant_id',
+            )
             .leftJoinAndSelect('customer.warehouse', 'warehouse')
             .leftJoinAndSelect('customer.activities', 'activities')
             .where('customer.id = :id', { id })

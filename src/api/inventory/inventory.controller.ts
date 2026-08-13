@@ -11,6 +11,7 @@ import { BatchDetailResponseDto } from './dto/batch-detail-response.dto';
 import { InventorySummaryFilterDto } from './dto/inventory-summary-filter.dto';
 import { InventorySummaryResponseDto } from './dto/inventory-summary-response.dto';
 import { PosSessionInventorySummaryResponseDto } from './dto/pos-session-inventory-summary-response.dto';
+import { InventoryLocationTreeResponseDto } from './dto/inventory-location-tree-response.dto';
 import { InventoryExportService } from './services/inventory-export.service';
 import {
   QueryInventoryBatchExportDto,
@@ -67,6 +68,18 @@ export class InventoryController {
     res.send(buffer);
   }
 
+  @Get('locations')
+  @RequirePermissions({ entityType: 'inventory', action: 'read' })
+  @ApiOperation({
+    summary: 'Árbol razón social → sucursal → almacén',
+    description:
+      'Catálogo para los tres filtros en cascada de inventario. Permiso inventory:read. Sucursal deshabilitada sin razón social; almacén deshabilitado sin sucursal.',
+  })
+  @ApiResponse({ status: 200, type: InventoryLocationTreeResponseDto })
+  async getLocations(@Req() req: any): Promise<InventoryLocationTreeResponseDto> {
+    return this.inventoryService.getLocationTree(req.user.tenant_id);
+  }
+
   @Get('batches')
   @RequirePermissions({ entityType: 'inventory', action: 'read' })
   @ApiOperation({ summary: 'List all inventory batches with pagination and filters' })
@@ -78,7 +91,9 @@ export class InventoryController {
   @ApiQuery({ name: 'search', required: false, type: String, description: 'Search by batch number, product name or SKU' })
   @ApiQuery({ name: 'batch_number', required: false, type: String })
   @ApiQuery({ name: 'product_id', required: false, type: String })
-  @ApiQuery({ name: 'warehouse_id', required: false, type: String })
+  @ApiQuery({ name: 'fiscal_configuration_id', required: false, type: String, description: 'Razón social. Requerido si se envía sucursal' })
+  @ApiQuery({ name: 'billing_branch_id', required: false, type: String, description: 'Sucursal. Requiere razón social. Requerido si se envía almacén' })
+  @ApiQuery({ name: 'warehouse_id', required: false, type: String, description: 'Almacén. Requiere razón social y sucursal' })
   @ApiQuery({ name: 'purchase_order_batch_id', required: false, type: String })
   @ApiQuery({ name: 'purchase_order_id', required: false, type: String })
   @ApiQuery({ name: 'created_from', required: false, type: String })
@@ -107,7 +122,9 @@ export class InventoryController {
     type: InventorySummaryResponseDto,
   })
   @ApiQuery({ name: 'search', required: false, type: String })
-  @ApiQuery({ name: 'warehouse_id', required: false, type: String })
+  @ApiQuery({ name: 'fiscal_configuration_id', required: false, type: String, description: 'Razón social. Requerido si se envía sucursal' })
+  @ApiQuery({ name: 'billing_branch_id', required: false, type: String, description: 'Sucursal. Requiere razón social. Requerido si se envía almacén' })
+  @ApiQuery({ name: 'warehouse_id', required: false, type: String, description: 'Almacén. Requiere razón social y sucursal' })
   @ApiQuery({ name: 'product_id', required: false, type: String })
   @ApiQuery({ name: 'only_available', required: false, type: Boolean })
   @ApiQuery({ name: 'page', required: false, type: Number })

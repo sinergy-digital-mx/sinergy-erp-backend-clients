@@ -5,8 +5,10 @@ import {
   IsNumber,
   Min,
   Max,
+  MaxLength,
   IsArray,
   ValidateNested,
+  ValidateIf,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -14,10 +16,34 @@ import { BranchWarehouseDto } from './branch-warehouse.dto';
 
 
 export class CreateBillingBranchDto {
-  @ApiProperty({ description: 'Branch code', example: 'BRANCH-001' })
-  @IsNotEmpty()
+  @ApiProperty({
+    description: 'Nombre de la sucursal (lo que se muestra en UI)',
+    example: 'Sucursal Buenos Aires',
+  })
+  @ValidateIf((dto: CreateBillingBranchDto) => !dto.code)
+  @IsNotEmpty({ message: 'El nombre de la sucursal es obligatorio' })
   @IsString()
-  code: string;
+  name?: string;
+
+  @ApiPropertyOptional({
+    description: 'Alias legado de name. La UI nueva debe enviar name, no code.',
+    example: 'Sucursal Buenos Aires',
+  })
+  @ValidateIf((dto: CreateBillingBranchDto) => !dto.name)
+  @IsOptional()
+  @IsString()
+  code?: string;
+
+  @ApiPropertyOptional({
+    description: 'Prefijo para lotes de recepción (ej. SBA). Letras/números, máx. 10, sin guiones',
+    example: 'SBA',
+    maxLength: 10,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  prefix?: string | null;
 
   @ApiProperty({ description: 'Street address', example: 'Av. Principal 123' })
   @IsNotEmpty()

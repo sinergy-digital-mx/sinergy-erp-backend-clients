@@ -2,6 +2,7 @@ import {
   IsOptional,
   IsNumber,
   IsString,
+  IsUUID,
   Min,
   Max,
 } from 'class-validator';
@@ -34,6 +35,10 @@ export class QueryWarehouseDto {
   @IsOptional()
   @IsString()
   country?: string;
+
+  @IsOptional()
+  @IsUUID()
+  billing_branch_id?: string;
 
   @IsOptional()
   @IsString()

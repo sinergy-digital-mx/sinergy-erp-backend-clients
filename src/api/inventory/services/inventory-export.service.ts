@@ -7,6 +7,11 @@ import {
   QueryInventorySummaryExportDto,
 } from '../dto/query-inventory-export.dto';
 import {
+  applyInventoryLocationFilters,
+  assertInventoryLocationCascade,
+  joinInventoryLocation,
+} from '../utils/inventory-location-filter.util';
+import {
   buildExportSubtitle,
   buildStyledExcelBuffer,
   ExcelColumnDef,
@@ -22,6 +27,8 @@ export class InventoryExportService {
     { header: 'Fecha creación', key: 'created_at', width: 18, type: 'date' },
     { header: 'SKU', key: 'product_sku', width: 14 },
     { header: 'Producto', key: 'product_name', width: 28 },
+    { header: 'Razón social', key: 'razon_social', width: 28 },
+    { header: 'Sucursal', key: 'sucursal', width: 22 },
     { header: 'Almacén', key: 'warehouse_name', width: 22 },
     { header: 'UOM', key: 'uom_name', width: 12 },
     { header: 'Cant. inicial', key: 'initial_quantity', width: 14, type: 'number' },
@@ -33,6 +40,8 @@ export class InventoryExportService {
   private readonly summaryColumns: ExcelColumnDef[] = [
     { header: 'SKU', key: 'product_sku', width: 14 },
     { header: 'Producto', key: 'product_name', width: 28 },
+    { header: 'Razón social', key: 'razon_social', width: 28 },
+    { header: 'Sucursal', key: 'sucursal', width: 22 },
     { header: 'Almacén', key: 'warehouse_name', width: 22 },
     { header: 'UOM', key: 'uom_name', width: 12 },
     { header: 'Cant. disponible', key: 'total_available_quantity', width: 16, type: 'number' },
@@ -54,6 +63,8 @@ export class InventoryExportService {
       created_at: formatExportDateTime(batch.created_at),
       product_sku: batch.product?.sku ?? '',
       product_name: batch.product?.name ?? '',
+      razon_social: batch.warehouse?.billing_branch?.fiscal_configuration?.razon_social ?? '',
+      sucursal: batch.warehouse?.billing_branch?.code ?? '',
       warehouse_name: batch.warehouse?.name ?? '',
       uom_name: batch.uom?.name ?? '',
       initial_quantity: num(batch.initial_quantity),
@@ -115,6 +126,8 @@ export class InventoryExportService {
       .leftJoinAndSelect('batch.purchase_order_batch', 'purchase_order_batch')
       .where('batch.tenant_id = :tenantId', { tenantId });
 
+    joinInventoryLocation(qb);
+    assertInventoryLocationCascade(filters);
     this.applyBatchFilters(qb, filters);
 
     const sortBy =
@@ -143,9 +156,7 @@ export class InventoryExportService {
     if (filters.product_id) {
       qb.andWhere('batch.product_id = :product_id', { product_id: filters.product_id });
     }
-    if (filters.warehouse_id) {
-      qb.andWhere('batch.warehouse_id = :warehouse_id', { warehouse_id: filters.warehouse_id });
-    }
+    applyInventoryLocationFilters(qb, filters);
     if (filters.purchase_order_batch_id) {
       qb.andWhere('batch.purchase_order_batch_id = :purchase_order_batch_id', {
         purchase_order_batch_id: filters.purchase_order_batch_id,
@@ -179,16 +190,15 @@ export class InventoryExportService {
       .leftJoinAndSelect('batch.uom', 'uom')
       .where('batch.tenant_id = :tenantId', { tenantId });
 
+    joinInventoryLocation(qb);
+    assertInventoryLocationCascade(filters);
+    applyInventoryLocationFilters(qb, filters);
+
     if (filters.search) {
       qb = qb.andWhere(
         '(LOWER(product.name) LIKE LOWER(:search) OR LOWER(product.sku) LIKE LOWER(:search))',
         { search: `%${filters.search}%` },
       );
-    }
-    if (filters.warehouse_id) {
-      qb = qb.andWhere('batch.warehouse_id = :warehouse_id', {
-        warehouse_id: filters.warehouse_id,
-      });
     }
     if (filters.product_id) {
       qb = qb.andWhere('batch.product_id = :product_id', {
@@ -220,6 +230,8 @@ export class InventoryExportService {
       rows.push({
         product_sku: first.product?.sku ?? '',
         product_name: first.product?.name ?? '',
+        razon_social: first.warehouse?.billing_branch?.fiscal_configuration?.razon_social ?? '',
+        sucursal: first.warehouse?.billing_branch?.code ?? '',
         warehouse_name: first.warehouse?.name ?? '',
         uom_name: first.uom?.name ?? '',
         total_available_quantity: totalAvailable,
@@ -261,6 +273,8 @@ export class InventoryExportService {
     const parts: string[] = [];
     if (filters.search) parts.push(`Búsqueda: ${filters.search}`);
     if (filters.batch_number) parts.push(`Lote: ${filters.batch_number}`);
+    if (filters.fiscal_configuration_id) parts.push('Razón social filtrada');
+    if (filters.billing_branch_id) parts.push('Sucursal filtrada');
     if (filters.warehouse_id) parts.push('Almacén filtrado');
     if (filters.product_id) parts.push('Producto filtrado');
     if (filters.created_from || filters.created_to) {
@@ -274,6 +288,8 @@ export class InventoryExportService {
   private describeSummaryFilters(filters: QueryInventorySummaryExportDto): string {
     const parts: string[] = [];
     if (filters.search) parts.push(`Búsqueda: ${filters.search}`);
+    if (filters.fiscal_configuration_id) parts.push('Razón social filtrada');
+    if (filters.billing_branch_id) parts.push('Sucursal filtrada');
     if (filters.warehouse_id) parts.push('Almacén filtrado');
     if (filters.product_id) parts.push('Producto filtrado');
     if (filters.only_available) parts.push('Solo con existencia');

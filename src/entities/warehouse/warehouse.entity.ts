@@ -33,8 +33,8 @@ export class Warehouse {
   @Column({ unique: true, nullable: true })
   code: string;
 
-  @Column({ length: 10, nullable: true })
-  prefix: string;
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  prefix: string | null;
 
   @Column({ nullable: true })
   description: string;

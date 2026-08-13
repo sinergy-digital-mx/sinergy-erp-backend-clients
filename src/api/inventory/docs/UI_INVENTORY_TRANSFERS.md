@@ -8,9 +8,10 @@ Documento de referencia para implementar transferencias de stock entre almacenes
 
 ```
 Organización
- └── Sucursal (billing_branch)
-      └── Almacén (warehouse) — una sucursal puede tener 1 o muchos almacenes
-           └── Lote (inventory batch) — stock físico con trazabilidad
+ └── Razón social (fiscal_configuration)
+      └── Sucursal (billing_branch)
+           └── Almacén (warehouse) — una sucursal puede tener 1 o muchos almacenes
+                └── Lote (inventory batch) — stock físico con trazabilidad
 ```
 
 ### Conceptos clave
@@ -28,7 +29,7 @@ Organización
 2. Todas las líneas deben ser del **mismo producto y UOM** que el encabezado.
 3. Cada lote solo puede aparecer **una vez** en las líneas.
 4. La cantidad por línea no puede exceder `available_quantity` del lote.
-5. Al confirmar: se descuenta origen, se crea lote nuevo en destino con número `{prefix}-LOTE-{secuencial}`.
+5. Al confirmar: se descuenta origen, se crea lote nuevo en destino con número `{razon}-{sucursal}-{almacen}-{5 dígitos}` (ej. `MZN-SBA-BDGA-00011`). El almacén destino debe tener prefijos de razón, sucursal y almacén.
 6. Permisos: `Inventory:Read` para consultar; `Inventory:Transfer` para crear (separado de `Write`).
 
 ---
@@ -112,7 +113,7 @@ Mostrar datos del contexto:
 Producto:  Tomate Saladette (TOM-001)
 UOM:       Kilogramo
 Almacén:   Almacén Norte
-Sucursal:  {source_warehouse.billing_branch.code} — {city}, {state}
+Sucursal:  {source_warehouse.billing_branch.name ?? source_warehouse.billing_branch.code} — {city}, {state}
 Disponible total: 150.000 kg  (3 lotes)
 ```
 

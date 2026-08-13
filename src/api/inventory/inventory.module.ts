@@ -8,6 +8,8 @@ import { ProductDiscount } from '../../entities/products/product-discount.entity
 import { ProductUoM } from '../../entities/products/product-uom.entity';
 import { User } from '../../entities/users/user.entity';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
+import { FiscalConfiguration } from '../../entities/billing/fiscal-configuration.entity';
+import { BillingBranch } from '../../entities/billing/billing-branch.entity';
 import { S3Service } from '../../common/services/s3.service';
 import { InventoryService } from './inventory.service';
 import { InventoryController } from './inventory.controller';
@@ -30,6 +32,8 @@ import { PurchaseOrdersModule } from '../purchase-orders/purchase-orders.module'
       ProductUoM,
       User,
       Warehouse,
+      FiscalConfiguration,
+      BillingBranch,
     ]),
     RBACModule,
     PurchaseOrdersModule,

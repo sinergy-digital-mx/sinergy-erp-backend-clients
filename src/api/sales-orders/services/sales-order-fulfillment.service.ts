@@ -88,13 +88,16 @@ export class SalesOrderFulfillmentService {
   }
 
   /**
-   * Reverses all batch allocations for a sales order (used on cancel).
-   * Returns the allocated quantities back to each batch's available_quantity.
+   * Devuelve las cantidades de los lotes y elimina las asignaciones.
    */
   async releaseAllocations(
     allocations: SalesOrderBatchAllocation[],
     manager: EntityManager,
   ): Promise<void> {
+    if (!allocations.length) {
+      return;
+    }
+
     for (const alloc of allocations) {
       const batch = await manager.findOne(InventoryBatch, {
         where: { id: alloc.inventory_batch_id },
@@ -107,5 +110,7 @@ export class SalesOrderFulfillmentService {
       batch.available_quantity = parseFloat((current + qty).toFixed(3)) as any;
       await manager.save(InventoryBatch, batch);
     }
+
+    await manager.remove(SalesOrderBatchAllocation, allocations);
   }
 }

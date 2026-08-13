@@ -27,6 +27,10 @@ export class BillingBranch {
   @Column({ length: 255 })
   code: string;
 
+  /** Prefijo para lotes de recepción OC (ej. SBA). Distinto del nombre en `code`. */
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  prefix: string | null;
+
   @Column({ length: 255 })
   address: string;
 

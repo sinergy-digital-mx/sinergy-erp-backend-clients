@@ -19,7 +19,7 @@ export class UpdateWarehouseDto {
   @IsString()
   code?: string;
 
-  /** Prefijo para números de lote al recibir OC: `{prefix}-LOTE-000001` */
+  /** Prefijo de almacén para lotes: `{razon}-{sucursal}-{almacen}-{numero}` */
   @IsOptional()
   @IsString()
   @MaxLength(10)

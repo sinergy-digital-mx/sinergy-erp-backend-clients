@@ -67,7 +67,7 @@ export class Customer {
     group: CustomerGroup;
 
     @Column({ name: 'group_id', nullable: true })
-    group_id: string;
+    group_id: string | null;
 
     @Column({ nullable: true })
     additional_name: string;

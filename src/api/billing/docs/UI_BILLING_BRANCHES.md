@@ -27,7 +27,9 @@ Listado global (otros módulos): `GET /api/tenant/billing/branches`
   {
     "id": "uuid",
     "fiscal_configuration_id": "uuid",
+    "name": "Zona Norte Tijuana",
     "code": "Zona Norte Tijuana",
+    "prefix": "SBA",
     "address": "Test 123",
     "city": "Tijuana",
     "state": "Baja California",
@@ -41,6 +43,8 @@ Listado global (otros módulos): `GET /api/tenant/billing/branches`
   }
 ]
 ```
+
+> En GET, pintar `name`. `code` llega igual (legado); no mostrarlo como “Código”. En `warehouses[]`, `code` también es legado: no precargarlo ni enviarlo.
 
 ---
 
@@ -56,7 +60,9 @@ GET /api/tenant/fiscal-configurations/:fiscalConfigId/branches/:branchId
 {
   "id": "uuid",
   "fiscal_configuration_id": "uuid",
+  "name": "Zona Norte Tijuana",
   "code": "Zona Norte Tijuana",
+  "prefix": "SBA",
   "address": "Test 123",
   "city": "Tijuana",
   "state": "Baja California",
@@ -72,7 +78,7 @@ GET /api/tenant/fiscal-configurations/:fiscalConfigId/branches/:branchId
       "id": "warehouse-uuid-1",
       "name": "Almacén Principal",
       "code": "ALM-001",
-      "prefix": null,
+      "prefix": "BDGA",
       "description": null,
       "street": "Av. Industrial 100",
       "city": "Tijuana",
@@ -98,7 +104,8 @@ GET /api/tenant/fiscal-configurations/:fiscalConfigId/branches/:branchId
 
 ```json
 {
-  "code": "Zona Norte Tijuana",
+  "name": "Zona Norte Tijuana",
+  "prefix": "SBA",
   "address": "Test 123",
   "city": "Tijuana",
   "state": "Baja California",
@@ -111,7 +118,7 @@ GET /api/tenant/fiscal-configurations/:fiscalConfigId/branches/:branchId
   "warehouses": [
     {
       "name": "Almacén Principal",
-      "code": "ALM-001",
+      "prefix": "BDGA",
       "street": "Av. Industrial 100",
       "city": "Tijuana",
       "state": "Baja California",
@@ -145,12 +152,12 @@ Campos de sucursal: todos opcionales.
     {
       "id": "warehouse-uuid-1",
       "name": "Almacén Principal",
-      "code": "ALM-001",
+      "prefix": "BDGA",
       "status": "active"
     },
     {
       "name": "Almacén Secundario",
-      "code": "ALM-002",
+      "prefix": "SEC",
       "status": "active"
     }
   ]
@@ -168,7 +175,7 @@ Para vaciar todos los almacenes, enviar `"warehouses": []`.
 
 | Columna | Origen | Formato |
 |---------|--------|---------|
-| Código | `code` | Texto |
+| Nombre | `name` | Texto (fallback `code` si no viene `name`) |
 | Dirección | `address` | Texto |
 | Ciudad | `city` | Texto |
 | Estado | `state` | Texto |
@@ -192,8 +199,10 @@ Reutilizar el **mismo componente de dirección + Google Maps** que direcciones d
 ┌──────────────────────────────────────────────────────┐
 │  Editar sucursal                               [ X ] │
 ├──────────────────────────────────────────────────────┤
-│  Código *                                            │
+│  Nombre *                                            │
 │  [ Zona Norte Tijuana___________________________ ]   │
+│  Prefijo                                             │
+│  [ SBA__________________________________________ ]   │
 │                                                      │
 │  ── Ubicación (Google Maps) ─────────────────────── │
 │  [ buscador Places / pin en mapa ]                   │
@@ -214,7 +223,8 @@ Reutilizar el **mismo componente de dirección + Google Maps** que direcciones d
 
 ```json
 {
-  "code": "Zona Norte Tijuana",
+  "name": "Zona Norte Tijuana",
+  "prefix": "SBA",
   "address": "Test 123",
   "city": "Tijuana",
   "state": "Baja California",
@@ -228,6 +238,7 @@ Reutilizar el **mismo componente de dirección + Google Maps** que direcciones d
     {
       "id": "warehouse-uuid",
       "name": "Almacén Principal",
+      "prefix": "BDGA",
       "street": "Av. Industrial 100",
       "city": "Tijuana",
       "state": "Baja California",
@@ -254,8 +265,7 @@ Reutilizar el **mismo componente de dirección + Google Maps** que direcciones d
 | Campo | Tipo | Obligatorio | Notas |
 |-------|------|-------------|-------|
 | `name` | string | Sí (al crear) | Nombre del almacén |
-| `code` | string | No | Código interno |
-| `prefix` | string | No | Prefijo (máx. 10) |
+| `prefix` | string | No | Prefijo de lote (máx. 10, sin guiones). Ej. `BDGA`. Obligatorio antes de recibir OC. **No enviar `code`.** Ver `UI_DOCUMENT_PREFIXES.md` |
 | `description` | string | No | |
 | `street` | string | No | Calle |
 | `city` | string | No | Ciudad |
@@ -271,7 +281,8 @@ Reutilizar el **mismo componente de dirección + Google Maps** que direcciones d
 
 | Campo sucursal | Tipo | Obligatorio | Validación UI |
 |----------------|------|-------------|---------------|
-| `code` | string | Sí | Nombre/código de sucursal |
+| `name` | string | Sí | Nombre de sucursal. **No usar label “Código”.** |
+| `prefix` | string \| null | No | Prefijo corto (ej. `SBA`). Distinto del nombre. Obligatorio antes de recibir OC |
 | `address` | string | Sí | Calle y número |
 | `city` | string | Sí | Ciudad |
 | `state` | string | Sí | Estado |
@@ -289,7 +300,8 @@ Reutilizar el **mismo componente de dirección + Google Maps** que direcciones d
 ```typescript
 async saveBranch(fiscalConfigId: string, form: BranchForm, editingId?: string) {
   const body = {
-    code: form.code.trim(),
+    name: form.name.trim(),
+    prefix: form.prefix?.trim().toUpperCase() || null,
     address: form.address.trim(),
     city: form.city.trim(),
     state: form.state.trim(),
@@ -302,7 +314,7 @@ async saveBranch(fiscalConfigId: string, form: BranchForm, editingId?: string) {
     warehouses: this.warehouses.map((warehouse) => ({
       ...(warehouse.id ? { id: warehouse.id } : {}),
       name: warehouse.name.trim(),
-      code: warehouse.code?.trim() || undefined,
+      prefix: warehouse.prefix?.trim().toUpperCase() || undefined,
       street: warehouse.street?.trim() || undefined,
       city: warehouse.city?.trim() || undefined,
       state: warehouse.state?.trim() || undefined,
@@ -332,6 +344,8 @@ async saveBranch(fiscalConfigId: string, form: BranchForm, editingId?: string) {
 
 ## Checklist Pollux
 
+- [ ] Modal sucursal: **Nombre** + **Prefijo** (no campo Código)
+- [ ] Sub-modal almacén: **Nombre** + **Prefijo** (quitar Código)
 - [ ] Reusar componente Google Maps de direcciones de cliente (**sin campo `type`**)
 - [ ] Modal sucursal: dirección + lat/lng desde mapa
 - [ ] Sub-modal almacén: misma UX de mapa (`street` + lat/lng)

@@ -57,6 +57,7 @@ export class WarehouseController {
   @ApiQuery({ name: 'status', required: false, type: String })
   @ApiQuery({ name: 'state', required: false, type: String })
   @ApiQuery({ name: 'country', required: false, type: String })
+  @ApiQuery({ name: 'billing_branch_id', required: false, type: String })
   @ApiQuery({ name: 'code', required: false, type: String })
   @ApiResponse({ status: 200, description: 'List of warehouses retrieved successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })

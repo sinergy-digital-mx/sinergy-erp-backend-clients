@@ -20,7 +20,7 @@ export class CreateWarehouseDto {
   @IsString()
   code?: string;
 
-  /** Prefijo para números de lote al recibir OC: `{prefix}-LOTE-000001` */
+  /** Prefijo de almacén para lotes. La UI envía name + prefix; no enviar code. */
   @IsOptional()
   @IsString()
   @MaxLength(10)

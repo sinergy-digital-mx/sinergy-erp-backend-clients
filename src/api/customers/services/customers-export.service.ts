@@ -82,7 +82,11 @@ export class CustomersExportService {
     const qb = this.customerRepo
       .createQueryBuilder('customer')
       .leftJoinAndSelect('customer.status', 'status')
-      .leftJoinAndSelect('customer.group', 'group')
+      .leftJoinAndSelect(
+        'customer.group',
+        'group',
+        'group.tenant_id = customer.tenant_id',
+      )
       .leftJoinAndSelect('customer.warehouse', 'warehouse')
       .leftJoin('customer.contracts', 'contracts')
       .leftJoin('contracts.property', 'property')

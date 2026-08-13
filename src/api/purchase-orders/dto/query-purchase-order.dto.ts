@@ -27,6 +27,18 @@ export class QueryPurchaseOrderDto {
   vendor_id?: string;
 
   @IsOptional()
+  @IsUUID()
+  fiscal_configuration_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  billing_branch_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  warehouse_id?: string;
+
+  @IsOptional()
   @IsInt()
   @Min(1)
   @Type(() => Number)

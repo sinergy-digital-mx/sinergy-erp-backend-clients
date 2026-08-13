@@ -25,6 +25,7 @@ import {
 import { CustomersExportService } from './services/customers-export.service';
 import { CustomerProductInsightsService } from './services/customer-product-insights.service';
 import { QueryCustomerProductInsightsDto } from './dto/query-customer-product-insights.dto';
+import { CustomerGroupsService } from './customer-groups.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionGuard } from '../rbac/guards/permission.guard';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator';
@@ -38,6 +39,7 @@ export class CustomersController {
         private readonly customersService: CustomersService,
         private readonly exportService: CustomersExportService,
         private readonly productInsightsService: CustomerProductInsightsService,
+        private readonly customerGroupsService: CustomerGroupsService,
     ) { }
 
     @Post()
@@ -72,6 +74,18 @@ export class CustomersController {
     @ApiResponse({ status: 200, description: 'Catálogo de estatus obtenido' })
     findAllStatuses() {
         return this.customersService.findAllStatuses();
+    }
+
+    @Get('groups')
+    @RequirePermissions({ entityType: 'customers', action: 'Read' })
+    @ApiOperation({
+        summary: 'Catálogo de grupos de clientes de esta organización (filtro y select)',
+    })
+    @ApiResponse({ status: 200, description: 'Grupos de esta organización' })
+    findGroups(@Req() req) {
+        return this.customerGroupsService.findOptions(
+            req.user.tenant_id ?? req.user.tenantId,
+        );
     }
 
     @Get('export/excel')

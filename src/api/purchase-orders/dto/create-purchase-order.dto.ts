@@ -59,6 +59,11 @@ export class CreatePurchaseOrderDto {
   @IsNotEmpty()
   fiscal_configuration_id: string;
 
+  /** Sucursal de la razón. Opcional: si no se envía, se toma del almacén. */
+  @IsUUID()
+  @IsOptional()
+  billing_branch_id?: string;
+
   @IsUUID()
   @IsNotEmpty()
   warehouse_id: string;

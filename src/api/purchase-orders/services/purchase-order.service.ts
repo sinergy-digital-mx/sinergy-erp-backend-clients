@@ -5,7 +5,7 @@ import { PurchaseOrderBatch } from '../../../entities/purchase-orders/purchase-o
 import { PurchaseOrderBatchDetail } from '../../../entities/purchase-orders/purchase-order-batch-detail.entity';
 import { InventoryBatch } from '../../../entities/purchase-orders/inventory-batch.entity';
 import { PurchaseOrderPayment } from '../../../entities/purchase-orders/purchase-order-payment.entity';
-import { ProductUoM } from '../../../entities/products';
+import { Warehouse } from '../../../entities/warehouse/warehouse.entity';
 import { CreatePurchaseOrderDto, CreateLineItemDto } from '../dto/create-purchase-order.dto';
 import { ReceivePurchaseOrderDto } from '../dto/receive-purchase-order.dto';
 import { UpdateLineItemDto } from '../dto/update-line-item.dto';
@@ -18,6 +18,7 @@ import { FolioGeneratorService } from './folio-generator.service';
 import { PurchaseOrderPdfService } from './purchase-order-pdf.service';
 import { PurchaseOrderDocumentsService } from './purchase-order-documents.service';
 import { PurchaseOrderDocumentLanguage } from '../../../entities/purchase-orders/purchase-order-document-language.enum';
+import { ProductUoM } from '../../../entities/products';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
@@ -34,6 +35,8 @@ export class PurchaseOrderService {
     private readonly inventoryBatchRepository: Repository<InventoryBatch>,
     @InjectRepository(PurchaseOrderPayment)
     private readonly purchaseOrderPaymentRepository: Repository<PurchaseOrderPayment>,
+    @InjectRepository(Warehouse)
+    private readonly warehouseRepository: Repository<Warehouse>,
     private readonly unitConversionService: UnitConversionService,
     private readonly batchNumberGenerator: BatchNumberGeneratorService,
     private readonly folioGenerator: FolioGeneratorService,
@@ -121,6 +124,13 @@ export class PurchaseOrderService {
     await queryRunner.startTransaction();
 
     try {
+      await this.assertWarehouseMatchesFiscal(
+        tenantId,
+        dto.warehouse_id,
+        dto.fiscal_configuration_id,
+        dto.billing_branch_id,
+      );
+
       // Generate folio
       const folio = await this.folioGenerator.generateFolio(tenantId);
 
@@ -208,6 +218,7 @@ export class PurchaseOrderService {
         .where('po.id = :id AND po.tenant_id = :tenantId', { id: purchaseOrderId, tenantId })
         .leftJoinAndSelect('po.fiscal_configuration', 'fiscal_config')
         .leftJoinAndSelect('po.warehouse', 'warehouse')
+        .leftJoinAndSelect('warehouse.billing_branch', 'billing_branch')
         .leftJoinAndSelect('po.vendor', 'vendor')
         .leftJoinAndSelect('po.creator', 'creator')
         .leftJoinAndSelect('po.line_items', 'line_items')
@@ -268,6 +279,7 @@ export class PurchaseOrderService {
       .where('po.tenant_id = :tenantId', { tenantId })
       .leftJoinAndSelect('po.fiscal_configuration', 'fiscal_config')
       .leftJoinAndSelect('po.warehouse', 'warehouse')
+      .leftJoinAndSelect('warehouse.billing_branch', 'billing_branch')
       .leftJoinAndSelect('po.vendor', 'vendor');
 
     if (filters.general_status) {
@@ -284,6 +296,22 @@ export class PurchaseOrderService {
 
     if (filters.vendor_id) {
       query.andWhere('po.vendor_id = :vendor_id', { vendor_id: filters.vendor_id });
+    }
+
+    if (filters.fiscal_configuration_id) {
+      query.andWhere('po.fiscal_configuration_id = :fiscal_configuration_id', {
+        fiscal_configuration_id: filters.fiscal_configuration_id,
+      });
+    }
+
+    if (filters.billing_branch_id) {
+      query.andWhere('warehouse.billing_branch_id = :billing_branch_id', {
+        billing_branch_id: filters.billing_branch_id,
+      });
+    }
+
+    if (filters.warehouse_id) {
+      query.andWhere('po.warehouse_id = :warehouse_id', { warehouse_id: filters.warehouse_id });
     }
 
     if (filters.search) {
@@ -310,8 +338,8 @@ export class PurchaseOrderService {
 
     query.skip(skip).take(limit).orderBy('po.created_at', 'DESC');
 
-    const [data, total] = await query.getManyAndCount();
-    return { data, total };
+    const [rows, total] = await query.getManyAndCount();
+    return { data: rows.map((po) => this.mapPurchaseOrderLocation(po)), total };
   }
 
   /**
@@ -323,6 +351,7 @@ export class PurchaseOrderService {
       .where('po.id = :id AND po.tenant_id = :tenantId', { id, tenantId })
       .leftJoinAndSelect('po.fiscal_configuration', 'fiscal_config')
       .leftJoinAndSelect('po.warehouse', 'warehouse')
+      .leftJoinAndSelect('warehouse.billing_branch', 'billing_branch')
       .leftJoinAndSelect('po.vendor', 'vendor')
       .leftJoinAndSelect('po.creator', 'creator')
       .leftJoinAndSelect('po.updater', 'updater')
@@ -386,7 +415,62 @@ export class PurchaseOrderService {
       delete (purchaseOrder.updater as any).password;
     }
 
-    return purchaseOrder;
+    return this.mapPurchaseOrderLocation(purchaseOrder);
+  }
+
+  private async assertWarehouseMatchesFiscal(
+    tenantId: string,
+    warehouseId: string,
+    fiscalConfigurationId: string,
+    billingBranchId?: string,
+  ): Promise<void> {
+    const warehouse = await this.warehouseRepository.findOne({
+      where: { id: warehouseId, tenant_id: tenantId },
+      relations: ['billing_branch'],
+    });
+
+    if (!warehouse) {
+      throw new BadRequestException('Almacén no encontrado');
+    }
+
+    const branch = warehouse.billing_branch;
+    if (!branch) {
+      throw new BadRequestException('El almacén no pertenece a ninguna sucursal');
+    }
+
+    if (billingBranchId && branch.id !== billingBranchId) {
+      throw new BadRequestException('El almacén no pertenece a la sucursal seleccionada');
+    }
+
+    if (branch.fiscal_configuration_id !== fiscalConfigurationId) {
+      throw new BadRequestException(
+        'La sucursal del almacén no pertenece a la razón social seleccionada',
+      );
+    }
+  }
+
+  private mapPurchaseOrderLocation(po: PurchaseOrderBatch) {
+    const branch = po.warehouse?.billing_branch ?? null;
+    const fiscal = po.fiscal_configuration ?? null;
+
+    return {
+      ...po,
+      razon_social: fiscal?.razon_social ?? null,
+      sucursal: branch?.code ?? null,
+      billing_branch_id: po.warehouse?.billing_branch_id ?? branch?.id ?? null,
+      billing_branch: branch
+        ? {
+            id: branch.id,
+            code: branch.code,
+            address: branch.address,
+            city: branch.city,
+            state: branch.state,
+            country: branch.country,
+            postal_code: branch.postal_code,
+            fiscal_configuration_id: branch.fiscal_configuration_id,
+          }
+        : null,
+    };
   }
 
   private buildPaymentSummary(
@@ -761,6 +845,13 @@ export class PurchaseOrderService {
         `No se puede reemplazar la orden de compra con estado: ${existing.general_status}`,
       );
     }
+
+    await this.assertWarehouseMatchesFiscal(
+      tenantId,
+      dto.warehouse_id,
+      dto.fiscal_configuration_id,
+      dto.billing_branch_id,
+    );
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();

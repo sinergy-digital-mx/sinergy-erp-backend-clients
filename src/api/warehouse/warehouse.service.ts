@@ -6,6 +6,8 @@ import { CreateWarehouseDto } from './dto/create-warehouse.dto';
 import { UpdateWarehouseDto } from './dto/update-warehouse.dto';
 import { QueryWarehouseDto } from './dto/query-warehouse.dto';
 import { PaginatedWarehouseDto } from './dto/paginated-warehouse.dto';
+import { normalizeDocumentPrefix } from '../../common/utils/document-prefix.util';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class WarehouseService {
@@ -15,11 +17,14 @@ export class WarehouseService {
   ) {}
 
   async create(dto: CreateWarehouseDto, tenantId: string): Promise<Warehouse> {
+    const prefix = normalizeDocumentPrefix(dto.prefix);
     const warehouse = this.repo.create({
       ...dto,
+      prefix,
       tenant_id: tenantId,
       status: dto.status || 'active',
     });
+    warehouse.code = dto.code?.trim() || warehouse.id || randomUUID();
     return this.repo.save(warehouse);
   }
 
@@ -57,6 +62,12 @@ export class WarehouseService {
 
     if (query?.country) {
       queryBuilder.andWhere('warehouse.country = :country', { country: query.country });
+    }
+
+    if (query?.billing_branch_id) {
+      queryBuilder.andWhere('warehouse.billing_branch_id = :billing_branch_id', {
+        billing_branch_id: query.billing_branch_id,
+      });
     }
 
     if (query?.code) {
@@ -99,7 +110,9 @@ export class WarehouseService {
     tenantId: string,
   ): Promise<Warehouse> {
     const warehouse = await this.findOne(id, tenantId);
-    Object.assign(warehouse, dto);
+    const prefix =
+      dto.prefix !== undefined ? normalizeDocumentPrefix(dto.prefix) : warehouse.prefix;
+    Object.assign(warehouse, dto, { prefix });
     return this.repo.save(warehouse);
   }
 

@@ -7,6 +7,7 @@ import { UpdateFiscalConfigurationDto } from './dto/update-fiscal-configuration.
 import { QueryFiscalConfigurationDto } from './dto/query-fiscal-configuration.dto';
 import { PaginatedFiscalConfigurationDto } from './dto/paginated-fiscal-configuration.dto';
 import { S3Service } from '../../common/services/s3.service';
+import { normalizeDocumentPrefix } from '../../common/utils/document-prefix.util';
 
 @Injectable()
 export class FiscalConfigurationService {
@@ -23,12 +24,15 @@ export class FiscalConfigurationService {
   ): Promise<FiscalConfiguration> {
     const config = this.repo.create({
       ...dto,
+      prefix: normalizeDocumentPrefix(dto.prefix),
       tenant_id: tenantId,
       status: dto.status || 'active',
       created_by: userId ?? null,
     });
     const saved = await this.repo.save(config);
-    return Array.isArray(saved) ? saved[0] : saved;
+    const created = Array.isArray(saved) ? saved[0] : saved;
+    await this.persistPrefix(created.id, tenantId, normalizeDocumentPrefix(dto.prefix));
+    return this.findOne(created.id, tenantId);
   }
 
   async findAll(
@@ -50,7 +54,7 @@ export class FiscalConfigurationService {
 
     if (query?.search) {
       queryBuilder.andWhere(
-        '(LOWER(config.razon_social) LIKE LOWER(:search) OR LOWER(config.rfc) LIKE LOWER(:search))',
+        '(LOWER(config.razon_social) LIKE LOWER(:search) OR LOWER(config.rfc) LIKE LOWER(:search) OR LOWER(`config`.`prefix`) LIKE LOWER(:search))',
         { search: `%${query.search}%` }
       );
     }
@@ -63,8 +67,9 @@ export class FiscalConfigurationService {
 
     const total = await queryBuilder.getCount();
     const data = await queryBuilder.skip(skip).take(limit).getMany();
+    const withPrefix = await this.attachPrefixes(data);
     const dataWithLogoUrls = await Promise.all(
-      data.map((config) => this.toResponseWithLogoUrl(config)),
+      withPrefix.map((config) => this.toResponseWithLogoUrl(config)),
     );
 
     const totalPages = Math.ceil(total / limit);
@@ -92,9 +97,28 @@ export class FiscalConfigurationService {
     dto: UpdateFiscalConfigurationDto,
     tenantId: string,
   ): Promise<FiscalConfiguration> {
-    const config = await this.getByIdOrFail(id, tenantId);
-    Object.assign(config, dto);
-    return this.repo.save(config);
+    await this.getByIdOrFail(id, tenantId);
+
+    const patch: Partial<FiscalConfiguration> = {};
+    if (dto.razon_social !== undefined) patch.razon_social = dto.razon_social;
+    if (dto.rfc !== undefined) patch.rfc = dto.rfc;
+    if (dto.persona_type !== undefined) patch.persona_type = dto.persona_type;
+    if (dto.fiscal_regime !== undefined) patch.fiscal_regime = dto.fiscal_regime;
+    if (dto.digital_seal !== undefined) patch.digital_seal = dto.digital_seal;
+    if (dto.digital_seal_password !== undefined) patch.digital_seal_password = dto.digital_seal_password;
+    if (dto.private_key !== undefined) patch.private_key = dto.private_key;
+    if (dto.logo !== undefined) patch.logo = dto.logo;
+    if (dto.status !== undefined) patch.status = dto.status;
+
+    if (Object.keys(patch).length) {
+      await this.repo.update({ id, tenant_id: tenantId }, patch);
+    }
+
+    if (dto.prefix !== undefined) {
+      await this.persistPrefix(id, tenantId, normalizeDocumentPrefix(dto.prefix));
+    }
+
+    return this.findOne(id, tenantId);
   }
 
   async remove(id: string, tenantId: string): Promise<void> {
@@ -137,12 +161,46 @@ export class FiscalConfigurationService {
       throw new NotFoundException(`Fiscal Configuration with ID ${id} not found`);
     }
 
-    return config;
+    const [withPrefix] = await this.attachPrefixes([config]);
+    return withPrefix;
+  }
+
+  private async persistPrefix(
+    id: string,
+    tenantId: string,
+    prefix: string | null,
+  ): Promise<void> {
+    await this.repo.query(
+      'UPDATE fiscal_configurations SET prefix = ? WHERE id = ? AND tenant_id = ?',
+      [prefix, id, tenantId],
+    );
+  }
+
+  private async attachPrefixes(
+    configs: FiscalConfiguration[],
+  ): Promise<FiscalConfiguration[]> {
+    if (!configs.length) {
+      return configs;
+    }
+
+    const ids = configs.map((config) => config.id);
+    const placeholders = ids.map(() => '?').join(',');
+    const rows: { id: string; prefix: string | null }[] = await this.repo.query(
+      `SELECT id, prefix FROM fiscal_configurations WHERE id IN (${placeholders})`,
+      ids,
+    );
+    const prefixById = new Map(rows.map((row) => [row.id, row.prefix ?? null]));
+
+    return configs.map((config) => {
+      config.prefix = prefixById.get(config.id) ?? null;
+      return config;
+    });
   }
 
   private async toResponseWithLogoUrl(config: FiscalConfiguration): Promise<FiscalConfiguration> {
+    const prefix = config.prefix ?? null;
     if (!config.logo) {
-      return config;
+      return { ...config, prefix };
     }
 
     const logoUrl = await this.s3Service
@@ -151,6 +209,7 @@ export class FiscalConfigurationService {
 
     return {
       ...config,
+      prefix,
       logo: logoUrl,
     };
   }

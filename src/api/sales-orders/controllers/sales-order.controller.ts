@@ -481,8 +481,23 @@ export class SalesOrderController {
     return this.salesOrderService.fulfill(id, dto, req.user.tenant_id, req.user.id);
   }
 
+  @Post(':id/cancel')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Cancelar orden de venta',
+    description:
+      'Pasa a Cancelada y libera lotes asignados. Bloqueado si hay factura CFDI vigente.',
+  })
+  async cancelPost(@Param('id') id: string, @Req() req: any) {
+    return this.salesOrderService.cancel(id, req.user.tenant_id, req.user.id);
+  }
+
   @Delete(':id')
-  @ApiOperation({ summary: 'Cancel a sales order — releases inventory if already fulfilled' })
+  @ApiOperation({
+    summary: 'Cancelar orden de venta (alias de POST :id/cancel)',
+    description:
+      'Pasa a Cancelada y libera lotes asignados. Bloqueado si hay factura CFDI vigente.',
+  })
   async cancel(@Param('id') id: string, @Req() req: any) {
     return this.salesOrderService.cancel(id, req.user.tenant_id, req.user.id);
   }

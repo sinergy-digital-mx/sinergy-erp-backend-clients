@@ -20,11 +20,15 @@ Ambos devuelven un archivo `.xlsx` (`Content-Type: application/vnd.openxmlformat
 | `search` | string | No. lote, nombre o SKU de producto |
 | `batch_number` | string | No. lote (parcial) |
 | `product_id` | uuid | Producto |
-| `warehouse_id` | uuid | Almacén |
+| `fiscal_configuration_id` | uuid | Razón social. Requerido si se envía sucursal |
+| `billing_branch_id` | uuid | Sucursal. Requiere razón social |
+| `warehouse_id` | uuid | Almacén. Requiere razón social y sucursal |
 | `purchase_order_batch_id` | uuid | Lote de orden de compra |
 | `purchase_order_id` | uuid | Orden de compra |
 | `created_from` | date (ISO) | Opcional |
 | `created_to` | date (ISO) | Opcional |
+
+Cascada igual que el listado: ver `UI_INVENTORY_LOCATION_FILTERS.md`. **No enviar** `warehouse_id` solo.
 
 **No requiere rango de fechas.** Si no se envían filtros, exporta todos los lotes.
 
@@ -33,15 +37,17 @@ Ambos devuelven un archivo `.xlsx` (`Content-Type: application/vnd.openxmlformat
 | Parámetro | Tipo | Descripción |
 |-----------|------|-------------|
 | `search` | string | Nombre o SKU de producto |
-| `warehouse_id` | uuid | Almacén |
+| `fiscal_configuration_id` | uuid | Razón social. Requerido si se envía sucursal |
+| `billing_branch_id` | uuid | Sucursal. Requiere razón social |
+| `warehouse_id` | uuid | Almacén. Requiere razón social y sucursal |
 | `product_id` | uuid | Producto |
 | `only_available` | boolean | Solo productos con existencia > 0 |
 
 Ejemplo:
 
 ```
-GET /api/tenant/inventory/export/excel/batches?warehouse_id=uuid&search=tornillo
-GET /api/tenant/inventory/export/excel/summary?warehouse_id=uuid&only_available=true
+GET /api/tenant/inventory/export/excel/batches?fiscal_configuration_id=uuid&billing_branch_id=uuid
+GET /api/tenant/inventory/export/excel/summary?fiscal_configuration_id=uuid&only_available=true
 ```
 
 ---
@@ -50,13 +56,13 @@ GET /api/tenant/inventory/export/excel/summary?warehouse_id=uuid&only_available=
 
 ### Por lote (`inventario-lotes-YYYY-MM-DD.xlsx`)
 
-Una fila por lote. Columnas: No. lote, Fecha creación, SKU, Producto, Almacén, UOM, Cant. inicial, Cant. disponible, Folio OC, Etiqueta origen.
+Una fila por lote. Columnas: No. lote, Fecha creación, SKU, Producto, Razón social, Sucursal, Almacén, UOM, Cant. inicial, Cant. disponible, Folio OC, Etiqueta origen.
 
 Estilo: título azul oscuro, encabezados azul (`#2E6B9E`), filas alternadas.
 
 ### Totalizado (`inventario-totalizado-YYYY-MM-DD.xlsx`)
 
-Una fila por producto + almacén. Columnas: SKU, Producto, Almacén, UOM, Cant. disponible, Cant. inicial, No. lotes, Precio sugerido.
+Una fila por producto + almacén. Columnas: SKU, Producto, Razón social, Sucursal, Almacén, UOM, Cant. disponible, Cant. inicial, No. lotes, Precio sugerido.
 
 Estilo: azul claro en encabezados (`#3A7CA5`).
 
@@ -70,7 +76,7 @@ Estilo: azul claro en encabezados (`#3A7CA5`).
 ┌──────────────────────────────────────────────────────────────┐
 │ Inventario — Lotes                  [ Descargar Excel ▼ ]   │
 ├──────────────────────────────────────────────────────────────┤
-│ [Búsqueda] [Almacén ▼] [Producto ▼] [Desde] [Hasta]         │
+│ [Búsqueda] [Razón social ▼] [Sucursal ▼] [Almacén ▼] [Desde] [Hasta] │
 │ ...tabla de lotes...                                         │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -81,7 +87,7 @@ Estilo: azul claro en encabezados (`#3A7CA5`).
 ┌──────────────────────────────────────────────────────────────┐
 │ Inventario — Totalizado             [ Descargar Excel ▼ ]   │
 ├──────────────────────────────────────────────────────────────┤
-│ [Búsqueda] [Almacén ▼] [☑ Solo con existencia]              │
+│ [Búsqueda] [Razón social ▼] [Sucursal ▼] [Almacén ▼] [☑ Solo con existencia] │
 │ ...tabla totalizada...                                       │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -105,7 +111,7 @@ Mismo diseño que órdenes de venta (ver `UI_SALES_ORDER_EXPORT.md`):
 │  ( ) Totalizado — por producto/almacén  │
 │                                         │
 │  Usará los filtros actuales del listado │
-│  (búsqueda, almacén, producto, fechas)  │
+│  (búsqueda, razón social, sucursal, almacén, producto, fechas)  │
 │                                         │
 │              [ Cancelar ] [ Descargar ] │
 └─────────────────────────────────────────┘
@@ -133,6 +139,8 @@ interface InventoryBatchExportFilters {
   search?: string;
   batch_number?: string;
   product_id?: string;
+  fiscal_configuration_id?: string;
+  billing_branch_id?: string;
   warehouse_id?: string;
   purchase_order_batch_id?: string;
   purchase_order_id?: string;
@@ -142,6 +150,8 @@ interface InventoryBatchExportFilters {
 
 interface InventorySummaryExportFilters {
   search?: string;
+  fiscal_configuration_id?: string;
+  billing_branch_id?: string;
   warehouse_id?: string;
   product_id?: string;
   only_available?: boolean;
@@ -205,6 +215,8 @@ async confirmExport() {
         search: this.listFilters.search,
         batch_number: this.listFilters.batch_number,
         product_id: this.listFilters.product_id,
+        fiscal_configuration_id: this.listFilters.fiscal_configuration_id,
+        billing_branch_id: this.listFilters.billing_branch_id,
         warehouse_id: this.listFilters.warehouse_id,
         purchase_order_batch_id: this.listFilters.purchase_order_batch_id,
         purchase_order_id: this.listFilters.purchase_order_id,
@@ -215,6 +227,8 @@ async confirmExport() {
     } else {
       const filters: InventorySummaryExportFilters = {
         search: this.listFilters.search,
+        fiscal_configuration_id: this.listFilters.fiscal_configuration_id,
+        billing_branch_id: this.listFilters.billing_branch_id,
         warehouse_id: this.listFilters.warehouse_id,
         product_id: this.listFilters.product_id,
         only_available: this.listFilters.only_available,

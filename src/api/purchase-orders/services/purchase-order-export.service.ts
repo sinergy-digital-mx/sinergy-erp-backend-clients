@@ -23,6 +23,8 @@ export class PurchaseOrderExportService {
     { header: 'Folio', key: 'folio', width: 14 },
     { header: 'Fecha creación', key: 'created_at', width: 18, type: 'date' },
     { header: 'Proveedor', key: 'vendor_name', width: 28 },
+    { header: 'Razón social', key: 'razon_social', width: 26 },
+    { header: 'Sucursal', key: 'billing_branch_code', width: 22 },
     { header: 'Almacén', key: 'warehouse_name', width: 22 },
     { header: 'Estado', key: 'general_status', width: 12 },
     { header: 'Pago', key: 'payment_status', width: 12 },
@@ -42,6 +44,9 @@ export class PurchaseOrderExportService {
     { header: 'Fecha orden', key: 'order_created_at', width: 18, type: 'date' },
     { header: 'Estado orden', key: 'general_status', width: 12 },
     { header: 'Proveedor', key: 'vendor_name', width: 26 },
+    { header: 'Razón social', key: 'razon_social', width: 24 },
+    { header: 'Sucursal', key: 'billing_branch_code', width: 20 },
+    { header: 'Almacén', key: 'warehouse_name', width: 20 },
     { header: 'SKU', key: 'product_sku', width: 14 },
     { header: 'Producto', key: 'product_name', width: 28 },
     { header: 'UOM', key: 'uom_name', width: 12 },
@@ -65,6 +70,8 @@ export class PurchaseOrderExportService {
       folio: po.folio,
       created_at: formatExportDateTime(po.created_at),
       vendor_name: po.vendor?.name ?? po.vendor?.company_name ?? '',
+      razon_social: po.fiscal_configuration?.razon_social ?? '',
+      billing_branch_code: po.warehouse?.billing_branch?.code ?? '',
       warehouse_name: po.warehouse?.name ?? '',
       general_status: po.general_status,
       payment_status: po.payment_status,
@@ -105,6 +112,9 @@ export class PurchaseOrderExportService {
       .createQueryBuilder('d')
       .innerJoinAndSelect('d.purchase_order_batch', 'po')
       .leftJoinAndSelect('po.vendor', 'vendor')
+      .leftJoinAndSelect('po.fiscal_configuration', 'fiscal_configuration')
+      .leftJoinAndSelect('po.warehouse', 'warehouse')
+      .leftJoinAndSelect('warehouse.billing_branch', 'billing_branch')
       .leftJoinAndSelect('d.product', 'product')
       .leftJoinAndSelect('d.product_uom', 'product_uom')
       .leftJoinAndSelect('product_uom.uom', 'uom')
@@ -131,6 +141,9 @@ export class PurchaseOrderExportService {
           d.purchase_order_batch?.vendor?.name ??
           d.purchase_order_batch?.vendor?.company_name ??
           '',
+        razon_social: d.purchase_order_batch?.fiscal_configuration?.razon_social ?? '',
+        billing_branch_code: d.purchase_order_batch?.warehouse?.billing_branch?.code ?? '',
+        warehouse_name: d.purchase_order_batch?.warehouse?.name ?? '',
         product_sku: d.product?.sku ?? '',
         product_name: d.product?.name ?? '',
         uom_name: d.product_uom?.uom?.name ?? '',
@@ -173,7 +186,9 @@ export class PurchaseOrderExportService {
     const qb = this.poRepo
       .createQueryBuilder('po')
       .leftJoinAndSelect('po.vendor', 'vendor')
+      .leftJoinAndSelect('po.fiscal_configuration', 'fiscal_configuration')
       .leftJoinAndSelect('po.warehouse', 'warehouse')
+      .leftJoinAndSelect('warehouse.billing_branch', 'billing_branch')
       .where('po.tenant_id = :tenantId', { tenantId });
 
     this.applyOrderFilters(qb, filters);
@@ -208,6 +223,19 @@ export class PurchaseOrderExportService {
     if (filters.vendor_id) {
       qb.andWhere('po.vendor_id = :vendor_id', { vendor_id: filters.vendor_id });
     }
+    if (filters.fiscal_configuration_id) {
+      qb.andWhere('po.fiscal_configuration_id = :fiscal_configuration_id', {
+        fiscal_configuration_id: filters.fiscal_configuration_id,
+      });
+    }
+    if (filters.billing_branch_id) {
+      qb.andWhere('warehouse.billing_branch_id = :billing_branch_id', {
+        billing_branch_id: filters.billing_branch_id,
+      });
+    }
+    if (filters.warehouse_id) {
+      qb.andWhere('po.warehouse_id = :warehouse_id', { warehouse_id: filters.warehouse_id });
+    }
     if (filters.search) {
       const rawSearch = filters.search.trim();
       const search = `%${rawSearch}%`;
@@ -232,6 +260,19 @@ export class PurchaseOrderExportService {
       if (filters.general_status && po.general_status !== filters.general_status) return false;
       if (filters.payment_status && po.payment_status !== filters.payment_status) return false;
       if (filters.vendor_id && po.vendor_id !== filters.vendor_id) return false;
+      if (
+        filters.fiscal_configuration_id &&
+        po.fiscal_configuration_id !== filters.fiscal_configuration_id
+      ) {
+        return false;
+      }
+      if (
+        filters.billing_branch_id &&
+        po.warehouse?.billing_branch_id !== filters.billing_branch_id
+      ) {
+        return false;
+      }
+      if (filters.warehouse_id && po.warehouse_id !== filters.warehouse_id) return false;
       if (filters.search) {
         const s = filters.search.toLowerCase();
         const haystack = [
@@ -259,6 +300,9 @@ export class PurchaseOrderExportService {
     }
     if (filters.general_status) parts.push(`Estado: ${filters.general_status}`);
     if (filters.payment_status) parts.push(`Pago: ${filters.payment_status}`);
+    if (filters.fiscal_configuration_id) parts.push('Razón social filtrada');
+    if (filters.billing_branch_id) parts.push('Sucursal filtrada');
+    if (filters.warehouse_id) parts.push('Almacén filtrado');
     if (filters.search) parts.push(`Búsqueda: ${filters.search}`);
     return parts.join(' | ');
   }

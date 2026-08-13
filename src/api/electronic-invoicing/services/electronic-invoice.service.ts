@@ -264,6 +264,33 @@ export class ElectronicInvoiceService {
     });
   }
 
+  /**
+   * CFDI vigente: SAT = Vigente, o timbrada / cancelación pendiente o fallida
+   * sin que SAT haya confirmado Cancelado.
+   */
+  isCfdiVigente(invoice: ElectronicInvoice): boolean {
+    if (invoice.sat_status === 'Cancelado') {
+      return false;
+    }
+    if (invoice.sat_status === 'Vigente') {
+      return true;
+    }
+    return (
+      invoice.stamp_status === 'stamped' ||
+      invoice.stamp_status === 'cancel_pending' ||
+      invoice.stamp_status === 'cancel_error'
+    );
+  }
+
+  async findVigenteBySource(
+    tenantId: string,
+    sourceModule: ElectronicInvoiceSourceModule,
+    sourceId: string,
+  ): Promise<ElectronicInvoice[]> {
+    const invoices = await this.findBySource(tenantId, sourceModule, sourceId);
+    return invoices.filter((invoice) => this.isCfdiVigente(invoice));
+  }
+
   async findAll(tenantId: string, query: QueryElectronicInvoiceDto): Promise<ElectronicInvoice[]> {
     const qb = this.invoiceRepo
       .createQueryBuilder('inv')

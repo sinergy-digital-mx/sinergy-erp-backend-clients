@@ -1,4 +1,6 @@
-import { IsOptional, IsString, Matches } from 'class-validator';
+import { IsOptional, IsString, Matches, MaxLength, ValidateIf } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 
 export class UpdateFiscalConfigurationDto {
   @IsOptional()
@@ -15,6 +17,27 @@ export class UpdateFiscalConfigurationDto {
   @IsOptional()
   @IsString()
   persona_type?: string;
+
+  @ApiPropertyOptional({
+    description: 'Prefijo para lotes de recepción (ej. MZN). Letras/números, máx. 10, sin guiones',
+    example: 'MZN',
+    maxLength: 10,
+    nullable: true,
+  })
+  @Transform(({ value }) => {
+    if (value === undefined) {
+      return undefined;
+    }
+    if (value === null || value === '') {
+      return null;
+    }
+    return String(value);
+  })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null && value !== undefined)
+  @IsString()
+  @MaxLength(10)
+  prefix?: string | null;
 
   @IsOptional()
   @IsString()

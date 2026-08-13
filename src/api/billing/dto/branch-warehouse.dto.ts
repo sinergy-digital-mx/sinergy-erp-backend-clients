@@ -8,6 +8,7 @@ import {
   IsNumber,
   Min,
   Max,
+  MaxLength,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -24,19 +25,14 @@ export class BranchWarehouseDto {
   @IsString()
   name?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  code?: string;
-
   @ApiPropertyOptional({
-    description:
-      'Prefijo de lotes al recibir OC (máx. 10). Obligatorio antes de recibir mercancía en este almacén. Formato: {prefix}-LOTE-000001',
-    example: 'MZN',
+    description: 'Prefijo del almacén para el lote (ej. BDGA). Obligatorio antes de recibir OC',
+    example: 'BDGA',
     maxLength: 10,
   })
   @IsOptional()
   @IsString()
+  @MaxLength(10)
   prefix?: string;
 
   @ApiPropertyOptional()

@@ -20,6 +20,18 @@ export class BatchResponseDto {
   @ApiProperty({ description: 'Warehouse name' })
   warehouse_name?: string;
 
+  @ApiProperty({ description: 'Razón social ID', nullable: true })
+  fiscal_configuration_id?: string | null;
+
+  @ApiProperty({ description: 'Razón social', nullable: true })
+  razon_social?: string | null;
+
+  @ApiProperty({ description: 'Sucursal ID', nullable: true })
+  billing_branch_id?: string | null;
+
+  @ApiProperty({ description: 'Nombre de sucursal', nullable: true })
+  sucursal?: string | null;
+
   @ApiProperty({ description: 'Product ID' })
   product_id: string;
 

@@ -3,6 +3,7 @@ import { InventoryService } from './inventory.service';
 import { BatchListResponseDto } from './dto/batch-list-response.dto';
 import { BatchResponseDto } from './dto/batch-response.dto';
 import { InventoryExportService } from './services/inventory-export.service';
+import { NotFoundException } from '@nestjs/common';
 
 describe('InventoryController', () => {
   let controller: InventoryController;
@@ -43,6 +44,7 @@ describe('InventoryController', () => {
       findById: jest.fn(),
       findByPurchaseOrderId: jest.fn(),
       calculateTotalQuantity: jest.fn(),
+      getLocationTree: jest.fn(),
     };
 
     service = mockInventoryService as any;
@@ -57,6 +59,29 @@ describe('InventoryController', () => {
 
   it('should be defined', () => {
     expect(controller).toBeDefined();
+  });
+
+  describe('GET /tenant/inventory/locations', () => {
+    it('should return location tree for dropdowns', async () => {
+      const tree = {
+        data: [
+          {
+            id: 'fiscal-1',
+            razon_social: 'MADERERIA ZONA NORTE',
+            rfc: 'MZN010101XXX',
+            status: 'active',
+            branches: [],
+          },
+        ],
+      };
+      jest.spyOn(service, 'getLocationTree').mockResolvedValue(tree as any);
+
+      const req = { user: { tenant_id: mockTenantId } };
+      const result = await controller.getLocations(req);
+
+      expect(result).toEqual(tree);
+      expect(service.getLocationTree).toHaveBeenCalledWith(mockTenantId);
+    });
   });
 
   describe('GET /tenant/inventory/batches', () => {
