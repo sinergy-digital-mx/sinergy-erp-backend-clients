@@ -24,6 +24,11 @@ export class CreateTruckDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(50)
+  serial_number?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(10)
   anio?: string;
 

@@ -26,6 +26,7 @@ import { CustomersExportService } from './services/customers-export.service';
 import { CustomerProductInsightsService } from './services/customer-product-insights.service';
 import { QueryCustomerProductInsightsDto } from './dto/query-customer-product-insights.dto';
 import { CustomerGroupsService } from './customer-groups.service';
+import { CheckCustomerDuplicatesDto } from './dto/check-customer-duplicates.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionGuard } from '../rbac/guards/permission.guard';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator';
@@ -51,7 +52,22 @@ export class CustomersController {
     @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing token' })
     @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
     create(@Body() dto: CreateCustomerDto, @Req() req) {
-        return this.customersService.create(dto, req.user.tenantId);
+        return this.customersService.create(
+            dto,
+            req.user.tenantId,
+            req.user.id ?? req.user.user_id,
+        );
+    }
+
+    @Post('duplicates')
+    @RequirePermissions({ entityType: 'customers', action: 'Create' })
+    @ApiOperation({
+        summary: 'Buscar clientes similares por correo, teléfono, nombre+apellido o RFC',
+    })
+    @ApiBody({ type: CheckCustomerDuplicatesDto })
+    @ApiResponse({ status: 200, description: 'Coincidencias encontradas (puede estar vacío)' })
+    checkDuplicates(@Body() dto: CheckCustomerDuplicatesDto, @Req() req) {
+        return this.customersService.findDuplicates(dto, req.user.tenantId);
     }
 
     @Put(':id')
@@ -84,6 +100,18 @@ export class CustomersController {
     @ApiResponse({ status: 200, description: 'Grupos de esta organización' })
     findGroups(@Req() req) {
         return this.customerGroupsService.findOptions(
+            req.user.tenant_id ?? req.user.tenantId,
+        );
+    }
+
+    @Get('registration-options')
+    @RequirePermissions({ entityType: 'customers', action: 'Read' })
+    @ApiOperation({
+        summary: 'Catálogo de sucursales y usuarios para el tab Registro del cliente',
+    })
+    @ApiResponse({ status: 200, description: 'Sucursales y usuarios de esta organización' })
+    getRegistrationOptions(@Req() req) {
+        return this.customersService.getRegistrationOptions(
             req.user.tenant_id ?? req.user.tenantId,
         );
     }

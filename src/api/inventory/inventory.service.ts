@@ -23,12 +23,27 @@ import { InventorySummaryFilterDto } from './dto/inventory-summary-filter.dto';
 import { InventorySummaryResponseDto, ProductInventorySummaryDto } from './dto/inventory-summary-response.dto';
 import { PosSessionInventorySummaryResponseDto, PosSessionProductInventorySummaryDto } from './dto/pos-session-inventory-summary-response.dto';
 import { InventoryLocationTreeResponseDto } from './dto/inventory-location-tree-response.dto';
+import { InventoryStatsFilterDto } from './dto/inventory-stats-filter.dto';
+import { InventoryStatsResponseDto } from './dto/inventory-stats-response.dto';
 import {
   applyInventoryLocationFilters,
   assertInventoryLocationCascade,
   InventoryLocationQuery,
   joinInventoryLocation,
 } from './utils/inventory-location-filter.util';
+
+/** Costo unitario en UOM de inventario: precio OC × (qty original / qty convertida). */
+const UNIT_COST_SQL = `(
+  COALESCE(pod.received_original_unit_total, pod.unit_total, 0)
+  * CASE
+      WHEN pod.received_converted_quantity IS NOT NULL
+       AND pod.received_converted_quantity > 0
+       AND pod.received_original_quantity IS NOT NULL
+       AND pod.received_original_quantity > 0
+      THEN pod.received_original_quantity / pod.received_converted_quantity
+      ELSE 1
+    END
+)`;
 
 @Injectable()
 export class InventoryService {
@@ -113,6 +128,137 @@ export class InventoryService {
         })),
       })),
     };
+  }
+
+  /** KPIs de inventario para las cards del listado. Respeta la cascada de ubicación. */
+  async getStats(
+    tenantId: string,
+    filters: InventoryStatsFilterDto,
+  ): Promise<InventoryStatsResponseDto> {
+    await this.assertLocationHierarchy(tenantId, filters);
+
+    const totals = await this.buildStatsBaseQuery(tenantId, filters)
+      .select('COUNT(batch.id)', 'total_batches')
+      .addSelect(
+        'SUM(CASE WHEN batch.available_quantity > 0 THEN 1 ELSE 0 END)',
+        'batches_with_stock',
+      )
+      .addSelect('COUNT(DISTINCT batch.product_id)', 'total_products')
+      .addSelect(
+        'COUNT(DISTINCT CASE WHEN batch.available_quantity > 0 THEN batch.product_id END)',
+        'products_with_stock',
+      )
+      .addSelect('COUNT(DISTINCT batch.warehouse_id)', 'total_warehouses')
+      .addSelect('COALESCE(SUM(batch.available_quantity), 0)', 'total_available_quantity')
+      .addSelect('COALESCE(SUM(batch.initial_quantity), 0)', 'total_initial_quantity')
+      .addSelect(
+        `COALESCE(SUM(batch.available_quantity * ${UNIT_COST_SQL}), 0)`,
+        'total_cost',
+      )
+      .addSelect(
+        `SUM(CASE
+          WHEN batch.available_quantity > 0
+           AND (pod.id IS NULL OR (pod.unit_total IS NULL AND pod.received_original_unit_total IS NULL))
+          THEN 1 ELSE 0 END)`,
+        'batches_without_cost',
+      )
+      .addSelect(
+        `COALESCE(SUM(CASE
+          WHEN pod.id IS NULL OR (pod.unit_total IS NULL AND pod.received_original_unit_total IS NULL)
+          THEN batch.available_quantity ELSE 0 END), 0)`,
+        'quantity_without_cost',
+      )
+      .getRawOne();
+
+    const byProductUom = await this.buildStatsBaseQuery(tenantId, filters)
+      .andWhere('batch.available_quantity > 0')
+      .select('batch.product_id', 'product_id')
+      .addSelect('batch.uom_id', 'uom_id')
+      .addSelect('COALESCE(SUM(batch.available_quantity), 0)', 'qty')
+      .groupBy('batch.product_id')
+      .addGroupBy('batch.uom_id')
+      .getRawMany();
+
+    const productIds = Array.from(new Set(byProductUom.map((row) => row.product_id).filter(Boolean)));
+    const uomIds = Array.from(new Set(byProductUom.map((row) => row.uom_id).filter(Boolean)));
+    const priceMap = await this.buildPriceMap(productIds, uomIds);
+
+    let totalSaleValue = 0;
+    let quantityWithoutPrice = 0;
+    let productsWithoutPrice = 0;
+
+    for (const row of byProductUom) {
+      const qty = this.parseDecimal(row.qty);
+      const suggested = priceMap.get(`${row.product_id}|${row.uom_id}`)?.[0];
+      const unitPrice = suggested ? this.parseDecimal(suggested.price) : 0;
+
+      if (!suggested) {
+        productsWithoutPrice += 1;
+        quantityWithoutPrice += qty;
+      }
+
+      totalSaleValue += qty * unitPrice;
+    }
+
+    const totalBatches = this.parseIntSafe(totals?.total_batches);
+    const batchesWithStock = this.parseIntSafe(totals?.batches_with_stock);
+    const totalAvailable = this.parseDecimal(totals?.total_available_quantity);
+    const totalCost = this.parseDecimal(totals?.total_cost);
+    const grossMargin = totalSaleValue - totalCost;
+
+    return {
+      total_batches: totalBatches,
+      batches_with_stock: batchesWithStock,
+      batches_depleted: Math.max(totalBatches - batchesWithStock, 0),
+      total_products: this.parseIntSafe(totals?.total_products),
+      products_with_stock: this.parseIntSafe(totals?.products_with_stock),
+      total_warehouses: this.parseIntSafe(totals?.total_warehouses),
+      total_available_quantity: this.formatQty(totalAvailable),
+      total_initial_quantity: this.formatQty(this.parseDecimal(totals?.total_initial_quantity)),
+      total_cost: this.formatMoney(totalCost),
+      total_sale_value: this.formatMoney(totalSaleValue),
+      average_unit_cost: this.formatMoney(totalAvailable > 0 ? totalCost / totalAvailable : 0),
+      average_unit_price: this.formatMoney(totalAvailable > 0 ? totalSaleValue / totalAvailable : 0),
+      gross_margin: this.formatMoney(grossMargin),
+      gross_margin_percentage: this.formatMoney(
+        totalSaleValue > 0 ? (grossMargin / totalSaleValue) * 100 : 0,
+      ),
+      batches_without_cost: this.parseIntSafe(totals?.batches_without_cost),
+      quantity_without_cost: this.formatQty(this.parseDecimal(totals?.quantity_without_cost)),
+      products_without_price: productsWithoutPrice,
+      quantity_without_price: this.formatQty(quantityWithoutPrice),
+    };
+  }
+
+  private buildStatsBaseQuery(tenantId: string, filters: InventoryStatsFilterDto) {
+    const query = this.inventoryBatchRepo
+      .createQueryBuilder('batch')
+      .leftJoin('batch.warehouse', 'warehouse')
+      .leftJoin('warehouse.billing_branch', 'billing_branch')
+      .leftJoin('billing_branch.fiscal_configuration', 'fiscal_configuration')
+      .leftJoin('batch.purchase_order_detail', 'pod')
+      .where('batch.tenant_id = :tenantId', { tenantId });
+
+    applyInventoryLocationFilters(query, filters);
+    return query;
+  }
+
+  private parseDecimal(value: unknown): number {
+    const parsed = parseFloat(String(value ?? 0));
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  private parseIntSafe(value: unknown): number {
+    const parsed = parseInt(String(value ?? 0), 10);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  private formatMoney(value: number): string {
+    return (Number.isFinite(value) ? value : 0).toFixed(2);
+  }
+
+  private formatQty(value: number): string {
+    return (Number.isFinite(value) ? value : 0).toFixed(3);
   }
 
   private mapLocationFields(warehouse?: Warehouse | null) {

@@ -15,7 +15,7 @@ CRUD de flota por organización (`tenant_id` del JWT). Mensajes al cliente habla
 
 | Método | Path | Notas |
 |--------|------|-------|
-| `GET` | `/` | `page`, `limit`, `search`, `status` (`active`\|`inactive`) |
+| `GET` | `/` | `page`, `limit`, `search` (name, placa, code, serial_number), `status` (`active`\|`inactive`) |
 | `GET` | `/:id` | 404 genérico si no es de la organización |
 | `POST` | `/` | `name` requerido; `placa` única por organización |
 | `PUT` | `/:id` | Patch parcial (no incluye foto) |
@@ -28,9 +28,12 @@ CRUD de flota por organización (`tenant_id` del JWT). Mensajes al cliente habla
 {
   "name": "Rabón 01",
   "placa": "ABC-123-XY",
+  "serial_number": "3N6CD25T9HK123456",
   "anio": "2022"
 }
 ```
+
+Campos opcionales: `code`, `serial_number` (número de serie / NIV, máx. 50), `anio`.
 
 Campos opcionales SCT / seguro: `permiso_sct`, `numero_permiso_sct`, `tipo_auto_transporte`, `aseguradora_rc`, `poliza_rc`, `subtipo_remolque1`, `placa_remolque1`.
 

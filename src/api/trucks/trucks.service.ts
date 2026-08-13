@@ -46,7 +46,7 @@ export class TrucksService {
 
     if (query?.search) {
       qb.andWhere(
-        '(LOWER(truck.name) LIKE LOWER(:search) OR LOWER(truck.placa) LIKE LOWER(:search) OR LOWER(truck.code) LIKE LOWER(:search))',
+        '(LOWER(truck.name) LIKE LOWER(:search) OR LOWER(truck.placa) LIKE LOWER(:search) OR LOWER(truck.code) LIKE LOWER(:search) OR LOWER(truck.serial_number) LIKE LOWER(:search))',
         { search: `%${query.search}%` },
       );
     }

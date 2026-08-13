@@ -15,6 +15,8 @@ import { CustomerActivity } from './customer-activity.entity';
 import { RBACTenant } from '../rbac/tenant.entity';
 import { Contract } from '../contracts/contract.entity';
 import { Warehouse } from '../warehouse/warehouse.entity';
+import { BillingBranch } from '../billing/billing-branch.entity';
+import { User } from '../users/user.entity';
 
 @Entity('customers')
 export class Customer {
@@ -114,6 +116,22 @@ export class Customer {
 
     @Column({ nullable: true })
     warehouse_id: string;
+
+    /** Sucursal donde se dio de alta. Solo informativo; no restringe compras. */
+    @ManyToOne(() => BillingBranch, { nullable: true, onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'registered_billing_branch_id' })
+    registered_billing_branch: BillingBranch | null;
+
+    @Column({ name: 'registered_billing_branch_id', nullable: true })
+    registered_billing_branch_id: string | null;
+
+    /** Usuario que dio de alta al cliente. Solo informativo. */
+    @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'registered_by_user_id' })
+    registered_by_user: User | null;
+
+    @Column({ name: 'registered_by_user_id', nullable: true })
+    registered_by_user_id: string | null;
 
     @Column({ type: 'int', nullable: true })
     credit_days: number;

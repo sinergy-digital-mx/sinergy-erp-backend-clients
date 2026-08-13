@@ -256,3 +256,4 @@ El archivo incluye columnas Razón social y Sucursal.
 - [ ] Columnas Razón social + Sucursal + Almacén
 - [ ] Excel con los mismos query params
 - [ ] POS sin cambios
+- [ ] Recargar `GET /tenant/inventory/stats` al cambiar los tres filtros (cards arriba: `UI_INVENTORY_STATS.md`)

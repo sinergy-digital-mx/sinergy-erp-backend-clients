@@ -135,6 +135,30 @@ export class UpdateCustomerDto {
     @IsOptional()
     warehouse_id?: string | null;
 
+    @ApiProperty({
+        description: 'Sucursal donde se dio de alta el cliente (solo informativo)',
+        example: 'branch-uuid',
+        required: false,
+        nullable: true,
+    })
+    @Transform(({ value }) => (value === '' ? null : value))
+    @IsOptional()
+    @ValidateIf((_, v) => v !== null)
+    @IsString()
+    registered_billing_branch_id?: string | null;
+
+    @ApiProperty({
+        description: 'Usuario que dio de alta el cliente',
+        example: 'user-uuid',
+        required: false,
+        nullable: true,
+    })
+    @Transform(({ value }) => (value === '' ? null : value))
+    @IsOptional()
+    @ValidateIf((_, v) => v !== null)
+    @IsString()
+    registered_by_user_id?: string | null;
+
     @ApiProperty({ description: 'Credit days allowed for customer', example: 30, required: false })
     @IsNumber()
     @Min(0)

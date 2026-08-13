@@ -45,6 +45,7 @@ describe('InventoryController', () => {
       findByPurchaseOrderId: jest.fn(),
       calculateTotalQuantity: jest.fn(),
       getLocationTree: jest.fn(),
+      getStats: jest.fn(),
     };
 
     service = mockInventoryService as any;
@@ -81,6 +82,53 @@ describe('InventoryController', () => {
 
       expect(result).toEqual(tree);
       expect(service.getLocationTree).toHaveBeenCalledWith(mockTenantId);
+    });
+  });
+
+  describe('GET /tenant/inventory/stats', () => {
+    const mockStats = {
+      total_batches: 10,
+      batches_with_stock: 8,
+      batches_depleted: 2,
+      total_products: 4,
+      products_with_stock: 3,
+      total_warehouses: 2,
+      total_available_quantity: '100.000',
+      total_initial_quantity: '120.000',
+      total_cost: '2000.00',
+      total_sale_value: '5000.00',
+      average_unit_cost: '20.00',
+      average_unit_price: '50.00',
+      gross_margin: '3000.00',
+      gross_margin_percentage: '60.00',
+      batches_without_cost: 0,
+      quantity_without_cost: '0.000',
+      products_without_price: 0,
+      quantity_without_price: '0.000',
+    };
+
+    it('should return inventory stats', async () => {
+      jest.spyOn(service, 'getStats').mockResolvedValue(mockStats as any);
+
+      const req = { user: { tenant_id: mockTenantId } };
+      const result = await controller.getStats({}, req);
+
+      expect(result).toEqual(mockStats);
+      expect(service.getStats).toHaveBeenCalledWith(mockTenantId, {});
+    });
+
+    it('should forward location filters', async () => {
+      jest.spyOn(service, 'getStats').mockResolvedValue(mockStats as any);
+
+      const req = { user: { tenant_id: mockTenantId } };
+      const filters = {
+        fiscal_configuration_id: '550e8400-e29b-41d4-a716-446655440100',
+        billing_branch_id: '550e8400-e29b-41d4-a716-446655440101',
+      };
+
+      await controller.getStats(filters, req);
+
+      expect(service.getStats).toHaveBeenCalledWith(mockTenantId, filters);
     });
   });
 

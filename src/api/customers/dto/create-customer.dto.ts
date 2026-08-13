@@ -138,6 +138,24 @@ export class CreateCustomerDto {
     @IsOptional()
     warehouse_id?: string;
 
+    @ApiProperty({
+        description: 'Sucursal donde se dio de alta el cliente (solo informativo)',
+        example: 'branch-uuid',
+        required: false,
+    })
+    @IsString()
+    @IsOptional()
+    registered_billing_branch_id?: string;
+
+    @ApiProperty({
+        description: 'Usuario que dio de alta el cliente. Si se omite, se usa el usuario de la sesión',
+        example: 'user-uuid',
+        required: false,
+    })
+    @IsString()
+    @IsOptional()
+    registered_by_user_id?: string;
+
     @ApiProperty({ description: 'Credit days allowed for customer', example: 30, required: false })
     @IsNumber()
     @Min(0)

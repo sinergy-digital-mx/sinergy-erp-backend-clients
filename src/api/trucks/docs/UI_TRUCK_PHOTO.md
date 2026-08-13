@@ -27,6 +27,7 @@ Campos actuales del form:
 |----------|-----|
 | Nombre * | `name` |
 | Placa * | `placa` |
+| Número de serie | `serial_number` |
 | Año | `anio` |
 | Acordeón SCT / seguro | `permiso_sct`, `numero_permiso_sct`, `tipo_auto_transporte`, `aseguradora_rc`, `poliza_rc`, `subtipo_remolque1`, `placa_remolque1` |
 

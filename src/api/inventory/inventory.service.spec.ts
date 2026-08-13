@@ -763,4 +763,153 @@ describe('InventoryService', () => {
       ]);
     });
   });
+
+  describe('getStats', () => {
+    const chainableQuery = (overrides: Record<string, any> = {}) => ({
+      leftJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      addGroupBy: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue({}),
+      getRawMany: jest.fn().mockResolvedValue([]),
+      ...overrides,
+    });
+
+    it('should return zeros when there is no inventory', async () => {
+      mockRepository.createQueryBuilder
+        .mockReturnValueOnce(chainableQuery({
+          getRawOne: jest.fn().mockResolvedValue({
+            total_batches: '0',
+            batches_with_stock: '0',
+            total_products: '0',
+            products_with_stock: '0',
+            total_warehouses: '0',
+            total_available_quantity: '0',
+            total_initial_quantity: '0',
+            total_cost: '0',
+            batches_without_cost: '0',
+            quantity_without_cost: '0',
+          }),
+        }))
+        .mockReturnValueOnce(chainableQuery({
+          getRawMany: jest.fn().mockResolvedValue([]),
+        }));
+
+      const result = await service.getStats(mockTenantId, {});
+
+      expect(result.total_batches).toBe(0);
+      expect(result.total_cost).toBe('0.00');
+      expect(result.total_sale_value).toBe('0.00');
+      expect(result.gross_margin).toBe('0.00');
+      expect(result.gross_margin_percentage).toBe('0.00');
+      expect(result.average_unit_price).toBe('0.00');
+    });
+
+    it('should compute cost vs sale value, average price and margins', async () => {
+      mockRepository.createQueryBuilder
+        .mockReturnValueOnce(chainableQuery({
+          getRawOne: jest.fn().mockResolvedValue({
+            total_batches: '10',
+            batches_with_stock: '8',
+            total_products: '2',
+            products_with_stock: '2',
+            total_warehouses: '1',
+            total_available_quantity: '100',
+            total_initial_quantity: '120',
+            total_cost: '2000',
+            batches_without_cost: '0',
+            quantity_without_cost: '0',
+          }),
+        }))
+        .mockReturnValueOnce(chainableQuery({
+          getRawMany: jest.fn().mockResolvedValue([
+            { product_id: 'prod-1', uom_id: 'uom-1', qty: '100' },
+          ]),
+        }));
+
+      mockProductPriceRepository.createQueryBuilder.mockReturnValue({
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([
+          {
+            product_id: 'prod-1',
+            product_uom: { uom_catalog_id: 'uom-1' },
+            price: 50,
+            iva_percentage: 16,
+            ieps_percentage: 0,
+            total: 58,
+            price_list_id: 'pl-1',
+            price_list: { name: 'General' },
+          },
+        ]),
+      });
+
+      const result = await service.getStats(mockTenantId, {});
+
+      expect(result.total_batches).toBe(10);
+      expect(result.batches_with_stock).toBe(8);
+      expect(result.batches_depleted).toBe(2);
+      expect(result.total_cost).toBe('2000.00');
+      expect(result.total_sale_value).toBe('5000.00');
+      expect(result.average_unit_cost).toBe('20.00');
+      expect(result.average_unit_price).toBe('50.00');
+      expect(result.gross_margin).toBe('3000.00');
+      expect(result.gross_margin_percentage).toBe('60.00');
+      expect(result.products_without_price).toBe(0);
+    });
+
+    it('should count products without a price list', async () => {
+      mockRepository.createQueryBuilder
+        .mockReturnValueOnce(chainableQuery({
+          getRawOne: jest.fn().mockResolvedValue({
+            total_batches: '1',
+            batches_with_stock: '1',
+            total_products: '1',
+            products_with_stock: '1',
+            total_warehouses: '1',
+            total_available_quantity: '10',
+            total_initial_quantity: '10',
+            total_cost: '100',
+            batches_without_cost: '0',
+            quantity_without_cost: '0',
+          }),
+        }))
+        .mockReturnValueOnce(chainableQuery({
+          getRawMany: jest.fn().mockResolvedValue([
+            { product_id: 'prod-2', uom_id: 'uom-2', qty: '10' },
+          ]),
+        }));
+
+      mockProductPriceRepository.createQueryBuilder.mockReturnValue({
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([]),
+      });
+
+      const result = await service.getStats(mockTenantId, {});
+
+      expect(result.total_sale_value).toBe('0.00');
+      expect(result.products_without_price).toBe(1);
+      expect(result.quantity_without_price).toBe('10.000');
+      expect(result.gross_margin).toBe('-100.00');
+      expect(result.gross_margin_percentage).toBe('0.00');
+    });
+
+    it('should reject warehouse filter without branch', async () => {
+      await expect(
+        service.getStats(mockTenantId, {
+          warehouse_id: '550e8400-e29b-41d4-a716-446655440010',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
 });

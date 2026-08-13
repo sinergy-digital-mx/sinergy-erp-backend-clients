@@ -12,6 +12,8 @@ import { InventorySummaryFilterDto } from './dto/inventory-summary-filter.dto';
 import { InventorySummaryResponseDto } from './dto/inventory-summary-response.dto';
 import { PosSessionInventorySummaryResponseDto } from './dto/pos-session-inventory-summary-response.dto';
 import { InventoryLocationTreeResponseDto } from './dto/inventory-location-tree-response.dto';
+import { InventoryStatsFilterDto } from './dto/inventory-stats-filter.dto';
+import { InventoryStatsResponseDto } from './dto/inventory-stats-response.dto';
 import { InventoryExportService } from './services/inventory-export.service';
 import {
   QueryInventoryBatchExportDto,
@@ -78,6 +80,24 @@ export class InventoryController {
   @ApiResponse({ status: 200, type: InventoryLocationTreeResponseDto })
   async getLocations(@Req() req: any): Promise<InventoryLocationTreeResponseDto> {
     return this.inventoryService.getLocationTree(req.user.tenant_id);
+  }
+
+  @Get('stats')
+  @RequirePermissions({ entityType: 'inventory', action: 'read' })
+  @ApiOperation({
+    summary: 'KPIs de inventario para cards',
+    description:
+      'Totales de lotes, costo vs precio de venta, precio promedio y márgenes. Mismos filtros de ubicación que el listado.',
+  })
+  @ApiResponse({ status: 200, type: InventoryStatsResponseDto })
+  @ApiQuery({ name: 'fiscal_configuration_id', required: false, type: String })
+  @ApiQuery({ name: 'billing_branch_id', required: false, type: String })
+  @ApiQuery({ name: 'warehouse_id', required: false, type: String })
+  async getStats(
+    @Query() filters: InventoryStatsFilterDto,
+    @Req() req: any,
+  ): Promise<InventoryStatsResponseDto> {
+    return this.inventoryService.getStats(req.user.tenant_id, filters);
   }
 
   @Get('batches')

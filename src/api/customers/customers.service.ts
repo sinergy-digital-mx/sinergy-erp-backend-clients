@@ -6,6 +6,7 @@ import { Repository } from 'typeorm';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { QueryCustomersDto } from './dto/query-customers.dto';
+import { CheckCustomerDuplicatesDto } from './dto/check-customer-duplicates.dto';
 import {
   CreateCustomerAddressDto,
   UpdateCustomerAddressDto,
@@ -14,9 +15,29 @@ import { CustomerStatus } from '../../entities/customers/customer-status.entity'
 import { Customer } from '../../entities/customers/customer.entity';
 import { CustomerAddress } from '../../entities/customers/customer-address.entity';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
+import { BillingBranch } from '../../entities/billing/billing-branch.entity';
+import { User } from '../../entities/users/user.entity';
 import { parsePhoneNumber } from '../../common/utils/phone.validator';
 import { hasValidGps } from '../../common/utils/geo.helper';
 import { CustomerGroupsService } from './customer-groups.service';
+
+const GENERIC_RFCS = new Set(['XAXX010101000', 'XEXX010101000']);
+const DUPLICATE_MATCH_LIMIT = 10;
+
+export type CustomerDuplicateMatchReason = 'email' | 'phone' | 'name' | 'rfc';
+
+export interface CustomerDuplicateMatch {
+    id: number;
+    name: string;
+    lastname: string | null;
+    email: string | null;
+    phone: string | null;
+    phone_code: string | null;
+    fiscal_rfc: string | null;
+    company_name: string | null;
+    status: CustomerStatus | null;
+    match_reasons: CustomerDuplicateMatchReason[];
+}
 
 interface PaginatedCustomersDto {
     data: Customer[];
@@ -34,6 +55,9 @@ export class CustomersService {
         @InjectRepository(Customer) private customerRepo: Repository<Customer>,
         @InjectRepository(CustomerStatus) private statusRepo: Repository<CustomerStatus>,
         @InjectRepository(Warehouse) private warehouseRepo: Repository<Warehouse>,
+        @InjectRepository(BillingBranch)
+        private billingBranchRepo: Repository<BillingBranch>,
+        @InjectRepository(User) private userRepo: Repository<User>,
         @InjectRepository(CustomerAddress)
         private addressRepo: Repository<CustomerAddress>,
         private readonly customerGroupsService: CustomerGroupsService,
@@ -49,7 +73,7 @@ export class CustomersService {
         return this.statusRepo.find({ order: { id: 'ASC' } });
     }
 
-    async create(dto: CreateCustomerDto, tenantId: string) {
+    async create(dto: CreateCustomerDto, tenantId: string, currentUserId?: string) {
         const status = dto.status_id
             ? await this.statusRepo.findOneByOrFail({ id: dto.status_id })
             : await this.resolveDefaultStatus();
@@ -88,6 +112,17 @@ export class CustomersService {
             tenantId,
         );
 
+        const registeredBillingBranchId = await this.resolveRegisteredBranchOrThrow(
+            dto.registered_billing_branch_id,
+            tenantId,
+        );
+        const registeredByUserId = await this.resolveRegisteredByUserOrThrow(
+            dto.registered_by_user_id !== undefined
+                ? dto.registered_by_user_id
+                : currentUserId,
+            tenantId,
+        );
+
         return this.customerRepo.save({
             ...dto,
             group_id: groupId,
@@ -96,6 +131,8 @@ export class CustomersService {
             additional_phone: additionalPhone,
             additional_phone_code: additionalPhoneCode,
             warehouse,
+            registered_billing_branch_id: registeredBillingBranchId ?? null,
+            registered_by_user_id: registeredByUserId ?? null,
             tenant_id: tenantId,
             status,
         });
@@ -147,6 +184,23 @@ export class CustomersService {
             delete dto.group_id;
         }
 
+        if (dto.registered_billing_branch_id !== undefined) {
+            customer.registered_billing_branch_id =
+                await this.resolveRegisteredBranchOrThrow(
+                    dto.registered_billing_branch_id,
+                    tenantId,
+                );
+            delete dto.registered_billing_branch_id;
+        }
+
+        if (dto.registered_by_user_id !== undefined) {
+            customer.registered_by_user_id = await this.resolveRegisteredByUserOrThrow(
+                dto.registered_by_user_id,
+                tenantId,
+            );
+            delete dto.registered_by_user_id;
+        }
+
         Object.assign(customer, dto);
         return this.customerRepo.save(customer);
     }
@@ -169,6 +223,14 @@ export class CustomersService {
                 'group.tenant_id = customer.tenant_id',
             )
             .leftJoinAndSelect('customer.warehouse', 'warehouse')
+            .leftJoinAndSelect('customer.registered_billing_branch', 'registeredBranch')
+            .leftJoin('customer.registered_by_user', 'registeredByUser')
+            .addSelect([
+                'registeredByUser.id',
+                'registeredByUser.first_name',
+                'registeredByUser.last_name',
+                'registeredByUser.email',
+            ])
             .leftJoin('customer.contracts', 'contracts')
             .leftJoin('contracts.property', 'property')
             .addSelect(['contracts.id', 'contracts.status', 'contracts.contract_number', 'property.id', 'property.code', 'property.name', 'property.status'])
@@ -242,6 +304,14 @@ export class CustomersService {
                 'group.tenant_id = customer.tenant_id',
             )
             .leftJoinAndSelect('customer.warehouse', 'warehouse')
+            .leftJoinAndSelect('customer.registered_billing_branch', 'registeredBranch')
+            .leftJoin('customer.registered_by_user', 'registeredByUser')
+            .addSelect([
+                'registeredByUser.id',
+                'registeredByUser.first_name',
+                'registeredByUser.last_name',
+                'registeredByUser.email',
+            ])
             .leftJoinAndSelect('customer.contracts', 'contracts')
             .leftJoinAndSelect('contracts.property', 'property')
             .where('customer.id = :id', { id })
@@ -259,6 +329,14 @@ export class CustomersService {
                 'group.tenant_id = customer.tenant_id',
             )
             .leftJoinAndSelect('customer.warehouse', 'warehouse')
+            .leftJoinAndSelect('customer.registered_billing_branch', 'registeredBranch')
+            .leftJoin('customer.registered_by_user', 'registeredByUser')
+            .addSelect([
+                'registeredByUser.id',
+                'registeredByUser.first_name',
+                'registeredByUser.last_name',
+                'registeredByUser.email',
+            ])
             .leftJoinAndSelect('customer.addresses', 'addresses')
             .where('customer.id = :id', { id })
             .andWhere('customer.tenant_id = :tenantId', { tenantId })
@@ -275,6 +353,14 @@ export class CustomersService {
                 'group.tenant_id = customer.tenant_id',
             )
             .leftJoinAndSelect('customer.warehouse', 'warehouse')
+            .leftJoinAndSelect('customer.registered_billing_branch', 'registeredBranch')
+            .leftJoin('customer.registered_by_user', 'registeredByUser')
+            .addSelect([
+                'registeredByUser.id',
+                'registeredByUser.first_name',
+                'registeredByUser.last_name',
+                'registeredByUser.email',
+            ])
             .leftJoinAndSelect('customer.activities', 'activities')
             .where('customer.id = :id', { id })
             .andWhere('customer.tenant_id = :tenantId', { tenantId })
@@ -364,5 +450,234 @@ export class CustomersService {
         }
 
         return warehouse;
+    }
+
+    async getRegistrationOptions(tenantId: string) {
+        const [branches, users] = await Promise.all([
+            this.billingBranchRepo
+                .createQueryBuilder('branch')
+                .innerJoin('branch.fiscal_configuration', 'fc')
+                .where('fc.tenant_id = :tenantId', { tenantId })
+                .andWhere('branch.status = :status', { status: 1 })
+                .orderBy('branch.code', 'ASC')
+                .getMany(),
+            this.userRepo.find({
+                where: { tenant_id: tenantId },
+                select: ['id', 'first_name', 'last_name', 'email'],
+                order: { first_name: 'ASC', last_name: 'ASC' },
+            }),
+        ]);
+
+        return {
+            branches: branches.map((branch) => ({
+                id: branch.id,
+                name: branch.code,
+            })),
+            users: users.map((user) => ({
+                id: user.id,
+                first_name: user.first_name,
+                last_name: user.last_name,
+                email: user.email,
+            })),
+        };
+    }
+
+    async findDuplicates(
+        dto: CheckCustomerDuplicatesDto,
+        tenantId: string,
+    ): Promise<{ found: boolean; matches: CustomerDuplicateMatch[] }> {
+        const email = this.normalizeEmail(dto.email);
+        const phone = this.normalizePhone(dto.phone, dto.phone_code);
+        const name = this.normalizePersonName(dto.name);
+        const lastname = this.normalizePersonName(dto.lastname);
+        const rfc = this.normalizeRfc(dto.fiscal_rfc);
+
+        const orConditions: string[] = [];
+        const params: Record<string, string> = { tenantId };
+
+        if (email) {
+            orConditions.push('LOWER(TRIM(customer.email)) = :email');
+            params.email = email;
+        }
+
+        if (phone) {
+            orConditions.push(
+                `REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(customer.phone, ''), ' ', ''), '-', ''), '(', ''), ')', '') = :phone`,
+            );
+            params.phone = phone;
+        }
+
+        if (name && lastname) {
+            orConditions.push(
+                'LOWER(TRIM(customer.name)) = :name AND LOWER(TRIM(customer.lastname)) = :lastname',
+            );
+            params.name = name;
+            params.lastname = lastname;
+        }
+
+        if (rfc && !GENERIC_RFCS.has(rfc)) {
+            orConditions.push(
+                `REPLACE(REPLACE(UPPER(TRIM(COALESCE(customer.fiscal_rfc, ''))), '-', ''), ' ', '') = :rfc`,
+            );
+            params.rfc = rfc;
+        }
+
+        if (orConditions.length === 0) {
+            return { found: false, matches: [] };
+        }
+
+        const customers = await this.customerRepo
+            .createQueryBuilder('customer')
+            .leftJoinAndSelect('customer.status', 'status')
+            .where('customer.tenant_id = :tenantId', { tenantId })
+            .andWhere(`(${orConditions.join(' OR ')})`, params)
+            .orderBy('customer.created_at', 'DESC')
+            .take(DUPLICATE_MATCH_LIMIT)
+            .getMany();
+
+        const matches = customers.map((customer) => ({
+            id: customer.id,
+            name: customer.name,
+            lastname: customer.lastname ?? null,
+            email: customer.email ?? null,
+            phone: customer.phone ?? null,
+            phone_code: customer.phone_code ?? null,
+            fiscal_rfc: customer.fiscal_rfc ?? null,
+            company_name: customer.company_name ?? null,
+            status: customer.status ?? null,
+            match_reasons: this.resolveMatchReasons(customer, {
+                email,
+                phone,
+                name,
+                lastname,
+                rfc,
+            }),
+        }));
+
+        return {
+            found: matches.length > 0,
+            matches,
+        };
+    }
+
+    private resolveMatchReasons(
+        customer: Customer,
+        input: {
+            email: string | null;
+            phone: string | null;
+            name: string | null;
+            lastname: string | null;
+            rfc: string | null;
+        },
+    ): CustomerDuplicateMatchReason[] {
+        const reasons: CustomerDuplicateMatchReason[] = [];
+
+        if (input.email && this.normalizeEmail(customer.email) === input.email) {
+            reasons.push('email');
+        }
+
+        if (input.phone && this.normalizePhone(customer.phone) === input.phone) {
+            reasons.push('phone');
+        }
+
+        if (
+            input.name &&
+            input.lastname &&
+            this.normalizePersonName(customer.name) === input.name &&
+            this.normalizePersonName(customer.lastname) === input.lastname
+        ) {
+            reasons.push('name');
+        }
+
+        if (
+            input.rfc &&
+            !GENERIC_RFCS.has(input.rfc) &&
+            this.normalizeRfc(customer.fiscal_rfc) === input.rfc
+        ) {
+            reasons.push('rfc');
+        }
+
+        return reasons;
+    }
+
+    private normalizeEmail(value?: string | null): string | null {
+        const email = value?.trim().toLowerCase();
+        return email || null;
+    }
+
+    private normalizePersonName(value?: string | null): string | null {
+        const name = value?.trim().toLowerCase().replace(/\s+/g, ' ');
+        return name || null;
+    }
+
+    private normalizeRfc(value?: string | null): string | null {
+        const rfc = value?.trim().toUpperCase().replace(/[\s-]/g, '');
+        return rfc || null;
+    }
+
+    private normalizePhone(phone?: string | null, phoneCode?: string | null): string | null {
+        if (!phone?.trim()) {
+            return null;
+        }
+
+        const parsed = parsePhoneNumber(phone, phoneCode ?? undefined);
+        if (parsed.isValid) {
+            return parsed.nationalNumber.replace(/\D/g, '');
+        }
+
+        const digits = phone.replace(/\D/g, '');
+        return digits || null;
+    }
+
+    private async resolveRegisteredBranchOrThrow(
+        branchId: string | null | undefined,
+        tenantId: string,
+    ): Promise<string | null | undefined> {
+        if (branchId === undefined) {
+            return undefined;
+        }
+        if (branchId === null || branchId === '') {
+            return null;
+        }
+
+        const branch = await this.billingBranchRepo
+            .createQueryBuilder('branch')
+            .innerJoin('branch.fiscal_configuration', 'fc')
+            .where('branch.id = :branchId', { branchId })
+            .andWhere('fc.tenant_id = :tenantId', { tenantId })
+            .getOne();
+
+        if (!branch) {
+            throw new BadRequestException(
+                'La sucursal de registro no es válida para esta organización',
+            );
+        }
+
+        return branch.id;
+    }
+
+    private async resolveRegisteredByUserOrThrow(
+        userId: string | null | undefined,
+        tenantId: string,
+    ): Promise<string | null | undefined> {
+        if (userId === undefined) {
+            return undefined;
+        }
+        if (userId === null || userId === '') {
+            return null;
+        }
+
+        const user = await this.userRepo.findOne({
+            where: { id: userId, tenant_id: tenantId },
+            select: ['id'],
+        });
+
+        if (!user) {
+            throw new BadRequestException(
+                'El usuario que registra no es válido para esta organización',
+            );
+        }
+
+        return user.id;
     }
 }

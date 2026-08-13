@@ -17,6 +17,8 @@ import { CustomerActivity } from '../../entities/customers/customer-activity.ent
 import { CustomerDocument } from '../../entities/customers/customer-document.entity';
 import { DocumentType } from '../../entities/customers/document-type.entity';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
+import { BillingBranch } from '../../entities/billing/billing-branch.entity';
+import { User } from '../../entities/users/user.entity';
 import { CustomerAddress } from '../../entities/customers/customer-address.entity';
 import { SalesOrder } from '../../entities/sales-orders/sales-order.entity';
 import { SalesOrderDetail } from '../../entities/sales-orders/sales-order-detail.entity';
@@ -35,6 +37,8 @@ import { CustomerProductInsightsService } from './services/customer-product-insi
             CustomerDocument,
             DocumentType,
             Warehouse,
+            BillingBranch,
+            User,
             CustomerAddress,
             SalesOrder,
             SalesOrderDetail,

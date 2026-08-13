@@ -34,6 +34,10 @@ export class Truck {
   @Column({ type: 'varchar', length: 50, nullable: true })
   placa: string | null;
 
+  /** Número de serie / NIV del camión. */
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  serial_number: string | null;
+
   @Column({ type: 'varchar', length: 10, nullable: true })
   anio: string | null;
 

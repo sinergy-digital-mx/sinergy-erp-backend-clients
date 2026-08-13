@@ -7,3 +7,5 @@ export {
   InventoryLocationBranchDto,
   InventoryLocationWarehouseDto,
 } from './inventory-location-tree-response.dto';
+export { InventoryStatsFilterDto } from './inventory-stats-filter.dto';
+export { InventoryStatsResponseDto } from './inventory-stats-response.dto';
