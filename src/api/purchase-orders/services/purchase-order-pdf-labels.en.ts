@@ -29,6 +29,8 @@ export const PURCHASE_ORDER_PDF_LABELS_EN: PurchaseOrderPdfLabels = {
   noTag: 'No tag',
   noBatchesRegistered: 'No batches registered',
   notesPrefix: 'Notes',
+  notesEmpty: 'No notes',
+  pageLabel: 'Page',
   subtotal: 'Subtotal',
   vat: 'VAT',
   ieps: 'IEPS',

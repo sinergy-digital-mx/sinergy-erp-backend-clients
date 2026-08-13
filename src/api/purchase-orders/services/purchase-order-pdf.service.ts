@@ -5,10 +5,36 @@ import { PurchaseOrderBatch } from '../../../entities/purchase-orders/purchase-o
 import { PurchaseOrderDocumentLanguage } from '../../../entities/purchase-orders/purchase-order-document-language.enum';
 import {
   getPurchaseOrderPdfLabels,
+  PurchaseOrderPdfLabels,
   translateGeneralStatus,
   translatePaymentStatus,
 } from './purchase-order-pdf-labels';
 import * as path from 'path';
+
+const COLORS = {
+  primary: '#1E3A5F',
+  primarySoft: '#E8EEF5',
+  text: '#111827',
+  muted: '#6B7280',
+  label: '#4B5563',
+  light: '#F3F4F6',
+  lightAlt: '#FAFBFC',
+  line: '#E5E7EB',
+  white: '#FFFFFF',
+  success: '#059669',
+  warning: '#D97706',
+  danger: '#DC2626',
+  info: '#2563EB',
+};
+
+type PurchaseDocKind = 'original' | 'reception';
+
+interface PurchaseTotals {
+  subtotal: number;
+  iva: number;
+  ieps: number;
+  total: number;
+}
 
 @Injectable()
 export class PurchaseOrderPdfService {
@@ -23,28 +49,294 @@ export class PurchaseOrderPdfService {
 
   constructor(private readonly s3Service: S3Service) {}
 
-  /**
-   * Generate PDF for a purchase order
-   */
   async generatePdf(
     purchaseOrder: PurchaseOrderBatch,
     language: PurchaseOrderDocumentLanguage = PurchaseOrderDocumentLanguage.ES,
   ): Promise<Buffer> {
+    return this.buildDocument(purchaseOrder, language, 'original');
+  }
+
+  async generateRecepcionPdf(
+    purchaseOrder: PurchaseOrderBatch,
+    language: PurchaseOrderDocumentLanguage = PurchaseOrderDocumentLanguage.ES,
+  ): Promise<Buffer> {
+    return this.buildDocument(purchaseOrder, language, 'reception');
+  }
+
+  async uploadPdfToS3(
+    purchaseOrder: PurchaseOrderBatch,
+    pdfBuffer: Buffer,
+    documentType: string = 'DOCUMENTO_ORIGINAL',
+  ): Promise<{ s3Key: string; signedUrl: string }> {
+    const safeDocumentType = documentType.replace(/\s+/g, '_').toUpperCase();
+    const fileName = `${safeDocumentType}-${purchaseOrder.folio}.pdf`;
+
+    const s3Key = await this.s3Service.uploadEntityFile(
+      purchaseOrder.tenant_id,
+      'purchase_orders',
+      purchaseOrder.id,
+      safeDocumentType,
+      pdfBuffer,
+      fileName,
+      'application/pdf',
+    );
+
+    const signedUrl = await this.s3Service.getSignedUrl(s3Key, 3600);
+    return { s3Key, signedUrl };
+  }
+
+  private async buildDocument(
+    purchaseOrder: PurchaseOrderBatch,
+    language: PurchaseOrderDocumentLanguage,
+    kind: PurchaseDocKind,
+  ): Promise<Buffer> {
     const printer = new PdfPrinter(this.fonts);
     const labels = getPurchaseOrderPdfLabels(language);
-    const lineItems = purchaseOrder.line_items || [];
+    const logoImage = await this.getFiscalLogoImage(purchaseOrder);
+    const subtitle =
+      kind === 'original' ? labels.originalDocumentTitle : labels.receptionDocumentTitle;
+    const totals = this.getTotals(purchaseOrder, kind);
+
+    const docDefinition: any = {
+      pageSize: 'A4',
+      pageMargins: [28, 28, 28, 40],
+      content: [
+        this.buildHeader(purchaseOrder, labels, logoImage, subtitle),
+        this.buildAccentLine(),
+        this.buildMetaCards(purchaseOrder, labels, kind),
+        this.buildPartyCards(purchaseOrder, labels),
+        kind === 'original'
+          ? this.buildRequestedProducts(purchaseOrder, labels)
+          : this.buildReceivedProducts(purchaseOrder, labels),
+        this.buildNotesAndTotals(purchaseOrder, labels, totals),
+      ],
+      footer: (currentPage: number, pageCount: number) => ({
+        columns: [
+          {
+            text: subtitle,
+            fontSize: 7,
+            color: COLORS.muted,
+          },
+          {
+            text: `${labels.pageLabel} ${currentPage} / ${pageCount}`,
+            fontSize: 7,
+            color: COLORS.muted,
+            alignment: 'right',
+          },
+        ],
+        margin: [28, 12, 28, 0],
+      }),
+      defaultStyle: {
+        fontSize: 9,
+        color: COLORS.text,
+      },
+    };
+
+    return this.renderPdf(printer, docDefinition);
+  }
+
+  private buildHeader(
+    purchaseOrder: PurchaseOrderBatch,
+    labels: PurchaseOrderPdfLabels,
+    logoImage: string | null,
+    subtitle: string,
+  ): any {
+    return {
+      columns: [
+        {
+          width: '*',
+          stack: [
+            {
+              text: subtitle.toUpperCase(),
+              fontSize: 8,
+              bold: true,
+              color: COLORS.muted,
+              characterSpacing: 0.4,
+            },
+            {
+              text: labels.purchaseOrderTitle,
+              fontSize: 14,
+              bold: true,
+              color: COLORS.primary,
+              margin: [0, 3, 0, 0],
+            },
+            {
+              text: `${labels.folioPrefix}  ${purchaseOrder.folio}`,
+              fontSize: 10,
+              bold: true,
+              color: COLORS.label,
+              margin: [0, 4, 0, 0],
+            },
+          ],
+          margin: [0, 6, 0, 0],
+        },
+        {
+          width: 160,
+          ...(logoImage
+            ? {
+                image: logoImage,
+                fit: [150, 58],
+                alignment: 'right',
+              }
+            : { text: '' }),
+        },
+      ],
+      margin: [0, 0, 0, 6],
+    };
+  }
+
+  private buildAccentLine(): any {
+    return {
+      canvas: [
+        {
+          type: 'line',
+          x1: 0,
+          y1: 0,
+          x2: 539,
+          y2: 0,
+          lineWidth: 1.5,
+          lineColor: COLORS.primary,
+        },
+      ],
+      margin: [0, 0, 0, 12],
+    };
+  }
+
+  private buildMetaCards(
+    purchaseOrder: PurchaseOrderBatch,
+    labels: PurchaseOrderPdfLabels,
+    kind: PurchaseDocKind,
+  ): any {
     const creatorName = [purchaseOrder.creator?.first_name, purchaseOrder.creator?.last_name]
       .filter(Boolean)
       .join(' ')
       .trim() || 'N/A';
-    const logoImage = await this.getFiscalLogoImage(purchaseOrder);
+    const createdAt = new Date(purchaseOrder.created_at).toLocaleDateString(labels.dateLocale);
+    const expectedAt = new Date(purchaseOrder.expected_delivery_date).toLocaleDateString(
+      labels.dateLocale,
+    );
+    const status = translateGeneralStatus(purchaseOrder.general_status, labels);
+    const payment = translatePaymentStatus(purchaseOrder.payment_status, labels);
 
+    const cards =
+      kind === 'original'
+        ? [
+            this.metaCell(labels.creationDate, createdAt),
+            this.gapCell(),
+            this.metaCell(labels.createdBy, creatorName),
+            this.gapCell(),
+            this.metaCell(labels.expectedDate, expectedAt),
+            this.gapCell(),
+            this.metaCell(labels.status, status, this.statusColor(purchaseOrder.general_status)),
+            this.gapCell(),
+            this.metaCell(labels.payment, payment, this.paymentColor(purchaseOrder.payment_status)),
+          ]
+        : [
+            this.metaCell(labels.creationDate, createdAt),
+            this.gapCell(),
+            this.metaCell(labels.createdBy, creatorName),
+            this.gapCell(),
+            this.metaCell(labels.expectedDate, expectedAt),
+            this.gapCell(),
+            this.metaCell(
+              labels.receptionDate,
+              new Date().toLocaleDateString(labels.dateLocale),
+            ),
+            this.gapCell(),
+            this.metaCell(labels.status, status, this.statusColor(purchaseOrder.general_status)),
+            this.gapCell(),
+            this.metaCell(labels.payment, payment, this.paymentColor(purchaseOrder.payment_status)),
+          ];
+
+    return {
+      stack: [
+        {
+          text: labels.summary.toUpperCase(),
+          fontSize: 8,
+          bold: true,
+          color: COLORS.muted,
+          margin: [0, 0, 0, 6],
+        },
+        {
+          table: {
+            widths:
+              kind === 'original'
+                ? ['*', 6, '*', 6, '*', 6, '*', 6, '*']
+                : ['*', 6, '*', 6, '*', 6, '*', 6, '*', 6, '*'],
+            body: [cards],
+          },
+          layout: this.equalHeightLayout(),
+        },
+      ],
+      margin: [0, 0, 0, 10],
+    };
+  }
+
+  private buildPartyCards(
+    purchaseOrder: PurchaseOrderBatch,
+    labels: PurchaseOrderPdfLabels,
+  ): any {
+    const vendorAddress =
+      [purchaseOrder.vendor?.street, purchaseOrder.vendor?.city, purchaseOrder.vendor?.state]
+        .filter(Boolean)
+        .join(', ') || 'N/A';
+    const warehouseLocation = `${purchaseOrder.warehouse?.city || 'N/A'}, ${purchaseOrder.warehouse?.state || 'N/A'}`;
+
+    return {
+      table: {
+        widths: ['*', 8, '*'],
+        body: [
+          [
+            this.partyCell(labels.vendor, [
+              {
+                text: purchaseOrder.vendor?.name || 'N/A',
+                fontSize: 10,
+                bold: true,
+                color: COLORS.text,
+                margin: [0, 0, 0, 3],
+              },
+              {
+                text: `${labels.rfcPrefix}: ${purchaseOrder.vendor?.rfc || 'N/A'}`,
+                fontSize: 8,
+                color: COLORS.muted,
+                margin: [0, 0, 0, 1],
+              },
+              {
+                text: `${labels.addressPrefix}: ${vendorAddress}`,
+                fontSize: 8,
+                color: COLORS.muted,
+              },
+            ]),
+            this.gapCell(),
+            this.partyCell(labels.destinationWarehouse, [
+              {
+                text: purchaseOrder.warehouse?.name || 'N/A',
+                fontSize: 10,
+                bold: true,
+                color: COLORS.text,
+                margin: [0, 0, 0, 3],
+              },
+              { text: warehouseLocation, fontSize: 8, color: COLORS.muted },
+            ]),
+          ],
+        ],
+      },
+      layout: this.equalHeightLayout(),
+      margin: [0, 0, 0, 14],
+    };
+  }
+
+  private buildRequestedProducts(
+    purchaseOrder: PurchaseOrderBatch,
+    labels: PurchaseOrderPdfLabels,
+  ): any {
+    const lineItems = purchaseOrder.line_items || [];
     const tableBody: any[] = [
       [
-        { text: labels.product, style: 'receptionTh' },
-        { text: labels.requestedQty, style: 'receptionTh' },
-        { text: labels.unitPrice, style: 'receptionTh' },
-        { text: labels.total, style: 'receptionTh' },
+        { text: labels.product, ...this.thCell('left') },
+        { text: labels.requestedQty, ...this.thCell('center') },
+        { text: labels.unitPrice, ...this.thCell('right') },
+        { text: labels.total, ...this.thCell('right') },
       ],
     ];
 
@@ -57,306 +349,41 @@ export class PurchaseOrderPdfService {
       tableBody.push([
         {
           stack: [
-            { text: item.product?.name || 'N/A', fontSize: 9, bold: true, color: '#111827' },
-            { text: `${labels.unitPrefix}: ${requestedUom}`, fontSize: 8, color: '#6b7280' },
+            { text: item.product?.name || 'N/A', fontSize: 9, bold: true, color: COLORS.text },
+            {
+              text: `${labels.unitPrefix}: ${requestedUom}`,
+              fontSize: 7.5,
+              color: COLORS.muted,
+              margin: [0, 1, 0, 0],
+            },
           ],
         },
-        { text: `${quantity} ${requestedUom}`, fontSize: 9, alignment: 'center' },
-        { text: this.formatCurrency(unitPrice), fontSize: 9, alignment: 'right' },
-        { text: this.formatCurrency(total), fontSize: 9, alignment: 'right', bold: true },
+        { text: `${quantity} ${requestedUom}`, fontSize: 9, alignment: 'center', color: COLORS.text },
+        { text: this.formatCurrency(unitPrice), fontSize: 9, alignment: 'right', color: COLORS.text },
+        {
+          text: this.formatCurrency(total),
+          fontSize: 9,
+          alignment: 'right',
+          bold: true,
+          color: COLORS.text,
+        },
       ]);
     }
 
-    const docDefinition: any = {
-      pageSize: 'A4',
-      pageMargins: [28, 30, 28, 24],
-      content: [
-        {
-          columns: [
-            {
-              width: '*',
-              stack: [
-                {
-                  text: labels.originalDocumentTitle,
-                  fontSize: 12,
-                  bold: true,
-                  color: '#111827',
-                },
-                {
-                  text: `${labels.folioPrefix}: ${purchaseOrder.folio}`,
-                  fontSize: 9,
-                  color: '#4b5563',
-                  margin: [0, 2, 0, 0],
-                },
-              ],
-            },
-            {
-              width: 170,
-              ...(logoImage
-                ? {
-                    image: logoImage,
-                    fit: [130, 58],
-                    alignment: 'center',
-                  }
-                : { text: '' }),
-            },
-            {
-              width: '*',
-              text: labels.purchaseOrderTitle,
-              fontSize: 10,
-              bold: true,
-              alignment: 'right',
-              color: '#6b7280',
-            },
-          ],
-          margin: [0, 0, 0, 8],
-        },
-        {
-          canvas: [
-            {
-              type: 'line',
-              x1: 0,
-              y1: 0,
-              x2: 539,
-              y2: 0,
-              lineWidth: 1,
-              lineColor: '#d1d5db',
-            },
-          ],
-          margin: [0, 0, 0, 12],
-        },
-        {
-          text: labels.summary,
-          style: 'sectionHeading',
-          margin: [0, 0, 0, 4],
-        },
-        {
-          table: {
-            widths: [95, 132, 95, '*'],
-            body: [
-              [
-                { text: labels.creationDate, style: 'summaryLabel' },
-                { text: new Date(purchaseOrder.created_at).toLocaleDateString(labels.dateLocale), style: 'summaryValue' },
-                { text: labels.createdBy, style: 'summaryLabel' },
-                { text: creatorName, style: 'summaryValue' },
-              ],
-              [
-                { text: labels.expectedDate, style: 'summaryLabel' },
-                { text: new Date(purchaseOrder.expected_delivery_date).toLocaleDateString(labels.dateLocale), style: 'summaryValue' },
-                { text: labels.status, style: 'summaryLabel' },
-                { text: translateGeneralStatus(purchaseOrder.general_status, labels), style: 'summaryValue' },
-              ],
-              [
-                { text: labels.payment, style: 'summaryLabel' },
-                { text: translatePaymentStatus(purchaseOrder.payment_status, labels), style: 'summaryValue' },
-                { text: '', style: 'summaryLabel' },
-                { text: '', style: 'summaryValue' },
-              ],
-            ],
-          },
-          layout: {
-            hLineColor: () => '#d1d5db',
-            vLineColor: () => '#d1d5db',
-            hLineWidth: () => 0.5,
-            vLineWidth: () => 0.5,
-            fillColor: (rowIndex: number, _node: any, columnIndex: number) =>
-              columnIndex % 2 === 0 ? '#f8fafc' : rowIndex % 2 === 0 ? '#ffffff' : '#fafafa',
-            paddingTop: () => 5,
-            paddingBottom: () => 5,
-            paddingLeft: () => 6,
-            paddingRight: () => 6,
-          },
-          margin: [0, 0, 0, 10],
-        },
-        {
-          table: {
-            widths: ['*', '*'],
-            body: [
-              [
-                {
-                  stack: [
-                    { text: labels.vendor, style: 'sectionTitle' },
-                    { text: purchaseOrder.vendor?.name || 'N/A', style: 'sectionValue' },
-                    { text: `${labels.rfcPrefix}: ${purchaseOrder.vendor?.rfc || 'N/A'}`, style: 'sectionMeta' },
-                    {
-                      text: `${labels.addressPrefix}: ${
-                        [purchaseOrder.vendor?.street, purchaseOrder.vendor?.city, purchaseOrder.vendor?.state]
-                          .filter(Boolean)
-                          .join(', ') || 'N/A'
-                      }`,
-                      style: 'sectionMeta',
-                    },
-                  ],
-                },
-                {
-                  stack: [
-                    { text: labels.destinationWarehouse, style: 'sectionTitle' },
-                    { text: purchaseOrder.warehouse?.name || 'N/A', style: 'sectionValue' },
-                    {
-                      text: `${purchaseOrder.warehouse?.city || 'N/A'}, ${purchaseOrder.warehouse?.state || 'N/A'}`,
-                      style: 'sectionMeta',
-                    },
-                  ],
-                },
-              ],
-            ],
-          },
-          layout: {
-            hLineColor: () => '#d1d5db',
-            vLineColor: () => '#d1d5db',
-            hLineWidth: () => 0.5,
-            vLineWidth: () => 0.5,
-            paddingTop: () => 8,
-            paddingBottom: () => 8,
-            paddingLeft: () => 8,
-            paddingRight: () => 8,
-            fillColor: () => '#fcfcfd',
-          },
-          margin: [0, 2, 0, 14],
-        },
-        {
-          text: labels.requestedProductsDetail,
-          style: 'sectionHeading',
-        },
-        {
-          table: {
-            headerRows: 1,
-            widths: ['*', 100, 90, 90],
-            body: tableBody,
-          },
-          layout: {
-            fillColor: (rowIndex: number) => {
-              if (rowIndex === 0) return '#e8eef8';
-              return rowIndex % 2 === 0 ? '#f9fafb' : '#ffffff';
-            },
-            hLineWidth: () => 0.5,
-            vLineWidth: () => 0.5,
-            hLineColor: () => '#d1d5db',
-            vLineColor: () => '#d1d5db',
-            paddingTop: () => 6,
-            paddingBottom: () => 6,
-            paddingLeft: () => 6,
-            paddingRight: () => 6,
-          },
-          margin: [0, 0, 0, 12],
-        },
-        {
-          columns: [
-            {
-              width: '*',
-              text: purchaseOrder.notes ? `${labels.notesPrefix}: ${purchaseOrder.notes}` : '',
-              style: 'sectionMeta',
-              margin: [0, 18, 0, 0],
-            },
-            {
-              width: 200,
-              margin: [0, 0, 0, 0],
-              text: [
-                { text: `${labels.subtotal}: `, bold: true, fontSize: 9 },
-                { text: `${this.formatCurrency(Number(purchaseOrder.requested_subtotal) || 0)}\n`, fontSize: 9 },
-                { text: `${labels.vat}: `, bold: true, fontSize: 9 },
-                { text: `${this.formatCurrency(Number(purchaseOrder.requested_iva_total) || 0)}\n`, fontSize: 9 },
-                { text: `${labels.ieps}: `, bold: true, fontSize: 9 },
-                { text: `${this.formatCurrency(Number(purchaseOrder.requested_ieps_total) || 0)}\n`, fontSize: 9 },
-                { text: `${labels.totalLabel}: `, bold: true, fontSize: 10, color: '#0f172a' },
-                {
-                  text: `${this.formatCurrency(Number(purchaseOrder.requested_total) || 0)}`,
-                  fontSize: 10,
-                  bold: true,
-                  color: '#0f172a',
-                },
-              ],
-              alignment: 'right',
-              fontSize: 9,
-            },
-          ],
-          margin: [0, 0, 0, 8],
-        },
-      ],
-      styles: {
-        receptionTh: {
-          fontSize: 8,
-          bold: true,
-          color: '#1f2937',
-          alignment: 'center',
-        },
-        sectionHeading: {
-          fontSize: 10,
-          bold: true,
-          color: '#1f2937',
-          margin: [0, 0, 0, 6],
-        },
-        sectionTitle: {
-          fontSize: 9,
-          bold: true,
-          color: '#374151',
-          margin: [0, 0, 0, 2],
-        },
-        sectionValue: {
-          fontSize: 10,
-          color: '#111827',
-          margin: [0, 2, 0, 1],
-        },
-        sectionMeta: {
-          fontSize: 8,
-          color: '#6b7280',
-        },
-        summaryLabel: {
-          fontSize: 8,
-          color: '#4b5563',
-          bold: true,
-        },
-        summaryValue: {
-          fontSize: 8,
-          color: '#111827',
-        },
-      },
-      defaultStyle: {
-        fontSize: 9,
-        color: '#111827',
-      },
-    };
-
-    return new Promise((resolve, reject) => {
-      try {
-        const pdfDoc = printer.createPdfKitDocument(docDefinition);
-        const chunks: Buffer[] = [];
-
-        pdfDoc.on('data', (chunk: Buffer) => chunks.push(chunk));
-        pdfDoc.on('end', () => resolve(Buffer.concat(chunks)));
-        pdfDoc.on('error', reject);
-
-        pdfDoc.end();
-      } catch (error) {
-        reject(error);
-      }
-    });
+    return this.productsTable(labels.requestedProductsDetail, ['*', 100, 90, 90], tableBody);
   }
 
-  /**
-   * Generate Reception PDF for a received purchase order
-   */
-  async generateRecepcionPdf(
+  private buildReceivedProducts(
     purchaseOrder: PurchaseOrderBatch,
-    language: PurchaseOrderDocumentLanguage = PurchaseOrderDocumentLanguage.ES,
-  ): Promise<Buffer> {
-    const printer = new PdfPrinter(this.fonts);
-    const labels = getPurchaseOrderPdfLabels(language);
+    labels: PurchaseOrderPdfLabels,
+  ): any {
     const lineItems = purchaseOrder.line_items || [];
     const batches = purchaseOrder.batches || [];
     const batchesByLineItem = new Map<string, any[]>();
-    const creatorName = [purchaseOrder.creator?.first_name, purchaseOrder.creator?.last_name]
-      .filter(Boolean)
-      .join(' ')
-      .trim() || 'N/A';
-    const logoImage = await this.getFiscalLogoImage(purchaseOrder);
 
     for (const batch of batches) {
       const lineItemId = batch.purchase_order_detail_id;
-      if (!lineItemId) {
-        continue;
-      }
-
+      if (!lineItemId) continue;
       if (!batchesByLineItem.has(lineItemId)) {
         batchesByLineItem.set(lineItemId, []);
       }
@@ -365,11 +392,11 @@ export class PurchaseOrderPdfService {
 
     const tableBody: any[] = [
       [
-        { text: labels.product, style: 'receptionTh' },
-        { text: labels.receivedBatches, style: 'receptionTh' },
-        { text: labels.receivedQty, style: 'receptionTh' },
-        { text: labels.unitPrice, style: 'receptionTh' },
-        { text: labels.total, style: 'receptionTh' },
+        { text: labels.product, ...this.thCell('left') },
+        { text: labels.receivedBatches, ...this.thCell('left') },
+        { text: labels.receivedQty, ...this.thCell('center') },
+        { text: labels.unitPrice, ...this.thCell('right') },
+        { text: labels.total, ...this.thCell('right') },
       ],
     ];
 
@@ -394,267 +421,287 @@ export class PurchaseOrderPdfService {
       tableBody.push([
         {
           stack: [
-            { text: item.product?.name || 'N/A', fontSize: 9, bold: true, color: '#111827' },
-            { text: `${labels.modePrefix}: ${lotModeLabel}`, fontSize: 8, color: '#6b7280' },
+            { text: item.product?.name || 'N/A', fontSize: 9, bold: true, color: COLORS.text },
+            {
+              text: `${labels.modePrefix}: ${lotModeLabel}`,
+              fontSize: 7.5,
+              color: COLORS.muted,
+              margin: [0, 1, 0, 0],
+            },
           ],
         },
-        { text: lotText, fontSize: 8, color: '#1f2937' },
-        { text: `${quantity} ${receivedUom}`, fontSize: 9, alignment: 'center' },
-        { text: this.formatCurrency(unitPrice), fontSize: 9, alignment: 'right' },
-        { text: this.formatCurrency(total), fontSize: 9, alignment: 'right', bold: true },
+        { text: lotText, fontSize: 8, color: COLORS.text },
+        { text: `${quantity} ${receivedUom}`, fontSize: 9, alignment: 'center', color: COLORS.text },
+        { text: this.formatCurrency(unitPrice), fontSize: 9, alignment: 'right', color: COLORS.text },
+        {
+          text: this.formatCurrency(total),
+          fontSize: 9,
+          alignment: 'right',
+          bold: true,
+          color: COLORS.text,
+        },
       ]);
     }
 
-    const docDefinition: any = {
-      pageSize: 'A4',
-      pageMargins: [28, 30, 28, 24],
-      content: [
+    return this.productsTable(
+      labels.receivedProductsDetail,
+      ['*', 150, 78, 80, 78],
+      tableBody,
+    );
+  }
+
+  private productsTable(title: string, widths: any[], body: any[]): any {
+    return {
+      stack: [
         {
-          columns: [
-            {
-              width: '*',
-              stack: [
-                {
-                  text: labels.receptionDocumentTitle,
-                  fontSize: 12,
-                  bold: true,
-                  color: '#111827',
-                },
-                {
-                  text: `${labels.folioPrefix}: ${purchaseOrder.folio}`,
-                  fontSize: 9,
-                  color: '#4b5563',
-                  margin: [0, 2, 0, 0],
-                },
-              ],
-            },
-            {
-              width: 170,
-              ...(logoImage
-                ? {
-                    image: logoImage,
-                    fit: [130, 58],
-                    alignment: 'center',
-                  }
-                : { text: '' }),
-            },
-            {
-              width: '*',
-              text: labels.purchaseOrderTitle,
-              fontSize: 10,
-              bold: true,
-              alignment: 'right',
-              color: '#6b7280',
-            },
-          ],
-          margin: [0, 0, 0, 8],
-        },
-        {
-          canvas: [
-            {
-              type: 'line',
-              x1: 0,
-              y1: 0,
-              x2: 539,
-              y2: 0,
-              lineWidth: 1,
-              lineColor: '#d1d5db',
-            },
-          ],
-          margin: [0, 0, 0, 12],
-        },
-        {
-          text: labels.summary,
-          style: 'sectionHeading',
-          margin: [0, 0, 0, 4],
-        },
-        {
-          table: {
-            widths: [95, 132, 95, '*'],
-            body: [
-              [
-                { text: labels.creationDate, style: 'summaryLabel' },
-                { text: new Date(purchaseOrder.created_at).toLocaleDateString(labels.dateLocale), style: 'summaryValue' },
-                { text: labels.createdBy, style: 'summaryLabel' },
-                { text: creatorName, style: 'summaryValue' },
-              ],
-              [
-                { text: labels.expectedDate, style: 'summaryLabel' },
-                { text: new Date(purchaseOrder.expected_delivery_date).toLocaleDateString(labels.dateLocale), style: 'summaryValue' },
-                { text: labels.receptionDate, style: 'summaryLabel' },
-                { text: new Date().toLocaleDateString(labels.dateLocale), style: 'summaryValue' },
-              ],
-              [
-                { text: labels.status, style: 'summaryLabel' },
-                { text: translateGeneralStatus(purchaseOrder.general_status, labels), style: 'summaryValue' },
-                { text: labels.payment, style: 'summaryLabel' },
-                { text: translatePaymentStatus(purchaseOrder.payment_status, labels), style: 'summaryValue' },
-              ],
-            ],
-          },
-          layout: {
-            hLineColor: () => '#d1d5db',
-            vLineColor: () => '#d1d5db',
-            hLineWidth: () => 0.5,
-            vLineWidth: () => 0.5,
-            fillColor: (rowIndex: number, _node: any, columnIndex: number) =>
-              columnIndex % 2 === 0 ? '#f8fafc' : rowIndex % 2 === 0 ? '#ffffff' : '#fafafa',
-            paddingTop: () => 5,
-            paddingBottom: () => 5,
-            paddingLeft: () => 6,
-            paddingRight: () => 6,
-          },
-          margin: [0, 0, 0, 10],
-        },
-        {
-          table: {
-            widths: ['*', '*'],
-            body: [
-              [
-                {
-                  stack: [
-                    { text: labels.vendor, style: 'sectionTitle' },
-                    { text: purchaseOrder.vendor?.name || 'N/A', style: 'sectionValue' },
-                    { text: `${labels.rfcPrefix}: ${purchaseOrder.vendor?.rfc || 'N/A'}`, style: 'sectionMeta' },
-                    {
-                      text: `${labels.addressPrefix}: ${
-                        [purchaseOrder.vendor?.street, purchaseOrder.vendor?.city, purchaseOrder.vendor?.state]
-                          .filter(Boolean)
-                          .join(', ') || 'N/A'
-                      }`,
-                      style: 'sectionMeta',
-                    },
-                  ],
-                },
-                {
-                  stack: [
-                    { text: labels.destinationWarehouse, style: 'sectionTitle' },
-                    { text: purchaseOrder.warehouse?.name || 'N/A', style: 'sectionValue' },
-                    {
-                      text: `${purchaseOrder.warehouse?.city || 'N/A'}, ${purchaseOrder.warehouse?.state || 'N/A'}`,
-                      style: 'sectionMeta',
-                    },
-                  ],
-                },
-              ],
-            ],
-          },
-          layout: {
-            hLineColor: () => '#d1d5db',
-            vLineColor: () => '#d1d5db',
-            hLineWidth: () => 0.5,
-            vLineWidth: () => 0.5,
-            paddingTop: () => 8,
-            paddingBottom: () => 8,
-            paddingLeft: () => 8,
-            paddingRight: () => 8,
-            fillColor: () => '#fcfcfd',
-          },
-          margin: [0, 2, 0, 14],
-        },
-        {
-          text: labels.receivedProductsDetail,
-          style: 'sectionHeading',
+          text: title.toUpperCase(),
+          fontSize: 8,
+          bold: true,
+          color: COLORS.muted,
+          margin: [0, 0, 0, 6],
         },
         {
           table: {
             headerRows: 1,
-            widths: ['*', 160, 72, 80, 80],
-            body: tableBody,
+            widths,
+            body,
           },
           layout: {
             fillColor: (rowIndex: number) => {
-              if (rowIndex === 0) return '#e8eef8';
-              return rowIndex % 2 === 0 ? '#f9fafb' : '#ffffff';
+              if (rowIndex === 0) return COLORS.primarySoft;
+              return rowIndex % 2 === 0 ? COLORS.lightAlt : COLORS.white;
             },
-            hLineWidth: () => 0.5,
-            vLineWidth: () => 0.5,
-            hLineColor: () => '#d1d5db',
-            vLineColor: () => '#d1d5db',
+            hLineWidth: () => 0.4,
+            vLineWidth: () => 0,
+            hLineColor: () => COLORS.line,
             paddingTop: () => 6,
             paddingBottom: () => 6,
-            paddingLeft: () => 6,
-            paddingRight: () => 6,
+            paddingLeft: () => 8,
+            paddingRight: () => 8,
           },
-          margin: [0, 0, 0, 12],
-        },
-        {
-          columns: [
-            {
-              width: '*',
-              text: purchaseOrder.notes ? `${labels.notesPrefix}: ${purchaseOrder.notes}` : '',
-              style: 'sectionMeta',
-              margin: [0, 18, 0, 0],
-            },
-            {
-              width: 200,
-              margin: [0, 0, 0, 0],
-              text: [
-                { text: `${labels.subtotal}: `, bold: true, fontSize: 9 },
-                { text: `${this.formatCurrency(Number(purchaseOrder.received_subtotal) || 0)}\n`, fontSize: 9 },
-                { text: `${labels.vat}: `, bold: true, fontSize: 9 },
-                { text: `${this.formatCurrency(Number(purchaseOrder.received_iva_total) || 0)}\n`, fontSize: 9 },
-                { text: `${labels.ieps}: `, bold: true, fontSize: 9 },
-                { text: `${this.formatCurrency(Number(purchaseOrder.received_ieps_total) || 0)}\n`, fontSize: 9 },
-                { text: `${labels.totalLabel}: `, bold: true, fontSize: 10, color: '#0f172a' },
-                {
-                  text: `${this.formatCurrency(Number(purchaseOrder.received_total) || 0)}`,
-                  fontSize: 10,
-                  bold: true,
-                  color: '#0f172a',
-                },
-              ],
-              alignment: 'right',
-              fontSize: 9,
-            },
-          ],
-          margin: [0, 0, 0, 8],
         },
       ],
-      styles: {
-        receptionTh: {
-          fontSize: 8,
-          bold: true,
-          color: '#1f2937',
-          alignment: 'center',
-        },
-        sectionHeading: {
-          fontSize: 10,
-          bold: true,
-          color: '#1f2937',
-          margin: [0, 0, 0, 6],
-        },
-        sectionTitle: {
-          fontSize: 9,
-          bold: true,
-          color: '#374151',
-          margin: [0, 0, 0, 2],
-        },
-        sectionValue: {
-          fontSize: 10,
-          color: '#111827',
-          margin: [0, 2, 0, 1],
-        },
-        sectionMeta: {
-          fontSize: 8,
-          color: '#6b7280',
-        },
-        summaryLabel: {
-          fontSize: 8,
-          color: '#4b5563',
-          bold: true,
-        },
-        summaryValue: {
-          fontSize: 8,
-          color: '#111827',
-        },
+      margin: [0, 0, 0, 12],
+    };
+  }
+
+  private buildNotesAndTotals(
+    purchaseOrder: PurchaseOrderBatch,
+    labels: PurchaseOrderPdfLabels,
+    totals: PurchaseTotals,
+  ): any {
+    const notesText = purchaseOrder.notes?.trim();
+
+    return {
+      table: {
+        widths: ['*', 228],
+        body: [
+          [
+            {
+              stack: [
+                {
+                  text: labels.notesPrefix.toUpperCase(),
+                  fontSize: 8,
+                  bold: true,
+                  color: COLORS.muted,
+                  margin: [0, 0, 0, 6],
+                },
+                {
+                  text: notesText || labels.notesEmpty,
+                  fontSize: 9,
+                  color: notesText ? COLORS.text : COLORS.muted,
+                  italics: !notesText,
+                },
+              ],
+              fillColor: COLORS.light,
+              border: [false, false, false, false],
+              margin: [14, 14, 16, 14],
+            },
+            {
+              stack: [this.buildTotalsTable(labels, totals)],
+              fillColor: COLORS.light,
+              border: [false, false, false, false],
+              margin: [10, 12, 12, 12],
+            },
+          ],
+        ],
       },
-      defaultStyle: {
-        fontSize: 9,
-        color: '#111827',
+      layout: { hLineWidth: () => 0, vLineWidth: () => 0 },
+      margin: [0, 0, 0, 0],
+    };
+  }
+
+  private buildTotalsTable(labels: PurchaseOrderPdfLabels, totals: PurchaseTotals): any {
+    return {
+      table: {
+        widths: ['*', 82],
+        body: [
+          this.totalRow(labels.subtotal, totals.subtotal),
+          this.totalRow(labels.vat, totals.iva),
+          this.totalRow(labels.ieps, totals.ieps),
+          this.totalRow(labels.totalLabel, totals.total, true),
+        ],
+      },
+      layout: {
+        hLineWidth: (i: number, node: any) => (i === node.table.body.length - 1 ? 0 : 0),
+        vLineWidth: () => 0,
+        paddingTop: (i: number, node: any) => (i === node.table.body.length - 1 ? 7 : 4),
+        paddingBottom: (i: number, node: any) => (i === node.table.body.length - 1 ? 7 : 4),
+        paddingLeft: () => 8,
+        paddingRight: () => 8,
       },
     };
+  }
 
+  private totalRow(label: string, amount: number, strong = false): any[] {
+    if (strong) {
+      return [
+        {
+          text: label,
+          fontSize: 10,
+          bold: true,
+          color: COLORS.primary,
+          fillColor: COLORS.primarySoft,
+        },
+        {
+          text: this.formatCurrency(amount),
+          fontSize: 10,
+          bold: true,
+          color: COLORS.primary,
+          fillColor: COLORS.primarySoft,
+          alignment: 'right',
+        },
+      ];
+    }
+
+    return [
+      { text: label, fontSize: 8.5, color: COLORS.muted },
+      {
+        text: this.formatCurrency(amount),
+        fontSize: 8.5,
+        color: COLORS.text,
+        alignment: 'right',
+        bold: true,
+      },
+    ];
+  }
+
+  private metaCell(label: string, value: string, valueColor: string = COLORS.text): any {
+    return {
+      stack: [
+        {
+          text: label.toUpperCase(),
+          fontSize: 6.5,
+          bold: true,
+          color: COLORS.muted,
+          margin: [0, 0, 0, 4],
+        },
+        { text: value, fontSize: 8, bold: true, color: valueColor },
+      ],
+      fillColor: COLORS.light,
+      margin: [8, 8, 8, 8],
+    };
+  }
+
+  private partyCell(title: string, content: any[]): any {
+    return {
+      stack: [
+        {
+          text: title.toUpperCase(),
+          fontSize: 7,
+          bold: true,
+          color: COLORS.muted,
+          margin: [0, 0, 0, 6],
+        },
+        ...content,
+      ],
+      fillColor: COLORS.light,
+      margin: [10, 10, 10, 10],
+    };
+  }
+
+  private gapCell(): any {
+    return { text: '', fillColor: COLORS.white };
+  }
+
+  private equalHeightLayout() {
+    return {
+      hLineWidth: () => 0,
+      vLineWidth: () => 0,
+      paddingLeft: () => 0,
+      paddingRight: () => 0,
+      paddingTop: () => 0,
+      paddingBottom: () => 0,
+    };
+  }
+
+  private thCell(alignment: 'left' | 'center' | 'right'): Record<string, unknown> {
+    return {
+      fontSize: 7.5,
+      bold: true,
+      color: COLORS.primary,
+      alignment,
+    };
+  }
+
+  private getTotals(purchaseOrder: PurchaseOrderBatch, kind: PurchaseDocKind): PurchaseTotals {
+    if (kind === 'reception') {
+      return {
+        subtotal: Number(purchaseOrder.received_subtotal) || 0,
+        iva: Number(purchaseOrder.received_iva_total) || 0,
+        ieps: Number(purchaseOrder.received_ieps_total) || 0,
+        total: Number(purchaseOrder.received_total) || 0,
+      };
+    }
+
+    return {
+      subtotal: Number(purchaseOrder.requested_subtotal) || 0,
+      iva: Number(purchaseOrder.requested_iva_total) || 0,
+      ieps: Number(purchaseOrder.requested_ieps_total) || 0,
+      total: Number(purchaseOrder.requested_total) || 0,
+    };
+  }
+
+  private statusColor(status: string | null | undefined): string {
+    switch (status) {
+      case 'Recibida':
+        return COLORS.success;
+      case 'Cancelada':
+        return COLORS.danger;
+      default:
+        return COLORS.info;
+    }
+  }
+
+  private paymentColor(status: string | null | undefined): string {
+    return status === 'Pagado' ? COLORS.success : COLORS.warning;
+  }
+
+  private formatCurrency(amount: number): string {
+    return (
+      '$' +
+      amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    );
+  }
+
+  private async getFiscalLogoImage(purchaseOrder: PurchaseOrderBatch): Promise<string | null> {
+    const logoKey = purchaseOrder.fiscal_configuration?.logo;
+    if (!logoKey) return null;
+
+    try {
+      const signedUrl = await this.s3Service.getSignedUrl(logoKey, 900);
+      const response = await fetch(signedUrl);
+      if (!response.ok) return null;
+
+      const contentType = response.headers.get('content-type') || 'image/png';
+      const buffer = Buffer.from(await response.arrayBuffer());
+      return `data:${contentType};base64,${buffer.toString('base64')}`;
+    } catch {
+      return null;
+    }
+  }
+
+  private renderPdf(printer: PdfPrinter, docDefinition: any): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       try {
         const pdfDoc = printer.createPdfKitDocument(docDefinition);
@@ -663,65 +710,10 @@ export class PurchaseOrderPdfService {
         pdfDoc.on('data', (chunk: Buffer) => chunks.push(chunk));
         pdfDoc.on('end', () => resolve(Buffer.concat(chunks)));
         pdfDoc.on('error', reject);
-
         pdfDoc.end();
       } catch (error) {
         reject(error);
       }
     });
-  }
-
-  /**
-   * Upload purchase order PDF to S3
-   */
-  async uploadPdfToS3(
-    purchaseOrder: PurchaseOrderBatch,
-    pdfBuffer: Buffer,
-    documentType: string = 'DOCUMENTO_ORIGINAL',
-  ): Promise<{ s3Key: string; signedUrl: string }> {
-    const safeDocumentType = documentType.replace(/\s+/g, '_').toUpperCase();
-    const fileName = `${safeDocumentType}-${purchaseOrder.folio}.pdf`;
-
-    const s3Key = await this.s3Service.uploadEntityFile(
-      purchaseOrder.tenant_id,
-      'purchase_orders',
-      purchaseOrder.id,
-      safeDocumentType,
-      pdfBuffer,
-      fileName,
-      'application/pdf',
-    );
-
-    const signedUrl = await this.s3Service.getSignedUrl(s3Key, 3600); // 1 hour
-
-    return { s3Key, signedUrl };
-  }
-
-  /**
-   * Format currency
-   */
-  private formatCurrency(amount: number): string {
-    return '$' + amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
-
-  private async getFiscalLogoImage(purchaseOrder: PurchaseOrderBatch): Promise<string | null> {
-    const logoKey = purchaseOrder.fiscal_configuration?.logo;
-    if (!logoKey) {
-      return null;
-    }
-
-    try {
-      const signedUrl = await this.s3Service.getSignedUrl(logoKey, 900);
-      const response = await fetch(signedUrl);
-      if (!response.ok) {
-        return null;
-      }
-
-      const contentType = response.headers.get('content-type') || 'image/png';
-      const buffer = Buffer.from(await response.arrayBuffer());
-      return `data:${contentType};base64,${buffer.toString('base64')}`;
-    } catch (_error) {
-      return null;
-    }
   }
 }

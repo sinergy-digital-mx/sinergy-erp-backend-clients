@@ -46,9 +46,15 @@ export class QuerySalesOrderDto {
   @IsEnum(['POS', 'MANUAL'])
   sales_order_type?: 'POS' | 'MANUAL';
 
+  /** Razón social (config fiscal). Omitir o null = todas. */
   @IsOptional()
   @IsUUID()
-  warehouse_id?: string;
+  fiscal_configuration_id?: string;
+
+  /** Sucursal. Omitir o null = todas las sucursales. */
+  @IsOptional()
+  @IsUUID()
+  billing_branch_id?: string;
 
   @IsOptional()
   @IsNumber()

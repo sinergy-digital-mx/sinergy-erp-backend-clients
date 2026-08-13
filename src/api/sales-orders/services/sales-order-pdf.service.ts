@@ -44,15 +44,33 @@ export class SalesOrderPdfService {
     salesOrder: SalesOrder,
     language: DocumentLanguage = DocumentLanguage.ES,
   ): Promise<Buffer> {
+    return this.buildDocument(salesOrder, language, 'original');
+  }
+
+  async generateReceiptPdf(
+    salesOrder: SalesOrder,
+    language: DocumentLanguage = DocumentLanguage.ES,
+  ): Promise<Buffer> {
+    return this.buildDocument(salesOrder, language, 'receipt');
+  }
+
+  private async buildDocument(
+    salesOrder: SalesOrder,
+    language: DocumentLanguage,
+    kind: 'original' | 'receipt',
+  ): Promise<Buffer> {
     const printer = new PdfPrinter(this.fonts);
     const labels = getSalesOrderPdfLabels(language);
     const logoImage = await this.getFiscalLogoImage(salesOrder);
+    const subtitle =
+      kind === 'original' ? labels.originalDocumentTitle : labels.receiptDocumentTitle;
+    const title = kind === 'original' ? labels.salesOrderTitle : labels.receiptTitle;
 
     const docDefinition: any = {
       pageSize: 'A4',
       pageMargins: [28, 28, 28, 40],
       content: [
-        this.buildHeader(salesOrder, labels, logoImage),
+        this.buildHeader(salesOrder, labels, logoImage, subtitle, title),
         this.buildAccentLine(),
         this.buildMetaCards(salesOrder, labels),
         this.buildPartyCards(salesOrder, labels),
@@ -62,7 +80,7 @@ export class SalesOrderPdfService {
       footer: (currentPage: number, pageCount: number) => ({
         columns: [
           {
-            text: labels.originalDocumentTitle,
+            text: subtitle,
             fontSize: 7,
             color: COLORS.muted,
           },
@@ -110,6 +128,8 @@ export class SalesOrderPdfService {
     salesOrder: SalesOrder,
     labels: SalesOrderPdfLabels,
     logoImage: string | null,
+    subtitle: string,
+    title: string,
   ): any {
     return {
       columns: [
@@ -117,14 +137,14 @@ export class SalesOrderPdfService {
           width: '*',
           stack: [
             {
-              text: labels.originalDocumentTitle.toUpperCase(),
+              text: subtitle.toUpperCase(),
               fontSize: 8,
               bold: true,
               color: COLORS.muted,
               characterSpacing: 0.4,
             },
             {
-              text: labels.salesOrderTitle,
+              text: title,
               fontSize: 14,
               bold: true,
               color: COLORS.primary,
@@ -245,6 +265,12 @@ export class SalesOrderPdfService {
             this.gapCell(),
             this.partyCell(labels.sourceWarehouse, [
               { text: warehouseName, fontSize: 10, bold: true, color: COLORS.text, margin: [0, 0, 0, 3] },
+              {
+                text: `${labels.branchPrefix}: ${salesOrder.warehouse?.billing_branch?.code || 'N/A'}`,
+                fontSize: 8,
+                color: COLORS.muted,
+                margin: [0, 0, 0, 1],
+              },
               { text: warehouseLocation, fontSize: 8, color: COLORS.muted },
             ]),
           ],

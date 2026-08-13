@@ -102,6 +102,7 @@ export class SalesOrderService {
       .where('so.id = :id AND so.tenant_id = :tenantId', { id, tenantId })
       .leftJoinAndSelect('so.fiscal_configuration', 'fiscal_config')
       .leftJoinAndSelect('so.warehouse', 'warehouse')
+      .leftJoinAndSelect('warehouse.billing_branch', 'billing_branch')
       .leftJoinAndSelect('so.customer', 'customer')
       .leftJoinAndSelect('so.creator', 'creator')
       .leftJoinAndSelect('so.line_items', 'line_items')
@@ -142,9 +143,36 @@ export class SalesOrderService {
         userId,
         language,
       );
+
+      await this.generateAndUploadReceiptPdf(fullOrder, salesOrderId, userId, language);
     } catch (error) {
       this.logger.error('[PDF] Error in generateAndUploadPdf:', error);
     }
+  }
+
+  private async generateAndUploadReceiptPdf(
+    fullOrder: SalesOrder,
+    salesOrderId: string,
+    userId: string,
+    language: DocumentLanguage,
+  ): Promise<void> {
+    const receiptTypeId = await this.documentsService.ensureDocumentType(
+      'RECIBO',
+      'Recibo PDF de la orden de venta',
+    );
+    const pdfBuffer = await this.pdfService.generateReceiptPdf(fullOrder, language);
+    const uploadResult = await this.pdfService.uploadPdfToS3(fullOrder, pdfBuffer, 'RECIBO');
+
+    await this.documentsService.uploadDocument(
+      salesOrderId,
+      receiptTypeId,
+      `RECIBO_${fullOrder.folio}_${language}.pdf`,
+      uploadResult.s3Key,
+      pdfBuffer.length,
+      'application/pdf',
+      userId,
+      language,
+    );
   }
 
   /**
@@ -452,14 +480,28 @@ export class SalesOrderService {
   }
 
   async findAll(tenantId: string, filters: QuerySalesOrderDto) {
-    const { search, general_status, payment_status, sales_order_type, warehouse_id, customer_id,
-            created_from, created_to, page = 1, limit = 20,
-            sort_by = 'created_at', sort_order = 'DESC' } = filters;
+    const {
+      search,
+      general_status,
+      payment_status,
+      sales_order_type,
+      fiscal_configuration_id,
+      billing_branch_id,
+      customer_id,
+      created_from,
+      created_to,
+      page = 1,
+      limit = 20,
+      sort_by = 'created_at',
+      sort_order = 'DESC',
+    } = filters;
 
     const qb = this.soRepo
       .createQueryBuilder('so')
       .leftJoinAndSelect('so.customer', 'customer')
+      .leftJoinAndSelect('so.fiscal_configuration', 'fiscal_configuration')
       .leftJoinAndSelect('so.warehouse', 'warehouse')
+      .leftJoinAndSelect('warehouse.billing_branch', 'billing_branch')
       .where('so.tenant_id = :tenantId', { tenantId });
 
     if (search) {
@@ -481,7 +523,14 @@ export class SalesOrderService {
     }
     if (payment_status) qb.andWhere('so.payment_status = :payment_status', { payment_status });
     if (sales_order_type) qb.andWhere('so.sales_order_type = :sales_order_type', { sales_order_type });
-    if (warehouse_id) qb.andWhere('so.warehouse_id = :warehouse_id', { warehouse_id });
+    if (fiscal_configuration_id) {
+      qb.andWhere('so.fiscal_configuration_id = :fiscal_configuration_id', {
+        fiscal_configuration_id,
+      });
+    }
+    if (billing_branch_id) {
+      qb.andWhere('warehouse.billing_branch_id = :billing_branch_id', { billing_branch_id });
+    }
     if (customer_id) qb.andWhere('so.customer_id = :customer_id', { customer_id });
     if (created_from) qb.andWhere('so.created_at >= :created_from', { created_from: new Date(created_from) });
     if (created_to) qb.andWhere('so.created_at <= :created_to', { created_to: new Date(created_to) });
@@ -489,15 +538,21 @@ export class SalesOrderService {
     const sortCol = sort_by === 'total' ? 'so.total' : sort_by === 'folio' ? 'so.folio' : 'so.created_at';
     qb.orderBy(sortCol, sort_order).skip((page - 1) * limit).take(limit);
 
-    const [data, total] = await qb.getManyAndCount();
-    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+    const [rows, total] = await qb.getManyAndCount();
+    return {
+      data: rows.map((so) => this.mapOrderLocation(so)),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findOne(id: string, tenantId: string): Promise<SalesOrder> {
     const so = await this.soRepo.findOne({
       where: { id, tenant_id: tenantId },
       relations: [
-        'customer', 'warehouse', 'fiscal_configuration',
+        'customer', 'warehouse', 'warehouse.billing_branch', 'fiscal_configuration',
         'seller_user', 'terminal_user', 'collected_by_user', 'corroborator',
         'line_items', 'line_items.product', 'line_items.product_uom', 'line_items.product_uom.uom',
         'line_items.product_discount',
@@ -531,7 +586,7 @@ export class SalesOrderService {
     const discountSummary = mapOrderDiscountSummary(so);
     const paymentData = await this.getPaymentsForOrder(so);
     const header = {
-      ...so,
+      ...this.mapOrderLocation(so),
       customer_display_name: customerSummary?.display_name ?? formatCustomerDisplayName(so.customer),
       customer_summary: customerSummary,
       seller_user: mapPosUser(so.seller_user),
@@ -790,6 +845,37 @@ export class SalesOrderService {
     return {
       payments: mapped,
       summary: this.buildPaymentSummary(order, payments),
+    };
+  }
+
+  private mapOrderLocation(so: SalesOrder) {
+    const branch = so.warehouse?.billing_branch ?? null;
+    const fiscal = so.fiscal_configuration ?? null;
+    const { warehouse: _warehouse, ...rest } = so;
+
+    return {
+      ...rest,
+      razon_social: fiscal?.razon_social ?? so.fiscal_razon_social ?? null,
+      sucursal: branch?.code ?? null,
+      fiscal_configuration: fiscal
+        ? {
+            id: fiscal.id,
+            razon_social: fiscal.razon_social,
+            rfc: fiscal.rfc,
+          }
+        : null,
+      billing_branch_id: so.warehouse?.billing_branch_id ?? branch?.id ?? null,
+      billing_branch: branch
+        ? {
+            id: branch.id,
+            code: branch.code,
+            address: branch.address,
+            city: branch.city,
+            state: branch.state,
+            country: branch.country,
+            postal_code: branch.postal_code,
+          }
+        : null,
     };
   }
 
@@ -1210,6 +1296,11 @@ export class SalesOrderService {
 
     if (!keepPrevious) {
       await this.deleteDocumentsByType(id, SalesOrderService.DOC_TYPE_DOCUMENTO_ORIGINAL);
+      const receiptTypeId = await this.documentsService.ensureDocumentType(
+        'RECIBO',
+        'Recibo PDF de la orden de venta',
+      );
+      await this.deleteDocumentsByType(id, receiptTypeId);
     }
 
     const fullOrder = await this.loadOrderForPdf(id, tenantId);
@@ -1234,6 +1325,8 @@ export class SalesOrderService {
       userId,
       language,
     );
+
+    await this.generateAndUploadReceiptPdf(fullOrder, id, userId, language);
 
     return {
       success: true,

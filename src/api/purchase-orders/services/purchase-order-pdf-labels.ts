@@ -31,6 +31,8 @@ export interface PurchaseOrderPdfLabels {
   noTag: string;
   noBatchesRegistered: string;
   notesPrefix: string;
+  notesEmpty: string;
+  pageLabel: string;
   subtotal: string;
   vat: string;
   ieps: string;

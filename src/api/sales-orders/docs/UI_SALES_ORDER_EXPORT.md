@@ -23,7 +23,8 @@ Mismos query params que el listado (sin paginación):
 | `general_status` | enum | `Creada`, `Surtida`, `Cancelada`, `En cola` |
 | `payment_status` | enum | `Pendiente`, `Pagado` |
 | `sales_order_type` | enum | `POS`, `MANUAL` |
-| `warehouse_id` | uuid | Almacén |
+| `fiscal_configuration_id` | uuid | Razón social. Omitir o null = todas |
+| `billing_branch_id` | uuid | Sucursal. Omitir o null = todas |
 | `customer_id` | number | Cliente |
 | `created_from` | date (ISO) | Opcional |
 | `created_to` | date (ISO) | Opcional |
@@ -53,13 +54,13 @@ GET /api/tenant/sales-orders/export/excel/details?created_from=2026-06-01&create
 
 ### Cabeceras (`ventas-cabeceras-YYYY-MM-DD.xlsx`)
 
-Columnas: Folio, Fecha creación, Tipo, Estado, Pago, Cliente, Almacén, Entrega esperada, Subtotal, Descuento, IVA, IEPS, Total, Vendedor, Notas.
+Columnas: Folio, Fecha creación, Tipo, Estado, Pago, Cliente, Razón social, Sucursal, Entrega esperada, Subtotal, Descuento, IVA, IEPS, Total, Vendedor, Notas.
 
 Estilo: título verde oscuro, encabezados verde (`#1B7F5E`), filas alternadas.
 
 ### Detalle (`ventas-detalle-YYYY-MM-DD_YYYY-MM-DD.xlsx`)
 
-Una fila por línea de producto. Columnas: Folio orden, Fecha orden, Estado orden, Cliente, SKU, Producto, UOM, Cantidad, Precio unit., Desc. %, Desc. unit., Descuento, IVA %, Subtotal línea, Total línea.
+Una fila por línea de producto. Columnas: Folio orden, Fecha orden, Estado orden, Cliente, Razón social, Sucursal, SKU, Producto, UOM, Cantidad, Precio unit., Desc. %, Desc. unit., Descuento, IVA %, Subtotal línea, Total línea.
 
 Estilo: verde más claro en encabezados (`#2E8B57`).
 
@@ -73,7 +74,7 @@ Vista **listado de órdenes de venta** (junto a filtros existentes o en la barra
 ┌──────────────────────────────────────────────────────────────┐
 │ Órdenes de venta                    [ Descargar Excel ▼ ]   │
 ├──────────────────────────────────────────────────────────────┤
-│ [Búsqueda] [Estado ▼] [Pago ▼] [Tipo ▼] [Desde] [Hasta]     │
+│ [Búsqueda] [Estado ▼] [Pago ▼] [Razón social ▼] [Sucursal ▼] │
 │ ...tabla...                                                  │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -100,7 +101,7 @@ Al pulsar **Descargar Excel** → abrir modal (no descargar directo).
 │  └───────────────────────────────────┘  │
 │                                         │
 │  Usará los filtros actuales del listado │
-│  (estado, pago, tipo, almacén, etc.)    │
+│  (estado, pago, razón social, sucursal, etc.)    │
 │                                         │
 │              [ Cancelar ] [ Descargar ] │
 └─────────────────────────────────────────┘
@@ -112,7 +113,7 @@ Al pulsar **Descargar Excel** → abrir modal (no descargar directo).
 |-------|----------------|
 | Tipo **Cabecera** | Ocultar o deshabilitar fechas obligatorias; opcionalmente pre-rellenar con filtros del listado |
 | Tipo **Detalle** | Mostrar fechas **obligatorias**; botón Descargar deshabilitado hasta que ambas tengan valor |
-| Filtros del listado | Reutilizar `search`, `general_status`, `payment_status`, `sales_order_type`, `warehouse_id`, `customer_id` y fechas si ya están en pantalla |
+| Filtros del listado | Reutilizar `search`, `general_status`, `payment_status`, `sales_order_type`, `fiscal_configuration_id`, `billing_branch_id`, `customer_id` y fechas si ya están en pantalla |
 | Cabecera sin fechas | Permitido — exporta todo lo que coincida con los demás filtros |
 | Loading | Deshabilitar botón y mostrar spinner mientras descarga |
 | Éxito | Cerrar modal y guardar archivo con nombre del header `Content-Disposition` o fallback local |
@@ -129,7 +130,8 @@ interface SalesOrderExportFilters {
   general_status?: string;
   payment_status?: string;
   sales_order_type?: 'POS' | 'MANUAL';
-  warehouse_id?: string;
+  fiscal_configuration_id?: string | null;
+  billing_branch_id?: string | null;
   customer_id?: number;
   created_from?: string;
   created_to?: string;
@@ -230,7 +232,8 @@ async confirmExport() {
       general_status: this.listFilters.general_status,
       payment_status: this.listFilters.payment_status,
       sales_order_type: this.listFilters.sales_order_type,
-      warehouse_id: this.listFilters.warehouse_id,
+      fiscal_configuration_id: this.listFilters.fiscal_configuration_id,
+      billing_branch_id: this.listFilters.billing_branch_id,
       customer_id: this.listFilters.customer_id,
     };
 

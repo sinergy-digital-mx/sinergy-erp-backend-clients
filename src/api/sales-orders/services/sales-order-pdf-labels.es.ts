@@ -3,6 +3,8 @@ import { SalesOrderPdfLabels } from './sales-order-pdf-labels';
 export const SALES_ORDER_PDF_LABELS_ES: SalesOrderPdfLabels = {
   originalDocumentTitle: 'Documento original de orden de venta',
   salesOrderTitle: 'ORDEN DE VENTA',
+  receiptDocumentTitle: 'Recibo de orden de venta',
+  receiptTitle: 'RECIBO',
   folioPrefix: 'Folio',
   summary: 'Resumen',
   creationDate: 'Fecha de creación',
@@ -14,6 +16,7 @@ export const SALES_ORDER_PDF_LABELS_ES: SalesOrderPdfLabels = {
   emailPrefix: 'Correo',
   phonePrefix: 'Teléfono',
   sourceWarehouse: 'Almacén origen',
+  branchPrefix: 'Sucursal',
   productsDetail: 'Detalle de productos',
   product: 'Producto',
   quantity: 'Cantidad',

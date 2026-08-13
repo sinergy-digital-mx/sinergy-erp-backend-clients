@@ -91,6 +91,16 @@ export class SalesOrderDocumentsService {
     );
   }
 
+  async ensureDocumentType(name: string, description: string): Promise<number> {
+    const found = await this.documentTypeRepository.findOne({ where: { name } });
+    if (found) return found.id;
+
+    const created = await this.documentTypeRepository.save(
+      this.documentTypeRepository.create({ name, description }),
+    );
+    return created.id;
+  }
+
   async getLastDocumentLanguage(
     salesOrderId: string,
     documentTypeId: number,

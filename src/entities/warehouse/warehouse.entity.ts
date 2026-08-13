@@ -9,6 +9,7 @@ import {
   Index,
 } from 'typeorm';
 import { RBACTenant } from '../rbac/tenant.entity';
+import { BillingBranch } from '../billing/billing-branch.entity';
 
 @Entity('warehouses')
 @Index('tenant_index', ['tenant_id'])
@@ -69,9 +70,9 @@ export class Warehouse {
   status: string;
 
   // Billing Branch Reference
-  @ManyToOne('BillingBranch', { nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => BillingBranch, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'billing_branch_id' })
-  billing_branch: any;
+  billing_branch: BillingBranch | null;
 
   @Column({ nullable: true })
   billing_branch_id: string;

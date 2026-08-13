@@ -26,7 +26,8 @@ export class SalesOrderExportService {
     { header: 'Estado', key: 'general_status', width: 12 },
     { header: 'Pago', key: 'payment_status', width: 12 },
     { header: 'Cliente', key: 'customer_name', width: 28 },
-    { header: 'Almacén', key: 'warehouse_name', width: 22 },
+    { header: 'Razón social', key: 'razon_social', width: 28 },
+    { header: 'Sucursal', key: 'billing_branch_code', width: 24 },
     { header: 'Entrega esperada', key: 'expected_delivery_date', width: 14, type: 'date' },
     { header: 'Subtotal', key: 'subtotal', width: 14, type: 'currency' },
     { header: 'Descuento', key: 'discount_total', width: 12, type: 'currency' },
@@ -42,6 +43,8 @@ export class SalesOrderExportService {
     { header: 'Fecha orden', key: 'order_created_at', width: 18, type: 'date' },
     { header: 'Estado orden', key: 'general_status', width: 12 },
     { header: 'Cliente', key: 'customer_name', width: 24 },
+    { header: 'Razón social', key: 'razon_social', width: 26 },
+    { header: 'Sucursal', key: 'billing_branch_code', width: 22 },
     { header: 'SKU', key: 'product_sku', width: 14 },
     { header: 'Producto', key: 'product_name', width: 28 },
     { header: 'UOM', key: 'uom_name', width: 12 },
@@ -71,7 +74,8 @@ export class SalesOrderExportService {
       general_status: so.general_status,
       payment_status: so.payment_status,
       customer_name: this.formatCustomerName(so),
-      warehouse_name: so.warehouse?.name ?? '',
+      razon_social: so.fiscal_configuration?.razon_social ?? so.fiscal_razon_social ?? '',
+      billing_branch_code: so.warehouse?.billing_branch?.code ?? '',
       expected_delivery_date: formatExportDate(so.expected_delivery_date),
       subtotal: num(so.subtotal),
       discount_total: num(so.discount_total),
@@ -108,6 +112,9 @@ export class SalesOrderExportService {
       .createQueryBuilder('d')
       .innerJoinAndSelect('d.sales_order', 'so')
       .leftJoinAndSelect('so.customer', 'customer')
+      .leftJoinAndSelect('so.fiscal_configuration', 'fiscal_configuration')
+      .leftJoinAndSelect('so.warehouse', 'warehouse')
+      .leftJoinAndSelect('warehouse.billing_branch', 'billing_branch')
       .leftJoinAndSelect('d.product', 'product')
       .leftJoinAndSelect('d.product_uom', 'product_uom')
       .leftJoinAndSelect('product_uom.uom', 'uom')
@@ -136,6 +143,11 @@ export class SalesOrderExportService {
         order_created_at: formatExportDateTime(d.sales_order?.created_at),
         general_status: d.sales_order?.general_status ?? '',
         customer_name: d.sales_order ? this.formatCustomerName(d.sales_order) : '',
+        razon_social:
+          d.sales_order?.fiscal_configuration?.razon_social ??
+          d.sales_order?.fiscal_razon_social ??
+          '',
+        billing_branch_code: d.sales_order?.warehouse?.billing_branch?.code ?? '',
         product_sku: d.product?.sku ?? '',
         product_name: d.product?.name ?? '',
         uom_name: d.product_uom?.uom?.name ?? '',
@@ -181,7 +193,9 @@ export class SalesOrderExportService {
     const qb = this.soRepo
       .createQueryBuilder('so')
       .leftJoinAndSelect('so.customer', 'customer')
+      .leftJoinAndSelect('so.fiscal_configuration', 'fiscal_configuration')
       .leftJoinAndSelect('so.warehouse', 'warehouse')
+      .leftJoinAndSelect('warehouse.billing_branch', 'billing_branch')
       .leftJoinAndSelect('so.seller_user', 'seller_user')
       .where('so.tenant_id = :tenantId', { tenantId });
 
@@ -229,8 +243,15 @@ export class SalesOrderExportService {
         sales_order_type: filters.sales_order_type,
       });
     }
-    if (filters.warehouse_id) {
-      qb.andWhere('so.warehouse_id = :warehouse_id', { warehouse_id: filters.warehouse_id });
+    if (filters.fiscal_configuration_id) {
+      qb.andWhere('so.fiscal_configuration_id = :fiscal_configuration_id', {
+        fiscal_configuration_id: filters.fiscal_configuration_id,
+      });
+    }
+    if (filters.billing_branch_id) {
+      qb.andWhere('warehouse.billing_branch_id = :billing_branch_id', {
+        billing_branch_id: filters.billing_branch_id,
+      });
     }
     if (filters.customer_id) {
       qb.andWhere('so.customer_id = :customer_id', { customer_id: filters.customer_id });
@@ -252,7 +273,18 @@ export class SalesOrderExportService {
       }
       if (filters.payment_status && so.payment_status !== filters.payment_status) return false;
       if (filters.sales_order_type && so.sales_order_type !== filters.sales_order_type) return false;
-      if (filters.warehouse_id && so.warehouse_id !== filters.warehouse_id) return false;
+      if (
+        filters.fiscal_configuration_id &&
+        so.fiscal_configuration_id !== filters.fiscal_configuration_id
+      ) {
+        return false;
+      }
+      if (
+        filters.billing_branch_id &&
+        so.warehouse?.billing_branch_id !== filters.billing_branch_id
+      ) {
+        return false;
+      }
       if (filters.customer_id && so.customer_id !== filters.customer_id) return false;
       if (filters.search) {
         const s = filters.search.toLowerCase();
@@ -295,6 +327,8 @@ export class SalesOrderExportService {
     if (filters.general_status) parts.push(`Estado: ${filters.general_status}`);
     if (filters.payment_status) parts.push(`Pago: ${filters.payment_status}`);
     if (filters.sales_order_type) parts.push(`Tipo: ${filters.sales_order_type}`);
+    if (filters.fiscal_configuration_id) parts.push('Razón social filtrada');
+    if (filters.billing_branch_id) parts.push('Sucursal filtrada');
     if (filters.search) parts.push(`Búsqueda: ${filters.search}`);
     return parts.join(' | ');
   }
