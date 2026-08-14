@@ -18,7 +18,7 @@ import { PosDailyShiftStatus } from '../../entities/pos/pos-daily-shift-status.e
 import { PosSaleCollection } from '../../entities/pos/pos-sale-collection.entity';
 import { PosSalePaymentMethod } from '../../entities/pos/pos-sale-payment-method.enum';
 import { User } from '../../entities/users/user.entity';
-import { PosUserType } from '../../entities/users/pos-user-type.enum';
+import { POS_COLLECT_TYPES, canPosCollect } from '../../entities/users/pos-user-type.enum';
 import { SalesOrder } from '../../entities/sales-orders/sales-order.entity';
 import { Customer } from '../../entities/customers/customer.entity';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
@@ -132,8 +132,8 @@ export class PosShiftsService {
       .where('shift.tenant_id = :tenantId', { tenantId })
       .andWhere('shift.billing_branch_id = :billingBranchId', { billingBranchId })
       .andWhere('shift.status = :status', { status: PosDailyShiftStatus.OPEN })
-      .andWhere('terminal_user.pos_user_type = :posType', {
-        posType: PosUserType.COBRANZA,
+      .andWhere('terminal_user.pos_user_type IN (:...collectTypes)', {
+        collectTypes: POS_COLLECT_TYPES,
       })
       .orderBy('partial_shifts.partial_number', 'ASC')
       .getOne();
@@ -354,7 +354,7 @@ export class PosShiftsService {
         );
       }
 
-      if (shift.terminal_user?.pos_user_type !== PosUserType.COBRANZA) {
+      if (!canPosCollect(shift.terminal_user?.pos_user_type)) {
         throw new BadRequestException(
           'El corte global debe pertenecer a una terminal de cobranza',
         );
@@ -367,7 +367,7 @@ export class PosShiftsService {
     }
 
     if (!shift) {
-      if (terminalUser.pos_user_type === PosUserType.VENTAS) {
+      if (!canPosCollect(terminalUser.pos_user_type)) {
         return { shift: null, terminalUser, queued: true };
       }
 
@@ -1034,7 +1034,7 @@ export class PosShiftsService {
   private async requireCobranzaTerminal(tenantId: string, userId: string) {
     const user = await this.requirePosTerminal(tenantId, userId);
 
-    if (user.pos_user_type !== PosUserType.COBRANZA) {
+    if (!canPosCollect(user.pos_user_type)) {
       throw new ForbiddenException(
         'Esta operación solo está disponible en terminales de cobranza',
       );
@@ -1065,7 +1065,7 @@ export class PosShiftsService {
 
     if (!user.pos_user_type) {
       throw new BadRequestException(
-        'El usuario POS debe tener un tipo asignado (VENTAS o COBRANZA)',
+        'El usuario POS debe tener un tipo asignado (VENTAS, COBRANZA o AMBOS)',
       );
     }
 

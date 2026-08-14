@@ -14,10 +14,13 @@ Documento de referencia del nuevo modelo POS. Reemplaza **Equipos** (`pos_config
 
 ### Tipos de terminal POS (`pos_user_type`)
 
-| Tipo | Rol |
-|------|-----|
-| `VENTAS` | Captura pedidos. No cobra ni maneja corte. |
-| `COBRANZA` | Abre/cierra corte, cortes parciales, cobra ventas pendientes. |
+| Tipo | Rol | Quién |
+|------|-----|--------|
+| `VENTAS` | Captura pedidos. No cobra ni maneja corte. | Cualquier usuario POS |
+| `COBRANZA` | Abre/cierra corte, cortes parciales, cobra ventas pendientes. | Cualquier usuario POS |
+| `AMBOS` | Ventas **y** cobranza. Ve ambas opciones en el menú. | **Solo gerentes** (`is_manager: true`) |
+
+Un POS normal es **Ventas o Cobranza**, nunca los dos. Si el usuario es gerente y POS, puede ser `AMBOS`.
 
 ### Tipos de usuario en el sistema
 
@@ -25,7 +28,8 @@ Documento de referencia del nuevo modelo POS. Reemplaza **Equipos** (`pos_config
 |---------|---------------|-----------------|-----------------|----------|
 | Terminal Ventas | `true` | `VENTAS` | `null` | Obligatoria |
 | Terminal Cobranza | `true` | `COBRANZA` | `null` | Obligatoria |
-| Vendedor | `false` | `null` | Opcional (único por tenant) | Opcional |
+| Gerente POS | `true` | `AMBOS` | `null` | Obligatoria |
+| Vendedor | `false` | `null` | Opcional (único por organización) | Opcional |
 
 ### División Ventas vs Cobranza (regla de oro)
 
@@ -58,10 +62,11 @@ Si **desmarcado** (vendedor normal):
 - Ocultar selector Ventas/Cobranza.
 
 Si **marcado** (terminal):
-- Mostrar selector **obligatorio** Ventas / Cobranza → `pos_user_type`.
+- Si **no** es gerente: selector **obligatorio** Ventas **o** Cobranza → `pos_user_type` (`VENTAS` / `COBRANZA`). No puede marcar ambos.
+- Si **sí** es gerente (`is_manager`): puede elegir **Ventas y cobranza** → `pos_user_type: "AMBOS"`. En el menú POS verá las dos apps.
 - Ocultar/deshabilitar campo Código.
 - Texto de ayuda:
-  > *Las terminales POS requieren sucursal asignada. **Ventas** solo captura pedidos; **Cobranza** maneja el corte del día y el cobro.*
+  > *Las terminales POS requieren sucursal asignada. **Ventas** solo captura pedidos; **Cobranza** maneja el corte del día y el cobro. Un **gerente** puede operar ambos.*
 
 **Bloqueo en edición:** si el usuario es `COBRANZA` y tiene un **corte global abierto**, deshabilitar cambio de tipo POS, check POS y sucursal. El API responde 400 si se intenta cambiar.
 
@@ -138,6 +143,9 @@ Pollux **no** debe llamar `GET /api/tenant/users/:id` (requiere `User:Read`). Us
     "permissions_version": 1,
     "is_pos_user": true,
     "pos_user_type": "COBRANZA",
+    "pos_can_sell": false,
+    "pos_can_collect": true,
+    "is_manager": false,
     "billing_branch_id": "uuid-sucursal"
   }
 }
@@ -146,8 +154,18 @@ Pollux **no** debe llamar `GET /api/tenant/users/:id` (requiere `User:Read`). Us
 | Campo | Uso en Pollux |
 |-------|----------------|
 | `is_pos_user` | `false` → no es terminal POS (no entrar a app POS o mostrar error) |
-| `pos_user_type` | `VENTAS` → app ventas; `COBRANZA` → app cobranza |
+| `pos_user_type` | `VENTAS` / `COBRANZA` / `AMBOS` |
+| `pos_can_sell` | `true` → mostrar menú / app **Ventas** |
+| `pos_can_collect` | `true` → mostrar menú / app **Cobranza** |
+| `is_manager` | Si es gerente. `AMBOS` solo es válido con esto en `true` |
 | `billing_branch_id` | Sucursal de la terminal (obligatorio si `is_pos_user`) |
+
+Si `pos_can_sell && pos_can_collect` (gerente `AMBOS`), mostrar **ambas** opciones en el menú. No rutees a una sola app.
+
+```
+if (user.pos_can_collect) → item menú Cobranza / /pos/cobranza
+if (user.pos_can_sell)    → item menú Ventas   / /pos/ventas
+```
 
 Los mismos campos POS vienen en `POST /api/auth/refresh`.
 
@@ -157,14 +175,15 @@ Guardar `user` en sesión (localStorage / state). **No** pedir código de vended
 
 ```
 if (!user.is_pos_user) → error o redirigir al ERP
-if (user.pos_user_type === 'COBRANZA') → /pos/cobranza
-if (user.pos_user_type === 'VENTAS')   → /pos/ventas
+if (user.pos_can_collect && user.pos_can_sell) → menú con Ventas y Cobranza (no forzar una sola ruta)
+if (user.pos_can_collect) → /pos/cobranza
+if (user.pos_can_sell)    → /pos/ventas
 ```
 
 | Ruta | Quién | Primera pantalla |
 |------|-------|------------------|
-| `/pos/cobranza` | `COBRANZA` | `GET pos/daily-shift/current` → abrir corte o dashboard pendientes |
-| `/pos/ventas` | `VENTAS` | Código vendedor → catálogo |
+| `/pos/cobranza` | `COBRANZA` o `AMBOS` | `GET pos/daily-shift/current` → abrir corte o dashboard pendientes |
+| `/pos/ventas` | `VENTAS` o `AMBOS` | Código vendedor → catálogo |
 
 `POST /api/auth/refresh` debe actualizar los mismos campos en sesión si cambian permisos o datos POS del usuario.
 

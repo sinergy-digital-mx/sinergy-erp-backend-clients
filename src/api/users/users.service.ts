@@ -16,11 +16,16 @@ import { UserStatus } from '../../entities/users/user-status.entity';
 import { RBACTenant } from '../../entities/rbac/tenant.entity';
 import { User } from '../../entities/users/user.entity';
 import { BillingBranch } from '../../entities/billing/billing-branch.entity';
-import { PosUserType } from '../../entities/users/pos-user-type.enum';
+import { PosUserType, canPosCollect, canPosSell } from '../../entities/users/pos-user-type.enum';
 import { PosDailyShift } from '../../entities/pos/pos-daily-shift.entity';
 import { PosDailyShiftStatus } from '../../entities/pos/pos-daily-shift-status.enum';
 import { EmployeesService } from '../employees/employees.service';
 import { UserManagerReport } from '../../entities/users/user-manager-report.entity';
+import { QueryUsersDto } from './dto/query-users.dto';
+import {
+  USER_STATUS_CODE,
+  isActiveUserStatus,
+} from './user-status.constants';
 
 @Injectable()
 export class UsersService {
@@ -44,7 +49,7 @@ export class UsersService {
 
     await this.validateBillingBranch(tenantId, billingBranchId);
     this.validateBranchAssignment(isPosUser, billingBranchId);
-    this.validatePosUserType(isPosUser, dto.pos_user_type);
+    this.validatePosUserType(isPosUser, dto.pos_user_type, dto.is_manager ?? false);
     await this.validatePosFields(tenantId, isPosUser, dto.pos_user_code);
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
@@ -109,6 +114,7 @@ export class UsersService {
       dto.pos_user_code !== undefined ? dto.pos_user_code : user.pos_user_code;
     const nextPosUserType =
       dto.pos_user_type !== undefined ? dto.pos_user_type : user.pos_user_type;
+    const nextIsManager = dto.is_manager ?? Boolean(user.is_manager);
 
     if (dto.billing_branch_id !== undefined) {
       await this.validateBillingBranch(tenantId, dto.billing_branch_id);
@@ -117,10 +123,11 @@ export class UsersService {
     if (
       dto.is_pos_user !== undefined ||
       dto.billing_branch_id !== undefined ||
-      dto.pos_user_type !== undefined
+      dto.pos_user_type !== undefined ||
+      dto.is_manager !== undefined
     ) {
       this.validateBranchAssignment(nextIsPosUser, nextBillingBranchId);
-      this.validatePosUserType(nextIsPosUser, nextPosUserType);
+      this.validatePosUserType(nextIsPosUser, nextPosUserType, nextIsManager);
     }
 
     if (dto.is_pos_user !== undefined || dto.pos_user_code !== undefined) {
@@ -261,11 +268,48 @@ export class UsersService {
     return this.mapUserBranchResponse(user);
   }
 
-  async findAll(tenantId: string) {
-    const users = await this.userRepo.find({
-      where: { tenant_id: tenantId },
-      relations: ['status', 'tenant', 'billing_branch', 'billing_branch.fiscal_configuration'],
-    });
+  async findAllStatuses(): Promise<UserStatus[]> {
+    return this.statusRepo.find({ order: { id: 'ASC' } });
+  }
+
+  async findAll(tenantId: string, query?: QueryUsersDto) {
+    const qb = this.userRepo
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.status', 'status')
+      .leftJoinAndSelect('user.tenant', 'tenant')
+      .leftJoinAndSelect('user.billing_branch', 'billing_branch')
+      .leftJoinAndSelect('billing_branch.fiscal_configuration', 'fiscal_configuration')
+      .where('user.tenant_id = :tenantId', { tenantId });
+
+    if (query?.status_id) {
+      qb.andWhere('user.status_id = :statusId', { statusId: query.status_id });
+    } else {
+      qb.andWhere(
+        '(status.code IS NULL OR LOWER(status.code) != :deletedCode)',
+        { deletedCode: USER_STATUS_CODE.DELETED },
+      );
+    }
+
+    if (query?.role_id) {
+      qb.innerJoin(
+        'rbac_user_roles',
+        'ur',
+        'ur.user_id = user.id AND ur.tenant_id = :tenantId AND ur.role_id = :roleId',
+        { tenantId, roleId: query.role_id },
+      );
+    }
+
+    const search = query?.search?.trim();
+    if (search) {
+      qb.andWhere(
+        '(user.email LIKE :q OR user.first_name LIKE :q OR user.last_name LIKE :q)',
+        { q: `%${search}%` },
+      );
+    }
+
+    qb.orderBy('user.first_name', 'ASC').addOrderBy('user.email', 'ASC');
+
+    const users = await qb.getMany();
 
     const managerByUserId = await this.getManagerByUserIdMap(tenantId);
     for (const user of users) {
@@ -393,6 +437,68 @@ export class UsersService {
     await this.managerReportRepo.remove(assignment);
   }
 
+  async updateStatus(
+    userId: string,
+    tenantId: string,
+    statusId: number,
+    currentUserId: string,
+  ) {
+    const user = await this.userRepo.findOne({
+      where: { id: userId, tenant_id: tenantId },
+      relations: ['status'],
+    });
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    const status = await this.statusRepo.findOneBy({ id: statusId });
+    if (!status) {
+      throw new BadRequestException('Estatus no válido');
+    }
+
+    if (userId === currentUserId && !isActiveUserStatus(status.code)) {
+      throw new ForbiddenException(
+        'No puedes desactivar o eliminar tu propia cuenta',
+      );
+    }
+
+    user.status = status;
+    await this.userRepo.save(user);
+
+    const updated = await this.findOne(userId, tenantId);
+    if (!updated) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+    return updated;
+  }
+
+  async softDelete(userId: string, tenantId: string, currentUserId: string) {
+    if (userId === currentUserId) {
+      throw new ForbiddenException('No puedes eliminar tu propia cuenta');
+    }
+
+    const deleted = await this.statusRepo.findOne({
+      where: { code: USER_STATUS_CODE.DELETED },
+    });
+    if (!deleted) {
+      throw new BadRequestException('Estatus eliminado no está configurado');
+    }
+
+    const user = await this.userRepo.findOne({
+      where: { id: userId, tenant_id: tenantId },
+      relations: ['status'],
+    });
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    if (user.status?.code?.toLowerCase() === USER_STATUS_CODE.DELETED) {
+      throw new BadRequestException('El usuario ya está eliminado');
+    }
+
+    return this.updateStatus(userId, tenantId, deleted.id, currentUserId);
+  }
+
   mapUserResponse(user: User) {
     return {
       id: user.id,
@@ -400,6 +506,7 @@ export class UsersService {
       first_name: user.first_name,
       last_name: user.last_name,
       phone: user.phone,
+      status_id: user.status?.id ?? null,
       status: user.status,
       language_code: user.language_code,
       last_login_at: user.last_login_at,
@@ -407,6 +514,9 @@ export class UsersService {
       is_pos_user: Boolean(user.is_pos_user),
       pos_user_type: user.pos_user_type,
       pos_user_code: user.pos_user_code,
+      pos_can_sell: Boolean(user.is_pos_user) && canPosSell(user.pos_user_type),
+      pos_can_collect:
+        Boolean(user.is_pos_user) && canPosCollect(user.pos_user_type),
       is_employee: Boolean(user.is_employee),
       employee: (user as any).employeeProfile ?? null,
       is_manager: Boolean(user.is_manager),
@@ -448,7 +558,11 @@ export class UsersService {
     };
   }
 
-  private validatePosUserType(isPosUser: boolean, posUserType?: PosUserType | null) {
+  private validatePosUserType(
+    isPosUser: boolean,
+    posUserType?: PosUserType | null,
+    isManager = false,
+  ) {
     if (!isPosUser) {
       if (posUserType) {
         throw new BadRequestException(
@@ -460,7 +574,13 @@ export class UsersService {
 
     if (!posUserType) {
       throw new BadRequestException(
-        'pos_user_type es requerido cuando is_pos_user es true (VENTAS o COBRANZA)',
+        'pos_user_type es requerido cuando is_pos_user es true (VENTAS, COBRANZA o AMBOS)',
+      );
+    }
+
+    if (posUserType === PosUserType.AMBOS && !isManager) {
+      throw new BadRequestException(
+        'Solo un gerente puede tener POS de ventas y cobranza (AMBOS)',
       );
     }
   }
@@ -483,7 +603,7 @@ export class UsersService {
     nextPosUserType: PosUserType | null,
     nextBillingBranchId: string | null,
   ) {
-    if (user.pos_user_type !== PosUserType.COBRANZA) {
+    if (!canPosCollect(user.pos_user_type)) {
       return;
     }
 

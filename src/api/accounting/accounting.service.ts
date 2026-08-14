@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { SalesOrder } from '../../entities/sales-orders/sales-order.entity';
 import { PosSaleCollection } from '../../entities/pos/pos-sale-collection.entity';
 import { PosDailyShift } from '../../entities/pos/pos-daily-shift.entity';
@@ -8,7 +8,7 @@ import { PosDailyShiftStatus } from '../../entities/pos/pos-daily-shift-status.e
 import { ElectronicInvoice } from '../../entities/electronic-invoicing/electronic-invoice.entity';
 import { PurchaseOrderBatch } from '../../entities/purchase-orders/purchase-order-batch.entity';
 import { User } from '../../entities/users/user.entity';
-import { PosUserType } from '../../entities/users/pos-user-type.enum';
+import { POS_COLLECT_TYPES, POS_SELL_TYPES } from '../../entities/users/pos-user-type.enum';
 import {
   AccountingReportPeriod,
   PosCollectionCustomerType,
@@ -62,8 +62,8 @@ export class AccountingService {
       })
       .andWhere('so.sales_order_type = :posType', { posType: 'POS' })
       .andWhere('so.general_status != :cancelled', { cancelled: 'Cancelada' })
-      .andWhere('terminal_user.pos_user_type = :ventas', {
-        ventas: PosUserType.VENTAS,
+      .andWhere('terminal_user.pos_user_type IN (:...sellTypes)', {
+        sellTypes: POS_SELL_TYPES,
       })
       .andWhere('so.created_at >= :dateFrom', { dateFrom })
       .andWhere('so.created_at <= :dateTo', { dateTo })
@@ -152,7 +152,7 @@ export class AccountingService {
         tenant_id: tenantId,
         billing_branch_id: filters.billing_branch_id,
         is_pos_user: true,
-        pos_user_type: PosUserType.COBRANZA,
+        pos_user_type: In(POS_COLLECT_TYPES),
       },
     });
 
@@ -291,7 +291,7 @@ export class AccountingService {
         tenant_id: tenantId,
         billing_branch_id: filters.billing_branch_id,
         is_pos_user: true,
-        pos_user_type: PosUserType.COBRANZA,
+        pos_user_type: In(POS_COLLECT_TYPES),
       },
     });
 

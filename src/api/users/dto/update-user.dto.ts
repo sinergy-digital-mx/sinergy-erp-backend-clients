@@ -82,7 +82,7 @@ export class UpdateUserDto {
   @ApiProperty({
     required: false,
     enum: PosUserType,
-    description: 'Tipo de terminal POS. Obligatorio si is_pos_user es true.',
+    description: 'Tipo de terminal POS. Obligatorio si is_pos_user es true. AMBOS solo si es gerente.',
   })
   @ValidateIf((dto: UpdateUserDto) => dto.is_pos_user === true)
   @IsEnum(PosUserType)

@@ -7,6 +7,8 @@ import * as bcrypt from 'bcrypt';
 import { User } from '../../entities/users/user.entity';
 import { PermissionService } from '../rbac/services/permission.service';
 import { RoleService } from '../rbac/services/role.service';
+import { isActiveUserStatus } from '../users/user-status.constants';
+import { canPosCollect, canPosSell } from '../../entities/users/pos-user-type.enum';
 
 @Injectable()
 export class AuthService {
@@ -34,6 +36,11 @@ export class AuthService {
         if (!valid) {
             this.logger.warn(`Invalid password for user: ${email}`);
             throw new UnauthorizedException('Invalid credentials');
+        }
+
+        if (!isActiveUserStatus(user.status?.code)) {
+            this.logger.warn(`Login blocked for inactive user: ${email}`);
+            throw new UnauthorizedException('Tu cuenta no está activa');
         }
 
         // Update last login timestamp
@@ -174,6 +181,9 @@ export class AuthService {
         return {
             is_pos_user: Boolean(user.is_pos_user),
             pos_user_type: user.is_pos_user ? user.pos_user_type : null,
+            pos_can_sell: Boolean(user.is_pos_user) && canPosSell(user.pos_user_type),
+            pos_can_collect:
+                Boolean(user.is_pos_user) && canPosCollect(user.pos_user_type),
             billing_branch_id: user.billing_branch_id ?? null,
             is_employee: Boolean(user.is_employee),
             is_manager: Boolean(user.is_manager),

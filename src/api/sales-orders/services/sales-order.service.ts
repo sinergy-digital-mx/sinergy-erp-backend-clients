@@ -42,7 +42,7 @@ import {
   mapLineItemWithDiscount,
   mapOrderDiscountSummary,
 } from '../mappers/sales-order-discount.mapper';
-import { PosUserType } from '../../../entities/users/pos-user-type.enum';
+import { canPosCollect } from '../../../entities/users/pos-user-type.enum';
 import { DocumentLanguage } from '../../../common/enums/document-language.enum';
 import { PosSaleCollection } from '../../../entities/pos/pos-sale-collection.entity';
 import {
@@ -321,7 +321,7 @@ export class SalesOrderService {
       posQueued = queued;
       posDailyShiftId = shift?.id ?? null;
 
-      if (terminalUser.pos_user_type === PosUserType.VENTAS) {
+      if (!canPosCollect(terminalUser.pos_user_type)) {
         paymentStatus = 'Pendiente';
       } else if (paymentStatus === 'Pagado') {
         collectedByUserId = userId;

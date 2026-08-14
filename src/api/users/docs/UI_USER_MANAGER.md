@@ -71,6 +71,10 @@ Si el usuario **tiene** un responsable, `manager` trae al gerente:
 
 El login incluye `user.is_manager`.
 
+Si el gerente también es POS (`is_pos_user: true`), en el tab **POS** puede elegir `pos_user_type: "AMBOS"` para ver **Ventas y Cobranza** en el menú. Un POS que no es gerente solo puede ser `VENTAS` o `COBRANZA`.
+
+Detalle: `src/api/pos-shifts/docs/UI_POS_FLOW.md`.
+
 ---
 
 ## Lista del tab (usuarios a cargo)

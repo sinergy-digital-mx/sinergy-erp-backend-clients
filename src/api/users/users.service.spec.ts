@@ -247,3 +247,107 @@ describe('UsersService.managerReports', () => {
     expect(managerReportRepo.remove).toHaveBeenCalledWith(assignment);
   });
 });
+
+describe('UsersService.userStatus', () => {
+  let service: UsersService;
+  let userRepo: { findOne: jest.Mock; save: jest.Mock };
+  let statusRepo: { findOne: jest.Mock; findOneBy: jest.Mock };
+  let managerReportRepo: { findOne: jest.Mock; find: jest.Mock };
+
+  const tenantId = 'tenant-1';
+  const actorId = 'admin-1';
+  const targetId = 'user-2';
+
+  beforeEach(async () => {
+    userRepo = { findOne: jest.fn(), save: jest.fn() };
+    statusRepo = { findOne: jest.fn(), findOneBy: jest.fn() };
+    managerReportRepo = { findOne: jest.fn(), find: jest.fn() };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        UsersService,
+        { provide: getRepositoryToken(User), useValue: userRepo },
+        { provide: getRepositoryToken(RBACTenant), useValue: {} },
+        { provide: getRepositoryToken(UserStatus), useValue: statusRepo },
+        { provide: getRepositoryToken(BillingBranch), useValue: {} },
+        { provide: getRepositoryToken(PosDailyShift), useValue: {} },
+        { provide: getRepositoryToken(UserManagerReport), useValue: managerReportRepo },
+        { provide: EmployeesService, useValue: {} },
+      ],
+    }).compile();
+
+    service = module.get(UsersService);
+  });
+
+  it('updates status to inactive', async () => {
+    const inactive = { id: 2, code: 'inactive', name: 'Inactivo' };
+    const user = {
+      id: targetId,
+      tenant_id: tenantId,
+      is_employee: false,
+      is_manager: false,
+      status: { id: 1, code: 'active' },
+    };
+
+    userRepo.findOne
+      .mockResolvedValueOnce(user)
+      .mockResolvedValueOnce({ ...user, status: inactive });
+    statusRepo.findOneBy.mockResolvedValue(inactive);
+    userRepo.save.mockResolvedValue(user);
+    managerReportRepo.findOne.mockResolvedValue(null);
+
+    const result = await service.updateStatus(targetId, tenantId, 2, actorId);
+
+    expect(userRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ status: inactive }),
+    );
+    expect(result.status.code).toBe('inactive');
+  });
+
+  it('rejects deactivating your own account', async () => {
+    userRepo.findOne.mockResolvedValue({
+      id: actorId,
+      tenant_id: tenantId,
+      status: { id: 1, code: 'active' },
+    });
+    statusRepo.findOneBy.mockResolvedValue({
+      id: 2,
+      code: 'inactive',
+      name: 'Inactivo',
+    });
+
+    await expect(
+      service.updateStatus(actorId, tenantId, 2, actorId),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('soft-deletes a user', async () => {
+    const deleted = { id: 3, code: 'deleted', name: 'Eliminado' };
+    const user = {
+      id: targetId,
+      tenant_id: tenantId,
+      is_employee: false,
+      is_manager: false,
+      status: { id: 1, code: 'active' },
+    };
+
+    statusRepo.findOne.mockResolvedValue(deleted);
+    userRepo.findOne
+      .mockResolvedValueOnce(user)
+      .mockResolvedValueOnce(user)
+      .mockResolvedValueOnce({ ...user, status: deleted });
+    statusRepo.findOneBy.mockResolvedValue(deleted);
+    userRepo.save.mockResolvedValue(user);
+    managerReportRepo.findOne.mockResolvedValue(null);
+
+    const result = await service.softDelete(targetId, tenantId, actorId);
+
+    expect(result.status.code).toBe('deleted');
+  });
+
+  it('rejects deleting your own account', async () => {
+    await expect(
+      service.softDelete(actorId, tenantId, actorId),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+});

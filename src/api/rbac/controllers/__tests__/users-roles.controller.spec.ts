@@ -51,6 +51,9 @@ describe('UsersRolesController', () => {
             getManagerReports: jest.fn(),
             addManagerReport: jest.fn(),
             removeManagerReport: jest.fn(),
+            findAllStatuses: jest.fn(),
+            updateStatus: jest.fn(),
+            softDelete: jest.fn(),
             mapUserResponse: jest.fn((user) => ({
               id: user.id,
               email: user.email,
@@ -108,7 +111,7 @@ describe('UsersRolesController', () => {
       jest.spyOn(tenantContextService, 'getCurrentTenantId').mockReturnValue(mockTenantId);
       jest.spyOn(usersService, 'findAll').mockResolvedValue(mockUsers as any);
 
-      const result = await controller.getTenantUsers();
+      const result = await controller.getTenantUsers({});
 
       expect(result.users).toHaveLength(2);
       expect(result.users[0]).toEqual({
@@ -134,7 +137,7 @@ describe('UsersRolesController', () => {
         created_at: new Date('2024-01-02T00:00:00Z'),
       });
 
-      expect(usersService.findAll).toHaveBeenCalledWith(mockTenantId);
+      expect(usersService.findAll).toHaveBeenCalledWith(mockTenantId, {});
     });
 
     it('should handle users with null optional fields', async () => {
@@ -158,7 +161,7 @@ describe('UsersRolesController', () => {
       jest.spyOn(tenantContextService, 'getCurrentTenantId').mockReturnValue(mockTenantId);
       jest.spyOn(usersService, 'findAll').mockResolvedValue(mockUsers as any);
 
-      const result = await controller.getTenantUsers();
+      const result = await controller.getTenantUsers({});
 
       expect(result.users).toHaveLength(1);
       expect(result.users[0]).toEqual({
@@ -177,7 +180,7 @@ describe('UsersRolesController', () => {
     it('should throw error when tenant context is missing', async () => {
       jest.spyOn(tenantContextService, 'getCurrentTenantId').mockReturnValue(null);
 
-      await expect(controller.getTenantUsers()).rejects.toThrow('Tenant context is required');
+      await expect(controller.getTenantUsers({})).rejects.toThrow('Tenant context is required');
     });
   });
 

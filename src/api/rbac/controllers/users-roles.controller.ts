@@ -9,6 +9,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -17,6 +18,7 @@ import {
   ApiResponse,
   ApiParam,
   ApiBody,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { PermissionGuard } from '../guards/permission.guard';
@@ -30,6 +32,8 @@ import { UpdateUserDto } from '../../users/dto/update-user.dto';
 import { AssignUserBranchDto } from '../../users/dto/assign-user-branch.dto';
 import { AssignUserReportDto } from '../../users/dto/assign-user-report.dto';
 import { ChangePasswordDto } from '../../users/dto/change-password.dto';
+import { QueryUsersDto } from '../../users/dto/query-users.dto';
+import { UpdateUserStatusDto } from '../../users/dto/update-user-status.dto';
 
 @ApiTags('Tenant - Users & Roles')
 @Controller('tenant/users')
@@ -68,12 +72,26 @@ export class UsersRolesController {
     };
   }
 
+  @Get('statuses')
+  @RequirePermissions({ entityType: 'User', action: 'Read' })
+  @ApiOperation({
+    summary: 'List user statuses',
+    description: 'Catálogo de estatus para el detalle y el filtro del listado',
+  })
+  async getUserStatuses() {
+    return this.usersService.findAllStatuses();
+  }
+
   @Get()
   @RequirePermissions({ entityType: 'User', action: 'Read' })
   @ApiOperation({
     summary: 'List all users in tenant',
-    description: 'Returns all users belonging to the current tenant with detailed information',
+    description:
+      'Returns users of the current organization. Supports search, status_id and role_id filters.',
   })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'status_id', required: false, type: Number })
+  @ApiQuery({ name: 'role_id', required: false, type: String })
   @ApiResponse({
     status: 200,
     description: 'List of tenant users with details',
@@ -86,7 +104,7 @@ export class UsersRolesController {
             first_name: 'John',
             last_name: 'Doe',
             phone: '+1234567890',
-            status: { id: 'uuid', name: 'Active' },
+            status: { id: 1, code: 'active', name: 'Activo' },
             language_code: 'es',
             last_login_at: '2024-01-27T14:30:00Z',
             created_at: '2024-01-01T00:00:00Z',
@@ -95,12 +113,12 @@ export class UsersRolesController {
       },
     },
   })
-  async getTenantUsers() {
+  async getTenantUsers(@Query() query: QueryUsersDto) {
     const tenantId = this.tenantContextService.getCurrentTenantId();
     if (!tenantId) {
       throw new Error('Tenant context is required');
     }
-    const users = await this.usersService.findAll(tenantId);
+    const users = await this.usersService.findAll(tenantId, query);
 
     return {
       users: users.map((u) => this.usersService.mapUserResponse(u)),
@@ -129,6 +147,65 @@ export class UsersRolesController {
     }
 
     return this.usersService.mapUserResponse(user);
+  }
+
+  @Put(':userId/status')
+  @RequirePermissions({ entityType: 'User', action: 'Update' })
+  @ApiOperation({
+    summary: 'Update user status',
+    description:
+      'Cambia el estatus del usuario (activo / inactivo). No usar para eliminar; eso va por DELETE.',
+  })
+  @ApiParam({ name: 'userId', description: 'User ID' })
+  @ApiBody({ type: UpdateUserStatusDto })
+  async updateUserStatus(
+    @Param('userId') userId: string,
+    @Body() dto: UpdateUserStatusDto,
+  ) {
+    const tenantId = this.tenantContextService.getCurrentTenantId();
+    const currentUserId = this.tenantContextService.getCurrentUserId();
+    if (!tenantId || !currentUserId) {
+      throw new Error('User context is required');
+    }
+
+    const user = await this.usersService.updateStatus(
+      userId,
+      tenantId,
+      dto.status_id,
+      currentUserId,
+    );
+
+    return {
+      message: 'Estatus actualizado',
+      user: this.usersService.mapUserResponse(user),
+    };
+  }
+
+  @Delete(':userId')
+  @RequirePermissions({ entityType: 'User', action: 'Delete' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Soft-delete a user',
+    description: 'Marca al usuario como eliminado. No borra el registro.',
+  })
+  @ApiParam({ name: 'userId', description: 'User ID' })
+  async deleteUser(@Param('userId') userId: string) {
+    const tenantId = this.tenantContextService.getCurrentTenantId();
+    const currentUserId = this.tenantContextService.getCurrentUserId();
+    if (!tenantId || !currentUserId) {
+      throw new Error('User context is required');
+    }
+
+    const user = await this.usersService.softDelete(
+      userId,
+      tenantId,
+      currentUserId,
+    );
+
+    return {
+      message: 'Usuario eliminado',
+      user: this.usersService.mapUserResponse(user),
+    };
   }
 
   @Get(':userId/branch')
