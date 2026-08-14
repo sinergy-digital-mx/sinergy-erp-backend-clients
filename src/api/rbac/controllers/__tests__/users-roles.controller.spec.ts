@@ -48,6 +48,9 @@ describe('UsersRolesController', () => {
             create: jest.fn(),
             update: jest.fn(),
             changePassword: jest.fn(),
+            getManagerReports: jest.fn(),
+            addManagerReport: jest.fn(),
+            removeManagerReport: jest.fn(),
             mapUserResponse: jest.fn((user) => ({
               id: user.id,
               email: user.email,

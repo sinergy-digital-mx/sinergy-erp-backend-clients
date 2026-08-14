@@ -76,6 +76,9 @@ export class User {
     @Column({ type: 'tinyint', default: 0 })
     is_employee: boolean;
 
+    @Column({ type: 'tinyint', default: 0 })
+    is_manager: boolean;
+
     @CreateDateColumn({ type: 'timestamp' })
     created_at: Date;
 

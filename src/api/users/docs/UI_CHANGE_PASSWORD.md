@@ -28,7 +28,7 @@ No mezclar estos campos con **Guardar cambios** de Información general / POS / 
 
 ## Tab Seguridad
 
-Después de **Sucursales asignadas**.
+Después de **Sucursales asignadas** (y del tab **Gerente** si aplica).
 
 | UI | API | Tipo | Requerido | Mín. |
 |----|-----|------|-----------|------|

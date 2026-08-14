@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
@@ -8,6 +8,7 @@ import { RBACTenant } from '../../entities/rbac/tenant.entity';
 import { UserStatus } from '../../entities/users/user-status.entity';
 import { BillingBranch } from '../../entities/billing/billing-branch.entity';
 import { PosDailyShift } from '../../entities/pos/pos-daily-shift.entity';
+import { UserManagerReport } from '../../entities/users/user-manager-report.entity';
 import { EmployeesService } from '../employees/employees.service';
 
 jest.mock('bcrypt', () => ({
@@ -35,6 +36,7 @@ describe('UsersService.changePassword', () => {
         { provide: getRepositoryToken(UserStatus), useValue: {} },
         { provide: getRepositoryToken(BillingBranch), useValue: {} },
         { provide: getRepositoryToken(PosDailyShift), useValue: {} },
+        { provide: getRepositoryToken(UserManagerReport), useValue: {} },
         { provide: EmployeesService, useValue: {} },
       ],
     }).compile();
@@ -97,5 +99,151 @@ describe('UsersService.changePassword', () => {
         userId,
       ),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe('UsersService.managerReports', () => {
+  let service: UsersService;
+  let userRepo: { findOne: jest.Mock };
+  let managerReportRepo: {
+    find: jest.Mock;
+    findOne: jest.Mock;
+    save: jest.Mock;
+    remove: jest.Mock;
+  };
+
+  const tenantId = 'tenant-1';
+  const managerId = 'manager-1';
+  const reportId = 'user-2';
+
+  beforeEach(async () => {
+    userRepo = { findOne: jest.fn() };
+    managerReportRepo = {
+      find: jest.fn(),
+      findOne: jest.fn(),
+      save: jest.fn(),
+      remove: jest.fn(),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        UsersService,
+        { provide: getRepositoryToken(User), useValue: userRepo },
+        { provide: getRepositoryToken(RBACTenant), useValue: {} },
+        { provide: getRepositoryToken(UserStatus), useValue: {} },
+        { provide: getRepositoryToken(BillingBranch), useValue: {} },
+        { provide: getRepositoryToken(PosDailyShift), useValue: {} },
+        { provide: getRepositoryToken(UserManagerReport), useValue: managerReportRepo },
+        { provide: EmployeesService, useValue: {} },
+      ],
+    }).compile();
+
+    service = module.get(UsersService);
+  });
+
+  it('adds a user under a manager', async () => {
+    const reportUser = {
+      id: reportId,
+      email: 'ana@mzn.mx',
+      first_name: 'Ana',
+      last_name: 'López',
+      phone: null,
+      status: { id: 1, code: 'active', name: 'Active' },
+    };
+
+    userRepo.findOne
+      .mockResolvedValueOnce({ id: managerId, tenant_id: tenantId, is_manager: true })
+      .mockResolvedValueOnce(reportUser);
+    managerReportRepo.findOne.mockResolvedValue(null);
+    managerReportRepo.save.mockResolvedValue({});
+
+    const result = await service.addManagerReport(managerId, reportId, tenantId);
+
+    expect(managerReportRepo.save).toHaveBeenCalledWith({
+      tenant_id: tenantId,
+      manager_user_id: managerId,
+      report_user_id: reportId,
+    });
+    expect(result).toEqual({
+      id: reportId,
+      email: 'ana@mzn.mx',
+      first_name: 'Ana',
+      last_name: 'López',
+      phone: null,
+      status: { id: 1, code: 'active', name: 'Active' },
+    });
+  });
+
+  it('rejects assigning a user when the target is not a manager', async () => {
+    userRepo.findOne.mockResolvedValue({
+      id: managerId,
+      tenant_id: tenantId,
+      is_manager: false,
+    });
+
+    await expect(
+      service.addManagerReport(managerId, reportId, tenantId),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects assigning the manager to themselves', async () => {
+    userRepo.findOne.mockResolvedValue({
+      id: managerId,
+      tenant_id: tenantId,
+      is_manager: true,
+    });
+
+    await expect(
+      service.addManagerReport(managerId, managerId, tenantId),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects when the user already has a manager', async () => {
+    userRepo.findOne
+      .mockResolvedValueOnce({ id: managerId, tenant_id: tenantId, is_manager: true })
+      .mockResolvedValueOnce({ id: reportId, tenant_id: tenantId, status: {} });
+    managerReportRepo.findOne.mockResolvedValue({
+      manager_user_id: 'other-manager',
+    });
+
+    await expect(
+      service.addManagerReport(managerId, reportId, tenantId),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('lists users assigned to a manager', async () => {
+    userRepo.findOne.mockResolvedValue({
+      id: managerId,
+      tenant_id: tenantId,
+      is_manager: true,
+    });
+    managerReportRepo.find.mockResolvedValue([
+      {
+        report: {
+          id: reportId,
+          email: 'ana@mzn.mx',
+          first_name: 'Ana',
+          last_name: 'López',
+          phone: null,
+          status: { id: 1 },
+        },
+      },
+    ]);
+
+    const result = await service.getManagerReports(managerId, tenantId);
+
+    expect(result.is_manager).toBe(true);
+    expect(result.reports).toHaveLength(1);
+    expect(result.reports[0].id).toBe(reportId);
+  });
+
+  it('removes a user from a manager', async () => {
+    const assignment = { id: 'rel-1' };
+    managerReportRepo.findOne.mockResolvedValue(assignment);
+    managerReportRepo.remove.mockResolvedValue(assignment);
+
+    await service.removeManagerReport(managerId, reportId, tenantId);
+
+    expect(managerReportRepo.remove).toHaveBeenCalledWith(assignment);
   });
 });

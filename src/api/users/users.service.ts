@@ -20,6 +20,7 @@ import { PosUserType } from '../../entities/users/pos-user-type.enum';
 import { PosDailyShift } from '../../entities/pos/pos-daily-shift.entity';
 import { PosDailyShiftStatus } from '../../entities/pos/pos-daily-shift-status.enum';
 import { EmployeesService } from '../employees/employees.service';
+import { UserManagerReport } from '../../entities/users/user-manager-report.entity';
 
 @Injectable()
 export class UsersService {
@@ -31,6 +32,8 @@ export class UsersService {
     private branchRepo: Repository<BillingBranch>,
     @InjectRepository(PosDailyShift)
     private dailyShiftRepo: Repository<PosDailyShift>,
+    @InjectRepository(UserManagerReport)
+    private managerReportRepo: Repository<UserManagerReport>,
     private employeesService: EmployeesService,
   ) {}
 
@@ -52,6 +55,7 @@ export class UsersService {
       pos_user_type,
       is_employee,
       employee,
+      is_manager,
       ...userFields
     } = dto;
 
@@ -67,6 +71,7 @@ export class UsersService {
       pos_user_type: isPosUser ? dto.pos_user_type ?? null : null,
       billing_branch_id: billingBranchId,
       is_employee: false,
+      is_manager: is_manager ?? false,
     });
 
     if (dto.is_employee) {
@@ -137,6 +142,7 @@ export class UsersService {
       pos_user_type,
       is_employee,
       employee,
+      is_manager,
       ...userFields
     } = dto;
 
@@ -160,6 +166,10 @@ export class UsersService {
 
     if (dto.billing_branch_id !== undefined) {
       user.billing_branch_id = dto.billing_branch_id;
+    }
+
+    if (is_manager !== undefined) {
+      user.is_manager = is_manager;
     }
 
     Object.assign(user, userFields);
@@ -251,11 +261,18 @@ export class UsersService {
     return this.mapUserBranchResponse(user);
   }
 
-  findAll(tenantId: string) {
-    return this.userRepo.find({
+  async findAll(tenantId: string) {
+    const users = await this.userRepo.find({
       where: { tenant_id: tenantId },
       relations: ['status', 'tenant', 'billing_branch', 'billing_branch.fiscal_configuration'],
     });
+
+    const managerByUserId = await this.getManagerByUserIdMap(tenantId);
+    for (const user of users) {
+      (user as any).managerUser = managerByUserId.get(user.id) ?? null;
+    }
+
+    return users;
   }
 
   async findOne(id: string, tenantId: string) {
@@ -264,7 +281,11 @@ export class UsersService {
       relations: ['status', 'tenant', 'billing_branch', 'billing_branch.fiscal_configuration'],
     });
 
-    if (user && user.is_employee) {
+    if (!user) {
+      return user;
+    }
+
+    if (user.is_employee) {
       const employee = await this.employeesService.findEntityByUser(tenantId, id);
       if (employee) {
         (user as any).employeeProfile = await this.employeesService.mapEmployee(
@@ -274,7 +295,102 @@ export class UsersService {
       }
     }
 
+    const assignment = await this.managerReportRepo.findOne({
+      where: { tenant_id: tenantId, report_user_id: id },
+      relations: ['manager'],
+    });
+    (user as any).managerUser = assignment?.manager ?? null;
+
+    if (user.is_manager) {
+      (user as any).managedUsers = await this.loadManagedUsers(id, tenantId);
+    }
+
     return user;
+  }
+
+  async getManagerReports(managerUserId: string, tenantId: string) {
+    const manager = await this.userRepo.findOne({
+      where: { id: managerUserId, tenant_id: tenantId },
+    });
+    if (!manager) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    const reports = await this.loadManagedUsers(managerUserId, tenantId);
+
+    return {
+      is_manager: Boolean(manager.is_manager),
+      reports,
+    };
+  }
+
+  async addManagerReport(
+    managerUserId: string,
+    reportUserId: string,
+    tenantId: string,
+  ) {
+    const manager = await this.userRepo.findOne({
+      where: { id: managerUserId, tenant_id: tenantId },
+    });
+    if (!manager) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+    if (!manager.is_manager) {
+      throw new BadRequestException(
+        'Activa la opción de gerente para asignar usuarios a cargo',
+      );
+    }
+    if (managerUserId === reportUserId) {
+      throw new BadRequestException('Un gerente no puede asignarse a sí mismo');
+    }
+
+    const reportUser = await this.userRepo.findOne({
+      where: { id: reportUserId, tenant_id: tenantId },
+      relations: ['status'],
+    });
+    if (!reportUser) {
+      throw new NotFoundException(
+        'El usuario no existe o no pertenece a esta organización',
+      );
+    }
+
+    const existing = await this.managerReportRepo.findOne({
+      where: { tenant_id: tenantId, report_user_id: reportUserId },
+    });
+    if (existing) {
+      if (existing.manager_user_id === managerUserId) {
+        throw new ConflictException('Este usuario ya está a cargo de este gerente');
+      }
+      throw new ConflictException('Este usuario ya tiene un responsable asignado');
+    }
+
+    await this.managerReportRepo.save({
+      tenant_id: tenantId,
+      manager_user_id: managerUserId,
+      report_user_id: reportUserId,
+    });
+
+    return this.mapManagedUser(reportUser);
+  }
+
+  async removeManagerReport(
+    managerUserId: string,
+    reportUserId: string,
+    tenantId: string,
+  ) {
+    const assignment = await this.managerReportRepo.findOne({
+      where: {
+        tenant_id: tenantId,
+        manager_user_id: managerUserId,
+        report_user_id: reportUserId,
+      },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException('El usuario no está a cargo de este gerente');
+    }
+
+    await this.managerReportRepo.remove(assignment);
   }
 
   mapUserResponse(user: User) {
@@ -293,6 +409,11 @@ export class UsersService {
       pos_user_code: user.pos_user_code,
       is_employee: Boolean(user.is_employee),
       employee: (user as any).employeeProfile ?? null,
+      is_manager: Boolean(user.is_manager),
+      manager: this.mapManagerSummary((user as any).managerUser),
+      ...((user as any).managedUsers
+        ? { reports: (user as any).managedUsers }
+        : {}),
       ...this.mapUserBranchResponse(user),
     };
   }
@@ -454,5 +575,50 @@ export class UsersService {
         `El código ${posUserCode} ya está asignado a otro usuario`,
       );
     }
+  }
+
+  private async getManagerByUserIdMap(tenantId: string) {
+    const assignments = await this.managerReportRepo.find({
+      where: { tenant_id: tenantId },
+      relations: ['manager'],
+    });
+
+    return new Map(
+      assignments.map((row) => [row.report_user_id, row.manager]),
+    );
+  }
+
+  private async loadManagedUsers(managerUserId: string, tenantId: string) {
+    const rows = await this.managerReportRepo.find({
+      where: { tenant_id: tenantId, manager_user_id: managerUserId },
+      relations: ['report', 'report.status'],
+      order: { created_at: 'ASC' },
+    });
+
+    return rows.map((row) => this.mapManagedUser(row.report));
+  }
+
+  private mapManagedUser(user: User) {
+    return {
+      id: user.id,
+      email: user.email,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      phone: user.phone,
+      status: user.status,
+    };
+  }
+
+  private mapManagerSummary(manager?: User | null) {
+    if (!manager) {
+      return null;
+    }
+
+    return {
+      id: manager.id,
+      email: manager.email,
+      first_name: manager.first_name,
+      last_name: manager.last_name,
+    };
   }
 }

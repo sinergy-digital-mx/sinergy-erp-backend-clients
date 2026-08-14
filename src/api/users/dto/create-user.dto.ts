@@ -102,6 +102,15 @@ export class CreateUserDto {
 
   @ApiProperty({
     required: false,
+    description: 'Indica si el usuario es gerente (tab "Gerente" del modal)',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  is_manager?: boolean;
+
+  @ApiProperty({
+    required: false,
     type: EmployeeProfileDto,
     description: 'Datos de RH/nómina. Requerido cuando is_employee es true.',
   })

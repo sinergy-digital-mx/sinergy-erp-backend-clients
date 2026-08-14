@@ -98,6 +98,14 @@ export class UpdateUserDto {
 
   @ApiProperty({
     required: false,
+    description: 'Indica si el usuario es gerente (tab "Gerente" del modal)',
+  })
+  @IsOptional()
+  @IsBoolean()
+  is_manager?: boolean;
+
+  @ApiProperty({
+    required: false,
     type: EmployeeProfileDto,
     description: 'Datos de RH/nómina a actualizar. Se aplica un upsert del perfil.',
   })

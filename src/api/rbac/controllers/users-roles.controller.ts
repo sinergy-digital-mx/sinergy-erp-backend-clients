@@ -28,6 +28,7 @@ import { UsersService } from '../../users/users.service';
 import { CreateUserDto } from '../../users/dto/create-user.dto';
 import { UpdateUserDto } from '../../users/dto/update-user.dto';
 import { AssignUserBranchDto } from '../../users/dto/assign-user-branch.dto';
+import { AssignUserReportDto } from '../../users/dto/assign-user-report.dto';
 import { ChangePasswordDto } from '../../users/dto/change-password.dto';
 
 @ApiTags('Tenant - Users & Roles')
@@ -145,6 +146,79 @@ export class UsersRolesController {
     }
 
     return this.usersService.getUserBranch(userId, tenantId);
+  }
+
+  @Get(':userId/reports')
+  @RequirePermissions({ entityType: 'User', action: 'Read' })
+  @ApiOperation({
+    summary: 'List users assigned to a manager',
+    description:
+      'Returns the users for whom this manager is the responsible person',
+  })
+  @ApiParam({ name: 'userId', description: 'Manager user ID' })
+  async getManagerReports(@Param('userId') userId: string) {
+    const tenantId = this.tenantContextService.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+
+    return this.usersService.getManagerReports(userId, tenantId);
+  }
+
+  @Post(':userId/reports')
+  @RequirePermissions({ entityType: 'User', action: 'Update' })
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Assign a user to a manager',
+    description:
+      'Adds a user to the manager team. The manager becomes their responsible person.',
+  })
+  @ApiParam({ name: 'userId', description: 'Manager user ID' })
+  @ApiBody({ type: AssignUserReportDto })
+  async addManagerReport(
+    @Param('userId') userId: string,
+    @Body() dto: AssignUserReportDto,
+  ) {
+    const tenantId = this.tenantContextService.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+
+    const report = await this.usersService.addManagerReport(
+      userId,
+      dto.user_id,
+      tenantId,
+    );
+
+    return {
+      message: 'Usuario asignado al gerente',
+      report,
+    };
+  }
+
+  @Delete(':userId/reports/:reportUserId')
+  @RequirePermissions({ entityType: 'User', action: 'Update' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Remove a user from a manager',
+    description: 'Removes the responsible relationship between manager and user',
+  })
+  @ApiParam({ name: 'userId', description: 'Manager user ID' })
+  @ApiParam({ name: 'reportUserId', description: 'Assigned user ID' })
+  async removeManagerReport(
+    @Param('userId') userId: string,
+    @Param('reportUserId') reportUserId: string,
+  ) {
+    const tenantId = this.tenantContextService.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+
+    await this.usersService.removeManagerReport(userId, reportUserId, tenantId);
+
+    return {
+      message: 'Usuario desasignado del gerente',
+    };
   }
 
   @Put(':userId/branch')
