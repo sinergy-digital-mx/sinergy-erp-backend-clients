@@ -992,9 +992,9 @@ export class SalesOrderService {
       throw new BadRequestException('Vendedor no válido');
     }
 
-    if (seller.is_pos_user) {
+    if (seller.pos_user_code == null) {
       throw new BadRequestException(
-        'El vendedor debe ser un usuario de ventas (no terminal POS)',
+        'El vendedor debe tener un código POS',
       );
     }
 

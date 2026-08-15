@@ -26,9 +26,9 @@ Un POS normal es **Ventas o Cobranza**, nunca los dos. Si el usuario es gerente 
 
 | Usuario | `is_pos_user` | `pos_user_type` | `pos_user_code` | Sucursal |
 |---------|---------------|-----------------|-----------------|----------|
-| Terminal Ventas | `true` | `VENTAS` | `null` | Obligatoria |
-| Terminal Cobranza | `true` | `COBRANZA` | `null` | Obligatoria |
-| Gerente POS | `true` | `AMBOS` | `null` | Obligatoria |
+| Terminal Ventas | `true` | `VENTAS` | Opcional (si vende) | Obligatoria |
+| Terminal Cobranza | `true` | `COBRANZA` | Opcional | Obligatoria |
+| Gerente POS | `true` | `AMBOS` | Recomendado (para vender) | Obligatoria |
 | Vendedor | `false` | `null` | Opcional (único por organización) | Opcional |
 
 ### División Ventas vs Cobranza (regla de oro)
@@ -56,17 +56,16 @@ Campos habituales (nombre, email, contraseña, etc.). Sin cambios POS aquí.
 
 **Check:** `Usuario de tipo POS` → `is_pos_user`
 
+**Código POS** (`pos_user_code`, ej. `33456`): **siempre visible**, también si el check POS está marcado. Es el número que se teclea en la pantalla de ventas. Un gerente que vende necesita el suyo.
+
 Si **desmarcado** (vendedor normal):
-- Mostrar campo **Código** numérico (`pos_user_code`, ej. `33456`).
-- Opcional pero recomendado para vendedores que operan en POS.
 - Ocultar selector Ventas/Cobranza.
 
 Si **marcado** (terminal):
 - Si **no** es gerente: selector **obligatorio** Ventas **o** Cobranza → `pos_user_type` (`VENTAS` / `COBRANZA`). No puede marcar ambos.
 - Si **sí** es gerente (`is_manager`): puede elegir **Ventas y cobranza** → `pos_user_type: "AMBOS"`. En el menú POS verá las dos apps.
-- Ocultar/deshabilitar campo Código.
 - Texto de ayuda:
-  > *Las terminales POS requieren sucursal asignada. **Ventas** solo captura pedidos; **Cobranza** maneja el corte del día y el cobro. Un **gerente** puede operar ambos.*
+  > *Las terminales POS requieren sucursal asignada. **Ventas** solo captura pedidos; **Cobranza** maneja el corte del día y el cobro. Un **gerente** puede operar ambos. El código es el que se teclea en POS al vender.*
 
 **Bloqueo en edición:** si el usuario es `COBRANZA` y tiene un **corte global abierto**, deshabilitar cambio de tipo POS, check POS y sucursal. El API responde 400 si se intenta cambiar.
 
@@ -87,7 +86,7 @@ Si **marcado** (terminal):
 {
   "is_pos_user": true,
   "pos_user_type": "COBRANZA",
-  "pos_user_code": null,
+  "pos_user_code": 33456,
   "billing_branch_id": "uuid",
   "billing_branch": { "id", "code", "fiscal_configuration": { "razon_social", "rfc" } },
   "has_all_branches_access": false

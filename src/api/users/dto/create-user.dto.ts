@@ -74,10 +74,10 @@ export class CreateUserDto {
 
   @ApiProperty({
     required: false,
-    description: 'Código numérico del usuario (solo aplica cuando is_pos_user es false)',
+    description: 'Código numérico que se ingresa en el POS al vender. Aplica a vendedores y a terminales (p. ej. gerentes).',
     example: 33456,
   })
-  @ValidateIf((dto: CreateUserDto) => !dto.is_pos_user && dto.pos_user_code != null)
+  @ValidateIf((dto: CreateUserDto) => dto.pos_user_code != null)
   @IsInt()
   @Min(1)
   pos_user_code?: number;

@@ -47,9 +47,9 @@ Respuesta: mismo shape que el detalle (`header.seller_user` actualizado).
 
 | Regla | Detalle |
 |-------|---------|
-| Quién puede ser vendedor | Usuario del tenant con `is_pos_user = false` (quien usa código POS) |
+| Quién puede ser vendedor | Usuario de la organización con `pos_user_code` (incluye gerentes POS) |
 | Bloqueado | Orden `Cancelada` |
-| Lista para select | Usuarios no-POS del tenant (o los que tengan `pos_user_code`) |
+| Lista para select | Usuarios que tengan `pos_user_code` |
 
 ### UI
 

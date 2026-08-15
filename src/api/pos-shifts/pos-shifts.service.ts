@@ -77,7 +77,6 @@ export class PosShiftsService {
       where: {
         tenant_id: tenantId,
         pos_user_code: code,
-        is_pos_user: false,
       },
       relations: ['status'],
     });
@@ -778,12 +777,17 @@ export class PosShiftsService {
       where: {
         id: sellerUserId,
         tenant_id: tenantId,
-        is_pos_user: false,
       },
     });
 
     if (!seller) {
       throw new BadRequestException('Vendedor no válido para venta POS');
+    }
+
+    if (seller.pos_user_code == null) {
+      throw new BadRequestException(
+        'El vendedor debe tener un código POS para operar en ventas',
+      );
     }
 
     return seller;

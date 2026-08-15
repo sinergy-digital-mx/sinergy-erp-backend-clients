@@ -50,7 +50,7 @@ export class UsersService {
     await this.validateBillingBranch(tenantId, billingBranchId);
     this.validateBranchAssignment(isPosUser, billingBranchId);
     this.validatePosUserType(isPosUser, dto.pos_user_type, dto.is_manager ?? false);
-    await this.validatePosFields(tenantId, isPosUser, dto.pos_user_code);
+    await this.validatePosFields(tenantId, dto.pos_user_code);
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
     const {
@@ -72,7 +72,7 @@ export class UsersService {
       status,
       permissions_version: 1,
       is_pos_user: isPosUser,
-      pos_user_code: isPosUser ? null : dto.pos_user_code ?? null,
+      pos_user_code: dto.pos_user_code ?? null,
       pos_user_type: isPosUser ? dto.pos_user_type ?? null : null,
       billing_branch_id: billingBranchId,
       is_employee: false,
@@ -131,7 +131,7 @@ export class UsersService {
     }
 
     if (dto.is_pos_user !== undefined || dto.pos_user_code !== undefined) {
-      await this.validatePosFields(tenantId, nextIsPosUser, nextPosCode, id);
+      await this.validatePosFields(tenantId, nextPosCode, id);
     }
 
     await this.assertCobranzaConfigChangeAllowed(
@@ -155,19 +155,17 @@ export class UsersService {
 
     if (dto.is_pos_user === true) {
       user.is_pos_user = true;
-      user.pos_user_code = null;
       if (dto.pos_user_type !== undefined) {
         user.pos_user_type = dto.pos_user_type;
       }
     } else if (dto.is_pos_user === false) {
       user.is_pos_user = false;
       user.pos_user_type = null;
-      if (dto.pos_user_code !== undefined) {
-        user.pos_user_code = dto.pos_user_code;
-      }
     } else if (dto.pos_user_type !== undefined && user.is_pos_user) {
       user.pos_user_type = dto.pos_user_type;
-    } else if (dto.pos_user_code !== undefined && !user.is_pos_user) {
+    }
+
+    if (dto.pos_user_code !== undefined) {
       user.pos_user_code = dto.pos_user_code;
     }
 
@@ -663,19 +661,9 @@ export class UsersService {
 
   private async validatePosFields(
     tenantId: string,
-    isPosUser: boolean,
     posUserCode?: number | null,
     excludeUserId?: string,
   ) {
-    if (isPosUser) {
-      if (posUserCode != null) {
-        throw new BadRequestException(
-          'pos_user_code no aplica cuando el usuario es de tipo POS',
-        );
-      }
-      return;
-    }
-
     if (posUserCode == null) {
       return;
     }
