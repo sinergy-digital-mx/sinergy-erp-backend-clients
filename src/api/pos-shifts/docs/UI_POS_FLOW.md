@@ -801,7 +801,7 @@ Base: `/api/tenant/...` — Header: `Authorization: Bearer <token>`
 
 | Mensaje API | Cuándo |
 |-------------|--------|
-| Código de vendedor no válido | Código inexistente o usuario es POS |
+| Código de vendedor no válido | No hay usuario con ese `pos_user_code` en la organización |
 | No se puede cobrar una orden en cola | COBRANZA intenta cobrar sin asignar al corte |
 | No hay órdenes en cola para asignar | Apertura de corte sin ventas previas (informativo, no error) |
 | Solo terminales de tipo COBRANZA... | VENTAS intenta abrir corte |
