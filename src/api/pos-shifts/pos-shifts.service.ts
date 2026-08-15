@@ -471,50 +471,46 @@ export class PosShiftsService {
     }
 
     const orders = await qb.orderBy('so.created_at', 'ASC').getMany();
-
-    return Promise.all(
-      orders.map(async (order) => {
-        const amountPending = await this.salesOrderService.getAmountPending(
-          order.id,
-          tenantId,
-        );
-        return {
-          id: order.id,
-          folio: order.folio,
-          total: Number(order.total),
-          amount_pending: amountPending,
-          subtotal: Number(order.subtotal),
-          created_at: order.created_at,
-          notes: order.notes,
-          customer: order.customer
-            ? {
-                id: order.customer.id,
-                name: order.customer.name,
-                lastname: order.customer.lastname,
-                company_name: order.customer.company_name,
-                fiscal_razon_social: order.customer.fiscal_razon_social,
-                is_walk_in: isWalkInCustomer(order.customer),
-              }
-            : null,
-          seller_user: order.seller_user
-            ? {
-                id: order.seller_user.id,
-                first_name: order.seller_user.first_name,
-                last_name: order.seller_user.last_name,
-                pos_user_code: order.seller_user.pos_user_code,
-              }
-            : null,
-          terminal_user: order.terminal_user
-            ? {
-                id: order.terminal_user.id,
-                first_name: order.terminal_user.first_name,
-                last_name: order.terminal_user.last_name,
-                pos_user_type: order.terminal_user.pos_user_type,
-              }
-            : null,
-        };
-      }),
+    const pendingByOrder = await this.salesOrderService.getAmountPendingMap(
+      orders,
+      tenantId,
     );
+
+    return orders.map((order) => ({
+      id: order.id,
+      folio: order.folio,
+      total: Number(order.total),
+      amount_pending: pendingByOrder.get(order.id) ?? Number(order.total),
+      subtotal: Number(order.subtotal),
+      created_at: order.created_at,
+      notes: order.notes,
+      customer: order.customer
+        ? {
+            id: order.customer.id,
+            name: order.customer.name,
+            lastname: order.customer.lastname,
+            company_name: order.customer.company_name,
+            fiscal_razon_social: order.customer.fiscal_razon_social,
+            is_walk_in: isWalkInCustomer(order.customer),
+          }
+        : null,
+      seller_user: order.seller_user
+        ? {
+            id: order.seller_user.id,
+            first_name: order.seller_user.first_name,
+            last_name: order.seller_user.last_name,
+            pos_user_code: order.seller_user.pos_user_code,
+          }
+        : null,
+      terminal_user: order.terminal_user
+        ? {
+            id: order.terminal_user.id,
+            first_name: order.terminal_user.first_name,
+            last_name: order.terminal_user.last_name,
+            pos_user_type: order.terminal_user.pos_user_type,
+          }
+        : null,
+    }));
   }
 
   async getCollectedSales(

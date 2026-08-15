@@ -145,7 +145,8 @@ Pollux **no** debe llamar `GET /api/tenant/users/:id` (requiere `User:Read`). Us
     "pos_can_sell": false,
     "pos_can_collect": true,
     "is_manager": false,
-    "billing_branch_id": "uuid-sucursal"
+    "billing_branch_id": "uuid-sucursal",
+    "fiscal_configuration_id": "uuid-razon-social"
   }
 }
 ```
@@ -158,6 +159,7 @@ Pollux **no** debe llamar `GET /api/tenant/users/:id` (requiere `User:Read`). Us
 | `pos_can_collect` | `true` → mostrar menú / app **Cobranza** |
 | `is_manager` | Si es gerente. `AMBOS` solo es válido con esto en `true` |
 | `billing_branch_id` | Sucursal de la terminal (obligatorio si `is_pos_user`) |
+| `fiscal_configuration_id` | Razón social de esa sucursal. Usar en `POST sales-orders`. **No** sacarla de `GET /warehouses/:id` ni de Ajustes. |
 
 Si `pos_can_sell && pos_can_collect` (gerente `AMBOS`), mostrar **ambas** opciones en el menú. No rutees a una sola app.
 
@@ -619,6 +621,7 @@ Respuesta incluye:
 ```json
 {
   "billing_branch_id": "uuid-sucursal-terminal",
+  "fiscal_configuration_id": "uuid-razon-social",
   "warehouses": [{ "id", "name", "status" }],
   "applied_warehouse_id": null,
   "data": [ ... productos ... ],

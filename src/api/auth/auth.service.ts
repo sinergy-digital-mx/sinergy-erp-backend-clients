@@ -24,7 +24,7 @@ export class AuthService {
     async login(email: string, password: string) {
         const user = await this.userRepo.findOne({
             where: { email },
-            relations: ['tenant', 'status'],
+            relations: ['tenant', 'status', 'billing_branch'],
         });
 
         if (!user) {
@@ -129,7 +129,7 @@ export class AuthService {
     async refreshToken(userId: string, tenantId: string) {
         const user = await this.userRepo.findOne({
             where: { id: userId },
-            relations: ['tenant', 'status'],
+            relations: ['tenant', 'status', 'billing_branch'],
         });
 
         if (!user || user.tenant.id.toString() !== tenantId) {
@@ -185,6 +185,8 @@ export class AuthService {
             pos_can_collect:
                 Boolean(user.is_pos_user) && canPosCollect(user.pos_user_type),
             billing_branch_id: user.billing_branch_id ?? null,
+            fiscal_configuration_id:
+                user.billing_branch?.fiscal_configuration_id ?? null,
             is_employee: Boolean(user.is_employee),
             is_manager: Boolean(user.is_manager),
         };

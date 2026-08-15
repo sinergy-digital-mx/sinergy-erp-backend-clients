@@ -834,9 +834,52 @@ export class SalesOrderService {
 
   /** Saldo pendiente de una orden (para cobranza POS). */
   async getAmountPending(salesOrderId: string, tenantId: string): Promise<number> {
-    const order = await this.findOne(salesOrderId, tenantId);
-    const { summary } = await this.getPaymentsForOrder(order);
-    return summary.amount_pending;
+    const order = await this.soRepo.findOne({
+      where: { id: salesOrderId, tenant_id: tenantId },
+      select: ['id', 'total'],
+    });
+    if (!order) {
+      throw new NotFoundException(`Sales order not found: ${salesOrderId}`);
+    }
+    const pendingByOrder = await this.getAmountPendingMap([order], tenantId);
+    return pendingByOrder.get(order.id) ?? Number(order.total || 0);
+  }
+
+  async getAmountPendingMap(
+    orders: Array<{ id: string; total: number | string }>,
+    tenantId: string,
+  ): Promise<Map<string, number>> {
+    const pendingByOrder = new Map<string, number>();
+    if (orders.length === 0) {
+      return pendingByOrder;
+    }
+
+    const paidRows: Array<{ sales_order_id: string; paid: string }> =
+      await this.paymentRepo
+        .createQueryBuilder('p')
+        .select('p.sales_order_id', 'sales_order_id')
+        .addSelect('COALESCE(SUM(p.amount), 0)', 'paid')
+        .where('p.tenant_id = :tenantId', { tenantId })
+        .andWhere('p.sales_order_id IN (:...ids)', {
+          ids: orders.map((order) => order.id),
+        })
+        .groupBy('p.sales_order_id')
+        .getRawMany();
+
+    const paidByOrder = new Map(
+      paidRows.map((row) => [row.sales_order_id, Number(row.paid)]),
+    );
+
+    for (const order of orders) {
+      const total = Number(order.total || 0);
+      const paid = paidByOrder.get(order.id) ?? 0;
+      pendingByOrder.set(
+        order.id,
+        Math.max(Number((total - paid).toFixed(2)), 0),
+      );
+    }
+
+    return pendingByOrder;
   }
 
   private async getPaymentsForOrder(order: SalesOrder) {

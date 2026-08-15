@@ -337,6 +337,7 @@ export class InventoryService {
   ): Promise<PosSessionInventorySummaryResponseDto> {
     const terminalUser = await this.userRepo.findOne({
       where: { id: terminalUserId, tenant_id: tenantId, is_pos_user: true },
+      relations: ['billing_branch'],
     });
 
     if (!terminalUser) {
@@ -511,6 +512,8 @@ export class InventoryService {
 
     return {
       billing_branch_id: terminalUser.billing_branch_id,
+      fiscal_configuration_id:
+        terminalUser.billing_branch?.fiscal_configuration_id ?? null,
       warehouses: branchWarehouses.map((w) => ({
         id: w.id,
         name: w.name,

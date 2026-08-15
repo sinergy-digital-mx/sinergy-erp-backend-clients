@@ -71,6 +71,12 @@ export class PosSessionInventorySummaryResponseDto {
   billing_branch_id: string;
 
   @ApiProperty({
+    nullable: true,
+    description: 'Razón social de esa sucursal. Usar al crear la orden POS.',
+  })
+  fiscal_configuration_id: string | null;
+
+  @ApiProperty({
     type: [PosSessionWarehouseDto],
     description: 'Almacenes de esa sucursal. Usar uno de estos ids si se filtra por warehouse_id.',
   })

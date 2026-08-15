@@ -107,6 +107,7 @@ describe('AuthService', () => {
         is_pos_user: true,
         pos_user_type: 'COBRANZA',
         billing_branch_id: 'branch-1',
+        billing_branch: { id: 'branch-1', fiscal_configuration_id: 'fiscal-1' },
         tenant: { id: 'tenant-456', name: 'Test Tenant' },
         status: { code: 'active' },
       };
@@ -126,6 +127,7 @@ describe('AuthService', () => {
         pos_can_sell: false,
         pos_can_collect: true,
         billing_branch_id: 'branch-1',
+        fiscal_configuration_id: 'fiscal-1',
       });
     });
 
@@ -191,6 +193,7 @@ describe('AuthService', () => {
         pos_can_sell: false,
         pos_can_collect: false,
         billing_branch_id: null,
+        fiscal_configuration_id: null,
       });
     });
 

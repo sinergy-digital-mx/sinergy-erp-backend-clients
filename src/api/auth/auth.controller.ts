@@ -34,6 +34,7 @@ export class AuthController {
                     is_pos_user: true,
                     pos_user_type: 'COBRANZA',
                     billing_branch_id: 'uuid',
+                    fiscal_configuration_id: 'uuid',
                     permissions: {
                         'Lead Management': [
                             { id: 1, action: 'Read', description: 'View leads' },
