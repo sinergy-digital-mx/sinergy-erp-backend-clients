@@ -1,6 +1,6 @@
 # API — Envíos / Logística (`/api/tenant/shippings`)
 
-Rutas de entrega del día: origen (almacén con GPS) → órdenes surtidas → camión + chofer (usuario) → distancia Haversine.
+Rutas de entrega del día: origen (sucursal con GPS) → órdenes surtidas → camión + chofer (usuario) → distancia Haversine.
 
 Scoped por organización vía JWT. No enviar `tenant_id` / `organization_id` en el body.
 
@@ -14,12 +14,12 @@ Scoped por organización vía JWT. No enviar `tenant_id` / `organization_id` en 
 
 ## Flujo UI
 
-1. Elegir fecha, camión, chofer, **almacén origen (CEDIS)**, OV `Surtida` o `Lista para entrega`.
+1. Elegir **razón social → sucursal**, fecha, camión, chofer, OV `Surtida` o `Lista para entrega`.
 2. `POST /preview` → ruta A/B/C + km + alertas sin GPS (origen y paradas).
 3. Completar GPS faltante:
-   - CEDIS: `PUT /tenant/warehouses/:id` (`latitude` / `longitude` + dirección).
+   - Sucursal: `PUT /tenant/fiscal-configurations/:id/branches/:branchId` (`latitude` / `longitude` + dirección).
    - Cliente: `POST/PUT /tenant/customers/:id/addresses` con `type: "shipping"`.
-4. Re-preview. El back **ordena por distancia** desde el CEDIS.
+4. Re-preview. El back **ordena por distancia** desde la sucursal.
 5. `POST /` → crea envío (misma orden por distancia); OV → `En Camino`.
 6. `PATCH /:id/status` → `En Ruta` → `Completado` (o `Cancelado`).
 
@@ -42,8 +42,8 @@ Al cancelar, las OV vuelven a `Lista para entrega` (si tuvieron corroboración /
 | `POST` | `/preview` | Estima km sin guardar |
 | `POST` | `/resolve-orders` | `{ sales_order_ids }` → GPS |
 | `POST` | `/` | Crear |
-| `GET` | `/` | Filtros: status, driver_id, truck_id, origin_warehouse_id, date_from/to |
-| `GET` | `/available-orders` | OV `Surtida` \| `Lista para entrega` del CEDIS (sin envío activo) |
+| `GET` | `/` | Filtros: status, driver_id, truck_id, billing_branch_id, date_from/to |
+| `GET` | `/available-orders` | OV `Surtida` \| `Lista para entrega` de la sucursal (sin envío activo) |
 | `GET` | `/:id` | Detalle + stops |
 | `POST` | `/:id/stops` | Agregar OV (solo `Creado`) |
 | `POST` | `/:id/recalculate-distance` | Tras cargar GPS |
@@ -56,7 +56,7 @@ Al cancelar, las OV vuelven a `Lista para entrega` (si tuvieron corroboración /
   "shipping_date": "2026-07-29",
   "driver_id": "uuid-user",
   "truck_id": "uuid-truck",
-  "origin_warehouse_id": "uuid-warehouse",
+  "billing_branch_id": "uuid-sucursal",
   "notes": "Ruta matutina",
   "orders": [
     { "sales_order_id": "uuid-ov-1", "stop_sequence": 1 },
@@ -68,17 +68,19 @@ Al cancelar, las OV vuelven a `Lista para entrega` (si tuvieron corroboración /
 ## Elegibilidad OV
 
 1. Misma organización.
-2. Mismo `warehouse_id` que el origen.
+2. Misma sucursal (`warehouse.billing_branch_id` = `billing_branch_id`). **No** se filtra por almacén.
 3. `general_status` ∈ `Surtida` | `Lista para entrega`.
 4. No está en otro envío activo (≠ Cancelado).
 
 Listado para el wizard:
 
 ```http
-GET /api/tenant/shippings/available-orders?origin_warehouse_id={uuid}&search=&page=1&limit=50
+GET /api/tenant/shippings/available-orders?billing_branch_id={uuid}&fiscal_configuration_id={uuid}&search=&page=1&limit=50
 ```
 
-Respuesta: `{ data, total, page, limit, ... }` con `folio`, `general_status`, `customer_name`, `total`, etc.
+`billing_branch_id` obligatorio. `fiscal_configuration_id` opcional (valida que la sucursal sea de esa razón).
+
+Respuesta: `{ data, total, page, limit, ... }` con `folio`, `general_status`, `customer_name`, `razon_social`, `sucursal`, `total`, etc.
 
 ## Embebido en OV
 
@@ -102,7 +104,7 @@ Respuesta: `{ data, total, page, limit, ... }` con `folio`, `general_status`, `c
 
 Haversine (`src/common/utils/geo.helper.ts`): línea recta, no Google Directions. Snapshot de lat/lng en cada parada al asignar.
 
-En `POST /preview` y `POST /` las paradas se **ordenan por distancia desde el CEDIS** (más cerca primero). Sin GPS del origen o de la parada → van al final.
+En `POST /preview` y `POST /` las paradas se **ordenan por distancia desde la sucursal** (más cerca primero). Sin GPS del origen o de la parada → van al final.
 
 Respuesta de preview incluye `origin` (label `A`), `orders` (labels `B`…), `route_points`, `distance_from_previous_km`, `origin_missing_location`.
 

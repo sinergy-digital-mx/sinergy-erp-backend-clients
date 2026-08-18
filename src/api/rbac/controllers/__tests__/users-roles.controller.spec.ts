@@ -9,6 +9,7 @@ describe('UsersRolesController', () => {
   let controller: UsersRolesController;
   let usersService: UsersService;
   let tenantContextService: TenantContextService;
+  let permissionService: PermissionService;
 
   const mockTenantId = 'test-tenant-id';
   const mockUserId = 'test-user-id';
@@ -73,6 +74,7 @@ describe('UsersRolesController', () => {
     controller = module.get<UsersRolesController>(UsersRolesController);
     usersService = module.get<UsersService>(UsersService);
     tenantContextService = module.get<TenantContextService>(TenantContextService);
+    permissionService = module.get<PermissionService>(PermissionService);
   });
 
   describe('getTenantUsers', () => {
@@ -193,19 +195,47 @@ describe('UsersRolesController', () => {
     it('should change password for the logged-in user', async () => {
       jest.spyOn(tenantContextService, 'getCurrentTenantId').mockReturnValue(mockTenantId);
       jest.spyOn(tenantContextService, 'getCurrentUserId').mockReturnValue(mockUserId);
+      jest.spyOn(permissionService, 'hasPermission').mockResolvedValue(false);
       jest.spyOn(usersService, 'changePassword').mockResolvedValue({
         message: 'Contraseña actualizada correctamente',
       });
 
       const result = await controller.changePassword(mockUserId, dto);
 
+      expect(permissionService.hasPermission).toHaveBeenCalledWith(
+        mockUserId,
+        mockTenantId,
+        'User',
+        'Reset_Password',
+      );
       expect(usersService.changePassword).toHaveBeenCalledWith(
         mockUserId,
         dto,
         mockTenantId,
         mockUserId,
+        false,
       );
       expect(result).toEqual({ message: 'Contraseña actualizada correctamente' });
+    });
+
+    it('should pass Reset_Password when the actor can reset others', async () => {
+      const otherUserId = 'other-user-id';
+      jest.spyOn(tenantContextService, 'getCurrentTenantId').mockReturnValue(mockTenantId);
+      jest.spyOn(tenantContextService, 'getCurrentUserId').mockReturnValue(mockUserId);
+      jest.spyOn(permissionService, 'hasPermission').mockResolvedValue(true);
+      jest.spyOn(usersService, 'changePassword').mockResolvedValue({
+        message: 'Contraseña actualizada correctamente',
+      });
+
+      await controller.changePassword(otherUserId, dto);
+
+      expect(usersService.changePassword).toHaveBeenCalledWith(
+        otherUserId,
+        dto,
+        mockTenantId,
+        mockUserId,
+        true,
+      );
     });
 
     it('should throw when user context is missing', async () => {

@@ -23,6 +23,8 @@ Guía para Pollux: nuevo módulo **Cobranza / Contabilidad** con tres pestañas.
 ┌─────────────────────────────────────────────────────────────────┐
 │  Cobranza / Contabilidad                                        │
 ├─────────────────────────────────────────────────────────────────┤
+│  ⚠ Banner si unclosed_shift_alert (corte de día anterior)       │
+├─────────────────────────────────────────────────────────────────┤
 │  [ Hoy | Semana | Mes | Rango ▼ ]     Sucursal: [ dropdown ▼ ] │
 │  (si Rango: [ Fecha inicio ] — [ Fecha fin ] )                  │
 ├─────────────────────────────────────────────────────────────────┤
@@ -56,6 +58,34 @@ Reutilizar el **mismo componente** que ya usa el reporte de ventas Maderería Zo
 **Obligatorio** en Tab 1 (Puntos de venta). Opcional en Tab 3 (Cuentas por cobrar).
 
 Al cambiar periodo o sucursal → recargar la tab activa.
+
+### Alerta: corte de un día anterior sin cerrar
+
+El corte POS debe cerrarse **completo todos los días**. Si la sucursal seleccionada tiene un corte `open` con `shift_date` anterior a hoy, `GET pos-summary` incluye `unclosed_shift_alert` en la **raíz** (no depende del periodo del reporte).
+
+**Mostrar** el banner en **todas** las tabs de Cobranza / Contabilidad, arriba de los filtros, mientras `unclosed_shift_alert !== null`.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  ⚠  Corte del día anterior sin cerrar                           │
+│  Quedó un corte abierto del 2026-08-14 sin cerrar.              │
+│  Es necesario cerrarlo para continuar.                          │
+│                                          [ Ir a POS Cobranza ]  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+| Campo API | Uso UI |
+|-----------|--------|
+| `unclosed_shift_alert` | Si es `null`, no pintar banner |
+| `unclosed_shift_alert.title` | Título |
+| `unclosed_shift_alert.message` | Cuerpo (usar tal cual) |
+| `unclosed_shift_alert.shift_date` | Fecha del corte pendiente |
+| `unclosed_shift_alert.severity` | `blocking` → estilo warning/error, no info azul |
+| `collection_terminal.open_daily_shift.is_previous_day` | Chip rojo en la card de corte abierto |
+
+**CTA:** `Ir a POS Cobranza` → `/pos/cobranza` (si el usuario tiene acceso POS). Si no, el texto basta: hay que cerrar el corte en la terminal de cobranza.
+
+El banner **no** bloquea ver CxP/CxC, pero sí indica que no se puede continuar el día POS hasta cerrar.
 
 ---
 
@@ -138,6 +168,8 @@ GET /api/tenant/accounting/pos-summary?billing_branch_id={uuid}&period=month
 | Card cobranza — cortes globales | `response.collection_terminal.daily_shifts_count` |
 | Card cobranza — cortes parciales | `response.collection_terminal.partial_shifts_count` |
 | Card cobranza — corte abierto | `response.collection_terminal.open_daily_shift` |
+| Corte atrasado (banner) | `response.unclosed_shift_alert` |
+| Corte abierto es de otro día | `response.collection_terminal.open_daily_shift.is_previous_day` |
 | Filtros aplicados (debug) | `response.filters_applied` |
 
 **Respuesta vacía válida (sin error):**
@@ -145,6 +177,7 @@ GET /api/tenant/accounting/pos-summary?billing_branch_id={uuid}&period=month
 ```json
 {
   "filters_applied": { "billing_branch_id": "...", "period": "month", "date_from": "...", "date_to": "..." },
+  "unclosed_shift_alert": null,
   "sales_terminals": [],
   "collection_terminal": {
     "terminal_user_id": null,
@@ -374,6 +407,11 @@ const summary = await fetch(`/api/tenant/accounting/pos-summary?${params}`, { he
 
 const terminals = summary.sales_terminals ?? [];        // ← tabla terminales
 const cobranza = summary.collection_terminal ?? {};    // ← card cobranza
+const staleAlert = summary.unclosed_shift_alert;       // ← banner superior
+
+if (staleAlert) {
+  showTopBanner(staleAlert.title, staleAlert.message);
+}
 
 // 3. Drill-down terminal
 if (terminals.length > 0) {
@@ -437,6 +475,16 @@ GET /api/tenant/accounting/pos-summary
 ```json
 {
   "filters_applied": { "billing_branch_id": "...", "period": "month", "date_from": "...", "date_to": "..." },
+  "unclosed_shift_alert": {
+    "active": true,
+    "daily_shift_id": "uuid",
+    "shift_date": "2026-08-14",
+    "today": "2026-08-17",
+    "days_open": 3,
+    "title": "Corte del día anterior sin cerrar",
+    "message": "Quedó un corte abierto del 2026-08-14 sin cerrar. Es necesario cerrarlo para continuar.",
+    "severity": "blocking"
+  },
   "sales_terminals": [
     {
       "terminal_user_id": "uuid",
@@ -456,8 +504,9 @@ GET /api/tenant/accounting/pos-summary
     "partial_shifts_count": 5,
     "open_daily_shift": {
       "id": "uuid",
-      "shift_date": "2026-07-10",
+      "shift_date": "2026-08-14",
       "status": "open",
+      "is_previous_day": true,
       "partial_shifts_count": 1
     }
   }
@@ -512,7 +561,7 @@ Card resumen debajo o al lado de las terminales de venta:
 | Facturadas | `invoiced_count` | Orden con CFDI timbrado (`stamp_status` stamped / cancel_pending / cancelled) | Abrir modal con `customer_type=invoiced` |
 | Cortes globales | `daily_shifts_count` | Cortes del día abiertos/cerrados en el periodo | (opcional) link a historial POS |
 | Cortes parciales | `partial_shifts_count` | Retiros parciales en el periodo | (opcional) link a historial POS |
-| Corte abierto | `open_daily_shift` | Corte global actual de la sucursal | Chip si `status === 'open'` |
+| Corte abierto | `open_daily_shift` | Corte global actual de la sucursal | Chip si `status === 'open'`. Si `is_previous_day === true`, chip rojo “Sin cerrar desde {shift_date}” |
 
 **Definición "facturada" vs "Público en General":**
 

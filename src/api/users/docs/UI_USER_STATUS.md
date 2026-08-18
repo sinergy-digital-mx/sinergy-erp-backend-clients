@@ -72,7 +72,7 @@ No se puede desactivar la cuenta con la que estás logueado (`403`).
 
 ## Detalle — Eliminar (botón + confirmación)
 
-Botón **Eliminar** en el detalle (rojo, separado del select). **No** es un hard delete: pasa el usuario a `deleted`.
+Botón **Eliminar** en el detalle (rojo, separado del select). **No** es un hard delete: pasa el usuario a `deleted` y **libera el correo** (`email: null`) para que se pueda crear otro usuario con el mismo email.
 
 1. Click → modal de confirmación:  
    `¿Eliminar a Ariana Moreno? Dejará de poder iniciar sesión.`
@@ -90,12 +90,13 @@ Permiso: User:Delete
   "message": "Usuario eliminado",
   "user": {
     "id": "uuid",
+    "email": null,
     "status": { "id": 3, "code": "deleted", "name": "Eliminado" }
   }
 }
 ```
 
-Tras 200: quitar al usuario del listado (por defecto no se listan eliminados) o dejarlo con badge rojo si el filtro es Eliminado.
+Tras 200: quitar al usuario del listado (por defecto no se listan eliminados) o dejarlo con badge rojo si el filtro es Eliminado. En detalle, `email` viene `null`. Ya se puede crear otro usuario con el correo que tenía.
 
 Ocultar el botón si no hay `User:Delete`. No mostrar si el usuario ya está `deleted`. No permitir eliminarte a ti mismo (`403`).
 

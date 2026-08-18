@@ -36,7 +36,7 @@ export class CreateShippingDto {
   truck_id: string;
 
   @IsUUID()
-  origin_warehouse_id: string;
+  billing_branch_id: string;
 
   @IsOptional()
   @IsString()
@@ -51,7 +51,7 @@ export class CreateShippingDto {
 
 export class PreviewShippingDto {
   @IsUUID()
-  origin_warehouse_id: string;
+  billing_branch_id: string;
 
   @IsArray()
   @ArrayMinSize(1)
@@ -108,6 +108,10 @@ export class QueryShippingDto {
 
   @IsOptional()
   @IsUUID()
+  billing_branch_id?: string;
+
+  @IsOptional()
+  @IsUUID()
   origin_warehouse_id?: string;
 
   @IsOptional()
@@ -119,10 +123,14 @@ export class QueryShippingDto {
   date_to?: string;
 }
 
-/** Órdenes elegibles para el wizard de envío (CEDIS origen). */
+/** Órdenes elegibles para el wizard de envío (sucursal origen). */
 export class QueryAvailableShippingOrdersDto {
   @IsUUID()
-  origin_warehouse_id: string;
+  billing_branch_id: string;
+
+  @IsOptional()
+  @IsUUID()
+  fiscal_configuration_id?: string;
 
   @IsOptional()
   @IsString()

@@ -194,14 +194,18 @@ if (user.pos_can_sell)    → /pos/ventas
 
 ```mermaid
 flowchart TD
-    A[Login terminal COBRANZA] --> B{¿Corte abierto hoy?}
-    B -->|No| C[Abrir corte - efectivo inicial]
-    B -->|Sí| D[Dashboard cobranza]
-    C --> D
-    D --> E[Ventas pendientes]
-    D --> F[Corte parcial]
-    D --> G[Cerrar corte fin del día]
-    E --> H[Cobrar venta]
+    A[Login terminal COBRANZA] --> B[GET daily-shift/current]
+    B --> C{¿Hay corte abierto?}
+    C -->|No| D[Abrir corte del día]
+    C -->|Sí, de hoy| E[Dashboard cobranza]
+    C -->|Sí, de día anterior| F[Modal bloqueante: cerrar corte anterior]
+    F --> G[Cerrar corte]
+    G --> D
+    D --> E
+    E --> H[Ventas pendientes]
+    E --> I[Corte parcial]
+    E --> J[Cerrar corte fin del día]
+    H --> K[Cobrar venta]
 ```
 
 ### Paso 1 — Login
@@ -212,13 +216,14 @@ Usuario: `POS Cobranza CIMA` (ejemplo). Token en todas las peticiones.
 GET /api/tenant/pos/daily-shift/current
 ```
 
-Respuesta si hay corte:
+Respuesta si hay corte **de hoy**:
 ```json
 {
   "daily_shift": {
     "id": "uuid",
-    "shift_date": "2026-06-25",
+    "shift_date": "2026-08-17",
     "status": "open",
+    "is_previous_day": false,
     "opening_cash_mxn": 1500,
     "opening_cash_usd": 0,
     "terminal_user": { ... },
@@ -226,11 +231,76 @@ Respuesta si hay corte:
     "sales_summary": { "total_mxn": 8300, "sales_count": 10 },
     "partial_shifts": [ ... ],
     "totals": { "partial_shifts_count": 1, "removed_total_mxn": 5000, "sales_total_mxn": 8300 }
-  }
+  },
+  "requires_previous_close": false,
+  "unclosed_shift_alert": null
 }
 ```
 
 Si `daily_shift: null` → mostrar pantalla **“Abrir corte del día”**.
+
+### Paso 2b — Corte de un día anterior sin cerrar (obligatorio)
+
+El corte debe cerrarse **completo todos los días**. Si quedó abierto de ayer (o antes), no se puede operar el día de hoy hasta cerrarlo.
+
+**Cómo detectarlo:** `requires_previous_close === true` o `unclosed_shift_alert !== null`. No comparar fechas en UI; usar esos campos.
+
+```json
+{
+  "daily_shift": {
+    "id": "uuid",
+    "shift_date": "2026-08-15",
+    "status": "open",
+    "is_previous_day": true,
+    "opening_cash_mxn": 1500
+  },
+  "requires_previous_close": true,
+  "unclosed_shift_alert": {
+    "active": true,
+    "daily_shift_id": "uuid",
+    "shift_date": "2026-08-15",
+    "today": "2026-08-17",
+    "days_open": 2,
+    "title": "Corte del día anterior sin cerrar",
+    "message": "Quedó un corte abierto del 2026-08-15 sin cerrar. Es necesario cerrarlo para continuar.",
+    "severity": "blocking"
+  }
+}
+```
+
+**UI — modal de verificación (bloqueante, no se puede omitir):**
+
+Al entrar a `/pos/cobranza`, si `unclosed_shift_alert` viene con datos, mostrar modal inmediato **antes** del dashboard. No usar el banner azul informativo de “Corte global del día”; este aviso es de alerta.
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  ⚠  Corte del día anterior sin cerrar                    │
+│                                                          │
+│  No se cerró el corte de ayer (2026-08-15).              │
+│  Es necesario cerrarlo para continuar.                   │
+│                                                          │
+│  El corte debe cerrarse completo todos los días          │
+│  antes de abrir uno nuevo.                               │
+│                                                          │
+│              [ Ir a cerrar corte ]                       │
+└──────────────────────────────────────────────────────────┘
+```
+
+| Campo API | Uso UI |
+|-----------|--------|
+| `unclosed_shift_alert.title` | Título del modal |
+| `unclosed_shift_alert.message` | Cuerpo (usar tal cual) |
+| `unclosed_shift_alert.shift_date` | Fecha del corte pendiente |
+| `unclosed_shift_alert.daily_shift_id` | ID para `PATCH .../close` |
+| `unclosed_shift_alert.severity` | Siempre `blocking` → no dismiss, no “continuar de todos modos” |
+
+**Reglas de UI:**
+
+- No hay botón “Más tarde”, X ni overlay click-to-close.
+- CTA único: **Ir a cerrar corte** → tab Cortes / flujo de cierre del `daily_shift` actual (el de ayer).
+- Mientras el corte atrasado siga abierto, **sí** se puede cobrar pendientes y registrar parciales de **ese** corte (hay que terminarlo). **No** se puede abrir el corte de hoy.
+- `POST /pos/daily-shift/open` responde 400: *Hay un corte abierto del YYYY-MM-DD sin cerrar. Ciérralo antes de abrir otro.*
+- Tras `PATCH .../close` exitoso, volver a `GET current`. Si `daily_shift: null`, mostrar **Abrir corte del día**.
 
 ### Paso 3 — Abrir corte global (solo COBRANZA)
 ```
@@ -248,7 +318,7 @@ Reglas:
 - Varios cortes **completos** (abierto → cerrado) por **sucursal** el mismo día.
 - Solo puede haber **un corte abierto** a la vez por sucursal (aunque sea de un día anterior).
 - Tras cerrar un corte, se puede abrir otro el mismo día con nuevo efectivo inicial.
-- Si quedó un corte abierto de otro día, `GET daily-shift/current` lo devuelve; la UI debe permitir cerrarlo antes de abrir uno nuevo.
+- Si quedó un corte abierto de otro día, `GET daily-shift/current` lo devuelve con `unclosed_shift_alert` y `requires_previous_close: true`. La UI **debe** mostrar el modal bloqueante del Paso 2b y cerrarlo antes de abrir uno nuevo.
 
 **Al abrir el corte (automático):** el backend asigna al corte todas las órdenes POS de la **misma sucursal** que estén en cola (`general_status: En cola`, `pos_daily_shift_id: null`, del día). Pasan a `Surtida` + `Pendiente` con `pos_daily_shift_id` del corte nuevo.
 
@@ -772,7 +842,7 @@ Base: `/api/tenant/...` — Header: `Authorization: Bearer <token>`
 | Método | Ruta | Quién | Descripción |
 |--------|------|-------|-------------|
 | POST | `pos/validate-seller-code` | VENTAS / COBRANZA | Validar código vendedor |
-| GET | `pos/daily-shift/current` | VENTAS / COBRANZA | Corte abierto (sucursal) |
+| GET | `pos/daily-shift/current` | VENTAS / COBRANZA | Corte abierto (sucursal). Incluye `unclosed_shift_alert` si es de un día anterior |
 | POST | `pos/daily-shift/open` | COBRANZA | Abrir corte + auto-asignar cola de la sucursal |
 | GET | `pos/daily-shifts` | Backoffice | Listar cortes |
 | GET | `pos/daily-shift/:id` | Todos | Detalle con parciales |
@@ -808,7 +878,7 @@ Base: `/api/tenant/...` — Header: `Authorization: Bearer <token>`
 | No se puede cobrar una orden en cola | COBRANZA intenta cobrar sin asignar al corte |
 | No hay órdenes en cola para asignar | Apertura de corte sin ventas previas (informativo, no error) |
 | Solo terminales de tipo COBRANZA... | VENTAS intenta abrir corte |
-| No se puede cambiar el tipo POS... | Editar usuario COBRANZA con corte abierto |
+| Hay un corte abierto del YYYY-MM-DD sin cerrar... | Abrir corte nuevo con uno atrasado aún abierto |
 | La orden no está pendiente de cobro | Cobrar orden ya pagada o cancelada |
 | El código X ya está asignado | Código vendedor duplicado en tenant |
 
@@ -818,7 +888,7 @@ Base: `/api/tenant/...` — Header: `Authorization: Bearer <token>`
 
 1. **Gestión usuarios** — tabs POS + sucursal + tipo Ventas/Cobranza + código vendedor.
 2. **Login POS** — detectar `pos_user_type` del usuario logueado y rutear a app Ventas o Cobranza.
-3. **App Cobranza** — abrir corte (toast N asignadas) → dashboard con badge “N por cobrar” → pending-sales → collect.
+3. **App Cobranza** — `GET current` → si `unclosed_shift_alert` modal bloqueante y cerrar → si no hay corte, abrir (toast N asignadas) → dashboard con badge “N por cobrar” → pending-sales → collect.
 4. **App Ventas** — banner según corte → código vendedor → inventario → crear orden (cola o directo).
 5. **Corte parcial** — modal con tabs MXN/USD.
 6. **Backoffice Cortes** — listado y detalle (reemplaza Equipos/Sesiones).

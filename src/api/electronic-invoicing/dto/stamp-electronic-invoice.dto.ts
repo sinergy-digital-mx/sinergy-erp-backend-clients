@@ -62,6 +62,11 @@ export class StampElectronicInvoiceDto {
   @IsString()
   certificate_serial?: string;
 
+  /** Override por factura. Si se omite, usa el ambiente activo de Finkok (`stamping_environment`). */
+  @IsOptional()
+  @IsEnum(['demo', 'production'])
+  environment?: 'demo' | 'production';
+
   @IsOptional()
   metadata?: Record<string, unknown>;
 }

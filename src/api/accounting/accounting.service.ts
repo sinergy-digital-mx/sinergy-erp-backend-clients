@@ -19,6 +19,10 @@ import {
   QueryPosTerminalSalesDto,
 } from './dto/query-accounting-base.dto';
 import { isWalkInCustomer } from '../pos-shifts/mappers/pos-sale-collection.mapper';
+import {
+  buildUnclosedShiftAlert,
+  isPreviousDayOpenShift,
+} from '../pos-shifts/utils/unclosed-shift-alert';
 
 const WALK_IN_FISCAL_NAME = 'VENTA DE MOSTRADOR';
 const WALK_IN_DISPLAY_NAME = 'Público en General';
@@ -163,6 +167,8 @@ export class AccountingService {
       amount_sold: Number(row.amount_sold || 0),
     }));
 
+    const unclosedShiftAlert = buildUnclosedShiftAlert(openDailyShift);
+
     return {
       filters_applied: {
         billing_branch_id: filters.billing_branch_id,
@@ -170,6 +176,7 @@ export class AccountingService {
         date_from: dateFrom.toISOString(),
         date_to: dateTo.toISOString(),
       },
+      unclosed_shift_alert: unclosedShiftAlert,
       sales_terminals: salesTerminals,
       collection_terminal: {
         terminal_user_id: cobranzaTerminal?.id ?? null,
@@ -187,6 +194,7 @@ export class AccountingService {
               id: openDailyShift.id,
               shift_date: openDailyShift.shift_date,
               status: openDailyShift.status,
+              is_previous_day: isPreviousDayOpenShift(openDailyShift.shift_date),
               partial_shifts_count: openDailyShift.partial_shifts?.length ?? 0,
             }
           : null,

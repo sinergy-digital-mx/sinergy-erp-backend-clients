@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsOptional, IsString } from 'class-validator';
 
 export class StampSalesOrderInvoiceDto {
   /** XML CFDI 4.0 sin sellar. Obligatorio hasta implementar generador automático. */
@@ -21,4 +21,9 @@ export class StampSalesOrderInvoiceDto {
   @IsOptional()
   @IsString()
   certificate_serial?: string;
+
+  /** Override por factura: `demo` o `production`. Si se omite, usa el ambiente activo de Finkok. */
+  @IsOptional()
+  @IsEnum(['demo', 'production'])
+  environment?: 'demo' | 'production';
 }

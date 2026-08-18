@@ -45,7 +45,7 @@ Dentro del modal **Editar configuración fiscal**, mantener:
 |----------|----------------|
 | Badge estado | `finkok_registration_status`: pending / registered / failed |
 | Botón Registrar | `POST /api/tenant/fiscal-configurations/{id}/register-finkok` |
-| NoCertificado | Campo `certificate_serial_number` (requerido para cancelar) |
+| NoCertificado | Finkok ya tiene el CSD del RFC. `serial` en `sign_cancel` es opcional (WSDL). |
 
 ---
 
@@ -100,7 +100,9 @@ Repetir con `"environment": "production"` y credenciales productivas.
 { "environment": "demo" }
 ```
 
-Define qué credenciales usa el timbrado/cancelación por defecto.
+Define qué credenciales usa el timbrado/cancelación **si el POST de stamp no manda `environment`**.
+
+El wizard de OV **siempre** manda `environment` (`demo` | `production`) y **no** debe llamar este PATCH al cambiar el toggle. Ver `UI_SALES_ORDER_INVOICING.md` §9.
 
 ### UI sugerida
 
@@ -207,7 +209,8 @@ WSDL Registration: [demo](https://demo-facturacion.finkok.com/servicios/soap/reg
 |----------|----------------|
 | OV → Tab Facturación | Si `GET finkok-configuration` es null → banner + link aquí |
 | OV → Timbrar | Si razón `finkok_registration_status !== registered` → bloqueado |
-| Ambiente demo | Banner global “Modo pruebas Finkok” cuando `environment === 'demo'` |
+| Ambiente demo | Banner en wizard si el toggle de timbrado es `demo`. No usar solo `stamping_environment`. |
+| Toggle Demo/Prod al timbrar | Override por factura. Ver `UI_SALES_ORDER_INVOICING.md` §9. El default del toggle es hostname (`localhost` → demo, resto → production), no el PATCH global. |
 
 ---
 

@@ -37,6 +37,11 @@ import {
   mapPosSaleCollection,
   isWalkInCustomer,
 } from './mappers/pos-sale-collection.mapper';
+import {
+  buildUnclosedShiftAlert,
+  getTodayDateString,
+  isPreviousDayOpenShift,
+} from './utils/unclosed-shift-alert';
 
 const WALK_IN_FISCAL_NAME = 'VENTA DE MOSTRADOR';
 const WALK_IN_DISPLAY_NAME = 'Público en General';
@@ -103,6 +108,20 @@ export class PosShiftsService {
     );
   }
 
+  async getCurrentDailyShiftResponse(tenantId: string, terminalUserId: string) {
+    const shift = await this.getCurrentDailyShift(tenantId, terminalUserId);
+    const dailyShift = shift
+      ? await this.findDailyShiftById(shift.id, tenantId)
+      : null;
+    const unclosedShiftAlert = buildUnclosedShiftAlert(shift);
+
+    return {
+      daily_shift: dailyShift,
+      requires_previous_close: Boolean(unclosedShiftAlert),
+      unclosed_shift_alert: unclosedShiftAlert,
+    };
+  }
+
   async resolveOpenDailyShiftId(tenantId: string, terminalUserId: string) {
     const terminalUser = await this.requirePosTerminal(tenantId, terminalUserId);
     const shift = await this.getBranchOpenDailyShift(
@@ -155,7 +174,7 @@ export class PosShiftsService {
     dto: OpenDailyShiftDto,
   ) {
     const terminalUser = await this.requireCobranzaTerminal(tenantId, terminalUserId);
-    const shiftDate = this.getTodayDateString();
+    const shiftDate = getTodayDateString();
     const billingBranchId = terminalUser.billing_branch_id!;
 
     const openShift = await this.getBranchOpenDailyShift(
@@ -743,7 +762,7 @@ export class PosShiftsService {
     billingBranchId: string,
     shiftId: string,
   ): Promise<number> {
-    const shiftDate = this.getTodayDateString();
+    const shiftDate = getTodayDateString();
     const queued = await this.salesOrderRepo
       .createQueryBuilder('so')
       .innerJoin('so.warehouse', 'warehouse')
@@ -1153,9 +1172,6 @@ export class PosShiftsService {
     return { removedTotalMxn, removedTotalUsd, denominationRows };
   }
 
-  private getTodayDateString() {
-    return new Date().toISOString().slice(0, 10);
-  }
 
   private mapSeller(user: User) {
     return {
@@ -1221,6 +1237,9 @@ export class PosShiftsService {
       id: shift.id,
       shift_date: shift.shift_date,
       status: shift.status,
+      is_previous_day:
+        shift.status === PosDailyShiftStatus.OPEN &&
+        isPreviousDayOpenShift(shift.shift_date),
       opening_cash_mxn: Number(shift.opening_cash_mxn),
       opening_cash_usd: Number(shift.opening_cash_usd),
       closed_at: shift.closed_at,

@@ -158,3 +158,5 @@ Opcional en tabla de clientes: no es obligatorio mostrar columnas.
 - [ ] Prefill al crear: sucursal de la sesión + usuario actual
 - [ ] `POST`/`PUT` con `registered_billing_branch_id` y `registered_by_user_id` (o `null`)
 - [ ] En editar, pintar desde `registered_billing_branch` / `registered_by_user`
+
+Tab Información Fiscal (domicilio SAT): `src/api/customers/docs/UI_CUSTOMER_FISCAL.md`

@@ -64,7 +64,7 @@ describe('UsersService.changePassword', () => {
     expect(result).toEqual({ message: 'Contraseña actualizada correctamente' });
   });
 
-  it('rejects changing another user password', async () => {
+  it('rejects changing another user password without Reset_Password', async () => {
     await expect(
       service.changePassword(
         'other-user',
@@ -75,6 +75,27 @@ describe('UsersService.changePassword', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
 
     expect(userRepo.findOneBy).not.toHaveBeenCalled();
+  });
+
+  it('updates another user password when Reset_Password is granted', async () => {
+    const otherUserId = 'other-user';
+    const user = { id: otherUserId, tenant_id: tenantId, password: 'old-hash' };
+    userRepo.findOneBy.mockResolvedValue(user);
+    userRepo.save.mockResolvedValue(user);
+
+    const result = await service.changePassword(
+      otherUserId,
+      { new_password: 'NuevaClave123', confirm_password: 'NuevaClave123' },
+      tenantId,
+      userId,
+      true,
+    );
+
+    expect(bcrypt.hash).toHaveBeenCalledWith('NuevaClave123', 10);
+    expect(userRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ password: 'hashed-new-password' }),
+    );
+    expect(result).toEqual({ message: 'Contraseña actualizada correctamente' });
   });
 
   it('rejects when passwords do not match', async () => {
@@ -326,6 +347,7 @@ describe('UsersService.userStatus', () => {
     const user = {
       id: targetId,
       tenant_id: tenantId,
+      email: 'contactobai@mzn.mx',
       is_employee: false,
       is_manager: false,
       status: { id: 1, code: 'active' },
@@ -342,6 +364,9 @@ describe('UsersService.userStatus', () => {
 
     const result = await service.softDelete(targetId, tenantId, actorId);
 
+    expect(userRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ email: null, status: deleted }),
+    );
     expect(result.status.code).toBe('deleted');
   });
 

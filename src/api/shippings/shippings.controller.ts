@@ -63,7 +63,7 @@ export class ShippingsController {
   @RequirePermissions({ entityType: 'Shipping', action: 'Read' })
   @ApiOperation({
     summary:
-      'Órdenes Surtida / Lista para entrega del CEDIS (elegibles para envío)',
+      'Órdenes Surtida / Lista para entrega de la sucursal (elegibles para envío)',
   })
   findAvailableOrders(
     @Query() query: QueryAvailableShippingOrdersDto,

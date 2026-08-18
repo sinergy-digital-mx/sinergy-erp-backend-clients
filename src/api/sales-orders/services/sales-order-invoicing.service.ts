@@ -71,6 +71,7 @@ export class SalesOrderInvoicingService {
       folio: dto.folio ?? order.folio,
       tipo_comprobante: dto.tipo_comprobante ?? 'I',
       certificate_serial: dto.certificate_serial,
+      environment: dto.environment,
       metadata: {
         sales_order_folio: order.folio,
         customer_id: order.customer_id,
@@ -131,6 +132,17 @@ export class SalesOrderInvoicingService {
     }
 
     return this.electronicInvoiceService.getPdfDownload(invoiceId, tenantId, regenerate, preview);
+  }
+
+  async getInvoiceXml(salesOrderId: string, invoiceId: string, tenantId: string) {
+    await this.getSalesOrderOrFail(salesOrderId, tenantId);
+    const invoice = await this.electronicInvoiceService.findOne(invoiceId, tenantId);
+
+    if (invoice.source_module !== 'sales_orders' || invoice.source_id !== salesOrderId) {
+      throw new NotFoundException('La factura no pertenece a esta orden de venta');
+    }
+
+    return this.electronicInvoiceService.getXmlDownload(invoiceId, tenantId);
   }
 
   private buildXmlPlaceholder(order: SalesOrder, customer: Customer): string {

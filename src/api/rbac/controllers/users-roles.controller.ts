@@ -332,9 +332,9 @@ export class UsersRolesController {
   @RequirePermissions({ entityType: 'User', action: 'Update' })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Change own password',
+    summary: 'Change or reset user password',
     description:
-      'Cambia la contraseña del usuario autenticado. Solo aplica si userId es el mismo que el usuario logueado.',
+      'Cambia la contraseña propia, o la de cualquier usuario si el actor tiene User:Reset_Password.',
   })
   @ApiParam({ name: 'userId', description: 'User ID' })
   @ApiBody({ type: ChangePasswordDto })
@@ -348,7 +348,7 @@ export class UsersRolesController {
   @ApiResponse({ status: 400, description: 'Passwords do not match' })
   @ApiResponse({
     status: 403,
-    description: 'Cannot change another user password',
+    description: 'Cannot change another user password without Reset_Password',
   })
   async changePassword(
     @Param('userId') userId: string,
@@ -360,11 +360,19 @@ export class UsersRolesController {
       throw new Error('User context is required');
     }
 
+    const canResetOthers = await this.permissionService.hasPermission(
+      currentUserId,
+      tenantId,
+      'User',
+      'Reset_Password',
+    );
+
     return this.usersService.changePassword(
       userId,
       dto,
       tenantId,
       currentUserId,
+      canResetOthers,
     );
   }
 

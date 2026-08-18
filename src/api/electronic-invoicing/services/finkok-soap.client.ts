@@ -14,6 +14,7 @@ import {
   SAT_CONSULTA_NAMESPACE,
   SAT_SOAP_ACTIONS,
 } from '../constants/finkok-endpoints.constants';
+import { normalizeCfdiXml } from '../utils/cfdi-xml.parser';
 
 export interface FinkokCredentials {
   username: string;
@@ -90,6 +91,24 @@ export class FinkokSoapClient {
       .replace(/'/g, '&apos;');
   }
 
+  private extractXmlPayload(body: string): string | undefined {
+    const cdataMatch =
+      /<(?:\w+:)?xml(?:\s[^>]*)?><!\[CDATA\[([\s\S]*?)\]\]><\/(?:\w+:)?xml>/i.exec(body);
+    if (cdataMatch) {
+      return cdataMatch[1].trim();
+    }
+
+    const block = /<(?:\w+:)?xml(?:\s[^>]*)?>([\s\S]*?)<\/(?:\w+:)?xml>/i.exec(body);
+    return block?.[1]?.trim();
+  }
+
+  private normalizeStampXml(raw: string | undefined): string | undefined {
+    if (!raw) {
+      return undefined;
+    }
+    return normalizeCfdiXml(raw);
+  }
+
   private extractTag(xml: string, tag: string): string | undefined {
     const cdataMatch = new RegExp(
       `<(?:\\w+:)?${tag}><!\\[CDATA\\[([\\s\\S]*?)\\]\\]></(?:\\w+:)?${tag}>`,
@@ -144,7 +163,7 @@ export class FinkokSoapClient {
     const body = await this.postSoap(url, FINKOK_SOAP_ACTIONS.sign_stamp, envelope, 120_000);
 
     const codEstatus = this.extractTag(body, 'CodEstatus');
-    const stampedXml = this.extractTag(body, 'xml');
+    const stampedXml = this.normalizeStampXml(this.extractXmlPayload(body));
     const uuid = this.extractTag(body, 'UUID');
     const fecha = this.extractTag(body, 'Fecha');
     const satSeal = this.extractTag(body, 'SatSeal');
@@ -182,7 +201,7 @@ export class FinkokSoapClient {
   async signCancel(
     credentials: FinkokCredentials,
     taxpayerId: string,
-    certificateSerial: string,
+    certificateSerial: string | null | undefined,
     uuids: FinkokCancelUuidInput[],
     storePending = false,
   ): Promise<FinkokCancelResult> {
@@ -193,6 +212,11 @@ export class FinkokSoapClient {
       )
       .join('');
 
+    const serial = certificateSerial?.trim();
+    const serialNode = serial
+      ? `\n      <can:serial>${this.escapeXml(serial)}</can:serial>`
+      : '';
+
     const envelope = `<?xml version="1.0" encoding="UTF-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:can="${FINKOK_CANCEL_NAMESPACE}" xmlns:apps="${FINKOK_APPS_NAMESPACE}">
   <soapenv:Header/>
@@ -201,8 +225,7 @@ export class FinkokSoapClient {
       <can:UUIDS>${uuidNodes}</can:UUIDS>
       <can:username>${this.escapeXml(credentials.username)}</can:username>
       <can:password>${this.escapeXml(credentials.password)}</can:password>
-      <can:taxpayer_id>${this.escapeXml(taxpayerId)}</can:taxpayer_id>
-      <can:serial>${this.escapeXml(certificateSerial)}</can:serial>
+      <can:taxpayer_id>${this.escapeXml(taxpayerId)}</can:taxpayer_id>${serialNode}
       <can:store_pending>${storePending}</can:store_pending>
     </can:sign_cancel>
   </soapenv:Body>

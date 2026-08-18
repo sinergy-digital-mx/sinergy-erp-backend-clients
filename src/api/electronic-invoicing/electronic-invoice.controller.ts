@@ -6,6 +6,7 @@ import {
   Body,
   Query,
   Req,
+  Res,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -83,6 +84,20 @@ export class ElectronicInvoiceController {
       regenerate === 'true' || regenerate === '1',
       preview === 'true' || preview === '1',
     );
+  }
+
+  @Get(':id/xml')
+  @RequirePermissions({ entityType: 'electronic_invoices', action: 'Read' })
+  @ApiOperation({ summary: 'Descargar XML CFDI timbrado' })
+  async getXml(
+    @Param('id') id: string,
+    @Req() req: { user: { tenantId: string } },
+    @Res() res: { setHeader: (k: string, v: string) => void; send: (b: string) => void },
+  ) {
+    const { xml, fileName } = await this.invoiceService.getXmlDownload(id, req.user.tenantId);
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.send(xml);
   }
 
   @Get(':id')

@@ -1,7 +1,17 @@
 // src/customers/dto/update-customer.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsOptional, IsString, IsNumber, IsEmail, IsIn, Min, ValidateIf } from 'class-validator';
+import {
+    IsOptional,
+    IsString,
+    IsNumber,
+    IsEmail,
+    IsIn,
+    Min,
+    ValidateIf,
+    MaxLength,
+    Matches,
+} from 'class-validator';
 
 export class UpdateCustomerDto {
     @ApiProperty({ description: 'Customer status ID', example: 1, required: false })
@@ -115,19 +125,65 @@ export class UpdateCustomerDto {
     @IsOptional()
     fiscal_address?: string;
 
-    @ApiProperty({ description: 'Ciudad fiscal', example: 'Ciudad de Mexico', required: false })
+    @ApiProperty({ description: 'Calle o nombre de vialidad (CSF SAT)', example: 'CALLE ESPANA', required: false })
+    @IsString()
+    @IsOptional()
+    @MaxLength(255)
+    fiscal_street?: string;
+
+    @ApiProperty({ description: 'Numero exterior (CSF SAT)', example: '736', required: false })
+    @IsString()
+    @IsOptional()
+    @MaxLength(20)
+    fiscal_exterior_number?: string;
+
+    @ApiProperty({ description: 'Numero interior (CSF SAT)', example: 'A', required: false })
+    @IsString()
+    @IsOptional()
+    @MaxLength(20)
+    fiscal_interior_number?: string;
+
+    @ApiProperty({ description: 'Colonia (CSF SAT)', example: 'JUAREZ', required: false })
+    @IsString()
+    @IsOptional()
+    @MaxLength(120)
+    fiscal_colonia?: string;
+
+    @ApiProperty({ description: 'Localidad (CSF SAT, opcional)', required: false })
+    @IsString()
+    @IsOptional()
+    @MaxLength(120)
+    fiscal_localidad?: string;
+
+    @ApiProperty({ description: 'Municipio o alcaldia (CSF SAT)', example: 'Tijuana', required: false })
+    @IsString()
+    @IsOptional()
+    @MaxLength(120)
+    fiscal_municipio?: string;
+
+    @ApiProperty({ description: 'Pais catalogo SAT c_Pais', example: 'MEX', required: false })
+    @Transform(({ value }) =>
+        typeof value === 'string' && value.trim() !== '' ? value.trim().toUpperCase() : value,
+    )
+    @IsString()
+    @IsOptional()
+    @Matches(/^[A-Z]{3}$/, { message: 'El pais fiscal debe ser clave SAT de 3 letras (ej. MEX)' })
+    fiscal_country?: string;
+
+    @ApiProperty({ description: 'Ciudad fiscal (legado; preferir fiscal_municipio)', example: 'Tijuana', required: false })
     @IsString()
     @IsOptional()
     fiscal_city?: string;
 
-    @ApiProperty({ description: 'Estado fiscal', example: 'CDMX', required: false })
+    @ApiProperty({ description: 'Entidad federativa (CSF SAT)', example: 'Baja California', required: false })
     @IsString()
     @IsOptional()
     fiscal_state?: string;
 
-    @ApiProperty({ description: 'Codigo postal fiscal', example: '06600', required: false })
+    @ApiProperty({ description: 'Codigo postal fiscal (DomicilioFiscalReceptor CFDI 4.0)', example: '22040', required: false })
     @IsString()
     @IsOptional()
+    @Matches(/^\d{5}$/, { message: 'El codigo postal fiscal debe tener 5 digitos' })
     fiscal_postal_code?: string;
 
     @ApiProperty({ description: 'Warehouse asignado al cliente', example: 'warehouse-uuid', required: false, nullable: true })

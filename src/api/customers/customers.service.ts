@@ -20,6 +20,10 @@ import { User } from '../../entities/users/user.entity';
 import { parsePhoneNumber } from '../../common/utils/phone.validator';
 import { hasValidGps } from '../../common/utils/geo.helper';
 import { CustomerGroupsService } from './customer-groups.service';
+import {
+    composeFiscalAddress,
+    hasSatStreetParts,
+} from './utils/fiscal-domicile.util';
 
 const GENERIC_RFCS = new Set(['XAXX010101000', 'XEXX010101000']);
 const DUPLICATE_MATCH_LIMIT = 10;
@@ -123,6 +127,8 @@ export class CustomersService {
             tenantId,
         );
 
+        this.applySatFiscalDomicilio(dto);
+
         return this.customerRepo.save({
             ...dto,
             group_id: groupId,
@@ -201,6 +207,8 @@ export class CustomersService {
                 )) ?? null;
             delete dto.registered_by_user_id;
         }
+
+        this.applySatFiscalDomicilio(dto, customer);
 
         Object.assign(customer, dto);
         return this.customerRepo.save(customer);
@@ -679,5 +687,40 @@ export class CustomersService {
         }
 
         return user.id;
+    }
+
+    /** Completa municipio legado y `fiscal_address` desde el domicilio SAT. */
+    private applySatFiscalDomicilio(
+        dto: CreateCustomerDto | UpdateCustomerDto,
+        existing?: Customer,
+    ): void {
+        if (dto.fiscal_municipio !== undefined && dto.fiscal_city === undefined) {
+            dto.fiscal_city = dto.fiscal_municipio;
+        }
+
+        const hasFiscalDomicile =
+            hasSatStreetParts(dto) ||
+            dto.fiscal_municipio !== undefined ||
+            dto.fiscal_localidad !== undefined ||
+            dto.fiscal_postal_code !== undefined ||
+            dto.fiscal_state !== undefined;
+
+        if (hasFiscalDomicile && dto.fiscal_country === undefined && !existing?.fiscal_country) {
+            dto.fiscal_country = 'MEX';
+        }
+
+        if (dto.fiscal_address !== undefined || !hasSatStreetParts(dto)) {
+            return;
+        }
+
+        const composed = composeFiscalAddress({
+            street: dto.fiscal_street ?? existing?.fiscal_street,
+            exteriorNumber: dto.fiscal_exterior_number ?? existing?.fiscal_exterior_number,
+            interiorNumber: dto.fiscal_interior_number ?? existing?.fiscal_interior_number,
+            colonia: dto.fiscal_colonia ?? existing?.fiscal_colonia,
+        });
+        if (composed) {
+            dto.fiscal_address = composed;
+        }
     }
 }

@@ -4,6 +4,7 @@ import { Shipping } from '../../entities/logistics/shipping.entity';
 import { ShippingStop } from '../../entities/logistics/shipping-stop.entity';
 import { Truck } from '../../entities/logistics/truck.entity';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
+import { BillingBranch } from '../../entities/billing/billing-branch.entity';
 import { User } from '../../entities/users/user.entity';
 import { SalesOrder } from '../../entities/sales-orders/sales-order.entity';
 import { CustomerAddress } from '../../entities/customers/customer-address.entity';
@@ -19,6 +20,7 @@ import { ShippingsService } from './shippings.service';
       ShippingStop,
       Truck,
       Warehouse,
+      BillingBranch,
       User,
       SalesOrder,
       CustomerAddress,

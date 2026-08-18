@@ -98,9 +98,33 @@ export class Customer {
     @Column({ nullable: true, length: 20 })
     fiscal_person_type: string;
 
+    /** Legado: calle + números + colonia concatenados. Preferir campos SAT. */
     @Column({ nullable: true })
     fiscal_address: string;
 
+    @Column({ nullable: true, length: 255 })
+    fiscal_street: string;
+
+    @Column({ nullable: true, length: 20 })
+    fiscal_exterior_number: string;
+
+    @Column({ nullable: true, length: 20 })
+    fiscal_interior_number: string;
+
+    @Column({ nullable: true, length: 120 })
+    fiscal_colonia: string;
+
+    @Column({ nullable: true, length: 120 })
+    fiscal_localidad: string;
+
+    @Column({ nullable: true, length: 120 })
+    fiscal_municipio: string;
+
+    /** ISO SAT c_Pais, p. ej. MEX */
+    @Column({ nullable: true, length: 3 })
+    fiscal_country: string;
+
+    /** Legado UI "Ciudad"; el SAT usa municipio (`fiscal_municipio`). */
     @Column({ nullable: true })
     fiscal_city: string;
 

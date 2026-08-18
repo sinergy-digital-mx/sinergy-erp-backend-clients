@@ -12,6 +12,7 @@ import {
 import { RBACTenant } from '../rbac/tenant.entity';
 import { User } from '../users/user.entity';
 import { Warehouse } from '../warehouse/warehouse.entity';
+import { BillingBranch } from '../billing/billing-branch.entity';
 import { Truck } from './truck.entity';
 import { ShippingStop } from './shipping-stop.entity';
 
@@ -70,12 +71,20 @@ export class Shipping {
   @Column({ type: 'varchar', length: 36 })
   truck_id: string;
 
-  @ManyToOne(() => Warehouse, { onDelete: 'RESTRICT', nullable: false })
-  @JoinColumn({ name: 'origin_warehouse_id' })
-  origin_warehouse: Warehouse;
+  @ManyToOne(() => BillingBranch, { onDelete: 'RESTRICT', nullable: true })
+  @JoinColumn({ name: 'origin_billing_branch_id' })
+  origin_billing_branch: BillingBranch | null;
 
-  @Column({ type: 'varchar', length: 36 })
-  origin_warehouse_id: string;
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  origin_billing_branch_id: string | null;
+
+  /** Legacy: envíos antiguos. El origen de ruta es la sucursal. */
+  @ManyToOne(() => Warehouse, { onDelete: 'RESTRICT', nullable: true })
+  @JoinColumn({ name: 'origin_warehouse_id' })
+  origin_warehouse: Warehouse | null;
+
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  origin_warehouse_id: string | null;
 
   @Column({ type: 'varchar', length: 30, default: 'Creado' })
   status: ShippingStatus;

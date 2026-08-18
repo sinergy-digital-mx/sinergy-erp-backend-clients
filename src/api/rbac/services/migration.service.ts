@@ -43,13 +43,13 @@ export interface MigrationResult {
   /** Details of failed migrations */
   failures: Array<{
     userId: string;
-    email: string;
+    email: string | null;
     error: string;
   }>;
   /** Details of successful migrations */
   successes: Array<{
     userId: string;
-    email: string;
+    email: string | null;
     tenantId: string;
     assignedRole: string;
   }>;
@@ -87,7 +87,7 @@ export interface RollbackResult {
   /** Details of successful rollbacks */
   successes: Array<{
     userId: string;
-    email: string;
+    email: string | null;
     rolesRemoved: number;
   }>;
   /** Rollback execution time in milliseconds */
@@ -105,7 +105,7 @@ export interface ValidationResult {
   crossTenantViolations: number;
   validationErrors: Array<{
     userId: string;
-    email: string;
+    email: string | null;
     issue: string;
     severity: 'error' | 'warning';
   }>;
@@ -425,13 +425,15 @@ export class MigrationService {
     
     // For now, we'll use some basic heuristics:
     
+    const email = (user.email ?? '').toLowerCase();
+
     // Check if user email suggests admin role
-    if (user.email.includes('admin') || user.email.includes('administrator')) {
+    if (email.includes('admin') || email.includes('administrator')) {
       return 'Admin';
     }
 
     // Check if user email suggests operator role
-    if (user.email.includes('operator') || user.email.includes('manager')) {
+    if (email.includes('operator') || email.includes('manager')) {
       return 'Operator';
     }
 
@@ -862,7 +864,7 @@ export class MigrationService {
     }>;
     userBreakdown: Array<{
       userId: string;
-      email: string;
+      email: string | null;
       rolesAffected: number;
       roleNames: string[];
     }>;
@@ -908,7 +910,7 @@ export class MigrationService {
     // Calculate statistics
     const uniqueUserIds = new Set(userRoles.map(ur => ur.user_id));
     const tenantStats = new Map<string, { tenantName: string; users: Set<string>; roles: number }>();
-    const userStats = new Map<string, { email: string; roles: number; roleNames: string[] }>();
+    const userStats = new Map<string, { email: string | null; roles: number; roleNames: string[] }>();
 
     for (const userRole of userRoles) {
       // Tenant breakdown

@@ -279,6 +279,24 @@ export class SalesOrderController {
     );
   }
 
+  @Get(':id/invoices/:invoiceId/xml')
+  @ApiOperation({ summary: 'Descargar XML CFDI de la factura' })
+  async getInvoiceXml(
+    @Param('id') id: string,
+    @Param('invoiceId') invoiceId: string,
+    @Req() req: any,
+    @Res() res: any,
+  ) {
+    const { xml, fileName } = await this.invoicingService.getInvoiceXml(
+      id,
+      invoiceId,
+      req.user.tenant_id,
+    );
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.send(xml);
+  }
+
   @Get()
   @ApiOperation({ summary: 'List sales orders with filters and pagination' })
   async findAll(@Query() filters: QuerySalesOrderDto, @Req() req: any) {

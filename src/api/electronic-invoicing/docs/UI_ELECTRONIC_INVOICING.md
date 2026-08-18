@@ -30,12 +30,12 @@ sales_order (1) ──< electronic_invoices (N)
 
 | Valor | Significado |
 |-------|-------------|
-| `pending_stamp` | En proceso |
-| `stamped` | Timbrada OK |
-| `stamp_error` | Error Finkok (ver `stamp_error_message`) |
+| `pending_stamp` | Histórico; ya no se usa en timbrado nuevo |
+| `stamped` | Timbrada OK (única fila que se crea al timbrar) |
+| `stamp_error` | Histórico; el timbrado fallido ahora es `400` sin persistir |
 | `cancel_pending` | Cancelación solicitada, pendiente confirmación SAT |
 | `cancelled` | Cancelada |
-| `cancel_error` | Error al cancelar |
+| `cancel_error` | Error al cancelar (sí es CFDI; el sello existió) |
 
 ### Estados SAT (`sat_status`)
 
@@ -52,6 +52,8 @@ Base: `/api/tenant/electronic-invoices`
 | Timbrar XML | `POST` | `/stamp` | `electronic_invoices:Stamp` |
 | Listar | `GET` | `/` | `electronic_invoices:Read` |
 | Detalle | `GET` | `/:id` | `electronic_invoices:Read` |
+| PDF | `GET` | `/:id/pdf` | `electronic_invoices:Read` |
+| XML | `GET` | `/:id/xml` | `electronic_invoices:Read` |
 | Cancelar | `POST` | `/:id/cancel` | `electronic_invoices:Cancel` |
 | Sync SAT (una) | `POST` | `/:id/sync-sat` | `electronic_invoices:SyncSat` |
 | Estado sync cliente | `GET` | `/sync-status` | `electronic_invoices:SyncSat` |
@@ -75,11 +77,16 @@ Query listado: `?source_module=sales_orders&source_id={uuid}&stamp_status=stampe
   "total": 1160.00,
   "series": "A",
   "folio": "123",
-  "certificate_serial": "30001000000400002434"
+  "certificate_serial": "30001000000400002434",
+  "environment": "demo"
 }
 ```
 
-Respuesta: objeto `electronic_invoice` completo con `uuid`, `xml_stamped`, `stamp_status`.
+Respuesta `201`: objeto `electronic_invoice` con `uuid`, `xml_stamped`, `stamp_status = stamped`.
+
+`environment` (`demo` | `production`) es opcional: override de credenciales Finkok para ese timbrado. Si se omite, usa `stamping_environment`. Queda en `metadata.finkok_environment`.
+
+Si Finkok rechaza: **`400`**, sin insertar fila ni PDF. `message` incluye código SAT (`CFDI40144: ...`). Pollux: toast, no card de factura. Ver `src/api/sales-orders/docs/UI_SALES_ORDER_INVOICING.md`.
 
 ---
 

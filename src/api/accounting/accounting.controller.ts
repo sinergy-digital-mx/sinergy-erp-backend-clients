@@ -24,7 +24,7 @@ export class AccountingController {
   @ApiOperation({
     summary: 'Resumen POS por sucursal',
     description:
-      'Ventas por terminal VENTAS y métricas de cobranza (órdenes cobradas, mostrador vs facturadas).',
+      'Ventas por terminal VENTAS y métricas de cobranza. Si hay un corte abierto de un día anterior, incluye unclosed_shift_alert en la raíz.',
   })
   getPosSummary(@Query() query: QueryAccountingBaseDto, @Req() req: any) {
     return this.accountingService.getPosSummary(req.user.tenant_id, query);

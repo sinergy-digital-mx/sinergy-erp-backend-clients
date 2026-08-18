@@ -16,9 +16,11 @@ import { FiscalConfiguration } from '../../../entities/billing/fiscal-configurat
 import { StampElectronicInvoiceDto } from '../dto/stamp-electronic-invoice.dto';
 import { CancelElectronicInvoiceDto } from '../dto/cancel-electronic-invoice.dto';
 import { QueryElectronicInvoiceDto } from '../dto/query-electronic-invoice.dto';
+import { FinkokEnvironment } from '../../../entities/electronic-invoicing/finkok-provider-configuration.entity';
 import { FinkokProviderConfigurationService } from './finkok-provider-configuration.service';
 import { FinkokSoapClient } from './finkok-soap.client';
 import { ElectronicInvoicePdfService } from './electronic-invoice-pdf.service';
+import { parseCfdiXmlForPdf, normalizeCfdiXml } from '../utils/cfdi-xml.parser';
 
 @Injectable()
 export class ElectronicInvoiceService {
@@ -55,7 +57,33 @@ export class ElectronicInvoiceService {
       );
     }
 
-    const credentials = await this.finkokConfigService.getCredentials(tenantId);
+    const credentials = await this.finkokConfigService.getCredentials(
+      tenantId,
+      dto.environment,
+    );
+
+    let result;
+    try {
+      result = await this.finkokClient.signStamp(credentials, dto.xml);
+    } catch (error) {
+      const msg =
+        error instanceof Error ? error.message : 'Error de comunicación con Finkok';
+      this.logger.warn(`Finkok Sign_Stamp comunicación: ${msg}`);
+      throw new BadRequestException(msg);
+    }
+
+    if (!result.success || !result.xml) {
+      const incidencia = result.incidencias?.[0];
+      const errorMsg =
+        incidencia?.mensajeIncidencia ??
+        result.codEstatus ??
+        'Error desconocido al timbrar';
+      const codigo = incidencia?.codigoError;
+      this.logger.warn(
+        `Finkok Sign_Stamp rechazado${codigo ? ` [${codigo}]` : ''}: ${errorMsg}`,
+      );
+      throw new BadRequestException(codigo ? `${codigo}: ${errorMsg}` : errorMsg);
+    }
 
     const invoice = this.invoiceRepo.create({
       tenant_id: tenantId,
@@ -72,49 +100,29 @@ export class ElectronicInvoiceService {
       total: dto.total,
       currency: dto.currency ?? 'MXN',
       xml_unsigned: dto.xml,
-      certificate_serial: dto.certificate_serial ?? fiscal.certificate_serial_number ?? null,
-      stamp_status: 'pending_stamp',
+      xml_stamped: result.xml,
+      uuid: result.uuid ?? null,
+      stamped_at: result.fecha ? new Date(result.fecha) : new Date(),
+      sat_seal: result.satSeal ?? null,
+      sat_certificate_number: result.noCertificadoSat ?? null,
+      certificate_serial:
+        dto.certificate_serial ??
+        fiscal.certificate_serial_number ??
+        this.readNoCertificadoFromXml(result.xml) ??
+        null,
+      stamp_status: 'stamped',
+      stamp_error_message: null,
       sat_sync_enabled: 1,
-      metadata: dto.metadata ?? null,
+      metadata: {
+        ...(dto.metadata ?? {}),
+        finkok_environment: credentials.environment,
+      },
       created_by: userId,
     });
 
-    const saved = await this.invoiceRepo.save(invoice);
-
-    try {
-      const result = await this.finkokClient.signStamp(credentials, dto.xml);
-
-      if (!result.success || !result.xml) {
-        const errorMsg =
-          result.incidencias?.[0]?.mensajeIncidencia ??
-          result.codEstatus ??
-          'Error desconocido al timbrar';
-
-        saved.stamp_status = 'stamp_error';
-        saved.stamp_error_message = errorMsg;
-        saved.metadata = {
-          ...(saved.metadata ?? {}),
-          finkok_incidencias: result.incidencias,
-        };
-        return this.invoiceRepo.save(saved);
-      }
-
-      saved.uuid = result.uuid ?? null;
-      saved.xml_stamped = result.xml;
-      saved.stamped_at = result.fecha ? new Date(result.fecha) : new Date();
-      saved.sat_seal = result.satSeal ?? null;
-      saved.sat_certificate_number = result.noCertificadoSat ?? null;
-      saved.stamp_status = 'stamped';
-      saved.stamp_error_message = null;
-
-      const stamped = await this.invoiceRepo.save(saved);
-      return this.generatePdfAfterStamp(stamped, fiscal);
-    } catch (error) {
-      saved.stamp_status = 'stamp_error';
-      saved.stamp_error_message =
-        error instanceof Error ? error.message : 'Error de comunicación con Finkok';
-      return this.invoiceRepo.save(saved);
-    }
+    const stamped = await this.invoiceRepo.save(invoice);
+    await this.rememberFiscalCertificateSerial(fiscal, stamped.certificate_serial);
+    return this.generatePdfAfterStamp(stamped, fiscal);
   }
 
   async cancel(
@@ -126,7 +134,9 @@ export class ElectronicInvoiceService {
     const invoice = await this.getByIdOrFail(id, tenantId);
 
     if (invoice.stamp_status !== 'stamped' && invoice.stamp_status !== 'cancel_pending') {
-      throw new BadRequestException('Solo se pueden cancelar facturas timbradas');
+      throw new BadRequestException(
+        `Solo se pueden cancelar facturas timbradas. Estado actual: ${invoice.stamp_status}`,
+      );
     }
 
     if (!invoice.uuid) {
@@ -141,16 +151,16 @@ export class ElectronicInvoiceService {
       throw new NotFoundException('Razón emisora no encontrada');
     }
 
-    const certificateSerial =
-      invoice.certificate_serial ?? fiscal.certificate_serial_number;
-
-    if (!certificateSerial) {
-      throw new BadRequestException(
-        'Se requiere el número de certificado (NoCertificado) para cancelar',
-      );
+    const certificateSerial = this.resolveCancelCertificateSerial(invoice, fiscal);
+    if (certificateSerial) {
+      invoice.certificate_serial = invoice.certificate_serial ?? certificateSerial;
+      await this.rememberFiscalCertificateSerial(fiscal, certificateSerial);
     }
 
-    const credentials = await this.finkokConfigService.getCredentials(tenantId);
+    const credentials = await this.finkokConfigService.getCredentials(
+      tenantId,
+      this.resolveFinkokEnvironment(invoice),
+    );
 
     const result = await this.finkokClient.signCancel(
       credentials,
@@ -347,6 +357,25 @@ export class ElectronicInvoiceService {
     return this.pdfService.getSignedPdfUrl(invoice);
   }
 
+  async getXmlDownload(
+    id: string,
+    tenantId: string,
+  ): Promise<{ xml: string; fileName: string }> {
+    const invoice = await this.getByIdOrFail(id, tenantId);
+    const downloadable = ['stamped', 'cancel_pending', 'cancelled', 'cancel_error'];
+    if (!downloadable.includes(invoice.stamp_status) || !invoice.xml_stamped) {
+      throw new BadRequestException('Solo hay XML para facturas timbradas');
+    }
+
+    const xml = normalizeCfdiXml(invoice.xml_stamped);
+    if (!xml.includes('<')) {
+      throw new BadRequestException('El XML timbrado no es un CFDI válido');
+    }
+
+    const fileName = `${invoice.uuid ?? invoice.folio ?? invoice.id}.xml`;
+    return { xml, fileName };
+  }
+
   private async getPdfPreviewDownload(invoice: ElectronicInvoice, tenantId: string) {
     const bundle = await this.finkokConfigService.getAllForTenant(tenantId);
     if (bundle.stamping_environment !== 'demo') {
@@ -388,7 +417,10 @@ export class ElectronicInvoiceService {
     total: string,
   ) {
     try {
-      const credentials = await this.finkokConfigService.getCredentials(tenantId);
+      const credentials = await this.finkokConfigService.getCredentials(
+        tenantId,
+        this.resolveFinkokEnvironment(invoice),
+      );
       return await this.finkokClient.getSatStatusFinkok(
         credentials,
         invoice.rfc_emisor,
@@ -428,6 +460,53 @@ export class ElectronicInvoiceService {
       };
       return this.invoiceRepo.save(invoice);
     }
+  }
+
+  /** Ambiente PAC con el que se timbró; cancel/sync deben usar el mismo. */
+  private resolveFinkokEnvironment(invoice: ElectronicInvoice): FinkokEnvironment | undefined {
+    const env = invoice.metadata?.finkok_environment;
+    if (env === 'demo' || env === 'production') {
+      return env;
+    }
+    return undefined;
+  }
+
+  /** Finkok sign_cancel usa el NoCertificado del CSD emisor, no el del SAT. */
+  private resolveCancelCertificateSerial(
+    invoice: ElectronicInvoice,
+    fiscal: FiscalConfiguration,
+  ): string | null {
+    const stored = invoice.certificate_serial ?? fiscal.certificate_serial_number;
+    if (stored) {
+      return stored;
+    }
+    return this.readNoCertificadoFromXml(invoice.xml_stamped);
+  }
+
+  private readNoCertificadoFromXml(xml: string | null | undefined): string | null {
+    if (!xml?.trim()) {
+      return null;
+    }
+    try {
+      const serial = parseCfdiXmlForPdf(xml).noCertificado?.trim();
+      return serial || null;
+    } catch (error) {
+      this.logger.warn(
+        `No se pudo leer NoCertificado del XML: ${error instanceof Error ? error.message : error}`,
+      );
+      return null;
+    }
+  }
+
+  private async rememberFiscalCertificateSerial(
+    fiscal: FiscalConfiguration,
+    serial: string | null,
+  ): Promise<void> {
+    if (!serial || fiscal.certificate_serial_number) {
+      return;
+    }
+    fiscal.certificate_serial_number = serial;
+    await this.fiscalRepo.save(fiscal);
   }
 
   private async getByIdOrFail(id: string, tenantId: string): Promise<ElectronicInvoice> {

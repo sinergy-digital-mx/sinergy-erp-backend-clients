@@ -54,18 +54,16 @@ export class PosShiftsController {
 
   @Get('daily-shift/current')
   @RequirePermissions({ entityType: 'PosShift', action: 'Read' })
-  @ApiOperation({ summary: 'Obtener corte global abierto del día para la terminal actual' })
+  @ApiOperation({
+    summary: 'Obtener corte global abierto de la sucursal',
+    description:
+      'Si el corte abierto es de un día anterior, incluye unclosed_shift_alert para forzar el cierre antes de continuar.',
+  })
   async getCurrentDailyShift(@Req() req: any) {
-    const shift = await this.posShiftsService.getCurrentDailyShift(
+    return this.posShiftsService.getCurrentDailyShiftResponse(
       req.user.tenant_id,
       req.user.id,
     );
-
-    return {
-      daily_shift: shift
-        ? await this.posShiftsService.findDailyShiftById(shift.id, req.user.tenant_id)
-        : null,
-    };
   }
 
   @Post('daily-shift/open')

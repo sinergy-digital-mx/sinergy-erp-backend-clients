@@ -15,6 +15,7 @@ import {
 } from '../../entities/logistics/shipping-stop.entity';
 import { Truck } from '../../entities/logistics/truck.entity';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
+import { BillingBranch } from '../../entities/billing/billing-branch.entity';
 import { User } from '../../entities/users/user.entity';
 import { SalesOrder } from '../../entities/sales-orders/sales-order.entity';
 import { CustomerAddress } from '../../entities/customers/customer-address.entity';
@@ -56,9 +57,23 @@ interface ResolvedStop {
   address_type: string | null;
 }
 
-/** Labels de ruta: A = origen (CEDIS), B/C/D… = paradas. */
+/** Labels de ruta: A = origen (sucursal), B/C/D… = paradas. */
 function routeLabel(index: number): string {
   return String.fromCharCode(65 + index);
+}
+
+interface RouteOrigin {
+  billing_branch_id: string | null;
+  warehouse_id: string | null;
+  fiscal_configuration_id: string | null;
+  name: string;
+  street: string | null;
+  city: string | null;
+  state: string | null;
+  zip_code: string | null;
+  country: string | null;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 @Injectable()
@@ -72,6 +87,8 @@ export class ShippingsService {
     private readonly truckRepo: Repository<Truck>,
     @InjectRepository(Warehouse)
     private readonly warehouseRepo: Repository<Warehouse>,
+    @InjectRepository(BillingBranch)
+    private readonly branchRepo: Repository<BillingBranch>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     @InjectRepository(SalesOrder)
@@ -82,23 +99,29 @@ export class ShippingsService {
   ) {}
 
   async preview(dto: PreviewShippingDto, tenantId: string) {
-    const warehouse = await this.getWarehouse(dto.origin_warehouse_id, tenantId);
-    let resolved = await this.resolveStops(dto.orders, warehouse, tenantId);
-    resolved = this.sortStopsByDistanceFromOrigin(warehouse, resolved);
+    const origin = await this.getRouteOriginFromBranch(
+      dto.billing_branch_id,
+      tenantId,
+    );
+    let resolved = await this.resolveStops(dto.orders, origin, tenantId);
+    resolved = this.sortStopsByDistanceFromOrigin(origin, resolved);
 
-    return this.buildPreviewResponse(warehouse, resolved);
+    return this.buildPreviewResponse(origin, resolved);
   }
 
   async create(dto: CreateShippingDto, tenantId: string, userId: string) {
     const truck = await this.getActiveTruck(dto.truck_id, tenantId);
     const driver = await this.getDriver(dto.driver_id, tenantId);
-    const warehouse = await this.getWarehouse(dto.origin_warehouse_id, tenantId);
-    let resolved = await this.resolveStops(dto.orders, warehouse, tenantId, {
+    const origin = await this.getRouteOriginFromBranch(
+      dto.billing_branch_id,
+      tenantId,
+    );
+    let resolved = await this.resolveStops(dto.orders, origin, tenantId, {
       validateAssignable: true,
     });
-    resolved = this.sortStopsByDistanceFromOrigin(warehouse, resolved);
+    resolved = this.sortStopsByDistanceFromOrigin(origin, resolved);
 
-    const distances = this.buildStopDistances(warehouse, resolved);
+    const distances = this.buildStopDistances(origin, resolved);
 
     const qr = this.dataSource.createQueryRunner();
     await qr.connect();
@@ -111,7 +134,8 @@ export class ShippingsService {
         created_by: userId,
         driver_id: driver.id,
         truck_id: truck.id,
-        origin_warehouse_id: warehouse.id,
+        origin_billing_branch_id: origin.billing_branch_id,
+        origin_warehouse_id: null,
         status: 'Creado',
         distance_km: distances.totalKm,
         notes: dto.notes ?? null,
@@ -163,6 +187,8 @@ export class ShippingsService {
       .leftJoinAndSelect('shipping.truck', 'truck')
       .leftJoinAndSelect('shipping.driver', 'driver')
       .leftJoinAndSelect('shipping.origin_warehouse', 'warehouse')
+      .leftJoinAndSelect('shipping.origin_billing_branch', 'branch')
+      .leftJoinAndSelect('branch.fiscal_configuration', 'fiscal')
       .where('shipping.tenant_id = :tenantId', { tenantId });
 
     if (query?.status) {
@@ -175,6 +201,11 @@ export class ShippingsService {
     }
     if (query?.truck_id) {
       qb.andWhere('shipping.truck_id = :truck_id', { truck_id: query.truck_id });
+    }
+    if (query?.billing_branch_id) {
+      qb.andWhere('shipping.origin_billing_branch_id = :billing_branch_id', {
+        billing_branch_id: query.billing_branch_id,
+      });
     }
     if (query?.origin_warehouse_id) {
       qb.andWhere('shipping.origin_warehouse_id = :origin_warehouse_id', {
@@ -216,14 +247,18 @@ export class ShippingsService {
   }
 
   /**
-   * OV elegibles para el wizard: Surtida | Lista para entrega del CEDIS,
-   * sin envío activo (≠ Cancelado).
+   * OV elegibles para el wizard: Surtida | Lista para entrega de la sucursal,
+   * sin envío activo (≠ Cancelado). No filtra por almacén.
    */
   async findAvailableOrders(
     tenantId: string,
     query: QueryAvailableShippingOrdersDto,
   ) {
-    await this.getWarehouse(query.origin_warehouse_id, tenantId);
+    await this.getOriginBranch(
+      query.billing_branch_id,
+      tenantId,
+      query.fiscal_configuration_id,
+    );
 
     let page = Number(query.page) || 1;
     let limit = Number(query.limit) || 50;
@@ -235,9 +270,11 @@ export class ShippingsService {
       .createQueryBuilder('so')
       .leftJoinAndSelect('so.customer', 'customer')
       .leftJoinAndSelect('so.warehouse', 'warehouse')
+      .leftJoinAndSelect('warehouse.billing_branch', 'billing_branch')
+      .leftJoinAndSelect('so.fiscal_configuration', 'fiscal')
       .where('so.tenant_id = :tenantId', { tenantId })
-      .andWhere('so.warehouse_id = :warehouseId', {
-        warehouseId: query.origin_warehouse_id,
+      .andWhere('warehouse.billing_branch_id = :billingBranchId', {
+        billingBranchId: query.billing_branch_id,
       })
       .andWhere('so.general_status IN (:...statuses)', {
         statuses: [...ELIGIBLE_SHIPPING_STATUSES],
@@ -251,6 +288,12 @@ export class ShippingsService {
             AND s.status <> 'Cancelado'
         )`,
       );
+
+    if (query.fiscal_configuration_id) {
+      qb.andWhere('so.fiscal_configuration_id = :fiscalId', {
+        fiscalId: query.fiscal_configuration_id,
+      });
+    }
 
     if (query.search?.trim()) {
       const term = `%${query.search.trim()}%`;
@@ -269,28 +312,42 @@ export class ShippingsService {
     const total = await qb.getCount();
     const rows = await qb.skip((page - 1) * limit).take(limit).getMany();
 
-    const data = rows.map((so) => ({
-      id: so.id,
-      folio: so.folio,
-      general_status: so.general_status,
-      payment_status: so.payment_status,
-      total: so.total,
-      created_at: so.created_at,
-      warehouse_id: so.warehouse_id,
-      warehouse: so.warehouse
-        ? { id: so.warehouse.id, name: so.warehouse.name }
-        : null,
-      customer_id: so.customer_id,
-      customer_name: this.customerName(so),
-      customer: so.customer
-        ? {
-            id: so.customer.id,
-            name: so.customer.name,
-            lastname: so.customer.lastname,
-            company_name: so.customer.company_name,
-          }
-        : null,
-    }));
+    const data = rows.map((so) => {
+      const branch = so.warehouse?.billing_branch ?? null;
+      return {
+        id: so.id,
+        folio: so.folio,
+        general_status: so.general_status,
+        payment_status: so.payment_status,
+        total: so.total,
+        created_at: so.created_at,
+        fiscal_configuration_id: so.fiscal_configuration_id,
+        razon_social:
+          so.fiscal_razon_social ||
+          so.fiscal_configuration?.razon_social ||
+          null,
+        billing_branch_id: so.warehouse?.billing_branch_id ?? branch?.id ?? null,
+        sucursal: branch?.code ?? null,
+        billing_branch: branch
+          ? {
+              id: branch.id,
+              code: branch.code,
+              city: branch.city,
+              state: branch.state,
+            }
+          : null,
+        customer_id: so.customer_id,
+        customer_name: this.customerName(so),
+        customer: so.customer
+          ? {
+              id: so.customer.id,
+              name: so.customer.name,
+              lastname: so.customer.lastname,
+              company_name: so.customer.company_name,
+            }
+          : null,
+      };
+    });
 
     const totalPages = Math.ceil(total / limit) || 1;
     return {
@@ -311,6 +368,8 @@ export class ShippingsService {
         'truck',
         'driver',
         'origin_warehouse',
+        'origin_billing_branch',
+        'origin_billing_branch.fiscal_configuration',
         'creator',
         'editor',
         'stops',
@@ -340,11 +399,8 @@ export class ShippingsService {
       );
     }
 
-    const warehouse = await this.getWarehouse(
-      shipping.origin_warehouse_id,
-      tenantId,
-    );
-    const resolved = await this.resolveStops(dto.orders, warehouse, tenantId, {
+    const origin = await this.getRouteOriginFromShipping(shipping, tenantId);
+    const resolved = await this.resolveStops(dto.orders, origin, tenantId, {
       validateAssignable: true,
     });
 
@@ -371,7 +427,7 @@ export class ShippingsService {
       ...resolved,
     ];
 
-    const distances = this.buildStopDistances(warehouse, mergedResolved);
+    const distances = this.buildStopDistances(origin, mergedResolved);
 
     const qr = this.dataSource.createQueryRunner();
     await qr.connect();
@@ -430,10 +486,7 @@ export class ShippingsService {
 
   async recalculateDistance(id: string, tenantId: string) {
     const shipping = await this.findOne(id, tenantId);
-    const warehouse = await this.getWarehouse(
-      shipping.origin_warehouse_id,
-      tenantId,
-    );
+    const origin = await this.getRouteOriginFromShipping(shipping, tenantId);
 
     const stops = [...(shipping.stops || [])].sort(
       (a, b) => a.stop_sequence - b.stop_sequence,
@@ -454,7 +507,7 @@ export class ShippingsService {
       });
     }
 
-    const distances = this.buildStopDistances(warehouse, refreshed);
+    const distances = this.buildStopDistances(origin, refreshed);
 
     const qr = this.dataSource.createQueryRunner();
     await qr.connect();
@@ -651,15 +704,14 @@ export class ShippingsService {
   }
 
   private buildStopDistances(
-    warehouse: Warehouse,
+    origin: RouteOrigin,
     stops: ResolvedStop[],
   ): { totalKm: number | null; byOrderId: Map<string, number | null> } {
     const sorted = [...stops].sort((a, b) => a.stop_sequence - b.stop_sequence);
     const byOrderId = new Map<string, number | null>();
     let previous = {
-      latitude: warehouse.latitude != null ? Number(warehouse.latitude) : null,
-      longitude:
-        warehouse.longitude != null ? Number(warehouse.longitude) : null,
+      latitude: origin.latitude != null ? Number(origin.latitude) : null,
+      longitude: origin.longitude != null ? Number(origin.longitude) : null,
     };
 
     for (const stop of sorted) {
@@ -676,9 +728,8 @@ export class ShippingsService {
 
     const points = [
       {
-        latitude: warehouse.latitude != null ? Number(warehouse.latitude) : null,
-        longitude:
-          warehouse.longitude != null ? Number(warehouse.longitude) : null,
+        latitude: origin.latitude != null ? Number(origin.latitude) : null,
+        longitude: origin.longitude != null ? Number(origin.longitude) : null,
       },
       ...sorted.map((s) => ({
         latitude: s.delivery_latitude,
@@ -691,7 +742,7 @@ export class ShippingsService {
 
   private async resolveStops(
     orders: ShippingOrderItemDto[],
-    warehouse: Warehouse,
+    origin: RouteOrigin,
     tenantId: string,
     opts?: { validateAssignable?: boolean },
   ): Promise<ResolvedStop[]> {
@@ -708,7 +759,7 @@ export class ShippingsService {
     const ids = orders.map((o) => o.sales_order_id);
     const salesOrders = await this.soRepo.find({
       where: { id: In(ids), tenant_id: tenantId },
-      relations: ['customer'],
+      relations: ['customer', 'warehouse'],
     });
     const byId = new Map(salesOrders.map((o) => [o.id, o]));
 
@@ -736,9 +787,12 @@ export class ShippingsService {
       }
 
       if (opts?.validateAssignable) {
-        if (so.warehouse_id !== warehouse.id) {
+        if (
+          origin.billing_branch_id &&
+          so.warehouse?.billing_branch_id !== origin.billing_branch_id
+        ) {
           throw new BadRequestException(
-            `La orden ${so.folio} no pertenece al almacén de origen`,
+            `La orden ${so.folio} no pertenece a la sucursal de origen`,
           );
         }
         if (
@@ -846,28 +900,27 @@ export class ShippingsService {
   }
 
   /**
-   * Ordena paradas por distancia Haversine desde el CEDIS (más cerca primero).
+   * Ordena paradas por distancia Haversine desde la sucursal (más cerca primero).
    * Sin GPS del origen o de la parada → van al final.
    * Reasigna stop_sequence 1..n.
    */
   private sortStopsByDistanceFromOrigin(
-    warehouse: Warehouse,
+    origin: RouteOrigin,
     stops: ResolvedStop[],
   ): ResolvedStop[] {
-    const origin = {
-      latitude: warehouse.latitude != null ? Number(warehouse.latitude) : null,
-      longitude:
-        warehouse.longitude != null ? Number(warehouse.longitude) : null,
+    const originGps = {
+      latitude: origin.latitude != null ? Number(origin.latitude) : null,
+      longitude: origin.longitude != null ? Number(origin.longitude) : null,
     };
 
     const withDistance = stops.map((stop, index) => {
       const dist =
-        hasValidGps(origin) &&
+        hasValidGps(originGps) &&
         hasValidGps({
           latitude: stop.delivery_latitude,
           longitude: stop.delivery_longitude,
         })
-          ? segmentDistanceKm(origin, {
+          ? segmentDistanceKm(originGps, {
               latitude: stop.delivery_latitude,
               longitude: stop.delivery_longitude,
             })
@@ -889,27 +942,29 @@ export class ShippingsService {
     }));
   }
 
-  private buildPreviewResponse(warehouse: Warehouse, resolved: ResolvedStop[]) {
+  private buildPreviewResponse(originLoc: RouteOrigin, resolved: ResolvedStop[]) {
     const originGps = hasValidGps({
-      latitude: warehouse.latitude,
-      longitude: warehouse.longitude,
+      latitude: originLoc.latitude,
+      longitude: originLoc.longitude,
     });
     const originPoint = {
-      latitude: warehouse.latitude != null ? Number(warehouse.latitude) : null,
+      latitude: originLoc.latitude != null ? Number(originLoc.latitude) : null,
       longitude:
-        warehouse.longitude != null ? Number(warehouse.longitude) : null,
+        originLoc.longitude != null ? Number(originLoc.longitude) : null,
     };
 
     const origin = {
       label: 'A',
-      warehouse_id: warehouse.id,
-      name: warehouse.name,
-      street: warehouse.street,
-      city: warehouse.city,
-      state: warehouse.state,
-      zip_code: warehouse.zip_code,
-      country: warehouse.country,
-      address_summary: [warehouse.street, warehouse.city, warehouse.state]
+      billing_branch_id: originLoc.billing_branch_id,
+      fiscal_configuration_id: originLoc.fiscal_configuration_id,
+      warehouse_id: originLoc.warehouse_id,
+      name: originLoc.name,
+      street: originLoc.street,
+      city: originLoc.city,
+      state: originLoc.state,
+      zip_code: originLoc.zip_code,
+      country: originLoc.country,
+      address_summary: [originLoc.street, originLoc.city, originLoc.state]
         .filter(Boolean)
         .join(', '),
       latitude: originPoint.latitude,
@@ -957,7 +1012,8 @@ export class ShippingsService {
         longitude: origin.longitude,
         location_status: origin.location_status,
         distance_from_previous_km: null,
-        warehouse_id: warehouse.id,
+        billing_branch_id: originLoc.billing_branch_id,
+        warehouse_id: originLoc.warehouse_id,
         sales_order_id: null,
         customer_id: null,
         customer_address_id: null,
@@ -971,6 +1027,7 @@ export class ShippingsService {
         longitude: o.delivery_longitude,
         location_status: o.location_status,
         distance_from_previous_km: o.distance_from_previous_km,
+        billing_branch_id: null,
         warehouse_id: null,
         sales_order_id: o.sales_order_id,
         customer_id: o.customer_id,
@@ -1015,14 +1072,101 @@ export class ShippingsService {
     );
   }
 
-  private async getWarehouse(id: string, tenantId: string): Promise<Warehouse> {
-    const warehouse = await this.warehouseRepo.findOne({
-      where: { id, tenant_id: tenantId },
+  private originFromBranch(branch: BillingBranch): RouteOrigin {
+    return {
+      billing_branch_id: branch.id,
+      warehouse_id: null,
+      fiscal_configuration_id: branch.fiscal_configuration_id,
+      name: branch.code,
+      street: branch.address,
+      city: branch.city,
+      state: branch.state,
+      zip_code: branch.postal_code,
+      country: branch.country,
+      latitude: branch.latitude != null ? Number(branch.latitude) : null,
+      longitude: branch.longitude != null ? Number(branch.longitude) : null,
+    };
+  }
+
+  private originFromWarehouse(warehouse: Warehouse): RouteOrigin {
+    return {
+      billing_branch_id: warehouse.billing_branch_id ?? null,
+      warehouse_id: warehouse.id,
+      fiscal_configuration_id: null,
+      name: warehouse.name,
+      street: warehouse.street,
+      city: warehouse.city,
+      state: warehouse.state,
+      zip_code: warehouse.zip_code,
+      country: warehouse.country,
+      latitude: warehouse.latitude != null ? Number(warehouse.latitude) : null,
+      longitude:
+        warehouse.longitude != null ? Number(warehouse.longitude) : null,
+    };
+  }
+
+  private async getOriginBranch(
+    id: string,
+    tenantId: string,
+    fiscalConfigurationId?: string,
+  ): Promise<BillingBranch> {
+    const branch = await this.branchRepo.findOne({
+      where: { id },
+      relations: ['fiscal_configuration'],
     });
-    if (!warehouse) {
-      throw new NotFoundException('Almacén de origen no encontrado');
+    if (!branch || branch.fiscal_configuration?.tenant_id !== tenantId) {
+      throw new NotFoundException('Sucursal de origen no encontrada');
     }
-    return warehouse;
+    if (
+      fiscalConfigurationId &&
+      branch.fiscal_configuration_id !== fiscalConfigurationId
+    ) {
+      throw new BadRequestException(
+        'La sucursal no pertenece a la razón social seleccionada',
+      );
+    }
+    return branch;
+  }
+
+  private async getRouteOriginFromBranch(
+    billingBranchId: string,
+    tenantId: string,
+  ): Promise<RouteOrigin> {
+    const branch = await this.getOriginBranch(billingBranchId, tenantId);
+    return this.originFromBranch(branch);
+  }
+
+  private async getRouteOriginFromShipping(
+    shipping: Shipping,
+    tenantId: string,
+  ): Promise<RouteOrigin> {
+    if (shipping.origin_billing_branch_id) {
+      const branch =
+        shipping.origin_billing_branch ||
+        (await this.getOriginBranch(
+          shipping.origin_billing_branch_id,
+          tenantId,
+        ));
+      if (branch.fiscal_configuration?.tenant_id &&
+          branch.fiscal_configuration.tenant_id !== tenantId) {
+        throw new NotFoundException('Sucursal de origen no encontrada');
+      }
+      return this.originFromBranch(branch);
+    }
+
+    if (shipping.origin_warehouse_id) {
+      const warehouse =
+        shipping.origin_warehouse ||
+        (await this.warehouseRepo.findOne({
+          where: { id: shipping.origin_warehouse_id, tenant_id: tenantId },
+        }));
+      if (!warehouse) {
+        throw new NotFoundException('Almacén de origen no encontrado');
+      }
+      return this.originFromWarehouse(warehouse);
+    }
+
+    throw new BadRequestException('El envío no tiene sucursal de origen');
   }
 
   private async getActiveTruck(id: string, tenantId: string): Promise<Truck> {

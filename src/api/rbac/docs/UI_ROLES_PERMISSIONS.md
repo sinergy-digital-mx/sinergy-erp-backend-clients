@@ -177,6 +177,7 @@ Comparación siempre **case-insensitive** en la parte `entity`.
 | OV → Timbrar | `electronic_invoices:Stamp` | Finanzas → **Facturación electrónica** |
 | OV → Cancelar CFDI | `electronic_invoices:Cancel` | Finanzas → **Facturación electrónica** |
 | OV → Sync SAT | `electronic_invoices:SyncSat` | Finanzas → **Facturación electrónica** |
+| Usuarios → restablecer contraseña ajena | `User:Reset_Password` | Administración → **Usuarios** |
 
 Onboarding Finkok requiere **ambos** módulos según la acción:
 
@@ -240,3 +241,4 @@ No bloquear con `electronic_invoicing` ni `fiscal_configurations`.
 - Credenciales Finkok: `src/api/electronic-invoicing/docs/UI_FINKOK_CONFIGURATION.md`
 - Tab Facturación OV: `src/api/sales-orders/docs/UI_SALES_ORDER_INVOICING.md`
 - Core CFDI: `src/api/electronic-invoicing/docs/UI_ELECTRONIC_INVOICING.md`
+- Restablecer contraseña: `src/api/users/docs/UI_CHANGE_PASSWORD.md`

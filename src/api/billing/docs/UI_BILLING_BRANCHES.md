@@ -258,7 +258,7 @@ Reutilizar el **mismo componente de dirección + Google Maps** que direcciones d
 | Longitud | `longitude` | `longitude` |
 | Calle | `address` | `street` |
 
-> **Logística / CEDIS:** el origen de ruta es el **almacén** (`warehouses.latitude/longitude`), no la sucursal. Igual conviene cargar GPS en ambos.
+> **Logística:** el origen de ruta del wizard de envío es la **sucursal** (`billing_branches.latitude/longitude`), no el almacén. Ver `src/api/shippings/docs/UI_LOGISTICS.md`.
 
 ### Campos de cada almacén (`warehouses[]`)
 

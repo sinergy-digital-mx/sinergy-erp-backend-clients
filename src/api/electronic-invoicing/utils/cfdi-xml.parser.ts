@@ -102,9 +102,40 @@ const EMPTY_TIMBRE: ParsedCfdi['timbre'] = {
   noCertificadoSAT: '',
 };
 
+function unescapeXmlEntities(value: string): string {
+  return value
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&');
+}
+
+/** Finkok a veces entrega el CFDI en base64 o con entidades HTML (`&lt;cfdi:`). */
+export function normalizeCfdiXml(raw: string): string {
+  let xml = raw.trim();
+  if (!xml) {
+    return xml;
+  }
+
+  if (xml.includes('&lt;')) {
+    xml = unescapeXmlEntities(xml);
+  }
+
+  const compact = xml.replace(/\s/g, '');
+  if (!xml.includes('<') && /^[A-Za-z0-9+/=]+$/.test(compact)) {
+    xml = Buffer.from(compact, 'base64').toString('utf8').trim();
+    if (xml.includes('&lt;')) {
+      xml = unescapeXmlEntities(xml);
+    }
+  }
+
+  return xml;
+}
+
 /** Parsea XML timbrado o sin timbrar (vista previa PDF en ambiente demo). */
 export function parseCfdiXmlForPdf(xml: string): ParsedCfdi {
-  const normalized = xml.trim();
+  const normalized = normalizeCfdiXml(xml);
   const comprobanteTag = readFirstTag(normalized, 'Comprobante');
   if (!comprobanteTag) {
     throw new Error('XML CFDI inválido: no se encontró el nodo Comprobante');

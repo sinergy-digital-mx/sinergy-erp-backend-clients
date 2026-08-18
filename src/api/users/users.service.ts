@@ -197,17 +197,18 @@ export class UsersService {
   }
 
   /**
-   * Cambia la contraseña solo si el usuario editado es el mismo que el autenticado.
+   * Cambia la contraseña propia, o la de cualquier usuario si el actor tiene User:Reset_Password.
    */
   async changePassword(
     userId: string,
     dto: ChangePasswordDto,
     tenantId: string,
     currentUserId: string,
+    canResetOthers = false,
   ) {
-    if (userId !== currentUserId) {
+    if (userId !== currentUserId && !canResetOthers) {
       throw new ForbiddenException(
-        'Solo puedes cambiar la contraseña de tu propia cuenta',
+        'No tienes permiso para cambiar la contraseña de otro usuario',
       );
     }
 
@@ -461,6 +462,9 @@ export class UsersService {
     }
 
     user.status = status;
+    if (status.code?.toLowerCase() === USER_STATUS_CODE.DELETED) {
+      user.email = null;
+    }
     await this.userRepo.save(user);
 
     const updated = await this.findOne(userId, tenantId);

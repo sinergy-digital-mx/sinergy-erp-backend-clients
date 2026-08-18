@@ -29,8 +29,8 @@ export class User {
     @JoinColumn({ name: 'status_id' })
     status: UserStatus;
 
-    @Column({ unique: true })
-    email: string;
+    @Column({ unique: true, nullable: true, type: 'varchar', length: 255 })
+    email: string | null;
 
     @Column()
     password: string;
