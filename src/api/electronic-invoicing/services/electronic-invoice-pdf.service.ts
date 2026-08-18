@@ -289,57 +289,64 @@ export class ElectronicInvoicePdfService {
           margin: [0, 0, 0, 12],
         },
         {
-          columns: [
-            qrImage
-              ? { image: qrImage, width: 108, margin: [0, 0, 10, 0] }
-              : {
-                  width: 108,
-                  margin: [0, 0, 10, 0],
-                  table: {
-                    widths: ['*'],
-                    body: [
-                      [
+          table: {
+            widths: [108, '*'],
+            body: [
+              [
+                qrImage
+                  ? { image: qrImage, width: 108, alignment: 'center' }
+                  : {
+                      table: {
+                        widths: ['*'],
+                        body: [
+                          [
+                            {
+                              text: isPreview ? 'QR disponible\ntras timbrado' : 'Sin QR',
+                              style: 'qrPlaceholder',
+                              alignment: 'center',
+                            },
+                          ],
+                        ],
+                      },
+                      layout: this.boxLayout(),
+                    },
+                {
+                  stack: [
+                    this.sealBlock(
+                      'Cadena original del complemento de certificacion digital del SAT',
+                      hasTimbre ? uuidLabel : '—',
+                    ),
+                    this.sealBlock('Sello digital del CFDI', cfdi.timbre.selloCFD),
+                    this.sealBlock('Sello digital del SAT', cfdi.timbre.selloSAT),
+                    {
+                      columns: [
                         {
-                          text: isPreview ? 'QR disponible\ntras timbrado' : 'Sin QR',
-                          style: 'qrPlaceholder',
-                          alignment: 'center',
+                          width: '*',
+                          stack: [
+                            this.footerMeta('No. certificado SAT', cfdi.timbre.noCertificadoSAT),
+                            this.footerMeta('Fecha de certificacion', cfdi.timbre.fechaTimbrado),
+                          ],
+                        },
+                        {
+                          width: '*',
+                          stack: [
+                            this.footerMeta(
+                              'RFC proveedor certificacion',
+                              cfdi.timbre.rfcProvCertif,
+                            ),
+                            this.footerMeta('Folio fiscal (UUID)', uuidLabel),
+                          ],
                         },
                       ],
-                    ],
-                  },
-                  layout: this.boxLayout(),
-                },
-            {
-              width: '*',
-              stack: [
-                this.sealBlock(
-                  'Cadena original del complemento de certificacion digital del SAT',
-                  hasTimbre ? uuidLabel : '—',
-                ),
-                this.sealBlock('Sello digital del CFDI', this.truncateSeal(cfdi.timbre.selloCFD, 200)),
-                this.sealBlock('Sello digital del SAT', this.truncateSeal(cfdi.timbre.selloSAT, 200)),
-                {
-                  columns: [
-                    {
-                      width: '*',
-                      stack: [
-                        this.footerMeta('No. certificado SAT', cfdi.timbre.noCertificadoSAT),
-                        this.footerMeta('Fecha de certificacion', cfdi.timbre.fechaTimbrado),
-                      ],
-                    },
-                    {
-                      width: '*',
-                      stack: [
-                        this.footerMeta('RFC proveedor certificacion', cfdi.timbre.rfcProvCertif),
-                        this.footerMeta('Folio fiscal (UUID)', uuidLabel),
-                      ],
+                      margin: [0, 4, 0, 0],
                     },
                   ],
-                  margin: [0, 4, 0, 0],
+                  margin: [8, 0, 0, 0],
                 },
               ],
-            },
-          ],
+            ],
+          },
+          layout: 'noBorders',
         },
         {
           text: isPreview
@@ -394,7 +401,12 @@ export class ElectronicInvoicePdfService {
           fillColor: this.panelBg,
           margin: [4, 3, 4, 3],
         },
-        sealBody: { fontSize: 5.5, color: '#334155', margin: [4, 3, 4, 3] },
+        sealBody: {
+          fontSize: 5.5,
+          color: '#334155',
+          margin: [4, 3, 4, 3],
+          alignment: 'left',
+        },
         footerMetaLabel: { fontSize: 6.5, color: '#64748b' },
         footerMetaValue: { fontSize: 6.5, color: '#0f172a', bold: true },
         legalLegend: { fontSize: 7, italics: true, alignment: 'center', color: '#94a3b8' },
@@ -505,14 +517,16 @@ export class ElectronicInvoicePdfService {
     return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
 
-  private truncateSeal(value: string, max = 120): string {
-    if (!value) {
+  /**
+   * pdfmake solo parte texto en espacios. Los sellos CFDI son una sola cadena,
+   * así que se insertan espacios cada N caracteres para que quepan en el recuadro.
+   */
+  private wrapUnbreakable(value: string | null | undefined, groupSize = 64): string {
+    const text = value?.trim();
+    if (!text) {
       return '—';
     }
-    if (value.length <= max) {
-      return value;
-    }
-    return `${value.slice(0, max)}...`;
+    return text.replace(new RegExp(`.{1,${groupSize}}`, 'g'), '$& ').trimEnd();
   }
 
   private headerDivider() {
@@ -612,9 +626,10 @@ export class ElectronicInvoicePdfService {
     return {
       table: {
         widths: ['*'],
+        dontBreakRows: false,
         body: [
           [{ text: title, style: 'sealTitle' }],
-          [{ text: body || '—', style: 'sealBody' }],
+          [{ text: this.wrapUnbreakable(body), style: 'sealBody' }],
         ],
       },
       layout: this.boxLayout(),

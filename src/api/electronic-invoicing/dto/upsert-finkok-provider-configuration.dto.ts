@@ -1,16 +1,18 @@
 import { IsEnum, IsNotEmpty, IsOptional, IsString, IsInt, Min, Max, MaxLength } from 'class-validator';
 
 export class UpsertFinkokProviderConfigurationDto {
-  @IsNotEmpty()
-  @IsEnum(['demo', 'production'])
+  @IsNotEmpty({ message: 'El ambiente es obligatorio' })
+  @IsEnum(['demo', 'production'], {
+    message: 'El ambiente debe ser demo o production',
+  })
   environment: 'demo' | 'production';
 
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'El usuario de Finkok es obligatorio' })
   @IsString()
   @MaxLength(255)
   finkok_username: string;
 
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'La contraseña de Finkok es obligatoria' })
   @IsString()
   finkok_password: string;
 

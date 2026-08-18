@@ -128,7 +128,7 @@ export class BillingBranchService {
     });
 
     if (!branch) {
-      throw new NotFoundException(`Branch ${id} not found`);
+      throw new NotFoundException('Sucursal no encontrada');
     }
 
     const warehouses = await this.warehouseRepository.find({
@@ -151,7 +151,7 @@ export class BillingBranchService {
 
     if (!branch) {
       await this.assertFiscalConfiguration(fiscalConfigId, tenantId);
-      throw new NotFoundException(`Branch ${id} not found`);
+      throw new NotFoundException('Sucursal no encontrada');
     }
 
     await this.assertFiscalConfiguration(fiscalConfigId, tenantId);
@@ -195,7 +195,7 @@ export class BillingBranchService {
     });
 
     if (!branch) {
-      throw new NotFoundException(`Branch ${id} not found`);
+      throw new NotFoundException('Sucursal no encontrada');
     }
 
     await this.warehouseRepository.delete({ billing_branch_id: id, tenant_id: tenantId });
@@ -234,9 +234,7 @@ export class BillingBranchService {
     });
 
     if (!fiscalConfig) {
-      throw new NotFoundException(
-        `Fiscal configuration ${fiscalConfigId} not found for tenant ${tenantId}`,
-      );
+      throw new NotFoundException('Razón social no encontrada');
     }
 
     return fiscalConfig;
@@ -266,7 +264,7 @@ export class BillingBranchService {
 
         if (!warehouse) {
           throw new BadRequestException(
-            `Warehouse ${item.id} does not belong to branch ${branchId}`,
+            'El almacén no pertenece a esta sucursal',
           );
         }
 
@@ -276,7 +274,7 @@ export class BillingBranchService {
       }
 
       if (!item.name?.trim()) {
-        throw new BadRequestException('Warehouse name is required when creating a new warehouse');
+        throw new BadRequestException('El nombre del almacén es obligatorio');
       }
 
       const created = this.warehouseRepository.create({

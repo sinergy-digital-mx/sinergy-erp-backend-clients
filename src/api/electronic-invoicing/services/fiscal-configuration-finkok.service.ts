@@ -95,7 +95,7 @@ export class FiscalConfigurationFinkokService {
       fiscal.finkok_registration_status = 'pending';
       fiscal.finkok_registration_error =
         remote.message ??
-        `El RFC ${fiscal.rfc} no está registrado en Finkok (${env}). Use mode=add para intentar alta.`;
+        `El RFC ${fiscal.rfc} no está registrado en Finkok (${env}). Use Registrar en Finkok para darlo de alta.`;
       fiscal.last_finkok_sync_at = new Date();
       await this.fiscalRepo.save(fiscal);
       return this.toStatusResponse(fiscal, env, false, fiscal.finkok_registration_error ?? undefined);
@@ -103,7 +103,7 @@ export class FiscalConfigurationFinkokService {
 
     if (!dto.add_if_missing && mode !== 'add') {
       throw new BadRequestException(
-        'El RFC no existe en Finkok. Envíe mode=add o add_if_missing=true para intentar el alta.',
+        'El RFC no existe en Finkok. Use Registrar en Finkok para intentar el alta.',
       );
     }
 
@@ -214,9 +214,15 @@ export class FiscalConfigurationFinkokService {
   }
 
   private async getByIdOrFail(id: string, tenantId: string): Promise<FiscalConfiguration> {
+    if (!id || id === 'undefined' || id === 'null') {
+      throw new BadRequestException(
+        'Falta el identificador de la razón social. Guárdela antes de registrar en Finkok.',
+      );
+    }
+
     const fiscal = await this.fiscalRepo.findOne({ where: { id, tenant_id: tenantId } });
     if (!fiscal) {
-      throw new NotFoundException('Razón emisora no encontrada');
+      throw new NotFoundException('Razón social no encontrada');
     }
     return fiscal;
   }

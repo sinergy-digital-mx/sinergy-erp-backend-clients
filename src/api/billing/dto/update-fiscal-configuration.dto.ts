@@ -10,7 +10,7 @@ export class UpdateFiscalConfigurationDto {
   @IsOptional()
   @IsString()
   @Matches(/^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/, {
-    message: 'RFC must be in valid format (13 characters: 3-4 letters + 6 digits + 3 alphanumeric)',
+    message: 'El RFC no tiene un formato válido (3-4 letras + 6 dígitos + 3 alfanuméricos)',
   })
   rfc?: string;
 

@@ -7,12 +7,16 @@ export class RegisterFiscalConfigurationFinkokDto {
    * link_only — marca registrada sin llamar a Finkok (uso manual).
    */
   @IsOptional()
-  @IsEnum(['verify', 'add', 'link_only'])
+  @IsEnum(['verify', 'add', 'link_only'], {
+    message: 'El modo debe ser verify, add o link_only',
+  })
   mode?: 'verify' | 'add' | 'link_only';
 
   /** Ambiente Finkok cuyas credenciales reseller usar (demo o production) */
   @IsOptional()
-  @IsEnum(['demo', 'production'])
+  @IsEnum(['demo', 'production'], {
+    message: 'El ambiente debe ser demo o production',
+  })
   environment?: 'demo' | 'production';
 
   /** Si mode=add y el RFC no está en Finkok, intentar registration add con CSD */

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { FiscalConfiguration } from '../../entities/billing/fiscal-configuration.entity';
@@ -153,12 +153,18 @@ export class FiscalConfigurationService {
   }
 
   private async getByIdOrFail(id: string, tenantId: string): Promise<FiscalConfiguration> {
+    if (!id || id === 'undefined' || id === 'null') {
+      throw new BadRequestException(
+        'Falta el identificador de la razón social. Guárdela antes de continuar.',
+      );
+    }
+
     const config = await this.repo.findOne({
       where: { id, tenant_id: tenantId },
     });
 
     if (!config) {
-      throw new NotFoundException(`Fiscal Configuration with ID ${id} not found`);
+      throw new NotFoundException('Razón social no encontrada');
     }
 
     const [withPrefix] = await this.attachPrefixes([config]);

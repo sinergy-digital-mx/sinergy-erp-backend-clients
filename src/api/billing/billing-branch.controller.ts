@@ -9,6 +9,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -46,7 +47,7 @@ export class BillingBranchController {
     @Body() dto: CreateBillingBranchDto,
   ) {
     const tenantId = this.tenantContext.getCurrentTenantId();
-    if (!tenantId) throw new Error('Tenant context is required');
+    if (!tenantId) throw new BadRequestException('No se pudo identificar la organización');
 
     return await this.branchService.create(fiscalConfigId, tenantId, dto);
   }
@@ -58,7 +59,7 @@ export class BillingBranchController {
   @ApiResponse({ status: 200, description: 'List of branches' })
   async findAll(@Param('fiscalConfigId') fiscalConfigId: string) {
     const tenantId = this.tenantContext.getCurrentTenantId();
-    if (!tenantId) throw new Error('Tenant context is required');
+    if (!tenantId) throw new BadRequestException('No se pudo identificar la organización');
 
     return await this.branchService.findAll(fiscalConfigId, tenantId);
   }
@@ -74,7 +75,7 @@ export class BillingBranchController {
     @Param('id') id: string,
   ) {
     const tenantId = this.tenantContext.getCurrentTenantId();
-    if (!tenantId) throw new Error('Tenant context is required');
+    if (!tenantId) throw new BadRequestException('No se pudo identificar la organización');
 
     return await this.branchService.findOne(id, fiscalConfigId, tenantId);
   }
@@ -91,7 +92,7 @@ export class BillingBranchController {
     @Body() dto: UpdateBillingBranchDto,
   ) {
     const tenantId = this.tenantContext.getCurrentTenantId();
-    if (!tenantId) throw new Error('Tenant context is required');
+    if (!tenantId) throw new BadRequestException('No se pudo identificar la organización');
 
     return await this.branchService.update(id, fiscalConfigId, tenantId, dto);
   }
@@ -108,7 +109,7 @@ export class BillingBranchController {
     @Param('id') id: string,
   ) {
     const tenantId = this.tenantContext.getCurrentTenantId();
-    if (!tenantId) throw new Error('Tenant context is required');
+    if (!tenantId) throw new BadRequestException('No se pudo identificar la organización');
 
     await this.branchService.remove(id, fiscalConfigId, tenantId);
   }
@@ -130,7 +131,7 @@ export class BillingBranchAllController {
   @ApiResponse({ status: 200, description: 'List of all branches' })
   async findAll() {
     const tenantId = this.tenantContext.getCurrentTenantId();
-    if (!tenantId) throw new Error('Tenant context is required');
+    if (!tenantId) throw new BadRequestException('No se pudo identificar la organización');
 
     return await this.branchService.findAllByTenant(tenantId);
   }

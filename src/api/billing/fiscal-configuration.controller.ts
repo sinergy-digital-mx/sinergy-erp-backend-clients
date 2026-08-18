@@ -138,7 +138,7 @@ export class FiscalConfigurationController {
     @Req() req,
   ) {
     if (!file) {
-      throw new BadRequestException('No file uploaded');
+      throw new BadRequestException('No se envió ningún archivo');
     }
 
     return this.service.uploadLogo(id, req.user.tenantId, file);
