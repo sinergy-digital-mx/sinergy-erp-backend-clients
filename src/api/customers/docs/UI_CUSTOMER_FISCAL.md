@@ -45,7 +45,7 @@ No mostrar `fiscal_city` ni un textarea de dirección concatenada.
 |----|------|--------|
 | RFC | `fiscal_rfc` | Ya existe |
 | Tipo de persona | `fiscal_person_type` | `fisica` \| `moral` \| `otro` |
-| Razón social | `fiscal_razon_social` | Texto legal CSF (CFDI `@Nombre`) |
+| Razón social | `fiscal_razon_social` | Texto legal CSF (CFDI `@Nombre`). Mismo campo que el tab Información del Cliente: `src/api/customers/docs/UI_CUSTOMER_RAZON_SOCIAL.md` |
 | Código postal | `fiscal_postal_code` | 5 dígitos. CFDI `@DomicilioFiscalReceptor` |
 | Calle / vialidad | `fiscal_street` | Nombre de vialidad CSF |
 | No. exterior | `fiscal_exterior_number` | |
@@ -104,6 +104,7 @@ Calle, colonia y municipio **no** van en el XML del receptor 4.0; el PDF de la f
 
 ## Docs relacionados
 
+- Quitar almacén / razón social en Crear Cliente: `src/api/customers/docs/UI_CUSTOMER_RAZON_SOCIAL.md`
 - Tab Registro: `src/api/customers/docs/UI_CUSTOMER_REGISTRATION.md`
 - Crédito y factura POS: `src/api/customers/docs/UI_CUSTOMER_CREDIT.md`
 - Timbrado OV: `src/api/sales-orders/docs/UI_SALES_ORDER_INVOICING.md`

@@ -110,6 +110,8 @@ El backend reemplaza la relación `status` con el id indicado.
 
 ## UI — Modal Editar / Crear cliente
 
+No hay select de almacén. Encima de Estatus va **Razón social** (`fiscal_razon_social`): `src/api/customers/docs/UI_CUSTOMER_RAZON_SOCIAL.md`.
+
 Agregar campo **Estatus** (select):
 
 ```
@@ -120,7 +122,8 @@ Agregar campo **Estatus** (select):
 │ Apellido                            │
 │ Email                               │
 │ ...                                 │
-│                                     │
+│ Razón social                        │
+│ [                         ]         │
 │ Estatus *                           │
 │ [ Activo                    ▼ ]     │
 │   Opciones desde GET /statuses      │

@@ -84,15 +84,43 @@ POST /api/tenant/purchase-orders
 GET /api/tenant/purchase-orders
 ```
 
-### Query params (ubicación)
+### Query params
 
-| Parámetro | Default visual |
-|-----------|----------------|
-| `fiscal_configuration_id` | Todas las razones |
-| `billing_branch_id` | Todas las sucursales |
-| `warehouse_id` | Todos los almacenes |
+El backend **ignora** params que no existen en esta tabla. No copiar nombres de OV ni de otros módulos.
+
+| Parámetro | Tipo | Valores | Default visual |
+|-----------|------|---------|----------------|
+| `search` | string | Folio, proveedor o pedimento | — |
+| `general_status` | enum | `Creada` \| `Recibida` \| `Cancelada` | Todos |
+| `payment_status` | enum | `Pendiente` \| `Pagado` | Todos |
+| `vendor_id` | uuid | Id del proveedor | Todos |
+| `fiscal_configuration_id` | uuid | Razón social | Todas |
+| `billing_branch_id` | uuid | Sucursal | Todas |
+| `warehouse_id` | uuid | Almacén | Todos |
+| `created_from` | date ISO | Fecha creación desde | — |
+| `created_to` | date ISO | Fecha creación hasta (día inclusive) | — |
+| `page` | number | ≥ 1 | 1 |
+| `limit` | number | 1–100 | 10 |
 
 **Todas = no enviar el param.** No mandar `"null"`.
+
+#### Nombres incorrectos (no aplican)
+
+| Lo que UI no debe mandar | En su lugar |
+|--------------------------|-------------|
+| `status` | `general_status` |
+| `start_date` / `end_date` | `created_from` / `created_to` |
+| `En Proceso` | No existe en OC. Usar `Creada`, `Recibida` o `Cancelada` |
+
+OC no tiene estado `En Proceso` (eso es de OV). Una OC recién creada está en `Creada` hasta que se recibe.
+
+Fechas: mandar `YYYY-MM-DD`. **No** mandar el mismo instante `T00:00:00.000Z` en desde y hasta.
+
+```
+GET /api/tenant/purchase-orders?page=1&limit=15&general_status=Creada&created_from=2026-08-19&created_to=2026-08-19
+GET /api/tenant/purchase-orders?fiscal_configuration_id={uuid}&billing_branch_id={uuid}&warehouse_id={uuid}
+GET /api/tenant/purchase-orders?payment_status=Pendiente&vendor_id={uuid}
+```
 
 Cascada de filtros igual que el modal: cambia razón → reset sucursal y almacén. Cambia sucursal → reset almacén. Catálogos: mismos GET de la sección 1. Filtro sucursal sin razón: `GET /api/tenant/billing/branches`. Filtro almacén sin sucursal: `GET /api/tenant/warehouses?status=active&limit=100`.
 
@@ -187,5 +215,8 @@ Mismos filtros del listado (`fiscal_configuration_id`, `billing_branch_id`, `war
 - [ ] POST manda `fiscal_configuration_id`, `billing_branch_id`, `warehouse_id`
 - [ ] Listado: columnas Razón social + Sucursal + Almacén
 - [ ] Filtros cascada razón / sucursal / almacén (vacío = no enviar param)
+- [ ] Estado: `general_status` = `Creada` \| `Recibida` \| `Cancelada` (nunca `status` ni `En Proceso`)
+- [ ] Fechas: `created_from` / `created_to` en `YYYY-MM-DD` (nunca `start_date` / `end_date`)
+- [ ] Pago: `payment_status` = `Pendiente` \| `Pagado`; proveedor: `vendor_id` uuid
 - [ ] Detalle: cards Razón social, Sucursal y Almacén
 - [ ] Excel reutiliza esos filtros

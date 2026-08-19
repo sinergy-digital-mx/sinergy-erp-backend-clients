@@ -4,7 +4,7 @@ Guía para Pollux: tab **Registro** en el modal Crear / Editar cliente.
 
 Son datos **solo informativos**. No restringen en qué sucursal puede comprar el cliente.
 
-**No usar `warehouse_id`.** Ese campo es otro (almacén asignado). Aquí es sucursal de facturación.
+**No usar `warehouse_id`.** El cliente no lleva almacén. Razón social: `src/api/customers/docs/UI_CUSTOMER_RAZON_SOCIAL.md`. Aquí es sucursal de facturación.
 
 ---
 

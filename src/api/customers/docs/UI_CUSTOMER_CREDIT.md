@@ -10,7 +10,7 @@ Ruta: `/customers/detail/:id` — tab **Credito**.
 
 El crédito es **por razón social** (`fiscal_configuration_id`), no por almacén. Un cliente puede deber distinto monto en cada razón.
 
-**Quitar el dropdown de almacenes** (Bodega, Racks, Mostrador, UUIDs). `warehouse_id` del cliente es otro campo (almacén asignado) y no entra en este tab.
+**Quitar el dropdown de almacenes** (Bodega, Racks, Mostrador, UUIDs). El cliente no lleva almacén: en Crear Cliente ese slot es razón social (`fiscal_razon_social`). Ver `src/api/customers/docs/UI_CUSTOMER_RAZON_SOCIAL.md`.
 
 ### Layout
 

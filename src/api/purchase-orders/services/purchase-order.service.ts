@@ -345,6 +345,18 @@ export class PurchaseOrderService {
       );
     }
 
+    if (filters.created_from) {
+      query.andWhere('po.created_at >= :created_from', {
+        created_from: new Date(filters.created_from),
+      });
+    }
+
+    if (filters.created_to) {
+      query.andWhere('po.created_at <= :created_to', {
+        created_to: this.endOfDay(new Date(filters.created_to)),
+      });
+    }
+
     const page = filters.page || 1;
     const limit = filters.limit || 10;
     const skip = (page - 1) * limit;
@@ -502,6 +514,13 @@ export class PurchaseOrderService {
   private normalizePedimento(value?: string | null): string | null {
     const trimmed = value?.trim() ?? '';
     return trimmed.length ? trimmed : null;
+  }
+
+  /** Incluye el día completo cuando `created_to` llega como fecha (YYYY-MM-DD o medianoche). */
+  private endOfDay(date: Date): Date {
+    const d = new Date(date);
+    d.setHours(23, 59, 59, 999);
+    return d;
   }
 
   private resolvePedimentoForVendor(

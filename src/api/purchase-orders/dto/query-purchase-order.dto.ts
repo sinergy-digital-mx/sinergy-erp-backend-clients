@@ -4,6 +4,7 @@ import {
   IsUUID,
   IsString,
   IsInt,
+  IsDateString,
   Min,
   Max,
 } from 'class-validator';
@@ -37,6 +38,14 @@ export class QueryPurchaseOrderDto {
   @IsOptional()
   @IsUUID()
   warehouse_id?: string;
+
+  @IsOptional()
+  @IsDateString()
+  created_from?: string;
+
+  @IsOptional()
+  @IsDateString()
+  created_to?: string;
 
   @IsOptional()
   @IsInt()
