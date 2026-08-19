@@ -7,6 +7,8 @@ import {
 } from '../../entities/electronic-invoicing';
 import { FiscalConfiguration } from '../../entities/billing/fiscal-configuration.entity';
 import { BillingBranch } from '../../entities/billing/billing-branch.entity';
+import { Customer } from '../../entities/customers/customer.entity';
+import { SalesOrder } from '../../entities/sales-orders/sales-order.entity';
 import { RBACModule } from '../rbac/rbac.module';
 import { S3Service } from '../../common/services/s3.service';
 import { FinkokProviderConfigurationController } from './finkok-provider-configuration.controller';
@@ -27,6 +29,8 @@ import { FiscalConfigurationFinkokService } from './services/fiscal-configuratio
       ElectronicInvoiceSyncLog,
       FiscalConfiguration,
       BillingBranch,
+      Customer,
+      SalesOrder,
     ]),
     RBACModule,
   ],

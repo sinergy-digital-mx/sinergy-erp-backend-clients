@@ -7,7 +7,10 @@ import { S3Service } from '../../../common/services/s3.service';
 import { ElectronicInvoice } from '../../../entities/electronic-invoicing/electronic-invoice.entity';
 import { FiscalConfiguration } from '../../../entities/billing/fiscal-configuration.entity';
 import { BillingBranch } from '../../../entities/billing/billing-branch.entity';
+import { Customer } from '../../../entities/customers/customer.entity';
+import { SalesOrder } from '../../../entities/sales-orders/sales-order.entity';
 import { ParsedCfdi, parseCfdiXmlForPdf, parseStampedCfdiXml } from '../utils/cfdi-xml.parser';
+import { composeFiscalAddress } from '../../customers/utils/fiscal-domicile.util';
 import { buildCfdiVerificationUrl, generateCfdiQrDataUrl } from '../utils/cfdi-qr.util';
 import {
   labelFormaPago,
@@ -44,6 +47,10 @@ export class ElectronicInvoicePdfService {
     private readonly s3Service: S3Service,
     @InjectRepository(BillingBranch)
     private readonly billingBranchRepo: Repository<BillingBranch>,
+    @InjectRepository(Customer)
+    private readonly customerRepo: Repository<Customer>,
+    @InjectRepository(SalesOrder)
+    private readonly salesOrderRepo: Repository<SalesOrder>,
   ) {}
 
   async generateAndUpload(
@@ -59,8 +66,9 @@ export class ElectronicInvoicePdfService {
       where: { fiscal_configuration_id: fiscal.id, status: 1 },
       order: { created_at: 'ASC' },
     });
+    const receptor = await this.findReceptorCustomer(invoice, cfdi.receptor.rfc);
 
-    const pdfBuffer = await this.buildPdfBuffer(cfdi, fiscal, branch);
+    const pdfBuffer = await this.buildPdfBuffer(cfdi, fiscal, branch, receptor);
     return this.uploadPdf(invoice, cfdi, pdfBuffer);
   }
 
@@ -95,8 +103,9 @@ export class ElectronicInvoicePdfService {
       where: { fiscal_configuration_id: fiscal.id, status: 1 },
       order: { created_at: 'ASC' },
     });
+    const receptor = await this.findReceptorCustomer(invoice, cfdi.receptor.rfc);
 
-    const pdfBuffer = await this.buildPdfBuffer(cfdi, fiscal, branch, { preview: true });
+    const pdfBuffer = await this.buildPdfBuffer(cfdi, fiscal, branch, receptor, { preview: true });
     const upload = await this.uploadPdf(invoice, cfdi, pdfBuffer, { preview: true });
     return { ...upload, preview: true };
   }
@@ -105,6 +114,7 @@ export class ElectronicInvoicePdfService {
     cfdi: ParsedCfdi,
     fiscal: FiscalConfiguration,
     branch: BillingBranch | null,
+    receptor: Customer | null,
     options: { preview?: boolean } = {},
   ): Promise<Buffer> {
     const printer = new PdfPrinter(this.fonts);
@@ -147,7 +157,7 @@ export class ElectronicInvoicePdfService {
         conceptRows.push([
           {
             colSpan: 8,
-            text: `Impuesto: ${traslado.impuesto} | Tipo: ${traslado.tipoFactor} | Tasa: ${traslado.tasaOCuota} | Base: ${this.formatCurrency(traslado.base)} | Importe: ${this.formatCurrency(traslado.importe)}`,
+            text: this.formatConceptTaxLine(traslado),
             style: 'conceptTax',
           },
           {},
@@ -178,33 +188,34 @@ export class ElectronicInvoicePdfService {
       content: [
         ...(previewBanner ? [previewBanner] : []),
         {
-          columns: [
-            logoImage
-              ? {
-                  width: 76,
-                  stack: [{ image: logoImage, fit: [72, 52], alignment: 'center' }],
-                  margin: [0, 4, 8, 0],
-                }
-              : { text: '', width: 76 },
-            {
-              width: '*',
-              stack: [
-                { text: emisorNombre, style: 'issuerName' },
-                ...(emisorAddress ? [{ text: emisorAddress, style: 'issuerMeta' }] : []),
-                { text: `RFC: ${cfdi.emisor.rfc}`, style: 'issuerMeta' },
+          table: {
+            widths: [70, '*', 176],
+            body: [
+              [
+                logoImage
+                  ? { image: logoImage, fit: [66, 48], alignment: 'center', margin: [0, 4, 4, 0] }
+                  : { text: '' },
                 {
-                  text: `Regimen fiscal: ${labelRegimenFiscal(cfdi.emisor.regimenFiscal)}`,
-                  style: 'issuerMeta',
+                  stack: [
+                    { text: emisorNombre, style: 'issuerName' },
+                    ...(emisorAddress ? [{ text: emisorAddress, style: 'issuerMeta' }] : []),
+                    { text: `RFC: ${cfdi.emisor.rfc}`, style: 'issuerMeta' },
+                    {
+                      text: `Regimen fiscal: ${labelRegimenFiscal(cfdi.emisor.regimenFiscal)}`,
+                      style: 'issuerMeta',
+                    },
+                    {
+                      text: `Lugar de expedicion: ${cfdi.lugarExpedicion}`,
+                      style: 'issuerMeta',
+                    },
+                  ],
+                  margin: [4, 2, 8, 0],
                 },
-                {
-                  text: `Lugar de expedicion: ${cfdi.lugarExpedicion}`,
-                  style: 'issuerMeta',
-                },
+                this.buildFacturaBox(cfdi, serieFolio, uuidLabel, hasTimbre),
               ],
-              margin: [0, 2, 8, 0],
-            },
-            this.buildFacturaBox(cfdi, serieFolio, uuidLabel, hasTimbre),
-          ],
+            ],
+          },
+          layout: 'noBorders',
           margin: [0, 0, 0, 6],
         },
         this.headerDivider(),
@@ -212,7 +223,7 @@ export class ElectronicInvoicePdfService {
         this.infoPairsTable([
           ['Nombre', { text: cfdi.receptor.nombre, bold: true }],
           ['RFC', cfdi.receptor.rfc],
-          ['Domicilio fiscal', cfdi.receptor.domicilioFiscalReceptor || '—'],
+          ['Domicilio fiscal', this.formatReceptorAddress(receptor, cfdi.receptor.domicilioFiscalReceptor)],
           ['Regimen fiscal', labelRegimenFiscal(cfdi.receptor.regimenFiscalReceptor)],
           ['Uso CFDI', labelUsoCfdi(cfdi.receptor.usoCfdi)],
           ['Version CFDI', `CFDI ${cfdi.version || '4.0'}`],
@@ -261,27 +272,7 @@ export class ElectronicInvoicePdfService {
               width: 210,
               table: {
                 widths: ['*', 78],
-                body: [
-                  [
-                    { text: 'SubTotal', style: 'totalLabel' },
-                    { text: this.formatCurrency(cfdi.subTotal), style: 'totalValue' },
-                  ],
-                  [
-                    { text: 'Descuento', style: 'totalLabel' },
-                    { text: this.formatCurrency(cfdi.descuento || '0'), style: 'totalValue' },
-                  ],
-                  [
-                    { text: 'Traslados', style: 'totalLabel' },
-                    {
-                      text: this.formatCurrency(cfdi.totalImpuestosTrasladados || '0'),
-                      style: 'totalValue',
-                    },
-                  ],
-                  [
-                    { text: 'Total', style: 'totalLabelStrong' },
-                    { text: this.formatCurrency(cfdi.total), style: 'totalValueStrong' },
-                  ],
-                ],
+                body: this.buildTotalsRows(cfdi),
               },
               layout: this.totalsLayout(),
             },
@@ -355,6 +346,14 @@ export class ElectronicInvoicePdfService {
           style: 'legalLegend',
           margin: [0, 12, 0, 0],
         },
+        {
+          text: [
+            { text: 'Generada por ', color: '#8b7cc9' },
+            { text: 'Vexia', bold: true, color: '#6d4ec9' },
+          ],
+          style: 'vexiaCredit',
+          margin: [0, 3, 0, 0],
+        },
       ],
       styles: {
         issuerName: { fontSize: 11, bold: true, color: '#0f172a' },
@@ -383,14 +382,14 @@ export class ElectronicInvoicePdfService {
           fontSize: 9,
           bold: true,
           color: this.brandText,
-          fillColor: '#edf2f6',
+          fillColor: this.sectionBg,
           margin: [6, 5, 4, 5],
         },
         totalValueStrong: {
           fontSize: 9,
           bold: true,
           color: this.brandText,
-          fillColor: '#edf2f6',
+          fillColor: this.sectionBg,
           alignment: 'right',
           margin: [4, 5, 6, 5],
         },
@@ -410,6 +409,7 @@ export class ElectronicInvoicePdfService {
         footerMetaLabel: { fontSize: 6.5, color: '#64748b' },
         footerMetaValue: { fontSize: 6.5, color: '#0f172a', bold: true },
         legalLegend: { fontSize: 7, italics: true, alignment: 'center', color: '#94a3b8' },
+        vexiaCredit: { fontSize: 6.5, alignment: 'center' },
         previewBanner: {
           fontSize: 8.5,
           bold: true,
@@ -512,9 +512,119 @@ export class ElectronicInvoicePdfService {
       .join(', ');
   }
 
+  private async findReceptorCustomer(
+    invoice: ElectronicInvoice,
+    receptorRfc: string,
+  ): Promise<Customer | null> {
+    if (invoice.source_module === 'sales_orders' && invoice.source_id) {
+      const order = await this.salesOrderRepo.findOne({
+        where: { id: invoice.source_id, tenant_id: invoice.tenant_id },
+        select: ['id', 'customer_id'],
+      });
+      if (order?.customer_id) {
+        const byOrder = await this.customerRepo.findOne({
+          where: { id: order.customer_id, tenant_id: invoice.tenant_id },
+        });
+        if (byOrder) {
+          return byOrder;
+        }
+      }
+    }
+
+    const rfc = receptorRfc?.trim().toUpperCase();
+    if (!rfc) {
+      return null;
+    }
+
+    return this.customerRepo
+      .createQueryBuilder('customer')
+      .where('customer.tenant_id = :tenantId', { tenantId: invoice.tenant_id })
+      .andWhere('UPPER(customer.fiscal_rfc) = :rfc', { rfc })
+      .getOne();
+  }
+
+  private formatReceptorAddress(customer: Customer | null, xmlPostalCode?: string): string {
+    const postal = customer?.fiscal_postal_code?.trim() || xmlPostalCode?.trim();
+    const streetLine =
+      composeFiscalAddress({
+        street: customer?.fiscal_street,
+        exteriorNumber: customer?.fiscal_exterior_number,
+        interiorNumber: customer?.fiscal_interior_number,
+        colonia: customer?.fiscal_colonia,
+      }) || customer?.fiscal_address?.trim();
+
+    const country = this.formatCountry(customer?.fiscal_country);
+
+    const formatted = [
+      streetLine,
+      customer?.fiscal_localidad?.trim(),
+      customer?.fiscal_municipio?.trim() || customer?.fiscal_city?.trim(),
+      customer?.fiscal_state?.trim(),
+      postal ? `C.P. ${postal}` : null,
+      country,
+    ]
+      .filter(Boolean)
+      .join(', ');
+
+    return formatted || postal || '—';
+  }
+
+  private formatCountry(code?: string | null): string | null {
+    const value = code?.trim();
+    if (!value) {
+      return null;
+    }
+    if (value.toUpperCase() === 'MEX' || value.toLowerCase() === 'mexico' || value.toLowerCase() === 'méxico') {
+      return 'México';
+    }
+    return value;
+  }
+
   private formatCurrency(value: string | number): string {
     const amount = Number(value) || 0;
     return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+
+  private formatTaxRate(tasaOCuota?: string): string {
+    const rate = Number(tasaOCuota);
+    if (!Number.isFinite(rate)) {
+      return '0 %';
+    }
+    return `${(rate * 100).toLocaleString('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    })} %`;
+  }
+
+  private formatConceptTaxLine(traslado: {
+    impuesto: string;
+    tipoFactor: string;
+    tasaOCuota: string;
+    base: string;
+    importe: string;
+  }): string {
+    const taxName =
+      traslado.impuesto === '002' ? 'IVA' : traslado.impuesto === '003' ? 'IEPS' : 'Traslado';
+    return `${taxName} ${this.formatTaxRate(traslado.tasaOCuota)}  ·  Base ${this.formatCurrency(traslado.base)}  ·  Importe ${this.formatCurrency(traslado.importe || '0')}`;
+  }
+
+  private totalRow(label: string, value: string | number) {
+    return [
+      { text: label, style: 'totalLabel' },
+      { text: this.formatCurrency(value || 0), style: 'totalValue' },
+    ];
+  }
+
+  private buildTotalsRows(cfdi: ParsedCfdi) {
+    return [
+      this.totalRow('SubTotal', cfdi.subTotal),
+      this.totalRow('Descuento', cfdi.descuento || '0'),
+      this.totalRow('IVA', cfdi.totalImpuestosTrasladados || '0'),
+      [
+        { text: 'Total', style: 'totalLabelStrong' },
+        { text: this.formatCurrency(cfdi.total), style: 'totalValueStrong' },
+      ],
+    ];
   }
 
   /**
@@ -576,12 +686,11 @@ export class ElectronicInvoicePdfService {
     ];
 
     return {
-      width: 162,
       table: {
         widths: ['*'],
         body: [
           [{ text: 'FACTURA', style: 'facturaTitle', alignment: 'center', margin: [0, 6, 0, 6] }],
-          [{ stack: rows, margin: [8, 6, 8, 8] }],
+          [{ stack: rows, margin: [6, 6, 6, 6] }],
         ],
       },
       layout: this.facturaBoxLayout(),
@@ -590,11 +699,11 @@ export class ElectronicInvoicePdfService {
 
   private facturaRow(label: string, value: string) {
     return {
-      columns: [
-        { width: 62, text: label, style: 'facturaLabel' },
-        { width: '*', text: value, style: 'facturaValue' },
+      stack: [
+        { text: label, style: 'facturaLabel' },
+        { text: this.wrapUnbreakable(value, 24), style: 'facturaValue' },
       ],
-      margin: [0, 0, 0, 3],
+      margin: [0, 0, 0, 4],
     };
   }
 

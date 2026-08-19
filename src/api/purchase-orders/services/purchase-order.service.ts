@@ -6,12 +6,15 @@ import { PurchaseOrderBatchDetail } from '../../../entities/purchase-orders/purc
 import { InventoryBatch } from '../../../entities/purchase-orders/inventory-batch.entity';
 import { PurchaseOrderPayment } from '../../../entities/purchase-orders/purchase-order-payment.entity';
 import { Warehouse } from '../../../entities/warehouse/warehouse.entity';
+import { Vendor } from '../../../entities/vendor/vendor.entity';
+import { VendorType } from '../../../entities/vendor/vendor-type.enum';
 import { CreatePurchaseOrderDto, CreateLineItemDto } from '../dto/create-purchase-order.dto';
 import { ReceivePurchaseOrderDto } from '../dto/receive-purchase-order.dto';
 import { UpdateLineItemDto } from '../dto/update-line-item.dto';
 import { QueryPurchaseOrderDto } from '../dto/query-purchase-order.dto';
 import { CreatePurchaseOrderPaymentDto } from '../dto/create-purchase-order-payment.dto';
 import { UpdatePurchaseOrderNotesDto } from '../dto/update-purchase-order-notes.dto';
+import { UpdatePurchaseOrderPedimentoDto } from '../dto/update-purchase-order-pedimento.dto';
 import { UnitConversionService } from './unit-conversion.service';
 import { BatchNumberGeneratorService } from './batch-number-generator.service';
 import { FolioGeneratorService } from './folio-generator.service';
@@ -37,6 +40,8 @@ export class PurchaseOrderService {
     private readonly purchaseOrderPaymentRepository: Repository<PurchaseOrderPayment>,
     @InjectRepository(Warehouse)
     private readonly warehouseRepository: Repository<Warehouse>,
+    @InjectRepository(Vendor)
+    private readonly vendorRepository: Repository<Vendor>,
     private readonly unitConversionService: UnitConversionService,
     private readonly batchNumberGenerator: BatchNumberGeneratorService,
     private readonly folioGenerator: FolioGeneratorService,
@@ -131,6 +136,12 @@ export class PurchaseOrderService {
         dto.billing_branch_id,
       );
 
+      const vendor = await this.getVendorOrFail(dto.vendor_id, tenantId);
+      const pedimentoNumber = this.resolvePedimentoForVendor(
+        vendor,
+        dto.pedimento_number,
+      );
+
       // Generate folio
       const folio = await this.folioGenerator.generateFolio(tenantId);
 
@@ -147,6 +158,7 @@ export class PurchaseOrderService {
         payment_currency: dto.payment_currency || 'MXN',
         general_status: 'Creada',
         notes: dto.notes,
+        pedimento_number: pedimentoNumber,
         created_by: userId,
       });
 
@@ -327,7 +339,8 @@ export class PurchaseOrderService {
               "LOWER(REPLACE(REPLACE(po.folio, '-', ''), ' ', '')) LIKE LOWER(:normalizedSearchLike)",
               { normalizedSearchLike },
             )
-            .orWhere('LOWER(vendor.company_name) LIKE LOWER(:search)', { search });
+            .orWhere('LOWER(vendor.company_name) LIKE LOWER(:search)', { search })
+            .orWhere('LOWER(po.pedimento_number) LIKE LOWER(:search)', { search });
         }),
       );
     }
@@ -452,9 +465,12 @@ export class PurchaseOrderService {
   private mapPurchaseOrderLocation(po: PurchaseOrderBatch) {
     const branch = po.warehouse?.billing_branch ?? null;
     const fiscal = po.fiscal_configuration ?? null;
+    const isInternationalVendor = po.vendor?.vendor_type === VendorType.INTERNATIONAL;
 
     return {
       ...po,
+      is_international_vendor: isInternationalVendor,
+      pedimento_number: isInternationalVendor ? po.pedimento_number ?? null : null,
       razon_social: fiscal?.razon_social ?? null,
       sucursal: branch?.code ?? null,
       billing_branch_id: po.warehouse?.billing_branch_id ?? branch?.id ?? null,
@@ -471,6 +487,37 @@ export class PurchaseOrderService {
           }
         : null,
     };
+  }
+
+  private async getVendorOrFail(vendorId: string, tenantId: string): Promise<Vendor> {
+    const vendor = await this.vendorRepository.findOne({
+      where: { id: vendorId, tenant_id: tenantId },
+    });
+    if (!vendor) {
+      throw new BadRequestException('Proveedor no encontrado');
+    }
+    return vendor;
+  }
+
+  private normalizePedimento(value?: string | null): string | null {
+    const trimmed = value?.trim() ?? '';
+    return trimmed.length ? trimmed : null;
+  }
+
+  private resolvePedimentoForVendor(
+    vendor: Vendor,
+    value?: string | null,
+  ): string | null {
+    const pedimentoNumber = this.normalizePedimento(value);
+    if (pedimentoNumber && vendor.vendor_type !== VendorType.INTERNATIONAL) {
+      throw new BadRequestException(
+        'El número de pedimento solo aplica a compras de proveedor internacional',
+      );
+    }
+    if (vendor.vendor_type !== VendorType.INTERNATIONAL) {
+      return null;
+    }
+    return pedimentoNumber;
   }
 
   private buildPaymentSummary(
@@ -810,6 +857,37 @@ export class PurchaseOrderService {
   }
 
   /**
+   * Actualiza el número de pedimento. Solo si el proveedor es internacional.
+   */
+  async updatePedimento(
+    id: string,
+    dto: UpdatePurchaseOrderPedimentoDto,
+    tenantId: string,
+    userId: string,
+  ): Promise<PurchaseOrderBatch> {
+    const purchaseOrder = await this.findOne(id, tenantId);
+
+    if (purchaseOrder.general_status === 'Cancelada') {
+      throw new BadRequestException(
+        'No se puede editar el pedimento de una orden cancelada',
+      );
+    }
+
+    const vendor = await this.getVendorOrFail(purchaseOrder.vendor_id, tenantId);
+    const pedimentoNumber = this.resolvePedimentoForVendor(
+      vendor,
+      dto.pedimento_number,
+    );
+
+    await this.purchaseOrderBatchRepository.update(
+      { id, tenant_id: tenantId },
+      { pedimento_number: pedimentoNumber, updated_by: userId },
+    );
+
+    return this.findOne(id, tenantId);
+  }
+
+  /**
    * Cancel a purchase order
    */
   async cancel(id: string, tenantId: string, userId: string): Promise<PurchaseOrderBatch> {
@@ -854,6 +932,14 @@ export class PurchaseOrderService {
       dto.billing_branch_id,
     );
 
+    const vendor = await this.getVendorOrFail(dto.vendor_id, tenantId);
+    const pedimentoNumber = this.resolvePedimentoForVendor(
+      vendor,
+      dto.pedimento_number !== undefined
+        ? dto.pedimento_number
+        : existing.pedimento_number,
+    );
+
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -890,6 +976,7 @@ export class PurchaseOrderService {
       if (dto.notes !== undefined) {
         batch.notes = dto.notes;
       }
+      batch.pedimento_number = pedimentoNumber;
       batch.requested_subtotal = totals.requested_subtotal;
       batch.requested_iva_total = totals.requested_iva_total;
       batch.requested_ieps_total = totals.requested_ieps_total;

@@ -1,6 +1,8 @@
 import { IsEnum, IsNotEmpty, IsOptional, IsString, IsInt, Min, Max, MaxLength } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class UpsertFinkokProviderConfigurationDto {
+  /** Tab que se está guardando (`demo` o `production`). No es el “ambiente activo para timbrar”. */
   @IsNotEmpty({ message: 'El ambiente es obligatorio' })
   @IsEnum(['demo', 'production'], {
     message: 'El ambiente debe ser demo o production',
@@ -12,9 +14,14 @@ export class UpsertFinkokProviderConfigurationDto {
   @MaxLength(255)
   finkok_username: string;
 
-  @IsNotEmpty({ message: 'La contraseña de Finkok es obligatoria' })
+  /**
+   * Obligatoria en el alta. En edición, omitir si ya hay contraseña guardada
+   * (`has_password: true`). No enviar string vacío.
+   */
+  @Transform(({ value }) => (value === '' || value === null ? undefined : value))
+  @IsOptional()
   @IsString()
-  finkok_password: string;
+  finkok_password?: string;
 
   @IsOptional()
   @IsInt()
@@ -22,7 +29,7 @@ export class UpsertFinkokProviderConfigurationDto {
   @Max(1)
   is_active?: number;
 
-  /** Si es 1, este ambiente se usa al timbrar/cancelar por defecto */
+  /** No enviar en Guardar del tab. El default se cambia con PATCH /stamping-environment. */
   @IsOptional()
   @IsInt()
   @Min(0)

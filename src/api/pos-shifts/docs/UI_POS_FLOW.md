@@ -2,6 +2,8 @@
 
 Documento de referencia del nuevo modelo POS. Reemplaza **Equipos** (`pos_configurations`) y **Sesiones** (`pos_sessions`).
 
+**Crédito, mixto por tipos y factura al cobrar:** `src/api/customers/docs/UI_CUSTOMER_CREDIT.md`.
+
 ## Resumen del modelo
 
 | Concepto anterior | Concepto nuevo |
@@ -443,8 +445,9 @@ POST /api/tenant/pos/sales/:salesOrderId/collect
 
 | Campo | Regla |
 |-------|--------|
-| `payment_method` | `cash` \| `card` \| `transfer` \| `mixed` |
-| `customer_id` | Opcional. Si se omite, se mantiene el de la orden (mostrador si Ventas no envió cliente) |
+| `payment_method` | `cash` \| `card` \| `transfer` \| `mixed` \| `credit` |
+| `customer_id` | Opcional. Si no se envía, se mantiene el de la orden (mostrador si Ventas no envió cliente) |
+| `generate_invoice` | Opcional. `true` solo si el cliente tiene RFC + razón social + CP de 5 dígitos |
 | Montos (`amount_*`) | La suma en MXN debe igualar el `total` de la orden |
 | `usd_exchange_rate` | Obligatorio si `amount_cash_usd` > 0 |
 | `transfer_reference` | Obligatorio si `amount_transfer_mxn` > 0 |
@@ -948,11 +951,12 @@ sequenceDiagram
 
 | Campo | Descripción |
 |-------|-------------|
-| `payment_method` | `cash` \| `card` \| `transfer` \| `mixed` |
+| `payment_method` | `cash` \| `card` \| `transfer` \| `mixed` \| `credit` |
 | `amount_cash_mxn` / `amount_cash_usd` | Monto aplicado en efectivo |
 | `usd_exchange_rate` | TC si hay USD |
 | `amount_transfer_mxn` + `transfer_reference` | Transferencia |
 | `amount_card_mxn` + `card_reference` | Tarjeta |
+| `amount_credit_mxn` | Monto a crédito (si `payment_method = credit`) |
 | `received_cash_mxn` / `received_cash_usd` | Lo que entregó el cliente |
 | `change_cash_mxn` / `change_cash_usd` | Cambio calculado |
 | `customer_id` | Cliente al momento del cobro |
@@ -963,7 +967,7 @@ sequenceDiagram
 
 | Campo | Antes | Después del cobro |
 |-------|-------|-------------------|
-| `payment_status` | `Pendiente` | `Pagado` |
+| `payment_status` | `Pendiente` | `Pagado` (si crédito: sigue `Pendiente` y `is_credit: true`) |
 | `customer_id` | Mostrador (default) | Cliente real si se eligió |
 | `collected_by_user_id` | `null` | id terminal COBRANZA |
 | `pos_daily_shift_id` | id corte | id corte (confirmado) |
@@ -1080,14 +1084,24 @@ Referencia:         [ 4242 ]  (opcional)
 
 **Tab Mixto** → `payment_method: "mixed"`
 
+El cajero **elige** qué tipos usar (checks). Mínimo dos. No mostrar los 3 montos siempre.
+
 ```
+[x] Efectivo     [x] Transferencia     [ ] Tarjeta
+
 Efectivo MXN:       [ 500    ]
 Transferencia MXN:  [ 330.50 ]  Ref: [ SPEI-789 ]
 ─────────────────────────────────
 Suma aplicada:      $830.50  ✓
 ```
 
-Mínimo **dos** formas de pago con monto > 0.
+Mínimo **dos** formas de pago con monto > 0 entre efectivo / transferencia / tarjeta. Crédito **no** va en mixto.
+
+**Tab Crédito** → `payment_method: "credit"` (solo si la OV tiene crédito en **su** razón social: `pending.customer.credit_enabled` o `GET /customers/:id?fiscal_configuration_id={order.fiscal_configuration_id}` → `credit_enabled`)
+
+Ver `src/api/customers/docs/UI_CUSTOMER_CREDIT.md`.
+
+Toggle **Generar factura** (switch largo y fino) en la card del cliente: `generate_invoice: true` si está on y `fiscal_ready_for_invoice`.
 
 #### Sección D — Acciones
 
@@ -1150,7 +1164,8 @@ Validación cliente-side antes de POST:
 1. `Math.abs(paidTotal - orderTotal) <= 0.01`
 2. Si `amount_cash_usd > 0` → `usd_exchange_rate` requerido
 3. Si `amount_transfer_mxn > 0` → `transfer_reference` no vacío
-4. Si `payment_method === 'mixed'` → al menos 2 montos > 0
+4. Si `payment_method === 'mixed'` → al menos 2 montos > 0 (efectivo / transferencia / tarjeta)
+5. Si `payment_method === 'credit'` → crédito activo **en la razón social de la OV** (`fiscal_configuration_id`) y `credit_available >= amount_pending`
 
 ---
 

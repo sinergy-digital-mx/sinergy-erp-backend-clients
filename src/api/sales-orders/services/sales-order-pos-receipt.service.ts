@@ -388,17 +388,23 @@ export class SalesOrderPosReceiptService {
 
     lines.push('');
     lines.push(`!N!${compactMoneyLine('Subtotal:', formatMoney(subtotalBeforeDiscount))}`);
+    lines.push(
+      `!N!${compactMoneyLine('Descuento:', `-${formatMoney(totalLineDiscountAmount + globalDiscountAmount)}`)}`,
+    );
     if (totalLineDiscountAmount > 0) {
       lines.push(
-        `!N!${compactMoneyLine('Desc. por producto:', `-${formatMoney(totalLineDiscountAmount)}`)}`,
+        `!N!${compactMoneyLine('  Desc. por producto:', `-${formatMoney(totalLineDiscountAmount)}`)}`,
       );
     }
     if (globalDiscountAmount > 0) {
       const globalLabel = order.global_discount?.name
         ? `Desc. global (${order.global_discount.name})`
         : 'Desc. global';
-      lines.push(`!N!${compactMoneyLine(`${globalLabel}:`, `-${formatMoney(globalDiscountAmount)}`)}`);
+      lines.push(`!N!${compactMoneyLine(`  ${globalLabel}:`, `-${formatMoney(globalDiscountAmount)}`)}`);
     }
+    lines.push(
+      `!N!${compactMoneyLine('IVA:', formatMoney(Number(order.iva_total) || 0))}`,
+    );
     lines.push(`!N!${compactMoneyLine('Total:', formatMoney(orderTotal))}`);
     lines.push(`!N!${'-'.repeat(ESCPOS_CHARS_PER_LINE)}`);
     lines.push(...this.buildPaymentLines(collection).map((line) => `!N!${line}`));
@@ -525,6 +531,11 @@ export class SalesOrderPosReceiptService {
       lines.push(compactMoneyLine('Tarjeta:', formatMoney(cardMxn)));
     } else if (collection.payment_method === PosSalePaymentMethod.TRANSFER && transferMxn > 0) {
       lines.push(compactMoneyLine('Transferencia:', formatMoney(transferMxn)));
+    } else if (collection.payment_method === PosSalePaymentMethod.CREDIT) {
+      const creditMxn = Number(collection.amount_credit_mxn) || 0;
+      if (creditMxn > 0) {
+        lines.push(compactMoneyLine('Credito:', formatMoney(creditMxn)));
+      }
     } else if (collection.payment_method === PosSalePaymentMethod.MIXED) {
       if (transferMxn > 0) lines.push(compactMoneyLine('Transferencia:', formatMoney(transferMxn)));
       if (cardMxn > 0) lines.push(compactMoneyLine('Tarjeta:', formatMoney(cardMxn)));

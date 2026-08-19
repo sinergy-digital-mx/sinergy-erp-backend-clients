@@ -1,5 +1,6 @@
 import { Transform, Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsNumber,
@@ -41,6 +42,15 @@ export class QuerySalesOrderDto {
   @IsOptional()
   @IsEnum(['Pendiente', 'Pagado'])
   payment_status?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === true || value === 'true' || value === '1') return true;
+    if (value === false || value === 'false' || value === '0') return false;
+    return value;
+  })
+  @IsBoolean()
+  is_credit?: boolean;
 
   @IsOptional()
   @IsEnum(['POS', 'MANUAL'])

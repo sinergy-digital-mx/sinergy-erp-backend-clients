@@ -24,6 +24,11 @@ import {
     composeFiscalAddress,
     hasSatStreetParts,
 } from './utils/fiscal-domicile.util';
+import { CustomerCreditService } from './services/customer-credit.service';
+import { getFiscalInvoiceReadiness } from './utils/fiscal-invoice-readiness.util';
+import { mapCustomerCheckoutFields } from './utils/map-customer-checkout.util';
+import { buildCreditSnapshot, extractCreditPatchFromBody } from './utils/customer-credit.util';
+import { UpsertCustomerCreditsDto } from './dto/upsert-customer-credit.dto';
 
 const GENERIC_RFCS = new Set(['XAXX010101000', 'XEXX010101000']);
 const DUPLICATE_MATCH_LIMIT = 10;
@@ -65,6 +70,7 @@ export class CustomersService {
         @InjectRepository(CustomerAddress)
         private addressRepo: Repository<CustomerAddress>,
         private readonly customerGroupsService: CustomerGroupsService,
+        private readonly customerCreditService: CustomerCreditService,
     ) { }
 
     private async resolveDefaultStatus(): Promise<CustomerStatus> {
@@ -128,8 +134,10 @@ export class CustomersService {
         );
 
         this.applySatFiscalDomicilio(dto);
+        const creditPatch = this.extractCreditPatch(dto);
+        this.stripLegacyCreditFields(dto);
 
-        return this.customerRepo.save({
+        const saved = await this.customerRepo.save({
             ...dto,
             group_id: groupId,
             phone,
@@ -141,7 +149,18 @@ export class CustomersService {
             registered_by_user_id: registeredByUserId ?? null,
             tenant_id: tenantId,
             status,
+            ...(creditPatch
+                ? {
+                      credit_enabled: creditPatch.credit_enabled,
+                      credit_days: creditPatch.credit_days,
+                      credit_amount: creditPatch.credit_amount,
+                  }
+                : {}),
         });
+        if (creditPatch) {
+            await this.customerCreditService.upsertForAllActiveFiscales(saved, creditPatch);
+        }
+        return saved;
     }
 
     async update(id: number, dto: UpdateCustomerDto, tenantId: string) {
@@ -209,9 +228,18 @@ export class CustomersService {
         }
 
         this.applySatFiscalDomicilio(dto, customer);
+        const creditPatch = this.extractCreditPatch(dto);
+        this.stripLegacyCreditFields(dto);
+        if (creditPatch) {
+            this.applyCreditPatchToCustomer(customer, creditPatch);
+        }
 
         Object.assign(customer, dto);
-        return this.customerRepo.save(customer);
+        const saved = await this.customerRepo.save(customer);
+        if (creditPatch) {
+            await this.customerCreditService.upsertForAllActiveFiscales(saved, creditPatch);
+        }
+        return this.enrichCustomer(saved);
     }
 
     async findAll(tenantId: string, query?: QueryCustomersDto): Promise<PaginatedCustomersDto> {
@@ -303,8 +331,8 @@ export class CustomersService {
         };
     }
 
-    findOne(id: number, tenantId: string) {
-        return this.customerRepo
+    async findOne(id: number, tenantId: string, fiscalConfigurationId?: string) {
+        const customer = await this.customerRepo
             .createQueryBuilder('customer')
             .leftJoinAndSelect('customer.status', 'status')
             .leftJoinAndSelect(
@@ -326,6 +354,32 @@ export class CustomersService {
             .where('customer.id = :id', { id })
             .andWhere('customer.tenant_id = :tenantId', { tenantId })
             .getOne();
+
+        if (!customer) {
+            return null;
+        }
+
+        return this.enrichCustomer(customer, fiscalConfigurationId);
+    }
+
+    async listCredits(id: number, tenantId: string) {
+        const customer = await this.customerRepo.findOneBy({ id, tenant_id: tenantId });
+        if (!customer) {
+            throw new NotFoundException('Cliente no encontrado');
+        }
+        return this.customerCreditService.listForCustomer(customer);
+    }
+
+    async upsertCredits(
+        id: number,
+        dto: UpsertCustomerCreditsDto,
+        tenantId: string,
+    ) {
+        const customer = await this.customerRepo.findOneBy({ id, tenant_id: tenantId });
+        if (!customer) {
+            throw new NotFoundException('Cliente no encontrado');
+        }
+        return this.customerCreditService.upsertMany(customer, dto.credits);
     }
 
     async findOneWithAddresses(id: number, tenantId: string) {
@@ -722,5 +776,60 @@ export class CustomersService {
         if (composed) {
             dto.fiscal_address = composed;
         }
+    }
+
+    private extractCreditPatch(
+        dto: CreateCustomerDto | UpdateCustomerDto,
+    ): {
+        credit_enabled: boolean;
+        credit_days?: number | null;
+        credit_amount?: number | null;
+    } | null {
+        return extractCreditPatchFromBody(dto as unknown as Record<string, unknown>);
+    }
+
+    private applyCreditPatchToCustomer(
+        customer: Customer,
+        patch: {
+            credit_enabled: boolean;
+            credit_days?: number | null;
+            credit_amount?: number | null;
+        },
+    ): void {
+        customer.credit_enabled = patch.credit_enabled;
+        customer.credit_days = patch.credit_days ?? null;
+        customer.credit_amount = patch.credit_amount ?? null;
+    }
+
+    private stripLegacyCreditFields(dto: CreateCustomerDto | UpdateCustomerDto): void {
+        delete (dto as { credit_enabled?: boolean }).credit_enabled;
+        delete (dto as { credit_days?: number }).credit_days;
+        delete (dto as { credit_amount?: number }).credit_amount;
+    }
+
+    private async enrichCustomer(customer: Customer, fiscalConfigurationId?: string) {
+        const credits = await this.customerCreditService.listForCustomer(customer);
+        const fiscal = getFiscalInvoiceReadiness(customer);
+        const activeCredit = fiscalConfigurationId
+            ? await this.customerCreditService.getSnapshotForFiscal(
+                customer,
+                fiscalConfigurationId,
+            )
+            : credits.find((item) => item.credit_enabled) ??
+              buildCreditSnapshot({ creditEnabled: false });
+        const mapped = mapCustomerCheckoutFields(
+            customer,
+            credits,
+            fiscal,
+            activeCredit,
+        );
+        const rest = { ...customer } as Record<string, unknown>;
+        delete rest.credit_enabled;
+        delete rest.credit_days;
+        delete rest.credit_amount;
+        return {
+            ...rest,
+            ...mapped,
+        };
     }
 }

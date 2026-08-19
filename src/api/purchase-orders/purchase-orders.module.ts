@@ -5,6 +5,7 @@ import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { BillingBranch } from '../../entities/billing/billing-branch.entity';
 import { FiscalConfiguration } from '../../entities/billing/fiscal-configuration.entity';
 import { Product, ProductUoM, ProductVendorCost } from '../../entities/products';
+import { Vendor } from '../../entities/vendor/vendor.entity';
 import { TenantModule, Module as ModuleEntity } from '../../entities/rbac';
 import { AuthModule } from '../auth/auth.module';
 import { S3Service } from '../../common/services/s3.service';
@@ -43,6 +44,7 @@ import {
       Product,
       ProductUoM,
       ProductVendorCost,
+      Vendor,
       TenantModule,
       ModuleEntity,
     ]),

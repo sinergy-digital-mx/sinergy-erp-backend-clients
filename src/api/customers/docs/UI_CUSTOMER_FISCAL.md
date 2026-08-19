@@ -31,6 +31,8 @@ Quitar el campo único **Dirección fiscal**. Partir como la CSF:
 
 Ningún campo fiscal es obligatorio para **guardar** el cliente. Sí lo son para **timbrar**: RFC, razón social SAT y CP de 5 dígitos.
 
+Al final del tab, switch largo y fino **Generar factura** → `auto_generate_invoice`. Detalle de crédito + POS: `src/api/customers/docs/UI_CUSTOMER_CREDIT.md`.
+
 No mostrar `fiscal_city` ni un textarea de dirección concatenada.
 
 ---
@@ -96,11 +98,12 @@ En el XML CFDI 4.0:
 | `Receptor/@Nombre` | `fiscal_razon_social` |
 | `Receptor/@DomicilioFiscalReceptor` | `fiscal_postal_code` |
 
-Calle, colonia y municipio **no** van en el XML del receptor 4.0; sí en ficha y PDF.
+Calle, colonia y municipio **no** van en el XML del receptor 4.0; el PDF de la factura **sí** los muestra en Domicilio fiscal (junto con C.P.).
 
 ---
 
 ## Docs relacionados
 
 - Tab Registro: `src/api/customers/docs/UI_CUSTOMER_REGISTRATION.md`
+- Crédito y factura POS: `src/api/customers/docs/UI_CUSTOMER_CREDIT.md`
 - Timbrado OV: `src/api/sales-orders/docs/UI_SALES_ORDER_INVOICING.md`

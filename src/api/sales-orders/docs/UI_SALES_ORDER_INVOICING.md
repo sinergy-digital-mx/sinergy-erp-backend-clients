@@ -111,9 +111,13 @@ Reglas que Finkok aplica:
 | Forma de pago | Selector wizard (`01` efectivo, `03` transferencia, etc.) | `@FormaPago` |
 | Método de pago | `PUE` o `PPD` según `payment_status` | `@MetodoPago` |
 
+**Siempre mostrar** Subtotal, Descuento, IVA y Total, aunque el valor sea `$0.00`. No ocultar filas en ceros. En líneas, columna Descuento también en `$0.00`.
+
 Sugerencia UI:
 - Si `payment_status === 'Pagado'` → default `MetodoPago = PUE`
-- Si `Pendiente` → default `PPD` o advertir al usuario
+- Si `Pendiente` (incluye venta a crédito) → default `PPD` o advertir al usuario
+
+POS Cobranza: si el collect responde `invoice.requested === true`, abrir este wizard / `POST /invoices/stamp` de inmediato. Ver `src/api/customers/docs/UI_CUSTOMER_CREDIT.md`.
 
 ### 2.4 Conceptos (desde líneas)
 

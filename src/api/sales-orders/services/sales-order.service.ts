@@ -486,6 +486,7 @@ export class SalesOrderService {
       search,
       general_status,
       payment_status,
+      is_credit,
       sales_order_type,
       fiscal_configuration_id,
       billing_branch_id,
@@ -524,6 +525,9 @@ export class SalesOrderService {
       }
     }
     if (payment_status) qb.andWhere('so.payment_status = :payment_status', { payment_status });
+    if (typeof is_credit === 'boolean') {
+      qb.andWhere('so.is_credit = :is_credit', { is_credit });
+    }
     if (sales_order_type) qb.andWhere('so.sales_order_type = :sales_order_type', { sales_order_type });
     if (fiscal_configuration_id) {
       qb.andWhere('so.fiscal_configuration_id = :fiscal_configuration_id', {
@@ -647,6 +651,12 @@ export class SalesOrderService {
 
     if (order.payment_status === 'Pagado') {
       throw new BadRequestException('La orden ya está pagada');
+    }
+
+    if (dto.payment_method === PosSalePaymentMethod.CREDIT) {
+      throw new BadRequestException(
+        'El crédito solo se registra desde cobranza POS',
+      );
     }
 
     if (

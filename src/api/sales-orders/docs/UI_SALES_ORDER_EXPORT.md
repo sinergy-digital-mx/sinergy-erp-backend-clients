@@ -54,13 +54,13 @@ GET /api/tenant/sales-orders/export/excel/details?created_from=2026-06-01&create
 
 ### Cabeceras (`ventas-cabeceras-YYYY-MM-DD.xlsx`)
 
-Columnas: Folio, Fecha creación, Tipo, Estado, Pago, Cliente, Razón social, Sucursal, Entrega esperada, Subtotal, Descuento, IVA, IEPS, Total, Vendedor, Notas.
+Columnas: Folio, Fecha creación, Tipo, Estado, Pago, Crédito (Sí/No), Cliente, Razón social, Sucursal, Entrega esperada, Subtotal, Descuento, IVA, IEPS, Total, Vendedor, Notas.
 
 Estilo: título verde oscuro, encabezados verde (`#1B7F5E`), filas alternadas.
 
 ### Detalle (`ventas-detalle-YYYY-MM-DD_YYYY-MM-DD.xlsx`)
 
-Una fila por línea de producto. Columnas: Folio orden, Fecha orden, Estado orden, Cliente, Razón social, Sucursal, SKU, Producto, UOM, Cantidad, Precio unit., Desc. %, Desc. unit., Descuento, IVA %, Subtotal línea, Total línea.
+Una fila por línea de producto. Columnas: Folio orden, Fecha orden, Estado orden, Pago, Crédito (Sí/No), Cliente, Razón social, Sucursal, SKU, Producto, UOM, Cantidad, Precio unit., Desc. %, Desc. unit., Descuento, IVA %, Subtotal línea, Total línea.
 
 Estilo: verde más claro en encabezados (`#2E8B57`).
 
@@ -133,6 +133,7 @@ interface SalesOrderExportFilters {
   fiscal_configuration_id?: string | null;
   billing_branch_id?: string | null;
   customer_id?: number;
+  is_credit?: boolean;
   created_from?: string;
   created_to?: string;
 }

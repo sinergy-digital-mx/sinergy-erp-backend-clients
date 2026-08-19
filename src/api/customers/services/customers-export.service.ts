@@ -1,15 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Customer } from '../../../entities/customers/customer.entity';
+import { CustomerCredit } from '../../../entities/customers/customer-credit.entity';
 import { QueryCustomersExportDto } from '../dto/query-customers-export.dto';
 import {
   buildExportSubtitle,
   buildStyledExcelBuffer,
   ExcelColumnDef,
-  formatExportDate,
   formatExportDateTime,
-  num,
 } from '../../../common/utils/excel-export.util';
 
 @Injectable()
@@ -26,35 +25,46 @@ export class CustomersExportService {
     { header: 'RFC', key: 'fiscal_rfc', width: 16 },
     { header: 'Razón social', key: 'fiscal_razon_social', width: 26 },
     { header: 'Almacén', key: 'warehouse_name', width: 20 },
-    { header: 'Días crédito', key: 'credit_days', width: 12, type: 'integer' },
-    { header: 'Monto crédito', key: 'credit_amount', width: 14, type: 'currency' },
+    { header: 'Crédito activo', key: 'credit_enabled', width: 14 },
+    { header: 'Crédito por razón social', key: 'credit_by_fiscal', width: 40 },
+    { header: 'Generar factura', key: 'auto_generate_invoice', width: 16 },
     { header: 'Fecha creación', key: 'created_at', width: 18, type: 'date' },
   ];
 
   constructor(
     @InjectRepository(Customer)
     private readonly customerRepo: Repository<Customer>,
+    @InjectRepository(CustomerCredit)
+    private readonly creditRepo: Repository<CustomerCredit>,
   ) {}
 
   async exportCustomers(tenantId: string, filters: QueryCustomersExportDto): Promise<Buffer> {
     const customers = await this.fetchCustomers(tenantId, filters);
+    const creditByCustomer = await this.loadCreditSummaries(
+      tenantId,
+      customers.map((c) => c.id),
+    );
 
-    const rows = customers.map((c) => ({
-      id: c.id,
-      name: c.name ?? '',
-      lastname: c.lastname ?? '',
-      company_name: c.company_name ?? '',
-      email: c.email ?? '',
-      phone: this.formatPhone(c.phone_code, c.phone),
-      status_name: c.status?.name ?? '',
-      group_name: c.group?.name ?? '',
-      fiscal_rfc: c.fiscal_rfc ?? '',
-      fiscal_razon_social: c.fiscal_razon_social ?? '',
-      warehouse_name: c.warehouse?.name ?? '',
-      credit_days: c.credit_days ?? '',
-      credit_amount: c.credit_amount != null ? num(c.credit_amount) : '',
-      created_at: formatExportDateTime(c.created_at),
-    }));
+    const rows = customers.map((c) => {
+      const credit = creditByCustomer.get(c.id);
+      return {
+        id: c.id,
+        name: c.name ?? '',
+        lastname: c.lastname ?? '',
+        company_name: c.company_name ?? '',
+        email: c.email ?? '',
+        phone: this.formatPhone(c.phone_code, c.phone),
+        status_name: c.status?.name ?? '',
+        group_name: c.group?.name ?? '',
+        fiscal_rfc: c.fiscal_rfc ?? '',
+        fiscal_razon_social: c.fiscal_razon_social ?? '',
+        warehouse_name: c.warehouse?.name ?? '',
+        credit_enabled: credit?.enabled ? 'Sí' : 'No',
+        credit_by_fiscal: credit?.detail ?? '',
+        auto_generate_invoice: c.auto_generate_invoice ? 'Sí' : 'No',
+        created_at: formatExportDateTime(c.created_at),
+      };
+    });
 
     return buildStyledExcelBuffer({
       sheetName: 'Clientes',
@@ -73,6 +83,39 @@ export class CustomersExportService {
 
   getFilename(): string {
     return `clientes-${new Date().toISOString().slice(0, 10)}.xlsx`;
+  }
+
+  private async loadCreditSummaries(
+    tenantId: string,
+    customerIds: number[],
+  ): Promise<Map<number, { enabled: boolean; detail: string }>> {
+    const result = new Map<number, { enabled: boolean; detail: string }>();
+    if (customerIds.length === 0) {
+      return result;
+    }
+
+    const rows = await this.creditRepo.find({
+      where: { tenant_id: tenantId, customer_id: In(customerIds), credit_enabled: true },
+      relations: ['fiscal_configuration'],
+    });
+
+    const grouped = new Map<number, string[]>();
+    for (const row of rows) {
+      const label = `${row.fiscal_configuration?.razon_social ?? row.fiscal_configuration_id}: $${Number(row.credit_amount ?? 0).toFixed(2)} (${row.credit_days ?? 0}d)`;
+      const list = grouped.get(row.customer_id) ?? [];
+      list.push(label);
+      grouped.set(row.customer_id, list);
+    }
+
+    for (const id of customerIds) {
+      const detail = grouped.get(id) ?? [];
+      result.set(id, {
+        enabled: detail.length > 0,
+        detail: detail.join('; '),
+      });
+    }
+
+    return result;
   }
 
   private async fetchCustomers(

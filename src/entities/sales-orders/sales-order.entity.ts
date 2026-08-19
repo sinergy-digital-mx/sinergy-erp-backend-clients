@@ -80,6 +80,14 @@ export class SalesOrder {
   })
   payment_status: string;
 
+  /** True si el cobro POS se aplicó a crédito (sale de pendientes, el saldo sigue abierto). */
+  @Column({ type: 'boolean', default: false })
+  is_credit: boolean;
+
+  /** El cajero pidió timbrar factura al cobrar. El XML lo arma el frontend. */
+  @Column({ type: 'boolean', default: false })
+  invoice_requested: boolean;
+
   @Column({
     type: 'enum',
     enum: [

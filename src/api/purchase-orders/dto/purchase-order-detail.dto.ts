@@ -4,6 +4,8 @@ export class PurchaseOrderDetailDto {
     folio: string;
     vendor_id: string;
     vendor_name: string;
+    is_international_vendor: boolean;
+    pedimento_number: string | null;
     warehouse_id: string;
     warehouse_name: string;
     fiscal_configuration_id: string;

@@ -39,7 +39,8 @@ export class FinkokProviderConfigurationController {
   @RequirePermissions({ entityType: 'FiscalConfiguration', action: 'Update' })
   @ApiOperation({
     summary: 'Guardar credenciales Finkok para un ambiente (demo o production)',
-    description: 'Body.environment es obligatorio. Puede existir un registro por ambiente por cliente.',
+    description:
+      'Body.environment es el tab (demo|production), no el ambiente activo de timbrado. Respuesta = mismo bundle que GET.',
   })
   upsert(
     @Body() dto: UpsertFinkokProviderConfigurationDto,

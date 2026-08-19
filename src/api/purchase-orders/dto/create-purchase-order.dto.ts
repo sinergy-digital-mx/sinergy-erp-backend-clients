@@ -11,6 +11,7 @@ import {
   IsNumber,
   Min,
   Max,
+  MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -87,6 +88,12 @@ export class CreatePurchaseOrderDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  /** Número de pedimento. Solo si el proveedor es internacional. */
+  @IsString()
+  @IsOptional()
+  @MaxLength(30)
+  pedimento_number?: string | null;
 
   @IsArray()
   @ArrayMinSize(1)

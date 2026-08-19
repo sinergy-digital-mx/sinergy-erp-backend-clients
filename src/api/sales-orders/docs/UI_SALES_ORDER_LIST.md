@@ -46,6 +46,7 @@ GET /api/tenant/sales-orders
 | `search` | string | No | — |
 | `general_status` | string / CSV / repetido | No | Todos los estados |
 | `payment_status` | `Pendiente` \| `Pagado` | No | Todos |
+| `is_credit` | `true` \| `false` | No | Todas |
 | `sales_order_type` | `POS` \| `MANUAL` | No | Todos |
 | `created_from` / `created_to` | date ISO | No | — |
 | `page` | number | No | 1 |
@@ -116,7 +117,7 @@ GET /api/tenant/sales-orders?billing_branch_id={uuid}
 | Sucursal | `sucursal` o `billing_branch?.code ?? '—'` |
 | Estado | `general_status` |
 | Total | `total` |
-| Pago | `payment_status` |
+| Pago | `payment_status` + chip **Crédito** si `is_credit` |
 | Fecha | `created_at` |
 
 ---

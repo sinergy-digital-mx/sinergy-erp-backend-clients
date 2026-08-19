@@ -27,6 +27,7 @@ import { CustomerProductInsightsService } from './services/customer-product-insi
 import { QueryCustomerProductInsightsDto } from './dto/query-customer-product-insights.dto';
 import { CustomerGroupsService } from './customer-groups.service';
 import { CheckCustomerDuplicatesDto } from './dto/check-customer-duplicates.dto';
+import { UpsertCustomerCreditsDto } from './dto/upsert-customer-credit.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionGuard } from '../rbac/guards/permission.guard';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator';
@@ -152,16 +153,54 @@ export class CustomersController {
         return this.customersService.findAll(req.user.tenantId, query);
     }
 
+    @Get(':id/credits')
+    @RequirePermissions({ entityType: 'customers', action: 'Read' })
+    @ApiOperation({
+        summary: 'Crédito del cliente por razón social (no por almacén)',
+    })
+    @ApiParam({ name: 'id', type: 'number', description: 'Customer ID' })
+    listCredits(@Param('id') id: string, @Req() req) {
+        return this.customersService.listCredits(Number(id), req.user.tenantId);
+    }
+
+    @Put(':id/credits')
+    @RequirePermissions({ entityType: 'customers', action: 'Update' })
+    @ApiOperation({
+        summary: 'Activar o editar crédito por razón social',
+    })
+    @ApiParam({ name: 'id', type: 'number', description: 'Customer ID' })
+    @ApiBody({ type: UpsertCustomerCreditsDto })
+    upsertCredits(
+        @Param('id') id: string,
+        @Body() dto: UpsertCustomerCreditsDto,
+        @Req() req,
+    ) {
+        return this.customersService.upsertCredits(Number(id), dto, req.user.tenantId);
+    }
+
     @Get(':id')
     @RequirePermissions({ entityType: 'customers', action: 'Read' })
     @ApiOperation({ summary: 'Get a specific customer by ID' })
     @ApiParam({ name: 'id', type: 'number', description: 'Customer ID' })
+    @ApiQuery({
+        name: 'fiscal_configuration_id',
+        required: false,
+        description: 'Razón social de la OV/POS para aplanar el snapshot de crédito',
+    })
     @ApiResponse({ status: 200, description: 'Customer retrieved successfully' })
     @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing token' })
     @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
     @ApiResponse({ status: 404, description: 'Not found - Customer does not exist' })
-    findOne(@Param('id') id: string, @Req() req) {
-        return this.customersService.findOne(Number(id), req.user.tenantId);
+    findOne(
+        @Param('id') id: string,
+        @Query('fiscal_configuration_id') fiscalConfigurationId: string | undefined,
+        @Req() req,
+    ) {
+        return this.customersService.findOne(
+            Number(id),
+            req.user.tenantId,
+            fiscalConfigurationId,
+        );
     }
 
     @Get(':id/product-insights')

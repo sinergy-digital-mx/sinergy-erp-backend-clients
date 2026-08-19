@@ -76,6 +76,9 @@ export class PosSaleCollection {
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   amount_card_mxn: number;
 
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  amount_credit_mxn: number;
+
   @Column({ type: 'varchar', length: 120, nullable: true })
   card_reference: string | null;
 

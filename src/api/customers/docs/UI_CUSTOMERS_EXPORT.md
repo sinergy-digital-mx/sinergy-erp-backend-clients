@@ -34,7 +34,7 @@ GET /api/tenant/customers/export/excel?search=acme&status_id=1&group_id=uuid-gru
 
 ### Clientes (`clientes-YYYY-MM-DD.xlsx`)
 
-Una fila por cliente. Columnas: ID, Nombre, Apellido, Empresa, Email, Teléfono, Estatus, Grupo, RFC, Razón social, Almacén, Días crédito, Monto crédito, Fecha creación.
+Una fila por cliente. Columnas: ID, Nombre, Apellido, Empresa, Email, Teléfono, Estatus, Grupo, RFC, Razón social, Almacén, Crédito activo, Días crédito, Monto crédito, Generar factura, Fecha creación.
 
 Estilo: título ámbar oscuro, encabezados ámbar (`#C47B2B`), filas alternadas.
 

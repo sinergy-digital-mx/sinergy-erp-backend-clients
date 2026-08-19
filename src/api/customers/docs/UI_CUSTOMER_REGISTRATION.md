@@ -13,7 +13,7 @@ Son datos **solo informativos**. No restringen en qué sucursal puede comprar el
 Cuarto tab del modal **Crear Cliente** / **Editar Cliente**:
 
 1. Información del Cliente
-2. Credito
+2. Credito — `src/api/customers/docs/UI_CUSTOMER_CREDIT.md`
 3. Información Fiscal
 4. **Registro**
 

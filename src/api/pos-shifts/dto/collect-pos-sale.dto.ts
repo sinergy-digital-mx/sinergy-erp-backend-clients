@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
+  IsBoolean,
   IsEnum,
   IsInt,
   IsNumber,
@@ -82,6 +83,23 @@ export class CollectPosSaleDto {
   @IsString()
   @MaxLength(120)
   card_reference?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Monto cubierto a crédito (MXN). Si payment_method = credit y se omite, se usa el saldo pendiente.',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  amount_credit_mxn?: number;
+
+  @ApiProperty({
+    required: false,
+    description: 'Si true, pide timbrar factura al cobrar. Requiere datos fiscales completos del cliente.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  generate_invoice?: boolean;
 
   @ApiProperty({
     required: false,

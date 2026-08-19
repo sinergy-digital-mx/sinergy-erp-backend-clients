@@ -25,6 +25,7 @@ export class SalesOrderExportService {
     { header: 'Tipo', key: 'sales_order_type', width: 10 },
     { header: 'Estado', key: 'general_status', width: 12 },
     { header: 'Pago', key: 'payment_status', width: 12 },
+    { header: 'Crédito', key: 'is_credit', width: 12 },
     { header: 'Cliente', key: 'customer_name', width: 28 },
     { header: 'Razón social', key: 'razon_social', width: 28 },
     { header: 'Sucursal', key: 'billing_branch_code', width: 24 },
@@ -42,6 +43,8 @@ export class SalesOrderExportService {
     { header: 'Folio orden', key: 'folio', width: 14 },
     { header: 'Fecha orden', key: 'order_created_at', width: 18, type: 'date' },
     { header: 'Estado orden', key: 'general_status', width: 12 },
+    { header: 'Pago', key: 'payment_status', width: 12 },
+    { header: 'Crédito', key: 'is_credit', width: 12 },
     { header: 'Cliente', key: 'customer_name', width: 24 },
     { header: 'Razón social', key: 'razon_social', width: 26 },
     { header: 'Sucursal', key: 'billing_branch_code', width: 22 },
@@ -73,6 +76,7 @@ export class SalesOrderExportService {
       sales_order_type: so.sales_order_type,
       general_status: so.general_status,
       payment_status: so.payment_status,
+      is_credit: so.is_credit ? 'Sí' : 'No',
       customer_name: this.formatCustomerName(so),
       razon_social: so.fiscal_configuration?.razon_social ?? so.fiscal_razon_social ?? '',
       billing_branch_code: so.warehouse?.billing_branch?.code ?? '',
@@ -142,6 +146,8 @@ export class SalesOrderExportService {
         folio: d.sales_order?.folio ?? '',
         order_created_at: formatExportDateTime(d.sales_order?.created_at),
         general_status: d.sales_order?.general_status ?? '',
+        payment_status: d.sales_order?.payment_status ?? '',
+        is_credit: d.sales_order?.is_credit ? 'Sí' : 'No',
         customer_name: d.sales_order ? this.formatCustomerName(d.sales_order) : '',
         razon_social:
           d.sales_order?.fiscal_configuration?.razon_social ??
@@ -238,6 +244,9 @@ export class SalesOrderExportService {
     if (filters.payment_status) {
       qb.andWhere('so.payment_status = :payment_status', { payment_status: filters.payment_status });
     }
+    if (typeof filters.is_credit === 'boolean') {
+      qb.andWhere('so.is_credit = :is_credit', { is_credit: filters.is_credit });
+    }
     if (filters.sales_order_type) {
       qb.andWhere('so.sales_order_type = :sales_order_type', {
         sales_order_type: filters.sales_order_type,
@@ -272,6 +281,9 @@ export class SalesOrderExportService {
         if (!statuses.includes(so.general_status)) return false;
       }
       if (filters.payment_status && so.payment_status !== filters.payment_status) return false;
+      if (typeof filters.is_credit === 'boolean' && Boolean(so.is_credit) !== filters.is_credit) {
+        return false;
+      }
       if (filters.sales_order_type && so.sales_order_type !== filters.sales_order_type) return false;
       if (
         filters.fiscal_configuration_id &&
@@ -326,6 +338,9 @@ export class SalesOrderExportService {
     }
     if (filters.general_status) parts.push(`Estado: ${filters.general_status}`);
     if (filters.payment_status) parts.push(`Pago: ${filters.payment_status}`);
+    if (typeof filters.is_credit === 'boolean') {
+      parts.push(`Crédito: ${filters.is_credit ? 'Sí' : 'No'}`);
+    }
     if (filters.sales_order_type) parts.push(`Tipo: ${filters.sales_order_type}`);
     if (filters.fiscal_configuration_id) parts.push('Razón social filtrada');
     if (filters.billing_branch_id) parts.push('Sucursal filtrada');

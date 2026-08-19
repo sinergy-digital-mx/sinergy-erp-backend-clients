@@ -11,6 +11,7 @@ export { QueryInventoryBatchDto } from './query-inventory-batch.dto';
 export { CreatePurchaseOrderPaymentDto } from './create-purchase-order-payment.dto';
 export { RegenerateDocumentDto } from './regenerate-document.dto';
 export { UpdatePurchaseOrderNotesDto } from './update-purchase-order-notes.dto';
+export { UpdatePurchaseOrderPedimentoDto } from './update-purchase-order-pedimento.dto';
 export {
   QueryPurchaseOrderHeaderExportDto,
   QueryPurchaseOrderDetailExportDto,

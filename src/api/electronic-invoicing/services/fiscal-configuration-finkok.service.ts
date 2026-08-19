@@ -8,6 +8,10 @@ import { Repository } from 'typeorm';
 import { FiscalConfiguration } from '../../../entities/billing/fiscal-configuration.entity';
 import { FinkokEnvironment } from '../../../entities/electronic-invoicing/finkok-provider-configuration.entity';
 import { RegisterFiscalConfigurationFinkokDto } from '../dto/register-fiscal-configuration-finkok.dto';
+import {
+  isFinkokAuthenticationFailed,
+  translateFinkokRegistrationError,
+} from '../utils/finkok-registration-error';
 import { FinkokProviderConfigurationService } from './finkok-provider-configuration.service';
 import { FinkokSoapClient } from './finkok-soap.client';
 
@@ -42,20 +46,40 @@ export class FiscalConfigurationFinkokService {
   ): Promise<FinkokIssuerStatusResponse> {
     const fiscal = await this.getByIdOrFail(fiscalConfigurationId, tenantId);
     const env = environment ?? (await this.finkokConfigService.getCredentials(tenantId)).environment;
-    const credentials = await this.finkokConfigService.getCredentials(tenantId, env);
+    const credentials = this.finkokConfigService.getRegistrationCredentials(env);
 
     const remote = await this.finkokClient.registrationGet(credentials, fiscal.rfc);
-    const match = remote.users[0];
 
-    if (match) {
-      fiscal.finkok_remote_status = match.status ?? null;
-      fiscal.finkok_stamps_counter = match.counter ?? null;
-      fiscal.finkok_stamps_credit = match.credit ?? null;
-      fiscal.last_finkok_sync_at = new Date();
-      await this.fiscalRepo.save(fiscal);
+    if (isFinkokAuthenticationFailed(remote.message)) {
+      const authError = translateFinkokRegistrationError(remote.message, env);
+      await this.failRegistration(fiscal, authError);
+      return this.toStatusResponse(fiscal, env, false, authError);
     }
 
-    return this.toStatusResponse(fiscal, env, remote.found, remote.message);
+    const match = this.findMatchingUser(remote.users, fiscal.rfc);
+    if (match) {
+      return this.markRegistered(
+        fiscal,
+        env,
+        remote.message ?? `RFC ${fiscal.rfc} encontrado en Finkok (${env})`,
+        match,
+      );
+    }
+
+    fiscal.finkok_registration_status = 'pending';
+    fiscal.finkok_registration_error =
+      remote.message && !isFinkokAuthenticationFailed(remote.message)
+        ? translateFinkokRegistrationError(remote.message, env)
+        : `El RFC ${fiscal.rfc} no está registrado en Finkok (${env}).`;
+    fiscal.finkok_remote_status = null;
+    fiscal.last_finkok_sync_at = new Date();
+    const saved = await this.fiscalRepo.save(fiscal);
+    return this.toStatusResponse(
+      saved,
+      env,
+      false,
+      fiscal.finkok_registration_error ?? undefined,
+    );
   }
 
   async registerIssuer(
@@ -73,14 +97,28 @@ export class FiscalConfigurationFinkokService {
     }
 
     if (mode === 'link_only') {
-      return this.markRegistered(fiscal, env, 'Vinculación manual sin consulta Finkok');
+      fiscal.finkok_registration_status = 'pending';
+      fiscal.finkok_registration_error =
+        'La vinculación local no confirma el RFC en Finkok. Use Verificar o Registrar.';
+      fiscal.last_finkok_sync_at = new Date();
+      const saved = await this.fiscalRepo.save(fiscal);
+      return this.toStatusResponse(
+        saved,
+        env,
+        false,
+        fiscal.finkok_registration_error,
+      );
     }
 
-    const credentials = await this.finkokConfigService.getCredentials(tenantId, env);
+    const credentials = this.finkokConfigService.getRegistrationCredentials(env);
     const remote = await this.finkokClient.registrationGet(credentials, fiscal.rfc);
-    const match = remote.users.find(
-      (u) => u.taxpayer_id?.toUpperCase() === fiscal.rfc.toUpperCase(),
-    );
+    if (isFinkokAuthenticationFailed(remote.message)) {
+      const authError = translateFinkokRegistrationError(remote.message, env);
+      await this.failRegistration(fiscal, authError);
+      throw new BadRequestException(authError);
+    }
+
+    const match = this.findMatchingUser(remote.users, fiscal.rfc);
 
     if (match) {
       return this.markRegistered(
@@ -93,9 +131,9 @@ export class FiscalConfigurationFinkokService {
 
     if (mode === 'verify') {
       fiscal.finkok_registration_status = 'pending';
-      fiscal.finkok_registration_error =
-        remote.message ??
-        `El RFC ${fiscal.rfc} no está registrado en Finkok (${env}). Use Registrar en Finkok para darlo de alta.`;
+      fiscal.finkok_registration_error = remote.message
+        ? translateFinkokRegistrationError(remote.message, env)
+        : `El RFC ${fiscal.rfc} no está registrado en Finkok (${env}). Use Registrar en Finkok para darlo de alta.`;
       fiscal.last_finkok_sync_at = new Date();
       await this.fiscalRepo.save(fiscal);
       return this.toStatusResponse(fiscal, env, false, fiscal.finkok_registration_error ?? undefined);
@@ -117,26 +155,44 @@ export class FiscalConfigurationFinkokService {
       throw new BadRequestException('Se requiere la contraseña del CSD para registrar en Finkok.');
     }
 
-    const typeUser = fiscal.persona_type === 'Persona Moral' ? 'M' : 'F';
+    // Finkok type_user: O = OnDemand, P = Prepago (no es Persona Moral/Física).
     const addResult = await this.finkokClient.registrationAdd(credentials, {
       taxpayerId: fiscal.rfc,
       cerBase64: this.normalizeBase64(fiscal.digital_seal),
       keyBase64: this.normalizeBase64(fiscal.private_key),
       passphrase: fiscal.digital_seal_password,
-      typeUser,
+      typeUser: 'O',
     });
 
     if (!addResult.success) {
-      await this.failRegistration(fiscal, addResult.message ?? 'Error al registrar en Finkok');
-      throw new BadRequestException(addResult.message ?? 'Finkok rechazó el alta del emisor');
+      const addError = translateFinkokRegistrationError(
+        addResult.message ?? 'Finkok rechazó el alta del emisor',
+        env,
+      );
+      await this.failRegistration(fiscal, addError);
+      throw new BadRequestException(addError);
     }
 
     const afterAdd = await this.finkokClient.registrationGet(credentials, fiscal.rfc);
-    const afterMatch = afterAdd.users[0];
+    if (isFinkokAuthenticationFailed(afterAdd.message)) {
+      const authError = translateFinkokRegistrationError(afterAdd.message, env);
+      await this.failRegistration(fiscal, authError);
+      throw new BadRequestException(authError);
+    }
+
+    const afterMatch = this.findMatchingUser(afterAdd.users, fiscal.rfc);
+    if (!afterAdd.found || !afterMatch) {
+      const confirmError =
+        `Finkok no confirmó el RFC ${fiscal.rfc} en ${env} después del alta. ` +
+        `El RFC no aparece en el listado de clientes de ese ambiente.`;
+      await this.failRegistration(fiscal, confirmError);
+      throw new BadRequestException(confirmError);
+    }
+
     return this.markRegistered(
       fiscal,
       env,
-      addResult.message ?? 'Emisor registrado en Finkok',
+      addResult.message ?? `Emisor ${fiscal.rfc} registrado en Finkok (${env})`,
       afterMatch,
     );
   }
@@ -205,12 +261,25 @@ export class FiscalConfigurationFinkokService {
     };
   }
 
+  private findMatchingUser(
+    users: Array<{
+      status?: string;
+      counter?: number;
+      taxpayer_id?: string;
+      credit?: number;
+    }>,
+    rfc: string,
+  ) {
+    return users.find((u) => u.taxpayer_id?.toUpperCase() === rfc.toUpperCase());
+  }
+
   private normalizeBase64(value: string): string {
     const trimmed = value.trim();
-    if (trimmed.includes('-----BEGIN')) {
-      return Buffer.from(trimmed, 'utf8').toString('base64');
+    const withoutDataUri = trimmed.replace(/^data:[^;]+;base64,/i, '');
+    if (withoutDataUri.includes('-----BEGIN')) {
+      return Buffer.from(withoutDataUri, 'utf8').toString('base64');
     }
-    return trimmed.replace(/\s/g, '');
+    return withoutDataUri.replace(/\s/g, '');
   }
 
   private async getByIdOrFail(id: string, tenantId: string): Promise<FiscalConfiguration> {

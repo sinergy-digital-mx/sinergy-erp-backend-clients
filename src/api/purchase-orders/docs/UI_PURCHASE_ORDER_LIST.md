@@ -67,11 +67,14 @@ POST /api/tenant/purchase-orders
   "vendor_id": "uuid-proveedor",
   "expected_delivery_date": "2026-08-20",
   "notes": "opcional",
+  "pedimento_number": "162430010001234",
   "line_items": []
 }
 ```
 
 `billing_branch_id` es opcional en API (si no va, se toma del almacén), **mándalo siempre** desde el modal. Si almacén ≠ sucursal o sucursal ≠ razón → **400**.
+
+`pedimento_number` es opcional y **solo aplica si el proveedor es internacional** (`vendor.vendor_type === 'INTERNATIONAL'`). Si el proveedor es nacional y se envía pedimento → **400**. Ver `UI_PURCHASE_ORDER_PEDIMENTO.md`.
 
 ---
 
@@ -167,6 +170,8 @@ id: po.warehouse_id
 ```
 
 No mostrar solo “Configuración fiscal” / “Almacén”. Las tres cards.
+
+Proveedor internacional y pedimento: ver `UI_PURCHASE_ORDER_PEDIMENTO.md`. Badge en la card **Proveedor** si `is_international_vendor`. Campo **Pedimento** **arriba de FECHAS**.
 
 ---
 

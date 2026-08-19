@@ -11,7 +11,7 @@ Registro de pagos (parciales o totales) desde el **detalle de la orden** o desde
 3. Se puede pagar:
    - En **Cobranza POS** (`POST /pos/sales/:id/collect`), o
    - En el **detalle de la orden de venta** (sección Pagos).
-4. Cada pago registra: monto, método (`cash` | `card` | `transfer` | `mixed`), referencia, notas.
+4. Cada pago registra: monto, método (`cash` | `card` | `transfer` | `mixed`), referencia, notas. El crédito POS **no** crea un pago: deja `is_credit: true` y `payment_status: Pendiente`.
 5. Opcional: subir comprobante (PDF/imagen) al pago.
 6. Cuando la suma de pagos ≥ total de la orden → `payment_status = Pagado` y sale de pendientes de cobranza.
 
@@ -212,6 +212,7 @@ Por cobrar:      $1,000.00   ← amount_pending
 | `card` | Tarjeta |
 | `transfer` | Transferencia |
 | `mixed` | Mixto |
+| `credit` | Crédito (solo POS collect; no usar en `POST .../payments`) |
 
 ---
 

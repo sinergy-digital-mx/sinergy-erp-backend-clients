@@ -70,12 +70,18 @@ export class FinkokProviderConfigurationService {
     tenantId: string,
     userId: string,
     dto: UpsertFinkokProviderConfigurationDto,
-  ): Promise<FinkokProviderConfigurationResponse> {
+  ): Promise<FinkokProviderConfigurationsBundle> {
     const environment = dto.environment;
     let config = await this.repo.findOne({ where: { tenant_id: tenantId, environment } });
 
+    if (!config && !dto.finkok_password?.trim()) {
+      throw new BadRequestException('La contraseña de Finkok es obligatoria');
+    }
+
     const usernameEncrypted = this.encryptionService.encrypt(dto.finkok_username);
-    const passwordEncrypted = this.encryptionService.encrypt(dto.finkok_password);
+    const passwordEncrypted = dto.finkok_password?.trim()
+      ? this.encryptionService.encrypt(dto.finkok_password.trim())
+      : null;
 
     if (!config) {
       config = this.repo.create({
@@ -84,8 +90,8 @@ export class FinkokProviderConfigurationService {
         finkok_username: dto.finkok_username,
         finkok_username_encrypted: usernameEncrypted.encryptedValue,
         finkok_username_iv: usernameEncrypted.iv,
-        finkok_password_encrypted: passwordEncrypted.encryptedValue,
-        finkok_password_iv: passwordEncrypted.iv,
+        finkok_password_encrypted: passwordEncrypted!.encryptedValue,
+        finkok_password_iv: passwordEncrypted!.iv,
         is_active: dto.is_active ?? 1,
         is_stamping_default: dto.is_stamping_default ?? 0,
         created_by: userId,
@@ -95,8 +101,10 @@ export class FinkokProviderConfigurationService {
       config.finkok_username = dto.finkok_username;
       config.finkok_username_encrypted = usernameEncrypted.encryptedValue;
       config.finkok_username_iv = usernameEncrypted.iv;
-      config.finkok_password_encrypted = passwordEncrypted.encryptedValue;
-      config.finkok_password_iv = passwordEncrypted.iv;
+      if (passwordEncrypted) {
+        config.finkok_password_encrypted = passwordEncrypted.encryptedValue;
+        config.finkok_password_iv = passwordEncrypted.iv;
+      }
       config.is_active = dto.is_active ?? config.is_active;
       if (dto.is_stamping_default !== undefined) {
         config.is_stamping_default = dto.is_stamping_default;
@@ -108,17 +116,17 @@ export class FinkokProviderConfigurationService {
       await this.clearOtherStampingDefaults(tenantId, environment);
     }
 
-    const saved = await this.repo.save(config);
+    await this.repo.save(config);
 
     const existingDefault = await this.repo.findOne({
       where: { tenant_id: tenantId, is_stamping_default: 1 },
     });
     if (!existingDefault) {
-      saved.is_stamping_default = 1;
-      await this.repo.save(saved);
+      config.is_stamping_default = 1;
+      await this.repo.save(config);
     }
 
-    return this.toResponse(saved);
+    return this.getAllForTenant(tenantId);
   }
 
   async setStampingEnvironment(
@@ -188,6 +196,30 @@ export class FinkokProviderConfigurationService {
     };
   }
 
+  /**
+   * Credenciales reseller para WS de registration (alta/consulta de RFC).
+   * Vienen de .env; no usar el token SOAP de Integración Finkok (ese es solo timbrado).
+   */
+  getRegistrationCredentials(environment: FinkokEnvironment): {
+    username: string;
+    password: string;
+    environment: FinkokEnvironment;
+  } {
+    const suffix = environment === 'production' ? 'PRODUCTION' : 'DEMO';
+    const username = process.env[`FINKOK_RESELLER_${suffix}_USERNAME`]?.trim();
+    const password = process.env[`FINKOK_RESELLER_${suffix}_PASSWORD`]?.trim();
+
+    if (!username || !password) {
+      throw new BadRequestException(
+        `Faltan credenciales reseller Finkok de ${environment === 'production' ? 'producción' : 'demo'} en el servidor ` +
+          `(FINKOK_RESELLER_${suffix}_USERNAME / FINKOK_RESELLER_${suffix}_PASSWORD). ` +
+          `El token de Integración Finkok no sirve para registrar RFCs.`,
+      );
+    }
+
+    return { username, password, environment };
+  }
+
   async testConnection(
     tenantId: string,
     environment?: FinkokEnvironment,
@@ -246,4 +278,4 @@ export class FinkokProviderConfigurationService {
     };
   }
 }
-
+

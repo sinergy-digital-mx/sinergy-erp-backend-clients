@@ -11,6 +11,7 @@ import {
     Min,
     MaxLength,
     Matches,
+    IsBoolean,
 } from 'class-validator';
 
 export class CreateCustomerDto {
@@ -212,15 +213,41 @@ export class CreateCustomerDto {
     @IsOptional()
     registered_by_user_id?: string;
 
-    @ApiProperty({ description: 'Credit days allowed for customer', example: 30, required: false })
+    @ApiProperty({
+        description:
+            'Atajo: activa crédito en todas las razones sociales. Preferir PUT /customers/:id/credits',
+        example: false,
+        required: false,
+        default: false,
+    })
+    @Transform(({ value }) => {
+        if (value === true || value === 1 || value === '1' || value === 'true') return true;
+        if (value === false || value === 0 || value === '0' || value === 'false') return false;
+        return value;
+    })
+    @IsBoolean()
+    @IsOptional()
+    credit_enabled?: boolean;
+
+    @ApiProperty({ description: 'Días de crédito', example: 30, required: false })
     @IsNumber()
     @Min(0)
     @IsOptional()
     credit_days?: number;
 
-    @ApiProperty({ description: 'Maximum credit amount allowed for customer', example: 15000, required: false })
+    @ApiProperty({ description: 'Monto máximo de crédito', example: 15000, required: false })
     @IsNumber()
     @Min(0)
     @IsOptional()
     credit_amount?: number;
+
+    @ApiProperty({
+        description: 'Preferencia: al cobrar en POS, proponer generar factura de inmediato.',
+        example: false,
+        required: false,
+        default: false,
+    })
+    @IsBoolean()
+    @IsOptional()
+    auto_generate_invoice?: boolean;
 }

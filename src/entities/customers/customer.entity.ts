@@ -134,6 +134,7 @@ export class Customer {
     @Column({ nullable: true, length: 20 })
     fiscal_postal_code: string;
 
+    /** Almacén asignado al cliente. No define crédito. */
     @ManyToOne(() => Warehouse, { nullable: true, onDelete: 'SET NULL' })
     @JoinColumn({ name: 'warehouse_id' })
     warehouse: Warehouse | null;
@@ -157,11 +158,19 @@ export class Customer {
     @Column({ name: 'registered_by_user_id', nullable: true })
     registered_by_user_id: string | null;
 
+    /** Legado. El crédito vigente vive en customer_credits por razón social. */
+    @Column({ type: 'boolean', default: false })
+    credit_enabled: boolean;
+
     @Column({ type: 'int', nullable: true })
-    credit_days: number;
+    credit_days: number | null;
 
     @Column({ type: 'decimal', precision: 14, scale: 2, nullable: true })
-    credit_amount: number;
+    credit_amount: number | null;
+
+    /** Preferencia: al cobrar en POS, proponer timbrar factura de inmediato. */
+    @Column({ type: 'boolean', default: false })
+    auto_generate_invoice: boolean;
 
     @Column({ type: 'int', nullable: true })
     legacy_customer_id: number;

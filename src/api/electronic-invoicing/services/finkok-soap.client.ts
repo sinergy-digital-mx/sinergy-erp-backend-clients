@@ -91,6 +91,26 @@ export class FinkokSoapClient {
       .replace(/'/g, '&apos;');
   }
 
+  /**
+   * WSDL: reseller_username / reseller_password.
+   * Los tokens SOAP de Finkok autentican timbrado con username/password;
+   * si el alta reseller falla, se reintenta con ese par.
+   */
+  private registrationCredentialAttempts(credentials: FinkokCredentials): string[] {
+    const username = this.escapeXml(credentials.username);
+    const password = this.escapeXml(credentials.password);
+    return [
+      `<reg:reseller_username>${username}</reg:reseller_username>
+      <reg:reseller_password>${password}</reg:reseller_password>`,
+      `<reg:username>${username}</reg:username>
+      <reg:password>${password}</reg:password>`,
+    ];
+  }
+
+  private isAuthenticationFailedMessage(message?: string): boolean {
+    return (message ?? '').toLowerCase().includes('authentication failed');
+  }
+
   private extractXmlPayload(body: string): string | undefined {
     const cdataMatch =
       /<(?:\w+:)?xml(?:\s[^>]*)?><!\[CDATA\[([\s\S]*?)\]\]><\/(?:\w+:)?xml>/i.exec(body);
@@ -389,24 +409,33 @@ export class FinkokSoapClient {
     }>;
     rawResponse?: string;
   }> {
-    const envelope = `<?xml version="1.0" encoding="UTF-8"?>
+    const url = FINKOK_REGISTRATION_ENDPOINT[credentials.environment];
+    this.logger.debug(`Registration get → ${url} RFC ${taxpayerId}`);
+
+    let body = '';
+    let message: string | undefined;
+    let users: ReturnType<FinkokSoapClient['parseResellerUsers']> = [];
+
+    for (const credNodes of this.registrationCredentialAttempts(credentials)) {
+      const envelope = `<?xml version="1.0" encoding="UTF-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:reg="${FINKOK_REGISTRATION_NAMESPACE}">
   <soapenv:Header/>
   <soapenv:Body>
     <reg:get>
-      <reg:reseller_username>${this.escapeXml(credentials.username)}</reg:reseller_username>
-      <reg:reseller_password>${this.escapeXml(credentials.password)}</reg:reseller_password>
+      ${credNodes}
       <reg:taxpayer_id>${this.escapeXml(taxpayerId)}</reg:taxpayer_id>
     </reg:get>
   </soapenv:Body>
 </soapenv:Envelope>`;
 
-    const url = FINKOK_REGISTRATION_ENDPOINT[credentials.environment];
-    this.logger.debug(`Registration get → ${url} RFC ${taxpayerId}`);
+      body = await this.postSoap(url, FINKOK_SOAP_ACTIONS.registration_get, envelope, 60_000);
+      message = this.extractTag(body, 'message') ?? this.extractTag(body, 'faultstring');
+      users = this.parseResellerUsers(body);
+      if (!this.isAuthenticationFailedMessage(message)) {
+        break;
+      }
+    }
 
-    const body = await this.postSoap(url, FINKOK_SOAP_ACTIONS.registration_get, envelope, 60_000);
-    const message = this.extractTag(body, 'message');
-    const users = this.parseResellerUsers(body);
     const matched = users.filter(
       (u) => u.taxpayer_id?.toUpperCase() === taxpayerId.toUpperCase(),
     );
@@ -414,7 +443,7 @@ export class FinkokSoapClient {
     return {
       found: matched.length > 0,
       message,
-      users: matched.length > 0 ? matched : users,
+      users: matched,
       rawResponse: body,
     };
   }
@@ -433,13 +462,20 @@ export class FinkokSoapClient {
       typeUser?: string;
     },
   ): Promise<{ success: boolean; message?: string; rawResponse?: string }> {
-    const envelope = `<?xml version="1.0" encoding="UTF-8"?>
+    const url = FINKOK_REGISTRATION_ENDPOINT[credentials.environment];
+    this.logger.debug(`Registration add → ${url} RFC ${input.taxpayerId}`);
+
+    let body = '';
+    let message: string | undefined;
+    let success = false;
+
+    for (const credNodes of this.registrationCredentialAttempts(credentials)) {
+      const envelope = `<?xml version="1.0" encoding="UTF-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:reg="${FINKOK_REGISTRATION_NAMESPACE}">
   <soapenv:Header/>
   <soapenv:Body>
     <reg:add>
-      <reg:reseller_username>${this.escapeXml(credentials.username)}</reg:reseller_username>
-      <reg:reseller_password>${this.escapeXml(credentials.password)}</reg:reseller_password>
+      ${credNodes}
       <reg:taxpayer_id>${this.escapeXml(input.taxpayerId)}</reg:taxpayer_id>
       <reg:type_user>${this.escapeXml(input.typeUser ?? 'O')}</reg:type_user>
       <reg:cer>${input.cerBase64}</reg:cer>
@@ -449,13 +485,16 @@ export class FinkokSoapClient {
   </soapenv:Body>
 </soapenv:Envelope>`;
 
-    const url = FINKOK_REGISTRATION_ENDPOINT[credentials.environment];
-    this.logger.debug(`Registration add → ${url} RFC ${input.taxpayerId}`);
-
-    const body = await this.postSoap(url, FINKOK_SOAP_ACTIONS.registration_add, envelope, 120_000);
-    const message = this.extractTag(body, 'message');
-    const successRaw = this.extractTag(body, 'success');
-    const success = successRaw === 'true' || successRaw === '1';
+      body = await this.postSoap(url, FINKOK_SOAP_ACTIONS.registration_add, envelope, 120_000);
+      message = this.extractTag(body, 'message') ?? this.extractTag(body, 'faultstring');
+      const successRaw = (this.extractTag(body, 'success') ?? '').toLowerCase();
+      success =
+        (successRaw === 'true' || successRaw === '1') &&
+        !this.isAuthenticationFailedMessage(message);
+      if (!this.isAuthenticationFailedMessage(message)) {
+        break;
+      }
+    }
 
     return { success, message, rawResponse: body };
   }

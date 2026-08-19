@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 import { Vendor } from '../../entities/vendor/vendor.entity';
 import { VendorType } from '../../entities/vendor/vendor-type.enum';
 import { CreateVendorDto } from './dto/create-vendor.dto';
@@ -22,7 +22,7 @@ export class VendorService {
       tenant_id: tenantId,
       status: dto.status || 'active',
     });
-    return this.repo.save(vendor);
+    return this.saveVendor(vendor);
   }
 
   async findAll(
@@ -109,9 +109,9 @@ export class VendorService {
     const vendor = await this.findOne(id, tenantId);
     const vendorType = dto.vendor_type ?? vendor.vendor_type ?? VendorType.NATIONAL;
     this.assertTypeSwitchValid(vendor, vendorType, dto);
-    const payload = this.buildPayload(dto, vendorType);
+    const payload = this.buildPayload(dto, vendorType, vendor);
     Object.assign(vendor, payload);
-    return this.repo.save(vendor);
+    return this.saveVendor(vendor);
   }
 
   async remove(id: string, tenantId: string): Promise<void> {
@@ -139,8 +139,9 @@ export class VendorService {
   }
 
   private buildPayload(
-    dto: CreateVendorDto | UpdateVendorDto | Vendor,
+    dto: CreateVendorDto | UpdateVendorDto,
     vendorType: VendorType,
+    existing?: Vendor,
   ): Partial<Vendor> {
     const base = { ...dto, vendor_type: vendorType };
 
@@ -148,8 +149,8 @@ export class VendorService {
       return {
         ...base,
         vendor_type: VendorType.NATIONAL,
-        country: base.country || 'México',
-        persona_type: base.persona_type || 'Persona Moral',
+        country: base.country || existing?.country || 'México',
+        persona_type: base.persona_type || existing?.persona_type || 'Persona Moral',
         tax_id: null,
         legal_name: null,
         bank_swift_bic: null,
@@ -157,14 +158,56 @@ export class VendorService {
       };
     }
 
+    const legalName = (dto.legal_name ?? existing?.legal_name ?? '').trim();
+    const name = (dto.name ?? existing?.name ?? '').trim();
+    const razonSocial = legalName || name;
+    if (!razonSocial) {
+      throw new BadRequestException(
+        'Nombre legal es requerido para proveedores internacionales',
+      );
+    }
+
     return {
       ...base,
       vendor_type: VendorType.INTERNATIONAL,
-      rfc: null,
-      razon_social: null,
-      persona_type: null,
+      name: name || existing?.name || razonSocial,
+      company_name: dto.company_name || existing?.company_name || razonSocial,
+      street: dto.street || existing?.street || '',
+      city: dto.city || existing?.city || '',
+      state: dto.state || existing?.state || '',
+      zip_code: dto.zip_code || existing?.zip_code || '',
+      country: dto.country || existing?.country || '',
+      rfc: existing?.rfc || '',
+      razon_social: razonSocial,
+      persona_type: existing?.persona_type || 'Persona Moral',
       bank_clabe: null,
-      bank_currency: base.bank_currency || 'USD',
+      bank_currency: base.bank_currency || existing?.bank_currency || 'USD',
     };
+  }
+
+  private async saveVendor(vendor: Vendor): Promise<Vendor> {
+    try {
+      return await this.repo.save(vendor);
+    } catch (error) {
+      this.rethrowIfNullConstraint(error);
+      throw error;
+    }
+  }
+
+  private rethrowIfNullConstraint(error: unknown): void {
+    if (!(error instanceof QueryFailedError)) {
+      return;
+    }
+    const driver = error.driverError as { errno?: number; sqlMessage?: string } | undefined;
+    const sqlMessage = driver?.sqlMessage ?? error.message;
+    if (driver?.errno !== 1048 && !/cannot be null/i.test(sqlMessage)) {
+      return;
+    }
+    const column = sqlMessage.match(/Column '([^']+)'/)?.[1];
+    throw new BadRequestException(
+      column
+        ? `El campo ${column} es obligatorio`
+        : 'Faltan datos obligatorios del proveedor',
+    );
   }
 }

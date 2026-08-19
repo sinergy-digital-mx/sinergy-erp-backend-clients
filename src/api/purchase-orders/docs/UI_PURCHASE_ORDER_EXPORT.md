@@ -52,7 +52,7 @@ GET /api/tenant/purchase-orders/export/excel/details?created_from=2026-06-01&cre
 
 ### Cabeceras (`compras-cabeceras-YYYY-MM-DD.xlsx`)
 
-Columnas: Folio, Fecha creación, Proveedor, Razón social, Sucursal, Almacén, Estado, Pago, Moneda, Entrega esperada, Subtotal sol., IVA sol., IEPS sol., Total sol., Subtotal rec., Total rec., Notas.
+Columnas: Folio, Fecha creación, Proveedor, Internacional, Pedimento, Razón social, Sucursal, Almacén, Estado, Pago, Moneda, Entrega esperada, Subtotal sol., IVA sol., IEPS sol., Total sol., Subtotal rec., Total rec., Notas.
 
 Estilo: título morado oscuro, encabezados morado (`#5B4B8A`), filas alternadas.
 

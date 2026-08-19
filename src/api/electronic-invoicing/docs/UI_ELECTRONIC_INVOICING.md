@@ -61,6 +61,8 @@ Base: `/api/tenant/electronic-invoices`
 
 Query listado: `?source_module=sales_orders&source_id={uuid}&stamp_status=stamped`
 
+El PDF de representación impresa **siempre** pinta SubTotal, Descuento, IVA y Total, aunque sean `$0.00`. Columna Descuento en conceptos también. No ocultar ceros.
+
 ---
 
 ## POST `/stamp` — body (uso avanzado / otros módulos)

@@ -3,4 +3,5 @@ export enum PosSalePaymentMethod {
   CARD = 'card',
   TRANSFER = 'transfer',
   MIXED = 'mixed',
+  CREDIT = 'credit',
 }

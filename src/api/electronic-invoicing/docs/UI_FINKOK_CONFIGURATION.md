@@ -1,51 +1,74 @@
 # UI — Configuración Finkok (por cliente)
 
-Credenciales Finkok **a nivel de cliente del ERP** (una sola cuenta Finkok por cliente). Vive dentro del módulo **Configuración Fiscal**, no dentro de cada razón emisora.
+Credenciales Finkok **a nivel de cliente del ERP**. Vive en **Configuración Fiscal → Integración Finkok**, no dentro de cada razón emisora.
+
+Hay **dos cuentas independientes**: demo y producción. Guardar una **no** debe tocar la otra.
 
 Las razones emisoras (RFC + CSD) se configuran aparte; Finkok las identifica por RFC al timbrar.
 
 ---
 
-## 1. Ubicación en pantalla
+## 1. Pantalla Integración Finkok
 
-### Opción recomendada: sección global en Configuración Fiscal
+Tres controles distintos. **No compartir el mismo `environment` ni el mismo form state.**
 
-En la pantalla principal de **Configuración Fiscal** (`/fiscal-configurations`), agregar:
-
-**A)** Botón o tab superior **Integración Finkok** (config global del cliente), **o**  
-**B)** Panel/card fijo arriba del listado de razones emisoras.
+| Control | Qué es | API |
+|---------|--------|-----|
+| Dropdown **Ambiente activo para timbrar** | Default global de timbrado | `PATCH /stamping-environment` **solo** al cambiar este dropdown |
+| Tab **Demo** | Usuario/contraseña de Integración (pruebas) | `PUT` con `"environment": "demo"` |
+| Tab **Producción** | Usuario/contraseña productivos | `PUT` con `"environment": "production"` |
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│  Configuración Fiscal                                        │
-├──────────────────────────────────────────────────────────────┤
-│  ┌─ Integración Finkok ────────────────────────────────────┐ │
-│  │ Usuario:     [madera                    ]               │ │
-│  │ Contraseña:  [••••••••                  ]               │ │
-│  │ Ambiente:    (•) Demo  ( ) Producción                   │ │
-│  │ Activo:      [✓]                                        │ │
-│  │ Última prueba: connected · 2026-07-08 12:00             │ │
-│  │ [Guardar]  [Probar conexión]                            │ │
-│  └─────────────────────────────────────────────────────────┘ │
-│                                                              │
-│  Razones emisoras (tabla existente)                          │
-│  ...                                                         │
-└──────────────────────────────────────────────────────────────┘
+Estado UI (dos objetos, nunca uno solo):
+
+demoForm  ← GET.environments.demo
+prodForm  ← GET.environments.production
+stamping  ← GET.stamping_environment   // solo el dropdown
 ```
+
+**Prohibido:**
+
+- Mandar el valor del dropdown “Ambiente activo” como `environment` del `PUT`. Si el tab es Demo y el dropdown está en Producción, el PUT sigue siendo `"environment": "demo"`.
+- Un solo `form` compartido entre tabs. Al guardar Demo, **no** copiar usuario/password a Producción (ni al revés).
+- Asignar la respuesta del `PUT` a ambos tabs. El PUT devuelve el **mismo bundle que GET**; hidratar `demoForm` / `prodForm` desde `environments.demo` / `environments.production`.
+- Enviar `is_stamping_default` en el Guardar del tab. Eso lo hace el PATCH del dropdown.
+- Exigir contraseña si `has_password === true`. Dejar el campo vacío y **omitir** `finkok_password` del body (no mandar `""`).
+- Llamar `PATCH /stamping-environment` al hacer Guardar del tab.
+
+**Guardar (tab Demo):**
+
+```http
+PUT /api/tenant/billing/finkok-configuration
+```
+
+```json
+{
+  "environment": "demo",
+  "finkok_username": "madera",
+  "is_active": 1
+}
+```
+
+Incluir `finkok_password` **solo** si el usuario escribió una nueva. Alta (tab aún `null`): password obligatorio.
+
+**Guardar (tab Producción):** igual, con `"environment": "production"` y el usuario productivo (`maderia-mzn`, no `madera`).
+
+**Cambiar “Ambiente activo para timbrar”:**
+
+```http
+PATCH /api/tenant/billing/finkok-configuration/stamping-environment
+{ "environment": "demo" }
+```
+
+**Probar conexión:** `POST /test-connection?environment=demo` o `=production` según **el tab abierto**, no según el dropdown.
 
 ### Por razón emisora (modal editar)
 
-Dentro del modal **Editar configuración fiscal**, mantener:
+- Datos fiscales + CSD — ya existente
+- Pestaña **Sucursales** — `UI_BILLING_BRANCHES.md`
+- Badge + Vincular / Registrar — **no** guarda credenciales globales aquí
 
-- Datos fiscales + CSD (.cer / .key) — ya existente
-- Pestaña **Sucursales** — ya existente (`UI_BILLING_BRANCHES.md`)
-- **Nuevo:** badge + botón **Registrar en Finkok** (no guarda credenciales aquí)
-
-| Elemento | Comportamiento |
-|----------|----------------|
-| Badge estado | `finkok_registration_status`: pending / registered / failed |
-| Botón Registrar | `POST /api/tenant/fiscal-configurations/{id}/register-finkok` |
-| NoCertificado | Finkok ya tiene el CSD del RFC. `serial` en `sign_cancel` es opcional (WSDL). |
+El dropdown de ambiente en ese modal es el de **consulta/alta Finkok**, distinto del “Ambiente activo para timbrar”.
 
 ---
 
@@ -56,13 +79,13 @@ Base: `/api/tenant/billing/finkok-configuration`
 | Acción | Método | Ruta | Permiso |
 |--------|--------|------|---------|
 | Obtener demo + prod | `GET` | `/` | `FiscalConfiguration:Read` |
-| Guardar un ambiente | `PUT` | `/` | `FiscalConfiguration:Update` |
+| Guardar **un** ambiente | `PUT` | `/` | `FiscalConfiguration:Update` |
 | Ambiente activo timbrado | `PATCH` | `/stamping-environment` | `FiscalConfiguration:Update` |
 | Probar conexión | `POST` | `/test-connection?environment=demo` | `FiscalConfiguration:Update` |
 
-**Dos credenciales por cliente:** una fila por `environment` (`demo` y `production`). El body de `PUT` **debe** incluir `environment`.
+Dos filas: `environments.demo` y `environments.production`. El `PUT.environment` es **obligatorio** y debe coincidir con el tab.
 
-### GET — respuesta (ambos ambientes)
+### GET / PUT — misma forma
 
 ```json
 {
@@ -75,38 +98,20 @@ Base: `/api/tenant/billing/finkok-configuration`
       "is_stamping_default": 1,
       "has_password": true
     },
-    "production": null
+    "production": {
+      "finkok_username": "maderia-mzn",
+      "environment": "production",
+      "is_active": 1,
+      "is_stamping_default": 0,
+      "has_password": true
+    }
   }
 }
 ```
 
-### PUT — body (por ambiente)
+Tras `PUT` de demo, `environments.production` **sigue igual**. Si Pollux ve el usuario demo en el tab Producción, el bug es de form state, no del API.
 
-```json
-{
-  "environment": "demo",
-  "finkok_username": "madera",
-  "finkok_password": "P4ssW0Rd",
-  "is_active": 1,
-  "is_stamping_default": 1
-}
-```
-
-Repetir con `"environment": "production"` y credenciales productivas.
-
-### PATCH stamping-environment
-
-```json
-{ "environment": "demo" }
-```
-
-Define qué credenciales usa el timbrado/cancelación **si el POST de stamp no manda `environment`**.
-
-El wizard de OV **siempre** manda `environment` (`demo` | `production`) y **no** debe llamar este PATCH al cambiar el toggle. Ver `UI_SALES_ORDER_INVOICING.md` §9.
-
-### UI sugerida
-
-Dos formularios (tabs **Demo** / **Producción**), cada uno con su usuario/contraseña. Selector **“Ambiente activo para timbrar”**.
+El wizard de OV **siempre** manda `environment` (`demo` | `production`) y **no** debe llamar el PATCH al cambiar el toggle. Ver `UI_SALES_ORDER_INVOICING.md` §9.
 
 ---
 
@@ -173,21 +178,29 @@ Requiere CSD (.cer, .key, password) en la razón. Si ya existe, hace **link** ig
 { "mode": "link_only" }
 ```
 
+Ya **no** marca `registered` ni `exists_in_finkok: true`. No usar este modo en los botones del modal.
+
 ### Botones UI en modal razón emisora
+
+Siempre mandar el `environment` del dropdown (`demo` | `production`). Demo y producción son listados distintos en Finkok.
 
 | Botón | API |
 |-------|-----|
-| Verificar en Finkok | `GET .../finkok-status` |
-| Vincular con Finkok | `POST .../register-finkok` `{ "mode": "verify" }` |
-| Registrar en Finkok | `POST .../register-finkok` `{ "mode": "add" }` |
+| Verificar en Finkok | `GET .../finkok-status?environment=` |
+| Vincular con Finkok | `POST .../register-finkok` `{ "mode": "verify", "environment" }` |
+| Registrar en Finkok | `POST .../register-finkok` `{ "mode": "add", "environment", "add_if_missing": true }` |
+
+Toast de éxito **solo** si `exists_in_finkok === true`. Si es `false`, mostrar `message` / `finkok_registration_error` como error.
 
 Badges:
 
-| Status | Badge |
-|--------|-------|
-| `pending` | Pendiente Finkok |
-| `registered` | Registrada / vinculada |
-| `failed` | Error — tooltip `finkok_registration_error` |
+| Condición | Badge |
+|-----------|-------|
+| `exists_in_finkok === true` | Registrada / vinculada |
+| `finkok_registration_status === failed` | Error — texto `finkok_registration_error` |
+| resto | Pendiente Finkok |
+
+No pintar verde si `exists_in_finkok` es `false`. `EN FINKOK` en el detalle = `exists_in_finkok`.
 
 WSDL Registration: [demo](https://demo-facturacion.finkok.com/servicios/soap/registration.wsdl) · [prod](https://facturacion.finkok.com/servicios/soap/registration.wsdl)
 
@@ -195,11 +208,13 @@ WSDL Registration: [demo](https://demo-facturacion.finkok.com/servicios/soap/reg
 
 ## 4. Onboarding (orden obligatorio)
 
-1. **Integración Finkok** → guardar credenciales **demo** (`madera`) y luego **production** (cuando existan).
-2. Razón emisora en ERP con **mismo RFC** que en Finkok (`MZN980826EF2`).
-3. **Vincular** → `POST register-finkok` con `mode: verify` (no requiere borrar en Finkok).
-4. Si el RFC no existiera en Finkok → `mode: add` con CSD cargado.
-5. Timbrar desde OV (tab Facturación).
+1. **Integración Finkok** (UI) → tokens SOAP de **timbrado** (demo / production). Probar conexión usa esos tokens.
+2. **Reseller en `.env`** (servidor, no UI) → alta/consulta de RFC (`register-finkok` / `finkok-status`):
+   - `FINKOK_RESELLER_DEMO_USERNAME` / `FINKOK_RESELLER_DEMO_PASSWORD`
+   - `FINKOK_RESELLER_PRODUCTION_USERNAME` / `FINKOK_RESELLER_PRODUCTION_PASSWORD`
+   Usuario administrador del portal (correo de la Cuenta Integración), no el token `maderia-mzn`.
+3. Razón emisora en ERP con el RFC a facturar (`MFH210729R84`). **Registrar** lo da de alta en Clientes Finkok de ese ambiente.
+4. Timbrar desde OV con el token del tab Integración Finkok. Para MFH use un token activo **sin RFC amarrado**.
 
 ---
 

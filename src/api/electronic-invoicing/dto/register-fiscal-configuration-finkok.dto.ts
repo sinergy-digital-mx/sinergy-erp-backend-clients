@@ -4,7 +4,7 @@ export class RegisterFiscalConfigurationFinkokDto {
   /**
    * verify — solo consulta Finkok (get) y vincula si el RFC ya existe.
    * add — intenta add en Finkok si no existe; si ya existe, vincula igual.
-   * link_only — marca registrada sin llamar a Finkok (uso manual).
+   * link_only — ya no marca registrada; no confirma el RFC en Finkok.
    */
   @IsOptional()
   @IsEnum(['verify', 'add', 'link_only'], {

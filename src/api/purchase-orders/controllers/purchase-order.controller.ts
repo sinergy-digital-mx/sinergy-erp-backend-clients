@@ -28,6 +28,7 @@ import {
   CreatePurchaseOrderPaymentDto,
   RegenerateDocumentDto,
   UpdatePurchaseOrderNotesDto,
+  UpdatePurchaseOrderPedimentoDto,
   QueryPurchaseOrderHeaderExportDto,
   QueryPurchaseOrderDetailExportDto,
 } from '../dto';
@@ -224,6 +225,17 @@ export class PurchaseOrderController {
     const tenantId = req.user.tenant_id;
     const userId = req.user.id;
     return this.purchaseOrderService.updateNotes(id, dto, tenantId, userId);
+  }
+
+  @Patch(':id/pedimento')
+  async updatePedimento(
+    @Param('id') id: string,
+    @Body() dto: UpdatePurchaseOrderPedimentoDto,
+    @Req() req: any,
+  ) {
+    const tenantId = req.user.tenant_id;
+    const userId = req.user.id;
+    return this.purchaseOrderService.updatePedimento(id, dto, tenantId, userId);
   }
 
   /**

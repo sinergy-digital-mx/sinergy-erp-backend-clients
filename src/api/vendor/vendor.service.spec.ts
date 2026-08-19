@@ -1,11 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { BadRequestException } from '@nestjs/common';
+import { QueryFailedError } from 'typeorm';
 import * as fc from 'fast-check';
 import { VendorService } from './vendor.service';
 import { Vendor } from '../../entities/vendor/vendor.entity';
 import { CreateVendorDto } from './dto/create-vendor.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { VendorType } from '../../entities/vendor/vendor-type.enum';
+import { QueryFailedError } from 'typeorm';
 
 describe('VendorService', () => {
   let service: VendorService;
@@ -111,6 +114,68 @@ describe('VendorService', () => {
       const result = await service.create(dto, tenantId);
 
       expect(result.status).toBe('active');
+    });
+  });
+
+  describe('international vendor', () => {
+    it('guarda razon_social con el nombre legal y no manda null', async () => {
+      const existing = {
+        id: '61ca49d3-f054-4a53-8b19-77f2081ed81e',
+        tenant_id: 'tenant-123',
+        vendor_type: VendorType.INTERNATIONAL,
+        name: 'Proveedor Internacional',
+        razon_social: 'Proveedor Internacional',
+        legal_name: 'Old Legal',
+        tax_id: 'TAX',
+        country: 'US',
+      } as Vendor;
+      mockRepository.findOne.mockResolvedValue(existing);
+      mockRepository.save.mockImplementation((entity) => Promise.resolve(entity));
+
+      const result = await service.update(
+        existing.id,
+        {
+          vendor_type: VendorType.INTERNATIONAL,
+          name: 'Proveedor Internacional',
+          tax_id: '123123',
+          legal_name: '12312312',
+        },
+        'tenant-123',
+      );
+
+      expect(result.razon_social).toBe('12312312');
+      expect(result.razon_social).not.toBeNull();
+      expect(mockRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          razon_social: '12312312',
+          legal_name: '12312312',
+          rfc: '',
+        }),
+      );
+    });
+
+    it('regresa 400 si MySQL rechaza un null', async () => {
+      const existing = {
+        id: 'vendor-1',
+        tenant_id: 'tenant-123',
+        vendor_type: VendorType.INTERNATIONAL,
+        name: 'Proveedor Internacional',
+        legal_name: 'Legal',
+      } as Vendor;
+      mockRepository.findOne.mockResolvedValue(existing);
+      const dbError = new QueryFailedError('UPDATE', [], {
+        errno: 1048,
+        sqlMessage: "Column 'razon_social' cannot be null",
+      } as Error);
+      mockRepository.save.mockRejectedValue(dbError);
+
+      await expect(
+        service.update(
+          existing.id,
+          { vendor_type: VendorType.INTERNATIONAL, legal_name: 'Legal' },
+          'tenant-123',
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 

@@ -42,6 +42,8 @@ import {
   getTodayDateString,
   isPreviousDayOpenShift,
 } from './utils/unclosed-shift-alert';
+import { CustomerCreditService } from '../customers/services/customer-credit.service';
+import { getFiscalInvoiceReadiness } from '../customers/utils/fiscal-invoice-readiness.util';
 
 const WALK_IN_FISCAL_NAME = 'VENTA DE MOSTRADOR';
 const WALK_IN_DISPLAY_NAME = 'Público en General';
@@ -69,6 +71,7 @@ export class PosShiftsService {
     private readonly posReceiptService: SalesOrderPosReceiptService,
     @Inject(forwardRef(() => SalesOrderService))
     private readonly salesOrderService: SalesOrderService,
+    private readonly customerCreditService: CustomerCreditService,
   ) {}
 
   async validateSellerCode(tenantId: string, terminalUserId: string, code: number) {
@@ -477,7 +480,13 @@ export class PosShiftsService {
       .where('so.tenant_id = :tenantId', { tenantId })
       .andWhere('so.sales_order_type = :type', { type: 'POS' })
       .andWhere('so.general_status = :generalStatus', { generalStatus: 'Surtida' })
-      .andWhere('so.payment_status = :paymentStatus', { paymentStatus: 'Pendiente' });
+      .andWhere('so.payment_status = :paymentStatus', { paymentStatus: 'Pendiente' })
+      .andWhere(
+        `NOT EXISTS (
+          SELECT 1 FROM pos_sale_collections col
+          WHERE col.sales_order_id = so.id
+        )`,
+      );
 
     if (openShift) {
       // Misma fuente que sales_summary del corte: órdenes ligadas al corte abierto.
@@ -494,6 +503,15 @@ export class PosShiftsService {
       orders,
       tenantId,
     );
+    const creditEnabledByFiscal = await this.customerCreditService.getEnabledByFiscalMap(
+      tenantId,
+      orders
+        .filter((order) => order.customer_id && order.fiscal_configuration_id)
+        .map((order) => ({
+          customerId: order.customer_id,
+          fiscalConfigurationId: order.fiscal_configuration_id,
+        })),
+    );
 
     return orders.map((order) => ({
       id: order.id,
@@ -503,6 +521,7 @@ export class PosShiftsService {
       subtotal: Number(order.subtotal),
       created_at: order.created_at,
       notes: order.notes,
+      fiscal_configuration_id: order.fiscal_configuration_id,
       customer: order.customer
         ? {
             id: order.customer.id,
@@ -511,6 +530,12 @@ export class PosShiftsService {
             company_name: order.customer.company_name,
             fiscal_razon_social: order.customer.fiscal_razon_social,
             is_walk_in: isWalkInCustomer(order.customer),
+            credit_enabled: Boolean(
+              order.fiscal_configuration_id &&
+                creditEnabledByFiscal.get(
+                  `${order.customer.id}:${order.fiscal_configuration_id}`,
+                ),
+            ),
           }
         : null,
       seller_user: order.seller_user
@@ -651,12 +676,39 @@ export class PosShiftsService {
       throw new BadRequestException('La orden ya no tiene saldo pendiente');
     }
 
-    const payment = this.validateAndNormalizePayment(dto, amountPending);
     const customerId = await this.resolveCollectionCustomerId(
       tenantId,
       order,
       dto.customer_id,
     );
+    const customer = await this.customerRepo.findOne({
+      where: { id: customerId, tenant_id: tenantId },
+    });
+    if (!customer) {
+      throw new BadRequestException('Cliente no válido');
+    }
+
+    const isCredit = dto.payment_method === PosSalePaymentMethod.CREDIT;
+    if (isCredit) {
+      await this.assertCustomerCanUseCredit(
+        customer,
+        amountPending,
+        order.fiscal_configuration_id,
+      );
+    }
+
+    const fiscal = getFiscalInvoiceReadiness(customer);
+    if (dto.generate_invoice) {
+      if (isWalkInCustomer(customer) || !fiscal.fiscal_ready_for_invoice) {
+        throw new BadRequestException(
+          `No se puede generar factura: faltan ${
+            fiscal.fiscal_missing_fields.join(', ') || 'datos fiscales'
+          }`,
+        );
+      }
+    }
+
+    const payment = this.validateAndNormalizePayment(dto, amountPending);
 
     const collection = this.collectionRepo.create({
       id: uuidv4(),
@@ -672,6 +724,7 @@ export class PosShiftsService {
       amount_transfer_mxn: payment.amountTransferMxn,
       transfer_reference: payment.transferReference,
       amount_card_mxn: payment.amountCardMxn,
+      amount_credit_mxn: payment.amountCreditMxn,
       card_reference: payment.cardReference ?? null,
       received_cash_mxn: payment.receivedCashMxn,
       received_cash_usd: payment.receivedCashUsd,
@@ -688,38 +741,39 @@ export class PosShiftsService {
       payment.cardReference ||
       null;
 
-    await this.salesOrderService.createPayment(
-      order.id,
-      {
-        amount: amountPending,
-        payment_date: new Date().toISOString().slice(0, 10),
-        payment_method: dto.payment_method,
-        currency: 'MXN',
-        reference_number: referenceNumber ?? undefined,
-        notes: dto.notes,
-      },
-      tenantId,
-      cobranzaUserId,
-      'pos_cobranza',
-    );
+    if (!isCredit) {
+      await this.salesOrderService.createPayment(
+        order.id,
+        {
+          amount: amountPending,
+          payment_date: new Date().toISOString().slice(0, 10),
+          payment_method: dto.payment_method,
+          currency: 'MXN',
+          reference_number: referenceNumber ?? undefined,
+          notes: dto.notes,
+        },
+        tenantId,
+        cobranzaUserId,
+        'pos_cobranza',
+      );
+    }
+
+    const paymentStatus = isCredit ? 'Pendiente' : 'Pagado';
 
     // update() evita que TypeORM revierta customer_id por la relación customer cargada al crear la orden
     await this.salesOrderRepo.update(
       { id: order.id, tenant_id: tenantId },
       {
-        payment_status: 'Pagado',
+        payment_status: paymentStatus,
+        is_credit: isCredit,
+        invoice_requested: Boolean(dto.generate_invoice),
         collected_by_user_id: cobranzaUserId,
         customer_id: customerId,
         pos_daily_shift_id: shift.id,
       },
     );
 
-    const finalCustomer = await this.customerRepo.findOne({
-      where: { id: customerId, tenant_id: tenantId },
-    });
-    if (finalCustomer) {
-      collection.customer = finalCustomer;
-    }
+    collection.customer = customer;
     collection.collected_by_user = cobranzaUser;
 
     let receipt: PosReceiptResult | null = null;
@@ -739,20 +793,33 @@ export class PosShiftsService {
     }
 
     return {
-      message: 'Venta cobrada correctamente',
+      message: isCredit
+        ? 'Venta registrada a crédito correctamente'
+        : 'Venta cobrada correctamente',
       collection: mapPosSaleCollection(collection),
       receipt,
       receipt_error,
+      invoice: {
+        requested: Boolean(dto.generate_invoice),
+        fiscal_ready: fiscal.fiscal_ready_for_invoice,
+        fiscal_missing_fields: fiscal.fiscal_missing_fields,
+        stamp_path: dto.generate_invoice
+          ? `/tenant/sales-orders/${order.id}/invoices/stamp`
+          : null,
+      },
       sales_order: {
         id: order.id,
         folio: order.folio,
-        payment_status: 'Pagado',
+        payment_status: paymentStatus,
+        is_credit: isCredit,
+        invoice_requested: Boolean(dto.generate_invoice),
         collected_by_user_id: cobranzaUserId,
         customer_id: customerId,
-        customer: mapPosCustomer(finalCustomer),
+        customer: mapPosCustomer(customer),
         pos_daily_shift_id: shift.id,
         total: orderTotal,
-        amount_collected: amountPending,
+        amount_collected: isCredit ? 0 : amountPending,
+        amount_on_credit: isCredit ? amountPending : 0,
       },
     };
   }
@@ -838,6 +905,10 @@ export class PosShiftsService {
     const amountCashUsd = Number(dto.amount_cash_usd ?? 0);
     const amountTransferMxn = Number(dto.amount_transfer_mxn ?? 0);
     const amountCardMxn = Number(dto.amount_card_mxn ?? 0);
+    const amountCreditMxn =
+      dto.payment_method === PosSalePaymentMethod.CREDIT
+        ? Number(dto.amount_credit_mxn ?? orderTotal)
+        : Number(dto.amount_credit_mxn ?? 0);
     const usdExchangeRate =
       amountCashUsd > 0 ? Number(dto.usd_exchange_rate ?? 0) : null;
 
@@ -857,7 +928,8 @@ export class PosShiftsService {
       amountCashMxn +
       amountCashUsd * (usdExchangeRate ?? 0) +
       amountTransferMxn +
-      amountCardMxn;
+      amountCardMxn +
+      amountCreditMxn;
 
     if (Math.abs(paidMxn - orderTotal) > 0.01) {
       throw new BadRequestException(
@@ -870,6 +942,7 @@ export class PosShiftsService {
       amountCashUsd,
       amountTransferMxn,
       amountCardMxn,
+      amountCreditMxn,
     });
 
     const receivedCashMxn = Number(dto.received_cash_mxn ?? amountCashMxn);
@@ -891,6 +964,7 @@ export class PosShiftsService {
       amountTransferMxn,
       transferReference: dto.transfer_reference?.trim() ?? null,
       amountCardMxn,
+      amountCreditMxn,
       cardReference: dto.card_reference?.trim() ?? null,
       receivedCashMxn,
       receivedCashUsd,
@@ -906,9 +980,16 @@ export class PosShiftsService {
       amountCashUsd: number;
       amountTransferMxn: number;
       amountCardMxn: number;
+      amountCreditMxn: number;
     },
   ) {
-    const { amountCashMxn, amountCashUsd, amountTransferMxn, amountCardMxn } = amounts;
+    const {
+      amountCashMxn,
+      amountCashUsd,
+      amountTransferMxn,
+      amountCardMxn,
+      amountCreditMxn,
+    } = amounts;
     const cashTotal = amountCashMxn + amountCashUsd;
     const nonZeroMethods = [
       cashTotal > 0,
@@ -918,33 +999,92 @@ export class PosShiftsService {
 
     switch (method) {
       case PosSalePaymentMethod.CASH:
-        if (cashTotal <= 0 || amountTransferMxn > 0 || amountCardMxn > 0) {
+        if (
+          cashTotal <= 0 ||
+          amountTransferMxn > 0 ||
+          amountCardMxn > 0 ||
+          amountCreditMxn > 0
+        ) {
           throw new BadRequestException(
             'payment_method cash requiere montos en efectivo MXN y/o USD',
           );
         }
         break;
       case PosSalePaymentMethod.TRANSFER:
-        if (amountTransferMxn <= 0 || cashTotal > 0 || amountCardMxn > 0) {
+        if (
+          amountTransferMxn <= 0 ||
+          cashTotal > 0 ||
+          amountCardMxn > 0 ||
+          amountCreditMxn > 0
+        ) {
           throw new BadRequestException(
             'payment_method transfer requiere amount_transfer_mxn',
           );
         }
         break;
       case PosSalePaymentMethod.CARD:
-        if (amountCardMxn <= 0 || cashTotal > 0 || amountTransferMxn > 0) {
+        if (
+          amountCardMxn <= 0 ||
+          cashTotal > 0 ||
+          amountTransferMxn > 0 ||
+          amountCreditMxn > 0
+        ) {
           throw new BadRequestException('payment_method card requiere amount_card_mxn');
         }
         break;
       case PosSalePaymentMethod.MIXED:
-        if (nonZeroMethods < 2) {
+        if (nonZeroMethods < 2 || amountCreditMxn > 0) {
           throw new BadRequestException(
-            'payment_method mixed requiere al menos dos formas de pago',
+            'payment_method mixed requiere al menos dos formas de pago entre efectivo, transferencia y tarjeta',
+          );
+        }
+        break;
+      case PosSalePaymentMethod.CREDIT:
+        if (
+          amountCreditMxn <= 0 ||
+          cashTotal > 0 ||
+          amountTransferMxn > 0 ||
+          amountCardMxn > 0
+        ) {
+          throw new BadRequestException(
+            'payment_method credit requiere amount_credit_mxn y no admite otras formas de pago',
           );
         }
         break;
       default:
         throw new BadRequestException('Método de pago no válido');
+    }
+  }
+
+  private async assertCustomerCanUseCredit(
+    customer: Customer,
+    amount: number,
+    fiscalConfigurationId?: string | null,
+  ) {
+    if (isWalkInCustomer(customer)) {
+      throw new BadRequestException(
+        'El cliente de mostrador no puede pagar a crédito',
+      );
+    }
+    if (!fiscalConfigurationId) {
+      throw new BadRequestException(
+        'La orden no tiene razón social para aplicar crédito',
+      );
+    }
+
+    const snapshot = await this.customerCreditService.getSnapshotForFiscal(
+      customer,
+      fiscalConfigurationId,
+    );
+    if (!snapshot.credit_enabled) {
+      throw new BadRequestException(
+        'El cliente no tiene crédito activo con esta razón social',
+      );
+    }
+    if (amount - snapshot.credit_available > 0.01) {
+      throw new BadRequestException(
+        `Crédito insuficiente. Disponible: ${snapshot.credit_available.toFixed(2)} MXN`,
+      );
     }
   }
 
@@ -1008,6 +1148,7 @@ export class PosShiftsService {
       cash_usd: 0,
       transfer_mxn: 0,
       card_mxn: 0,
+      credit_mxn: 0,
     };
 
     for (const collection of collections) {
@@ -1016,6 +1157,7 @@ export class PosShiftsService {
       summary.cash_usd += Number(collection.amount_cash_usd);
       summary.transfer_mxn += Number(collection.amount_transfer_mxn);
       summary.card_mxn += Number(collection.amount_card_mxn);
+      summary.credit_mxn += Number(collection.amount_credit_mxn ?? 0);
     }
 
     return summary;

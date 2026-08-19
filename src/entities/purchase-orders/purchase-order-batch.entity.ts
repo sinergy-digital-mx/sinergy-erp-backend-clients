@@ -88,6 +88,10 @@ export class PurchaseOrderBatch {
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
+  /** Número de pedimento aduanal. Solo aplica si el proveedor es internacional. */
+  @Column({ type: 'varchar', length: 30, nullable: true })
+  pedimento_number: string | null;
+
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   requested_subtotal: number;
 
