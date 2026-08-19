@@ -63,6 +63,8 @@ Query listado: `?source_module=sales_orders&source_id={uuid}&stamp_status=stampe
 
 El PDF de representación impresa **siempre** pinta SubTotal, Descuento, IVA y Total, aunque sean `$0.00`. Columna Descuento en conceptos también. No ocultar ceros.
 
+**Datos del comprobante** van en el encabezado (junto al emisor): solo título + pares alineados, sin recuadro ni fondo. Cliente y conceptos siguen en tablitas. CSD/SAT en el recuadro FACTURA. PDFs ya generados: `GET /:id/pdf?regenerate=true`.
+
 ---
 
 ## POST `/stamp` — body (uso avanzado / otros módulos)

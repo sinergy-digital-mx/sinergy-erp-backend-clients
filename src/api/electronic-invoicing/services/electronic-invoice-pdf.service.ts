@@ -192,9 +192,12 @@ export class ElectronicInvoicePdfService {
             widths: [70, '*', 176],
             body: [
               [
-                logoImage
-                  ? { image: logoImage, fit: [66, 48], alignment: 'center', margin: [0, 4, 4, 0] }
-                  : { text: '' },
+                {
+                  ...(logoImage
+                    ? { image: logoImage, fit: [66, 48], alignment: 'center', margin: [0, 4, 4, 0] }
+                    : { text: '' }),
+                  valign: 'top',
+                },
                 {
                   stack: [
                     { text: emisorNombre, style: 'issuerName' },
@@ -208,10 +211,12 @@ export class ElectronicInvoicePdfService {
                       text: `Lugar de expedicion: ${cfdi.lugarExpedicion}`,
                       style: 'issuerMeta',
                     },
+                    this.buildComprobanteHeader(cfdi),
                   ],
                   margin: [4, 2, 8, 0],
+                  valign: 'top',
                 },
-                this.buildFacturaBox(cfdi, serieFolio, uuidLabel, hasTimbre),
+                { ...this.buildFacturaBox(cfdi, serieFolio, uuidLabel, hasTimbre), valign: 'top' },
               ],
             ],
           },
@@ -228,33 +233,6 @@ export class ElectronicInvoicePdfService {
           ['Uso CFDI', labelUsoCfdi(cfdi.receptor.usoCfdi)],
           ['Version CFDI', `CFDI ${cfdi.version || '4.0'}`],
         ]),
-        this.sectionBar('DATOS DEL COMPROBANTE'),
-        {
-          columns: [
-            {
-              width: '*',
-              ...this.infoPairsTable(
-                [
-                  ['Forma de pago', labelFormaPago(cfdi.formaPago)],
-                  ['Metodo de pago', labelMetodoPago(cfdi.metodoPago)],
-                  ['Moneda', cfdi.moneda || 'MXN'],
-                ],
-                { margin: [0, 0, 4, 10] },
-              ),
-            },
-            {
-              width: '*',
-              ...this.infoPairsTable(
-                [
-                  ['Tipo de comprobante', labelTipoComprobante(cfdi.tipoComprobante)],
-                  ['Exportacion', cfdi.exportacion || '01'],
-                  ['No. certificado CSD', cfdi.noCertificado || '—'],
-                ],
-                { margin: [4, 0, 0, 10] },
-              ),
-            },
-          ],
-        },
         this.sectionBar('CONCEPTOS'),
         {
           table: {
@@ -370,10 +348,13 @@ export class ElectronicInvoicePdfService {
           fontSize: 8,
           bold: true,
           color: this.brandText,
-          fillColor: this.sectionBg,
         },
         infoLabel: { fontSize: 7.5, color: '#64748b', fillColor: this.panelBg },
         infoValue: { fontSize: 7.5, color: '#334155' },
+        compHeaderTitle: { fontSize: 7, bold: true, color: this.brandText },
+        compLine: { fontSize: 6.5, lineHeight: 0.95, color: '#334155' },
+        compLabel: { fontSize: 6.5, color: '#64748b' },
+        compValue: { fontSize: 6.5, color: '#334155' },
         tableTh: { fontSize: 7, bold: true, color: '#475569', fillColor: '#edf2f6' },
         conceptTax: { fontSize: 7, color: '#64748b', italics: true, fillColor: this.panelBg },
         totalLabel: { fontSize: 8, color: '#64748b', margin: [6, 4, 4, 4] },
@@ -639,6 +620,31 @@ export class ElectronicInvoicePdfService {
     return text.replace(new RegExp(`.{1,${groupSize}}`, 'g'), '$& ').trimEnd();
   }
 
+  private buildComprobanteHeader(cfdi: ParsedCfdi) {
+    const pairs: Array<[string, string]> = [
+      ['Forma de pago', labelFormaPago(cfdi.formaPago)],
+      ['Método de pago', labelMetodoPago(cfdi.metodoPago)],
+      ['Tipo', labelTipoComprobante(cfdi.tipoComprobante)],
+      ['Moneda', cfdi.moneda || 'MXN'],
+      ['Exportación', cfdi.exportacion || '01'],
+    ];
+
+    return {
+      stack: [
+        { text: 'Datos del comprobante', style: 'compHeaderTitle', margin: [0, 6, 0, 1] },
+        ...pairs.map(([label, value]) => ({
+          text: [
+            { text: `${label}:  `, style: 'compLabel' },
+            { text: value, style: 'compValue' },
+          ],
+          style: 'compLine',
+          margin: [0, 0, 0, 0],
+        })),
+      ],
+      margin: [0, 0, 0, 0],
+    };
+  }
+
   private headerDivider() {
     return {
       canvas: [
@@ -652,18 +658,15 @@ export class ElectronicInvoicePdfService {
           lineColor: this.borderColor,
         },
       ],
-      margin: [0, 0, 0, 8],
+      margin: [0, 0, 0, 4],
     };
   }
 
   private sectionBar(title: string) {
     return {
-      table: {
-        widths: ['*'],
-        body: [[{ text: title, style: 'sectionBarText', margin: [8, 4, 8, 4] }]],
-      },
-      layout: 'noBorders',
-      margin: [0, 0, 0, 4],
+      text: title,
+      style: 'sectionBarText',
+      margin: [0, 6, 0, 2],
     };
   }
 
