@@ -48,7 +48,7 @@ export class InventoryTransferController {
   @ApiOperation({
     summary: 'Contexto para modal de transferencia',
     description:
-      'Devuelve lotes disponibles, stock totalizado y almacén/sucursal de origen para un producto+almacén. Requiere Inventory:Transfer.',
+      'Lotes disponibles, origen (razón social + sucursal + almacén) y árbol destino en cascada. Requiere Inventory:Transfer.',
   })
   @ApiResponse({ status: 200, type: TransferContextResponseDto })
   getContext(

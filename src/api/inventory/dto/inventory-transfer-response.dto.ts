@@ -16,6 +16,11 @@ export class InventoryTransferWarehouseSummaryDto {
   @ApiProperty({ nullable: true }) code: string | null;
   @ApiProperty({ nullable: true }) billing_branch_id: string | null;
   @ApiProperty({ nullable: true }) billing_branch_code: string | null;
+  @ApiProperty({ nullable: true }) billing_branch_city: string | null;
+  @ApiProperty({ nullable: true }) billing_branch_state: string | null;
+  @ApiProperty({ nullable: true }) fiscal_configuration_id: string | null;
+  @ApiProperty({ nullable: true }) fiscal_razon_social: string | null;
+  @ApiProperty({ nullable: true }) fiscal_rfc: string | null;
 }
 
 export class InventoryTransferUserSummaryDto {

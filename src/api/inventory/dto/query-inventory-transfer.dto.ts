@@ -33,6 +33,16 @@ export class QueryInventoryTransferDto {
   @IsUUID()
   destination_billing_branch_id?: string;
 
+  @ApiPropertyOptional({ description: 'Razón social de origen' })
+  @IsOptional()
+  @IsUUID()
+  source_fiscal_configuration_id?: string;
+
+  @ApiPropertyOptional({ description: 'Razón social de destino' })
+  @IsOptional()
+  @IsUUID()
+  destination_fiscal_configuration_id?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsDateString()

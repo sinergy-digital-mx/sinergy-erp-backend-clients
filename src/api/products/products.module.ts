@@ -8,6 +8,7 @@ import { ProductDiscount } from '../../entities/products/product-discount.entity
 import { ProductVendorCost } from '../../entities/products/product-vendor-cost.entity';
 import { ProductAttribute } from '../../entities/products/product-attribute.entity';
 import { ProductAttributeValue } from '../../entities/products/product-attribute-value.entity';
+import { ProductAttributeAssignment } from '../../entities/products/product-attribute-assignment.entity';
 import { ProductController } from './product.controller';
 import { ProductService } from './product.service';
 import { ProductUoMController } from './product-uom.controller';
@@ -22,6 +23,9 @@ import { ProductVendorCostController } from './product-vendor-cost.controller';
 import { ProductVendorCostService } from './product-vendor-cost.service';
 import { ProductAttributeController } from './product-attribute.controller';
 import { ProductAttributeService } from './product-attribute.service';
+import { ProductAttributeAssignmentController } from './product-attribute-assignment.controller';
+import { ProductAttributeAssignmentService } from './product-attribute-assignment.service';
+import { ProductsExportService } from './services/products-export.service';
 import { RBACModule } from '../rbac/rbac.module';
 import { UoMCatalogModule } from '../uom-catalog/uom-catalog.module';
 import { S3Service } from '../../common/services/s3.service';
@@ -37,6 +41,7 @@ import { S3Service } from '../../common/services/s3.service';
       ProductVendorCost,
       ProductAttribute,
       ProductAttributeValue,
+      ProductAttributeAssignment,
     ]),
     RBACModule,
     UoMCatalogModule,
@@ -45,6 +50,7 @@ import { S3Service } from '../../common/services/s3.service';
     // ProductAttributeController must be registered before ProductController so
     // GET /tenant/products/attributes is not captured by GET /tenant/products/:id
     ProductAttributeController,
+    ProductAttributeAssignmentController,
     ProductController,
     ProductUoMController,
     PriceListController,
@@ -60,6 +66,8 @@ import { S3Service } from '../../common/services/s3.service';
     ProductDiscountService,
     ProductVendorCostService,
     ProductAttributeService,
+    ProductAttributeAssignmentService,
+    ProductsExportService,
     S3Service,
   ],
   exports: [
@@ -70,6 +78,7 @@ import { S3Service } from '../../common/services/s3.service';
     ProductDiscountService,
     ProductVendorCostService,
     ProductAttributeService,
+    ProductAttributeAssignmentService,
   ],
 })
 export class ProductsModule {}

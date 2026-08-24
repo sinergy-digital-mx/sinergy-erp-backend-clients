@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { VendorController } from './vendor.controller';
 import { VendorService } from './vendor.service';
+import { VendorsExportService } from './services/vendors-export.service';
 import { Vendor } from '../../entities/vendor/vendor.entity';
 import { RBACModule } from '../rbac/rbac.module';
 
@@ -10,7 +11,7 @@ import { RBACModule } from '../rbac/rbac.module';
     TypeOrmModule.forFeature([Vendor]),
     RBACModule,
   ],
-  providers: [VendorService],
+  providers: [VendorService, VendorsExportService],
   controllers: [VendorController],
   exports: [VendorService],
 })

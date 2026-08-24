@@ -2,6 +2,8 @@
 
 Documento de referencia para implementar transferencias de stock entre almacenes, con soporte **totalizado** (desde resumen de inventario) y **por lote** (desde detalle de lote).
 
+> **UI:** el modal actual (sucursal + almacén planos) se **reemplaza**. Destino es cascada razón social → sucursal → almacén. Listado y detalle muestran los 3 niveles en origen y destino.
+
 ## Modelo de negocio
 
 ### Jerarquía
@@ -41,14 +43,12 @@ Base: `/api/tenant/inventory`
 | Método | Ruta | Permiso | Uso |
 |--------|------|---------|-----|
 | `GET` | `/summary` | read | Lista totalizada producto+almacén con desglose de lotes |
-| `GET` | `/transfers/context?product_id=&warehouse_id=` | Transfer | Contexto para abrir modal de transferencia |
+| `GET` | `/transfers/context?product_id=&warehouse_id=` | Transfer | Contexto: origen + lotes + **árbol destino** |
 | `POST` | `/transfers` | Transfer | Crear transferencia |
 | `GET` | `/transfers` | Read | Historial de transferencias |
 | `GET` | `/transfers/:id` | Read | Detalle de una transferencia |
 | `GET` | `/transfers/:id/pdf` | Read | Descargar PDF comprobante |
 | `GET` | `/batches/:id` | read | Detalle de lote (incluye `transfer_history`) |
-| `GET` | `/tenant/warehouses` | Warehouse:Read | Almacenes destino |
-| `GET` | `/tenant/billing/branches` | — | Sucursales para selector |
 
 ---
 
@@ -107,17 +107,31 @@ Abre modal/página de transferencia precargando:
 
 ### Paso 1 — Origen (solo lectura)
 
-Mostrar datos del contexto:
+Tarjeta de origen **completa** (no solo sucursal + almacén):
 
 ```
-Producto:  Tomate Saladette (TOM-001)
-UOM:       Kilogramo
-Almacén:   Almacén Norte
-Sucursal:  {source_warehouse.billing_branch.name ?? source_warehouse.billing_branch.code} — {city}, {state}
-Disponible total: 150.000 kg  (3 lotes)
+Producto:  SELLADOR ALTOS SOLIDOS LTO. NS44/300.30
+SKU / UOM: NS4430030 · Pieza
+
+RAZÓN SOCIAL   MADERERIA ZONA NORTE S.A. DE C.V.   RFC MZN...
+SUCURSAL       CENTRO — Tijuana, Baja California
+ALMACÉN        Bodega
+DISPONIBLE     9 Pieza · 1 lote
+```
+
+Fuente: `source_warehouse` del context.
+
+```
+source_warehouse.billing_branch.fiscal_configuration.razon_social
+source_warehouse.billing_branch.fiscal_configuration.rfc
+source_warehouse.billing_branch.code
+source_warehouse.billing_branch.city + state
+source_warehouse.name
 ```
 
 **API:** `GET /api/tenant/inventory/transfers/context?product_id={id}&warehouse_id={id}`
+
+`destinations` llega en el mismo response (árbol razón → sucursal → almacén, sin el almacén origen). No hagas un segundo fetch para el modal.
 
 ### Paso 2 — Selección de lotes origen
 
@@ -137,31 +151,74 @@ Tabla editable con lotes del contexto:
 
 **Atajo:** botón «Usar todo el disponible» por lote o «Transferir todo» (llena cada lote con su `available_quantity`).
 
-### Paso 3 — Destino (sucursal → almacén)
+### Paso 3 — Destino (razón social → sucursal → almacén)
 
-Selector en cascada:
+**No uses** `GET /warehouses` ni `GET /billing/branches` planos. El context trae `destinations[]` ya filtrado (activos, sin el almacén origen).
 
-1. **Sucursal destino** — `GET /api/tenant/billing/branches`
-2. **Almacén destino** — filtrar `GET /api/tenant/warehouses` donde `billing_branch_id === sucursalSeleccionada` y `status === 'active'`
-3. Excluir el almacén origen de la lista.
+Cascada **obligatoria**, un paso habilita el siguiente:
+
+| Orden | Control | Fuente | Label |
+|-------|---------|--------|-------|
+| 1 | Razón social destino | `destinations[]` | `razon_social` · `rfc` |
+| 2 | Sucursal destino | `fiscal.branches` | `name` — city/state si lo tienes del catálogo; hoy `name` = código de sucursal |
+| 3 | Almacén destino | `branch.warehouses` | `name` |
+
+Reglas UI:
+- Sucursal **disabled** hasta elegir razón social. Al cambiar razón, reset sucursal + almacén.
+- Almacén **disabled** hasta elegir sucursal. Al cambiar sucursal, reset almacén.
+- Si una razón/sucursal queda sin almacenes, no la muestres (el API ya las omite).
+- Confirmar disabled hasta tener `destination_warehouse_id`.
 
 ```
-Sucursal destino:  [ Centro — CDMX        ▼ ]
-Almacén destino:   [ Almacén Centro       ▼ ]
+Razón social:  [ MADERERIA ZONA NORTE S.A. DE C.V.     ▼ ]
+Sucursal:      [ CENTRO                                  ▼ ]
+Almacén:       [ Mostrador                               ▼ ]
 ```
 
-> Una sucursal puede tener varios almacenes. El usuario **siempre** elige almacén explícitamente, no solo sucursal.
+El POST **sigue** enviando solo `destination_warehouse_id`. Razón y sucursal son UX.
+
+### Paso 3b — Rediseño del modal (obligatorio)
+
+El modal actual (dos dropdowns + tabla gris) **no se itera: se reemplaza**.
+
+Layout sugerido, full-height ~720px:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Transferir inventario                          [×]         │
+│  3 pasos: lotes → destino → confirmar                       │
+├───────────────┬─────────────────────────────────────────────┤
+│ ORIGEN        │  PASO ACTIVO                                │
+│ (sticky)      │                                             │
+│ Razón social  │  Stepper  [1 Lotes] [2 Destino] [3 Listo]   │
+│ Sucursal      │                                             │
+│ Almacén       │  Contenido del paso                         │
+│ Disponible    │                                             │
+│               │                                             │
+│ TOTAL 9 Pza   │                                             │
+│ 1 lote        │                                             │
+├───────────────┴─────────────────────────────────────────────┤
+│  Bodega  →  {razón} / {sucursal} / {almacén}                │
+│                     [Cancelar]  [Continuar / Confirmar]     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+- **Stepper interactivo:** no un form plano. Avanzar con Continuar; Destino se desbloquea cuando hay cantidad > 0.
+- **Origen vs destino:** dos columnas visuales, no labels sueltos. Destino se va llenando en vivo (razón → sucursal → almacén) con chevrons.
+- **Lotes:** filas seleccionables grandes, input de cantidad prominente, `Max` y `Transferir todo`.
+- **Pie de ruta:** `Bodega → elige destino` se convierte en `Bodega → CENTRO / Mostrador` al completar la cascada; si cruzan razón social, mostrarlo explícito: `MZN / CENTRO / Bodega  →  OTRA RAZÓN / OTAY / Piso`.
+- Misma paleta Pollux (púrpura), más aire, tipografía de jerarquía (razón social 12px muted, sucursal 14px, almacén 16px bold).
 
 ### Paso 4 — Notas y confirmación
 
 ```
 Notas (opcional): [ Traslado para surtir tienda centro ]
 ─────────────────────────────────────────────────────
-Total a transferir:  100.000 kg  desde 2 lotes
-Origen:   Almacén Norte (Sucursal Norte)
-Destino:  Almacén Centro (Sucursal Centro)
+Total:  9.000 Pieza  ·  1 lote
+Origen:   MADERERIA ZONA NORTE  ·  CENTRO  ·  Bodega
+Destino:  MADERERIA ZONA NORTE  ·  OTAY    ·  Mostrador
 ─────────────────────────────────────────────────────
-                    [ Cancelar ]  [ Confirmar transferencia ]
+                    [ Atrás ]  [ Confirmar transferencia ]
 ```
 
 ### Paso 5 — POST crear transferencia
@@ -193,13 +250,22 @@ POST /api/tenant/inventory/transfers
   "total_quantity": "100.000",
   "source_warehouse": {
     "id": "...",
-    "name": "Almacén Norte",
-    "billing_branch_code": "NORTE"
+    "name": "Bodega",
+    "code": "BDG",
+    "billing_branch_id": "...",
+    "billing_branch_code": "CENTRO",
+    "billing_branch_city": "Tijuana",
+    "billing_branch_state": "Baja California",
+    "fiscal_configuration_id": "...",
+    "fiscal_razon_social": "MADERERIA ZONA NORTE S.A. DE C.V.",
+    "fiscal_rfc": "MZN010101XXX"
   },
   "destination_warehouse": {
     "id": "...",
-    "name": "Almacén Centro",
-    "billing_branch_code": "CENTRO"
+    "name": "Mostrador",
+    "billing_branch_code": "OTAY",
+    "fiscal_razon_social": "MADERERIA ZONA NORTE S.A. DE C.V.",
+    "fiscal_rfc": "MZN010101XXX"
   },
   "lines": [
     {
@@ -287,34 +353,62 @@ Si `transferred_from_batch_number` existe, mostrar banner:
 
 **API:** `GET /api/tenant/inventory/transfers`
 
-Filtros disponibles:
+Cada fila **no** es `Norte / Alm. Norte`. Es una ruta de 3 niveles por lado.
+
+Filtros (cascada origen y destino, mismos que inventario):
 
 | Parámetro | Uso |
 |-----------|-----|
 | `search` | Folio, nombre o SKU de producto |
 | `product_id` | Producto específico |
-| `source_warehouse_id` | Almacén origen |
-| `destination_warehouse_id` | Almacén destino |
+| `source_fiscal_configuration_id` | Razón social origen |
 | `source_billing_branch_id` | Sucursal origen |
+| `source_warehouse_id` | Almacén origen |
+| `destination_fiscal_configuration_id` | Razón social destino |
 | `destination_billing_branch_id` | Sucursal destino |
+| `destination_warehouse_id` | Almacén destino |
 | `created_from` / `created_to` | Rango de fechas |
 
-### Columnas sugeridas
+Catálogo de filtros: `GET /api/tenant/inventory/locations` (igual que el listado de inventario).
+
+### Columnas
 
 | Folio | Producto | Cantidad | Origen | Destino | Usuario | Fecha |
 |-------|----------|----------|--------|---------|---------|-------|
-| TRF-000001 | Tomate Saladette | 100.000 kg | Norte / Alm. Norte | Centro / Alm. Centro | Juan Pérez | 25/06/2026 |
+
+**Origen / Destino** — celda de 3 líneas, no un string plano:
+
+```
+MADERERIA ZONA NORTE          ← fiscal_razon_social  (12px muted, truncar)
+CENTRO — Tijuana              ← billing_branch_code + city
+Bodega                        ← name  (semibold)
+```
+
+Si origen y destino son la **misma razón social**, no repetir el nombre enorme: mostrar sucursal + almacén y un chip `Misma razón`. Si cruzan razón, ambas razones en bold y un chip `Cambio de razón social`.
+
+Ancho: origen y destino lado a lado con un `→` entre columnas. En mobile, apilar Destino debajo de Origen.
 
 ### Pantalla detalle
 
 **API:** `GET /api/tenant/inventory/transfers/:id`
 
-Mostrar encabezado + tabla de líneas:
+Encabezado = dos tarjetas espejo (misma info que el modal):
+
+```
+ORIGEN                              DESTINO
+MADERERIA ZONA NORTE                MADERERIA ZONA NORTE
+RFC MZN...                          RFC MZN...
+CENTRO — Tijuana, B.C.              OTAY — Tijuana, B.C.
+Bodega                              Mostrador
+```
+
+Luego producto, total, usuario, notas.
+
+Tabla de líneas:
 
 | Lote origen | Cantidad | Lote destino creado |
-|-------------|----------|---------------------|
-| NORTE-LOTE-000001 | 50.000 | CENTRO-LOTE-000003 |
-| NORTE-LOTE-000002 | 50.000 | CENTRO-LOTE-000004 |
+|-------------|---------|---------------------|
+| MZN-CTR-BDG-01489 | 9.000 | MZN-OTY-MOS-00012 |
 
 Links a detalle de cada lote.
 
@@ -329,7 +423,7 @@ Links a detalle de cada lote.
 Contenido del PDF:
 - Folio + estado + fecha/hora
 - Quién transfirió (nombre + correo)
-- Ruta origen → destino (almacén, código, sucursal)
+- Ruta origen → destino (razón social, RFC, sucursal, ciudad, almacén)
 - Producto (nombre, SKU, UOM, cantidad total)
 - Tabla de líneas (lote origen → cantidad → lote destino)
 - Notas (si hay)
@@ -357,7 +451,7 @@ flowchart TD
     A[Resumen inventario] -->|Click Transferir| B[GET /transfers/context]
     B --> C[Modal: tabla de lotes]
     C --> D[Usuario elige cantidades por lote]
-    D --> E[Selecciona sucursal + almacén destino]
+    D --> E[Selecciona razón social → sucursal → almacén]
     E --> F[POST /transfers]
     F --> G{Éxito?}
     G -->|Sí| H[Toast TRF-xxx + refrescar resumen]
@@ -401,7 +495,8 @@ Sugerencia de menú:
 
 1. **Refrescar contexto** antes de confirmar si el modal lleva abierto mucho tiempo (evita error de stock insuficiente).
 2. **Decimales:** mostrar 3 decimales (`150.000`) consistente con el API.
-3. **Sucursal sin almacenes:** si al elegir sucursal no hay almacenes activos, mostrar mensaje y bloquear confirmar.
-4. **Mismo almacén:** validar en cliente antes de POST.
+3. **Sucursal/almacén vacíos:** el árbol `destinations` ya omite nodos sin almacén activo. No pidas warehouses extra.
+4. **Mismo almacén:** el origen no viene en `destinations`. Aun así valida en cliente antes de POST.
 5. El stock totalizado en resumen **baja automáticamente** tras transferencia exitosa; no hace falta cálculo local persistente.
-6. Para almacenes destino de otra sucursal, no se requiere permiso especial adicional — solo `inventory:write`.
+6. Para destino de otra razón social o sucursal no se requiere permiso extra — solo `Inventory:Transfer`.
+7. **No** uses `GET /tenant/warehouses` ni `GET /tenant/billing/branches` en este flujo. Todo sale de `/transfers/context` (modal) y `/inventory/locations` (filtros del historial).

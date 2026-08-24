@@ -24,7 +24,7 @@ export class ProductAttributeService {
     });
 
     if (existing) {
-      throw new ConflictException(`Atributo "${dto.name}" ya existe para este tenant`);
+      throw new ConflictException(`Atributo "${dto.name}" ya existe`);
     }
 
     const attribute = this.attributeRepository.create({
@@ -34,6 +34,27 @@ export class ProductAttributeService {
     });
 
     return this.attributeRepository.save(attribute);
+  }
+
+  async findOptions(tenantId: string) {
+    const attributes = await this.attributeRepository.find({
+      where: { tenant_id: tenantId, is_active: true },
+      relations: ['values'],
+      order: { name: 'ASC' },
+    });
+
+    return attributes.map((attribute) => ({
+      id: attribute.id,
+      name: attribute.name,
+      values: (attribute.values ?? [])
+        .filter((value) => value.is_active)
+        .sort((a, b) => a.display_order - b.display_order || a.value.localeCompare(b.value))
+        .map((value) => ({
+          id: value.id,
+          value: value.value,
+          display_order: value.display_order,
+        })),
+    }));
   }
 
   async findAllAttributes(query: QueryProductAttributeDto, tenantId: string) {
@@ -93,7 +114,7 @@ export class ProductAttributeService {
       });
 
       if (existing) {
-        throw new ConflictException(`Atributo "${dto.name}" ya existe para este tenant`);
+        throw new ConflictException(`Atributo "${dto.name}" ya existe`);
       }
     }
 

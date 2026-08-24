@@ -14,13 +14,16 @@ import { InventoryBatch } from '../../../entities/purchase-orders/inventory-batc
 import { Warehouse } from '../../../entities/warehouse/warehouse.entity';
 import { BatchNumberGeneratorService } from '../../purchase-orders/services/batch-number-generator.service';
 import { InventoryTransferFolioService } from './inventory-transfer-folio.service';
+import { InventoryService } from '../inventory.service';
 import { CreateInventoryTransferDto } from '../dto/create-inventory-transfer.dto';
 import { QueryInventoryTransferDto } from '../dto/query-inventory-transfer.dto';
 import {
   InventoryTransferListResponseDto,
   InventoryTransferResponseDto,
+  InventoryTransferWarehouseSummaryDto,
 } from '../dto/inventory-transfer-response.dto';
 import { TransferContextResponseDto } from '../dto/transfer-context-response.dto';
+import { InventoryLocationFiscalDto } from '../dto/inventory-location-tree-response.dto';
 
 @Injectable()
 export class InventoryTransferService {
@@ -35,6 +38,7 @@ export class InventoryTransferService {
     private readonly warehouseRepo: Repository<Warehouse>,
     private readonly folioService: InventoryTransferFolioService,
     private readonly batchNumberGenerator: BatchNumberGeneratorService,
+    private readonly inventoryService: InventoryService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -45,7 +49,7 @@ export class InventoryTransferService {
   ): Promise<TransferContextResponseDto> {
     const warehouse = await this.warehouseRepo.findOne({
       where: { id: warehouseId, tenant_id: tenantId },
-      relations: ['billing_branch'],
+      relations: ['billing_branch', 'billing_branch.fiscal_configuration'],
     });
 
     if (!warehouse) {
@@ -75,6 +79,8 @@ export class InventoryTransferService {
       (sum, b) => sum + parseFloat(b.available_quantity?.toString() ?? '0'),
       0,
     );
+    const fiscal = warehouse.billing_branch?.fiscal_configuration ?? null;
+    const locationTree = await this.inventoryService.getLocationTree(tenantId);
 
     return {
       product_id: first.product_id,
@@ -95,9 +101,17 @@ export class InventoryTransferService {
               code: warehouse.billing_branch.code,
               city: warehouse.billing_branch.city,
               state: warehouse.billing_branch.state,
+              fiscal_configuration: fiscal
+                ? {
+                    id: fiscal.id,
+                    razon_social: fiscal.razon_social,
+                    rfc: fiscal.rfc,
+                  }
+                : null,
             }
           : null,
       },
+      destinations: this.filterDestinationTree(locationTree.data, warehouse.id),
       batches: batches.map((b) => ({
         batch_id: b.id,
         batch_number: b.batch_number,
@@ -277,8 +291,10 @@ export class InventoryTransferService {
       .leftJoinAndSelect('transfer.uom', 'uom')
       .leftJoinAndSelect('transfer.source_warehouse', 'source_warehouse')
       .leftJoinAndSelect('source_warehouse.billing_branch', 'source_branch')
+      .leftJoinAndSelect('source_branch.fiscal_configuration', 'source_fiscal')
       .leftJoinAndSelect('transfer.destination_warehouse', 'destination_warehouse')
       .leftJoinAndSelect('destination_warehouse.billing_branch', 'dest_branch')
+      .leftJoinAndSelect('dest_branch.fiscal_configuration', 'dest_fiscal')
       .leftJoinAndSelect('transfer.created_by_user', 'created_by_user')
       .leftJoinAndSelect('transfer.lines', 'lines')
       .leftJoinAndSelect('lines.source_inventory_batch', 'source_batch')
@@ -317,6 +333,18 @@ export class InventoryTransferService {
     if (filters.destination_billing_branch_id) {
       query.andWhere('destination_warehouse.billing_branch_id = :destBranchId', {
         destBranchId: filters.destination_billing_branch_id,
+      });
+    }
+
+    if (filters.source_fiscal_configuration_id) {
+      query.andWhere('source_branch.fiscal_configuration_id = :sourceFiscalId', {
+        sourceFiscalId: filters.source_fiscal_configuration_id,
+      });
+    }
+
+    if (filters.destination_fiscal_configuration_id) {
+      query.andWhere('dest_branch.fiscal_configuration_id = :destFiscalId', {
+        destFiscalId: filters.destination_fiscal_configuration_id,
       });
     }
 
@@ -359,8 +387,10 @@ export class InventoryTransferService {
       .leftJoinAndSelect('transfer.uom', 'uom')
       .leftJoinAndSelect('transfer.source_warehouse', 'source_warehouse')
       .leftJoinAndSelect('source_warehouse.billing_branch', 'source_branch')
+      .leftJoinAndSelect('source_branch.fiscal_configuration', 'source_fiscal')
       .leftJoinAndSelect('transfer.destination_warehouse', 'destination_warehouse')
       .leftJoinAndSelect('destination_warehouse.billing_branch', 'dest_branch')
+      .leftJoinAndSelect('dest_branch.fiscal_configuration', 'dest_fiscal')
       .leftJoinAndSelect('transfer.created_by_user', 'created_by_user')
       .leftJoinAndSelect('transfer.lines', 'lines')
       .leftJoinAndSelect('lines.source_inventory_batch', 'source_batch')
@@ -384,20 +414,14 @@ export class InventoryTransferService {
       product_sku: transfer.product?.sku ?? '',
       uom_id: transfer.uom_id,
       uom_name: transfer.uom?.name ?? '',
-      source_warehouse: {
-        id: transfer.source_warehouse_id,
-        name: transfer.source_warehouse?.name ?? '',
-        code: transfer.source_warehouse?.code ?? null,
-        billing_branch_id: transfer.source_warehouse?.billing_branch_id ?? null,
-        billing_branch_code: transfer.source_warehouse?.billing_branch?.code ?? null,
-      },
-      destination_warehouse: {
-        id: transfer.destination_warehouse_id,
-        name: transfer.destination_warehouse?.name ?? '',
-        code: transfer.destination_warehouse?.code ?? null,
-        billing_branch_id: transfer.destination_warehouse?.billing_branch_id ?? null,
-        billing_branch_code: transfer.destination_warehouse?.billing_branch?.code ?? null,
-      },
+      source_warehouse: this.mapWarehouseSummary(
+        transfer.source_warehouse,
+        transfer.source_warehouse_id,
+      ),
+      destination_warehouse: this.mapWarehouseSummary(
+        transfer.destination_warehouse,
+        transfer.destination_warehouse_id,
+      ),
       total_quantity: parseFloat(transfer.total_quantity?.toString() ?? '0').toFixed(3),
       status: transfer.status,
       notes: transfer.notes,
@@ -419,6 +443,50 @@ export class InventoryTransferService {
         quantity: parseFloat(line.quantity?.toString() ?? '0').toFixed(3),
         created_at: line.created_at,
       })),
+    };
+  }
+
+  /** Quita el almacén origen y nodos vacíos del árbol destino. */
+  private filterDestinationTree(
+    fiscals: InventoryLocationFiscalDto[],
+    sourceWarehouseId: string,
+  ): InventoryLocationFiscalDto[] {
+    return fiscals
+      .filter((fiscal) => fiscal.status === 'active')
+      .map((fiscal) => ({
+        ...fiscal,
+        branches: fiscal.branches
+          .filter((branch) => branch.status === 1)
+          .map((branch) => ({
+            ...branch,
+            warehouses: branch.warehouses.filter(
+              (warehouse) =>
+                warehouse.status === 'active' && warehouse.id !== sourceWarehouseId,
+            ),
+          }))
+          .filter((branch) => branch.warehouses.length > 0),
+      }))
+      .filter((fiscal) => fiscal.branches.length > 0);
+  }
+
+  private mapWarehouseSummary(
+    warehouse: Warehouse | undefined,
+    fallbackId: string,
+  ): InventoryTransferWarehouseSummaryDto {
+    const branch = warehouse?.billing_branch ?? null;
+    const fiscal = branch?.fiscal_configuration ?? null;
+
+    return {
+      id: warehouse?.id ?? fallbackId,
+      name: warehouse?.name ?? '',
+      code: warehouse?.code ?? null,
+      billing_branch_id: warehouse?.billing_branch_id ?? branch?.id ?? null,
+      billing_branch_code: branch?.code ?? null,
+      billing_branch_city: branch?.city ?? null,
+      billing_branch_state: branch?.state ?? null,
+      fiscal_configuration_id: fiscal?.id ?? branch?.fiscal_configuration_id ?? null,
+      fiscal_razon_social: fiscal?.razon_social ?? null,
+      fiscal_rfc: fiscal?.rfc ?? null,
     };
   }
 }

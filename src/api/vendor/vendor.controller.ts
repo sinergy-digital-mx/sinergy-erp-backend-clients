@@ -6,6 +6,7 @@ import {
   Body,
   Param,
   Req,
+  Res,
   UseGuards,
   Delete,
   Query,
@@ -21,9 +22,11 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { VendorService } from './vendor.service';
+import { VendorsExportService } from './services/vendors-export.service';
 import { CreateVendorDto } from './dto/create-vendor.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { QueryVendorDto } from './dto/query-vendor.dto';
+import { QueryVendorExportDto } from './dto/query-vendor-export.dto';
 import { PaginatedVendorDto } from './dto/paginated-vendor.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionGuard } from '../rbac/guards/permission.guard';
@@ -34,7 +37,10 @@ import { RequirePermissions } from '../rbac/decorators/require-permissions.decor
 @ApiTags('Vendors')
 @ApiBearerAuth()
 export class VendorController {
-  constructor(private readonly service: VendorService) {}
+  constructor(
+    private readonly service: VendorService,
+    private readonly exportService: VendorsExportService,
+  ) {}
 
   @Post()
   @RequirePermissions({ entityType: 'vendors', action: 'Create' })
@@ -63,6 +69,27 @@ export class VendorController {
   @ApiResponse({ status: 403, description: 'Forbidden' })
   findAll(@Query() query: QueryVendorDto, @Req() req): Promise<PaginatedVendorDto> {
     return this.service.findAll(req.user.tenantId, query);
+  }
+
+  @Get('export/excel')
+  @RequirePermissions({ entityType: 'vendors', action: 'Read' })
+  @ApiOperation({ summary: 'Descargar Excel de proveedores' })
+  @ApiResponse({ status: 200, description: 'Archivo Excel generado' })
+  async exportExcel(
+    @Query() query: QueryVendorExportDto,
+    @Req() req,
+    @Res() res,
+  ) {
+    const buffer = await this.exportService.exportVendors(req.user.tenantId, query);
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${this.exportService.getFilename()}"`,
+    );
+    res.send(buffer);
   }
 
   @Get(':id')

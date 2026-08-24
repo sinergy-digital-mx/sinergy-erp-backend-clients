@@ -12,13 +12,16 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  Res,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { ProductService } from './product.service';
+import { ProductsExportService } from './services/products-export.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { QueryProductDto } from './dto/query-product.dto';
+import { QueryProductExportDto } from './dto/query-product-export.dto';
 import { PaginatedProductDto } from './dto/paginated-product.dto';
 import { ToggleStatusDto } from './dto/toggle-status.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -30,7 +33,10 @@ import { RequirePermission } from '../rbac/decorators/require-permissions.decora
 @Controller('tenant/products')
 @UseGuards(JwtAuthGuard, PermissionGuard)
 export class ProductController {
-  constructor(private readonly productService: ProductService) {}
+  constructor(
+    private readonly productService: ProductService,
+    private readonly productsExportService: ProductsExportService,
+  ) {}
 
   @Post()
   @RequirePermission('Product', 'Create')
@@ -47,6 +53,30 @@ export class ProductController {
   @ApiResponse({ status: 200, type: PaginatedProductDto })
   findAll(@Query() query: QueryProductDto, @Request() req) {
     return this.productService.findAll(query, req.user.tenant_id);
+  }
+
+  @Get('export/excel')
+  @RequirePermission('Product', 'Export')
+  @ApiOperation({ summary: 'Descargar Excel del catálogo de productos' })
+  @ApiResponse({ status: 200, description: 'Archivo Excel generado' })
+  async exportExcel(
+    @Query() query: QueryProductExportDto,
+    @Request() req,
+    @Res() res,
+  ) {
+    const buffer = await this.productsExportService.exportCatalog(
+      req.user.tenant_id,
+      query,
+    );
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${this.productsExportService.getFilename()}"`,
+    );
+    res.send(buffer);
   }
 
   @Get(':id')

@@ -30,7 +30,7 @@ export class ProductAttributeController {
 
   @Post()
   @RequirePermission('Product', 'Create')
-  @ApiOperation({ summary: 'Crear atributo de producto para tenant' })
+  @ApiOperation({ summary: 'Crear atributo de catálogo' })
   @ApiResponse({ status: 201, description: 'Atributo creado exitosamente' })
   createAttribute(@Body() dto: CreateProductAttributeDto, @Request() req) {
     return this.productAttributeService.createAttribute(dto, req.user.tenant_id);
@@ -42,6 +42,18 @@ export class ProductAttributeController {
   @ApiResponse({ status: 200, description: 'Lista de atributos' })
   findAllAttributes(@Query() query: QueryProductAttributeDto, @Request() req) {
     return this.productAttributeService.findAllAttributes(query, req.user.tenant_id);
+  }
+
+  @Get('options')
+  @RequirePermission('Product', 'Read')
+  @ApiOperation({
+    summary: 'Catálogo activo con valores (para selector en producto)',
+    description:
+      'Sin paginación. Solo atributos y valores activos. No son asignaciones de un producto.',
+  })
+  @ApiResponse({ status: 200, description: 'Opciones de catálogo' })
+  findOptions(@Request() req) {
+    return this.productAttributeService.findOptions(req.user.tenant_id);
   }
 
   @Get(':attributeId')

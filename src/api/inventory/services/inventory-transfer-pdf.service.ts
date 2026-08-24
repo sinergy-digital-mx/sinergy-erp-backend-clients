@@ -547,13 +547,21 @@ export class InventoryTransferPdfService {
     warehouse?: InventoryTransferResponseDto['source_warehouse'] | null,
   ): string {
     if (!warehouse) return '—';
+    const location = [
+      warehouse.fiscal_razon_social,
+      warehouse.billing_branch_code,
+      warehouse.billing_branch_city && warehouse.billing_branch_state
+        ? `${warehouse.billing_branch_city}, ${warehouse.billing_branch_state}`
+        : warehouse.billing_branch_city || warehouse.billing_branch_state,
+    ]
+      .filter(Boolean)
+      .join(' · ');
     const parts = [
-      warehouse.code ? `Código: ${warehouse.code}` : null,
-      warehouse.billing_branch_code
-        ? `Sucursal: ${warehouse.billing_branch_code}`
-        : null,
+      location || null,
+      warehouse.code ? `Almacén: ${warehouse.code}` : null,
+      warehouse.fiscal_rfc ? `RFC: ${warehouse.fiscal_rfc}` : null,
     ].filter(Boolean);
-    return parts.length ? parts.join(' · ') : 'Sin código / sucursal';
+    return parts.length ? parts.join('\n') : 'Sin razón social / sucursal';
   }
 
   private formatQty(value: string | number | null | undefined): string {

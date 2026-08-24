@@ -7,6 +7,8 @@ import { Permission } from '../../entities/rbac/permission.entity';
 import { EntityRegistry } from '../../entities/entity-registry/entity-registry.entity';
 import { TenantModule } from '../../entities/rbac/tenant-module.entity';
 import { RBACTenant } from '../../entities/rbac/tenant.entity';
+import { Role } from '../../entities/rbac/role.entity';
+import { RolePermission } from '../../entities/rbac/role-permission.entity';
 
 async function seedProductsModule() {
   await AppDataSource.initialize();
@@ -16,6 +18,8 @@ async function seedProductsModule() {
   const entityRegistryRepo = AppDataSource.getRepository(EntityRegistry);
   const tenantModuleRepo = AppDataSource.getRepository(TenantModule);
   const tenantRepo = AppDataSource.getRepository(RBACTenant);
+  const roleRepo = AppDataSource.getRepository(Role);
+  const rolePermissionRepo = AppDataSource.getRepository(RolePermission);
 
   try {
     console.log('🌱 Iniciando seed del módulo Products...\n');
@@ -62,6 +66,7 @@ async function seedProductsModule() {
       { action: 'Read', description: 'Ver productos' },
       { action: 'Update', description: 'Actualizar productos' },
       { action: 'Delete', description: 'Eliminar productos' },
+      { action: 'Export', description: 'Descargar catálogo de productos' },
     ];
 
     let createdPermissions = 0;
@@ -87,6 +92,38 @@ async function seedProductsModule() {
       } else {
         console.log(`   ⏭️  Permiso ya existe: Product:${action}`);
       }
+    }
+
+    const exportPermission = await permissionRepo.findOne({
+      where: {
+        entity_registry_id: entityRegistry.id,
+        action: 'Export',
+      },
+    });
+
+    if (exportPermission) {
+      console.log('\n👤 Asignando Product:Export a roles admin...');
+      const adminRoles = await roleRepo.find({ where: { is_admin: true } });
+      let assigned = 0;
+      for (const role of adminRoles) {
+        const existing = await rolePermissionRepo.findOne({
+          where: {
+            role_id: role.id,
+            permission_id: exportPermission.id,
+          },
+        });
+        if (!existing) {
+          await rolePermissionRepo.save(
+            rolePermissionRepo.create({
+              role_id: role.id,
+              permission_id: exportPermission.id,
+            }),
+          );
+          assigned++;
+          console.log(`   ✅ Asignado a rol admin: ${role.name}`);
+        }
+      }
+      console.log(`   Roles actualizados: ${assigned}`);
     }
 
     // 4. Habilitar para todos los tenants
