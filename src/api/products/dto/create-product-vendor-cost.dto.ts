@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsUUID, IsNumber, Min } from 'class-validator';
+import { IsNotEmpty, IsUUID, IsNumber, Min, IsEnum, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -33,4 +33,14 @@ export class CreateProductVendorCostDto {
   @IsNumber()
   @Min(0)
   ieps_percentage: number;
+
+  @ApiProperty({
+    enum: ['MXN', 'USD'],
+    default: 'MXN',
+    required: false,
+    description: 'Moneda del costo. MXN = pesos, USD = dólares. Default MXN.',
+  })
+  @IsOptional()
+  @IsEnum(['MXN', 'USD'])
+  currency?: 'MXN' | 'USD';
 }

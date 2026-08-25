@@ -192,3 +192,13 @@ Input: texto corto, placeholder `Número de pedimento`, máximo 30 caracteres. N
 - [ ] Ocultar pedimento si proveedor nacional
 - [ ] Modal crear/editar: input pedimento cuando `vendor_type === 'INTERNATIONAL'`
 - [ ] Deshabilitar edición si `general_status === 'Cancelada'`
+
+---
+
+## Inventario (lotes)
+
+No se copia el pedimento al lote. El detalle de lote lo lee de la OC:
+
+`GET /api/tenant/inventory/batches/:id` → `pedimento_number`
+
+Ver `src/api/inventory/docs/UI_INVENTORY_BATCH_PEDIMENTO.md`.

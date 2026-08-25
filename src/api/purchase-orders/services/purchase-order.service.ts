@@ -21,8 +21,10 @@ import { FolioGeneratorService } from './folio-generator.service';
 import { PurchaseOrderPdfService } from './purchase-order-pdf.service';
 import { PurchaseOrderDocumentsService } from './purchase-order-documents.service';
 import { PurchaseOrderDocumentLanguage } from '../../../entities/purchase-orders/purchase-order-document-language.enum';
-import { ProductUoM } from '../../../entities/products';
+import { ProductUoM, ProductVendorCost } from '../../../entities/products';
 import { v4 as uuidv4 } from 'uuid';
+
+type PurchaseOrderCurrency = 'MXN' | 'USD';
 
 @Injectable()
 export class PurchaseOrderService {
@@ -62,19 +64,159 @@ export class PurchaseOrderService {
     }
   }
 
+  private normalizeCurrency(value?: string | null): PurchaseOrderCurrency | null {
+    if (value == null || String(value).trim() === '') return null;
+    const upper = String(value).trim().toUpperCase();
+    if (upper === 'MXN' || upper === 'USD') return upper;
+    throw new BadRequestException('La moneda debe ser MXN o USD');
+  }
+
+  private throwMixedCurrency(): never {
+    throw new BadRequestException(
+      'No se pueden mezclar MXN y USD en la misma orden de compra. Todos los productos deben estar en la misma moneda.',
+    );
+  }
+
+  private throwLineCurrencyMismatch(productCurrency: string, expected: string): never {
+    throw new BadRequestException(
+      `Este producto está en ${productCurrency} y la orden en ${expected}. No se puede mezclar monedas en una orden de compra.`,
+    );
+  }
+
+  private findVendorCost(
+    queryRunner: QueryRunner,
+    vendorId: string,
+    productId: string,
+    productUomId: string,
+  ): Promise<ProductVendorCost | null> {
+    return queryRunner.manager.findOne(ProductVendorCost, {
+      where: {
+        vendor_id: vendorId,
+        product_id: productId,
+        product_uom_id: productUomId,
+      },
+    });
+  }
+
+  /**
+   * Moneda de la OC: costos de proveedor existentes, si no hay, currency de las líneas / header.
+   * Rechaza mezcla MXN + USD.
+   */
+  private async resolvePurchaseOrderCurrency(
+    queryRunner: QueryRunner,
+    vendorId: string,
+    lineItems: CreateLineItemDto[],
+    headerCurrency?: string,
+  ): Promise<PurchaseOrderCurrency> {
+    const header = this.normalizeCurrency(headerCurrency);
+    const currencies = new Set<PurchaseOrderCurrency>();
+
+    for (const line of lineItems) {
+      const productUomId = await this.unitConversionService.getProductUomId(
+        line.uom_id,
+        line.product_id,
+      );
+      const existing = await this.findVendorCost(
+        queryRunner,
+        vendorId,
+        line.product_id,
+        productUomId,
+      );
+      const fromCost = existing
+        ? this.normalizeCurrency(existing.currency) || 'MXN'
+        : null;
+      const fromLine = this.normalizeCurrency(line.currency);
+      if (fromCost && fromLine && fromCost !== fromLine) {
+        this.throwLineCurrencyMismatch(fromCost, fromLine);
+      }
+      const resolved = fromCost || fromLine;
+      if (resolved) currencies.add(resolved);
+    }
+
+    if (currencies.size > 1) {
+      this.throwMixedCurrency();
+    }
+
+    const resolved = [...currencies][0] ?? header ?? 'MXN';
+    if (header && header !== resolved) {
+      throw new BadRequestException(
+        `La orden debe ser en ${resolved}. No se puede usar ${header} porque los productos están en otra moneda.`,
+      );
+    }
+    return resolved;
+  }
+
+  /** Crea el costo proveedor+UOM si no existe. No sobrescribe un costo ya guardado. */
+  private async ensureVendorCostFromPoLine(
+    queryRunner: QueryRunner,
+    params: {
+      vendorId: string;
+      productId: string;
+      productUomId: string;
+      unitTotal: number;
+      ivaPercentage: number;
+      iepsPercentage: number;
+      currency: PurchaseOrderCurrency;
+    },
+  ): Promise<void> {
+    const existing = await this.findVendorCost(
+      queryRunner,
+      params.vendorId,
+      params.productId,
+      params.productUomId,
+    );
+    if (existing) {
+      const existingCurrency = this.normalizeCurrency(existing.currency) || 'MXN';
+      if (existingCurrency !== params.currency) {
+        this.throwLineCurrencyMismatch(existingCurrency, params.currency);
+      }
+      return;
+    }
+
+    const cost = Number(params.unitTotal);
+    const iva = Number(params.ivaPercentage) || 0;
+    const ieps = Number(params.iepsPercentage) || 0;
+    const ivaUnit = Number(((cost * iva) / 100).toFixed(2));
+    const iepsUnit = Number(((cost * ieps) / 100).toFixed(2));
+    const row = queryRunner.manager.create(ProductVendorCost, {
+      product_id: params.productId,
+      vendor_id: params.vendorId,
+      product_uom_id: params.productUomId,
+      cost,
+      iva_percentage: iva,
+      ieps_percentage: ieps,
+      iva_unit_total: ivaUnit,
+      ieps_unit_total: iepsUnit,
+      subtotal: Number(cost.toFixed(2)),
+      total: Number((cost + ivaUnit + iepsUnit).toFixed(2)),
+      currency: params.currency,
+    });
+    await queryRunner.manager.save(row);
+  }
+
   /**
    * Persist line items for a batch and return requested subtotals (same rules as {@link create}).
    */
   private async insertLineItemsForPurchaseOrder(
     queryRunner: QueryRunner,
     purchaseOrderBatchId: string,
+    vendorId: string,
     lineItems: CreateLineItemDto[],
     userId: string,
+    headerCurrency?: string,
   ): Promise<{
     requested_subtotal: number;
     requested_iva_total: number;
     requested_ieps_total: number;
+    payment_currency: PurchaseOrderCurrency;
   }> {
+    const paymentCurrency = await this.resolvePurchaseOrderCurrency(
+      queryRunner,
+      vendorId,
+      lineItems,
+      headerCurrency,
+    );
+
     let requested_subtotal = 0;
     let requested_iva_total = 0;
     let requested_ieps_total = 0;
@@ -91,6 +233,16 @@ export class PurchaseOrderService {
         lineItem.uom_id,
         lineItem.product_id,
       );
+
+      await this.ensureVendorCostFromPoLine(queryRunner, {
+        vendorId,
+        productId: lineItem.product_id,
+        productUomId,
+        unitTotal: Number(lineItem.unit_total),
+        ivaPercentage: iva_percentage,
+        iepsPercentage: ieps_percentage,
+        currency: paymentCurrency,
+      });
 
       const detail = this.purchaseOrderDetailRepository.create({
         id: uuidv4(),
@@ -113,7 +265,12 @@ export class PurchaseOrderService {
       requested_ieps_total += line_ieps;
     }
 
-    return { requested_subtotal, requested_iva_total, requested_ieps_total };
+    return {
+      requested_subtotal,
+      requested_iva_total,
+      requested_ieps_total,
+      payment_currency: paymentCurrency,
+    };
   }
 
   /**
@@ -167,10 +324,13 @@ export class PurchaseOrderService {
       const totals = await this.insertLineItemsForPurchaseOrder(
         queryRunner,
         savedOrder.id,
+        dto.vendor_id,
         dto.line_items,
         userId,
+        dto.payment_currency,
       );
 
+      savedOrder.payment_currency = totals.payment_currency;
       savedOrder.requested_subtotal = totals.requested_subtotal;
       savedOrder.requested_iva_total = totals.requested_iva_total;
       savedOrder.requested_ieps_total = totals.requested_ieps_total;
@@ -971,8 +1131,10 @@ export class PurchaseOrderService {
       const totals = await this.insertLineItemsForPurchaseOrder(
         queryRunner,
         id,
+        dto.vendor_id,
         dto.line_items,
         userId,
+        dto.payment_currency,
       );
 
       const batch = await queryRunner.manager.findOne(PurchaseOrderBatch, {
@@ -989,9 +1151,7 @@ export class PurchaseOrderService {
       if (dto.payment_status !== undefined) {
         batch.payment_status = dto.payment_status;
       }
-      if (dto.payment_currency !== undefined) {
-        batch.payment_currency = dto.payment_currency;
-      }
+      batch.payment_currency = totals.payment_currency;
       if (dto.notes !== undefined) {
         batch.notes = dto.notes;
       }
@@ -1042,6 +1202,7 @@ export class PurchaseOrderService {
       );
     }
 
+    const poCurrency = this.normalizeCurrency(purchaseOrder.payment_currency) || 'MXN';
     const line_subtotal = Number(dto.quantity) * Number(dto.unit_total);
     const iva_percentage = Number(dto.iva_percentage || 0);
     const line_iva = (line_subtotal * iva_percentage) / 100;
@@ -1052,6 +1213,11 @@ export class PurchaseOrderService {
       dto.uom_id,
       dto.product_id,
     );
+
+    const lineCurrency = this.normalizeCurrency(dto.currency);
+    if (lineCurrency && lineCurrency !== poCurrency) {
+      this.throwLineCurrencyMismatch(lineCurrency, poCurrency);
+    }
 
     const detail = this.purchaseOrderDetailRepository.create({
       id: uuidv4(),
@@ -1071,6 +1237,15 @@ export class PurchaseOrderService {
     await queryRunner.connect();
     await queryRunner.startTransaction();
     try {
+      await this.ensureVendorCostFromPoLine(queryRunner, {
+        vendorId: purchaseOrder.vendor_id,
+        productId: dto.product_id,
+        productUomId,
+        unitTotal: Number(dto.unit_total),
+        ivaPercentage: iva_percentage,
+        iepsPercentage: ieps_percentage,
+        currency: poCurrency,
+      });
       await queryRunner.manager.save(detail);
       await this.persistRequestedTotalsWithRunner(
         queryRunner,
@@ -1217,10 +1392,21 @@ export class PurchaseOrderService {
     this.applyLineTaxesFromPercentages(lineItem);
     lineItem.updated_by = userId;
 
+    const poCurrency = this.normalizeCurrency(purchaseOrder.payment_currency) || 'MXN';
+
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
     try {
+      await this.ensureVendorCostFromPoLine(queryRunner, {
+        vendorId: purchaseOrder.vendor_id,
+        productId: lineItem.product_id,
+        productUomId: lineItem.product_uom_id,
+        unitTotal: Number(lineItem.unit_total),
+        ivaPercentage: Number(lineItem.iva_percentage || 0),
+        iepsPercentage: Number(lineItem.ieps_percentage || 0),
+        currency: poCurrency,
+      });
       await queryRunner.manager.save(lineItem);
       await this.persistRequestedTotalsWithRunner(
         queryRunner,

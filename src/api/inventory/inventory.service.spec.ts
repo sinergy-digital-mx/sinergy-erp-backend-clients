@@ -44,7 +44,7 @@ describe('InventoryService', () => {
     initial_quantity: 100,
     available_quantity: 100,
     purchase_order_batch_id: '550e8400-e29b-41d4-a716-446655440040',
-    purchase_order_batch: {} as any,
+    purchase_order_batch: { folio: 'OC-000012', pedimento_number: '162430010001234' } as any,
     purchase_order_detail_id: '550e8400-e29b-41d4-a716-446655440050',
     purchase_order_detail: {} as any,
     created_by: mockUserId,
@@ -553,8 +553,9 @@ describe('InventoryService', () => {
       expect(result).toHaveProperty('uom_id');
       expect(result).toHaveProperty('uom_name');
       expect(result).toHaveProperty('available_quantity');
-      expect(result).toHaveProperty('created_by');
-      expect(result).toHaveProperty('created_at');
+      expect(result).toHaveProperty('purchase_order_folio');
+      expect(result).toHaveProperty('pedimento_number');
+      expect(result.pedimento_number).toBe('162430010001234');
     });
   });
 
@@ -749,6 +750,12 @@ describe('InventoryService', () => {
           rfc: 'MZN010101XXX',
           status: 'active',
         },
+        {
+          id: 'fiscal-2',
+          razon_social: 'MADERAS FINAS Y HERRAJES',
+          rfc: 'MFH210729R84',
+          status: 'active',
+        },
       ]);
 
       const mockBranchQuery = {
@@ -767,8 +774,13 @@ describe('InventoryService', () => {
 
       const result = await service.getLocationTree(mockTenantId);
 
-      expect(result.data).toHaveLength(1);
+      expect(mockFiscalConfigRepository.find).toHaveBeenCalledWith({
+        where: { tenant_id: mockTenantId },
+        order: { created_at: 'DESC' },
+      });
+      expect(result.data).toHaveLength(2);
       expect(result.data[0].razon_social).toBe('MADERERIA ZONA NORTE');
+      expect(result.data[1].razon_social).toBe('MADERAS FINAS Y HERRAJES');
       expect(result.data[0].branches).toHaveLength(1);
       expect(result.data[0].branches[0].name).toBe('Tijuana');
       expect(result.data[0].branches[0].warehouses).toEqual([

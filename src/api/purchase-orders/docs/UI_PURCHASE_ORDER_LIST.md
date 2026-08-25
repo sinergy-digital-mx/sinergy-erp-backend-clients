@@ -16,6 +16,8 @@ Tab **Información**. Tres combos en cascada (obligatorios), en este orden:
 
 El resto no cambia: proveedor, fecha esperada, notas, tab Productos.
 
+Moneda de la OC (`payment_currency` MXN | USD): badge, no mezclar productos, y si el producto no tiene costo de ese proveedor se crea al guardar. Ver `UI_PURCHASE_ORDER_CURRENCY.md`.
+
 ### Combos
 
 **Razón social**
@@ -66,6 +68,7 @@ POST /api/tenant/purchase-orders
   "warehouse_id": "uuid-almacen",
   "vendor_id": "uuid-proveedor",
   "expected_delivery_date": "2026-08-20",
+  "payment_currency": "MXN",
   "notes": "opcional",
   "pedimento_number": "162430010001234",
   "line_items": []
@@ -135,6 +138,7 @@ Cascada de filtros igual que el modal: cambia razón → reset sucursal y almac�
 | Almacén | `warehouse.name` |
 | Estado | `general_status` |
 | Total | `requested_total` |
+| Moneda | `payment_currency` (`MXN` \| `USD`) |
 | Pago | `payment_status` |
 | Fecha | `created_at` |
 

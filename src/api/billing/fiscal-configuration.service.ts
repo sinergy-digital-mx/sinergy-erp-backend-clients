@@ -63,7 +63,7 @@ export class FiscalConfigurationService {
       queryBuilder.andWhere('config.status = :status', { status: query.status });
     }
 
-    queryBuilder.orderBy('config.created_at', 'DESC');
+    queryBuilder.orderBy('config.created_at', 'ASC');
 
     const total = await queryBuilder.getCount();
     const data = await queryBuilder.skip(skip).take(limit).getMany();

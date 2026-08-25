@@ -423,7 +423,7 @@ Links a detalle de cada lote.
 Contenido del PDF:
 - Folio + estado + fecha/hora
 - Quién transfirió (nombre + correo)
-- Ruta origen → destino (razón social, RFC, sucursal, ciudad, almacén)
+- Ruta origen → destino (nombre de almacén, razón social, RFC, sucursal, ciudad; nunca UUID)
 - Producto (nombre, SKU, UOM, cantidad total)
 - Tabla de líneas (lote origen → cantidad → lote destino)
 - Notas (si hay)

@@ -53,6 +53,11 @@ export class CreateLineItemDto {
   @Min(0)
   @IsOptional()
   ieps_unit?: number;
+
+  /** Moneda de esta línea. Debe coincidir con el costo de proveedor o con el resto de la OC. */
+  @IsEnum(['MXN', 'USD'])
+  @IsOptional()
+  currency?: 'MXN' | 'USD';
 }
 
 export class CreatePurchaseOrderDto {

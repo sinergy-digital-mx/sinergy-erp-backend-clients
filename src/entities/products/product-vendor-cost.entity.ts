@@ -45,6 +45,14 @@ export class ProductVendorCost {
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   cost: number;
 
+  /** Moneda del costo de este proveedor + UOM. Una OC no puede mezclar MXN y USD. */
+  @Column({
+    type: 'enum',
+    enum: ['MXN', 'USD'],
+    default: 'MXN',
+  })
+  currency: string;
+
   @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
   iva_percentage: number;
 

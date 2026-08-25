@@ -61,6 +61,11 @@ export class BatchDetailResponseDto {
   @ApiProperty({ nullable: true }) purchase_order_batch_id: string | null;
   @ApiProperty({ nullable: true }) purchase_order_detail_id: string | null;
   @ApiProperty({ nullable: true }) purchase_order_folio: string | null;
+  @ApiProperty({
+    nullable: true,
+    description: 'Número de pedimento de la OC de origen. Null si no hay OC o la OC no tiene pedimento.',
+  })
+  pedimento_number: string | null;
 
   @ApiProperty() uom_id: string;
   @ApiProperty() uom_name: string;

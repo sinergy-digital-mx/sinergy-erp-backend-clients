@@ -94,20 +94,10 @@ export class InventoryTransferPdfService {
       columns: [
         {
           width: '*',
-          stack: [
-            {
-              text: 'SINERGY ERP',
-              fontSize: 11,
-              bold: true,
-              color: COLORS.primary,
-            },
-            {
-              text: 'Inventario · Transferencias',
-              fontSize: 8,
-              color: COLORS.muted,
-              margin: [0, 2, 0, 0],
-            },
-          ],
+          text: 'Inventario · Transferencias',
+          fontSize: 8,
+          color: COLORS.muted,
+          margin: [0, 4, 0, 0],
         },
         {
           width: 'auto',
@@ -227,7 +217,7 @@ export class InventoryTransferPdfService {
                       color: COLORS.accent,
                     },
                     {
-                      text: source?.name || '—',
+                      text: this.warehouseTitle(source),
                       fontSize: 11,
                       bold: true,
                       margin: [0, 4, 0, 0],
@@ -243,11 +233,42 @@ export class InventoryTransferPdfService {
                   fillColor: COLORS.light,
                 },
                 {
-                  text: '→',
-                  fontSize: 22,
-                  bold: true,
-                  color: COLORS.accent,
-                  alignment: 'center',
+                  columns: [
+                    { width: '*', text: '' },
+                    {
+                      width: 48,
+                      canvas: [
+                        {
+                          type: 'line',
+                          x1: 2,
+                          y1: 10,
+                          x2: 36,
+                          y2: 10,
+                          lineWidth: 2,
+                          lineColor: COLORS.accent,
+                        },
+                        {
+                          type: 'line',
+                          x1: 28,
+                          y1: 4,
+                          x2: 40,
+                          y2: 10,
+                          lineWidth: 2,
+                          lineColor: COLORS.accent,
+                        },
+                        {
+                          type: 'line',
+                          x1: 28,
+                          y1: 16,
+                          x2: 40,
+                          y2: 10,
+                          lineWidth: 2,
+                          lineColor: COLORS.accent,
+                        },
+                      ],
+                    },
+                    { width: '*', text: '' },
+                  ],
                   border: [false, false, false, false],
                   margin: [0, 14, 0, 0],
                 },
@@ -260,7 +281,7 @@ export class InventoryTransferPdfService {
                       color: COLORS.accent,
                     },
                     {
-                      text: dest?.name || '—',
+                      text: this.warehouseTitle(dest),
                       fontSize: 11,
                       bold: true,
                       margin: [0, 4, 0, 0],
@@ -543,6 +564,16 @@ export class InventoryTransferPdfService {
     };
   }
 
+  private warehouseTitle(
+    warehouse?: InventoryTransferResponseDto['source_warehouse'] | null,
+  ): string {
+    const name = warehouse?.name?.trim();
+    if (name && !this.isUuid(name)) return name;
+    const code = warehouse?.code?.trim();
+    if (code && !this.isUuid(code)) return code;
+    return 'Almacén';
+  }
+
   private warehouseDetails(
     warehouse?: InventoryTransferResponseDto['source_warehouse'] | null,
   ): string {
@@ -556,12 +587,21 @@ export class InventoryTransferPdfService {
     ]
       .filter(Boolean)
       .join(' · ');
+    const code = warehouse.code?.trim();
+    const humanCode = code && !this.isUuid(code) ? code : null;
+    const title = this.warehouseTitle(warehouse);
     const parts = [
       location || null,
-      warehouse.code ? `Almacén: ${warehouse.code}` : null,
+      humanCode && humanCode !== title ? `Código: ${humanCode}` : null,
       warehouse.fiscal_rfc ? `RFC: ${warehouse.fiscal_rfc}` : null,
     ].filter(Boolean);
     return parts.length ? parts.join('\n') : 'Sin razón social / sucursal';
+  }
+
+  private isUuid(value: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      value.trim(),
+    );
   }
 
   private formatQty(value: string | number | null | undefined): string {

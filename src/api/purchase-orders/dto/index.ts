@@ -7,6 +7,7 @@ export {
 } from './receive-purchase-order.dto';
 export { UpdateLineItemDto } from './update-line-item.dto';
 export { QueryPurchaseOrderDto } from './query-purchase-order.dto';
+export { QueryVendorProductsDto } from './query-vendor-products.dto';
 export { QueryInventoryBatchDto } from './query-inventory-batch.dto';
 export { CreatePurchaseOrderPaymentDto } from './create-purchase-order-payment.dto';
 export { RegenerateDocumentDto } from './regenerate-document.dto';

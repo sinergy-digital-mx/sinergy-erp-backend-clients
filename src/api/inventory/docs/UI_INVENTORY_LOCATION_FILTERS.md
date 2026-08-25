@@ -77,6 +77,8 @@ Permiso: `inventory:read`. **No** uses `FiscalConfiguration:Read` ni `Warehouse:
 
 Cargar **una vez** al entrar a Inventario. Filtrar en cliente.
 
+`data[]` llega ordenado por `created_at` DESC (la razón social más reciente primero). **No** reordenar alfabéticamente en cliente.
+
 | Dropdown | `value` | `label` |
 |----------|---------|---------|
 | Razón social | `data[i].id` | `razon_social` (RFC a la derecha, opcional) |
@@ -228,7 +230,7 @@ Mantener **Almacén**. Agregar **Razón social** y **Sucursal** (pueden ir a la 
 | Almacén | `warehouse_name` |
 | Cantidad | `total_available_quantity` |
 
-Detalle de lote (`GET /batches/:id`) trae los mismos campos: `razon_social`, `sucursal`, `fiscal_configuration_id`, `billing_branch_id`.
+Detalle de lote (`GET /batches/:id`) trae los mismos campos: `razon_social`, `sucursal`, `fiscal_configuration_id`, `billing_branch_id`. Pedimento de la OC de origen: `pedimento_number` (ver `UI_INVENTORY_BATCH_PEDIMENTO.md`).
 
 ---
 

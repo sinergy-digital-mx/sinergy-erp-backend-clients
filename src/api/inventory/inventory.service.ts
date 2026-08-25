@@ -83,7 +83,7 @@ export class InventoryService {
   async getLocationTree(tenantId: string): Promise<InventoryLocationTreeResponseDto> {
     const fiscals = await this.fiscalConfigRepo.find({
       where: { tenant_id: tenantId },
-      order: { razon_social: 'ASC' },
+      order: { created_at: 'DESC' },
     });
 
     const branches = await this.billingBranchRepo
@@ -1241,6 +1241,7 @@ export class InventoryService {
       purchase_order_batch_id: batch.purchase_order_batch_id ?? null,
       purchase_order_detail_id: batch.purchase_order_detail_id ?? null,
       purchase_order_folio: batch.purchase_order_batch?.folio ?? null,
+      pedimento_number: batch.purchase_order_batch?.pedimento_number ?? null,
       uom_id: batch.uom_id,
       uom_name: batch.uom?.name ?? null,
       initial_quantity: initial.toFixed(3),

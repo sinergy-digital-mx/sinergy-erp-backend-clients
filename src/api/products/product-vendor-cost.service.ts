@@ -65,6 +65,7 @@ export class ProductVendorCostService {
       ...dto,
       ...totals,
       product_id: productId,
+      currency: dto.currency || 'MXN',
     });
 
     const saved = await this.productVendorCostRepository.save(vendorCost);
