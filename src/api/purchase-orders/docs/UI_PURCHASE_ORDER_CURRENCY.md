@@ -20,6 +20,8 @@ Tras el primer producto, **la moneda de la OC queda bloqueada**. Si el usuario q
 
 Listado y detalle: `payment_currency` ya viene en el GET de la OC. Muestra el mismo badge.
 
+En el tab Productos del detalle: badge junto al costo unitario y al importe de línea. Nunca texto plano `"USD 2.22"`. Ver `UI_PURCHASE_ORDER_LINE_ITEMS.md`.
+
 Cards **Por Estado** / **Estado de Pago** del listado: montos partidos en MXN y USD (`stats.by_currency`). No sumar. Ver `UI_PURCHASE_ORDER_STATS.md`.
 
 ---
@@ -114,7 +116,7 @@ Cambiar de proveedor con productos ya en el carrito: vaciar líneas y resetear e
 - [ ] Modal costo de producto: radio MXN / USD. Ver `UI_PRODUCT_VENDOR_COST_CURRENCY.md`
 - [ ] Tabla de costos del producto: columna moneda
 - [ ] Agregar producto en OC: prefill `uom.currency`; si `null`, el usuario elige
-- [ ] Badge de moneda en crear / editar / detalle / listado
+- [ ] Badge de moneda en crear / editar / detalle / listado (en detalle: también en costo e importe de cada línea)
 - [ ] No mezclar: bloquear Agregar si la moneda del producto ≠ la de la OC
 - [ ] POST manda `payment_currency` y `line_items[].currency`
 - [ ] Sin costo de proveedor: sí se agrega; al crear la OC se persiste el costo

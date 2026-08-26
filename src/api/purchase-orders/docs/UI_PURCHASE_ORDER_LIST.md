@@ -207,6 +207,8 @@ No mostrar solo “Configuración fiscal” / “Almacén”. Las tres cards.
 
 Proveedor internacional y pedimento: ver `UI_PURCHASE_ORDER_PEDIMENTO.md`. Badge en la card **Proveedor** si `is_international_vendor`. Campo **Pedimento** **arriba de FECHAS**.
 
+Tab Productos: editar/eliminar línea, IVA % y badge de moneda. Ver `UI_PURCHASE_ORDER_LINE_ITEMS.md`. No uses PUT de la OC para cambiar una sola línea.
+
 ---
 
 ## 4. Excel
@@ -227,3 +229,4 @@ Mismos filtros del listado (`fiscal_configuration_id`, `billing_branch_id`, `war
 - [ ] Detalle: cards Razón social, Sucursal y Almacén
 - [ ] Excel reutiliza esos filtros
 - [ ] Cards Por Estado / Estado de Pago: montos MXN y USD por separado (`stats`). Ver `UI_PURCHASE_ORDER_STATS.md`
+- [ ] Detalle: editar/eliminar líneas en Creada, IVA % y badge MXN/USD. Ver `UI_PURCHASE_ORDER_LINE_ITEMS.md`

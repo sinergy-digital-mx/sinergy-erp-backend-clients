@@ -602,6 +602,29 @@ export class PurchaseOrderService {
     }
   }
 
+  private roundMoney(value: number): number {
+    return Math.round(value * 100) / 100;
+  }
+
+  /** Totales de línea para la tabla/footer del detalle (no se persisten). */
+  private mapLineItemForUi(line: PurchaseOrderBatchDetail) {
+    const quantity = Number(line.quantity) || 0;
+    const unitTotal = Number(line.unit_total) || 0;
+    const ivaPercentage = Number(line.iva_percentage) || 0;
+    const iepsPercentage = Number(line.ieps_percentage) || 0;
+    const lineSubtotal = quantity * unitTotal;
+    const lineIva = (lineSubtotal * ivaPercentage) / 100;
+    const lineIeps = (lineSubtotal * iepsPercentage) / 100;
+
+    return {
+      ...line,
+      line_subtotal: this.roundMoney(lineSubtotal),
+      line_iva: this.roundMoney(lineIva),
+      line_ieps: this.roundMoney(lineIeps),
+      line_total: this.roundMoney(lineSubtotal + lineIva + lineIeps),
+    };
+  }
+
   private mapPurchaseOrderLocation(po: PurchaseOrderBatch) {
     const branch = po.warehouse?.billing_branch ?? null;
     const fiscal = po.fiscal_configuration ?? null;
@@ -609,6 +632,7 @@ export class PurchaseOrderService {
 
     return {
       ...po,
+      can_edit_lines: po.general_status === 'Creada',
       is_international_vendor: isInternationalVendor,
       pedimento_number: isInternationalVendor ? po.pedimento_number ?? null : null,
       razon_social: fiscal?.razon_social ?? null,
@@ -626,7 +650,26 @@ export class PurchaseOrderService {
             fiscal_configuration_id: branch.fiscal_configuration_id,
           }
         : null,
+      line_items: Array.isArray(po.line_items)
+        ? po.line_items.map((line) => this.mapLineItemForUi(line))
+        : po.line_items,
     };
+  }
+
+  private scheduleDocumentoOriginalRegen(
+    orderId: string,
+    tenantId: string,
+    userId: string,
+    context: string,
+  ): void {
+    this.regenerateDocumentoOriginalPreservingLanguage(orderId, tenantId, userId).catch(
+      (err) => {
+        console.error(
+          `[PDF] Error regenerating DOCUMENTO_ORIGINAL after ${context}:`,
+          err,
+        );
+      },
+    );
   }
 
   private async getVendorOrFail(vendorId: string, tenantId: string): Promise<Vendor> {
@@ -1309,7 +1352,7 @@ export class PurchaseOrderService {
     dto: CreateLineItemDto,
     tenantId: string,
     userId: string,
-  ): Promise<PurchaseOrderBatchDetail> {
+  ): Promise<PurchaseOrderBatch> {
     const purchaseOrder = await this.findOne(orderId, tenantId);
 
     if (purchaseOrder.general_status !== 'Creada') {
@@ -1377,7 +1420,8 @@ export class PurchaseOrderService {
       await queryRunner.release();
     }
 
-    return detail;
+    this.scheduleDocumentoOriginalRegen(orderId, tenantId, userId, 'add line item');
+    return this.findOne(orderId, tenantId);
   }
 
   /**
@@ -1466,7 +1510,7 @@ export class PurchaseOrderService {
     dto: UpdateLineItemDto,
     tenantId: string,
     userId: string,
-  ): Promise<PurchaseOrderBatchDetail> {
+  ): Promise<PurchaseOrderBatch> {
     const purchaseOrder = await this.findOne(orderId, tenantId);
 
     if (purchaseOrder.general_status !== 'Creada') {
@@ -1538,7 +1582,8 @@ export class PurchaseOrderService {
       await queryRunner.release();
     }
 
-    return lineItem;
+    this.scheduleDocumentoOriginalRegen(orderId, tenantId, userId, 'update line item');
+    return this.findOne(orderId, tenantId);
   }
 
   /**
@@ -1549,7 +1594,7 @@ export class PurchaseOrderService {
     lineItemId: string,
     tenantId: string,
     userId: string,
-  ): Promise<{ success: true; id: string }> {
+  ): Promise<PurchaseOrderBatch> {
     const purchaseOrder = await this.findOne(orderId, tenantId);
 
     if (purchaseOrder.general_status !== 'Creada') {
@@ -1583,7 +1628,8 @@ export class PurchaseOrderService {
       await queryRunner.release();
     }
 
-    return { success: true, id: lineItemId };
+    this.scheduleDocumentoOriginalRegen(orderId, tenantId, userId, 'remove line item');
+    return this.findOne(orderId, tenantId);
   }
   /**
    * Regenerate DOCUMENTO_ORIGINAL for a purchase order
