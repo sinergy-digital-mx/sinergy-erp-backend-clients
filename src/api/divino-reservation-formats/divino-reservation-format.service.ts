@@ -105,7 +105,8 @@ export class DivinoReservationFormatService {
             .orWhere('LOWER(format.received_from) LIKE LOWER(:search)')
             .orWhere('LOWER(format.created_by_name) LIKE LOWER(:search)')
             .orWhere('LOWER(property.code) LIKE LOWER(:search)')
-            .orWhere('LOWER(property.name) LIKE LOWER(:search)');
+            .orWhere('LOWER(property.name) LIKE LOWER(:search)')
+            .orWhere('LOWER(property.cadastral_key) LIKE LOWER(:search)');
         }),
         { search: `%${query.search}%` },
       );

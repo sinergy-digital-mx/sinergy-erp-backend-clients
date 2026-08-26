@@ -212,10 +212,10 @@ export class ContractsService {
         .andWhere('p.status IN (:...statuses)', { statuses: ['pendiente', 'parcial'] });
     }
 
-    // Search by customer name, contract number, or property code
+    // Search by customer name, contract number, property code or cadastral key
     if (search) {
       query.andWhere(
-        '(customer.name LIKE :search OR customer.lastname LIKE :search OR c.contract_number LIKE :search OR property.code LIKE :search)',
+        '(customer.name LIKE :search OR customer.lastname LIKE :search OR c.contract_number LIKE :search OR property.code LIKE :search OR LOWER(property.cadastral_key) LIKE LOWER(:search))',
         { search: `%${search}%` }
       );
     }
@@ -265,7 +265,7 @@ export class ContractsService {
 
     if (search) {
       countQuery.andWhere(
-        '(customer.name LIKE :search OR customer.lastname LIKE :search OR c.contract_number LIKE :search OR property.code LIKE :search)',
+        '(customer.name LIKE :search OR customer.lastname LIKE :search OR c.contract_number LIKE :search OR property.code LIKE :search OR LOWER(property.cadastral_key) LIKE LOWER(:search))',
         { search: `%${search}%` }
       );
     }

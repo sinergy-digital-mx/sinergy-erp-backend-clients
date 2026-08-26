@@ -46,7 +46,7 @@ export class ContractsExportService {
 
     if (search) {
       query.andWhere(
-        '(customer.name LIKE :search OR customer.lastname LIKE :search OR c.contract_number LIKE :search OR property.code LIKE :search)',
+        '(customer.name LIKE :search OR customer.lastname LIKE :search OR c.contract_number LIKE :search OR property.code LIKE :search OR LOWER(property.cadastral_key) LIKE LOWER(:search))',
         { search: `%${search}%` }
       );
     }
@@ -462,7 +462,7 @@ export class ContractsExportService {
 
     if (search) {
       query.leftJoin('c.customer', 'customer').leftJoin('c.property', 'property').andWhere(
-        '(customer.name LIKE :search OR customer.lastname LIKE :search OR c.contract_number LIKE :search OR property.code LIKE :search)',
+        '(customer.name LIKE :search OR customer.lastname LIKE :search OR c.contract_number LIKE :search OR property.code LIKE :search OR LOWER(property.cadastral_key) LIKE LOWER(:search))',
         { search: `%${search}%` }
       );
     }
@@ -513,7 +513,7 @@ export class ContractsExportService {
     }
     if (search) {
       overdueStats.leftJoin('c.customer', 'customer').leftJoin('c.property', 'property').andWhere(
-        '(customer.name LIKE :search OR customer.lastname LIKE :search OR c.contract_number LIKE :search OR property.code LIKE :search)',
+        '(customer.name LIKE :search OR customer.lastname LIKE :search OR c.contract_number LIKE :search OR property.code LIKE :search OR LOWER(property.cadastral_key) LIKE LOWER(:search))',
         { search: `%${search}%` }
       );
     }

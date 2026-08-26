@@ -296,6 +296,7 @@ export class CustomersService {
                     OR LOWER(customer.fiscal_razon_social) LIKE LOWER(:search)
                     OR LOWER(property.code) LIKE LOWER(:search)
                     OR LOWER(property.name) LIKE LOWER(:search)
+                    OR LOWER(property.cadastral_key) LIKE LOWER(:search)
                     OR LOWER(contracts.contract_number) LIKE LOWER(:search)
                 )`,
                 { search: term },

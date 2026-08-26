@@ -109,7 +109,7 @@ GET /tenant/divino-reservation-formats?page=1&limit=20&search=juan&status=draft
 Query params:
 
 - `page` (default 1), `limit` (default 20, máx 100)
-- `search`: busca en folio, nombre/correo del comprador, "recibido de", quién lo creó y código/nombre del lote.
+- `search`: busca en folio, nombre/correo del comprador, "recibido de", quién lo creó, código/nombre del lote y clave catastral.
 - `status`: `draft` | `sent`
 - `property_id`: filtra por lote
 

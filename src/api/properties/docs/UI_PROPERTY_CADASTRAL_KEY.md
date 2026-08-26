@@ -110,6 +110,7 @@ PUT  /api/tenant/properties/:id
 |----------|-----------|
 | Tabla | Columna **Clave catastral** = `row.cadastral_key`. Si `null` / `''` → `—` |
 | Búsqueda | `search` ya cubre `cadastral_key` (también código, manzana, número de lote). Sin query param extra |
+| Contratos | `GET /api/tenant/contracts?search=` también busca por `property.cadastral_key` |
 | Modal | Precargar con `property.cadastral_key` del GET `/:id` |
 | Detalle | Campo de solo lectura o editable según permiso Update |
 
@@ -127,5 +128,6 @@ Sin cambio: `Property` + `Create` / `Update` / `Read`.
 - [ ] Columna o dato visible en listado y detalle
 - [ ] Abrir editar recarga el GET y pinta `cadastral_key`
 - [ ] Guardar vacío limpia el valor (`null`)
-- [ ] Búsqueda del listado encuentra por clave catastral
+- [ ] Búsqueda del listado de lotes encuentra por clave catastral (`search`)
+- [ ] Búsqueda de contratos encuentra por clave catastral del lote (`search`, mismo param)
 - [ ] No usar camelCase ni `clave_catastral` en el payload
