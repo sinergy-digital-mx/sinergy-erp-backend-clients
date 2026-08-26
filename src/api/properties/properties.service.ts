@@ -24,6 +24,7 @@ export class PropertiesService {
     const property = this.propertyRepo.create({
       ...dto,
       tenant_id: tenantId,
+      cadastral_key: this.normalizeOptionalText(dto.cadastral_key),
     });
 
     let saved: Property;
@@ -73,7 +74,7 @@ export class PropertiesService {
 
     if (search) {
       query.andWhere(
-        '(LOWER(p.code) LIKE LOWER(:search) OR LOWER(p.name) LIKE LOWER(:search) OR LOWER(p.block) LIKE LOWER(:search) OR LOWER(p.location) LIKE LOWER(:search) OR LOWER(p.description) LIKE LOWER(:search) OR LOWER(customer.name) LIKE LOWER(:search) OR LOWER(customer.lastname) LIKE LOWER(:search) OR LOWER(CONCAT(customer.name, " ", customer.lastname)) LIKE LOWER(:search))',
+        '(LOWER(p.code) LIKE LOWER(:search) OR LOWER(p.name) LIKE LOWER(:search) OR LOWER(p.block) LIKE LOWER(:search) OR LOWER(p.lot_number) LIKE LOWER(:search) OR LOWER(p.cadastral_key) LIKE LOWER(:search) OR LOWER(p.location) LIKE LOWER(:search) OR LOWER(p.description) LIKE LOWER(:search) OR LOWER(customer.name) LIKE LOWER(:search) OR LOWER(customer.lastname) LIKE LOWER(:search) OR LOWER(CONCAT(customer.name, " ", customer.lastname)) LIKE LOWER(:search))',
         { search: `%${search}%` }
       );
     }
@@ -155,6 +156,9 @@ export class PropertiesService {
     }
 
     Object.assign(property, dto);
+    if (dto.cadastral_key !== undefined) {
+      property.cadastral_key = this.normalizeOptionalText(dto.cadastral_key);
+    }
 
     let updated: Property;
     try {
@@ -220,6 +224,14 @@ export class PropertiesService {
     return this.measurementUnitRepo.find({
       order: { system: 'ASC', name: 'ASC' },
     });
+  }
+
+  private normalizeOptionalText(value?: string | null): string | null {
+    if (value == null) {
+      return null;
+    }
+    const trimmed = value.trim();
+    return trimmed === '' ? null : trimmed;
   }
 
   private async assertPropertyCodeAvailable(

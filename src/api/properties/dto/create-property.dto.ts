@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, Length, IsEnum } from 'class-validator';
+import { IsString, IsNumber, IsOptional, Length, IsEnum, MaxLength } from 'class-validator';
 
 export class CreatePropertyDto {
   @IsString()
@@ -14,6 +14,11 @@ export class CreatePropertyDto {
   @IsString()
   @Length(1, 50)
   lot_number?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  cadastral_key?: string;
 
   @IsString()
   @Length(1, 150)

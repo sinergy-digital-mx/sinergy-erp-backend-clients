@@ -27,7 +27,14 @@ export function assertInventoryLocationCascade(filters: InventoryLocationQuery):
 export function joinInventoryLocation(
   qb: SelectQueryBuilder<InventoryBatch>,
   warehouseAlias = 'warehouse',
+  options?: { select?: boolean },
 ): SelectQueryBuilder<InventoryBatch> {
+  if (options?.select === false) {
+    return qb
+      .leftJoin(`${warehouseAlias}.billing_branch`, 'billing_branch')
+      .leftJoin('billing_branch.fiscal_configuration', 'fiscal_configuration');
+  }
+
   return qb
     .leftJoinAndSelect(`${warehouseAlias}.billing_branch`, 'billing_branch')
     .leftJoinAndSelect('billing_branch.fiscal_configuration', 'fiscal_configuration');

@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, SelectQueryBuilder, Brackets, In } from 'typeorm';
 import { InventoryBatch } from '../../entities/purchase-orders/inventory-batch.entity';
 import { InventoryTransferLine } from '../../entities/inventory/inventory-transfer-line.entity';
 import { ProductPrice } from '../../entities/products/product-price.entity';
@@ -707,92 +707,8 @@ export class InventoryService {
         `Finding all batches for tenant: ${tenantId}, filters: ${JSON.stringify(filters)}`,
       );
 
-      const query = this.inventoryBatchRepo
-        .createQueryBuilder('batch')
-        .where('batch.tenant_id = :tenantId', { tenantId })
-        .leftJoinAndSelect('batch.product', 'product')
-        .leftJoinAndSelect('batch.warehouse', 'warehouse')
-        .leftJoinAndSelect('batch.uom', 'uom')
-        .leftJoinAndSelect('batch.purchase_order_batch', 'purchase_order_batch');
-
-      joinInventoryLocation(query);
       await this.assertLocationHierarchy(tenantId, filters);
-      applyInventoryLocationFilters(query, filters);
-
-      // Apply filters
-      if (filters.search) {
-        query.andWhere(
-          '(LOWER(batch.batch_number) LIKE LOWER(:search) OR LOWER(product.name) LIKE LOWER(:search) OR LOWER(product.sku) LIKE LOWER(:search))',
-          { search: `%${filters.search}%` },
-        );
-      }
-
-      if (filters.batch_number) {
-        query.andWhere('LOWER(batch.batch_number) LIKE LOWER(:batch_number)', {
-          batch_number: `%${filters.batch_number}%`,
-        });
-      }
-
-      if (filters.product_id) {
-        query.andWhere('batch.product_id = :product_id', {
-          product_id: filters.product_id,
-        });
-      }
-
-      if (filters.purchase_order_batch_id) {
-        query.andWhere('batch.purchase_order_batch_id = :purchase_order_batch_id', {
-          purchase_order_batch_id: filters.purchase_order_batch_id,
-        });
-      }
-
-      if (filters.purchase_order_id) {
-        query.andWhere('batch.purchase_order_batch_id = :purchase_order_id', {
-          purchase_order_id: filters.purchase_order_id,
-        });
-      }
-
-      if (filters.created_from) {
-        query.andWhere('batch.created_at >= :created_from', {
-          created_from: new Date(filters.created_from),
-        });
-      }
-
-      if (filters.created_to) {
-        query.andWhere('batch.created_at <= :created_to', {
-          created_to: new Date(filters.created_to),
-        });
-      }
-
-      // Apply sorting — 'quantity' maps to available_quantity column
-      const sortBy = filters.sort_by === 'quantity' ? 'available_quantity' : (filters.sort_by || 'created_at');
-      const sortOrder = filters.sort_order || 'DESC';
-      query.orderBy(`batch.${sortBy}`, sortOrder as 'ASC' | 'DESC');
-
-      // Apply pagination
-      const page = filters.page || 1;
-      const limit = filters.limit || 20;
-      const skip = (page - 1) * limit;
-
-      query.skip(skip).take(limit);
-
-      const [data, total] = await query.getManyAndCount();
-
-      // Map to response DTOs
-      const batchDtos = data.map(batch => this.mapToResponseDto(batch));
-
-      const totalPages = Math.ceil(total / limit);
-
-      this.logger.log(
-        `Successfully retrieved ${data.length} batches out of ${total} total for tenant: ${tenantId}`,
-      );
-
-      return {
-        data: batchDtos,
-        total,
-        page,
-        limit,
-        totalPages,
-      };
+      return this.paginateBatches(tenantId, filters);
     } catch (error) {
       this.logger.error(
         `Error finding all batches for tenant ${tenantId}: ${error.message}`,
@@ -863,85 +779,12 @@ export class InventoryService {
         `Finding batches for purchase order: ${poId}, tenant: ${tenantId}, filters: ${JSON.stringify(filters)}`,
       );
 
-      const query = this.inventoryBatchRepo
-        .createQueryBuilder('batch')
-        .where('batch.tenant_id = :tenantId', { tenantId })
-        .andWhere('batch.purchase_order_batch_id = :poId', { poId })
-        .leftJoinAndSelect('batch.product', 'product')
-        .leftJoinAndSelect('batch.warehouse', 'warehouse')
-        .leftJoinAndSelect('batch.uom', 'uom')
-        .leftJoinAndSelect('batch.purchase_order_batch', 'purchase_order_batch');
-
-      joinInventoryLocation(query);
-
-      // Apply filters
-      if (filters.search) {
-        query.andWhere(
-          '(LOWER(batch.batch_number) LIKE LOWER(:search) OR LOWER(product.name) LIKE LOWER(:search) OR LOWER(product.sku) LIKE LOWER(:search))',
-          { search: `%${filters.search}%` },
-        );
-      }
-
-      if (filters.batch_number) {
-        query.andWhere('LOWER(batch.batch_number) LIKE LOWER(:batch_number)', {
-          batch_number: `%${filters.batch_number}%`,
-        });
-      }
-
-      if (filters.product_id) {
-        query.andWhere('batch.product_id = :product_id', {
-          product_id: filters.product_id,
-        });
-      }
-
-      if (filters.warehouse_id) {
-        query.andWhere('batch.warehouse_id = :warehouse_id', {
-          warehouse_id: filters.warehouse_id,
-        });
-      }
-
-      if (filters.created_from) {
-        query.andWhere('batch.created_at >= :created_from', {
-          created_from: new Date(filters.created_from),
-        });
-      }
-
-      if (filters.created_to) {
-        query.andWhere('batch.created_at <= :created_to', {
-          created_to: new Date(filters.created_to),
-        });
-      }
-
-      // Apply sorting — 'quantity' maps to available_quantity column
-      const sortBy = filters.sort_by === 'quantity' ? 'available_quantity' : (filters.sort_by || 'created_at');
-      const sortOrder = filters.sort_order || 'DESC';
-      query.orderBy(`batch.${sortBy}`, sortOrder as 'ASC' | 'DESC');
-
-      // Apply pagination
-      const page = filters.page || 1;
-      const limit = filters.limit || 20;
-      const skip = (page - 1) * limit;
-
-      query.skip(skip).take(limit);
-
-      const [data, total] = await query.getManyAndCount();
-
-      // Map to response DTOs
-      const batchDtos = data.map(batch => this.mapToResponseDto(batch));
-
-      const totalPages = Math.ceil(total / limit);
-
-      this.logger.log(
-        `Successfully retrieved ${data.length} batches out of ${total} total for purchase order: ${poId}`,
-      );
-
-      return {
-        data: batchDtos,
-        total,
-        page,
-        limit,
-        totalPages,
-      };
+      return this.paginateBatches(tenantId, filters, {
+        extraWhere: (qb) => {
+          qb.andWhere('batch.purchase_order_batch_id = :poId', { poId });
+        },
+        applyLocation: false,
+      });
     } catch (error) {
       this.logger.error(
         `Error finding batches for purchase order ${poId}, tenant ${tenantId}: ${error.message}`,
@@ -1008,6 +851,158 @@ export class InventoryService {
     };
   }
 
+  private async paginateBatches(
+    tenantId: string,
+    filters: BatchFilterDto,
+    options?: {
+      extraWhere?: (qb: SelectQueryBuilder<InventoryBatch>) => void;
+      applyLocation?: boolean;
+    },
+  ): Promise<BatchListResponseDto> {
+    const applyLocation = options?.applyLocation !== false;
+    const page = filters.page || 1;
+    const limit = filters.limit || 20;
+    const skip = (page - 1) * limit;
+    const sortBy =
+      filters.sort_by === 'quantity' ? 'available_quantity' : (filters.sort_by || 'created_at');
+    const sortOrder = (filters.sort_order || 'DESC') as 'ASC' | 'DESC';
+
+    const countQb = this.createBatchesQuery(tenantId, filters, {
+      hydrate: false,
+      applyLocation,
+      extraWhere: options?.extraWhere,
+    });
+    const dataQb = this.createBatchesQuery(tenantId, filters, {
+      hydrate: true,
+      applyLocation,
+      extraWhere: options?.extraWhere,
+    });
+    dataQb.orderBy(`batch.${sortBy}`, sortOrder).skip(skip).take(limit);
+
+    const [total, data] = await Promise.all([countQb.getCount(), dataQb.getMany()]);
+    const totalPages = Math.ceil(total / limit);
+
+    this.logger.log(
+      `Successfully retrieved ${data.length} batches out of ${total} total for tenant: ${tenantId}`,
+    );
+
+    return {
+      data: data.map((batch) => this.mapToResponseDto(batch)),
+      total,
+      page,
+      limit,
+      totalPages,
+    };
+  }
+
+  private createBatchesQuery(
+    tenantId: string,
+    filters: BatchFilterDto,
+    options: {
+      hydrate: boolean;
+      applyLocation: boolean;
+      extraWhere?: (qb: SelectQueryBuilder<InventoryBatch>) => void;
+    },
+  ): SelectQueryBuilder<InventoryBatch> {
+    const qb = this.inventoryBatchRepo
+      .createQueryBuilder('batch')
+      .where('batch.tenant_id = :tenantId', { tenantId });
+
+    if (options.hydrate) {
+      this.hydrateBatchListJoins(qb);
+    } else {
+      if (filters.search) {
+        qb.leftJoin('batch.product', 'product');
+      }
+      if (options.applyLocation && (filters.fiscal_configuration_id || filters.billing_branch_id)) {
+        qb.leftJoin('batch.warehouse', 'warehouse');
+        if (filters.fiscal_configuration_id) {
+          qb.leftJoin('warehouse.billing_branch', 'billing_branch');
+        }
+      }
+    }
+
+    options.extraWhere?.(qb);
+    this.applyBatchFieldFilters(qb, filters, { applyLocation: options.applyLocation });
+    return qb;
+  }
+
+  private hydrateBatchListJoins(qb: SelectQueryBuilder<InventoryBatch>): void {
+    qb.leftJoin('batch.product', 'product')
+      .addSelect(['product.id', 'product.name', 'product.sku'])
+      .leftJoin('batch.warehouse', 'warehouse')
+      .addSelect(['warehouse.id', 'warehouse.name', 'warehouse.billing_branch_id'])
+      .leftJoin('warehouse.billing_branch', 'billing_branch')
+      .addSelect([
+        'billing_branch.id',
+        'billing_branch.code',
+        'billing_branch.fiscal_configuration_id',
+      ])
+      .leftJoin('billing_branch.fiscal_configuration', 'fiscal_configuration')
+      .addSelect(['fiscal_configuration.id', 'fiscal_configuration.razon_social'])
+      .leftJoin('batch.uom', 'uom')
+      .addSelect(['uom.id', 'uom.name'])
+      .leftJoin('batch.purchase_order_batch', 'purchase_order_batch')
+      .addSelect(['purchase_order_batch.id', 'purchase_order_batch.folio']);
+  }
+
+  private applyBatchFieldFilters(
+    qb: SelectQueryBuilder<InventoryBatch>,
+    filters: BatchFilterDto,
+    options: { applyLocation: boolean },
+  ): void {
+    if (options.applyLocation) {
+      applyInventoryLocationFilters(qb, filters);
+    } else if (filters.warehouse_id) {
+      qb.andWhere('batch.warehouse_id = :warehouse_id', {
+        warehouse_id: filters.warehouse_id,
+      });
+    }
+
+    if (filters.search) {
+      qb.andWhere(
+        '(LOWER(batch.batch_number) LIKE LOWER(:search) OR LOWER(product.name) LIKE LOWER(:search) OR LOWER(product.sku) LIKE LOWER(:search))',
+        { search: `%${filters.search}%` },
+      );
+    }
+
+    if (filters.batch_number) {
+      qb.andWhere('LOWER(batch.batch_number) LIKE LOWER(:batch_number)', {
+        batch_number: `%${filters.batch_number}%`,
+      });
+    }
+
+    if (filters.product_id) {
+      qb.andWhere('batch.product_id = :product_id', {
+        product_id: filters.product_id,
+      });
+    }
+
+    if (filters.purchase_order_batch_id) {
+      qb.andWhere('batch.purchase_order_batch_id = :purchase_order_batch_id', {
+        purchase_order_batch_id: filters.purchase_order_batch_id,
+      });
+    }
+
+    if (filters.purchase_order_id) {
+      qb.andWhere('batch.purchase_order_batch_id = :purchase_order_id', {
+        purchase_order_id: filters.purchase_order_id,
+      });
+    }
+
+    if (filters.created_from) {
+      qb.andWhere('batch.created_at >= :created_from', {
+        created_from: new Date(filters.created_from),
+      });
+    }
+
+    if (filters.created_to) {
+      qb.andWhere('batch.created_at <= :created_to', {
+        created_to: new Date(filters.created_to),
+      });
+    }
+  }
+
   /**
    * Get inventory summary grouped by product and warehouse.
    * Shows total available quantity and breakdown by batch.
@@ -1018,143 +1013,122 @@ export class InventoryService {
   ): Promise<InventorySummaryResponseDto> {
     try {
       this.logger.debug(`Getting inventory summary for tenant: ${tenantId}`);
-
-      // Build base query to get all batches with relations
-      let query = this.inventoryBatchRepo
-        .createQueryBuilder('batch')
-        .leftJoinAndSelect('batch.product', 'product')
-        .leftJoinAndSelect('batch.warehouse', 'warehouse')
-        .leftJoinAndSelect('batch.uom', 'uom')
-        .leftJoinAndSelect('batch.purchase_order_batch', 'po')
-        .where('batch.tenant_id = :tenantId', { tenantId });
-
-      joinInventoryLocation(query);
       await this.assertLocationHierarchy(tenantId, filters);
-      applyInventoryLocationFilters(query, filters);
 
-      // Apply filters
-      if (filters.search) {
-        query = query.andWhere(
-          '(LOWER(product.name) LIKE LOWER(:search) OR LOWER(product.sku) LIKE LOWER(:search))',
-          { search: `%${filters.search}%` },
-        );
+      const page = filters.page || 1;
+      const limit = filters.limit || 20;
+      const skip = (page - 1) * limit;
+      const sortOrder = (filters.sort_order || 'ASC') as 'ASC' | 'DESC';
+      const sortBy = filters.sort_by || 'product_name';
+      const sortExpression =
+        sortBy === 'product_sku'
+          ? 'MAX(product.sku)'
+          : sortBy === 'warehouse_name'
+            ? 'MAX(warehouse.name)'
+            : sortBy === 'total_available_quantity'
+              ? 'SUM(batch.available_quantity)'
+              : 'MAX(product.name)';
+
+      const countQb = this.buildSummaryBaseQuery(tenantId, filters);
+      const groupsQb = this.buildSummaryBaseQuery(tenantId, filters)
+        .select('batch.product_id', 'product_id')
+        .addSelect('batch.warehouse_id', 'warehouse_id')
+        .addSelect('MAX(product.name)', 'product_name')
+        .addSelect('MAX(product.sku)', 'product_sku')
+        .addSelect('MAX(product.photo)', 'product_photo')
+        .addSelect('MAX(warehouse.name)', 'warehouse_name')
+        .addSelect('MAX(billing_branch.fiscal_configuration_id)', 'fiscal_configuration_id')
+        .addSelect('MAX(fiscal_configuration.razon_social)', 'razon_social')
+        .addSelect('MAX(warehouse.billing_branch_id)', 'billing_branch_id')
+        .addSelect('MAX(billing_branch.code)', 'sucursal')
+        .addSelect('MAX(batch.uom_id)', 'uom_id')
+        .addSelect('MAX(uom.name)', 'uom_name')
+        .addSelect('COALESCE(SUM(batch.available_quantity), 0)', 'total_available')
+        .addSelect('COALESCE(SUM(batch.initial_quantity), 0)', 'total_initial')
+        .addSelect('COUNT(batch.id)', 'total_batches')
+        .groupBy('batch.product_id')
+        .addGroupBy('batch.warehouse_id')
+        .orderBy(sortExpression, sortOrder)
+        .offset(skip)
+        .limit(limit);
+
+      const [totalRow, groups] = await Promise.all([
+        countQb
+          .select(
+            "COUNT(DISTINCT CONCAT(batch.product_id, '|', batch.warehouse_id))",
+            'total',
+          )
+          .getRawOne<{ total: string | number }>(),
+        groupsQb.getRawMany<{
+          product_id: string;
+          warehouse_id: string;
+          product_name: string;
+          product_sku: string;
+          product_photo: string | null;
+          warehouse_name: string;
+          fiscal_configuration_id: string | null;
+          razon_social: string | null;
+          billing_branch_id: string | null;
+          sucursal: string | null;
+          uom_id: string;
+          uom_name: string;
+          total_available: string | number;
+          total_initial: string | number;
+          total_batches: string | number;
+        }>(),
+      ]);
+
+      const total = this.parseIntSafe(totalRow?.total);
+      if (groups.length === 0) {
+        return { data: [], total, page, limit, totalPages: Math.ceil(total / limit) || 0 };
       }
 
-      if (filters.product_id) {
-        query = query.andWhere('batch.product_id = :product_id', {
-          product_id: filters.product_id,
-        });
-      }
+      const batchesByGroup = await this.loadSummaryBatches(tenantId, filters, groups);
+      const productIds = Array.from(new Set(groups.map((row) => row.product_id)));
+      const uomIds = Array.from(new Set(groups.map((row) => row.uom_id).filter(Boolean)));
+      const [priceMap, photoMap] = await Promise.all([
+        this.buildPriceMap(productIds, uomIds),
+        this.signPhotoMap(groups.map((row) => row.product_photo)),
+      ]);
 
-      if (filters.only_available) {
-        query = query.andWhere('batch.available_quantity > 0');
-      }
-
-      // Get all matching batches
-      const batches = await query.getMany();
-
-      // Group by product_id + warehouse_id
-      const grouped = new Map<string, InventoryBatch[]>();
-      for (const batch of batches) {
-        const key = `${batch.product_id}|${batch.warehouse_id}`;
-        if (!grouped.has(key)) grouped.set(key, []);
-        grouped.get(key)!.push(batch);
-      }
-
-      const productIds = Array.from(new Set(batches.map((b) => b.product_id)));
-      const uomIds = Array.from(new Set(batches.map((b) => b.uom_id)));
-      const priceMap = await this.buildPriceMap(productIds, uomIds);
-
-      // Build summary DTOs
-      const summaries: ProductInventorySummaryDto[] = [];
-      for (const [key, batchGroup] of grouped.entries()) {
-        const first = batchGroup[0];
-        
-        const totalAvailable = batchGroup.reduce(
-          (sum, b) => sum + parseFloat(b.available_quantity?.toString() ?? '0'),
-          0,
-        );
-        const totalInitial = batchGroup.reduce(
-          (sum, b) => sum + parseFloat(b.initial_quantity?.toString() ?? '0'),
-          0,
-        );
-        const priceKey = `${first.product_id}|${first.uom_id}`;
-        const pricingOptions = priceMap.get(priceKey) || [];
+      const data: ProductInventorySummaryDto[] = groups.map((row) => {
+        const key = `${row.product_id}|${row.warehouse_id}`;
+        const pricingOptions = priceMap.get(`${row.product_id}|${row.uom_id}`) || [];
         const suggestedPrice = pricingOptions[0] || null;
+        const photoKey = row.product_photo ?? null;
 
-        summaries.push({
-          product_id: first.product_id,
-          product_name: first.product?.name ?? '',
-          product_sku: first.product?.sku ?? '',
-          product_photo: await this.getSignedPhotoUrl(first.product?.photo),
-          warehouse_id: first.warehouse_id,
-          warehouse_name: first.warehouse?.name ?? '',
-          ...this.mapLocationFields(first.warehouse),
-          uom_id: first.uom_id,
-          uom_name: first.uom?.name ?? '',
+        return {
+          product_id: row.product_id,
+          product_name: row.product_name ?? '',
+          product_sku: row.product_sku ?? '',
+          product_photo: photoKey ? (photoMap.get(photoKey) ?? null) : null,
+          warehouse_id: row.warehouse_id,
+          warehouse_name: row.warehouse_name ?? '',
+          fiscal_configuration_id: row.fiscal_configuration_id ?? null,
+          razon_social: row.razon_social ?? null,
+          billing_branch_id: row.billing_branch_id ?? null,
+          sucursal: row.sucursal ?? null,
+          uom_id: row.uom_id,
+          uom_name: row.uom_name ?? '',
           suggested_unit_price: suggestedPrice?.price ?? null,
           suggested_iva_percentage: suggestedPrice?.iva_percentage ?? null,
           suggested_ieps_percentage: suggestedPrice?.ieps_percentage ?? null,
           pricing_options: pricingOptions,
-          total_available_quantity: totalAvailable.toFixed(3),
-          total_initial_quantity: totalInitial.toFixed(3),
-          total_batches: batchGroup.length,
-          batches: batchGroup.map((b) => ({
-            batch_id: b.id,
-            batch_number: b.batch_number,
-            source_tag_identifier: b.source_tag_identifier ?? null,
-            available_quantity: parseFloat(b.available_quantity?.toString() ?? '0').toFixed(3),
-            initial_quantity: parseFloat(b.initial_quantity?.toString() ?? '0').toFixed(3),
-            purchase_order_folio: b.purchase_order_batch?.folio ?? null,
-            created_at: b.created_at,
-          })),
-        });
-      }
-
-      // Apply sorting
-      const sortBy = filters.sort_by || 'product_name';
-      const sortOrder = filters.sort_order || 'ASC';
-      summaries.sort((a, b) => {
-        let valA: any, valB: any;
-        switch (sortBy) {
-          case 'product_sku':
-            valA = a.product_sku;
-            valB = b.product_sku;
-            break;
-          case 'warehouse_name':
-            valA = a.warehouse_name;
-            valB = b.warehouse_name;
-            break;
-          case 'total_available_quantity':
-            valA = parseFloat(a.total_available_quantity);
-            valB = parseFloat(b.total_available_quantity);
-            break;
-          default:
-            valA = a.product_name;
-            valB = b.product_name;
-        }
-        if (valA < valB) return sortOrder === 'ASC' ? -1 : 1;
-        if (valA > valB) return sortOrder === 'ASC' ? 1 : -1;
-        return 0;
+          total_available_quantity: this.formatQty(this.parseDecimal(row.total_available)),
+          total_initial_quantity: this.formatQty(this.parseDecimal(row.total_initial)),
+          total_batches: this.parseIntSafe(row.total_batches),
+          batches: batchesByGroup.get(key) ?? [],
+        };
       });
 
-      // Apply pagination
-      const page = filters.page || 1;
-      const limit = filters.limit || 20;
-      const total = summaries.length;
-      const start = (page - 1) * limit;
-      const paginatedData = summaries.slice(start, start + limit);
-
-      this.logger.log(
-        `Inventory summary: ${paginatedData.length} products out of ${total} total`,
-      );
+      this.logger.log(`Inventory summary: ${data.length} products out of ${total} total`);
 
       return {
-        data: paginatedData,
+        data,
         total,
         page,
         limit,
-        totalPages: Math.ceil(total / limit),
+        totalPages: Math.ceil(total / limit) || 0,
       };
     } catch (error) {
       this.logger.error(
@@ -1163,6 +1137,131 @@ export class InventoryService {
       );
       throw error;
     }
+  }
+
+  private buildSummaryBaseQuery(
+    tenantId: string,
+    filters: InventorySummaryFilterDto,
+  ): SelectQueryBuilder<InventoryBatch> {
+    const qb = this.inventoryBatchRepo
+      .createQueryBuilder('batch')
+      .innerJoin('batch.product', 'product')
+      .innerJoin('batch.warehouse', 'warehouse')
+      .leftJoin('warehouse.billing_branch', 'billing_branch')
+      .leftJoin('billing_branch.fiscal_configuration', 'fiscal_configuration')
+      .leftJoin('batch.uom', 'uom')
+      .where('batch.tenant_id = :tenantId', { tenantId });
+
+    applyInventoryLocationFilters(qb, filters);
+
+    if (filters.search) {
+      qb.andWhere(
+        '(LOWER(product.name) LIKE LOWER(:search) OR LOWER(product.sku) LIKE LOWER(:search))',
+        { search: `%${filters.search}%` },
+      );
+    }
+
+    if (filters.product_id) {
+      qb.andWhere('batch.product_id = :product_id', {
+        product_id: filters.product_id,
+      });
+    }
+
+    if (filters.only_available) {
+      qb.andWhere('batch.available_quantity > 0');
+    }
+
+    return qb;
+  }
+
+  private async loadSummaryBatches(
+    tenantId: string,
+    filters: InventorySummaryFilterDto,
+    groups: Array<{ product_id: string; warehouse_id: string }>,
+  ) {
+    const qb = this.inventoryBatchRepo
+      .createQueryBuilder('batch')
+      .leftJoin('batch.purchase_order_batch', 'po')
+      .select('batch.id', 'batch_id')
+      .addSelect('batch.product_id', 'product_id')
+      .addSelect('batch.warehouse_id', 'warehouse_id')
+      .addSelect('batch.batch_number', 'batch_number')
+      .addSelect('batch.source_tag_identifier', 'source_tag_identifier')
+      .addSelect('batch.available_quantity', 'available_quantity')
+      .addSelect('batch.initial_quantity', 'initial_quantity')
+      .addSelect('po.folio', 'purchase_order_folio')
+      .addSelect('batch.created_at', 'created_at')
+      .where('batch.tenant_id = :tenantId', { tenantId })
+      .andWhere(
+        new Brackets((sub) => {
+          groups.forEach((group, index) => {
+            sub.orWhere(
+              `(batch.product_id = :pid${index} AND batch.warehouse_id = :wid${index})`,
+              {
+                [`pid${index}`]: group.product_id,
+                [`wid${index}`]: group.warehouse_id,
+              },
+            );
+          });
+        }),
+      )
+      .orderBy('batch.created_at', 'DESC');
+
+    if (filters.only_available) {
+      qb.andWhere('batch.available_quantity > 0');
+    }
+
+    const rows = await qb.getRawMany<{
+      batch_id: string;
+      product_id: string;
+      warehouse_id: string;
+      batch_number: string;
+      source_tag_identifier: string | null;
+      available_quantity: string | number;
+      initial_quantity: string | number;
+      purchase_order_folio: string | null;
+      created_at: Date;
+    }>();
+
+    const map = new Map<
+      string,
+      Array<{
+        batch_id: string;
+        batch_number: string;
+        source_tag_identifier: string | null;
+        available_quantity: string;
+        initial_quantity: string;
+        purchase_order_folio: string | null;
+        created_at: Date;
+      }>
+    >();
+
+    for (const row of rows) {
+      const key = `${row.product_id}|${row.warehouse_id}`;
+      const list = map.get(key) ?? [];
+      list.push({
+        batch_id: row.batch_id,
+        batch_number: row.batch_number,
+        source_tag_identifier: row.source_tag_identifier ?? null,
+        available_quantity: this.formatQty(this.parseDecimal(row.available_quantity)),
+        initial_quantity: this.formatQty(this.parseDecimal(row.initial_quantity)),
+        purchase_order_folio: row.purchase_order_folio ?? null,
+        created_at: row.created_at,
+      });
+      map.set(key, list);
+    }
+
+    return map;
+  }
+
+  private async signPhotoMap(
+    keys: Array<string | null | undefined>,
+  ): Promise<Map<string, string | null>> {
+    const unique = [...new Set(keys.filter((key): key is string => !!key))];
+    const entries = await Promise.all(
+      unique.map(async (key) => [key, await this.getSignedPhotoUrl(key)] as const),
+    );
+    return new Map(entries);
   }
 
   /**

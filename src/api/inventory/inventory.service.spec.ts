@@ -52,6 +52,22 @@ describe('InventoryService', () => {
     tenant: {} as any,
   };
 
+  const mockBatchListQueryBuilder = (
+    data: InventoryBatch[] = [mockInventoryBatch],
+    total = data.length,
+  ) => ({
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    leftJoin: jest.fn().mockReturnThis(),
+    leftJoinAndSelect: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    skip: jest.fn().mockReturnThis(),
+    take: jest.fn().mockReturnThis(),
+    getCount: jest.fn().mockResolvedValue(total),
+    getMany: jest.fn().mockResolvedValue(data),
+  });
+
   beforeEach(async () => {
     mockRepository = {
       createQueryBuilder: jest.fn(),
@@ -150,15 +166,7 @@ describe('InventoryService', () => {
 
   describe('findAll', () => {
     it('should return paginated list of batches for tenant', async () => {
-      const mockQueryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[mockInventoryBatch], 1]),
-      };
+      const mockQueryBuilder = mockBatchListQueryBuilder();
 
       mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
 
@@ -177,15 +185,7 @@ describe('InventoryService', () => {
     });
 
     it('should apply batch_number filter', async () => {
-      const mockQueryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[mockInventoryBatch], 1]),
-      };
+      const mockQueryBuilder = mockBatchListQueryBuilder();
 
       mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
 
@@ -199,15 +199,7 @@ describe('InventoryService', () => {
     });
 
     it('should apply product_id filter', async () => {
-      const mockQueryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[mockInventoryBatch], 1]),
-      };
+      const mockQueryBuilder = mockBatchListQueryBuilder();
 
       mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
 
@@ -222,15 +214,7 @@ describe('InventoryService', () => {
     });
 
     it('should reject warehouse_id without sucursal', async () => {
-      const mockQueryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[mockInventoryBatch], 1]),
-      };
+      const mockQueryBuilder = mockBatchListQueryBuilder();
 
       mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
 
@@ -241,15 +225,7 @@ describe('InventoryService', () => {
     });
 
     it('should reject billing_branch_id without razón social', async () => {
-      const mockQueryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[mockInventoryBatch], 1]),
-      };
+      const mockQueryBuilder = mockBatchListQueryBuilder();
 
       mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
 
@@ -265,15 +241,7 @@ describe('InventoryService', () => {
     });
 
     it('should apply fiscal + branch + warehouse cascade', async () => {
-      const mockQueryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[mockInventoryBatch], 1]),
-      };
+      const mockQueryBuilder = mockBatchListQueryBuilder();
       const mockBranchQuery = {
         innerJoin: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
@@ -316,15 +284,7 @@ describe('InventoryService', () => {
     });
 
     it('should apply date range filters', async () => {
-      const mockQueryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[mockInventoryBatch], 1]),
-      };
+      const mockQueryBuilder = mockBatchListQueryBuilder();
 
       mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
 
@@ -347,15 +307,7 @@ describe('InventoryService', () => {
     });
 
     it('should apply sorting', async () => {
-      const mockQueryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[mockInventoryBatch], 1]),
-      };
+      const mockQueryBuilder = mockBatchListQueryBuilder();
 
       mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
 
@@ -366,15 +318,7 @@ describe('InventoryService', () => {
     });
 
     it('should apply pagination', async () => {
-      const mockQueryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[mockInventoryBatch], 50]),
-      };
+      const mockQueryBuilder = mockBatchListQueryBuilder([mockInventoryBatch], 50);
 
       mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
 
@@ -389,40 +333,24 @@ describe('InventoryService', () => {
     });
 
     it('should load all relations', async () => {
-      const mockQueryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[mockInventoryBatch], 1]),
-      };
+      const mockQueryBuilder = mockBatchListQueryBuilder();
 
       mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
 
       const filters: BatchFilterDto = { page: 1, limit: 20 };
       await service.findAll(mockTenantId, filters);
 
-      expect(mockQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith('batch.product', 'product');
-      expect(mockQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith('batch.warehouse', 'warehouse');
-      expect(mockQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith('batch.uom', 'uom');
-      expect(mockQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith(
+      expect(mockQueryBuilder.leftJoin).toHaveBeenCalledWith('batch.product', 'product');
+      expect(mockQueryBuilder.leftJoin).toHaveBeenCalledWith('batch.warehouse', 'warehouse');
+      expect(mockQueryBuilder.leftJoin).toHaveBeenCalledWith('batch.uom', 'uom');
+      expect(mockQueryBuilder.leftJoin).toHaveBeenCalledWith(
         'batch.purchase_order_batch',
         'purchase_order_batch',
       );
     });
 
     it('should return empty list when no batches found', async () => {
-      const mockQueryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
-      };
+      const mockQueryBuilder = mockBatchListQueryBuilder([], 0);
 
       mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
 
@@ -435,15 +363,7 @@ describe('InventoryService', () => {
     });
 
     it('should enforce tenant isolation', async () => {
-      const mockQueryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[mockInventoryBatch], 1]),
-      };
+      const mockQueryBuilder = mockBatchListQueryBuilder();
 
       mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
 
@@ -561,15 +481,7 @@ describe('InventoryService', () => {
 
   describe('findByPurchaseOrderId', () => {
     it('should return all batches for a purchase order', async () => {
-      const mockQueryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[mockInventoryBatch], 1]),
-      };
+      const mockQueryBuilder = mockBatchListQueryBuilder();
 
       mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
 
@@ -586,15 +498,7 @@ describe('InventoryService', () => {
     });
 
     it('should apply filters to PO batches', async () => {
-      const mockQueryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[mockInventoryBatch], 1]),
-      };
+      const mockQueryBuilder = mockBatchListQueryBuilder();
 
       mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
 
@@ -609,15 +513,7 @@ describe('InventoryService', () => {
     });
 
     it('should apply pagination to PO batches', async () => {
-      const mockQueryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[mockInventoryBatch], 50]),
-      };
+      const mockQueryBuilder = mockBatchListQueryBuilder([mockInventoryBatch], 50);
 
       mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
 
@@ -632,15 +528,7 @@ describe('InventoryService', () => {
     });
 
     it('should enforce tenant isolation for PO batches', async () => {
-      const mockQueryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[mockInventoryBatch], 1]),
-      };
+      const mockQueryBuilder = mockBatchListQueryBuilder();
 
       mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
 
@@ -655,15 +543,7 @@ describe('InventoryService', () => {
     });
 
     it('should return empty list when no batches for PO', async () => {
-      const mockQueryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
-      };
+      const mockQueryBuilder = mockBatchListQueryBuilder([], 0);
 
       mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
 

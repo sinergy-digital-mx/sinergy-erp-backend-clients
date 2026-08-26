@@ -125,6 +125,8 @@ GET /api/tenant/purchase-orders?fiscal_configuration_id={uuid}&billing_branch_id
 GET /api/tenant/purchase-orders?payment_status=Pendiente&vendor_id={uuid}
 ```
 
+La respuesta trae `data`, `total` y **`stats`** (montos partidos MXN / USD). Las cards **Por Estado** y **Estado de Pago** usan `stats`, no suman la tabla. Ver `UI_PURCHASE_ORDER_STATS.md`.
+
 Cascada de filtros igual que el modal: cambia razón → reset sucursal y almacén. Cambia sucursal → reset almacén. Catálogos: mismos GET de la sección 1. Filtro sucursal sin razón: `GET /api/tenant/billing/branches`. Filtro almacén sin sucursal: `GET /api/tenant/warehouses?status=active&limit=100`.
 
 ### Columnas
@@ -224,3 +226,4 @@ Mismos filtros del listado (`fiscal_configuration_id`, `billing_branch_id`, `war
 - [ ] Pago: `payment_status` = `Pendiente` \| `Pagado`; proveedor: `vendor_id` uuid
 - [ ] Detalle: cards Razón social, Sucursal y Almacén
 - [ ] Excel reutiliza esos filtros
+- [ ] Cards Por Estado / Estado de Pago: montos MXN y USD por separado (`stats`). Ver `UI_PURCHASE_ORDER_STATS.md`

@@ -17,7 +17,15 @@ export class ProductService {
     private readonly s3Service: S3Service,
   ) {}
 
+  /** UI histórico manda `sat_code`; el campo real es `sat_clave`. */
+  private resolveSatClave(dto: Partial<CreateProductDto & UpdateProductDto>) {
+    if (dto.sat_clave !== undefined) return dto.sat_clave;
+    if (dto.sat_code !== undefined) return dto.sat_code;
+    return undefined;
+  }
+
   private extractAllowedProductFields(dto: Partial<CreateProductDto & UpdateProductDto>) {
+    const satClave = this.resolveSatClave(dto);
     return {
       ...(dto.sku !== undefined ? { sku: dto.sku } : {}),
       ...(dto.external_sku !== undefined ? { external_sku: dto.external_sku } : {}),
@@ -25,7 +33,7 @@ export class ProductService {
       ...(dto.description !== undefined ? { description: dto.description } : {}),
       ...(dto.category_id !== undefined ? { category_id: dto.category_id } : {}),
       ...(dto.subcategory_id !== undefined ? { subcategory_id: dto.subcategory_id } : {}),
-      ...(dto.sat_clave !== undefined ? { sat_clave: dto.sat_clave } : {}),
+      ...(satClave !== undefined ? { sat_clave: satClave } : {}),
     };
   }
 
@@ -222,17 +230,17 @@ export class ProductService {
   }
 
   private async toResponseWithPhotoUrl(product: Product): Promise<Product> {
-    if (!product.photo) {
-      return product;
+    let photo = product.photo;
+    if (photo) {
+      photo = await this.s3Service
+        .getSignedUrl(photo, 900)
+        .catch(() => product.photo);
     }
-
-    const photoUrl = await this.s3Service
-      .getSignedUrl(product.photo, 900)
-      .catch(() => product.photo);
 
     return {
       ...product,
-      photo: photoUrl,
-    };
+      photo,
+      sat_code: product.sat_clave ?? null,
+    } as Product;
   }
 }

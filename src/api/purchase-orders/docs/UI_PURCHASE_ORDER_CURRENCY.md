@@ -20,6 +20,8 @@ Tras el primer producto, **la moneda de la OC queda bloqueada**. Si el usuario q
 
 Listado y detalle: `payment_currency` ya viene en el GET de la OC. Muestra el mismo badge.
 
+Cards **Por Estado** / **Estado de Pago** del listado: montos partidos en MXN y USD (`stats.by_currency`). No sumar. Ver `UI_PURCHASE_ORDER_STATS.md`.
+
 ---
 
 ## 2. Modal **Agregar producto**
@@ -117,3 +119,4 @@ Cambiar de proveedor con productos ya en el carrito: vaciar líneas y resetear e
 - [ ] POST manda `payment_currency` y `line_items[].currency`
 - [ ] Sin costo de proveedor: sí se agrega; al crear la OC se persiste el costo
 - [ ] No convertir MXN ↔ USD
+- [ ] Cards del listado: stats por MXN / USD (`UI_PURCHASE_ORDER_STATS.md`)

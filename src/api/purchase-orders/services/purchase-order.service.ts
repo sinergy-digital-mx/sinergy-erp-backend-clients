@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, QueryRunner, Brackets, QueryFailedError } from 'typeorm';
+import { Repository, DataSource, QueryRunner, Brackets, QueryFailedError, SelectQueryBuilder } from 'typeorm';
 import { PurchaseOrderBatch } from '../../../entities/purchase-orders/purchase-order-batch.entity';
 import { PurchaseOrderBatchDetail } from '../../../entities/purchase-orders/purchase-order-batch-detail.entity';
 import { InventoryBatch } from '../../../entities/purchase-orders/inventory-batch.entity';
@@ -25,6 +25,30 @@ import { ProductUoM, ProductVendorCost } from '../../../entities/products';
 import { v4 as uuidv4 } from 'uuid';
 
 type PurchaseOrderCurrency = 'MXN' | 'USD';
+
+type PurchaseOrderStatBucket = { count: number; amount: number };
+
+type PurchaseOrderCurrencyStats = {
+  count: number;
+  amount: number;
+  by_status: {
+    Creada: PurchaseOrderStatBucket;
+    Recibida: PurchaseOrderStatBucket;
+    Cancelada: PurchaseOrderStatBucket;
+  };
+  by_payment: {
+    Pagado: PurchaseOrderStatBucket;
+    Pendiente: PurchaseOrderStatBucket;
+  };
+};
+
+export type PurchaseOrderListStats = {
+  count: number;
+  by_currency: {
+    MXN: PurchaseOrderCurrencyStats;
+    USD: PurchaseOrderCurrencyStats;
+  };
+};
 
 @Injectable()
 export class PurchaseOrderService {
@@ -445,7 +469,11 @@ export class PurchaseOrderService {
   async findAll(
     tenantId: string,
     filters: QueryPurchaseOrderDto,
-  ): Promise<{ data: PurchaseOrderBatch[]; total: number }> {
+  ): Promise<{
+    data: PurchaseOrderBatch[];
+    total: number;
+    stats: PurchaseOrderListStats;
+  }> {
     const query = this.purchaseOrderBatchRepository
       .createQueryBuilder('po')
       .where('po.tenant_id = :tenantId', { tenantId })
@@ -454,68 +482,7 @@ export class PurchaseOrderService {
       .leftJoinAndSelect('warehouse.billing_branch', 'billing_branch')
       .leftJoinAndSelect('po.vendor', 'vendor');
 
-    if (filters.general_status) {
-      query.andWhere('po.general_status = :general_status', {
-        general_status: filters.general_status,
-      });
-    }
-
-    if (filters.payment_status) {
-      query.andWhere('po.payment_status = :payment_status', {
-        payment_status: filters.payment_status,
-      });
-    }
-
-    if (filters.vendor_id) {
-      query.andWhere('po.vendor_id = :vendor_id', { vendor_id: filters.vendor_id });
-    }
-
-    if (filters.fiscal_configuration_id) {
-      query.andWhere('po.fiscal_configuration_id = :fiscal_configuration_id', {
-        fiscal_configuration_id: filters.fiscal_configuration_id,
-      });
-    }
-
-    if (filters.billing_branch_id) {
-      query.andWhere('warehouse.billing_branch_id = :billing_branch_id', {
-        billing_branch_id: filters.billing_branch_id,
-      });
-    }
-
-    if (filters.warehouse_id) {
-      query.andWhere('po.warehouse_id = :warehouse_id', { warehouse_id: filters.warehouse_id });
-    }
-
-    if (filters.search) {
-      const rawSearch = filters.search.trim();
-      const search = `%${rawSearch}%`;
-      const normalizedSearch = rawSearch.replace(/[\s-]/g, '');
-      const normalizedSearchLike = `%${normalizedSearch}%`;
-      query.andWhere(
-        new Brackets((qb) => {
-          qb.where('po.folio = :rawSearch', { rawSearch })
-            .orWhere('LOWER(po.folio) LIKE LOWER(:search)', { search })
-            .orWhere(
-              "LOWER(REPLACE(REPLACE(po.folio, '-', ''), ' ', '')) LIKE LOWER(:normalizedSearchLike)",
-              { normalizedSearchLike },
-            )
-            .orWhere('LOWER(vendor.company_name) LIKE LOWER(:search)', { search })
-            .orWhere('LOWER(po.pedimento_number) LIKE LOWER(:search)', { search });
-        }),
-      );
-    }
-
-    if (filters.created_from) {
-      query.andWhere('po.created_at >= :created_from', {
-        created_from: new Date(filters.created_from),
-      });
-    }
-
-    if (filters.created_to) {
-      query.andWhere('po.created_at <= :created_to', {
-        created_to: this.endOfDay(new Date(filters.created_to)),
-      });
-    }
+    this.applyListFilters(query, filters);
 
     const page = filters.page || 1;
     const limit = filters.limit || 10;
@@ -524,7 +491,8 @@ export class PurchaseOrderService {
     query.skip(skip).take(limit).orderBy('po.created_at', 'DESC');
 
     const [rows, total] = await query.getManyAndCount();
-    return { data: rows.map((po) => this.mapPurchaseOrderLocation(po)), total };
+    const stats = await this.getListStats(tenantId, filters);
+    return { data: rows.map((po) => this.mapPurchaseOrderLocation(po)), total, stats };
   }
 
   /**
@@ -681,6 +649,154 @@ export class PurchaseOrderService {
     const d = new Date(date);
     d.setHours(23, 59, 59, 999);
     return d;
+  }
+
+  private applyListFilters(
+    query: SelectQueryBuilder<PurchaseOrderBatch>,
+    filters: QueryPurchaseOrderDto,
+  ): void {
+    if (filters.general_status) {
+      query.andWhere('po.general_status = :general_status', {
+        general_status: filters.general_status,
+      });
+    }
+
+    if (filters.payment_status) {
+      query.andWhere('po.payment_status = :payment_status', {
+        payment_status: filters.payment_status,
+      });
+    }
+
+    if (filters.vendor_id) {
+      query.andWhere('po.vendor_id = :vendor_id', { vendor_id: filters.vendor_id });
+    }
+
+    if (filters.fiscal_configuration_id) {
+      query.andWhere('po.fiscal_configuration_id = :fiscal_configuration_id', {
+        fiscal_configuration_id: filters.fiscal_configuration_id,
+      });
+    }
+
+    if (filters.billing_branch_id) {
+      query.andWhere('warehouse.billing_branch_id = :billing_branch_id', {
+        billing_branch_id: filters.billing_branch_id,
+      });
+    }
+
+    if (filters.warehouse_id) {
+      query.andWhere('po.warehouse_id = :warehouse_id', { warehouse_id: filters.warehouse_id });
+    }
+
+    if (filters.search) {
+      const rawSearch = filters.search.trim();
+      const search = `%${rawSearch}%`;
+      const normalizedSearch = rawSearch.replace(/[\s-]/g, '');
+      const normalizedSearchLike = `%${normalizedSearch}%`;
+      query.andWhere(
+        new Brackets((qb) => {
+          qb.where('po.folio = :rawSearch', { rawSearch })
+            .orWhere('LOWER(po.folio) LIKE LOWER(:search)', { search })
+            .orWhere(
+              "LOWER(REPLACE(REPLACE(po.folio, '-', ''), ' ', '')) LIKE LOWER(:normalizedSearchLike)",
+              { normalizedSearchLike },
+            )
+            .orWhere('LOWER(vendor.company_name) LIKE LOWER(:search)', { search })
+            .orWhere('LOWER(po.pedimento_number) LIKE LOWER(:search)', { search });
+        }),
+      );
+    }
+
+    if (filters.created_from) {
+      query.andWhere('po.created_at >= :created_from', {
+        created_from: new Date(filters.created_from),
+      });
+    }
+
+    if (filters.created_to) {
+      query.andWhere('po.created_at <= :created_to', {
+        created_to: this.endOfDay(new Date(filters.created_to)),
+      });
+    }
+  }
+
+  private emptyCurrencyStats(): PurchaseOrderCurrencyStats {
+    const zero = (): PurchaseOrderStatBucket => ({ count: 0, amount: 0 });
+    return {
+      count: 0,
+      amount: 0,
+      by_status: { Creada: zero(), Recibida: zero(), Cancelada: zero() },
+      by_payment: { Pagado: zero(), Pendiente: zero() },
+    };
+  }
+
+  private roundMoney(value: number): number {
+    return Math.round(value * 100) / 100;
+  }
+
+  private async getListStats(
+    tenantId: string,
+    filters: QueryPurchaseOrderDto,
+  ): Promise<PurchaseOrderListStats> {
+    const query = this.purchaseOrderBatchRepository
+      .createQueryBuilder('po')
+      .where('po.tenant_id = :tenantId', { tenantId })
+      .leftJoin('po.warehouse', 'warehouse')
+      .leftJoin('po.vendor', 'vendor');
+
+    this.applyListFilters(query, filters);
+
+    const rows = await query
+      .select("COALESCE(po.payment_currency, 'MXN')", 'currency')
+      .addSelect('po.general_status', 'general_status')
+      .addSelect('po.payment_status', 'payment_status')
+      .addSelect('COUNT(po.id)', 'cnt')
+      .addSelect('COALESCE(SUM(po.requested_total), 0)', 'amount')
+      .groupBy("COALESCE(po.payment_currency, 'MXN')")
+      .addGroupBy('po.general_status')
+      .addGroupBy('po.payment_status')
+      .getRawMany<{
+        currency: string;
+        general_status: string;
+        payment_status: string;
+        cnt: string | number;
+        amount: string | number;
+      }>();
+
+    const by_currency = {
+      MXN: this.emptyCurrencyStats(),
+      USD: this.emptyCurrencyStats(),
+    };
+
+    for (const row of rows) {
+      const currency: PurchaseOrderCurrency = row.currency === 'USD' ? 'USD' : 'MXN';
+      const bucket = by_currency[currency];
+      const count = Number(row.cnt) || 0;
+      const amount = this.roundMoney(Number(row.amount) || 0);
+
+      bucket.count += count;
+      bucket.amount = this.roundMoney(bucket.amount + amount);
+
+      const status = row.general_status as keyof PurchaseOrderCurrencyStats['by_status'];
+      if (bucket.by_status[status]) {
+        bucket.by_status[status].count += count;
+        bucket.by_status[status].amount = this.roundMoney(
+          bucket.by_status[status].amount + amount,
+        );
+      }
+
+      const payment = row.payment_status as keyof PurchaseOrderCurrencyStats['by_payment'];
+      if (bucket.by_payment[payment]) {
+        bucket.by_payment[payment].count += count;
+        bucket.by_payment[payment].amount = this.roundMoney(
+          bucket.by_payment[payment].amount + amount,
+        );
+      }
+    }
+
+    return {
+      count: by_currency.MXN.count + by_currency.USD.count,
+      by_currency,
+    };
   }
 
   private resolvePedimentoForVendor(

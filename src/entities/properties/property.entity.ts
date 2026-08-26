@@ -45,6 +45,10 @@ export class Property {
   @Column({ length: 50, nullable: true })
   lot_number: string;
 
+  /** Clave catastral del lote (opcional). */
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  cadastral_key: string | null;
+
   @Column({ length: 150 })
   name: string;
 

@@ -34,6 +34,13 @@ export class CreateProductDto {
   @Length(1, 8)
   sat_clave?: string;
 
+  /** Alias de `sat_clave`. El modal de producto usa `sat_code`. */
+  @ApiPropertyOptional({ example: '31201610', description: 'Alias de sat_clave' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 8)
+  sat_code?: string;
+
   @ApiPropertyOptional({ example: 'uuid-category', description: 'ID de la categoría' })
   @IsOptional()
   @IsUUID()
