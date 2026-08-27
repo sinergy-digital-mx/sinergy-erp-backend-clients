@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PurchaseOrderBatchDetail } from '../../../entities/purchase-orders/purchase-order-batch-detail.entity';
 import { ReceivedItemDto } from '../dto/receive-purchase-order.dto';
+import { computeReceivedLineBreakdown } from '../utils/purchase-order-line-breakdown.util';
 
 /**
  * Service for updating line items with received data
@@ -55,6 +56,15 @@ export class LineItemUpdaterService {
     lineItem.received_original_iva_unit = receivedItem.iva_unit;
     lineItem.received_original_ieps_percentage = receivedItem.ieps_percentage;
     lineItem.received_original_ieps_unit = receivedItem.ieps_unit;
+    Object.assign(
+      lineItem,
+      computeReceivedLineBreakdown(
+        Number(receivedItem.quantity),
+        Number(receivedItem.unit_total),
+        Number(receivedItem.iva_percentage || 0),
+        Number(receivedItem.ieps_percentage || 0),
+      ),
+    );
 
     // Update received converted fields (Requirement 7.9-7.10)
     lineItem.received_converted_quantity = convertedQuantity;

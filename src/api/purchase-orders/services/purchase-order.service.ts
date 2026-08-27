@@ -23,6 +23,10 @@ import { PurchaseOrderDocumentsService } from './purchase-order-documents.servic
 import { PurchaseOrderDocumentLanguage } from '../../../entities/purchase-orders/purchase-order-document-language.enum';
 import { ProductUoM, ProductVendorCost } from '../../../entities/products';
 import { v4 as uuidv4 } from 'uuid';
+import {
+  computeReceivedLineBreakdown,
+  computeRequestedLineBreakdown,
+} from '../utils/purchase-order-line-breakdown.util';
 
 type PurchaseOrderCurrency = 'MXN' | 'USD';
 
@@ -246,12 +250,14 @@ export class PurchaseOrderService {
     let requested_ieps_total = 0;
 
     for (const lineItem of lineItems) {
-      const line_subtotal =
-        Number(lineItem.quantity) * Number(lineItem.unit_total);
       const iva_percentage = Number(lineItem.iva_percentage || 0);
-      const line_iva = (line_subtotal * iva_percentage) / 100;
       const ieps_percentage = Number(lineItem.ieps_percentage || 0);
-      const line_ieps = (line_subtotal * ieps_percentage) / 100;
+      const breakdown = computeRequestedLineBreakdown(
+        Number(lineItem.quantity),
+        Number(lineItem.unit_total),
+        iva_percentage,
+        ieps_percentage,
+      );
 
       const productUomId = await this.unitConversionService.getProductUomId(
         lineItem.uom_id,
@@ -275,18 +281,17 @@ export class PurchaseOrderService {
         product_uom_id: productUomId,
         quantity: lineItem.quantity,
         unit_total: lineItem.unit_total,
-        iva_percentage: iva_percentage,
-        iva_unit: line_iva / Number(lineItem.quantity),
-        ieps_percentage: ieps_percentage,
-        ieps_unit: line_ieps / Number(lineItem.quantity),
+        iva_percentage,
+        ieps_percentage,
+        ...breakdown,
         created_by: userId,
       });
 
       await queryRunner.manager.save(detail);
 
-      requested_subtotal += line_subtotal;
-      requested_iva_total += line_iva;
-      requested_ieps_total += line_ieps;
+      requested_subtotal += breakdown.line_subtotal;
+      requested_iva_total += breakdown.line_iva;
+      requested_ieps_total += breakdown.line_ieps;
     }
 
     return {
@@ -602,26 +607,48 @@ export class PurchaseOrderService {
     }
   }
 
-  private roundMoney(value: number): number {
-    return Math.round(value * 100) / 100;
-  }
-
-  /** Totales de línea para la tabla/footer del detalle (no se persisten). */
+  /** Normaliza decimales del desglose persistido (TypeORM puede devolver string). */
   private mapLineItemForUi(line: PurchaseOrderBatchDetail) {
-    const quantity = Number(line.quantity) || 0;
-    const unitTotal = Number(line.unit_total) || 0;
-    const ivaPercentage = Number(line.iva_percentage) || 0;
-    const iepsPercentage = Number(line.ieps_percentage) || 0;
-    const lineSubtotal = quantity * unitTotal;
-    const lineIva = (lineSubtotal * ivaPercentage) / 100;
-    const lineIeps = (lineSubtotal * iepsPercentage) / 100;
+    const stored = computeRequestedLineBreakdown(
+      Number(line.quantity),
+      Number(line.unit_total),
+      Number(line.iva_percentage),
+      Number(line.ieps_percentage),
+    );
+    const money = (value: unknown, fallback: number) => {
+      const n = Number(value);
+      return Number.isFinite(n) ? this.roundMoney(n) : fallback;
+    };
+    const hasReceived =
+      line.received_original_quantity != null &&
+      line.received_original_unit_total != null;
+    const received = hasReceived
+      ? computeReceivedLineBreakdown(
+          Number(line.received_original_quantity),
+          Number(line.received_original_unit_total),
+          Number(line.received_original_iva_percentage || 0),
+          Number(line.received_original_ieps_percentage || 0),
+        )
+      : null;
 
     return {
       ...line,
-      line_subtotal: this.roundMoney(lineSubtotal),
-      line_iva: this.roundMoney(lineIva),
-      line_ieps: this.roundMoney(lineIeps),
-      line_total: this.roundMoney(lineSubtotal + lineIva + lineIeps),
+      line_subtotal: money(line.line_subtotal, stored.line_subtotal),
+      line_iva: money(line.line_iva, stored.line_iva),
+      line_ieps: money(line.line_ieps, stored.line_ieps),
+      line_total: money(line.line_total, stored.line_total),
+      received_line_subtotal: received
+        ? money(line.received_line_subtotal, received.received_line_subtotal)
+        : null,
+      received_line_iva: received
+        ? money(line.received_line_iva, received.received_line_iva)
+        : null,
+      received_line_ieps: received
+        ? money(line.received_line_ieps, received.received_line_ieps)
+        : null,
+      received_line_total: received
+        ? money(line.received_line_total, received.received_line_total)
+        : null,
     };
   }
 
@@ -1092,6 +1119,15 @@ export class PurchaseOrderService {
         lineItem.received_original_iva_unit = receivedItem.iva_unit;
         lineItem.received_original_ieps_percentage = receivedItem.ieps_percentage;
         lineItem.received_original_ieps_unit = receivedItem.ieps_unit;
+        Object.assign(
+          lineItem,
+          computeReceivedLineBreakdown(
+            Number(receivedItem.quantity),
+            Number(receivedItem.unit_total),
+            Number(receivedItem.iva_percentage || 0),
+            Number(receivedItem.ieps_percentage || 0),
+          ),
+        );
 
         // Convert to base unit
         const convertedQuantity = await this.unitConversionService.convertToBaseUnit(
@@ -1110,13 +1146,16 @@ export class PurchaseOrderService {
         await queryRunner.manager.save(lineItem);
 
         // Calculate received totals
-        const line_subtotal = receivedItem.quantity * receivedItem.unit_total;
-        const line_iva = receivedItem.iva_unit || (line_subtotal * (receivedItem.iva_percentage || 0) / 100);
-        const line_ieps = receivedItem.ieps_unit || (line_subtotal * (receivedItem.ieps_percentage || 0) / 100);
+        const receivedBreakdown = computeReceivedLineBreakdown(
+          Number(receivedItem.quantity),
+          Number(receivedItem.unit_total),
+          Number(receivedItem.iva_percentage || 0),
+          Number(receivedItem.ieps_percentage || 0),
+        );
 
-        received_subtotal += line_subtotal;
-        received_iva_total += line_iva;
-        received_ieps_total += line_ieps;
+        received_subtotal += receivedBreakdown.received_line_subtotal;
+        received_iva_total += receivedBreakdown.received_line_iva;
+        received_ieps_total += receivedBreakdown.received_line_ieps;
 
         // Create inventory batch
         const batchNumber = await this.batchNumberGenerator.generateBatchNumber(
@@ -1362,11 +1401,14 @@ export class PurchaseOrderService {
     }
 
     const poCurrency = this.normalizeCurrency(purchaseOrder.payment_currency) || 'MXN';
-    const line_subtotal = Number(dto.quantity) * Number(dto.unit_total);
     const iva_percentage = Number(dto.iva_percentage || 0);
-    const line_iva = (line_subtotal * iva_percentage) / 100;
     const ieps_percentage = Number(dto.ieps_percentage || 0);
-    const line_ieps = (line_subtotal * ieps_percentage) / 100;
+    const breakdown = computeRequestedLineBreakdown(
+      Number(dto.quantity),
+      Number(dto.unit_total),
+      iva_percentage,
+      ieps_percentage,
+    );
 
     const productUomId = await this.unitConversionService.getProductUomId(
       dto.uom_id,
@@ -1386,9 +1428,8 @@ export class PurchaseOrderService {
       quantity: dto.quantity,
       unit_total: dto.unit_total,
       iva_percentage,
-      iva_unit: line_iva / Number(dto.quantity),
       ieps_percentage,
-      ieps_unit: line_ieps / Number(dto.quantity),
+      ...breakdown,
       created_by: userId,
     });
 
@@ -1440,16 +1481,19 @@ export class PurchaseOrderService {
     let requested_ieps_total = 0;
 
     for (const d of details) {
-      const qty = Number(d.quantity);
-      const unitTotal = Number(d.unit_total);
-      const line_subtotal = qty * unitTotal;
-      const iva_percentage = Number(d.iva_percentage || 0);
-      const ieps_percentage = Number(d.ieps_percentage || 0);
-      const line_iva = (line_subtotal * iva_percentage) / 100;
-      const line_ieps = (line_subtotal * ieps_percentage) / 100;
-      requested_subtotal += line_subtotal;
-      requested_iva_total += line_iva;
-      requested_ieps_total += line_ieps;
+      const breakdown = computeRequestedLineBreakdown(
+        Number(d.quantity),
+        Number(d.unit_total),
+        Number(d.iva_percentage || 0),
+        Number(d.ieps_percentage || 0),
+      );
+      const pick = (value: unknown, fallback: number) => {
+        const n = Number(value);
+        return Number.isFinite(n) ? this.roundMoney(n) : fallback;
+      };
+      requested_subtotal += pick(d.line_subtotal, breakdown.line_subtotal);
+      requested_iva_total += pick(d.line_iva, breakdown.line_iva);
+      requested_ieps_total += pick(d.line_ieps, breakdown.line_ieps);
     }
 
     return {
@@ -1486,18 +1530,18 @@ export class PurchaseOrderService {
   }
 
   /**
-   * Recompute per-line IVA/IEPS unit amounts from percentages (aligned with create()).
+   * Recalcula IVA/IEPS unitario y desglose persistido de la línea.
    */
   private applyLineTaxesFromPercentages(lineItem: PurchaseOrderBatchDetail): void {
-    const qty = Number(lineItem.quantity);
-    const unitTotal = Number(lineItem.unit_total);
-    const line_subtotal = qty * unitTotal;
-    const iva_percentage = Number(lineItem.iva_percentage || 0);
-    const ieps_percentage = Number(lineItem.ieps_percentage || 0);
-    const line_iva = (line_subtotal * iva_percentage) / 100;
-    const line_ieps = (line_subtotal * ieps_percentage) / 100;
-    lineItem.iva_unit = line_iva / qty;
-    lineItem.ieps_unit = line_ieps / qty;
+    Object.assign(
+      lineItem,
+      computeRequestedLineBreakdown(
+        Number(lineItem.quantity),
+        Number(lineItem.unit_total),
+        Number(lineItem.iva_percentage || 0),
+        Number(lineItem.ieps_percentage || 0),
+      ),
+    );
   }
 
   /**

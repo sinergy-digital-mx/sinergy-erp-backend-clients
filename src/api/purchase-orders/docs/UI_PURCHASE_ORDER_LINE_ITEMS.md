@@ -24,27 +24,35 @@ Si `can_edit_lines === false`: oculta lápiz, basura y “Agregar producto”. L
 
 Cada fila = `line_items[]`. La moneda de **toda** la OC es `payment_currency` (`MXN` | `USD`). No concatenar `"USD 2.22"`.
 
+**`unit_total` es costo sin impuestos.** El importe de línea que ves como `6,660.00` (`2.22 × 3000`) es **sin IVA**. El IVA de esa línea es `line_iva` (`1,065.60` al 16%). El total de la línea con impuestos es `line_total` (`7,725.60`).
+
+Estos 4 montos **vienen persistidos** en cada línea. No los recalcules en el cliente.
+
 | Columna | Fuente | Cómo pintar |
 |---------|--------|-------------|
 | Producto | `product.name` + código | igual que ahora |
-| Costo unit. | `unit_total` | número + **badge** `payment_currency` |
-| IVA % | `iva_percentage` | badge `16%` / `0%` (el valor viene numérico) |
-| Importe línea | `line_subtotal` | número + **badge** `payment_currency` |
-| IVA $ | `line_iva` | número + badge (opcional; si no cabe, va en el footer) |
+| Costo unit. | `unit_total` | **sin IVA**. Número + badge `payment_currency` |
+| IVA % | `iva_percentage` | badge `16%` / `0%` |
+| Importe (sin IVA) | `line_subtotal` | `qty × unit_total`. Badge moneda |
+| IVA $ | `line_iva` | monto de IVA de **esa** línea. Badge moneda |
+| Total línea | `line_total` | `line_subtotal + line_iva + line_ieps`. Badge moneda |
 | Solicitadas | `quantity` + UOM | igual |
 | Recibidas | recepción | igual |
 | Acciones | — | lápiz + basura **solo si** `can_edit_lines` |
 
-Campos calculados en el GET (no los inventes en el cliente si ya vienen):
+| Campo persistido | Qué es |
+|------------------|--------|
+| `unit_total` | Costo unitario **sin** IVA/IEPS |
+| `iva_percentage` / `ieps_percentage` | % de la línea |
+| `iva_unit` / `ieps_unit` | Impuesto **por unidad** |
+| `line_subtotal` | Importe **sin** impuestos |
+| `line_iva` | IVA de la línea |
+| `line_ieps` | IEPS de la línea |
+| `line_total` | Importe **con** IVA + IEPS |
 
-| Campo | Qué es |
-|-------|--------|
-| `line_subtotal` | `quantity * unit_total` |
-| `line_iva` | IVA de esa línea |
-| `line_ieps` | IEPS de esa línea |
-| `line_total` | subtotal + IVA + IEPS de la línea |
+IEPS: columna `line_ieps` solo si alguna línea tiene `ieps_percentage > 0`. En el modal de editar, sí mostrar el campo (puede ser 0).
 
-IEPS: columna solo si alguna línea tiene `ieps_percentage > 0`. En el modal de editar, sí mostrar el campo (puede ser 0).
+Al cambiar IVA 16 → 0 en el PATCH, `line_iva` pasa a `0` y `line_total` queda igual a `line_subtotal`. El footer `requested_*` es la suma de esas columnas.
 
 ### Badge de moneda
 
@@ -163,7 +171,9 @@ Body = `CreateLineItemDto` (producto, UOM, cantidad, costo, IVA, IEPS, `currency
 ## Checklist Pollux
 
 - [ ] Columna IVA % (badge) en tab Productos
-- [ ] Costo e importe con badge MXN / USD (`payment_currency`)
+- [ ] Importe línea = `line_subtotal` (**sin IVA**). No es el total con impuesto
+- [ ] Columna IVA $ = `line_iva` y Total línea = `line_total`
+- [ ] Costo e importes con badge MXN / USD (`payment_currency`)
 - [ ] Footer: subtotal, IVA, IEPS si aplica, total
 - [ ] Lápiz + basura por fila si `can_edit_lines`
 - [ ] Modal: cantidad, costo unitario, IVA %, IEPS %

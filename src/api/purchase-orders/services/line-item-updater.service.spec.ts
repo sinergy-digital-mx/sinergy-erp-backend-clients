@@ -43,7 +43,7 @@ describe('LineItemUpdaterService', () => {
     const receivedItem: ReceivedItemDto = {
       line_item_id: lineItemId,
       product_id: 'product-001',
-      uom_id: 'uom-001',
+      product_uom_id: 'uom-001',
       quantity: 50.25,
       unit_total: 100.0,
       iva_percentage: 16.0,
@@ -97,13 +97,17 @@ describe('LineItemUpdaterService', () => {
         expect.objectContaining({
           id: lineItemId,
           received_original_product_id: receivedItem.product_id,
-          received_original_uom_id: receivedItem.uom_id,
+          received_original_uom_id: receivedItem.product_uom_id,
           received_original_quantity: receivedItem.quantity,
           received_original_unit_total: receivedItem.unit_total,
           received_original_iva_percentage: receivedItem.iva_percentage,
           received_original_iva_unit: receivedItem.iva_unit,
           received_original_ieps_percentage: receivedItem.ieps_percentage,
           received_original_ieps_unit: receivedItem.ieps_unit,
+          received_line_subtotal: 5025,
+          received_line_iva: 804,
+          received_line_ieps: 0,
+          received_line_total: 5829,
           received_converted_quantity: convertedQuantity,
           received_converted_uom_id: baseUomId,
           updated_by: userId,
@@ -138,7 +142,7 @@ describe('LineItemUpdaterService', () => {
 
       const savedItem = (lineItemRepository.save as jest.Mock).mock.calls[0][0];
       expect(savedItem.received_original_product_id).toBe(receivedItem.product_id);
-      expect(savedItem.received_original_uom_id).toBe(receivedItem.uom_id);
+      expect(savedItem.received_original_uom_id).toBe(receivedItem.product_uom_id);
       expect(savedItem.received_original_quantity).toBe(receivedItem.quantity);
       expect(savedItem.received_original_unit_total).toBe(receivedItem.unit_total);
       expect(savedItem.received_original_iva_percentage).toBe(receivedItem.iva_percentage);

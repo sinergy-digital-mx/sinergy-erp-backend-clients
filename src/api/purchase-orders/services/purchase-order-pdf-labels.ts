@@ -26,6 +26,7 @@ export interface PurchaseOrderPdfLabels {
   receivedBatches: string;
   receivedQty: string;
   unitPrice: string;
+  lineAmount: string;
   total: string;
   unitPrefix: string;
   modePrefix: string;
@@ -38,6 +39,7 @@ export interface PurchaseOrderPdfLabels {
   vat: string;
   ieps: string;
   totalLabel: string;
+  currency: string;
   statusCreated: string;
   statusReceived: string;
   statusCancelled: string;

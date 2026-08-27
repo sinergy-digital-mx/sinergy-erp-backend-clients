@@ -7,6 +7,7 @@ import {
   QueryPurchaseOrderDetailExportDto,
   QueryPurchaseOrderHeaderExportDto,
 } from '../dto/query-purchase-order-export.dto';
+import { computeRequestedLineBreakdown } from '../utils/purchase-order-line-breakdown.util';
 import {
   buildExportSubtitle,
   buildStyledExcelBuffer,
@@ -57,6 +58,9 @@ export class PurchaseOrderExportService {
     { header: 'IVA %', key: 'iva_percentage', width: 10, type: 'percent' },
     { header: 'IEPS %', key: 'ieps_percentage', width: 10, type: 'percent' },
     { header: 'Subtotal línea', key: 'line_subtotal', width: 14, type: 'currency' },
+    { header: 'IVA línea', key: 'line_iva', width: 12, type: 'currency' },
+    { header: 'IEPS línea', key: 'line_ieps', width: 12, type: 'currency' },
+    { header: 'Total línea', key: 'line_total', width: 14, type: 'currency' },
   ];
 
   constructor(
@@ -137,6 +141,12 @@ export class PurchaseOrderExportService {
     const rows = filtered.map((d) => {
       const qty = num(d.quantity);
       const unitTotal = num(d.unit_total);
+      const breakdown = computeRequestedLineBreakdown(
+        qty,
+        unitTotal,
+        num(d.iva_percentage),
+        num(d.ieps_percentage),
+      );
       return {
         folio: d.purchase_order_batch?.folio ?? '',
         order_created_at: formatExportDateTime(d.purchase_order_batch?.created_at),
@@ -155,7 +165,10 @@ export class PurchaseOrderExportService {
         unit_total: unitTotal,
         iva_percentage: num(d.iva_percentage),
         ieps_percentage: num(d.ieps_percentage),
-        line_subtotal: qty * unitTotal,
+        line_subtotal: num(d.line_subtotal) || breakdown.line_subtotal,
+        line_iva: num(d.line_iva) || breakdown.line_iva,
+        line_ieps: num(d.line_ieps) || breakdown.line_ieps,
+        line_total: num(d.line_total) || breakdown.line_total,
       };
     });
 

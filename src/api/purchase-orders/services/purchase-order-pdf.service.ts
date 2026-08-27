@@ -10,6 +10,7 @@ import {
   translatePaymentStatus,
 } from './purchase-order-pdf-labels';
 import * as path from 'path';
+import { computeRequestedLineBreakdown, computeReceivedLineBreakdown } from '../utils/purchase-order-line-breakdown.util';
 
 const COLORS = {
   primary: '#1E3A5F',
@@ -96,19 +97,20 @@ export class PurchaseOrderPdfService {
     const subtitle =
       kind === 'original' ? labels.originalDocumentTitle : labels.receptionDocumentTitle;
     const totals = this.getTotals(purchaseOrder, kind);
+    const currency = this.resolveCurrency(purchaseOrder);
 
     const docDefinition: any = {
       pageSize: 'A4',
       pageMargins: [28, 28, 28, 40],
       content: [
-        this.buildHeader(purchaseOrder, labels, logoImage, subtitle),
+        this.buildHeader(purchaseOrder, labels, logoImage, subtitle, currency),
         this.buildAccentLine(),
         this.buildMetaCards(purchaseOrder, labels, kind),
         this.buildPartyCards(purchaseOrder, labels),
         kind === 'original'
-          ? this.buildRequestedProducts(purchaseOrder, labels)
-          : this.buildReceivedProducts(purchaseOrder, labels),
-        this.buildNotesAndTotals(purchaseOrder, labels, totals),
+          ? this.buildRequestedProducts(purchaseOrder, labels, currency)
+          : this.buildReceivedProducts(purchaseOrder, labels, currency),
+        this.buildNotesAndTotals(purchaseOrder, labels, totals, currency),
       ],
       footer: (currentPage: number, pageCount: number) => ({
         columns: [
@@ -140,6 +142,7 @@ export class PurchaseOrderPdfService {
     labels: PurchaseOrderPdfLabels,
     logoImage: string | null,
     subtitle: string,
+    currency: string,
   ): any {
     return {
       columns: [
@@ -166,6 +169,13 @@ export class PurchaseOrderPdfService {
               bold: true,
               color: COLORS.label,
               margin: [0, 4, 0, 0],
+            },
+            {
+              text: `${labels.currency}:  ${currency}`,
+              fontSize: 10,
+              bold: true,
+              color: COLORS.primary,
+              margin: [0, 2, 0, 0],
             },
           ],
           margin: [0, 6, 0, 0],
@@ -230,6 +240,8 @@ export class PurchaseOrderPdfService {
             this.metaCell(labels.status, status, this.statusColor(purchaseOrder.general_status)),
             this.gapCell(),
             this.metaCell(labels.payment, payment, this.paymentColor(purchaseOrder.payment_status)),
+            this.gapCell(),
+            this.metaCell(labels.currency, this.resolveCurrency(purchaseOrder), COLORS.primary),
           ]
         : [
             this.metaCell(labels.creationDate, createdAt),
@@ -261,7 +273,7 @@ export class PurchaseOrderPdfService {
           table: {
             widths:
               kind === 'original'
-                ? ['*', 6, '*', 6, '*', 6, '*', 6, '*']
+                ? ['*', 6, '*', 6, '*', 6, '*', 6, '*', 6, '*']
                 : ['*', 6, '*', 6, '*', 6, '*', 6, '*', 6, '*'],
             body: [cards],
           },
@@ -335,6 +347,7 @@ export class PurchaseOrderPdfService {
   private buildRequestedProducts(
     purchaseOrder: PurchaseOrderBatch,
     labels: PurchaseOrderPdfLabels,
+    currency: string,
   ): any {
     const lineItems = purchaseOrder.line_items || [];
     const tableBody: any[] = [
@@ -342,6 +355,8 @@ export class PurchaseOrderPdfService {
         { text: labels.product, ...this.thCell('left') },
         { text: labels.requestedQty, ...this.thCell('center') },
         { text: labels.unitPrice, ...this.thCell('right') },
+        { text: labels.lineAmount, ...this.thCell('right') },
+        { text: labels.vat, ...this.thCell('right') },
         { text: labels.total, ...this.thCell('right') },
       ],
     ];
@@ -349,8 +364,16 @@ export class PurchaseOrderPdfService {
     for (const item of lineItems) {
       const quantity = Number(item.quantity) || 0;
       const unitPrice = Number(item.unit_total) || 0;
-      const total = quantity * unitPrice;
       const requestedUom = item.product_uom?.uom?.name || 'UOM';
+      const breakdown = computeRequestedLineBreakdown(
+        quantity,
+        unitPrice,
+        Number(item.iva_percentage || 0),
+        Number(item.ieps_percentage || 0),
+      );
+      const lineSubtotal = Number(item.line_subtotal) || breakdown.line_subtotal;
+      const lineIva = Number(item.line_iva) || breakdown.line_iva;
+      const lineTotal = Number(item.line_total) || breakdown.line_total;
 
       tableBody.push([
         {
@@ -364,11 +387,13 @@ export class PurchaseOrderPdfService {
             },
           ],
         },
-        { text: `${quantity} ${requestedUom}`, fontSize: 9, alignment: 'center', color: COLORS.text },
-        { text: this.formatCurrency(unitPrice), fontSize: 9, alignment: 'right', color: COLORS.text },
+        { text: `${quantity} ${requestedUom}`, fontSize: 8.5, alignment: 'center', color: COLORS.text },
+        { text: this.formatCurrency(unitPrice, currency), fontSize: 8, alignment: 'right', color: COLORS.text },
+        { text: this.formatCurrency(lineSubtotal, currency), fontSize: 8, alignment: 'right', color: COLORS.text },
+        { text: this.formatCurrency(lineIva, currency), fontSize: 8, alignment: 'right', color: COLORS.text },
         {
-          text: this.formatCurrency(total),
-          fontSize: 9,
+          text: this.formatCurrency(lineTotal, currency),
+          fontSize: 8.5,
           alignment: 'right',
           bold: true,
           color: COLORS.text,
@@ -376,12 +401,17 @@ export class PurchaseOrderPdfService {
       ]);
     }
 
-    return this.productsTable(labels.requestedProductsDetail, ['*', 100, 90, 90], tableBody);
+    return this.productsTable(
+      labels.requestedProductsDetail,
+      ['*', 78, 78, 86, 78, 92],
+      tableBody,
+    );
   }
 
   private buildReceivedProducts(
     purchaseOrder: PurchaseOrderBatch,
     labels: PurchaseOrderPdfLabels,
+    currency: string,
   ): any {
     const lineItems = purchaseOrder.line_items || [];
     const batches = purchaseOrder.batches || [];
@@ -402,6 +432,7 @@ export class PurchaseOrderPdfService {
         { text: labels.receivedBatches, ...this.thCell('left') },
         { text: labels.receivedQty, ...this.thCell('center') },
         { text: labels.unitPrice, ...this.thCell('right') },
+        { text: labels.vat, ...this.thCell('right') },
         { text: labels.total, ...this.thCell('right') },
       ],
     ];
@@ -409,7 +440,16 @@ export class PurchaseOrderPdfService {
     for (const item of lineItems) {
       const quantity = Number(item.received_original_quantity) || 0;
       const unitPrice = Number(item.received_original_unit_total) || 0;
-      const total = quantity * unitPrice;
+      const receivedBreakdown = computeReceivedLineBreakdown(
+        quantity,
+        unitPrice,
+        Number(item.received_original_iva_percentage || 0),
+        Number(item.received_original_ieps_percentage || 0),
+      );
+      const lineIva =
+        Number(item.received_line_iva) || receivedBreakdown.received_line_iva;
+      const lineTotal =
+        Number(item.received_line_total) || receivedBreakdown.received_line_total;
       const itemBatches = batchesByLineItem.get(item.id) || [];
       const lotText = itemBatches.length
         ? itemBatches
@@ -438,10 +478,11 @@ export class PurchaseOrderPdfService {
         },
         { text: lotText, fontSize: 8, color: COLORS.text },
         { text: `${quantity} ${receivedUom}`, fontSize: 9, alignment: 'center', color: COLORS.text },
-        { text: this.formatCurrency(unitPrice), fontSize: 9, alignment: 'right', color: COLORS.text },
+        { text: this.formatCurrency(unitPrice, currency), fontSize: 8, alignment: 'right', color: COLORS.text },
+        { text: this.formatCurrency(lineIva, currency), fontSize: 8, alignment: 'right', color: COLORS.text },
         {
-          text: this.formatCurrency(total),
-          fontSize: 9,
+          text: this.formatCurrency(lineTotal, currency),
+          fontSize: 8.5,
           alignment: 'right',
           bold: true,
           color: COLORS.text,
@@ -451,7 +492,7 @@ export class PurchaseOrderPdfService {
 
     return this.productsTable(
       labels.receivedProductsDetail,
-      ['*', 150, 78, 80, 78],
+      ['*', 120, 70, 78, 78, 92],
       tableBody,
     );
   }
@@ -495,6 +536,7 @@ export class PurchaseOrderPdfService {
     purchaseOrder: PurchaseOrderBatch,
     labels: PurchaseOrderPdfLabels,
     totals: PurchaseTotals,
+    currency: string,
   ): any {
     const notesText = purchaseOrder.notes?.trim();
 
@@ -524,7 +566,7 @@ export class PurchaseOrderPdfService {
               margin: [14, 14, 16, 14],
             },
             {
-              stack: [this.buildTotalsTable(labels, totals)],
+              stack: [this.buildTotalsTable(labels, totals, currency)],
               fillColor: COLORS.light,
               border: [false, false, false, false],
               margin: [10, 12, 12, 12],
@@ -537,15 +579,19 @@ export class PurchaseOrderPdfService {
     };
   }
 
-  private buildTotalsTable(labels: PurchaseOrderPdfLabels, totals: PurchaseTotals): any {
+  private buildTotalsTable(
+    labels: PurchaseOrderPdfLabels,
+    totals: PurchaseTotals,
+    currency: string,
+  ): any {
     return {
       table: {
-        widths: ['*', 82],
+        widths: ['*', 108],
         body: [
-          this.totalRow(labels.subtotal, totals.subtotal),
-          this.totalRow(labels.vat, totals.iva),
-          this.totalRow(labels.ieps, totals.ieps),
-          this.totalRow(labels.totalLabel, totals.total, true),
+          this.totalRow(labels.subtotal, totals.subtotal, currency),
+          this.totalRow(labels.vat, totals.iva, currency),
+          this.totalRow(labels.ieps, totals.ieps, currency),
+          this.totalRow(`${labels.totalLabel} (${currency})`, totals.total, currency, true),
         ],
       },
       layout: {
@@ -559,7 +605,7 @@ export class PurchaseOrderPdfService {
     };
   }
 
-  private totalRow(label: string, amount: number, strong = false): any[] {
+  private totalRow(label: string, amount: number, currency: string, strong = false): any[] {
     if (strong) {
       return [
         {
@@ -570,7 +616,7 @@ export class PurchaseOrderPdfService {
           fillColor: COLORS.primarySoft,
         },
         {
-          text: this.formatCurrency(amount),
+          text: this.formatCurrency(amount, currency),
           fontSize: 10,
           bold: true,
           color: COLORS.primary,
@@ -583,7 +629,7 @@ export class PurchaseOrderPdfService {
     return [
       { text: label, fontSize: 8.5, color: COLORS.muted },
       {
-        text: this.formatCurrency(amount),
+        text: this.formatCurrency(amount, currency),
         fontSize: 8.5,
         color: COLORS.text,
         alignment: 'right',
@@ -683,11 +729,17 @@ export class PurchaseOrderPdfService {
     return status === 'Pagado' ? COLORS.success : COLORS.warning;
   }
 
-  private formatCurrency(amount: number): string {
-    return (
-      '$' +
-      amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    );
+  private resolveCurrency(purchaseOrder: PurchaseOrderBatch): string {
+    const value = String(purchaseOrder.payment_currency || 'MXN').trim().toUpperCase();
+    return value === 'USD' ? 'USD' : 'MXN';
+  }
+
+  private formatCurrency(amount: number, currency: string): string {
+    const formatted = amount.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    return `$${formatted} ${currency}`;
   }
 
   private async getFiscalLogoImage(purchaseOrder: PurchaseOrderBatch): Promise<string | null> {

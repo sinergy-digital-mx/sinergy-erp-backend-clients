@@ -58,7 +58,7 @@ Estilo: título morado oscuro, encabezados morado (`#5B4B8A`), filas alternadas.
 
 ### Detalle (`compras-detalle-YYYY-MM-DD_YYYY-MM-DD.xlsx`)
 
-Una fila por línea de producto. Columnas: Folio orden, Fecha orden, Estado orden, Proveedor, Razón social, Sucursal, Almacén, SKU, Producto, UOM, Cantidad, Total unit., IVA %, IEPS %, Subtotal línea.
+Una fila por línea de producto. Columnas: Folio orden, Fecha orden, Estado orden, Proveedor, Razón social, Sucursal, Almacén, SKU, Producto, UOM, Cantidad, Total unit., IVA %, IEPS %, Subtotal línea (sin IVA), IVA línea, IEPS línea, Total línea (con impuestos).
 
 Estilo: morado claro en encabezados (`#6A5ACD`).
 

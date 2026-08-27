@@ -22,6 +22,8 @@ Listado y detalle: `payment_currency` ya viene en el GET de la OC. Muestra el mi
 
 En el tab Productos del detalle: badge junto al costo unitario y al importe de línea. Nunca texto plano `"USD 2.22"`. Ver `UI_PURCHASE_ORDER_LINE_ITEMS.md`.
 
+PDFs (documento original y recepción): `Moneda: USD|MXN` en el encabezado y en el resumen; montos como `$2.22 USD`. Los PDFs ya generados no cambian solos: regenerar con `POST /api/tenant/purchase-orders/:id/regenerate-documento-original` (o el de recepción). Una OC nueva o un cambio de línea sí genera el PDF con moneda.
+
 Cards **Por Estado** / **Estado de Pago** del listado: montos partidos en MXN y USD (`stats.by_currency`). No sumar. Ver `UI_PURCHASE_ORDER_STATS.md`.
 
 ---

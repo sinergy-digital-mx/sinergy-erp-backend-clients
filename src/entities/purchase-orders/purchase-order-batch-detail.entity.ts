@@ -64,6 +64,22 @@ export class PurchaseOrderBatchDetail {
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   ieps_unit: number;
 
+  /** qty × unit_total. Sin IVA ni IEPS. */
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  line_subtotal: number;
+
+  /** IVA de la línea (no por unidad). */
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  line_iva: number;
+
+  /** IEPS de la línea (no por unidad). */
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  line_ieps: number;
+
+  /** line_subtotal + line_iva + line_ieps. */
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  line_total: number;
+
   // Received Original (what actually arrived) - original units
   @ManyToOne(() => Product, { onDelete: 'RESTRICT', nullable: true })
   @JoinColumn({ name: 'received_original_product_id' })
@@ -96,6 +112,18 @@ export class PurchaseOrderBatchDetail {
 
   @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
   received_original_ieps_unit: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  received_line_subtotal: number | null;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  received_line_iva: number | null;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  received_line_ieps: number | null;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  received_line_total: number | null;
 
   // Received Converted (converted to base units for inventory)
   @ManyToOne(() => UoMCatalog, { onDelete: 'RESTRICT', nullable: true })
