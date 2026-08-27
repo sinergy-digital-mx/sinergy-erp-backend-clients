@@ -1143,7 +1143,7 @@ export class PurchaseOrderService {
         lineItem.received_converted_uom_id = baseUomId;
         lineItem.updated_by = userId;
 
-        await queryRunner.manager.save(lineItem);
+        await queryRunner.manager.save(PurchaseOrderBatchDetail, lineItem);
 
         // Calculate received totals
         const receivedBreakdown = computeReceivedLineBreakdown(
@@ -1563,7 +1563,9 @@ export class PurchaseOrderService {
       );
     }
 
-    const lineItem = purchaseOrder.line_items.find((li) => li.id === lineItemId);
+    const lineItem = await this.purchaseOrderDetailRepository.findOne({
+      where: { id: lineItemId, purchase_order_batch_id: orderId },
+    });
 
     if (!lineItem) {
       throw new NotFoundException(`Línea no encontrada: ${lineItemId}`);
@@ -1611,7 +1613,7 @@ export class PurchaseOrderService {
         iepsPercentage: Number(lineItem.ieps_percentage || 0),
         currency: poCurrency,
       });
-      await queryRunner.manager.save(lineItem);
+      await queryRunner.manager.save(PurchaseOrderBatchDetail, lineItem);
       await this.persistRequestedTotalsWithRunner(
         queryRunner,
         orderId,
@@ -1647,7 +1649,9 @@ export class PurchaseOrderService {
       );
     }
 
-    const lineItem = purchaseOrder.line_items.find((li) => li.id === lineItemId);
+    const lineItem = await this.purchaseOrderDetailRepository.findOne({
+      where: { id: lineItemId, purchase_order_batch_id: orderId },
+    });
 
     if (!lineItem) {
       throw new NotFoundException(`Línea no encontrada: ${lineItemId}`);
@@ -1657,7 +1661,7 @@ export class PurchaseOrderService {
     await queryRunner.connect();
     await queryRunner.startTransaction();
     try {
-      await queryRunner.manager.remove(lineItem);
+      await queryRunner.manager.remove(PurchaseOrderBatchDetail, lineItem);
       await this.persistRequestedTotalsWithRunner(
         queryRunner,
         orderId,
