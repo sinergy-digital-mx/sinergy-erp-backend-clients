@@ -22,6 +22,7 @@ import { CreateSalesOrderPaymentDto } from '../dto/create-sales-order-payment.dt
 import { PosSalePaymentMethod } from '../../../entities/pos/pos-sale-payment-method.enum';
 import { User } from '../../../entities/users/user.entity';
 import { S3Service } from '../../../common/services/s3.service';
+import { buildSelfInvoicePortalUrl } from '../../../common/utils/public-invoice-code.util';
 import { SalesOrderFolioService } from './sales-order-folio.service';
 import { SalesOrderFulfillmentService } from './sales-order-fulfillment.service';
 import { SalesOrderPdfService } from './sales-order-pdf.service';
@@ -594,6 +595,10 @@ export class SalesOrderService {
     const cancelBlockedReason = await this.getCancelBlockedReason(so, tenantId);
     const header = {
       ...this.mapOrderLocation(so),
+      public_invoice_code: so.public_invoice_code ?? null,
+      self_invoice_url: so.public_invoice_code
+        ? buildSelfInvoicePortalUrl(so.public_invoice_code, so.customer?.email)
+        : null,
       customer_display_name: customerSummary?.display_name ?? formatCustomerDisplayName(so.customer),
       customer_summary: customerSummary,
       seller_user: mapPosUser(so.seller_user),

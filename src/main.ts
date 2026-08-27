@@ -35,6 +35,15 @@ async function bootstrap() {
     'https://divino.sinergydigital.mx',
   ];
   const localDevOriginPattern = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+  let selfInvoicePortalOrigin: string | null = null;
+  try {
+    const portalBase = process.env.SELF_INVOICE_PORTAL_BASE_URL?.trim();
+    if (portalBase) {
+      selfInvoicePortalOrigin = new URL(portalBase).origin;
+    }
+  } catch {
+    selfInvoicePortalOrigin = null;
+  }
 
   app.enableCors({
     origin: (origin, callback) => {
@@ -51,6 +60,7 @@ async function bootstrap() {
 
       if (
         productionOrigins.includes(origin) ||
+        origin === selfInvoicePortalOrigin ||
         /^https:\/\/([a-z0-9-]+\.)?sinergydigital\.mx$/.test(origin)
       ) {
         callback(null, true);

@@ -38,6 +38,7 @@ import { TrucksModule } from './api/trucks/trucks.module';
 import { ShippingsModule } from './api/shippings/shippings.module';
 import { WarehouseControlModule } from './api/warehouse-control/warehouse-control.module';
 import { MadereriaInventoryImportModule } from './api/madereria-inventory-import/madereria-inventory-import.module';
+import { SelfInvoiceModule } from './api/self-invoice/self-invoice.module';
 import { PermissionVersionGuard } from './api/auth/guards/permission-version.guard';
 
 @Module({
@@ -79,6 +80,7 @@ import { PermissionVersionGuard } from './api/auth/guards/permission-version.gua
     ShippingsModule,
     WarehouseControlModule,
     MadereriaInventoryImportModule,
+    SelfInvoiceModule,
   ],
   providers: [],
 })

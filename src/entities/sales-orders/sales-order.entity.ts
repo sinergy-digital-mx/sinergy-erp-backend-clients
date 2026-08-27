@@ -21,6 +21,7 @@ import { GlobalDiscount } from '../global-discounts/global-discount.entity';
 @Entity('inv_s_sales_orders')
 @Index('idx_so_tenant', ['tenant_id'])
 @Index('uq_so_tenant_folio', ['tenant_id', 'folio'], { unique: true })
+@Index('uq_so_public_invoice_code', ['public_invoice_code'], { unique: true })
 @Index('idx_so_customer', ['customer_id'])
 @Index('idx_so_warehouse', ['warehouse_id'])
 @Index('idx_so_general_status', ['general_status'])
@@ -38,6 +39,10 @@ export class SalesOrder {
 
   @Column({ length: 20 })
   folio: string;
+
+  /** Folio público único: `{RAZON}-{SUCURSAL}-INV-000012`. Para portal de autofactura. */
+  @Column({ type: 'varchar', length: 48, nullable: true })
+  public_invoice_code: string | null;
 
   @ManyToOne(() => FiscalConfiguration, { onDelete: 'RESTRICT', nullable: false })
   @JoinColumn({ name: 'fiscal_configuration_id' })

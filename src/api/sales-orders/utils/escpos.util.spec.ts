@@ -32,4 +32,12 @@ describe('escpos.util', () => {
     expect(padLeft('1', 5)).toBe('    1');
     expect(padRight('ABC', 6)).toBe('ABC   ');
   });
+
+  it('emits ESC/POS QR function commands', () => {
+    const url = 'https://facturacion.sinergydigital.mx/facturar/MZN-CENT-INV-000012';
+    const buffer = new EscPosBuilder().initialize().qr(url, 5).build();
+    const hex = buffer.toString('hex').toUpperCase();
+    expect(hex).toContain('1D286B'); // GS ( k
+    expect(buffer.includes(Buffer.from(url, 'utf8'))).toBe(true);
+  });
 });

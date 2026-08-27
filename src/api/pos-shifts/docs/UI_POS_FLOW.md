@@ -1216,10 +1216,14 @@ interface CollectResponse {
     escpos_base64: string;
     plain_text: string;
     printer_profile: string;
+    public_invoice_code: string | null;
+    self_invoice_url: string | null;
   } | null;
   sales_order: { id: string; folio: string };
 }
 ```
+
+El ticket térmico **ya incluye QR + URL + folio público** (`MZN-CENT-INV-000012`) dentro de `escpos_base64`. Pollux **no** dibuja el QR aparte: imprimir RAW como siempre. Portal: `src/api/self-invoice/docs/UI_SELF_INVOICE_PORTAL.md`.
 
 ### Paso 2 — Decodificar base64 a bytes
 

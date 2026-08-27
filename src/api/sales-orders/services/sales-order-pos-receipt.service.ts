@@ -1,8 +1,14 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 import { S3Service } from '../../../common/services/s3.service';
 import { DocumentLanguage } from '../../../common/enums/document-language.enum';
+import {
+  buildPublicInvoiceCode,
+  buildSelfInvoicePortalUrl,
+  withCollisionSuffix,
+} from '../../../common/utils/public-invoice-code.util';
 import { SalesOrder } from '../../../entities/sales-orders/sales-order.entity';
 import { PosSaleCollection } from '../../../entities/pos/pos-sale-collection.entity';
 import { PosSalePaymentMethod } from '../../../entities/pos/pos-sale-payment-method.enum';
@@ -44,6 +50,8 @@ export interface PosReceiptResult {
     flavor: 'hex';
     data: string;
   };
+  public_invoice_code: string | null;
+  self_invoice_url: string | null;
 }
 
 @Injectable()
@@ -62,6 +70,7 @@ export class SalesOrderPosReceiptService {
     private readonly documentTypeRepo: Repository<SalesOrderDocumentType>,
     private readonly documentsService: SalesOrderDocumentsService,
     private readonly s3Service: S3Service,
+    private readonly configService: ConfigService,
   ) {}
 
   async generateAndSavePosTicket(
@@ -76,7 +85,16 @@ export class SalesOrderPosReceiptService {
         })
       : null;
 
-    const plainText = this.buildPlainTextReceipt(order, collection, billingBranch);
+    const publicInvoiceCode = await this.ensurePublicInvoiceCode(order, billingBranch);
+    const selfInvoiceUrl = this.buildPortalUrl(publicInvoiceCode, order.customer?.email);
+
+    const plainText = this.buildPlainTextReceipt(
+      order,
+      collection,
+      billingBranch,
+      publicInvoiceCode,
+      selfInvoiceUrl,
+    );
     const escposBuffer = this.buildEscPosReceipt(plainText);
     const fileName = `TICKET_RECIBO-${order.folio}.escpos`;
 
@@ -118,6 +136,8 @@ export class SalesOrderPosReceiptService {
       document.id,
       fileName,
       downloadUrl,
+      publicInvoiceCode,
+      selfInvoiceUrl,
     );
   }
 
@@ -144,6 +164,7 @@ export class SalesOrderPosReceiptService {
   async getPosTicket(tenantId: string, salesOrderId: string): Promise<PosReceiptResult> {
     const order = await this.salesOrderRepo.findOne({
       where: { id: salesOrderId, tenant_id: tenantId },
+      relations: ['customer'],
     });
     if (!order) {
       throw new NotFoundException('Orden de venta no encontrada');
@@ -154,7 +175,7 @@ export class SalesOrderPosReceiptService {
       throw new NotFoundException('Ticket de recibo no generado para esta orden');
     }
 
-    return this.buildReceiptResultFromDocument(salesOrderId, ticketDoc);
+    return this.buildReceiptResultFromDocument(order, ticketDoc);
   }
 
   /** Reimprimir ticket guardado — no crea ni reemplaza documentos. */
@@ -180,6 +201,8 @@ export class SalesOrderPosReceiptService {
     documentId: string,
     fileName: string,
     downloadUrl: string | null,
+    publicInvoiceCode: string | null = null,
+    selfInvoiceUrl: string | null = null,
   ): PosReceiptResult {
     const escposHex = bufferToEscPosHex(escposBuffer);
     return {
@@ -192,6 +215,8 @@ export class SalesOrderPosReceiptService {
       plain_text: this.stripStyleMarkers(plainText),
       printer_profile: 'bixolon-srp-330iii-escpos-80mm',
       print_mode: 'raw_escpos_base64',
+      public_invoice_code: publicInvoiceCode,
+      self_invoice_url: selfInvoiceUrl,
       qz_raw_config: {
         type: 'raw',
         format: 'command',
@@ -202,7 +227,7 @@ export class SalesOrderPosReceiptService {
   }
 
   private async buildReceiptResultFromDocument(
-    salesOrderId: string,
+    order: SalesOrder,
     ticketDoc: {
       id: string;
       document_name: string;
@@ -210,6 +235,10 @@ export class SalesOrderPosReceiptService {
       path?: string | null;
     },
   ): Promise<PosReceiptResult> {
+    const publicInvoiceCode = order.public_invoice_code ?? null;
+    const selfInvoiceUrl = publicInvoiceCode
+      ? this.buildPortalUrl(publicInvoiceCode, order.customer?.email)
+      : null;
     let plainText = '';
     try {
       const buffer = await this.s3Service.getFileBuffer(ticketDoc.file_path);
@@ -220,9 +249,11 @@ export class SalesOrderPosReceiptService {
         ticketDoc.id,
         ticketDoc.document_name,
         ticketDoc.path ?? null,
+        publicInvoiceCode,
+        selfInvoiceUrl,
       );
     } catch (error) {
-      this.logger.warn(`Error leyendo ticket ${salesOrderId}: ${error}`);
+      this.logger.warn(`Error leyendo ticket ${order.id}: ${error}`);
     }
 
     return this.buildReceiptResult(
@@ -231,6 +262,8 @@ export class SalesOrderPosReceiptService {
       ticketDoc.id,
       ticketDoc.document_name,
       ticketDoc.path ?? null,
+      publicInvoiceCode,
+      selfInvoiceUrl,
     );
   }
 
@@ -323,6 +356,8 @@ export class SalesOrderPosReceiptService {
     order: SalesOrder,
     collection: PosSaleCollection,
     billingBranch: BillingBranch | null,
+    publicInvoiceCode: string,
+    selfInvoiceUrl: string,
   ): string {
     const lines: string[] = [];
     const fiscal = order.fiscal_configuration;
@@ -417,7 +452,7 @@ export class SalesOrderPosReceiptService {
     );
     lines.push('');
     this.pushFooterLines(lines, 'No. Caja:', '1');
-    this.pushFooterLines(lines, 'Recibo No:', order.folio);
+    this.pushFooterLines(lines, 'Recibo No:', publicInvoiceCode);
     this.pushFooterLines(lines, 'Por:', 'RECIBO AL PUBLICO EN GENERAL');
     this.pushFooterLines(lines, 'Cajero(a):', this.formatUserName(collection.collected_by_user));
     this.pushFooterLines(lines, 'Lo atendio:', this.formatUserName(order.seller_user));
@@ -426,6 +461,14 @@ export class SalesOrderPosReceiptService {
     lines.push('!CB!GRACIAS POR SU PREFERENCIA !!!');
     lines.push('!CB!REVISE SU CAMBIO Y SU MERCANCIA');
     lines.push('!CB!NO HAY CAMBIOS NI DEVOLUCIONES');
+    lines.push('');
+    lines.push('!CB!FACTURA TU COMPRA');
+    lines.push('!C!Escanea el QR o entra a:');
+    for (const part of wrapLines(selfInvoiceUrl, ESCPOS_CHARS_PER_LINE)) {
+      lines.push(`!S!${part}`);
+    }
+    lines.push(`!QR!${selfInvoiceUrl}`);
+    lines.push(`!C!Folio: ${publicInvoiceCode}`);
 
     return lines.join('\n');
   }
@@ -486,6 +529,11 @@ export class SalesOrderPosReceiptService {
             .textLine(text)
             .bold(false)
             .align('left');
+          break;
+        case 'QR':
+          if (text) {
+            builder.align('center').qr(text, 5).textLine('').align('left');
+          }
           break;
         default:
           builder.align('left').selectFontA().characterSizeNormal().bold(false).textLine(text);
@@ -596,6 +644,54 @@ export class SalesOrderPosReceiptService {
 
   private formatQuantity(value: number): string {
     return Number.isInteger(value) ? String(value) : value.toFixed(3).replace(/\.?0+$/, '');
+  }
+
+  private async ensurePublicInvoiceCode(
+    order: SalesOrder,
+    billingBranch: BillingBranch | null,
+  ): Promise<string> {
+    if (order.public_invoice_code) {
+      return order.public_invoice_code;
+    }
+
+    const fiscal = order.fiscal_configuration;
+    let code = buildPublicInvoiceCode(
+      fiscal?.prefix,
+      billingBranch?.prefix,
+      order.folio,
+      order.fiscal_razon_social || fiscal?.razon_social,
+      billingBranch?.code || billingBranch?.city,
+    );
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        await this.salesOrderRepo.update({ id: order.id }, { public_invoice_code: code });
+        order.public_invoice_code = code;
+        return code;
+      } catch (error) {
+        if (!this.isUniqueViolation(error)) {
+          throw error;
+        }
+        code = withCollisionSuffix(code, order.id);
+      }
+    }
+
+    throw new Error(`No se pudo asignar folio público al recibo ${order.folio}`);
+  }
+
+  private buildPortalUrl(publicInvoiceCode: string, email?: string | null): string {
+    const base = this.configService.get<string>('SELF_INVOICE_PORTAL_BASE_URL');
+    const usableEmail =
+      email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) ? email.trim() : null;
+    return buildSelfInvoicePortalUrl(publicInvoiceCode, usableEmail, base);
+  }
+
+  private isUniqueViolation(error: unknown): boolean {
+    if (error instanceof QueryFailedError) {
+      const driver = error.driverError as { errno?: number; code?: string } | undefined;
+      return driver?.errno === 1062 || driver?.code === 'ER_DUP_ENTRY';
+    }
+    return false;
   }
 
   private extractPlainTextFromEscPos(buffer: Buffer): string {

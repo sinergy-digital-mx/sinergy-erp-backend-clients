@@ -497,6 +497,8 @@ export class ElectronicInvoicePdfService {
     invoice: ElectronicInvoice,
     receptorRfc: string,
   ): Promise<Customer | null> {
+    const rfc = receptorRfc?.trim().toUpperCase();
+
     if (invoice.source_module === 'sales_orders' && invoice.source_id) {
       const order = await this.salesOrderRepo.findOne({
         where: { id: invoice.source_id, tenant_id: invoice.tenant_id },
@@ -506,13 +508,13 @@ export class ElectronicInvoicePdfService {
         const byOrder = await this.customerRepo.findOne({
           where: { id: order.customer_id, tenant_id: invoice.tenant_id },
         });
-        if (byOrder) {
+        const orderRfc = byOrder?.fiscal_rfc?.trim().toUpperCase() ?? '';
+        if (byOrder && rfc && orderRfc === rfc) {
           return byOrder;
         }
       }
     }
 
-    const rfc = receptorRfc?.trim().toUpperCase();
     if (!rfc) {
       return null;
     }

@@ -172,6 +172,8 @@ GET /api/tenant/sales-orders/:id
 
 Usar **`data.header`**.
 
+Folio público del ticket (`MZN-CTR-INV-000033`): `src/api/sales-orders/docs/UI_SALES_ORDER_PUBLIC_FOLIO.md`.
+
 ### Cards de arriba (hoy vs nuevo)
 
 | Card hoy | Card nuevo | Título UI | Texto grande | A qué pertenece (ids) |

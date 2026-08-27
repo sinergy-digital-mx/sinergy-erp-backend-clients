@@ -83,6 +83,25 @@ export class EscPosBuilder {
     return this.textLine(char.repeat(ESCPOS_CHARS_PER_LINE));
   }
 
+  /**
+   * QR Model 2 (GS ( k). Bixolon SRP-330III / ESC-POS 80mm.
+   * `data` = URL completa del portal de autofactura.
+   */
+  qr(data: string, moduleSize = 5): this {
+    const payload = Buffer.from(data, 'utf8');
+    const size = Math.min(16, Math.max(3, moduleSize));
+    this.chunks.push(Buffer.from([GS, 0x28, 0x6b, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00]));
+    this.chunks.push(Buffer.from([GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x43, size]));
+    this.chunks.push(Buffer.from([GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x45, 0x31]));
+    const storeLen = payload.length + 3;
+    this.chunks.push(
+      Buffer.from([GS, 0x28, 0x6b, storeLen & 0xff, (storeLen >> 8) & 0xff, 0x31, 0x50, 0x30]),
+    );
+    this.chunks.push(payload);
+    this.chunks.push(Buffer.from([GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30]));
+    return this;
+  }
+
   /** Corte parcial Bixolon / ESC-POS estándar. */
   cut(partial = true): this {
     this.blankLines(4);
