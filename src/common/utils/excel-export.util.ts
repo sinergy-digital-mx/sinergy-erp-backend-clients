@@ -4,7 +4,7 @@ export interface ExcelColumnDef {
   header: string;
   key: string;
   width?: number;
-  type?: 'text' | 'number' | 'currency' | 'date' | 'integer' | 'percent';
+  type?: 'text' | 'number' | 'currency' | 'unit_cost' | 'date' | 'integer' | 'percent';
 }
 
 export interface BuildExcelOptions {
@@ -102,6 +102,9 @@ export async function buildStyledExcelBuffer(options: BuildExcelOptions): Promis
 
       if (colDef?.type === 'currency' && typeof cell.value === 'number') {
         cell.numFmt = '$#,##0.00';
+        cell.alignment = { horizontal: 'right', vertical: 'middle' };
+      } else if (colDef?.type === 'unit_cost' && typeof cell.value === 'number') {
+        cell.numFmt = '$#,##0.00##';
         cell.alignment = { horizontal: 'right', vertical: 'middle' };
       } else if (colDef?.type === 'number' && typeof cell.value === 'number') {
         cell.numFmt = '#,##0.00';

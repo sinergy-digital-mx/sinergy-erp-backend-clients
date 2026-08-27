@@ -15,6 +15,10 @@ export class ProductVendorCostService {
     private readonly productRepository: Repository<Product>,
   ) {}
 
+  private roundUnitCost(cost: number): number {
+    return Number((Number(cost) || 0).toFixed(4));
+  }
+
   private calculateTotals(cost: number, iva_percentage: number, ieps_percentage: number) {
     const subtotal = cost;
     const iva_unit_total = (cost * iva_percentage) / 100;
@@ -59,10 +63,12 @@ export class ProductVendorCostService {
       throw new ConflictException('Ya existe un costo para este proveedor y UOM en este producto');
     }
 
-    const totals = this.calculateTotals(dto.cost, dto.iva_percentage, dto.ieps_percentage);
+    const cost = this.roundUnitCost(dto.cost);
+    const totals = this.calculateTotals(cost, dto.iva_percentage, dto.ieps_percentage);
 
     const vendorCost = this.productVendorCostRepository.create({
       ...dto,
+      cost,
       ...totals,
       product_id: productId,
       currency: dto.currency || 'MXN',
@@ -119,13 +125,16 @@ export class ProductVendorCostService {
   async update(id: string, productId: string, dto: UpdateProductVendorCostDto, tenantId: string): Promise<ProductVendorCost> {
     const vendorCost = await this.findOne(id, productId, tenantId);
 
+    const cost = this.roundUnitCost(
+      dto.cost !== undefined ? dto.cost : Number(vendorCost.cost),
+    );
     const totals = this.calculateTotals(
-      dto.cost ?? vendorCost.cost,
+      cost,
       dto.iva_percentage ?? vendorCost.iva_percentage,
       dto.ieps_percentage ?? vendorCost.ieps_percentage,
     );
 
-    Object.assign(vendorCost, dto, totals);
+    Object.assign(vendorCost, dto, totals, { cost });
     return await this.productVendorCostRepository.save(vendorCost);
   }
 

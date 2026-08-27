@@ -42,7 +42,8 @@ export class ProductVendorCost {
   @Column()
   product_uom_id: string;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  /** Costo unitario sin impuestos. Hasta 4 decimales. */
+  @Column({ type: 'decimal', precision: 16, scale: 4 })
   cost: number;
 
   /** Moneda del costo de este proveedor + UOM. Una OC no puede mezclar MXN y USD. */

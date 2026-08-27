@@ -1,6 +1,11 @@
-/** Redondeo a 2 decimales para montos de OC. */
+/** Redondeo a 2 decimales para montos de OC (líneas y header). */
 export function roundPoMoney(value: number): number {
   return Math.round((Number(value) || 0) * 100) / 100;
+}
+
+/** Costo unitario: hasta 4 decimales (p. ej. 2.215). */
+export function roundPoUnitCost(value: number): number {
+  return Number((Number(value) || 0).toFixed(4));
 }
 
 export interface RequestedLineBreakdown {
@@ -31,7 +36,7 @@ export function computeRequestedLineBreakdown(
   iepsPercentage: number,
 ): RequestedLineBreakdown {
   const qty = Number(quantity) || 0;
-  const unit = Number(unitTotal) || 0;
+  const unit = roundPoUnitCost(unitTotal);
   const ivaPct = Number(ivaPercentage) || 0;
   const iepsPct = Number(iepsPercentage) || 0;
   const line_subtotal = roundPoMoney(qty * unit);

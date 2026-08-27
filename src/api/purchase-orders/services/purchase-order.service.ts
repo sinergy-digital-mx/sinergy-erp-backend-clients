@@ -26,6 +26,7 @@ import { v4 as uuidv4 } from 'uuid';
 import {
   computeReceivedLineBreakdown,
   computeRequestedLineBreakdown,
+  roundPoUnitCost,
 } from '../utils/purchase-order-line-breakdown.util';
 
 type PurchaseOrderCurrency = 'MXN' | 'USD';
@@ -201,7 +202,7 @@ export class PurchaseOrderService {
       return;
     }
 
-    const cost = Number(params.unitTotal);
+    const cost = roundPoUnitCost(params.unitTotal);
     const iva = Number(params.ivaPercentage) || 0;
     const ieps = Number(params.iepsPercentage) || 0;
     const ivaUnit = Number(((cost * iva) / 100).toFixed(2));
@@ -252,9 +253,10 @@ export class PurchaseOrderService {
     for (const lineItem of lineItems) {
       const iva_percentage = Number(lineItem.iva_percentage || 0);
       const ieps_percentage = Number(lineItem.ieps_percentage || 0);
+      const unitTotal = roundPoUnitCost(lineItem.unit_total);
       const breakdown = computeRequestedLineBreakdown(
         Number(lineItem.quantity),
-        Number(lineItem.unit_total),
+        unitTotal,
         iva_percentage,
         ieps_percentage,
       );
@@ -268,7 +270,7 @@ export class PurchaseOrderService {
         vendorId,
         productId: lineItem.product_id,
         productUomId,
-        unitTotal: Number(lineItem.unit_total),
+        unitTotal,
         ivaPercentage: iva_percentage,
         iepsPercentage: ieps_percentage,
         currency: paymentCurrency,
@@ -280,7 +282,7 @@ export class PurchaseOrderService {
         product_id: lineItem.product_id,
         product_uom_id: productUomId,
         quantity: lineItem.quantity,
-        unit_total: lineItem.unit_total,
+        unit_total: unitTotal,
         iva_percentage,
         ieps_percentage,
         ...breakdown,
@@ -633,6 +635,11 @@ export class PurchaseOrderService {
 
     return {
       ...line,
+      unit_total: Number(line.unit_total),
+      received_original_unit_total:
+        line.received_original_unit_total == null
+          ? line.received_original_unit_total
+          : Number(line.received_original_unit_total),
       line_subtotal: money(line.line_subtotal, stored.line_subtotal),
       line_iva: money(line.line_iva, stored.line_iva),
       line_ieps: money(line.line_ieps, stored.line_ieps),
@@ -1114,7 +1121,7 @@ export class PurchaseOrderService {
         lineItem.received_original_uom_id =
           productUomRow?.uom_catalog_id || receivedItem.product_uom_id;
         lineItem.received_original_quantity = receivedItem.quantity;
-        lineItem.received_original_unit_total = receivedItem.unit_total;
+        lineItem.received_original_unit_total = roundPoUnitCost(receivedItem.unit_total);
         lineItem.received_original_iva_percentage = receivedItem.iva_percentage;
         lineItem.received_original_iva_unit = receivedItem.iva_unit;
         lineItem.received_original_ieps_percentage = receivedItem.ieps_percentage;
@@ -1403,9 +1410,10 @@ export class PurchaseOrderService {
     const poCurrency = this.normalizeCurrency(purchaseOrder.payment_currency) || 'MXN';
     const iva_percentage = Number(dto.iva_percentage || 0);
     const ieps_percentage = Number(dto.ieps_percentage || 0);
+    const unitTotal = roundPoUnitCost(dto.unit_total);
     const breakdown = computeRequestedLineBreakdown(
       Number(dto.quantity),
-      Number(dto.unit_total),
+      unitTotal,
       iva_percentage,
       ieps_percentage,
     );
@@ -1426,7 +1434,7 @@ export class PurchaseOrderService {
       product_id: dto.product_id,
       product_uom_id: productUomId,
       quantity: dto.quantity,
-      unit_total: dto.unit_total,
+      unit_total: unitTotal,
       iva_percentage,
       ieps_percentage,
       ...breakdown,
@@ -1441,7 +1449,7 @@ export class PurchaseOrderService {
         vendorId: purchaseOrder.vendor_id,
         productId: dto.product_id,
         productUomId,
-        unitTotal: Number(dto.unit_total),
+        unitTotal,
         ivaPercentage: iva_percentage,
         iepsPercentage: ieps_percentage,
         currency: poCurrency,
@@ -1581,7 +1589,7 @@ export class PurchaseOrderService {
       lineItem.quantity = dto.quantity;
     }
     if (dto.unit_total !== undefined) {
-      lineItem.unit_total = dto.unit_total;
+      lineItem.unit_total = roundPoUnitCost(dto.unit_total);
     }
     if (dto.iva_percentage !== undefined) {
       lineItem.iva_percentage = dto.iva_percentage;

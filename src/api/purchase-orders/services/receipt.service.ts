@@ -12,7 +12,7 @@ import { ReceiptValidatorService } from './receipt-validator.service';
 import { BatchCreatorService } from './batch-creator.service';
 import { TotalCalculatorService } from './total-calculator.service';
 import { TenantValidatorService } from './tenant-validator.service';
-import { computeReceivedLineBreakdown } from '../utils/purchase-order-line-breakdown.util';
+import { computeReceivedLineBreakdown, roundPoUnitCost } from '../utils/purchase-order-line-breakdown.util';
 
 /**
  * Orquestador de recepción de órdenes de compra.
@@ -141,7 +141,7 @@ export class ReceiptService {
                 received_original_uom_id: productUom.uom_catalog_id,
                 product_uom_id: productUom.id,
                 received_original_quantity: totalQuantityInLineUom,
-                received_original_unit_total: receivedItem.unit_total,
+                received_original_unit_total: roundPoUnitCost(receivedItem.unit_total),
                 received_original_iva_percentage: receivedItem.iva_percentage,
                 received_original_iva_unit: receivedItem.iva_unit,
                 received_original_ieps_percentage: receivedItem.ieps_percentage,

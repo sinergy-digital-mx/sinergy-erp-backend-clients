@@ -388,7 +388,7 @@ export class PurchaseOrderPdfService {
           ],
         },
         { text: `${quantity} ${requestedUom}`, fontSize: 8.5, alignment: 'center', color: COLORS.text },
-        { text: this.formatCurrency(unitPrice, currency), fontSize: 8, alignment: 'right', color: COLORS.text },
+        { text: this.formatCurrency(unitPrice, currency, 4), fontSize: 8, alignment: 'right', color: COLORS.text },
         { text: this.formatCurrency(lineSubtotal, currency), fontSize: 8, alignment: 'right', color: COLORS.text },
         { text: this.formatCurrency(lineIva, currency), fontSize: 8, alignment: 'right', color: COLORS.text },
         {
@@ -478,7 +478,7 @@ export class PurchaseOrderPdfService {
         },
         { text: lotText, fontSize: 8, color: COLORS.text },
         { text: `${quantity} ${receivedUom}`, fontSize: 9, alignment: 'center', color: COLORS.text },
-        { text: this.formatCurrency(unitPrice, currency), fontSize: 8, alignment: 'right', color: COLORS.text },
+        { text: this.formatCurrency(unitPrice, currency, 4), fontSize: 8, alignment: 'right', color: COLORS.text },
         { text: this.formatCurrency(lineIva, currency), fontSize: 8, alignment: 'right', color: COLORS.text },
         {
           text: this.formatCurrency(lineTotal, currency),
@@ -734,10 +734,14 @@ export class PurchaseOrderPdfService {
     return value === 'USD' ? 'USD' : 'MXN';
   }
 
-  private formatCurrency(amount: number, currency: string): string {
+  private formatCurrency(
+    amount: number,
+    currency: string,
+    maximumFractionDigits = 2,
+  ): string {
     const formatted = amount.toLocaleString('en-US', {
       minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      maximumFractionDigits,
     });
     return `$${formatted} ${currency}`;
   }

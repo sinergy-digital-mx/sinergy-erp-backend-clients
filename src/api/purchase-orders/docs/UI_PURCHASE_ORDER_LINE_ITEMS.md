@@ -22,16 +22,18 @@ Si `can_edit_lines === false`: oculta lápiz, basura y “Agregar producto”. L
 
 ## Tabla Productos (detalle)
 
-Cada fila = `line_items[]`. La moneda de **toda** la OC es `payment_currency` (`MXN` | `USD`). No concatenar `"USD 2.22"`.
+Cada fila = `line_items[]`. La moneda de **toda** la OC es `payment_currency` (`MXN` | `USD`). No concatenar `"USD 2.215"`.
 
-**`unit_total` es costo sin impuestos.** El importe de línea que ves como `6,660.00` (`2.22 × 3000`) es **sin IVA**. El IVA de esa línea es `line_iva` (`1,065.60` al 16%). El total de la línea con impuestos es `line_total` (`7,725.60`).
+**`unit_total` es costo sin impuestos.** Hasta **4 decimales** (p. ej. `2.215`). Píntalo tal cual llega; **no** uses `toFixed(2)` ni `Intl` con `maximumFractionDigits: 2` en esa columna.
 
-Estos 4 montos **vienen persistidos** en cada línea. No los recalcules en el cliente.
+Los importes de línea (`line_subtotal`, `line_iva`, `line_total`) y el footer (`requested_*`) siguen a **2 decimales**. Ejemplo: `2.215 × 3000` → `line_subtotal` `6,645.00`. Con IVA 16%: `line_iva` `1,063.20`, `line_total` `7,708.20`.
+
+Estos montos de línea **vienen persistidos**. No los recalcules en el cliente.
 
 | Columna | Fuente | Cómo pintar |
 |---------|--------|-------------|
 | Producto | `product.name` + código | igual que ahora |
-| Costo unit. | `unit_total` | **sin IVA**. Número + badge `payment_currency` |
+| Costo unit. | `unit_total` | **sin IVA**. Hasta 4 decimales. Número + badge `payment_currency` |
 | IVA % | `iva_percentage` | badge `16%` / `0%` |
 | Importe (sin IVA) | `line_subtotal` | `qty × unit_total`. Badge moneda |
 | IVA $ | `line_iva` | monto de IVA de **esa** línea. Badge moneda |
@@ -42,7 +44,7 @@ Estos 4 montos **vienen persistidos** en cada línea. No los recalcules en el cl
 
 | Campo persistido | Qué es |
 |------------------|--------|
-| `unit_total` | Costo unitario **sin** IVA/IEPS |
+| `unit_total` | Costo unitario **sin** IVA/IEPS. Hasta 4 decimales |
 | `iva_percentage` / `ieps_percentage` | % de la línea |
 | `iva_unit` / `ieps_unit` | Impuesto **por unidad** |
 | `line_subtotal` | Importe **sin** impuestos |
@@ -59,11 +61,11 @@ Al cambiar IVA 16 → 0 en el PATCH, `line_iva` pasa a `0` y `line_total` queda 
 Mismo componente que el header de crear OC (`UI_PURCHASE_ORDER_CURRENCY.md`).
 
 ```
-[USD]  2.22
-[USD]  6,660.00
+[USD]  2.215
+[USD]  6,645.00
 ```
 
-Nunca `USD 2.22` como texto plano. El código de moneda sale de `payment_currency` del header, no de cada línea.
+Nunca `USD 2.215` como texto plano. El código de moneda sale de `payment_currency` del header, no de cada línea.
 
 ---
 
@@ -91,7 +93,7 @@ Al clic en lápiz. Prefill con la fila actual.
 | Campo UI | Body PATCH | Notas |
 |----------|------------|--------|
 | Cantidad | `quantity` | `> 0` |
-| Costo unitario | `unit_total` | `>= 0` |
+| Costo unitario | `unit_total` | `>= 0`. Hasta 4 decimales. Mandar `2.215`, no `2.22`. |
 | IVA % | `iva_percentage` | `0`–`100`. Select 0 / 16 o input. |
 | IEPS % | `ieps_percentage` | `0`–`100`. Opcional. |
 
@@ -111,7 +113,7 @@ Cambiar precio e IVA:
 
 ```json
 {
-  "unit_total": 2.22,
+  "unit_total": 2.215,
   "iva_percentage": 0,
   "quantity": 3000
 }
@@ -161,6 +163,7 @@ Body = `CreateLineItemDto` (producto, UOM, cantidad, costo, IVA, IEPS, `currency
 ## Qué no hacer
 
 - No concatenar moneda + monto.
+- No redondear `unit_total` a 2 decimales en el cliente.
 - No usar PUT de la OC para un cambio de una línea.
 - No editar líneas en Recibida / Cancelada (el API responde 400).
 - No sumar MXN + USD (una OC es una sola moneda).
@@ -173,6 +176,7 @@ Body = `CreateLineItemDto` (producto, UOM, cantidad, costo, IVA, IEPS, `currency
 - [ ] Columna IVA % (badge) en tab Productos
 - [ ] Importe línea = `line_subtotal` (**sin IVA**). No es el total con impuesto
 - [ ] Columna IVA $ = `line_iva` y Total línea = `line_total`
+- [ ] Costo unitario: hasta 4 decimales (`2.215`). No redondear a 2 en inputs ni tabla
 - [ ] Costo e importes con badge MXN / USD (`payment_currency`)
 - [ ] Footer: subtotal, IVA, IEPS si aplica, total
 - [ ] Lápiz + basura por fila si `can_edit_lines`

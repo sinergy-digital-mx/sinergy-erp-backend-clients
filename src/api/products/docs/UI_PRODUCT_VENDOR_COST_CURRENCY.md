@@ -16,6 +16,7 @@ Campos actuales: Proveedor, UOM, Costo, IVA %, IEPS %.
 - Default al crear: `MXN`.
 - Al editar: el valor guardado (`currency`).
 - Colócalo junto a **Costo** (el número es de esa moneda).
+- **Costo** admite hasta **4 decimales** (`2.215`). No redondear a 2 en el input ni al pintar.
 
 ```
 POST /api/tenant/products/:productId/vendor-costs
@@ -26,7 +27,7 @@ PATCH /api/tenant/products/:productId/vendor-costs/:id
 {
   "vendor_id": "uuid",
   "product_uom_id": "uuid",
-  "cost": 41.1,
+  "cost": 2.215,
   "iva_percentage": 0,
   "ieps_percentage": 0,
   "currency": "USD"

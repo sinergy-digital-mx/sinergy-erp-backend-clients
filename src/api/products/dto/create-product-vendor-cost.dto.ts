@@ -13,7 +13,7 @@ export class CreateProductVendorCostDto {
   @IsUUID()
   product_uom_id: string;
 
-  @ApiProperty({ example: 50.00, description: 'Costo base del producto' })
+  @ApiProperty({ example: 2.215, description: 'Costo unitario sin impuestos. Hasta 4 decimales.' })
   @IsNotEmpty()
   @Type(() => Number)
   @IsNumber()

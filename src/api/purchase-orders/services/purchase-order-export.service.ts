@@ -54,7 +54,7 @@ export class PurchaseOrderExportService {
     { header: 'Producto', key: 'product_name', width: 28 },
     { header: 'UOM', key: 'uom_name', width: 12 },
     { header: 'Cantidad', key: 'quantity', width: 12, type: 'number' },
-    { header: 'Total unit.', key: 'unit_total', width: 14, type: 'currency' },
+    { header: 'Total unit.', key: 'unit_total', width: 14, type: 'unit_cost' },
     { header: 'IVA %', key: 'iva_percentage', width: 10, type: 'percent' },
     { header: 'IEPS %', key: 'ieps_percentage', width: 10, type: 'percent' },
     { header: 'Subtotal línea', key: 'line_subtotal', width: 14, type: 'currency' },

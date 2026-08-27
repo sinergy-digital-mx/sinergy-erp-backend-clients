@@ -28,6 +28,7 @@ export class CreateLineItemDto {
   @Min(0.001)
   quantity: number;
 
+  /** Costo unitario sin impuestos. Hasta 4 decimales (p. ej. 2.215). */
   @IsNumber()
   @Min(0)
   unit_total: number;

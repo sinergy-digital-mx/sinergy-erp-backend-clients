@@ -49,7 +49,8 @@ export class PurchaseOrderBatchDetail {
   @Column({ type: 'decimal', precision: 12, scale: 3 })
   quantity: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  /** Costo unitario sin impuestos. Hasta 4 decimales. */
+  @Column({ type: 'decimal', precision: 16, scale: 4 })
   unit_total: number;
 
   @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
@@ -98,7 +99,7 @@ export class PurchaseOrderBatchDetail {
   @Column({ type: 'decimal', precision: 12, scale: 3, nullable: true })
   received_original_quantity: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  @Column({ type: 'decimal', precision: 16, scale: 4, nullable: true })
   received_original_unit_total: number;
 
   @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
