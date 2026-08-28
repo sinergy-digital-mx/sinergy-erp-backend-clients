@@ -9,6 +9,11 @@ import {
   resolveContractFinancials,
   sumPaidFromPaymentRows,
 } from './contract-financial.util';
+import {
+  applyContractListFilters,
+  ContractListFilters,
+  joinContractFilterRelations,
+} from './contract-list-filters.util';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { UpdateContractDto } from './dto/update-contract.dto';
 
@@ -186,39 +191,17 @@ export class ContractsService {
     return `${baseNumber}-${Date.now()}`;
   }
 
-  async findAll(tenantId: string, customerId?: number, propertyId?: string, status?: string, hasOverdue?: boolean, search?: string, page: number = 1, limit: number = 20): Promise<any> {
+  async findAll(
+    tenantId: string,
+    filters: ContractListFilters = {},
+    page: number = 1,
+    limit: number = 20,
+  ): Promise<any> {
     const query = this.contractRepo
       .createQueryBuilder('c')
-      .where('c.tenant_id = :tenantId', { tenantId })
-      .leftJoinAndSelect('c.customer', 'customer')
-      .leftJoinAndSelect('c.property', 'property');
-
-    if (customerId) {
-      query.andWhere('c.customer_id = :customerId', { customerId });
-    }
-
-    if (propertyId) {
-      query.andWhere('c.property_id = :propertyId', { propertyId });
-    }
-
-    if (status) {
-      query.andWhere('c.status = :status', { status });
-    }
-
-    // Filter by contracts with overdue payments
-    if (hasOverdue === true) {
-      query
-        .innerJoin('contract_payments', 'p', 'p.contract_id = c.id AND p.is_overdue = true')
-        .andWhere('p.status IN (:...statuses)', { statuses: ['pendiente', 'parcial'] });
-    }
-
-    // Search by customer name, contract number, property code or cadastral key
-    if (search) {
-      query.andWhere(
-        '(customer.name LIKE :search OR customer.lastname LIKE :search OR c.contract_number LIKE :search OR property.code LIKE :search OR LOWER(property.cadastral_key) LIKE LOWER(:search))',
-        { search: `%${search}%` }
-      );
-    }
+      .where('c.tenant_id = :tenantId', { tenantId });
+    joinContractFilterRelations(query, { select: true });
+    applyContractListFilters(query, filters);
 
     const contracts = await query
       .orderBy('c.contract_date', 'DESC')
@@ -238,37 +221,11 @@ export class ContractsService {
       };
     }
 
-    // Get total count for pagination
     const countQuery = this.contractRepo
       .createQueryBuilder('c')
-      .where('c.tenant_id = :tenantId', { tenantId })
-      .leftJoin('c.customer', 'customer')
-      .leftJoin('c.property', 'property');
-
-    if (customerId) {
-      countQuery.andWhere('c.customer_id = :customerId', { customerId });
-    }
-
-    if (propertyId) {
-      countQuery.andWhere('c.property_id = :propertyId', { propertyId });
-    }
-
-    if (status) {
-      countQuery.andWhere('c.status = :status', { status });
-    }
-
-    if (hasOverdue === true) {
-      countQuery
-        .innerJoin('contract_payments', 'p', 'p.contract_id = c.id AND p.is_overdue = true')
-        .andWhere('p.status IN (:...statuses)', { statuses: ['pendiente', 'parcial'] });
-    }
-
-    if (search) {
-      countQuery.andWhere(
-        '(customer.name LIKE :search OR customer.lastname LIKE :search OR c.contract_number LIKE :search OR property.code LIKE :search OR LOWER(property.cadastral_key) LIKE LOWER(:search))',
-        { search: `%${search}%` }
-      );
-    }
+      .where('c.tenant_id = :tenantId', { tenantId });
+    joinContractFilterRelations(countQuery);
+    applyContractListFilters(countQuery, filters);
 
     const total = await countQuery.getCount();
     const pages = Math.ceil(total / limit);
@@ -797,47 +754,61 @@ export class ContractsService {
     }
   }
 
-  async getContractStats(tenantId: string): Promise<any> {
-    // Total contracts (active + completed) - sum of total_price
-    const totalStats = await this.contractRepo
-      .createQueryBuilder('c')
-      .select('COUNT(*)', 'count')
+  async getContractStats(
+    tenantId: string,
+    filters: ContractListFilters = {},
+  ): Promise<any> {
+    const baseQuery = () => {
+      const query = this.contractRepo
+        .createQueryBuilder('c')
+        .where('c.tenant_id = :tenantId', { tenantId });
+      joinContractFilterRelations(query);
+      applyContractListFilters(query, filters);
+      return query;
+    };
+
+    const totalQuery = baseQuery();
+    if (!filters.status) {
+      totalQuery.andWhere('c.status IN (:...totalStatuses)', {
+        totalStatuses: ['activo', 'completado'],
+      });
+    }
+    const totalStats = await totalQuery
+      .select('COUNT(DISTINCT c.id)', 'count')
       .addSelect('SUM(c.total_price)', 'value')
-      .where('c.tenant_id = :tenantId', { tenantId })
-      .andWhere('c.status IN (:...statuses)', { statuses: ['activo', 'completado'] })
       .getRawOne();
 
-    // Completed contracts - sum of total_price
-    const completedStats = await this.contractRepo
-      .createQueryBuilder('c')
-      .select('COUNT(*)', 'count')
+    const completedStats = await baseQuery()
+      .andWhere('c.status = :completedStatus', { completedStatus: 'completado' })
+      .select('COUNT(DISTINCT c.id)', 'count')
       .addSelect('SUM(c.total_price)', 'value')
-      .where('c.tenant_id = :tenantId', { tenantId })
-      .andWhere('c.status = :status', { status: 'completado' })
       .getRawOne();
 
-    // Active contracts (pending) - sum of total_price and remaining_balance
-    const activeStats = await this.contractRepo
-      .createQueryBuilder('c')
-      .select('COUNT(*)', 'count')
+    const activeStats = await baseQuery()
+      .andWhere('c.status = :activeStatus', { activeStatus: 'activo' })
+      .select('COUNT(DISTINCT c.id)', 'count')
       .addSelect('SUM(c.total_price)', 'total_value')
       .addSelect('SUM(c.remaining_balance)', 'pending_value')
       .addSelect('SUM(c.total_price - c.remaining_balance)', 'paid_value')
-      .where('c.tenant_id = :tenantId', { tenantId })
-      .andWhere('c.status = :status', { status: 'activo' })
       .getRawOne();
 
-    // Contracts with overdue payments - count contracts AND payments
-    const overdueStats = await this.contractRepo
-      .createQueryBuilder('c')
-      .leftJoin('contract_payments', 'p', 'p.contract_id = c.id AND p.payment_date < CURDATE() AND p.status IN (:...statuses)', { statuses: ['pendiente', 'parcial'] })
+    const overdueQuery = baseQuery()
+      .leftJoin(
+        'contract_payments',
+        'p',
+        'p.contract_id = c.id AND p.payment_date < CURDATE() AND p.status IN (:...overduePaymentStatuses)',
+        { overduePaymentStatuses: ['pendiente', 'parcial'] },
+      )
+      .andWhere('c.status = :overdueContractStatus', { overdueContractStatus: 'activo' })
+      .andWhere('p.id IS NOT NULL')
       .select('COUNT(DISTINCT c.id)', 'contracts_count')
       .addSelect('COUNT(p.id)', 'payments_count')
-      .addSelect('SUM(CASE WHEN p.status = "parcial" THEN p.amount_pending ELSE p.amount END)', 'value')
-      .where('c.tenant_id = :tenantId', { tenantId })
-      .andWhere('c.status = :status', { status: 'activo' })
-      .andWhere('p.id IS NOT NULL')
-      .getRawOne();
+      .addSelect(
+        'SUM(CASE WHEN p.status = "parcial" THEN p.amount_pending ELSE p.amount END)',
+        'value',
+      );
+
+    const overdueStats = await overdueQuery.getRawOne();
 
     return {
       total: {

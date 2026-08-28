@@ -17,6 +17,7 @@ import { TenantContextService } from '../rbac/services/tenant-context.service';
 import { PropertiesService } from './properties.service';
 import { CreatePropertyDto } from './dto/create-property.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
+import { QueryPropertiesDto } from './dto/query-properties.dto';
 
 @Controller('tenant/properties')
 @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -52,25 +53,43 @@ export class PropertiesController {
     return this.propertiesService.findByCode(tenantId, code);
   }
 
-  @Get()
+  @Get('stats')
   @RequirePermissions({ entityType: 'Property', action: 'Read' })
-  async findAll(
-    @Req() req: any, 
-    @Query('groupId') groupId?: string, 
-    @Query('search') search?: string,
-    @Query('status') status?: string,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string
-  ) {
+  async getListStats(@Req() req: any, @Query() query: QueryPropertiesDto) {
     const tenantId = this.tenantContext.getCurrentTenantId();
     if (!tenantId) {
       throw new Error('Tenant context is required');
     }
-    
-    const pageNum = parseInt(page || '1') || 1;
-    const limitNum = parseInt(limit || '20') || 20;
-    
-    return this.propertiesService.findAll(tenantId, groupId, search, status, pageNum, limitNum);
+    return this.propertiesService.getListStats(tenantId, {
+      groupId: query.groupId,
+      customer_group_id: query.customer_group_id,
+      search: query.search,
+      status: query.status,
+    });
+  }
+
+  @Get()
+  @RequirePermissions({ entityType: 'Property', action: 'Read' })
+  async findAll(@Req() req: any, @Query() query: QueryPropertiesDto) {
+    const tenantId = this.tenantContext.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+
+    const pageNum = query.page ?? 1;
+    const limitNum = query.limit ?? 20;
+
+    return this.propertiesService.findAll(
+      tenantId,
+      {
+        groupId: query.groupId,
+        customer_group_id: query.customer_group_id,
+        search: query.search,
+        status: query.status,
+      },
+      pageNum,
+      limitNum,
+    );
   }
 
   @Get(':id')

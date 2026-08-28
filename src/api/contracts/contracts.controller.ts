@@ -20,6 +20,8 @@ import { ContractsExportService } from './contracts-export.service';
 import { ContractPdfService } from './contract-pdf.service';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { UpdateContractDto } from './dto/update-contract.dto';
+import { QueryContractsDto } from './dto/query-contracts.dto';
+import { ContractListFilters } from './contract-list-filters.util';
 
 @Controller('tenant/contracts')
 @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -43,30 +45,17 @@ export class ContractsController {
 
   @Get()
   @RequirePermissions({ entityType: 'Contract', action: 'Read' })
-  async findAll(
-    @Req() req: any,
-    @Query('customerId') customerId?: string,
-    @Query('propertyId') propertyId?: string,
-    @Query('status') status?: string,
-    @Query('hasOverdue') hasOverdue?: string,
-    @Query('search') search?: string,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-  ) {
+  async findAll(@Req() req: any, @Query() query: QueryContractsDto) {
     const tenantId = this.tenantContext.getCurrentTenantId();
     if (!tenantId) {
       throw new Error('Tenant context is required');
     }
-    const pageNum = page ? parseInt(page) : 1;
-    const limitNum = limit ? parseInt(limit) : 20;
-    
+    const pageNum = query.page ?? 1;
+    const limitNum = query.limit ?? 20;
+
     return this.contractsService.findAll(
       tenantId,
-      customerId ? parseInt(customerId) : undefined,
-      propertyId,
-      status,
-      hasOverdue === 'true',
-      search,
+      this.toContractFilters(query),
       pageNum,
       limitNum,
     );
@@ -74,12 +63,12 @@ export class ContractsController {
 
   @Get('stats')
   @RequirePermissions({ entityType: 'Contract', action: 'Read' })
-  async getStats(@Req() req: any) {
+  async getStats(@Req() req: any, @Query() query: QueryContractsDto) {
     const tenantId = this.tenantContext.getCurrentTenantId();
     if (!tenantId) {
       throw new Error('Tenant context is required');
     }
-    return this.contractsService.getContractStats(tenantId);
+    return this.contractsService.getContractStats(tenantId, this.toContractFilters(query));
   }
 
   @Get('by-number/:contractNumber')
@@ -151,11 +140,7 @@ export class ContractsController {
   async exportToExcel(
     @Req() req: any,
     @Response() res: any,
-    @Query('customerId') customerId?: string,
-    @Query('propertyId') propertyId?: string,
-    @Query('status') status?: string,
-    @Query('hasOverdue') hasOverdue?: string,
-    @Query('search') search?: string,
+    @Query() query: QueryContractsDto,
   ) {
     const tenantId = this.tenantContext.getCurrentTenantId();
     if (!tenantId) {
@@ -164,15 +149,22 @@ export class ContractsController {
 
     const buffer = await this.contractsExportService.exportToExcel(
       tenantId,
-      customerId ? parseInt(customerId) : undefined,
-      propertyId,
-      status,
-      hasOverdue === 'true',
-      search,
+      this.toContractFilters(query),
     );
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="contratos.xlsx"');
     res.send(buffer);
+  }
+
+  private toContractFilters(query: QueryContractsDto): ContractListFilters {
+    return {
+      customerId: query.customerId,
+      propertyId: query.propertyId,
+      status: query.status,
+      hasOverdue: query.hasOverdue === true,
+      search: query.search,
+      group_id: query.group_id,
+    };
   }
 }

@@ -7,6 +7,13 @@ import { MeasurementUnit } from '../../entities/properties/measurement-unit.enti
 import { CreatePropertyDto } from './dto/create-property.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
 
+export type PropertyListFilters = {
+  groupId?: string;
+  customer_group_id?: string;
+  search?: string;
+  status?: string;
+};
+
 @Injectable()
 export class PropertiesService {
   constructor(
@@ -42,12 +49,10 @@ export class PropertiesService {
   }
 
   async findAll(
-    tenantId: string, 
-    groupId?: string, 
-    search?: string, 
-    status?: string,
+    tenantId: string,
+    filters: PropertyListFilters = {},
     page: number = 1,
-    limit: number = 20
+    limit: number = 20,
   ): Promise<any> {
     // Validate pagination parameters
     if (page < 1) page = 1;
@@ -62,22 +67,10 @@ export class PropertiesService {
       .leftJoinAndSelect('p.measurement_unit', 'mu')
       .leftJoinAndSelect('p.contracts', 'contracts')
       .leftJoinAndSelect('contracts.customer', 'customer')
+      .leftJoinAndSelect('customer.group', 'customerGroup')
       .where('p.tenant_id = :tenantId', { tenantId });
 
-    if (groupId) {
-      query.andWhere('p.group_id = :groupId', { groupId });
-    }
-
-    if (status) {
-      query.andWhere('p.status = :status', { status });
-    }
-
-    if (search) {
-      query.andWhere(
-        '(LOWER(p.code) LIKE LOWER(:search) OR LOWER(p.name) LIKE LOWER(:search) OR LOWER(p.block) LIKE LOWER(:search) OR LOWER(p.lot_number) LIKE LOWER(:search) OR LOWER(p.cadastral_key) LIKE LOWER(:search) OR LOWER(p.location) LIKE LOWER(:search) OR LOWER(p.description) LIKE LOWER(:search) OR LOWER(customer.name) LIKE LOWER(:search) OR LOWER(customer.lastname) LIKE LOWER(:search) OR LOWER(CONCAT(customer.name, " ", customer.lastname)) LIKE LOWER(:search))',
-        { search: `%${search}%` }
-      );
-    }
+    this.applyPropertyListFilters(query, filters);
 
     // Get total count
     const total = await query.getCount();
@@ -106,7 +99,11 @@ export class PropertiesService {
           id: customer.id,
           name: customer.name,
           lastname: customer.lastname,
-          fullName: `${customer.name} ${customer.lastname}`.trim()
+          fullName: `${customer.name} ${customer.lastname}`.trim(),
+          group_id: customer.group_id ?? null,
+          group: customer.group
+            ? { id: customer.group.id, name: customer.group.name }
+            : null,
         } : null,
         // Keep the original contracts array for backward compatibility
         contracts: property.contracts
@@ -205,6 +202,144 @@ export class PropertiesService {
       reserved: parseInt(stats.reserved) || 0,
       total_value: parseFloat(stats.total_value) || 0,
     };
+  }
+
+  /**
+   * KPIs del listado de lotes. Mismos filtros que GET /properties (proyecto, grupo de cliente, estatus, search).
+   */
+  async getListStats(
+    tenantId: string,
+    filters: PropertyListFilters = {},
+  ): Promise<{
+    total: { count: number; area: number; value: number };
+    available: { count: number; area: number; value: number };
+    active_in_payment: { count: number; remaining_balance: number };
+    reserved: { count: number };
+    sold: { count: number };
+    avg_price_per_m2: number;
+  }> {
+    const totalsQuery = this.propertyRepo
+      .createQueryBuilder('p')
+      .where('p.tenant_id = :tenantId', { tenantId });
+    this.applyPropertyListFilters(totalsQuery, filters);
+
+    const totals = await totalsQuery
+      .select('COUNT(DISTINCT p.id)', 'count')
+      .addSelect('COALESCE(SUM(p.total_area), 0)', 'area')
+      .addSelect('COALESCE(SUM(p.total_price), 0)', 'value')
+      .addSelect(
+        "COALESCE(SUM(CASE WHEN p.status = 'disponible' THEN 1 ELSE 0 END), 0)",
+        'available_count',
+      )
+      .addSelect(
+        "COALESCE(SUM(CASE WHEN p.status = 'disponible' THEN p.total_area ELSE 0 END), 0)",
+        'available_area',
+      )
+      .addSelect(
+        "COALESCE(SUM(CASE WHEN p.status = 'disponible' THEN p.total_price ELSE 0 END), 0)",
+        'available_value',
+      )
+      .addSelect(
+        "COALESCE(SUM(CASE WHEN p.status = 'reservado' THEN 1 ELSE 0 END), 0)",
+        'reserved_count',
+      )
+      .addSelect(
+        "COALESCE(SUM(CASE WHEN p.status = 'vendido' THEN 1 ELSE 0 END), 0)",
+        'sold_count',
+      )
+      .getRawOne();
+
+    const activeQuery = this.propertyRepo
+      .createQueryBuilder('p')
+      .innerJoin('p.contracts', 'ac', "ac.status = 'activo'")
+      .where('p.tenant_id = :tenantId', { tenantId });
+    this.applyPropertyListFilters(activeQuery, filters);
+
+    const active = await activeQuery
+      .select('COUNT(DISTINCT p.id)', 'count')
+      .addSelect('COALESCE(SUM(ac.remaining_balance), 0)', 'remaining_balance')
+      .getRawOne();
+
+    const area = this.roundMoney(parseFloat(totals?.area) || 0);
+    const value = this.roundMoney(parseFloat(totals?.value) || 0);
+
+    return {
+      total: {
+        count: parseInt(totals?.count, 10) || 0,
+        area,
+        value,
+      },
+      available: {
+        count: parseInt(totals?.available_count, 10) || 0,
+        area: this.roundMoney(parseFloat(totals?.available_area) || 0),
+        value: this.roundMoney(parseFloat(totals?.available_value) || 0),
+      },
+      active_in_payment: {
+        count: parseInt(active?.count, 10) || 0,
+        remaining_balance: this.roundMoney(parseFloat(active?.remaining_balance) || 0),
+      },
+      reserved: {
+        count: parseInt(totals?.reserved_count, 10) || 0,
+      },
+      sold: {
+        count: parseInt(totals?.sold_count, 10) || 0,
+      },
+      avg_price_per_m2: area > 0 ? this.roundMoney(value / area) : 0,
+    };
+  }
+
+  private applyPropertyListFilters(
+    query: ReturnType<Repository<Property>['createQueryBuilder']>,
+    filters: PropertyListFilters,
+  ): void {
+    if (filters.groupId) {
+      query.andWhere('p.group_id = :groupId', { groupId: filters.groupId });
+    }
+
+    if (filters.status) {
+      query.andWhere('p.status = :status', { status: filters.status });
+    }
+
+    if (filters.customer_group_id) {
+      query.andWhere(
+        `EXISTS (
+          SELECT 1 FROM contracts cg_c
+          INNER JOIN customers cg_cust ON cg_cust.id = cg_c.customer_id
+          WHERE cg_c.property_id = p.id
+            AND cg_cust.group_id = :customerGroupId
+        )`,
+        { customerGroupId: filters.customer_group_id },
+      );
+    }
+
+    if (filters.search) {
+      query.andWhere(
+        `(
+          LOWER(p.code) LIKE LOWER(:search)
+          OR LOWER(p.name) LIKE LOWER(:search)
+          OR LOWER(p.block) LIKE LOWER(:search)
+          OR LOWER(p.lot_number) LIKE LOWER(:search)
+          OR LOWER(p.cadastral_key) LIKE LOWER(:search)
+          OR LOWER(p.location) LIKE LOWER(:search)
+          OR LOWER(p.description) LIKE LOWER(:search)
+          OR EXISTS (
+            SELECT 1 FROM contracts s_c
+            INNER JOIN customers s_cust ON s_cust.id = s_c.customer_id
+            WHERE s_c.property_id = p.id
+              AND (
+                LOWER(s_cust.name) LIKE LOWER(:search)
+                OR LOWER(s_cust.lastname) LIKE LOWER(:search)
+                OR LOWER(CONCAT(s_cust.name, ' ', s_cust.lastname)) LIKE LOWER(:search)
+              )
+          )
+        )`,
+        { search: `%${filters.search}%` },
+      );
+    }
+  }
+
+  private roundMoney(value: number): number {
+    return Math.round(value * 100) / 100;
   }
 
   private async updateGroupStats(tenantId: string, groupId: string): Promise<void> {

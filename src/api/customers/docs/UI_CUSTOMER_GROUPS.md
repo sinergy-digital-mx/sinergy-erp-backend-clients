@@ -109,7 +109,7 @@ Permiso: customers:Read
 ]
 ```
 
-Cargar **al abrir Clientes** (y al abrir modal crear/editar cliente). Cachear en memoria de esa pantalla. No cachear entre organizaciones ni en localStorage global.
+Cargar **al abrir Clientes** (y al abrir modal crear/editar cliente). También al abrir **Contratos** y **Lotes** (mismo GET). Cachear en memoria de esa pantalla. No cachear entre organizaciones ni en localStorage global.
 
 Filtro de tabla:
 
@@ -130,6 +130,8 @@ Al crear/editar cliente, enviar `group_id` (uuid de **esta** organización) o `n
 `400` si el uuid no pertenece a la organización actual.
 
 Columna **Grupo** en la tabla: `customer.group?.name ?? '—'`.
+
+El mismo `group_id` aplica en **Contratos** (`GET /tenant/contracts` y `/stats`). En **Lotes** el param es `customer_group_id` (el `groupId` de lotes es el proyecto). Ver `src/api/contracts/docs/UI_CONTRACT_LIST.md` y `src/api/properties/docs/UI_PROPERTY_STATS.md`.
 
 ---
 
@@ -177,6 +179,7 @@ Catálogo simple (como categorías / descuentos globales):
 - [ ] Ítem **Grupos de clientes** en **Configuración** (`customer-groups` / `CustomerGroup:ViewMenu`)
 - [ ] CRUD contra `/api/tenant/customer-groups` (nunca un array estático)
 - [ ] Dropdown Clientes: `GET /api/tenant/customers/groups`
+- [ ] Mismo catálogo en filtros de Contratos (`group_id`) y Lotes (`customer_group_id`)
 - [ ] Columna Grupo: `customer.group?.name ?? '—'`
 - [ ] Select grupo en modal crear/editar cliente
 - [ ] `PUT` con `group_id` o `null`
