@@ -34,6 +34,11 @@ export class UpdatePropertyDto {
   @IsString()
   location?: string;
 
+  /** UUID de grupo de cliente (`GET /tenant/customers/groups`). */
+  @IsOptional()
+  @IsString()
+  group_id?: string;
+
   @IsOptional()
   @IsNumber()
   total_area?: number;

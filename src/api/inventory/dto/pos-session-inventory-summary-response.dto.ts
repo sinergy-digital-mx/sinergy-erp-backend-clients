@@ -13,6 +13,10 @@ export class PosSessionBatchBreakdownDto {
   @ApiProperty() batch_id: string;
   @ApiProperty() batch_number: string;
   @ApiProperty({ nullable: true }) source_tag_identifier: string | null;
+  @ApiProperty({ nullable: true }) measure: string | null;
+  @ApiProperty({ nullable: true }) measure_uom_id: string | null;
+  @ApiProperty({ nullable: true }) measure_uom_name: string | null;
+  @ApiProperty({ nullable: true }) measure_label: string | null;
   @ApiProperty() warehouse_id: string;
   @ApiProperty() warehouse_name: string;
   @ApiProperty() available_quantity: string;
@@ -56,6 +60,16 @@ export class PosSessionProductInventorySummaryDto {
   @ApiProperty() total_available_quantity: string;
   @ApiProperty() total_initial_quantity: string;
   @ApiProperty() total_batches: number;
+  @ApiProperty({ type: [Object] })
+  measure_totals: Array<{
+    measure: string | null;
+    measure_uom_id: string | null;
+    measure_uom_name: string | null;
+    measure_label: string | null;
+    total_available_quantity: string;
+    total_initial_quantity: string;
+    total_batches: number;
+  }>;
   @ApiProperty({ type: [PosSessionBatchBreakdownDto] })
   batches: PosSessionBatchBreakdownDto[];
 }

@@ -52,7 +52,7 @@ Query: `GET /api/tenant/warehouse-control?search=...`
 | Filtro UI | Query param | Notas |
 |-----------|-------------|--------|
 | **CEDIS** | `billing_branch_id` | Sucursal (`billing_branches`). Filtra por `warehouse.billing_branch_id`. |
-| **Almacén** | `warehouse_id` | Opcional. Tras elegir CEDIS, cargar almacenes de esa sucursal y permitir filtrar. También puede usarse sin CEDIS. |
+| **Almacén** | `warehouse_id` | Opcional. Filtra OV de esa sucursal (incluye MANUAL sin almacén fijo). Tras elegir CEDIS, se puede acotar. |
 
 Paginación: `page`, `limit` (default 20). Orden: más antiguas primero (`created_at ASC`).
 
@@ -63,7 +63,7 @@ Paginación: `page`, `limit` (default 20). Orden: más antiguas primero (`create
 | Folio | `folio` |
 | Cliente | `customer.display_name` |
 | CEDIS | `billing_branch.display_name` / `code` |
-| Almacén | `warehouse.name` |
+| Almacén | `warehouse.name` o `—` si la OV no tiene almacén fijo |
 | Fecha entrega | `expected_delivery_date` |
 | Total | `total` |
 | Pago | `payment_status` |
@@ -82,7 +82,8 @@ Abrir **side panel** (preferido) o modal ancho con el detalle de corroboración 
 
 ### Header
 
-- Folio, cliente, CEDIS, almacén origen, fecha entrega, notas, total.
+- Folio, cliente, CEDIS, fecha entrega, notas, total.
+- No exigir un almacén origen único. El stock de cada línea es la suma de los almacenes de la sucursal (`available_quantity`). `warehouses[]` desglosa por almacén.
 
 ### Tabla de líneas (qué tomar)
 
@@ -92,7 +93,7 @@ Abrir **side panel** (preferido) o modal ancho con el detalle de corroboración 
 | Unidad | `uom_name` |
 | Cantidad | `quantity` |
 | Cant. base | `quantity_base_uom` (opcional / tooltip) |
-| Almacén | `warehouse_name` |
+| Almacén | `warehouses[].warehouse_name` (desglose) o `—` |
 | Stock disp. | `available_quantity` |
 
 Si `available_quantity < quantity_base_uom` → aviso visual (el back rechazará la corroboración por stock insuficiente).
@@ -119,6 +120,8 @@ Body opcional:
 ---
 
 ## Crear Orden de Venta (modal Información)
+
+Razón social → sucursal, **sin almacén**. Ver `src/api/sales-orders/docs/UI_SALES_ORDER_CREATE.md`.
 
 Entre **Fecha de entrega** y **Notas**:
 

@@ -3,8 +3,8 @@ import { SalesOrderPdfLabels } from './sales-order-pdf-labels';
 export const SALES_ORDER_PDF_LABELS_EN: SalesOrderPdfLabels = {
   originalDocumentTitle: 'Original sales order document',
   salesOrderTitle: 'SALES ORDER',
-  receiptDocumentTitle: 'Sales order receipt',
-  receiptTitle: 'RECEIPT',
+  deliveryDocumentTitle: 'Delivery note',
+  deliveryTitle: 'DELIVERY',
   folioPrefix: 'Folio',
   summary: 'Summary',
   creationDate: 'Creation date',

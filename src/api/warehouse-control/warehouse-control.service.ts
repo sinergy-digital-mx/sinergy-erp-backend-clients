@@ -44,8 +44,9 @@ export class WarehouseControlService {
     const qb = this.soRepo
       .createQueryBuilder('so')
       .leftJoinAndSelect('so.customer', 'customer')
+      .leftJoinAndSelect('so.billing_branch', 'billing_branch')
       .leftJoinAndSelect('so.warehouse', 'warehouse')
-      .leftJoinAndSelect('warehouse.billing_branch', 'billing_branch')
+      .leftJoinAndSelect('warehouse.billing_branch', 'warehouse_branch')
       .leftJoinAndSelect('so.creator', 'creator')
       .where('so.tenant_id = :tenantId', { tenantId })
       .andWhere('so.general_status = :status', { status: 'En Selección' });
@@ -61,13 +62,16 @@ export class WarehouseControlService {
     }
 
     if (billing_branch_id) {
-      qb.andWhere('warehouse.billing_branch_id = :billing_branch_id', {
+      qb.andWhere('so.billing_branch_id = :billing_branch_id', {
         billing_branch_id,
       });
     }
 
     if (warehouse_id) {
-      qb.andWhere('so.warehouse_id = :warehouse_id', { warehouse_id });
+      qb.andWhere(
+        '(so.warehouse_id = :warehouse_id OR (so.warehouse_id IS NULL AND so.billing_branch_id = (SELECT w.billing_branch_id FROM warehouses w WHERE w.id = :warehouse_id)))',
+        { warehouse_id },
+      );
     }
 
     qb.orderBy('so.created_at', 'ASC')
@@ -101,20 +105,7 @@ export class WarehouseControlService {
             code: so.warehouse.code,
           }
         : null,
-      billing_branch: so.warehouse?.billing_branch
-        ? {
-            id: (so.warehouse.billing_branch as any).id,
-            code: (so.warehouse.billing_branch as any).code,
-            city: (so.warehouse.billing_branch as any).city ?? null,
-            address: (so.warehouse.billing_branch as any).address ?? null,
-            display_name: [
-              (so.warehouse.billing_branch as any).code,
-              (so.warehouse.billing_branch as any).city,
-            ]
-              .filter(Boolean)
-              .join(' — '),
-          }
-        : null,
+      billing_branch: this.mapBranch(so),
       created_by_user: mapPosUser(so.creator),
     }));
 
@@ -135,6 +126,7 @@ export class WarehouseControlService {
       where: { id, tenant_id: tenantId },
       relations: [
         'customer',
+        'billing_branch',
         'warehouse',
         'warehouse.billing_branch',
         'creator',
@@ -156,25 +148,47 @@ export class WarehouseControlService {
       );
     }
 
-    const warehouseId = so.warehouse_id;
+    const branchId = so.billing_branch_id ?? so.warehouse?.billing_branch_id ?? null;
     const productIds = (so.line_items ?? []).map((li) => li.product_id);
     const availableByProduct = new Map<string, number>();
+    const warehousesByProduct = new Map<
+      string,
+      Array<{ warehouse_id: string; warehouse_name: string; available_quantity: number }>
+    >();
 
-    if (productIds.length) {
+    if (productIds.length && branchId) {
       const stocks = await this.batchRepo
         .createQueryBuilder('batch')
+        .innerJoin('batch.warehouse', 'warehouse')
         .select('batch.product_id', 'product_id')
+        .addSelect('warehouse.id', 'warehouse_id')
+        .addSelect('warehouse.name', 'warehouse_name')
         .addSelect('SUM(batch.available_quantity)', 'available')
-        .where('batch.warehouse_id = :warehouseId', { warehouseId })
+        .where('warehouse.billing_branch_id = :branchId', { branchId })
         .andWhere('batch.product_id IN (:...productIds)', { productIds })
         .groupBy('batch.product_id')
-        .getRawMany<{ product_id: string; available: string }>();
+        .addGroupBy('warehouse.id')
+        .addGroupBy('warehouse.name')
+        .getRawMany<{
+          product_id: string;
+          warehouse_id: string;
+          warehouse_name: string;
+          available: string;
+        }>();
 
       for (const row of stocks) {
+        const available = parseFloat(row.available?.toString() || '0');
         availableByProduct.set(
           row.product_id,
-          parseFloat(row.available?.toString() || '0'),
+          (availableByProduct.get(row.product_id) ?? 0) + available,
         );
+        const list = warehousesByProduct.get(row.product_id) ?? [];
+        list.push({
+          warehouse_id: row.warehouse_id,
+          warehouse_name: row.warehouse_name,
+          available_quantity: available,
+        });
+        warehousesByProduct.set(row.product_id, list);
       }
     }
 
@@ -204,20 +218,7 @@ export class WarehouseControlService {
               code: so.warehouse.code,
             }
           : null,
-        billing_branch: so.warehouse?.billing_branch
-          ? {
-              id: (so.warehouse.billing_branch as any).id,
-              code: (so.warehouse.billing_branch as any).code,
-              city: (so.warehouse.billing_branch as any).city ?? null,
-              address: (so.warehouse.billing_branch as any).address ?? null,
-              display_name: [
-                (so.warehouse.billing_branch as any).code,
-                (so.warehouse.billing_branch as any).city,
-              ]
-                .filter(Boolean)
-                .join(' — '),
-            }
-          : null,
+        billing_branch: this.mapBranch(so),
         created_by_user: mapPosUser(so.creator),
       },
       line_items: (so.line_items ?? []).map((li) => {
@@ -234,9 +235,10 @@ export class WarehouseControlService {
           uom_name: uomName,
           quantity: li.quantity,
           quantity_base_uom: li.quantity_base_uom,
-          warehouse_id: warehouseId,
+          warehouse_id: so.warehouse_id,
           warehouse_name: so.warehouse?.name ?? null,
           available_quantity: availableByProduct.get(li.product_id) ?? 0,
+          warehouses: warehousesByProduct.get(li.product_id) ?? [],
         };
       }),
     };
@@ -272,12 +274,12 @@ export class WarehouseControlService {
 
     try {
       for (const detail of so.line_items ?? []) {
-        await this.fulfillmentService.allocateFifo(
-          detail,
-          so.warehouse_id,
-          userId,
-          qr.manager,
-        );
+        await this.fulfillmentService.allocateFifo(detail, userId, qr.manager, {
+          warehouseId: so.warehouse_id,
+          billingBranchId: so.warehouse_id
+            ? undefined
+            : so.billing_branch_id,
+        });
       }
 
       await qr.manager.update(
@@ -311,6 +313,7 @@ export class WarehouseControlService {
       where: { id, tenant_id: tenantId },
       relations: [
         'customer',
+        'billing_branch',
         'warehouse',
         'warehouse.billing_branch',
         'corroborator',
@@ -342,6 +345,20 @@ export class WarehouseControlService {
           }
         : null,
       line_items_count: so.line_items?.length ?? 0,
+    };
+  }
+
+  private mapBranch(so: SalesOrder) {
+    const branch = so.billing_branch ?? so.warehouse?.billing_branch ?? null;
+    if (!branch) {
+      return null;
+    }
+    return {
+      id: branch.id,
+      code: branch.code,
+      city: branch.city ?? null,
+      address: branch.address ?? null,
+      display_name: [branch.code, branch.city].filter(Boolean).join(' — '),
     };
   }
 }

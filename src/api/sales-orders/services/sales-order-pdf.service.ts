@@ -47,24 +47,24 @@ export class SalesOrderPdfService {
     return this.buildDocument(salesOrder, language, 'original');
   }
 
-  async generateReceiptPdf(
+  async generateDeliveryPdf(
     salesOrder: SalesOrder,
     language: DocumentLanguage = DocumentLanguage.ES,
   ): Promise<Buffer> {
-    return this.buildDocument(salesOrder, language, 'receipt');
+    return this.buildDocument(salesOrder, language, 'delivery');
   }
 
   private async buildDocument(
     salesOrder: SalesOrder,
     language: DocumentLanguage,
-    kind: 'original' | 'receipt',
+    kind: 'original' | 'delivery',
   ): Promise<Buffer> {
     const printer = new PdfPrinter(this.fonts);
     const labels = getSalesOrderPdfLabels(language);
     const logoImage = await this.getFiscalLogoImage(salesOrder);
     const subtitle =
-      kind === 'original' ? labels.originalDocumentTitle : labels.receiptDocumentTitle;
-    const title = kind === 'original' ? labels.salesOrderTitle : labels.receiptTitle;
+      kind === 'original' ? labels.originalDocumentTitle : labels.deliveryDocumentTitle;
+    const title = kind === 'original' ? labels.salesOrderTitle : labels.deliveryTitle;
 
     const docDefinition: any = {
       pageSize: 'A4',
@@ -240,8 +240,7 @@ export class SalesOrderPdfService {
 
   private buildPartyCards(salesOrder: SalesOrder, labels: SalesOrderPdfLabels): any {
     const customerName = this.formatCustomerName(salesOrder);
-    const warehouseName = salesOrder.warehouse?.name || 'N/A';
-    const warehouseLocation = `${salesOrder.warehouse?.city || 'N/A'}, ${salesOrder.warehouse?.state || 'N/A'}`;
+    const locationTitle = salesOrder.warehouse ? labels.sourceWarehouse : labels.branchPrefix;
 
     return {
       table: {
@@ -263,22 +262,39 @@ export class SalesOrderPdfService {
               },
             ]),
             this.gapCell(),
-            this.partyCell(labels.sourceWarehouse, [
-              { text: warehouseName, fontSize: 10, bold: true, color: COLORS.text, margin: [0, 0, 0, 3] },
-              {
-                text: `${labels.branchPrefix}: ${salesOrder.warehouse?.billing_branch?.code || 'N/A'}`,
-                fontSize: 8,
-                color: COLORS.muted,
-                margin: [0, 0, 0, 1],
-              },
-              { text: warehouseLocation, fontSize: 8, color: COLORS.muted },
-            ]),
+            this.partyCell(locationTitle, this.buildLocationStack(salesOrder, labels)),
           ],
         ],
       },
       layout: this.equalHeightLayout(),
       margin: [0, 0, 0, 14],
     };
+  }
+
+  private buildLocationStack(salesOrder: SalesOrder, labels: SalesOrderPdfLabels): any[] {
+    const branch = salesOrder.billing_branch ?? salesOrder.warehouse?.billing_branch ?? null;
+    const branchCode = branch?.code || 'N/A';
+    const city = branch?.city || salesOrder.warehouse?.city;
+    const state = branch?.state || salesOrder.warehouse?.state;
+    const location = [city, state].filter(Boolean).join(', ') || 'N/A';
+
+    if (salesOrder.warehouse) {
+      return [
+        { text: salesOrder.warehouse.name, fontSize: 10, bold: true, color: COLORS.text, margin: [0, 0, 0, 3] },
+        {
+          text: `${labels.branchPrefix}: ${branchCode}`,
+          fontSize: 8,
+          color: COLORS.muted,
+          margin: [0, 0, 0, 1],
+        },
+        { text: location, fontSize: 8, color: COLORS.muted },
+      ];
+    }
+
+    return [
+      { text: branchCode, fontSize: 10, bold: true, color: COLORS.text, margin: [0, 0, 0, 3] },
+      { text: location, fontSize: 8, color: COLORS.muted },
+    ];
   }
 
   private buildProductsSection(salesOrder: SalesOrder, labels: SalesOrderPdfLabels): any {

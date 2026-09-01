@@ -20,6 +20,11 @@ import { BatchNumberGeneratorService } from './batch-number-generator.service';
 import { FolioGeneratorService } from './folio-generator.service';
 import { PurchaseOrderPdfService } from './purchase-order-pdf.service';
 import { PurchaseOrderDocumentsService } from './purchase-order-documents.service';
+import { PurchaseOrderLotsService } from './purchase-order-lots.service';
+import {
+  PurchaseOrderActivityService,
+  RecordPurchaseOrderActivityInput,
+} from './purchase-order-activity.service';
 import { PurchaseOrderDocumentLanguage } from '../../../entities/purchase-orders/purchase-order-document-language.enum';
 import { ProductUoM, ProductVendorCost } from '../../../entities/products';
 import { v4 as uuidv4 } from 'uuid';
@@ -28,6 +33,11 @@ import {
   computeRequestedLineBreakdown,
   roundPoUnitCost,
 } from '../utils/purchase-order-line-breakdown.util';
+import {
+  activityChange,
+  compactActivityChanges,
+} from '../utils/purchase-order-activity-change.util';
+import { PURCHASE_ORDER_MOVEMENT_TYPES } from '../constants/purchase-order-movements';
 
 type PurchaseOrderCurrency = 'MXN' | 'USD';
 
@@ -78,6 +88,8 @@ export class PurchaseOrderService {
     private readonly folioGenerator: FolioGeneratorService,
     private readonly pdfService: PurchaseOrderPdfService,
     private readonly documentsService: PurchaseOrderDocumentsService,
+    private readonly lotsService: PurchaseOrderLotsService,
+    private readonly activityService: PurchaseOrderActivityService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -505,7 +517,7 @@ export class PurchaseOrderService {
   /**
    * Find a single purchase order by ID
    */
-  async findOne(id: string, tenantId: string): Promise<PurchaseOrderBatch> {
+  async findOne(id: string, tenantId: string): Promise<any> {
     const purchaseOrder = await this.purchaseOrderBatchRepository
       .createQueryBuilder('po')
       .where('po.id = :id AND po.tenant_id = :tenantId', { id, tenantId })
@@ -525,7 +537,10 @@ export class PurchaseOrderService {
       .leftJoinAndSelect('po.batches', 'batches')
       .leftJoinAndSelect('batches.product', 'batch_product')
       .leftJoinAndSelect('batches.uom', 'batch_uom')
+      .leftJoinAndSelect('batches.measure_uom', 'batch_measure_uom')
       .leftJoinAndSelect('batches.warehouse', 'batch_warehouse')
+      .leftJoinAndSelect('batch_warehouse.billing_branch', 'batch_branch')
+      .leftJoinAndSelect('batch_branch.fiscal_configuration', 'batch_fiscal')
       .getOne();
 
     if (!purchaseOrder) {
@@ -575,7 +590,7 @@ export class PurchaseOrderService {
       delete (purchaseOrder.updater as any).password;
     }
 
-    return this.mapPurchaseOrderLocation(purchaseOrder);
+    return this.withLotTree(purchaseOrder);
   }
 
   private async assertWarehouseMatchesFiscal(
@@ -688,6 +703,27 @@ export class PurchaseOrderService {
         ? po.line_items.map((line) => this.mapLineItemForUi(line))
         : po.line_items,
     };
+  }
+
+  private async withLotTree(purchaseOrder: PurchaseOrderBatch) {
+    const mapped = this.mapPurchaseOrderLocation(purchaseOrder);
+    const lots = await this.lotsService.buildTree(
+      purchaseOrder.batches,
+      purchaseOrder.line_items,
+    );
+    return {
+      ...mapped,
+      batches: lots.batches,
+      batches_summary: lots.summary,
+    };
+  }
+
+  private async recordActivity(input: RecordPurchaseOrderActivityInput): Promise<void> {
+    try {
+      await this.activityService.record(input);
+    } catch (error) {
+      console.error('[PO activity] No se pudo guardar el movimiento', error);
+    }
   }
 
   private scheduleDocumentoOriginalRegen(
@@ -1057,6 +1093,20 @@ export class PurchaseOrderService {
     purchaseOrder.updated_by = userId;
     await this.purchaseOrderBatchRepository.save(purchaseOrder);
 
+    await this.recordActivity({
+      tenantId,
+      purchaseOrderId,
+      type: PURCHASE_ORDER_MOVEMENT_TYPES.PAYMENT_DELETED,
+      actorId: userId,
+      description: `Se eliminó un pago de ${Number(payment.amount).toFixed(2)} ${payment.currency}.`,
+      metadata: {
+        payment_id: paymentId,
+        amount: Number(payment.amount).toFixed(2),
+        currency: payment.currency,
+        payment_method: payment.payment_method,
+      },
+    });
+
     return {
       success: true,
       id: paymentId,
@@ -1209,6 +1259,17 @@ export class PurchaseOrderService {
       );
 
       await queryRunner.commitTransaction();
+      await this.recordActivity({
+        tenantId,
+        purchaseOrderId: id,
+        type: PURCHASE_ORDER_MOVEMENT_TYPES.STATUS_CHANGED,
+        actorId: userId,
+        description: 'La orden pasó de Creada a Recibida.',
+        changes: compactActivityChanges([
+          activityChange('general_status', 'Estatus', 'Creada', 'Recibida'),
+        ]),
+        metadata: { received_items: dto.received_items.length },
+      });
       return this.findOne(id, tenantId);
     } catch (error) {
       await queryRunner.rollbackTransaction();
@@ -1233,9 +1294,24 @@ export class PurchaseOrderService {
       throw new BadRequestException('No se pueden editar notas de una orden cancelada');
     }
 
+    const previousNotes = purchaseOrder.notes ?? null;
     purchaseOrder.notes = dto.notes?.trim() ? dto.notes.trim() : null;
     purchaseOrder.updated_by = userId;
     await this.purchaseOrderBatchRepository.save(purchaseOrder);
+
+    const changes = compactActivityChanges([
+      activityChange('notes', 'Notas', previousNotes, purchaseOrder.notes),
+    ]);
+    if (changes.length) {
+      await this.recordActivity({
+        tenantId,
+        purchaseOrderId: id,
+        type: PURCHASE_ORDER_MOVEMENT_TYPES.NOTES_UPDATED,
+        actorId: userId,
+        description: 'Se actualizaron las notas de la orden.',
+        changes,
+      });
+    }
 
     return this.findOne(id, tenantId);
   }
@@ -1263,10 +1339,25 @@ export class PurchaseOrderService {
       dto.pedimento_number,
     );
 
+    const previousPedimento = purchaseOrder.pedimento_number ?? null;
     await this.purchaseOrderBatchRepository.update(
       { id, tenant_id: tenantId },
       { pedimento_number: pedimentoNumber, updated_by: userId },
     );
+
+    const changes = compactActivityChanges([
+      activityChange('pedimento_number', 'Pedimento', previousPedimento, pedimentoNumber),
+    ]);
+    if (changes.length) {
+      await this.recordActivity({
+        tenantId,
+        purchaseOrderId: id,
+        type: PURCHASE_ORDER_MOVEMENT_TYPES.PEDIMENTO_UPDATED,
+        actorId: userId,
+        description: 'Se actualizó el pedimento.',
+        changes,
+      });
+    }
 
     return this.findOne(id, tenantId);
   }
@@ -1287,6 +1378,16 @@ export class PurchaseOrderService {
     purchaseOrder.updated_by = userId;
 
     await this.purchaseOrderBatchRepository.save(purchaseOrder);
+    await this.recordActivity({
+      tenantId,
+      purchaseOrderId: id,
+      type: PURCHASE_ORDER_MOVEMENT_TYPES.STATUS_CHANGED,
+      actorId: userId,
+      description: 'La orden pasó de Creada a Cancelada.',
+      changes: compactActivityChanges([
+        activityChange('general_status', 'Estatus', 'Creada', 'Cancelada'),
+      ]),
+    });
     return this.findOne(id, tenantId);
   }
 
@@ -1380,6 +1481,44 @@ export class PurchaseOrderService {
       await queryRunner.release();
     }
 
+    const replaceChanges = compactActivityChanges([
+      activityChange('vendor_id', 'Proveedor', existing.vendor_id, dto.vendor_id),
+      activityChange('warehouse_id', 'Almacén', existing.warehouse_id, dto.warehouse_id),
+      activityChange(
+        'fiscal_configuration_id',
+        'Razón social',
+        existing.fiscal_configuration_id,
+        dto.fiscal_configuration_id,
+      ),
+      activityChange(
+        'payment_currency',
+        'Moneda',
+        existing.payment_currency,
+        dto.payment_currency || existing.payment_currency,
+      ),
+      activityChange('notes', 'Notas', existing.notes, dto.notes ?? existing.notes),
+      activityChange(
+        'pedimento_number',
+        'Pedimento',
+        existing.pedimento_number,
+        pedimentoNumber,
+      ),
+      activityChange(
+        'line_items_count',
+        'Productos',
+        existing.line_items?.length ?? 0,
+        dto.line_items?.length ?? 0,
+      ),
+    ]);
+    await this.recordActivity({
+      tenantId,
+      purchaseOrderId: id,
+      type: PURCHASE_ORDER_MOVEMENT_TYPES.HEADER_REPLACED,
+      actorId: userId,
+      description: 'Se reemplazó la cabecera y las líneas de la orden.',
+      changes: replaceChanges,
+    });
+
     this.regenerateDocumentoOriginalPreservingLanguage(id, tenantId, userId).catch((err) => {
       console.error(
         '[PDF] Error regenerating DOCUMENTO_ORIGINAL after full PO replace:',
@@ -1470,6 +1609,23 @@ export class PurchaseOrderService {
     }
 
     this.scheduleDocumentoOriginalRegen(orderId, tenantId, userId, 'add line item');
+    const addedName =
+      (purchaseOrder.line_items || []).find((line) => line.product_id === dto.product_id)
+        ?.product?.name ?? dto.product_id;
+    await this.recordActivity({
+      tenantId,
+      purchaseOrderId: orderId,
+      type: PURCHASE_ORDER_MOVEMENT_TYPES.LINE_ADDED,
+      actorId: userId,
+      description: `Se agregó ${addedName}: ${dto.quantity} × ${unitTotal}, IVA ${iva_percentage}%.`,
+      metadata: {
+        product_id: dto.product_id,
+        quantity: dto.quantity,
+        unit_total: unitTotal,
+        iva_percentage,
+        ieps_percentage,
+      },
+    });
     return this.findOne(orderId, tenantId);
   }
 
@@ -1579,6 +1735,17 @@ export class PurchaseOrderService {
       throw new NotFoundException(`Línea no encontrada: ${lineItemId}`);
     }
 
+    const productName =
+      (purchaseOrder.line_items || []).find((line) => line.id === lineItemId)?.product
+        ?.name ?? lineItem.product_id;
+    const before = {
+      quantity: lineItem.quantity,
+      unit_total: lineItem.unit_total,
+      iva_percentage: lineItem.iva_percentage,
+      ieps_percentage: lineItem.ieps_percentage,
+      product_uom_id: lineItem.product_uom_id,
+    };
+
     if (dto.uom_id !== undefined) {
       lineItem.product_uom_id = await this.unitConversionService.getProductUomId(
         dto.uom_id,
@@ -1637,6 +1804,24 @@ export class PurchaseOrderService {
     }
 
     this.scheduleDocumentoOriginalRegen(orderId, tenantId, userId, 'update line item');
+    const changes = compactActivityChanges([
+      activityChange('quantity', 'Cantidad', before.quantity, lineItem.quantity),
+      activityChange('unit_total', 'Costo unitario', before.unit_total, lineItem.unit_total),
+      activityChange('iva_percentage', 'IVA %', before.iva_percentage, lineItem.iva_percentage),
+      activityChange('ieps_percentage', 'IEPS %', before.ieps_percentage, lineItem.ieps_percentage),
+      activityChange('product_uom_id', 'Unidad', before.product_uom_id, lineItem.product_uom_id),
+    ]);
+    if (changes.length) {
+      await this.recordActivity({
+        tenantId,
+        purchaseOrderId: orderId,
+        type: PURCHASE_ORDER_MOVEMENT_TYPES.LINE_UPDATED,
+        actorId: userId,
+        description: `Se actualizó ${productName}.`,
+        changes,
+        metadata: { line_item_id: lineItemId, product_id: lineItem.product_id },
+      });
+    }
     return this.findOne(orderId, tenantId);
   }
 
@@ -1665,6 +1850,10 @@ export class PurchaseOrderService {
       throw new NotFoundException(`Línea no encontrada: ${lineItemId}`);
     }
 
+    const productName =
+      (purchaseOrder.line_items || []).find((line) => line.id === lineItemId)?.product
+        ?.name ?? lineItem.product_id;
+
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -1685,6 +1874,20 @@ export class PurchaseOrderService {
     }
 
     this.scheduleDocumentoOriginalRegen(orderId, tenantId, userId, 'remove line item');
+    await this.recordActivity({
+      tenantId,
+      purchaseOrderId: orderId,
+      type: PURCHASE_ORDER_MOVEMENT_TYPES.LINE_REMOVED,
+      actorId: userId,
+      description: `Se eliminó ${productName} (${Number(lineItem.quantity)} × ${Number(lineItem.unit_total)}, IVA ${Number(lineItem.iva_percentage)}%).`,
+      metadata: {
+        line_item_id: lineItemId,
+        product_id: lineItem.product_id,
+        quantity: lineItem.quantity,
+        unit_total: lineItem.unit_total,
+        iva_percentage: lineItem.iva_percentage,
+      },
+    });
     return this.findOne(orderId, tenantId);
   }
   /**

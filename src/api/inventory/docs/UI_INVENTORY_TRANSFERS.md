@@ -31,7 +31,7 @@ Organización
 2. Todas las líneas deben ser del **mismo producto y UOM** que el encabezado.
 3. Cada lote solo puede aparecer **una vez** en las líneas.
 4. La cantidad por línea no puede exceder `available_quantity` del lote.
-5. Al confirmar: se descuenta origen, se crea lote nuevo en destino con número `{razon}-{sucursal}-{almacen}-{5 dígitos}` (ej. `MZN-SBA-BDGA-00011`). El almacén destino debe tener prefijos de razón, sucursal y almacén.
+5. Al confirmar: se descuenta origen, se crea lote nuevo en destino con número `{razon}-{sucursal}-{almacen}-{5 dígitos}` (ej. `MZN-SBA-BDGA-00011`). El almacén destino debe tener prefijos de razón, sucursal y almacén. Copia `measure` del lote origen (ver `UI_INVENTORY_MEASURE.md`).
 6. Permisos: `Inventory:Read` para consultar; `Inventory:Transfer` para crear (separado de `Write`).
 
 ---
@@ -326,7 +326,9 @@ Abre el **mismo modal** del Parte 2 con:
 - Una sola línea preseleccionada con `available_quantity` como default
 - Usuario puede reducir cantidad (transferencia parcial del lote)
 
-Si `available_quantity === 0`, deshabilitar botón.
+Si `available_quantity === 0` o `can_transfer === false`, deshabilitar botón.
+
+El lápiz de la card **ALMACÉN** (tab General) abre **el mismo modal**. No hagas PATCH de `warehouse_id`. Ver `UI_INVENTORY_BATCH_EDIT.md`.
 
 ### Sección historial en detalle
 
@@ -488,6 +490,7 @@ Sugerencia de menú:
 - **Inventario** → Resumen (totalizado)
 - **Inventario** → Lotes
 - **Inventario** → Transferencias (historial)
+- **Inventario** → Auditorías (conteo por lote; ver `UI_INVENTORY_AUDITS.md`)
 
 ---
 

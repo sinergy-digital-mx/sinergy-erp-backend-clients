@@ -1,5 +1,5 @@
-import { Controller, UseGuards, Get, Query, Param, Req, Res } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiQuery, ApiParam } from '@nestjs/swagger';
+import { Controller, UseGuards, Get, Patch, Body, Query, Param, Req, Res } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiQuery, ApiParam, ApiBody } from '@nestjs/swagger';
 import { InventoryService } from './inventory.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionGuard } from '../rbac/guards/permission.guard';
@@ -8,6 +8,8 @@ import { BatchFilterDto } from './dto/batch-filter.dto';
 import { BatchListResponseDto } from './dto/batch-list-response.dto';
 import { BatchResponseDto } from './dto/batch-response.dto';
 import { BatchDetailResponseDto } from './dto/batch-detail-response.dto';
+import { InventoryBatchMovementListResponseDto } from './dto/inventory-batch-movement.dto';
+import { UpdateInventoryBatchDto } from './dto/update-inventory-batch.dto';
 import { InventorySummaryFilterDto } from './dto/inventory-summary-filter.dto';
 import { InventorySummaryResponseDto } from './dto/inventory-summary-response.dto';
 import { PosSessionInventorySummaryResponseDto } from './dto/pos-session-inventory-summary-response.dto';
@@ -164,7 +166,14 @@ export class InventoryController {
   @ApiOperation({
     summary: 'Inventario POS por sucursal de la terminal',
     description:
-      'Usa billing_branch_id del usuario POS logueado. warehouse_id es opcional; si se omite, incluye todos los almacenes de esa sucursal. La respuesta trae warehouses válidos para la UI.',
+      'Usa billing_branch_id del usuario POS logueado. warehouse_id es opcional; si se omite, incluye todos los almacenes de esa sucursal. Con search, el SKU exacto va primero y el resto se ordena por relevancia (SKU, luego nombre). No reordenar en cliente.',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description:
+      'SKU, SKU externo o nombre. SKU exacto primero; después coincidencias de SKU y nombre por relevancia.',
   })
   async getPosTerminalInventorySummary(
     @Query() filters: InventorySummaryFilterDto,
@@ -206,6 +215,22 @@ export class InventoryController {
     return this.inventoryService.findByPurchaseOrderId(poId, tenantId, filters);
   }
 
+  @Get('batches/:id/movements')
+  @RequirePermissions({ entityType: 'inventory', action: 'read' })
+  @ApiOperation({
+    summary: 'Historial de movimientos del lote',
+    description:
+      'Creación/compra/importación, ventas, transferencias y auditorías. Más reciente primero.',
+  })
+  @ApiParam({ name: 'id', description: 'Batch ID', type: String })
+  @ApiResponse({ status: 200, type: InventoryBatchMovementListResponseDto })
+  async listBatchMovements(
+    @Param('id') id: string,
+    @Req() req: any,
+  ): Promise<InventoryBatchMovementListResponseDto> {
+    return this.inventoryService.listMovements(id, req.user.tenant_id);
+  }
+
   @Get('batches/:id')
   @RequirePermissions({ entityType: 'inventory', action: 'read' })
   @ApiOperation({ summary: 'Get a single inventory batch by ID' })
@@ -225,5 +250,25 @@ export class InventoryController {
   ): Promise<BatchDetailResponseDto> {
     const tenantId = req.user.tenant_id;
     return this.inventoryService.findById(id, tenantId);
+  }
+
+  @Patch('batches/:id')
+  @RequirePermissions({ entityType: 'inventory', action: 'write' })
+  @ApiOperation({
+    summary: 'Editar tag y/o medida de un lote',
+    description:
+      'Tag siempre editable. Medida solo si el lote no la tiene (no se capturó en el recibo). El almacén se mueve con POST /transfers, no con este PATCH.',
+  })
+  @ApiParam({ name: 'id', description: 'Batch ID', type: String })
+  @ApiBody({ type: UpdateInventoryBatchDto })
+  @ApiResponse({ status: 200, type: BatchDetailResponseDto })
+  @ApiResponse({ status: 400, description: 'Medida ya definida o payload inválido' })
+  @ApiResponse({ status: 404, description: 'Batch not found' })
+  async updateBatch(
+    @Param('id') id: string,
+    @Body() dto: UpdateInventoryBatchDto,
+    @Req() req: any,
+  ): Promise<BatchDetailResponseDto> {
+    return this.inventoryService.updateBatch(id, req.user.tenant_id, dto);
   }
 }

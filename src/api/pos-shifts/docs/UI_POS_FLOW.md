@@ -683,12 +683,25 @@ Mostrar nombre del vendedor en header mientras opera.
 ### Paso 4 — Catálogo e inventario
 ```
 GET /api/tenant/inventory/pos/summary
-GET /api/tenant/inventory/pos/summary?limit=200
+GET /api/tenant/inventory/pos/summary?limit=40
+GET /api/tenant/inventory/pos/summary?search=10
 ```
 
 **Sucursal:** la toma del usuario POS logueado (`billing_branch_id` en login). No enviar sucursal en query.
 
 **Almacén (`warehouse_id`):** opcional. Si se omite, el backend agrega inventario de **todos** los almacenes de esa sucursal. Si se envía, debe ser uno de los ids en `warehouses` de la respuesta (o del error 400).
+
+**Búsqueda (`search`):** opcional. Cada palabra debe aparecer en SKU, SKU externo o nombre. El SQL pagina y ordena: no reordenar `data` en cliente.
+
+1. SKU exacto, luego SKU externo exacto
+2. SKU / SKU externo que empieza con el texto, luego que lo contiene
+3. Nombre: empieza con el texto → coincidencia de palabra → contiene
+
+Con `search` se ignora `sort_by`. Debounce al teclear (**300 ms**). Si el cajero pega o escanea un SKU, mandar ese valor tal cual.
+
+**No** mandar `limit=200`. El tope es **40**. Default 20. Cada tecla con 200 filas (fotos + lotes + precios) se siente lenta.
+
+La respuesta trae **una página**. Si `total > data.length`, hay más: `page=2`. `total` es un mínimo (hay siguiente página o no), no el conteo completo de coincidencias.
 
 Respuesta incluye:
 ```json
@@ -706,7 +719,7 @@ Respuesta incluye:
 
 Si recibes 400 con lista `warehouses`, actualiza el id en estado local; el uuid que enviaste no pertenece a la sucursal del usuario POS.
 
-**Requisito técnico:** al crear la orden necesitas `warehouse_id` y `fiscal_configuration_id` de la sucursal. La terminal debe tener `billing_branch_id` y al menos un almacén con ese `billing_branch_id` en BD.
+**Requisito técnico:** al crear la orden POS necesitas `warehouse_id` y `fiscal_configuration_id`. `billing_branch_id` es opcional (se toma del almacén). La terminal debe tener sucursal y al menos un almacén de esa sucursal.
 
 ### Paso 4b — Qué **eliminar** del UI actual de Ventas
 

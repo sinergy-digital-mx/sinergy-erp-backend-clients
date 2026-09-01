@@ -6,6 +6,7 @@ import { PriceList } from '../../entities/products/price-list.entity';
 import { ProductPrice } from '../../entities/products/product-price.entity';
 import { ProductDiscount } from '../../entities/products/product-discount.entity';
 import { ProductVendorCost } from '../../entities/products/product-vendor-cost.entity';
+import { Vendor } from '../../entities/vendor/vendor.entity';
 import { ProductAttribute } from '../../entities/products/product-attribute.entity';
 import { ProductAttributeValue } from '../../entities/products/product-attribute-value.entity';
 import { ProductAttributeAssignment } from '../../entities/products/product-attribute-assignment.entity';
@@ -26,6 +27,8 @@ import { ProductAttributeService } from './product-attribute.service';
 import { ProductAttributeAssignmentController } from './product-attribute-assignment.controller';
 import { ProductAttributeAssignmentService } from './product-attribute-assignment.service';
 import { ProductsExportService } from './services/products-export.service';
+import { ProductVendorImportService } from './services/product-vendor-import.service';
+import { ProductVendorImportController } from './product-vendor-import.controller';
 import { RBACModule } from '../rbac/rbac.module';
 import { UoMCatalogModule } from '../uom-catalog/uom-catalog.module';
 import { S3Service } from '../../common/services/s3.service';
@@ -39,6 +42,7 @@ import { S3Service } from '../../common/services/s3.service';
       ProductPrice,
       ProductDiscount,
       ProductVendorCost,
+      Vendor,
       ProductAttribute,
       ProductAttributeValue,
       ProductAttributeAssignment,
@@ -51,6 +55,7 @@ import { S3Service } from '../../common/services/s3.service';
     // GET /tenant/products/attributes is not captured by GET /tenant/products/:id
     ProductAttributeController,
     ProductAttributeAssignmentController,
+    ProductVendorImportController,
     ProductController,
     ProductUoMController,
     PriceListController,
@@ -68,6 +73,7 @@ import { S3Service } from '../../common/services/s3.service';
     ProductAttributeService,
     ProductAttributeAssignmentService,
     ProductsExportService,
+    ProductVendorImportService,
     S3Service,
   ],
   exports: [

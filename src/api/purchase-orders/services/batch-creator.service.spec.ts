@@ -131,6 +131,7 @@ describe('BatchCreatorService', () => {
       expect(batchNumberGeneratorService.generateBatchNumber).toHaveBeenCalledWith(
         'warehouse-1',
         'tenant-1',
+        undefined,
       );
     });
 
@@ -452,6 +453,54 @@ describe('BatchCreatorService', () => {
       );
 
       expect(result.uom_id).toBe('uom-1');
+    });
+
+    it('should persist measure on the batch when indicated', async () => {
+      jest
+        .spyOn(batchNumberGeneratorService, 'generateBatchNumber')
+        .mockResolvedValue('MH-LOTE-000001');
+      const createSpy = jest
+        .spyOn(inventoryBatchRepository, 'create')
+        .mockReturnValue({ ...mockCreatedBatch, measure: 12 });
+      jest
+        .spyOn(inventoryBatchRepository, 'save')
+        .mockResolvedValue({ ...mockCreatedBatch, measure: 12 });
+
+      await service.createBatchForReceivedItem(
+        { ...mockReceivedItem, measure: 12, measure_uom_id: 'uom-foot' },
+        mockPurchaseOrder,
+        'line-1',
+        'user-1',
+        mockProductUoms,
+      );
+
+      expect(createSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ measure: 12, measure_uom_id: 'uom-foot' }),
+      );
+    });
+
+    it('should store null measure when not indicated', async () => {
+      jest
+        .spyOn(batchNumberGeneratorService, 'generateBatchNumber')
+        .mockResolvedValue('MH-LOTE-000001');
+      const createSpy = jest
+        .spyOn(inventoryBatchRepository, 'create')
+        .mockReturnValue(mockCreatedBatch);
+      jest
+        .spyOn(inventoryBatchRepository, 'save')
+        .mockResolvedValue(mockCreatedBatch);
+
+      await service.createBatchForReceivedItem(
+        mockReceivedItem,
+        mockPurchaseOrder,
+        'line-1',
+        'user-1',
+        mockProductUoms,
+      );
+
+      expect(createSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ measure: null, measure_uom_id: null }),
+      );
     });
   });
 });

@@ -5,6 +5,7 @@ import { InventoryBatch } from '../../../entities/purchase-orders/inventory-batc
 import { PurchaseOrderBatch } from '../../../entities/purchase-orders/purchase-order-batch.entity';
 import { ReceivedItemDto } from '../dto/receive-purchase-order.dto';
 import { BatchNumberGeneratorService } from './batch-number-generator.service';
+import { normalizeMeasure } from '../../inventory/utils/inventory-measure.util';
 
 /**
  * Service for creating inventory batch records for received items
@@ -64,10 +65,13 @@ export class BatchCreatorService {
         ? manager.getRepository(InventoryBatch)
         : this.inventoryBatchRepository;
 
+      const measure = normalizeMeasure(receivedItem.measure);
       const batch = repo.create({
         tenant_id: purchaseOrder.tenant_id,
         batch_number: batchNumber,
         source_tag_identifier: sourceTagIdentifier || null,
+        measure,
+        measure_uom_id: measure ? receivedItem.measure_uom_id || null : null,
         warehouse_id: purchaseOrder.warehouse_id,
         product_id: receivedItem.product_id,
         uom_id: baseUom.uom_catalog_id,

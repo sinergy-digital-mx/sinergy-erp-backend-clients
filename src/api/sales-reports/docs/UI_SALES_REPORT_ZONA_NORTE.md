@@ -1,245 +1,222 @@
-# UI — Reporte de Ventas Zona Norte
+# UI — Reporte de ventas (vendedor vs comisionado)
 
-## Comisión (configurable por tenant)
+Un solo módulo, **dos vistas** con un toggle. No dupliques pantallas.
 
-La comisión **no se hardcodea en el reporte**. Se configura en **Metas**:
+| Vista | Query `view` | Agrupa por | Qué responde |
+|-------|----------------|------------|----------------|
+| **Ventas** (default) | `sales` | Quien **vendió** (`seller_user_id`) | Volumen, ticket, meta |
+| **Comisiones** | `commissions` | Quien **comisiona** (`assigned_seller_user_id`) | Comisión $ y avance vs meta |
+
+En la OV son personas distintas: `src/api/sales-orders/docs/UI_SALES_ORDER_SELLER.md`.
+
+---
+
+## 1. Header profesional
 
 ```
-GET  /api/tenant/goals/settings     → { commission_rate: 1 }
-PATCH /api/tenant/goals/settings    → { commission_rate: 1.5 }
+┌──────────────────────────────────────────────────────────────────────────┐
+│  Reporte de ventas                                          [Excel ↓]    │
+│  Zona Norte · Mes · 01/09/2026 — 01/09/2026                             │
+│                                                                          │
+│  [ Ventas ]  [ Comisiones ]          Hoy  Semana  Mes  Año  Rango        │
+│  Razón social ▼   Sucursal ▼         Inicio ▢     Fin ▢                  │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
-El reporte la lee solo:
+- Título fijo: **Reporte de ventas**. El subtítulo sale de `view_label` (`Ventas por vendedor` / `Comisiones por comisionado`) + `filters_applied.period_label`.
+- Toggle **segmentado** (pills), no tabs del menú. Al cambiar `view`, mismo periodo y mismos combos; recargar.
+- **Descargar Excel** a la derecha del título. Mismos query params que el GET. Spinner mientras baja.
+- Periodo: **un solo** chip activo. `Mes` / `Semana` / `Año` / `Hoy` **no** mandan `date_from`/`date_to`. Solo **Rango** muestra fechas y manda `period=range`.
+- Cascada: razón social → sucursal (igual que OV). Cambiar razón resetea sucursal.
+
+Paleta: vista Ventas verde (`#1B7F5E`). Vista Comisiones púrpura (`#6B4C9A`). El chip activo del toggle usa ese color.
+
+---
+
+## 2. Endpoints
 
 ```
 GET /api/tenant/sales-reports/by-seller
-  ?fiscal_configuration_id=...
-  &billing_branch_id=...
-  &period=range
-  &date_from=2026-06-01
-  &date_to=2026-06-30
+GET /api/tenant/sales-reports/by-seller/export/excel
+GET /api/tenant/sales-reports/by-seller/orders
 ```
 
-**No enviar** `commission_rate` en el query (si se envía, overridea la config del tenant — evitar en producción).
+### Query (los tres)
 
-| Campo respuesta | Uso UI |
-|-----------------|--------|
-| `filters_applied.commission_rate` | % aplicado (viene de Metas) |
-| `rows[i].commission_percentage` | Mismo % |
-| `rows[i].commission_amount` | Monto comisión (`$X`) |
+| Param | Valores | Default |
+|-------|---------|---------|
+| `view` | `sales` \| `commissions` | `sales` |
+| `fiscal_configuration_id` | uuid | todas |
+| `billing_branch_id` | uuid | todas |
+| `period` | `today` `week` `month` `year` `range` | `month` |
+| `date_from` / `date_to` | ISO | solo si `period=range` |
 
-Default si nunca configuraron: **1%**.
+**No enviar** `commission_rate`. El % sale de Metas (`GET /api/tenant/goals/settings`).
+
+```
+GET /api/tenant/sales-reports/by-seller?view=sales&period=month
+GET /api/tenant/sales-reports/by-seller?view=commissions&fiscal_configuration_id={uuid}&billing_branch_id={uuid}&period=range&date_from=2026-09-01&date_to=2026-09-30
+GET /api/tenant/sales-reports/by-seller/export/excel?view=commissions&period=month
+```
+
+Excel: `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`. Filename `reporte-ventas-YYYY-MM-DD.xlsx` o `reporte-comisiones-...`.
 
 ---
 
-## Vendedor = código POS (`seller_user_id`)
+## 3. Cards KPI
 
-Las ventas se agrupan por el vendedor que capturó su código en POS (`seller_user_id`), no por la terminal.
+Usar `summary.*`. Cuatro cards en fila (en móvil 2×2).
 
-| Campo | Descripción |
-|-------|-------------|
-| `seller_id` | UUID del vendedor |
-| `seller_name` | Nombre |
-| `seller_pos_user_code` | Código numérico POS (ej. 140696) |
+### Vista Ventas
 
-Mostrar: `Vendedor Perez (140696)`.
+| Card | Binding | Color |
+|------|---------|-------|
+| **Vendedores** | `people_count` + `people_label` | púrpura |
+| **Ventas** | `total_sales_count` | verde |
+| **Monto** | `total_amount` moneda | ámbar |
+| **Ticket promedio** | `average_ticket` moneda | slate |
+
+Chip extra si `summary.top`: `Líder: {top.name} · {top.amount}`.
+
+### Vista Comisiones
+
+| Card | Binding |
+|------|---------|
+| **Comisionados** | `people_count` |
+| **Ventas** | `total_sales_count` |
+| **Monto** | `total_amount` |
+| **Comisión** | `total_commission` + `commission_rate`% |
+
+En Ventas **no** pintar columna ni card de comisión (`commission_amount` / `total_commission` vienen `null`).
+
+`summary.branches[]` (sucursal, ventas, monto): mini barras o sparkline bajo las cards si hay **más de una** sucursal. Si hay una sola, no hace falta.
 
 ---
 
-## Metas y progress bars
+## 4. Meta
 
-La misma respuesta del reporte incluye bloque `goals` y progress por fila.
+Bloque `goals` igual que antes. En **Comisiones** es protagonista (progress gorda). En **Ventas** se queda como contexto (barra compacta o el mismo banner).
 
-### Sin metas configuradas
+Sin metas: banner muted con `goals.message` (`No hay metas activas para 09/2026`). El reporte **sigue** mostrando ventas.
 
-```json
-{
-  "goals": {
-    "has_active_goals": false,
-    "message": "No hay metas activas para 06/2026",
-    "branch_goal": null,
-    "user_role_goal": null
-  }
-}
-```
-
-UI: mostrar banner informativo; el reporte de ventas sigue igual.
-
-### Con meta de sucursal (arriba)
-
-```json
-"goals": {
-  "has_active_goals": true,
-  "message": null,
-  "branch_goal": {
-    "goal_id": "...",
-    "billing_branch_id": "...",
-    "branch_name": "Tijuana (CIMA...)",
-    "metric_type": "amount",
-    "target_value": 100000,
-    "current_value": 82.55,
-    "progress_percentage": 0.08
-  },
-  "user_role_goal": {
-    "goal_id": "...",
-    "role_name": "Vendedor",
-    "metric_type": "sales_count",
-    "target_value": 50
-  }
-}
-```
-
-**Progress bar superior (meta sucursal):**
+Con `goals.branch_goal`:
 
 ```
 Meta sucursal — $82.55 / $100,000  (0.08%)
 [█░░░░░░░░░░░░░░░░░░░]
 ```
 
-Si `metric_type = sales_count` → mostrar `# ventas` en lugar de `$`.
-
-### Progress por vendedor (tabla, orden competitividad)
-
-Cada fila:
-
-```json
-"goal": {
-  "has_goal": true,
-  "metric_type": "sales_count",
-  "target_value": 50,
-  "current_value": 6,
-  "progress_percentage": 12
-}
-```
-
-Las filas ya vienen **ordenadas por `progress_percentage` DESC** (competitividad). Sin meta individual, orden por monto.
-
-```
-VENDEDOR          TOTAL  COMISIÓN (1%)  MONTO    META
-Vendedor Perez    6      $0.83          $82.55   [██░░░░] 12%
-```
+`metric_type = sales_count` → `# ventas` no `$`.
 
 ---
 
-## Layout sugerido
+## 5. Tabla
 
-```
-┌─────────────────────────────────────────────────────┐
-│ Meta sucursal (si goals.branch_goal)                │
-│ [████████░░░░░░░░] 45% — $45,000 / $100,000         │
-│ o banner: goals.message si !has_active_goals        │
-├─────────────────────────────────────────────────────┤
-│ Cards: Vendedores | Ventas | Monto total            │
-├─────────────────────────────────────────────────────┤
-│ Tabla ordenada por competitividad                   │
-│ ... progress bar por fila (rows[i].goal)            │
-└─────────────────────────────────────────────────────┘
-```
+Filas: `rows[]`. Orden del backend (Comisiones: competitividad; Ventas: monto).
 
-Seleccionar **una sucursal** para ver la meta de sucursal arriba. Con “Todas” solo se muestra meta de sucursal si hay exactamente una meta branch activa en el periodo.
+Label de la persona: `{seller_name} ({seller_pos_user_code})` → `Jose Rivera (1974)`. Click → modal.
+
+### Columnas Ventas (`view=sales`)
+
+| Columna | Binding |
+|---------|---------|
+| Sucursal | `branch_name` + avatar `branch_initials` |
+| Vendedor | `seller_name` + código (clickable) |
+| Ventas | `total_sales_count` |
+| Monto | `amount_sold` |
+| Ticket | `average_ticket` |
+| Meta | `goal` progress si `has_goal` |
+
+### Columnas Comisiones (`view=commissions`)
+
+| Columna | Binding |
+|---------|---------|
+| Sucursal | `branch_name` |
+| Comisionado | `seller_name` + código (clickable) |
+| Ventas | `total_sales_count` |
+| Monto | `amount_sold` |
+| Comisión | `{commission_percentage}%` · `{commission_amount}` |
+| Meta | `goal` progress |
+
+Empty state: ilustración + `Sin {view_label.toLowerCase()} en este periodo.` CTA: “Prueba otro rango” o “Todas las sucursales”.
 
 ---
 
-## Click en vendedor → sus ventas
+## 6. Drill-down (modal)
 
-Al hacer click en el nombre del vendedor (o en la fila), abrir modal con las órdenes de ese vendedor en el mismo periodo/filtros del reporte.
-
-```http
+```
 GET /api/tenant/sales-reports/by-seller/orders
-  ?seller_id={rows[i].seller_id}
+  ?view={view activo}
+  &seller_id={rows[i].seller_id}
   &billing_branch_id={rows[i].billing_branch_id}
-  &fiscal_configuration_id=...   // mismos filtros del reporte
-  &period=range
-  &date_from=2026-06-01
-  &date_to=2026-06-30
-  &page=1&limit=50
+  &period=...
 ```
 
-| Query | Origen |
-|-------|--------|
-| `seller_id` | `rows[i].seller_id` (**obligatorio**) |
-| `billing_branch_id` | `rows[i].billing_branch_id` (recomendado, para no mezclar sucursales) |
-| resto | mismos filtros activos del reporte |
+**Mismo `view`** que el reporte. Si no, mezclas vendedor con comisionado.
 
-### Respuesta
+Título: `{seller.role_label} — {seller.name} ({seller.pos_user_code})`
+
+| Columna | Binding |
+|---------|---------|
+| Folio | `folio` → detalle OV |
+| Fecha | `created_at` |
+| Cliente | `customer_company_name` / `customer_person_name` |
+| Vendedor | `seller_name` |
+| Comisionado | `assigned_seller_name` |
+| Sucursal | `branch_name` |
+| Total | `total` |
+| Pago | `payment_status` |
+
+En Comisiones, resaltar **Comisionado**. En Ventas, resaltar **Vendedor**.
+
+---
+
+## 7. Shape (campos nuevos)
 
 ```json
 {
-  "seller": {
-    "id": "uuid",
-    "name": "Vendedor Perez",
-    "pos_user_code": 140696
-  },
+  "view": "sales",
+  "view_label": "Ventas por vendedor",
   "summary": {
-    "total_sales_count": 6,
-    "amount_sold": 82.55
+    "people_count": 3,
+    "people_label": "Vendedores",
+    "total_sales_count": 12,
+    "total_amount": 15420.5,
+    "average_ticket": 1285.04,
+    "total_commission": null,
+    "commission_rate": null,
+    "top": { "id": "...", "name": "Jose Rivera", "pos_user_code": 1974, "amount": 8200, "sales_count": 5 },
+    "branches": [{ "billing_branch_id": "...", "branch_name": "Tijuana (CENTRO)", "sales_count": 8, "amount": 10000 }]
   },
-  "data": [
-    {
-      "id": "uuid-orden",
-      "folio": "OSV-000010",
-      "created_at": "2026-06-25T...",
-      "total": 12.95,
-      "payment_status": "Pagado",
-      "customer_company_name": "Sinergy",
-      "customer_person_name": "Rodolfo Rodriguez",
-      "branch_name": "Tijuana (...)"
-    }
-  ],
-  "total": 6,
-  "page": 1,
-  "limit": 50,
-  "totalPages": 1
+  "filters_applied": {
+    "view": "sales",
+    "period": "month",
+    "period_label": "Mes · 01/09/2026 — 01/09/2026",
+    "commission_rate": null
+  },
+  "goals": { "has_active_goals": false, "message": "No hay metas activas para 09/2026" },
+  "rows": []
 }
 ```
 
-### Modal UI
-
-```
-┌─────────────────────────────────────────────────────────┐
-│ Ventas — Vendedor Perez (140696)                   ✕   │
-│ 6 ventas · $82.55 en el periodo                         │
-├─────────────────────────────────────────────────────────┤
-│ FOLIO       FECHA        CLIENTE           TOTAL  PAGO │
-│ OSV-000010  25 jun 2026  Sinergy / Rodolfo $12.95 Pagado│
-│ ...                                                     │
-└─────────────────────────────────────────────────────────┘
-```
-
-- Click en **folio** → detalle existente `GET /tenant/sales-orders/{id}`.
-- Cliente en 2 líneas: `customer_company_name` / `customer_person_name`.
-
-```typescript
-async openSellerOrders(row: ReportRow) {
-  const params = new URLSearchParams({
-    seller_id: row.seller_id,
-    billing_branch_id: row.billing_branch_id,
-    period: this.period,
-    page: '1',
-    limit: '50',
-  });
-  if (this.fiscalConfigurationId) {
-    params.set('fiscal_configuration_id', this.fiscalConfigurationId);
-  }
-  if (this.period === 'range') {
-    params.set('date_from', this.dateFrom);
-    params.set('date_to', this.dateTo);
-  }
-  const detail = await api.get(`/tenant/sales-reports/by-seller/orders?${params}`);
-  // abrir modal con detail.data
-}
-```
+`total_sellers` sigue existiendo (= `people_count`) por compat.
 
 ---
 
-## Checklist
+## 8. Checklist Pollux
 
-- [ ] No enviar `commission_rate` (usa config de Metas)
-- [ ] Columna comisión: `commission_percentage` + `commission_amount`
-- [ ] Vendedor con `seller_name` + `seller_pos_user_code` (**clickable**)
-- [ ] Modal drill-down `by-seller/orders` con mismas fechas/filtros
-- [ ] Click folio → detalle de orden de venta
-- [ ] Banner si `!goals.has_active_goals`
-- [ ] Progress bar superior con `goals.branch_goal`
-- [ ] Progress bar por fila con `rows[i].goal`
-- [ ] Respetar orden del backend (competitividad)
+- [ ] Toggle **Ventas / Comisiones** (`view=sales` \| `commissions`)
+- [ ] Default **Ventas**. Comisiones no es la home del reporte
+- [ ] Subtítulo = `view_label` + `period_label`
+- [ ] **Descargar Excel** → `GET .../by-seller/export/excel` con los mismos params
+- [ ] Un solo chip de periodo; Rango es el único que manda fechas
+- [ ] Cascada razón → sucursal
+- [ ] Cards: 4 KPIs según vista; comisión **solo** en Comisiones
+- [ ] Chip líder `summary.top` si hay datos
+- [ ] Mini barras `summary.branches` si hay 2+ sucursales
+- [ ] Columna persona: Vendedor vs Comisionado
+- [ ] Click fila → orders con el **mismo** `view`
+- [ ] Modal muestra las dos personas (vendedor y comisionado)
+- [ ] Banner metas; progress gorda en Comisiones
+- [ ] Empty state con copy de la vista activa
+- [ ] Paleta verde (ventas) / púrpura (comisiones)

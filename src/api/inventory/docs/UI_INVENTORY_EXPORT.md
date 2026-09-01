@@ -56,13 +56,15 @@ GET /api/tenant/inventory/export/excel/summary?fiscal_configuration_id=uuid&only
 
 ### Por lote (`inventario-lotes-YYYY-MM-DD.xlsx`)
 
-Una fila por lote. Columnas: No. lote, Fecha creación, SKU, Producto, Razón social, Sucursal, Almacén, UOM, Cant. inicial, Cant. disponible, Folio OC, Etiqueta origen.
+Una fila por lote. Columnas: No. lote, Fecha creación, SKU, Producto, Razón social, Sucursal, Almacén, UOM, Medida, Cant. inicial, Cant. disponible, Folio OC, Etiqueta origen.
 
 Estilo: título azul oscuro, encabezados azul (`#2E6B9E`), filas alternadas.
 
 ### Totalizado (`inventario-totalizado-YYYY-MM-DD.xlsx`)
 
-Una fila por producto + almacén. Columnas: SKU, Producto, Razón social, Sucursal, Almacén, UOM, Cant. disponible, Cant. inicial, No. lotes, Precio sugerido.
+Una fila por producto + almacén. Columnas: SKU, Producto, Razón social, Sucursal, Almacén, UOM, Cant. disponible, Cant. inicial, No. lotes, Por medida, Precio sugerido.
+
+**Por medida**: `8 Foot → 80.000 · 12 PIES → 120.000` si ese SKU tiene tamaños; vacío si no. No uses la UOM del producto (PT/ft²) en esa columna. Ver `UI_INVENTORY_MEASURE.md`.
 
 Estilo: azul claro en encabezados (`#3A7CA5`).
 

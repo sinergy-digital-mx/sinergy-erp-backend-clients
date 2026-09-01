@@ -152,6 +152,17 @@ export class CustomerGroupsService {
             );
         }
 
+        const propertyRows: Array<{ count: string | number }> =
+            await this.groupRepo.manager.query(
+                `SELECT COUNT(*) AS count FROM properties WHERE group_id = ? AND tenant_id = ?`,
+                [id, organizationId],
+            );
+        if (Number(propertyRows[0]?.count ?? 0) > 0) {
+            throw new BadRequestException(
+                'No se puede eliminar el grupo porque tiene lotes asignados',
+            );
+        }
+
         await this.groupRepo.delete({ id, tenant_id: organizationId });
         return { deleted: true };
     }

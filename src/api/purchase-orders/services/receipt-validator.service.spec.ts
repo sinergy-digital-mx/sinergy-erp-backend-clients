@@ -4,7 +4,7 @@ import * as fc from 'fast-check';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ReceiptValidatorService } from './receipt-validator.service';
 import { PurchaseOrderBatchDetail } from '../../../entities/purchase-orders/purchase-order-batch-detail.entity';
-import { ReceivedItemDto } from '../dto/receive-purchase-order.dto';
+import { ReceivedItemDto, ReceiptLotMode } from '../dto/receive-purchase-order.dto';
 
 describe('ReceiptValidatorService', () => {
   let service: ReceiptValidatorService;
@@ -126,7 +126,7 @@ describe('ReceiptValidatorService', () => {
           BadRequestException,
         );
         await expect(service.validateReceivedItems(items)).rejects.toThrow(
-          'exceeds maximum limit',
+          'La cantidad recibida excede el límite máximo',
         );
       });
 
@@ -406,6 +406,99 @@ describe('ReceiptValidatorService', () => {
           mockRepository.findOne.mockResolvedValue({ id: item.line_item_id });
           await expect(service.validateReceivedItems([item])).resolves.not.toThrow();
         }
+      });
+
+      it('should allow omitting measure', async () => {
+        const items: ReceivedItemDto[] = [
+          {
+            line_item_id: '550e8400-e29b-41d4-a716-446655440000',
+            product_id: '550e8400-e29b-41d4-a716-446655440001',
+            product_uom_id: '550e8400-e29b-41d4-a716-446655440002',
+            quantity: 10,
+            unit_total: 100,
+            iva_percentage: 16,
+            iva_unit: 16,
+            ieps_percentage: 0,
+            ieps_unit: 0,
+          },
+        ];
+        mockRepository.findOne.mockResolvedValue({ id: items[0].line_item_id });
+        await expect(service.validateReceivedItems(items)).resolves.not.toThrow();
+      });
+
+      it('should reject measure of zero', async () => {
+        const items: ReceivedItemDto[] = [
+          {
+            line_item_id: '550e8400-e29b-41d4-a716-446655440000',
+            product_id: '550e8400-e29b-41d4-a716-446655440001',
+            product_uom_id: '550e8400-e29b-41d4-a716-446655440002',
+            quantity: 10,
+            unit_total: 100,
+            iva_percentage: 16,
+            iva_unit: 16,
+            ieps_percentage: 0,
+            ieps_unit: 0,
+            measure: 0,
+            measure_uom_id: '550e8400-e29b-41d4-a716-446655440099',
+          },
+        ];
+        await expect(service.validateReceivedItems(items)).rejects.toThrow(
+          'El tamaño debe ser mayor a cero',
+        );
+      });
+
+      it('should accept measure on each lot', async () => {
+        const items: ReceivedItemDto[] = [
+          {
+            line_item_id: '550e8400-e29b-41d4-a716-446655440000',
+            product_id: '550e8400-e29b-41d4-a716-446655440001',
+            product_uom_id: '550e8400-e29b-41d4-a716-446655440002',
+            quantity: 200,
+            unit_total: 100,
+            iva_percentage: 16,
+            iva_unit: 16,
+            ieps_percentage: 0,
+            ieps_unit: 0,
+            lot_mode: ReceiptLotMode.MULTIPLE,
+            measure_uom_id: '550e8400-e29b-41d4-a716-446655440099',
+            lots: [
+              {
+                tag_identifier: 'A-01',
+                product_uom_id: '550e8400-e29b-41d4-a716-446655440002',
+                quantity: 80,
+                measure: 8,
+              },
+              {
+                tag_identifier: 'A-02',
+                product_uom_id: '550e8400-e29b-41d4-a716-446655440002',
+                quantity: 120,
+                measure: 12,
+              },
+            ],
+          },
+        ];
+        mockRepository.findOne.mockResolvedValue({ id: items[0].line_item_id });
+        await expect(service.validateReceivedItems(items)).resolves.not.toThrow();
+      });
+
+      it('should reject size without a size unit', async () => {
+        const items: ReceivedItemDto[] = [
+          {
+            line_item_id: '550e8400-e29b-41d4-a716-446655440000',
+            product_id: '550e8400-e29b-41d4-a716-446655440001',
+            product_uom_id: '550e8400-e29b-41d4-a716-446655440002',
+            quantity: 10,
+            unit_total: 100,
+            iva_percentage: 16,
+            iva_unit: 16,
+            ieps_percentage: 0,
+            ieps_unit: 0,
+            measure: 8,
+          },
+        ];
+        await expect(service.validateReceivedItems(items)).rejects.toThrow(
+          'Indica la unidad del tamaño',
+        );
       });
     });
   });

@@ -19,6 +19,7 @@ import { TenantModuleValidationGuard } from '../../auth/tenant-module-validation
 import { PurchaseOrderService } from '../services/purchase-order.service';
 import { PurchaseOrderDocumentsService } from '../services/purchase-order-documents.service';
 import { PurchaseOrderExportService } from '../services/purchase-order-export.service';
+import { PurchaseOrderMovementsService } from '../services/purchase-order-movements.service';
 import {
   CreatePurchaseOrderDto,
   CreateLineItemDto,
@@ -40,6 +41,7 @@ export class PurchaseOrderController {
     private readonly purchaseOrderService: PurchaseOrderService,
     private readonly documentsService: PurchaseOrderDocumentsService,
     private readonly exportService: PurchaseOrderExportService,
+    private readonly movementsService: PurchaseOrderMovementsService,
   ) {}
 
   @Post()
@@ -121,6 +123,12 @@ export class PurchaseOrderController {
   async getPayments(@Param('id') id: string, @Req() req: any) {
     const tenantId = req.user.tenant_id;
     return this.purchaseOrderService.getPayments(id, tenantId);
+  }
+
+  @Get(':id/movements')
+  async getMovements(@Param('id') id: string, @Req() req: any) {
+    const tenantId = req.user.tenant_id;
+    return this.movementsService.list(id, tenantId);
   }
 
   @Post(':id/payments')
@@ -281,19 +289,31 @@ export class PurchaseOrderController {
   @Get(':id')
   async findOne(@Param('id') id: string, @Req() req: any) {
     const tenantId = req.user.tenant_id;
-    const purchaseOrder = await this.purchaseOrderService.findOne(id, tenantId);
+    const purchaseOrder: any = await this.purchaseOrderService.findOne(id, tenantId);
     const paymentData = await this.purchaseOrderService.getPayments(id, tenantId);
 
     const documents = await this.documentsService.getDocuments(id);
+    const movements = await this.movementsService.list(id, tenantId);
 
     return {
       data: {
         header: purchaseOrder,
         products: purchaseOrder.line_items || [],
-        batches: [],
+        batches: purchaseOrder.batches || [],
+        batches_summary: purchaseOrder.batches_summary ?? {
+          received_lots: 0,
+          migrated_lots: 0,
+          received_quantity: '0.000',
+          remaining_on_received_lots: '0.000',
+          remaining_total: '0.000',
+          migrated_quantity: '0.000',
+          amount_total: 0,
+        },
         documents: documents,
         payments: paymentData.payments,
         payments_summary: paymentData.summary,
+        movements: movements.data,
+        movements_count: movements.total,
       },
     };
   }

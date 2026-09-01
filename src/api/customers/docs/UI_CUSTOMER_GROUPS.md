@@ -87,7 +87,8 @@ Mismos campos, todos opcionales. El `id` no cambia.
 ### DELETE
 
 - `400` si `is_system === true` → "Este grupo no se puede eliminar porque está en uso por datos históricos"
-- `400` si `customer_count > 0` → "No se puede eliminar el grupo porque tiene clientes asignados"
+- `400` si tiene clientes → "No se puede eliminar el grupo porque tiene clientes asignados"
+- `400` si tiene lotes → "No se puede eliminar el grupo porque tiene lotes asignados"
 - `404` si no existe en esta organización
 
 Ocultar el botón eliminar cuando `is_system` o `customer_count > 0`.
@@ -131,7 +132,7 @@ Al crear/editar cliente, enviar `group_id` (uuid de **esta** organización) o `n
 
 Columna **Grupo** en la tabla: `customer.group?.name ?? '—'`.
 
-El mismo `group_id` aplica en **Contratos** (`GET /tenant/contracts` y `/stats`). En **Lotes** el param es `customer_group_id` (el `groupId` de lotes es el proyecto). Ver `src/api/contracts/docs/UI_CONTRACT_LIST.md` y `src/api/properties/docs/UI_PROPERTY_STATS.md`.
+El mismo catálogo y el mismo `group_id` aplican en **Contratos** y **Lotes** (el lote guarda `group_id` de este catálogo; ya no hay “proyecto”). Ver `src/api/contracts/docs/UI_CONTRACT_LIST.md` y `src/api/properties/docs/UI_PROPERTY_STATS.md`.
 
 ---
 
@@ -179,7 +180,7 @@ Catálogo simple (como categorías / descuentos globales):
 - [ ] Ítem **Grupos de clientes** en **Configuración** (`customer-groups` / `CustomerGroup:ViewMenu`)
 - [ ] CRUD contra `/api/tenant/customer-groups` (nunca un array estático)
 - [ ] Dropdown Clientes: `GET /api/tenant/customers/groups`
-- [ ] Mismo catálogo en filtros de Contratos (`group_id`) y Lotes (`customer_group_id`)
+- [ ] Mismo catálogo y `group_id` en Contratos y Lotes (sin “Proyecto” / property-groups)
 - [ ] Columna Grupo: `customer.group?.name ?? '—'`
 - [ ] Select grupo en modal crear/editar cliente
 - [ ] `PUT` con `group_id` o `null`

@@ -17,7 +17,17 @@ export enum SalesReportPeriod {
   RANGE = 'range',
 }
 
+/** Ventas = quien vendió. Comisiones = quien comisiona (`assigned_seller_user_id`). */
+export enum SalesReportView {
+  SALES = 'sales',
+  COMMISSIONS = 'commissions',
+}
+
 export class QuerySalesBySellerReportDto {
+  @IsOptional()
+  @IsEnum(SalesReportView)
+  view?: SalesReportView = SalesReportView.SALES;
+
   @IsOptional()
   @IsUUID()
   fiscal_configuration_id?: string;

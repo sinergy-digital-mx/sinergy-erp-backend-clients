@@ -14,6 +14,21 @@ export class BatchResponseDto {
   @ApiProperty({ description: 'Source lot tag/identifier from receipt', nullable: true })
   source_tag_identifier: string | null;
 
+  @ApiProperty({
+    nullable: true,
+    description: 'Tamaño (8, 12). Independiente de la UOM de inventario.',
+  })
+  measure: string | null;
+
+  @ApiProperty({ nullable: true, description: 'Unidad del tamaño (catálogo UoM).' })
+  measure_uom_id: string | null;
+
+  @ApiProperty({ nullable: true, description: 'Nombre de la unidad del tamaño (Foot, PIES).' })
+  measure_uom_name: string | null;
+
+  @ApiProperty({ nullable: true, description: 'Etiqueta lista para pintar: "8 Foot".' })
+  measure_label: string | null;
+
   @ApiProperty({ description: 'Warehouse ID' })
   warehouse_id: string;
 

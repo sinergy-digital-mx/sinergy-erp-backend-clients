@@ -196,6 +196,15 @@ export class CreateCustomerDto {
     warehouse_id?: string;
 
     @ApiProperty({
+        description: 'Razón social de registro (solo informativo)',
+        example: 'fiscal-uuid',
+        required: false,
+    })
+    @IsString()
+    @IsOptional()
+    registered_fiscal_configuration_id?: string;
+
+    @ApiProperty({
         description: 'Sucursal donde se dio de alta el cliente (solo informativo)',
         example: 'branch-uuid',
         required: false,
@@ -212,6 +221,15 @@ export class CreateCustomerDto {
     @IsString()
     @IsOptional()
     registered_by_user_id?: string;
+
+    @ApiProperty({
+        description: 'Vendedor asignado al cliente (quien comisiona por default). Usuario con código POS',
+        example: 'user-uuid',
+        required: false,
+    })
+    @IsString()
+    @IsOptional()
+    assigned_seller_user_id?: string;
 
     @ApiProperty({
         description:

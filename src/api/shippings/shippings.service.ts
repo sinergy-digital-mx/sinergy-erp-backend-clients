@@ -269,13 +269,15 @@ export class ShippingsService {
     const qb = this.soRepo
       .createQueryBuilder('so')
       .leftJoinAndSelect('so.customer', 'customer')
+      .leftJoinAndSelect('so.billing_branch', 'billing_branch')
       .leftJoinAndSelect('so.warehouse', 'warehouse')
-      .leftJoinAndSelect('warehouse.billing_branch', 'billing_branch')
+      .leftJoinAndSelect('warehouse.billing_branch', 'warehouse_branch')
       .leftJoinAndSelect('so.fiscal_configuration', 'fiscal')
       .where('so.tenant_id = :tenantId', { tenantId })
-      .andWhere('warehouse.billing_branch_id = :billingBranchId', {
-        billingBranchId: query.billing_branch_id,
-      })
+      .andWhere(
+        '(so.billing_branch_id = :billingBranchId OR (so.billing_branch_id IS NULL AND warehouse.billing_branch_id = :billingBranchId))',
+        { billingBranchId: query.billing_branch_id },
+      )
       .andWhere('so.general_status IN (:...statuses)', {
         statuses: [...ELIGIBLE_SHIPPING_STATUSES],
       })
@@ -313,7 +315,7 @@ export class ShippingsService {
     const rows = await qb.skip((page - 1) * limit).take(limit).getMany();
 
     const data = rows.map((so) => {
-      const branch = so.warehouse?.billing_branch ?? null;
+      const branch = so.billing_branch ?? so.warehouse?.billing_branch ?? null;
       return {
         id: so.id,
         folio: so.folio,
@@ -326,7 +328,7 @@ export class ShippingsService {
           so.fiscal_razon_social ||
           so.fiscal_configuration?.razon_social ||
           null,
-        billing_branch_id: so.warehouse?.billing_branch_id ?? branch?.id ?? null,
+        billing_branch_id: so.billing_branch_id ?? so.warehouse?.billing_branch_id ?? branch?.id ?? null,
         sucursal: branch?.code ?? null,
         billing_branch: branch
           ? {
@@ -759,7 +761,7 @@ export class ShippingsService {
     const ids = orders.map((o) => o.sales_order_id);
     const salesOrders = await this.soRepo.find({
       where: { id: In(ids), tenant_id: tenantId },
-      relations: ['customer', 'warehouse'],
+      relations: ['customer', 'warehouse', 'billing_branch'],
     });
     const byId = new Map(salesOrders.map((o) => [o.id, o]));
 
@@ -789,6 +791,7 @@ export class ShippingsService {
       if (opts?.validateAssignable) {
         if (
           origin.billing_branch_id &&
+          so.billing_branch_id !== origin.billing_branch_id &&
           so.warehouse?.billing_branch_id !== origin.billing_branch_id
         ) {
           throw new BadRequestException(

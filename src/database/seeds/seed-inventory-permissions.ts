@@ -17,7 +17,7 @@ async function seedInventoryPermissions(tenantId?: string) {
       moduleCode: 'inventory',
       entityCode: 'inventory',
       description: 'Module for managing inventory batches and stock tracking',
-      actions: ['ViewMenu', 'read', 'write', 'delete', 'Transfer'],
+      actions: ['ViewMenu', 'read', 'write', 'delete', 'Transfer', 'Count', 'Authorize'],
       tenantId: tenantId,
     });
   } catch (error) {

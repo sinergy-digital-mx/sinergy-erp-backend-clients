@@ -5,8 +5,8 @@ import { SALES_ORDER_PDF_LABELS_EN } from './sales-order-pdf-labels.en';
 export interface SalesOrderPdfLabels {
   originalDocumentTitle: string;
   salesOrderTitle: string;
-  receiptDocumentTitle: string;
-  receiptTitle: string;
+  deliveryDocumentTitle: string;
+  deliveryTitle: string;
   folioPrefix: string;
   summary: string;
   creationDate: string;

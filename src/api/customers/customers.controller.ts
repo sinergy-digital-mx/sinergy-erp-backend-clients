@@ -82,7 +82,12 @@ export class CustomersController {
     @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
     @ApiResponse({ status: 404, description: 'Not found - Customer does not exist' })
     update(@Param('id') id: string, @Body() dto: UpdateCustomerDto, @Req() req) {
-        return this.customersService.update(Number(id), dto, req.user.tenantId);
+        return this.customersService.update(
+            Number(id),
+            dto,
+            req.user.tenantId,
+            req.user.id ?? req.user.user_id,
+        );
     }
 
     @Get('statuses')
@@ -108,9 +113,9 @@ export class CustomersController {
     @Get('registration-options')
     @RequirePermissions({ entityType: 'customers', action: 'Read' })
     @ApiOperation({
-        summary: 'Catálogo de sucursales y usuarios para el tab Registro del cliente',
+        summary: 'Catálogo de razones sociales, sucursales y vendedores para el tab Registro',
     })
-    @ApiResponse({ status: 200, description: 'Sucursales y usuarios de esta organización' })
+    @ApiResponse({ status: 200, description: 'Razones sociales, sucursales y usuarios de esta organización' })
     getRegistrationOptions(@Req() req) {
         return this.customersService.getRegistrationOptions(
             req.user.tenant_id ?? req.user.tenantId,
@@ -151,6 +156,21 @@ export class CustomersController {
     @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
     async findAll(@Query() query: QueryCustomersDto, @Req() req): Promise<any> {
         return this.customersService.findAll(req.user.tenantId, query);
+    }
+
+    @Get(':id/assignment-history')
+    @RequirePermissions({ entityType: 'customers', action: 'Read' })
+    @ApiOperation({
+        summary: 'Historial de asignaciones del cliente',
+                        description:
+            'Cambios de vendedor asignado, razón y sucursal de registro. Quién, cuándo y de → a. Solo en el cliente, no en la orden de venta. También viene en GET /customers/:id como assignment_history.',
+    })
+    @ApiParam({ name: 'id', type: 'number', description: 'Customer ID' })
+    getAssignmentHistory(@Param('id') id: string, @Req() req) {
+        return this.customersService.getAssignmentHistory(
+            Number(id),
+            req.user.tenant_id ?? req.user.tenantId,
+        );
     }
 
     @Get(':id/credits')

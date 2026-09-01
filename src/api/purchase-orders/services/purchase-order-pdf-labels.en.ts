@@ -29,6 +29,7 @@ export const PURCHASE_ORDER_PDF_LABELS_EN: PurchaseOrderPdfLabels = {
   unitPrefix: 'Unit',
   modePrefix: 'Mode',
   noTag: 'No tag',
+  measurePrefix: 'measure',
   noBatchesRegistered: 'No batches registered',
   notesPrefix: 'Notes',
   notesEmpty: 'No notes',

@@ -1,8 +1,10 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { SalesOrder } from '../../../entities/sales-orders/sales-order.entity';
 import { SalesOrderDetail } from '../../../entities/sales-orders/sales-order-detail.entity';
+import { SalesOrderPayment } from '../../../entities/sales-orders/sales-order-payment.entity';
+import { PosSaleCollection } from '../../../entities/pos/pos-sale-collection.entity';
 import {
   QuerySalesOrderDetailExportDto,
   QuerySalesOrderHeaderExportDto,
@@ -16,6 +18,12 @@ import {
   num,
   validateDateRange,
 } from '../../../common/utils/excel-export.util';
+import {
+  applySalesOrderCollectionChannelFilter,
+  mapCollectionChannelByOrderId,
+  SALES_ORDER_COLLECTION_CHANNEL_LABELS,
+  SalesOrderCollectionChannelDisplay,
+} from '../utils/sales-order-collection-channel.util';
 
 @Injectable()
 export class SalesOrderExportService {
@@ -25,6 +33,7 @@ export class SalesOrderExportService {
     { header: 'Tipo', key: 'sales_order_type', width: 10 },
     { header: 'Estado', key: 'general_status', width: 12 },
     { header: 'Pago', key: 'payment_status', width: 12 },
+    { header: 'Origen cobro', key: 'collection_channel_label', width: 22 },
     { header: 'Crédito', key: 'is_credit', width: 12 },
     { header: 'Cliente', key: 'customer_name', width: 28 },
     { header: 'Razón social', key: 'razon_social', width: 28 },
@@ -36,6 +45,7 @@ export class SalesOrderExportService {
     { header: 'IEPS', key: 'ieps_total', width: 12, type: 'currency' },
     { header: 'Total', key: 'total', width: 14, type: 'currency' },
     { header: 'Vendedor', key: 'seller_name', width: 22 },
+    { header: 'Comisionado', key: 'assigned_seller_name', width: 24 },
     { header: 'Notas', key: 'notes', width: 30 },
   ];
 
@@ -44,6 +54,7 @@ export class SalesOrderExportService {
     { header: 'Fecha orden', key: 'order_created_at', width: 18, type: 'date' },
     { header: 'Estado orden', key: 'general_status', width: 12 },
     { header: 'Pago', key: 'payment_status', width: 12 },
+    { header: 'Origen cobro', key: 'collection_channel_label', width: 22 },
     { header: 'Crédito', key: 'is_credit', width: 12 },
     { header: 'Cliente', key: 'customer_name', width: 24 },
     { header: 'Razón social', key: 'razon_social', width: 26 },
@@ -66,20 +77,26 @@ export class SalesOrderExportService {
     private readonly soRepo: Repository<SalesOrder>,
     @InjectRepository(SalesOrderDetail)
     private readonly detailRepo: Repository<SalesOrderDetail>,
+    @InjectRepository(SalesOrderPayment)
+    private readonly paymentRepo: Repository<SalesOrderPayment>,
+    @InjectRepository(PosSaleCollection)
+    private readonly posCollectionRepo: Repository<PosSaleCollection>,
   ) {}
 
   async exportHeaders(tenantId: string, filters: QuerySalesOrderHeaderExportDto): Promise<Buffer> {
     const orders = await this.fetchOrders(tenantId, filters);
+    const channelByOrder = await this.loadCollectionChannels(tenantId, orders);
     const rows = orders.map((so) => ({
       folio: so.folio,
       created_at: formatExportDateTime(so.created_at),
       sales_order_type: so.sales_order_type,
       general_status: so.general_status,
       payment_status: so.payment_status,
+      collection_channel_label: channelByOrder.get(so.id)?.collection_channel_label ?? '',
       is_credit: so.is_credit ? 'Sí' : 'No',
       customer_name: this.formatCustomerName(so),
       razon_social: so.fiscal_configuration?.razon_social ?? so.fiscal_razon_social ?? '',
-      billing_branch_code: so.warehouse?.billing_branch?.code ?? '',
+      billing_branch_code: so.billing_branch?.code ?? so.warehouse?.billing_branch?.code ?? '',
       expected_delivery_date: formatExportDate(so.expected_delivery_date),
       subtotal: num(so.subtotal),
       discount_total: num(so.discount_total),
@@ -87,6 +104,7 @@ export class SalesOrderExportService {
       ieps_total: num(so.ieps_total),
       total: num(so.total),
       seller_name: this.formatUserName(so.seller_user),
+      assigned_seller_name: this.formatUserName(so.assigned_seller_user),
       notes: so.notes ?? '',
     }));
 
@@ -112,13 +130,13 @@ export class SalesOrderExportService {
       throw new BadRequestException((error as Error).message);
     }
 
-    const details = await this.detailRepo
+    const detailsQb = this.detailRepo
       .createQueryBuilder('d')
       .innerJoinAndSelect('d.sales_order', 'so')
       .leftJoinAndSelect('so.customer', 'customer')
       .leftJoinAndSelect('so.fiscal_configuration', 'fiscal_configuration')
+      .leftJoinAndSelect('so.billing_branch', 'billing_branch')
       .leftJoinAndSelect('so.warehouse', 'warehouse')
-      .leftJoinAndSelect('warehouse.billing_branch', 'billing_branch')
       .leftJoinAndSelect('d.product', 'product')
       .leftJoinAndSelect('d.product_uom', 'product_uom')
       .leftJoinAndSelect('product_uom.uom', 'uom')
@@ -127,13 +145,22 @@ export class SalesOrderExportService {
       .andWhere('so.created_at >= :from', { from: new Date(filters.created_from) })
       .andWhere('so.created_at <= :to', {
         to: this.endOfDay(new Date(filters.created_to)),
-      })
+      });
+    applySalesOrderCollectionChannelFilter(detailsQb, 'so', filters.collection_channel);
+
+    const details = await detailsQb
       .orderBy('so.created_at', 'DESC')
       .addOrderBy('so.folio', 'ASC')
       .addOrderBy('d.created_at', 'ASC')
       .getMany();
 
     const filtered = this.applyDetailFilters(details, filters);
+    const channelByOrder = await this.loadCollectionChannels(
+      tenantId,
+      filtered
+        .map((d) => d.sales_order)
+        .filter((so): so is SalesOrder => !!so),
+    );
 
     const rows = filtered.map((d) => {
       const qty = num(d.quantity);
@@ -147,13 +174,19 @@ export class SalesOrderExportService {
         order_created_at: formatExportDateTime(d.sales_order?.created_at),
         general_status: d.sales_order?.general_status ?? '',
         payment_status: d.sales_order?.payment_status ?? '',
+        collection_channel_label: d.sales_order
+          ? (channelByOrder.get(d.sales_order.id)?.collection_channel_label ?? '')
+          : '',
         is_credit: d.sales_order?.is_credit ? 'Sí' : 'No',
         customer_name: d.sales_order ? this.formatCustomerName(d.sales_order) : '',
         razon_social:
           d.sales_order?.fiscal_configuration?.razon_social ??
           d.sales_order?.fiscal_razon_social ??
           '',
-        billing_branch_code: d.sales_order?.warehouse?.billing_branch?.code ?? '',
+        billing_branch_code:
+          d.sales_order?.billing_branch?.code ??
+          d.sales_order?.warehouse?.billing_branch?.code ??
+          '',
         product_sku: d.product?.sku ?? '',
         product_name: d.product?.name ?? '',
         uom_name: d.product_uom?.uom?.name ?? '',
@@ -200,9 +233,10 @@ export class SalesOrderExportService {
       .createQueryBuilder('so')
       .leftJoinAndSelect('so.customer', 'customer')
       .leftJoinAndSelect('so.fiscal_configuration', 'fiscal_configuration')
+      .leftJoinAndSelect('so.billing_branch', 'billing_branch')
       .leftJoinAndSelect('so.warehouse', 'warehouse')
-      .leftJoinAndSelect('warehouse.billing_branch', 'billing_branch')
       .leftJoinAndSelect('so.seller_user', 'seller_user')
+      .leftJoinAndSelect('so.assigned_seller_user', 'assigned_seller_user')
       .where('so.tenant_id = :tenantId', { tenantId });
 
     this.applyOrderFilters(qb, filters);
@@ -252,15 +286,17 @@ export class SalesOrderExportService {
         sales_order_type: filters.sales_order_type,
       });
     }
+    applySalesOrderCollectionChannelFilter(qb, 'so', filters.collection_channel);
     if (filters.fiscal_configuration_id) {
       qb.andWhere('so.fiscal_configuration_id = :fiscal_configuration_id', {
         fiscal_configuration_id: filters.fiscal_configuration_id,
       });
     }
     if (filters.billing_branch_id) {
-      qb.andWhere('warehouse.billing_branch_id = :billing_branch_id', {
-        billing_branch_id: filters.billing_branch_id,
-      });
+      qb.andWhere(
+        '(so.billing_branch_id = :billing_branch_id OR (so.billing_branch_id IS NULL AND warehouse.billing_branch_id = :billing_branch_id))',
+        { billing_branch_id: filters.billing_branch_id },
+      );
     }
     if (filters.customer_id) {
       qb.andWhere('so.customer_id = :customer_id', { customer_id: filters.customer_id });
@@ -293,6 +329,7 @@ export class SalesOrderExportService {
       }
       if (
         filters.billing_branch_id &&
+        so.billing_branch_id !== filters.billing_branch_id &&
         so.warehouse?.billing_branch_id !== filters.billing_branch_id
       ) {
         return false;
@@ -315,6 +352,34 @@ export class SalesOrderExportService {
       }
       return true;
     });
+  }
+
+  private async loadCollectionChannels(
+    tenantId: string,
+    orders: SalesOrder[],
+  ): Promise<Map<string, SalesOrderCollectionChannelDisplay>> {
+    const unique = new Map<string, SalesOrder>();
+    for (const order of orders) {
+      unique.set(order.id, order);
+    }
+    const uniqueOrders = [...unique.values()];
+    if (uniqueOrders.length === 0) {
+      return new Map();
+    }
+
+    const orderIds = uniqueOrders.map((order) => order.id);
+    const [collections, payments] = await Promise.all([
+      this.posCollectionRepo.find({
+        where: { tenant_id: tenantId, sales_order_id: In(orderIds) },
+        select: ['id', 'sales_order_id'],
+      }),
+      this.paymentRepo.find({
+        where: { tenant_id: tenantId, sales_order_id: In(orderIds) },
+        select: ['id', 'sales_order_id', 'source'],
+      }),
+    ]);
+
+    return mapCollectionChannelByOrderId(uniqueOrders, collections, payments);
   }
 
   private formatCustomerName(so: SalesOrder): string {
@@ -342,6 +407,11 @@ export class SalesOrderExportService {
       parts.push(`Crédito: ${filters.is_credit ? 'Sí' : 'No'}`);
     }
     if (filters.sales_order_type) parts.push(`Tipo: ${filters.sales_order_type}`);
+    if (filters.collection_channel) {
+      parts.push(
+        `Origen cobro: ${SALES_ORDER_COLLECTION_CHANNEL_LABELS[filters.collection_channel]}`,
+      );
+    }
     if (filters.fiscal_configuration_id) parts.push('Razón social filtrada');
     if (filters.billing_branch_id) parts.push('Sucursal filtrada');
     if (filters.search) parts.push(`Búsqueda: ${filters.search}`);

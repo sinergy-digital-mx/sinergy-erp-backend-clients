@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { InventoryBatchMovementDto } from './inventory-batch-movement.dto';
 
 export class BatchTransferHistoryItemDto {
   @ApiProperty() transfer_id: string;
@@ -9,6 +10,20 @@ export class BatchTransferHistoryItemDto {
   @ApiProperty({ nullable: true }) related_batch_number: string | null;
   @ApiProperty({ nullable: true }) warehouse_name: string | null;
   @ApiProperty() created_at: Date;
+}
+
+export class BatchAuditHistoryItemDto {
+  @ApiProperty() audit_id: string;
+  @ApiProperty() audit_folio: string;
+  @ApiProperty() system_quantity: string;
+  @ApiProperty({ nullable: true }) counted_quantity: string | null;
+  @ApiProperty({ nullable: true }) variance: string | null;
+  @ApiProperty({ nullable: true }) quantity_before_post: string | null;
+  @ApiProperty({ nullable: true }) quantity_after_post: string | null;
+  @ApiProperty({ nullable: true }) reason: string | null;
+  @ApiProperty({ nullable: true }) counted_by_name: string | null;
+  @ApiProperty({ nullable: true }) authorized_by_name: string | null;
+  @ApiProperty({ nullable: true }) authorized_at: Date | null;
 }
 
 export class MovementSummaryDto {
@@ -40,6 +55,15 @@ export class BatchDetailResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() batch_number: string;
   @ApiProperty({ nullable: true }) source_tag_identifier: string | null;
+  @ApiProperty({
+    nullable: true,
+    description: 'Tamaño (8, 12). Independiente de uom_id / uom_name (PT, ft²).',
+  })
+  measure: string | null;
+  @ApiProperty({ nullable: true }) measure_uom_id: string | null;
+  @ApiProperty({ nullable: true }) measure_uom_name: string | null;
+  @ApiProperty({ nullable: true, description: 'Ej. "8 Foot"' })
+  measure_label: string | null;
 
   @ApiProperty() product_id: string;
   @ApiProperty() product_name: string;
@@ -91,6 +115,30 @@ export class BatchDetailResponseDto {
   @ApiProperty({ type: [BatchTransferHistoryItemDto] })
   transfer_history: BatchTransferHistoryItemDto[];
 
+  @ApiProperty({ type: [BatchAuditHistoryItemDto] })
+  audit_history: BatchAuditHistoryItemDto[];
+
+  @ApiProperty({ type: [InventoryBatchMovementDto] })
+  movements: InventoryBatchMovementDto[];
+
+  @ApiProperty()
+  movements_count: number;
+
   @ApiProperty({ type: MovementSummaryDto })
   movement_summary: MovementSummaryDto;
+
+  @ApiProperty({ description: 'Siempre true. El tag se puede cambiar o borrar.' })
+  can_edit_tag: boolean;
+
+  @ApiProperty({
+    description:
+      'True solo si measure es null (no se capturó en el recibo). Una vez definida, no se edita.',
+  })
+  can_edit_measure: boolean;
+
+  @ApiProperty({
+    description:
+      'True si hay disponible. El almacén se cambia con transferencia, no con PATCH.',
+  })
+  can_transfer: boolean;
 }

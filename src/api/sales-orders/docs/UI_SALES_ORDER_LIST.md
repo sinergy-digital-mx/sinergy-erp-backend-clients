@@ -2,7 +2,9 @@
 
 Contrato para Pollux. **No mostrar ni filtrar por almacén.** Una OV puede tomar inventario de varios almacenes de la misma sucursal. El listado se agrupa por **razón social** y **sucursal**.
 
-**POS no cambia.** Crear/cobrar/surtir sigue usando `warehouse_id`. Este cambio es solo listado, detalle (header) y Excel de OV.
+Modal **Crear Orden de Venta:** `src/api/sales-orders/docs/UI_SALES_ORDER_CREATE.md` (razón → sucursal, sin almacén).
+
+**POS no cambia.** Crear/cobrar/surtir sigue usando `warehouse_id`. Este listado no aplica a Punto de Venta.
 
 ---
 
@@ -31,6 +33,68 @@ Si `billing_branch` es `null`, mostrar `—`.
 
 ---
 
+## 2.1 Origen del cobro (POS cobranza vs cobrada manual)
+
+No es lo mismo que `sales_order_type` (cómo se **creó** la OV) ni que `payment_status` (Pagado / Pendiente).
+
+| `collection_channel` | Label | Cuándo |
+|----------------------|-------|--------|
+| `pos_cobranza` | `POS cobranza` | Cobro en **POS Cobranza** (`POST /pos/sales/:id/collect`) |
+| `manual` | `Cobrada manual` | Pagos registrados en el **detalle de la OV** (`POST /sales-orders/:id/payments`) |
+| `mixed` | `POS cobranza + Manual` | Anticipo en el detalle y el resto en POS Cobranza |
+| `null` | — | Sin cobro todavía (pendiente / crédito sin pagos) |
+
+### Columna Pago — no agregar columna nueva
+
+Dentro de **Pago**, debajo o al lado de Pagado/Pendiente:
+
+```
+┌─────────┐  ┌──────────────┐
+│ Pagado  │  │ POS cobranza │
+└─────────┘  └──────────────┘
+  Efectivo
+
+┌─────────┐  ┌────────────────┐
+│ Pagado  │  │ Cobrada manual │
+└─────────┘  └────────────────┘
+  Transferencia
+
+┌───────────┐  ┌─────────┐  ┌──────────────┐
+│ Pendiente │  │ Crédito │  │ POS cobranza │
+└───────────┘  └─────────┘  └──────────────┘
+```
+
+| Chip | Binding | Color sugerido | Ocultar si |
+|------|---------|----------------|------------|
+| Pagado / Pendiente | `payment_status` | verde / rojo | nunca |
+| Forma de pago | `payment_method_label` | texto, no chip | `null` → `Sin cobro` |
+| Origen cobro | `collection_channel_label` | púrpura = POS cobranza; gris/azul = Cobrada manual; ambos o chip combinado si `mixed` | `collection_channel` es `null` |
+| Crédito | `is_credit` | púrpura | `is_credit !== true` |
+
+No uses `sales_order_type === 'POS'` para este chip: una OV POS se puede cobrar en el detalle (queda `Cobrada manual`).
+
+### Filtro — dropdown aparte de “Todos los pagos”
+
+**Todos los pagos** sigue siendo `payment_status` (`Pendiente` / `Pagado`). No mezclar origen ahí.
+
+Nuevo combo **Origen cobro**:
+
+| UI | Query |
+|----|-------|
+| Todos los orígenes | no enviar `collection_channel` |
+| POS cobranza | `collection_channel=pos_cobranza` |
+| Cobrada manual | `collection_channel=manual` |
+| POS cobranza + Manual | `collection_channel=mixed` |
+
+```
+GET /api/tenant/sales-orders?collection_channel=pos_cobranza
+GET /api/tenant/sales-orders?payment_status=Pagado&collection_channel=manual
+```
+
+Contrato de pagos: `UI_SALES_ORDER_PAYMENTS.md`.
+
+---
+
 ## 3. Listado
 
 ```
@@ -48,6 +112,7 @@ GET /api/tenant/sales-orders
 | `payment_status` | `Pendiente` \| `Pagado` | No | Todos |
 | `is_credit` | `true` \| `false` | No | Todas |
 | `sales_order_type` | `POS` \| `MANUAL` | No | Todos |
+| `collection_channel` | `pos_cobranza` \| `manual` \| `mixed` | No | Todos los orígenes |
 | `created_from` / `created_to` | date ISO | No | — |
 | `page` | number | No | 1 |
 | `limit` | number | No | 20 |
@@ -73,6 +138,11 @@ GET /api/tenant/sales-orders?billing_branch_id={uuid}
       "folio": "OSV-000020",
       "general_status": "Creada",
       "payment_status": "Pendiente",
+      "payment_method": "mixed",
+      "payment_method_label": "Mixto",
+      "payment_breakdown_label": "Efectivo + Tarjeta",
+      "collection_channel": "pos_cobranza",
+      "collection_channel_label": "POS cobranza",
       "total": "13.92",
       "created_at": "2026-07-14 23:04:57",
       "customer": {
@@ -117,7 +187,7 @@ GET /api/tenant/sales-orders?billing_branch_id={uuid}
 | Sucursal | `sucursal` o `billing_branch?.code ?? '—'` |
 | Estado | `general_status` |
 | Total | `total` |
-| Pago | `payment_status` + chip **Crédito** si `is_credit` |
+| Pago | `payment_status` + `payment_method_label` (`Efectivo`, `Mixto`, `Tarjeta`…) + chip **origen cobro** (`collection_channel_label`) + chip **Crédito** si `is_credit` |
 | Fecha | `created_at` |
 
 ---
@@ -176,13 +246,27 @@ Folio público del ticket (`MZN-CTR-INV-000033`): `src/api/sales-orders/docs/UI_
 
 ### Cards de arriba (hoy vs nuevo)
 
-| Card hoy | Card nuevo | Título UI | Texto grande | A qué pertenece (ids) |
-|----------|------------|-----------|--------------|------------------------|
-| CLIENTE | CLIENTE | Cliente | `header.customer_display_name` | `header.customer.id` |
-| **ALMACÉN** (N/A) | **SUCURSAL** | Sucursal | `header.sucursal` o `header.billing_branch.code` | `header.billing_branch_id` / `header.billing_branch.id` |
-| **FISCAL** | **RAZÓN SOCIAL** | Razón social | `header.razon_social` | `header.fiscal_configuration_id` / `header.fiscal_configuration.id` |
+Orden visual: **Razón social → Sucursal → Cliente**.
 
-No mostrar card de Almacén. `warehouse` no viene en `header` (por eso hoy sale N/A).
+| # | Card | Título UI | Texto grande | A qué pertenece (ids) |
+|---|------|-----------|--------------|------------------------|
+| 1 | **RAZÓN SOCIAL** | Razón social | `header.razon_social` | `header.fiscal_configuration_id` / `header.fiscal_configuration.id` |
+| 2 | **SUCURSAL** | Sucursal | `header.sucursal` o `header.billing_branch.code` | `header.billing_branch_id` / `header.billing_branch.id` |
+| 3 | CLIENTE | Cliente | `header.customer_display_name` | `header.customer.id` |
+
+No mostrar card de Almacén. `warehouse` no viene en `header`.
+
+En **FECHAS**, junto a Estado de pago, pintar **cómo se pagó**:
+
+| UI | Campo |
+|----|--------|
+| Estado de pago | `header.payment_status` (`Pagado` / `Pendiente`) |
+| Origen cobro | `header.collection_channel_label` (`POS cobranza` / `Cobrada manual` / `POS cobranza + Manual`) |
+| Forma de pago | `header.payment_method_label` (`Efectivo`, `Tarjeta`, `Transferencia`, `Mixto`, `Crédito`) |
+| Detalle mixto | `header.payment_breakdown_label` (`Efectivo + Tarjeta`) |
+| Montos | `header.payment_display.lines` |
+
+Si `payment_method_label` es null → `Sin cobro`. Contrato completo: `UI_SALES_ORDER_PAYMENTS.md`.
 
 ### Binding
 
@@ -212,6 +296,8 @@ subtitle: header.fiscal_configuration?.rfc  // opcional
 {
   "razon_social": "Madereria Zona Norte",
   "sucursal": "SUCURSAL BUENOS AIRES",
+  "collection_channel": "pos_cobranza",
+  "collection_channel_label": "POS cobranza",
   "fiscal_configuration_id": "2a89da42-ba73-4247-9bf2-ac1c0d7ba23e",
   "fiscal_configuration": {
     "id": "2a89da42-ba73-4247-9bf2-ac1c0d7ba23e",
@@ -252,6 +338,7 @@ const filters = {
   search: listFilters.search,
   general_status: listFilters.general_status,
   payment_status: listFilters.payment_status,
+  collection_channel: listFilters.collection_channel,
   sales_order_type: listFilters.sales_order_type,
   fiscal_configuration_id: listFilters.fiscal_configuration_id || undefined,
   billing_branch_id: listFilters.billing_branch_id || undefined,
@@ -265,8 +352,8 @@ Si `fiscal_configuration_id` / `billing_branch_id` son `null` o `''`, **no** los
 
 Columnas nuevas en el xlsx:
 
-- Cabecera: **Razón social**, **Sucursal** (ya no Almacén)
-- Detalle: **Razón social**, **Sucursal** (después de Cliente)
+- Cabecera: **Razón social**, **Sucursal**, **Origen cobro** (`POS cobranza` / `Cobrada manual`)
+- Detalle: **Razón social**, **Sucursal**, **Origen cobro** (después de Pago)
 
 Detalle sigue exigiendo `created_from` + `created_to`.
 
@@ -293,7 +380,14 @@ Este cambio **no** aplica a Punto de Venta.
 - [ ] Cascada: al cambiar razón, resetear sucursal
 - [ ] Columnas Razón social + Sucursal
 - [ ] Excel manda `fiscal_configuration_id` y `billing_branch_id`
-- [ ] Detalle: card **Sucursal** (antes Almacén) con `header.sucursal`
-- [ ] Detalle: card **Razón social** (antes Fiscal) con `header.razon_social`
+- [ ] Detalle: cards en orden **Razón social → Sucursal → Cliente**
+- [ ] Detalle: card **Razón social** con `header.razon_social`
+- [ ] Detalle: card **Sucursal** con `header.sucursal`
 - [ ] Detalle: guardar ids `fiscal_configuration_id` y `billing_branch_id`
+- [ ] Detalle: **Vendedor** vs **Comisionado** — `UI_SALES_ORDER_SELLER.md`
+- [ ] Detalle y listado: **Forma de pago** (efectivo / mixto / tarjeta…) — `UI_SALES_ORDER_PAYMENTS.md`
+- [ ] Columna Pago: chip **POS cobranza** / **Cobrada manual** con `collection_channel_label`
+- [ ] Filtro **Origen cobro** (`collection_channel`). No meterlo en “Todos los pagos”
+- [ ] Excel: columna **Origen cobro** — `UI_SALES_ORDER_EXPORT.md`
+- [ ] Crear OV: ver `UI_SALES_ORDER_CREATE.md`
 - [ ] POS sin cambios

@@ -58,9 +58,9 @@ export class CreateVendorDto extends VendorBankingDto {
   @IsEnum(['Persona Física', 'Persona Moral'])
   persona_type?: string;
 
-  // Internacional
+  // Internacional — opcional (VAT / EIN / NIF u otro identificador)
   @ValidateIf((o) => o.vendor_type === VendorType.INTERNATIONAL)
-  @IsNotEmpty({ message: 'ID fiscal es requerido para proveedores internacionales' })
+  @IsOptional()
   @IsString()
   tax_id?: string;
 

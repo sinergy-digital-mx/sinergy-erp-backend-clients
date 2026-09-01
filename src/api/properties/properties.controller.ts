@@ -60,12 +60,7 @@ export class PropertiesController {
     if (!tenantId) {
       throw new Error('Tenant context is required');
     }
-    return this.propertiesService.getListStats(tenantId, {
-      groupId: query.groupId,
-      customer_group_id: query.customer_group_id,
-      search: query.search,
-      status: query.status,
-    });
+    return this.propertiesService.getListStats(tenantId, this.toPropertyFilters(query));
   }
 
   @Get()
@@ -81,12 +76,7 @@ export class PropertiesController {
 
     return this.propertiesService.findAll(
       tenantId,
-      {
-        groupId: query.groupId,
-        customer_group_id: query.customer_group_id,
-        search: query.search,
-        status: query.status,
-      },
+      this.toPropertyFilters(query),
       pageNum,
       limitNum,
     );
@@ -125,5 +115,13 @@ export class PropertiesController {
     }
     await this.propertiesService.remove(tenantId, id);
     return { success: true };
+  }
+
+  private toPropertyFilters(query: QueryPropertiesDto) {
+    return {
+      group_id: query.group_id || query.groupId || query.customer_group_id,
+      search: query.search,
+      status: query.status,
+    };
   }
 }

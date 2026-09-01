@@ -6,6 +6,8 @@ Los números respetan la cascada razón social → sucursal → almacén. **No**
 
 **POS no cambia.**
 
+El desglose por tamaño (`8 Foot` / `12 PIES`) va en el totalizado, no en estas cards. Ver `UI_INVENTORY_MEASURE.md`. Las cards suman la existencia en UOM de inventario (PT, ft²), no el tamaño.
+
 ---
 
 ## 1. Dónde van

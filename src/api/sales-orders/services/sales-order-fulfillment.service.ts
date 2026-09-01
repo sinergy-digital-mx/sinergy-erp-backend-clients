@@ -15,32 +15,42 @@ export class SalesOrderFulfillmentService {
   ) {}
 
   /**
-   * Allocates inventory batches to a sales order line item using FIFO.
-   * Batches are consumed oldest-first (by created_at ASC).
-   *
-   * Example: need 15 units, lote A=10, lote B=20
-   *   → alloc 1: lote A, qty 10  (lote A available_quantity → 0)
-   *   → alloc 2: lote B, qty 5   (lote B available_quantity → 15)
-   *
-   * Must be called inside an active transaction (EntityManager passed in).
+   * Asigna lotes FIFO a una línea de OV.
+   * POS: un almacén. MANUAL: todos los almacenes de la sucursal.
    */
   async allocateFifo(
     detail: SalesOrderDetail,
-    warehouseId: string,
     userId: string,
     manager: EntityManager,
+    scope: { warehouseId?: string | null; billingBranchId?: string | null },
   ): Promise<SalesOrderBatchAllocation[]> {
     const needed = parseFloat(detail.quantity_base_uom.toString());
+    const warehouseId = scope.warehouseId || undefined;
+    const billingBranchId = scope.billingBranchId || undefined;
 
-    // Fetch available batches for this product+warehouse, FIFO order
-    const batches = await manager
+    if (!warehouseId && !billingBranchId) {
+      throw new BadRequestException(
+        'No se puede surtir: la orden no tiene sucursal ni almacén',
+      );
+    }
+
+    const qb = manager
       .createQueryBuilder(InventoryBatch, 'batch')
       .where('batch.product_id = :productId', { productId: detail.product_id })
-      .andWhere('batch.warehouse_id = :warehouseId', { warehouseId })
       .andWhere('batch.available_quantity > 0')
       .orderBy('batch.created_at', 'ASC')
-      .setLock('pessimistic_write')
-      .getMany();
+      .setLock('pessimistic_write');
+
+    if (warehouseId) {
+      qb.andWhere('batch.warehouse_id = :warehouseId', { warehouseId });
+    } else {
+      qb.innerJoin('batch.warehouse', 'warehouse').andWhere(
+        'warehouse.billing_branch_id = :billingBranchId',
+        { billingBranchId },
+      );
+    }
+
+    const batches = await qb.getMany();
 
     const totalAvailable = batches.reduce(
       (sum, b) => sum + parseFloat(b.available_quantity.toString()),

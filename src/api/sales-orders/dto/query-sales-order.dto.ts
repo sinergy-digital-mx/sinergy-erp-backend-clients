@@ -56,6 +56,11 @@ export class QuerySalesOrderDto {
   @IsEnum(['POS', 'MANUAL'])
   sales_order_type?: 'POS' | 'MANUAL';
 
+  /** Origen del cobro. Omitir = todos. */
+  @IsOptional()
+  @IsEnum(['pos_cobranza', 'manual', 'mixed'])
+  collection_channel?: 'pos_cobranza' | 'manual' | 'mixed';
+
   /** Razón social (config fiscal). Omitir o null = todas. */
   @IsOptional()
   @IsUUID()

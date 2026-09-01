@@ -14,3 +14,6 @@ export { POStatusUpdaterService } from './po-status-updater.service';
 export { TenantValidatorService } from './tenant-validator.service';
 export { InventoryBatchService } from './inventory-batch.service';
 export { PurchaseOrderExportService } from './purchase-order-export.service';
+export { PurchaseOrderLotsService } from './purchase-order-lots.service';
+export { PurchaseOrderActivityService } from './purchase-order-activity.service';
+export { PurchaseOrderMovementsService } from './purchase-order-movements.service';

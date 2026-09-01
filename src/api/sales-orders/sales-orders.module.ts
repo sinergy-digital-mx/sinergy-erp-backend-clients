@@ -27,6 +27,7 @@ import { SalesOrderPosReceiptService } from './services/sales-order-pos-receipt.
 import { SalesOrderExportService } from './services/sales-order-export.service';
 import { PosSaleCollection } from '../../entities/pos/pos-sale-collection.entity';
 import { BillingBranch } from '../../entities/billing/billing-branch.entity';
+import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { User } from '../../entities/users/user.entity';
 import { Customer } from '../../entities/customers/customer.entity';
 import { ElectronicInvoicingModule } from '../electronic-invoicing/electronic-invoicing.module';
@@ -46,6 +47,7 @@ import { ShippingsModule } from '../shippings/shippings.module';
       InventoryBatch,
       PosSaleCollection,
       BillingBranch,
+      Warehouse,
       User,
       Customer,
     ]),

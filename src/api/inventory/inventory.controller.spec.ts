@@ -46,6 +46,7 @@ describe('InventoryController', () => {
       calculateTotalQuantity: jest.fn(),
       getLocationTree: jest.fn(),
       getStats: jest.fn(),
+      updateBatch: jest.fn(),
     };
 
     service = mockInventoryService as any;
@@ -414,6 +415,28 @@ describe('InventoryController', () => {
           NotFoundException,
         );
       });
+    });
+  });
+
+  describe('PATCH /tenant/inventory/batches/:id', () => {
+    it('should update tag and measure', async () => {
+      const updated = {
+        ...mockBatchResponseDto,
+        source_tag_identifier: '648664',
+        can_edit_tag: true,
+        can_edit_measure: false,
+        can_transfer: true,
+      };
+      jest.spyOn(service, 'updateBatch').mockResolvedValue(updated as any);
+
+      const req = { user: { tenant_id: mockTenantId } };
+      const batchId = '550e8400-e29b-41d4-a716-446655440001';
+      const dto = { source_tag_identifier: '648664', measure: 8, measure_uom_id: 'uom-foot' };
+
+      const result = await controller.updateBatch(batchId, dto as any, req);
+
+      expect(service.updateBatch).toHaveBeenCalledWith(batchId, mockTenantId, dto);
+      expect(result.source_tag_identifier).toBe('648664');
     });
   });
 

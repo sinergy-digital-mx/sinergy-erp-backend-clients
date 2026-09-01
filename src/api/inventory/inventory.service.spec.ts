@@ -4,6 +4,8 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { InventoryService } from './inventory.service';
 import { InventoryBatch } from '../../entities/purchase-orders/inventory-batch.entity';
 import { InventoryTransferLine } from '../../entities/inventory/inventory-transfer-line.entity';
+import { InventoryAuditLine } from '../../entities/inventory/inventory-audit-line.entity';
+import { Product } from '../../entities/products/product.entity';
 import { ProductPrice } from '../../entities/products/product-price.entity';
 import { ProductDiscount } from '../../entities/products/product-discount.entity';
 import { ProductUoM } from '../../entities/products/product-uom.entity';
@@ -12,7 +14,9 @@ import { User } from '../../entities/users/user.entity';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { FiscalConfiguration } from '../../entities/billing/fiscal-configuration.entity';
 import { BillingBranch } from '../../entities/billing/billing-branch.entity';
+import { UoMCatalog } from '../../entities/uom-catalog/uom-catalog.entity';
 import { S3Service } from '../../common/services/s3.service';
+import { InventoryBatchMovementsService } from './services/inventory-batch-movements.service';
 import { BatchFilterDto } from './dto/batch-filter.dto';
 import { BatchResponseDto } from './dto/batch-response.dto';
 
@@ -24,7 +28,9 @@ describe('InventoryService', () => {
   let mockWarehouseRepository: any;
   let mockFiscalConfigRepository: any;
   let mockBillingBranchRepository: any;
+  let mockUomCatalogRepository: any;
   let mockTransferLineRepository: any;
+  let mockAuditLineRepository: any;
   let mockS3Service: any;
 
   const mockTenantId = '550e8400-e29b-41d4-a716-446655440000';
@@ -34,6 +40,9 @@ describe('InventoryService', () => {
     id: '550e8400-e29b-41d4-a716-446655440001',
     tenant_id: mockTenantId,
     batch_number: 'BATCH-001',
+    source_tag_identifier: null,
+    measure: null,
+    measure_uom_id: null,
     warehouse_id: '550e8400-e29b-41d4-a716-446655440010',
     warehouse: { id: '550e8400-e29b-41d4-a716-446655440010', name: 'Main Warehouse' } as any,
     product_id: '550e8400-e29b-41d4-a716-446655440020',
@@ -71,6 +80,8 @@ describe('InventoryService', () => {
   beforeEach(async () => {
     mockRepository = {
       createQueryBuilder: jest.fn(),
+      findOne: jest.fn(),
+      save: jest.fn(),
     };
     mockProductPriceRepository = {
       createQueryBuilder: jest.fn(),
@@ -92,6 +103,9 @@ describe('InventoryService', () => {
     mockBillingBranchRepository = {
       createQueryBuilder: jest.fn(),
     };
+    mockUomCatalogRepository = {
+      findOne: jest.fn(),
+    };
     mockTransferLineRepository = {
       createQueryBuilder: jest.fn().mockReturnValue({
         leftJoinAndSelect: jest.fn().mockReturnThis(),
@@ -101,8 +115,22 @@ describe('InventoryService', () => {
         getMany: jest.fn().mockResolvedValue([]),
       }),
     };
+    mockAuditLineRepository = {
+      createQueryBuilder: jest.fn().mockReturnValue({
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([]),
+      }),
+    };
     mockS3Service = {
       getSignedUrl: jest.fn().mockResolvedValue('https://signed.example/photo.jpg'),
+    };
+
+    const mockMovementsService = {
+      list: jest.fn().mockResolvedValue({ data: [], total: 0 }),
+      listForLoadedBatch: jest.fn().mockResolvedValue([]),
     };
 
     const emptyRepo = {};
@@ -115,8 +143,29 @@ describe('InventoryService', () => {
           useValue: mockRepository,
         },
         {
+          provide: getRepositoryToken(Product),
+          useValue: {
+            createQueryBuilder: jest.fn().mockReturnValue({
+              select: jest.fn().mockReturnThis(),
+              where: jest.fn().mockReturnThis(),
+              andWhere: jest.fn().mockReturnThis(),
+              addSelect: jest.fn().mockReturnThis(),
+              orderBy: jest.fn().mockReturnThis(),
+              addOrderBy: jest.fn().mockReturnThis(),
+              setParameter: jest.fn().mockReturnThis(),
+              offset: jest.fn().mockReturnThis(),
+              limit: jest.fn().mockReturnThis(),
+              getRawMany: jest.fn().mockResolvedValue([]),
+            }),
+          },
+        },
+        {
           provide: getRepositoryToken(InventoryTransferLine),
           useValue: mockTransferLineRepository,
+        },
+        {
+          provide: getRepositoryToken(InventoryAuditLine),
+          useValue: mockAuditLineRepository,
         },
         {
           provide: getRepositoryToken(ProductPrice),
@@ -151,8 +200,16 @@ describe('InventoryService', () => {
           useValue: mockBillingBranchRepository,
         },
         {
+          provide: getRepositoryToken(UoMCatalog),
+          useValue: mockUomCatalogRepository,
+        },
+        {
           provide: S3Service,
           useValue: mockS3Service,
+        },
+        {
+          provide: InventoryBatchMovementsService,
+          useValue: mockMovementsService,
         },
       ],
     }).compile();
@@ -474,8 +531,120 @@ describe('InventoryService', () => {
       expect(result).toHaveProperty('uom_name');
       expect(result).toHaveProperty('available_quantity');
       expect(result).toHaveProperty('purchase_order_folio');
+      expect(result).toHaveProperty('transfer_history');
+      expect(result).toHaveProperty('audit_history');
+      expect(result).toHaveProperty('movements');
+      expect(result).toHaveProperty('movements_count');
       expect(result).toHaveProperty('pedimento_number');
+      expect(result).toHaveProperty('measure');
+      expect(result).toHaveProperty('can_edit_tag');
+      expect(result).toHaveProperty('can_edit_measure');
+      expect(result).toHaveProperty('can_transfer');
       expect(result.pedimento_number).toBe('162430010001234');
+      expect(result.can_edit_tag).toBe(true);
+      expect(result.can_edit_measure).toBe(true);
+      expect(result.can_transfer).toBe(true);
+    });
+  });
+
+  describe('updateBatch', () => {
+    const batchId = '550e8400-e29b-41d4-a716-446655440001';
+
+    const stubFindByIdQuery = (batch: InventoryBatch) => {
+      mockRepository.createQueryBuilder.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(batch),
+      });
+    };
+
+    it('should update tag', async () => {
+      const current = { ...mockInventoryBatch, measure: null, source_tag_identifier: 'OLD' };
+      mockRepository.findOne.mockResolvedValue(current);
+      mockRepository.save.mockImplementation(async (entity) => entity);
+      stubFindByIdQuery({ ...current, source_tag_identifier: '648664' });
+
+      const result = await service.updateBatch(batchId, mockTenantId, {
+        source_tag_identifier: '648664',
+      });
+
+      expect(mockRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ source_tag_identifier: '648664' }),
+      );
+      expect(result.source_tag_identifier).toBe('648664');
+    });
+
+    it('should clear tag when empty string is sent', async () => {
+      const current = { ...mockInventoryBatch, source_tag_identifier: '648664' };
+      mockRepository.findOne.mockResolvedValue(current);
+      mockRepository.save.mockImplementation(async (entity) => entity);
+      stubFindByIdQuery({ ...current, source_tag_identifier: null });
+
+      await service.updateBatch(batchId, mockTenantId, { source_tag_identifier: '' });
+
+      expect(mockRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ source_tag_identifier: null }),
+      );
+    });
+
+    it('should set measure when the batch has none', async () => {
+      const current = { ...mockInventoryBatch, measure: null, measure_uom_id: null };
+      mockRepository.findOne.mockResolvedValue(current);
+      mockUomCatalogRepository.findOne.mockResolvedValue({ id: 'uom-foot' });
+      mockRepository.save.mockImplementation(async (entity) => entity);
+      stubFindByIdQuery({
+        ...current,
+        measure: 8,
+        measure_uom_id: 'uom-foot',
+        measure_uom: { id: 'uom-foot', name: 'Foot' },
+      } as any);
+
+      const result = await service.updateBatch(batchId, mockTenantId, {
+        measure: 8,
+        measure_uom_id: 'uom-foot',
+      });
+
+      expect(mockRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ measure: 8, measure_uom_id: 'uom-foot' }),
+      );
+      expect(result.measure_label).toBe('8 Foot');
+      expect(result.can_edit_measure).toBe(false);
+    });
+
+    it('should reject measure when the batch already has one', async () => {
+      mockRepository.findOne.mockResolvedValue({
+        ...mockInventoryBatch,
+        measure: 12,
+        measure_uom_id: 'uom-foot',
+      });
+
+      await expect(
+        service.updateBatch(batchId, mockTenantId, {
+          measure: 8,
+          measure_uom_id: 'uom-foot',
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('should reject measure without unit', async () => {
+      mockRepository.findOne.mockResolvedValue({
+        ...mockInventoryBatch,
+        measure: null,
+        measure_uom_id: null,
+      });
+
+      await expect(
+        service.updateBatch(batchId, mockTenantId, { measure: 8 }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw NotFoundException when batch does not exist', async () => {
+      mockRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.updateBatch(batchId, mockTenantId, { source_tag_identifier: 'X' }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

@@ -13,11 +13,18 @@ import {
   MaxLength,
   ArrayMinSize,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 
 export enum ReceiptLotMode {
   SINGLE = 'single',
   MULTIPLE = 'multiple',
+}
+
+function emptyToUndefined({ value }: { value: unknown }) {
+  if (value === '' || value === null) {
+    return undefined;
+  }
+  return value;
 }
 
 export class ReceivedLotDto {
@@ -34,6 +41,21 @@ export class ReceivedLotDto {
   @Min(0.001)
   @Max(999999.999)
   quantity: number;
+
+  /** Tamaño (8, 12). Independiente de la UOM de la OC. */
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0.001)
+  @Max(999999.999)
+  measure?: number;
+
+  /** Unidad del tamaño (Foot, PIES). Del catálogo UoM; no prellenar con la UOM de la línea. */
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @IsUUID()
+  measure_uom_id?: string;
 }
 
 /**
@@ -95,6 +117,21 @@ export class ReceivedItemDto {
   @ValidateNested({ each: true })
   @Type(() => ReceivedLotDto)
   lots?: ReceivedLotDto[];
+
+  /** Medida física en modo lote único (p. ej. 8 o 12). */
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0.001)
+  @Max(999999.999)
+  measure?: number;
+
+  /** Unidad del tamaño en modo lote único. Independiente de product_uom_id. */
+  @IsOptional()
+  @Transform(emptyToUndefined)
+  @IsUUID()
+  measure_uom_id?: string;
 }
 
 /**

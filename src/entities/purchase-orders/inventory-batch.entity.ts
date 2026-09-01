@@ -38,6 +38,21 @@ export class InventoryBatch {
   @Column({ type: 'varchar', length: 100, nullable: true })
   source_tag_identifier: string | null;
 
+  /**
+   * Tamaño opcional del lote (p. ej. 8 o 12).
+   * Independiente de uom_id (existencia: PT, ft², pza).
+   */
+  @Column({ type: 'decimal', precision: 12, scale: 3, nullable: true })
+  measure: number | null;
+
+  /** Unidad del tamaño (Foot, PIES, …). No es la UOM de la OC ni del inventario. */
+  @ManyToOne(() => UoMCatalog, { onDelete: 'RESTRICT', nullable: true })
+  @JoinColumn({ name: 'measure_uom_id' })
+  measure_uom: UoMCatalog | null;
+
+  @Column({ nullable: true })
+  measure_uom_id: string | null;
+
   @Column({ type: 'varchar', length: 500, nullable: true })
   photo: string | null;
 

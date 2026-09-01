@@ -154,6 +154,57 @@ describe('VendorService', () => {
       );
     });
 
+    it('permite crear internacional sin ID fiscal', async () => {
+      const dto: CreateVendorDto = {
+        vendor_type: VendorType.INTERNATIONAL,
+        name: 'US Supplier',
+        legal_name: 'US Supplier LLC',
+        country: 'US',
+      };
+      mockRepository.create.mockImplementation((entity) => entity);
+      mockRepository.save.mockImplementation((entity) => Promise.resolve(entity));
+
+      const result = await service.create(dto, 'tenant-123');
+
+      expect(result.tax_id).toBeNull();
+      expect(result.legal_name).toBe('US Supplier LLC');
+      expect(mockRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          vendor_type: VendorType.INTERNATIONAL,
+          tax_id: null,
+          legal_name: 'US Supplier LLC',
+          country: 'US',
+        }),
+      );
+    });
+
+    it('permite cambiar a internacional sin ID fiscal si hay nombre legal y país', async () => {
+      const existing = {
+        id: 'vendor-1',
+        tenant_id: 'tenant-123',
+        vendor_type: VendorType.NATIONAL,
+        name: 'Nacional',
+        tax_id: null,
+        legal_name: null,
+        country: 'México',
+      } as Vendor;
+      mockRepository.findOne.mockResolvedValue(existing);
+      mockRepository.save.mockImplementation((entity) => Promise.resolve(entity));
+
+      const result = await service.update(
+        existing.id,
+        {
+          vendor_type: VendorType.INTERNATIONAL,
+          legal_name: 'Foreign Co',
+          country: 'US',
+        },
+        'tenant-123',
+      );
+
+      expect(result.vendor_type).toBe(VendorType.INTERNATIONAL);
+      expect(result.tax_id).toBeNull();
+    });
+
     it('regresa 400 si MySQL rechaza un null', async () => {
       const existing = {
         id: 'vendor-1',

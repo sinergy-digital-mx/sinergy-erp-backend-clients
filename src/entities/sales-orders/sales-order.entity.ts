@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { RBACTenant } from '../rbac/tenant.entity';
 import { FiscalConfiguration } from '../billing/fiscal-configuration.entity';
+import { BillingBranch } from '../billing/billing-branch.entity';
 import { Warehouse } from '../warehouse/warehouse.entity';
 import { Customer } from '../customers/customer.entity';
 import { User } from '../users/user.entity';
@@ -24,6 +25,7 @@ import { GlobalDiscount } from '../global-discounts/global-discount.entity';
 @Index('uq_so_public_invoice_code', ['public_invoice_code'], { unique: true })
 @Index('idx_so_customer', ['customer_id'])
 @Index('idx_so_warehouse', ['warehouse_id'])
+@Index('idx_so_billing_branch', ['billing_branch_id'])
 @Index('idx_so_general_status', ['general_status'])
 @Index('idx_so_payment_status', ['payment_status'])
 export class SalesOrder {
@@ -51,12 +53,19 @@ export class SalesOrder {
   @Column()
   fiscal_configuration_id: string;
 
-  @ManyToOne(() => Warehouse, { onDelete: 'RESTRICT', nullable: false })
-  @JoinColumn({ name: 'warehouse_id' })
-  warehouse: Warehouse;
+  @ManyToOne(() => BillingBranch, { onDelete: 'RESTRICT', nullable: true })
+  @JoinColumn({ name: 'billing_branch_id' })
+  billing_branch: BillingBranch | null;
 
-  @Column()
-  warehouse_id: string;
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  billing_branch_id: string | null;
+
+  @ManyToOne(() => Warehouse, { onDelete: 'RESTRICT', nullable: true })
+  @JoinColumn({ name: 'warehouse_id' })
+  warehouse: Warehouse | null;
+
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  warehouse_id: string | null;
 
   @ManyToOne(() => Customer, { onDelete: 'RESTRICT', nullable: false })
   @JoinColumn({ name: 'customer_id' })
@@ -170,6 +179,14 @@ export class SalesOrder {
 
   @Column({ type: 'varchar', length: 36, nullable: true })
   seller_user_id: string | null;
+
+  /** Quien comisiona. Snapshot del vendedor asignado del cliente al crear; si no hay, el vendedor. */
+  @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'assigned_seller_user_id' })
+  assigned_seller_user: User | null;
+
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  assigned_seller_user_id: string | null;
 
   @ManyToOne(() => PosDailyShift, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'pos_daily_shift_id' })

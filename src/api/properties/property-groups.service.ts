@@ -27,7 +27,6 @@ export class PropertyGroupsService {
   async findAll(tenantId: string): Promise<PropertyGroup[]> {
     return await this.groupRepo.find({
       where: { tenant_id: tenantId },
-      relations: ['properties'],
       order: { created_at: 'DESC' },
     });
   }
@@ -35,7 +34,6 @@ export class PropertyGroupsService {
   async findOne(tenantId: string, id: string): Promise<PropertyGroup | null> {
     return await this.groupRepo.findOne({
       where: { id, tenant_id: tenantId },
-      relations: ['properties'],
     });
   }
 

@@ -2,14 +2,12 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  OneToMany,
   ManyToOne,
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
   Index,
 } from 'typeorm';
-import { Property } from './property.entity';
 import { RBACTenant } from '../rbac/tenant.entity';
 
 @Entity('property_groups')
@@ -45,9 +43,6 @@ export class PropertyGroup {
 
   @Column({ type: 'int', default: 0 })
   sold_properties: number;
-
-  @OneToMany(() => Property, (property) => property.group)
-  properties: Property[];
 
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;

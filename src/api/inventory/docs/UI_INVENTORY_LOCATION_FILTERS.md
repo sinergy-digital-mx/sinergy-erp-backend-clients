@@ -218,6 +218,7 @@ Mantener **Almacén**. Agregar **Razón social** y **Sucursal** (pueden ir a la 
 | Cantidad | `quantity` |
 | Orden de compra | `purchase_order_folio` |
 | TAG | `source_tag_identifier` |
+| Medida | `measure_label` (`—` si `null`). Nunca concatenar con `uom_name` |
 | Fecha | `created_at` |
 
 ### Totalizado — binding
@@ -228,7 +229,10 @@ Mantener **Almacén**. Agregar **Razón social** y **Sucursal** (pueden ir a la 
 | Razón social | `razon_social` |
 | Sucursal | `sucursal` |
 | Almacén | `warehouse_name` |
-| Cantidad | `total_available_quantity` |
+| Cantidad | `total_available_quantity` + `uom_name` (PT, ft²) |
+| Por medida | `measure_totals[].measure_label` (solo si `length > 0`) |
+
+Chips: `8 Foot → 80.000`. No pintar `8 ft²` / `8 PT`. Ver `UI_INVENTORY_MEASURE.md`.
 
 Detalle de lote (`GET /batches/:id`) trae los mismos campos: `razon_social`, `sucursal`, `fiscal_configuration_id`, `billing_branch_id`. Pedimento de la OC de origen: `pedimento_number` (ver `UI_INVENTORY_BATCH_PEDIMENTO.md`).
 

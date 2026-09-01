@@ -11,6 +11,7 @@ import {
 } from './purchase-order-pdf-labels';
 import * as path from 'path';
 import { computeRequestedLineBreakdown, computeReceivedLineBreakdown } from '../utils/purchase-order-line-breakdown.util';
+import { formatMeasureLabel } from '../../inventory/utils/inventory-measure.util';
 
 const COLORS = {
   primary: '#1E3A5F',
@@ -457,7 +458,11 @@ export class PurchaseOrderPdfService {
               const lotIdentifier = batch.source_tag_identifier || batch.batch_number || labels.noTag;
               const lotQty = Number(batch.initial_quantity) || 0;
               const lotUom = batch.uom?.name || item.converted_uom?.name || 'UOM';
-              return `${index + 1}. ${lotIdentifier} (${lotQty} ${lotUom})`;
+              const lotMeasure = formatMeasureLabel(batch.measure, batch.measure_uom?.name);
+              const measureText = lotMeasure
+                ? `, ${labels.measurePrefix} ${lotMeasure}`
+                : '';
+              return `${index + 1}. ${lotIdentifier} (${lotQty} ${lotUom}${measureText})`;
             })
             .join('\n')
         : labels.noBatchesRegistered;

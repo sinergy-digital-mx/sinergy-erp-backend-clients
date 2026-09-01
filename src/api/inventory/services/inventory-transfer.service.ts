@@ -24,6 +24,7 @@ import {
 } from '../dto/inventory-transfer-response.dto';
 import { TransferContextResponseDto } from '../dto/transfer-context-response.dto';
 import { InventoryLocationFiscalDto } from '../dto/inventory-location-tree-response.dto';
+import { mapBatchMeasure } from '../utils/inventory-measure.util';
 
 @Injectable()
 export class InventoryTransferService {
@@ -60,6 +61,7 @@ export class InventoryTransferService {
       .createQueryBuilder('batch')
       .leftJoinAndSelect('batch.product', 'product')
       .leftJoinAndSelect('batch.uom', 'uom')
+      .leftJoinAndSelect('batch.measure_uom', 'measure_uom')
       .leftJoinAndSelect('batch.purchase_order_batch', 'po')
       .where('batch.tenant_id = :tenantId', { tenantId })
       .andWhere('batch.product_id = :productId', { productId })
@@ -116,6 +118,7 @@ export class InventoryTransferService {
         batch_id: b.id,
         batch_number: b.batch_number,
         source_tag_identifier: b.source_tag_identifier ?? null,
+        ...mapBatchMeasure(b),
         available_quantity: parseFloat(b.available_quantity?.toString() ?? '0').toFixed(3),
         initial_quantity: parseFloat(b.initial_quantity?.toString() ?? '0').toFixed(3),
         purchase_order_folio: b.purchase_order_batch?.folio ?? null,
@@ -243,6 +246,8 @@ export class InventoryTransferService {
           tenant_id: tenantId,
           batch_number: destBatchNumber,
           source_tag_identifier: sourceBatch.source_tag_identifier,
+          measure: sourceBatch.measure,
+          measure_uom_id: sourceBatch.measure_uom_id,
           photo: sourceBatch.photo,
           warehouse_id: dto.destination_warehouse_id,
           product_id: sourceBatch.product_id,

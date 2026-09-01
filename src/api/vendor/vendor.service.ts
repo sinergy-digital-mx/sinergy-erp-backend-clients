@@ -127,12 +127,11 @@ export class VendorService {
     if (existing.vendor_type === nextType) return;
 
     if (nextType === VendorType.INTERNATIONAL) {
-      const taxId = dto.tax_id ?? existing.tax_id;
       const legalName = dto.legal_name ?? existing.legal_name;
       const country = dto.country ?? existing.country;
-      if (!taxId?.trim() || !legalName?.trim() || !country?.trim()) {
+      if (!legalName?.trim() || !country?.trim()) {
         throw new BadRequestException(
-          'ID fiscal, nombre legal y país son requeridos al cambiar el proveedor a internacional',
+          'Nombre legal y país son requeridos al cambiar el proveedor a internacional',
         );
       }
     }
@@ -177,6 +176,7 @@ export class VendorService {
       state: dto.state || existing?.state || '',
       zip_code: dto.zip_code || existing?.zip_code || '',
       country: dto.country || existing?.country || '',
+      tax_id: (dto.tax_id ?? existing?.tax_id)?.trim() || null,
       rfc: existing?.rfc || '',
       razon_social: razonSocial,
       persona_type: existing?.persona_type || 'Persona Moral',

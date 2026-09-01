@@ -12,7 +12,7 @@ export const typeOrmOptions: DataSourceOptions = {
     database: process.env.DB_NAME,
     synchronize: false,
     migrationsRun: false, // Disabled - run migrations manually
-    logging: true,
+    logging: process.env.TYPEORM_LOGGING === 'true',
     timezone: 'local', // Use local timezone
     dateStrings: true, // Return dates as strings to avoid timezone conversion
     // Keep glob for scripts/CLI usage; autoLoadEntities ensures Nest modules

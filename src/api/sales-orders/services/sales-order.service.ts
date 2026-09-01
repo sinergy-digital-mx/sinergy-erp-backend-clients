@@ -7,7 +7,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, QueryRunner, Repository } from 'typeorm';
+import { DataSource, In, QueryRunner, Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { SalesOrder } from '../../../entities/sales-orders/sales-order.entity';
 import { SalesOrderDetail } from '../../../entities/sales-orders/sales-order-detail.entity';
@@ -21,6 +21,7 @@ import { UpdateSalesOrderNotesDto } from '../dto/update-sales-order-notes.dto';
 import { CreateSalesOrderPaymentDto } from '../dto/create-sales-order-payment.dto';
 import { PosSalePaymentMethod } from '../../../entities/pos/pos-sale-payment-method.enum';
 import { User } from '../../../entities/users/user.entity';
+import { Customer } from '../../../entities/customers/customer.entity';
 import { S3Service } from '../../../common/services/s3.service';
 import { buildSelfInvoicePortalUrl } from '../../../common/utils/public-invoice-code.util';
 import { SalesOrderFolioService } from './sales-order-folio.service';
@@ -53,11 +54,23 @@ import {
   mapPosUser,
 } from '../../pos-shifts/mappers/pos-sale-collection.mapper';
 import { ElectronicInvoiceService } from '../../electronic-invoicing/services/electronic-invoice.service';
+import { BillingBranch } from '../../../entities/billing/billing-branch.entity';
+import { Warehouse } from '../../../entities/warehouse/warehouse.entity';
+import { buildSalesOrderPaymentDisplay } from '../utils/sales-order-payment-display.util';
+import {
+  applySalesOrderCollectionChannelFilter,
+  collectionChannelSourceLabel,
+  mapCollectionChannelByOrderId,
+  resolveSalesOrderCollectionChannel,
+} from '../utils/sales-order-collection-channel.util';
 
 @Injectable()
 export class SalesOrderService {
   private readonly logger = new Logger(SalesOrderService.name);
   private static readonly DOC_TYPE_DOCUMENTO_ORIGINAL = 1;
+  private static readonly DOC_TYPE_NAME_ENTREGA = 'ENTREGA';
+  /** RECIBO fue un nombre erróneo (espejo de recepción de OC). Se migra a ENTREGA. */
+  private static readonly DOC_TYPE_NAMES_ENTREGA = ['ENTREGA', 'RECIBO'] as const;
 
   constructor(
     @InjectRepository(SalesOrder)
@@ -84,6 +97,12 @@ export class SalesOrderService {
     private readonly paymentDocumentRepo: Repository<SalesOrderPaymentDocument>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(Customer)
+    private readonly customerRepo: Repository<Customer>,
+    @InjectRepository(BillingBranch)
+    private readonly billingBranchRepo: Repository<BillingBranch>,
+    @InjectRepository(Warehouse)
+    private readonly warehouseRepo: Repository<Warehouse>,
     private readonly electronicInvoiceService: ElectronicInvoiceService,
   ) {}
 
@@ -99,13 +118,26 @@ export class SalesOrderService {
     }
   }
 
+  private async deleteDocumentsByTypeNames(
+    salesOrderId: string,
+    typeNames: readonly string[],
+  ): Promise<void> {
+    const existingDocs = await this.documentsService.getDocuments(salesOrderId);
+    for (const doc of existingDocs) {
+      if (typeNames.includes(doc.document_type_name)) {
+        await this.documentsService.deleteDocument(doc.id);
+      }
+    }
+  }
+
   private async loadOrderForPdf(id: string, tenantId: string): Promise<SalesOrder | null> {
     return this.soRepo
       .createQueryBuilder('so')
       .where('so.id = :id AND so.tenant_id = :tenantId', { id, tenantId })
       .leftJoinAndSelect('so.fiscal_configuration', 'fiscal_config')
+      .leftJoinAndSelect('so.billing_branch', 'billing_branch')
       .leftJoinAndSelect('so.warehouse', 'warehouse')
-      .leftJoinAndSelect('warehouse.billing_branch', 'billing_branch')
+      .leftJoinAndSelect('warehouse.billing_branch', 'warehouse_branch')
       .leftJoinAndSelect('so.customer', 'customer')
       .leftJoinAndSelect('so.creator', 'creator')
       .leftJoinAndSelect('so.line_items', 'line_items')
@@ -147,29 +179,33 @@ export class SalesOrderService {
         language,
       );
 
-      await this.generateAndUploadReceiptPdf(fullOrder, salesOrderId, userId, language);
+      await this.generateAndUploadDeliveryPdf(fullOrder, salesOrderId, userId, language);
     } catch (error) {
       this.logger.error('[PDF] Error in generateAndUploadPdf:', error);
     }
   }
 
-  private async generateAndUploadReceiptPdf(
+  private async generateAndUploadDeliveryPdf(
     fullOrder: SalesOrder,
     salesOrderId: string,
     userId: string,
     language: DocumentLanguage,
   ): Promise<void> {
-    const receiptTypeId = await this.documentsService.ensureDocumentType(
-      'RECIBO',
-      'Recibo PDF de la orden de venta',
+    const deliveryTypeId = await this.documentsService.ensureDocumentType(
+      SalesOrderService.DOC_TYPE_NAME_ENTREGA,
+      'Comprobante de entrega de la orden de venta',
     );
-    const pdfBuffer = await this.pdfService.generateReceiptPdf(fullOrder, language);
-    const uploadResult = await this.pdfService.uploadPdfToS3(fullOrder, pdfBuffer, 'RECIBO');
+    const pdfBuffer = await this.pdfService.generateDeliveryPdf(fullOrder, language);
+    const uploadResult = await this.pdfService.uploadPdfToS3(
+      fullOrder,
+      pdfBuffer,
+      SalesOrderService.DOC_TYPE_NAME_ENTREGA,
+    );
 
     await this.documentsService.uploadDocument(
       salesOrderId,
-      receiptTypeId,
-      `RECIBO_${fullOrder.folio}_${language}.pdf`,
+      deliveryTypeId,
+      `ENTREGA_${fullOrder.folio}_${language}.pdf`,
       uploadResult.s3Key,
       pdfBuffer.length,
       'application/pdf',
@@ -300,22 +336,30 @@ export class SalesOrderService {
       ? dto.customer_id ?? (await this.posShiftsService.resolveWalkInCustomerId(tenantId))
       : dto.customer_id!;
 
-    if (isPosSale) {
-      if (!dto.seller_user_id) {
-        throw new BadRequestException('Las ventas POS requieren seller_user_id');
-      }
+    const location = await this.resolveSalesOrderLocation(tenantId, dto, isPosSale);
+    if (isPosSale && !dto.seller_user_id) {
+      throw new BadRequestException('Las ventas POS requieren seller_user_id');
+    }
+    const sellerUserId = isPosSale ? dto.seller_user_id! : (dto.seller_user_id ?? userId);
+    const assignedSellerUserId = await this.resolveAssignedSellerUserId(
+      tenantId,
+      customerId,
+      sellerUserId,
+      dto.assigned_seller_user_id,
+    );
 
+    if (isPosSale) {
       await this.posShiftsService.assertPosWarehouseForTerminal(
         tenantId,
         userId,
-        dto.warehouse_id,
+        location.warehouseId!,
       );
 
       const { shift, terminalUser, queued } =
         await this.posShiftsService.resolvePosSaleContext(
           tenantId,
           userId,
-          dto.seller_user_id,
+          sellerUserId,
           dto.pos_daily_shift_id,
         );
 
@@ -345,8 +389,9 @@ export class SalesOrderService {
         id: uuidv4(),
         tenant_id: tenantId,
         folio,
-        fiscal_configuration_id: dto.fiscal_configuration_id,
-        warehouse_id: dto.warehouse_id,
+        fiscal_configuration_id: location.fiscalConfigurationId,
+        billing_branch_id: location.billingBranchId,
+        warehouse_id: location.warehouseId,
         customer_id: customerId,
         expected_delivery_date: new Date(dto.expected_delivery_date),
         sales_order_type: salesOrderType,
@@ -358,7 +403,8 @@ export class SalesOrderService {
         created_by: userId,
         terminal_user_id: isPosSale ? userId : null,
         // Manual: vendedor = el que crea (o seller_user_id si viene en el body)
-        seller_user_id: isPosSale ? dto.seller_user_id! : (dto.seller_user_id ?? userId),
+        seller_user_id: sellerUserId,
+        assigned_seller_user_id: assignedSellerUserId,
         pos_daily_shift_id: isPosSale ? posDailyShiftId : null,
         collected_by_user_id: collectedByUserId,
       });
@@ -458,7 +504,7 @@ export class SalesOrderService {
         await this.fulfillOrderLines(
           qr,
           savedSO.id,
-          dto.warehouse_id,
+          this.allocationScope(savedSO),
           savedDetails,
           userId,
         );
@@ -489,6 +535,7 @@ export class SalesOrderService {
       payment_status,
       is_credit,
       sales_order_type,
+      collection_channel,
       fiscal_configuration_id,
       billing_branch_id,
       customer_id,
@@ -504,8 +551,8 @@ export class SalesOrderService {
       .createQueryBuilder('so')
       .leftJoinAndSelect('so.customer', 'customer')
       .leftJoinAndSelect('so.fiscal_configuration', 'fiscal_configuration')
+      .leftJoinAndSelect('so.billing_branch', 'billing_branch')
       .leftJoinAndSelect('so.warehouse', 'warehouse')
-      .leftJoinAndSelect('warehouse.billing_branch', 'billing_branch')
       .where('so.tenant_id = :tenantId', { tenantId });
 
     if (search) {
@@ -530,13 +577,17 @@ export class SalesOrderService {
       qb.andWhere('so.is_credit = :is_credit', { is_credit });
     }
     if (sales_order_type) qb.andWhere('so.sales_order_type = :sales_order_type', { sales_order_type });
+    applySalesOrderCollectionChannelFilter(qb, 'so', collection_channel);
     if (fiscal_configuration_id) {
       qb.andWhere('so.fiscal_configuration_id = :fiscal_configuration_id', {
         fiscal_configuration_id,
       });
     }
     if (billing_branch_id) {
-      qb.andWhere('warehouse.billing_branch_id = :billing_branch_id', { billing_branch_id });
+      qb.andWhere(
+        '(so.billing_branch_id = :billing_branch_id OR (so.billing_branch_id IS NULL AND warehouse.billing_branch_id = :billing_branch_id))',
+        { billing_branch_id },
+      );
     }
     if (customer_id) qb.andWhere('so.customer_id = :customer_id', { customer_id });
     if (created_from) qb.andWhere('so.created_at >= :created_from', { created_from: new Date(created_from) });
@@ -546,8 +597,24 @@ export class SalesOrderService {
     qb.orderBy(sortCol, sort_order).skip((page - 1) * limit).take(limit);
 
     const [rows, total] = await qb.getManyAndCount();
+    const paymentByOrderId = await this.getPaymentDisplayByOrderIds(tenantId, rows);
+
     return {
-      data: rows.map((so) => this.mapOrderLocation(so)),
+      data: rows.map((so) => {
+        const paymentInfo = paymentByOrderId.get(so.id);
+        const paymentDisplay =
+          paymentInfo?.display ??
+          buildSalesOrderPaymentDisplay({ isCredit: !!so.is_credit });
+        return {
+          ...this.mapOrderLocation(so),
+          payment_method: paymentDisplay.payment_method,
+          payment_method_label: paymentDisplay.payment_method_label,
+          payment_breakdown_label: paymentDisplay.payment_breakdown_label,
+          payment_display: paymentDisplay,
+          collection_channel: paymentInfo?.collection_channel ?? null,
+          collection_channel_label: paymentInfo?.collection_channel_label ?? null,
+        };
+      }),
       total,
       page,
       limit,
@@ -559,8 +626,8 @@ export class SalesOrderService {
     const so = await this.soRepo.findOne({
       where: { id, tenant_id: tenantId },
       relations: [
-        'customer', 'warehouse', 'warehouse.billing_branch', 'fiscal_configuration',
-        'seller_user', 'terminal_user', 'collected_by_user', 'corroborator',
+        'customer', 'billing_branch', 'warehouse', 'warehouse.billing_branch', 'fiscal_configuration',
+        'seller_user', 'assigned_seller_user', 'terminal_user', 'collected_by_user', 'corroborator',
         'line_items', 'line_items.product', 'line_items.product_uom', 'line_items.product_uom.uom',
         'line_items.product_discount',
         'global_discount',
@@ -592,6 +659,17 @@ export class SalesOrderService {
     const appliedLineDiscounts = mapAppliedLineDiscountsFromOrder(so);
     const discountSummary = mapOrderDiscountSummary(so);
     const paymentData = await this.getPaymentsForOrder(so);
+    const paymentDisplay = buildSalesOrderPaymentDisplay({
+      collection: posCollection,
+      payments: paymentData.payments,
+      isCredit: !!so.is_credit,
+    });
+    const collectionChannel = resolveSalesOrderCollectionChannel({
+      hasPosCollection: !!posCollection,
+      paymentSources: paymentData.payments.map((payment) => payment.source),
+      inferredPosCollection:
+        so.sales_order_type === 'POS' && !!so.collected_by_user_id,
+    });
     const cancelBlockedReason = await this.getCancelBlockedReason(so, tenantId);
     const header = {
       ...this.mapOrderLocation(so),
@@ -602,10 +680,17 @@ export class SalesOrderService {
       customer_display_name: customerSummary?.display_name ?? formatCustomerDisplayName(so.customer),
       customer_summary: customerSummary,
       seller_user: mapPosUser(so.seller_user),
+      assigned_seller_user: mapPosUser(so.assigned_seller_user),
       terminal_user: mapPosUser(so.terminal_user),
       collected_by_user: mapPosUser(so.collected_by_user),
       corroborated_by_user: mapPosUser(so.corroborator),
       pos_collection: posCollection ? mapPosSaleCollection(posCollection) : null,
+      payment_method: paymentDisplay.payment_method,
+      payment_method_label: paymentDisplay.payment_method_label,
+      payment_breakdown_label: paymentDisplay.payment_breakdown_label,
+      payment_display: paymentDisplay,
+      collection_channel: collectionChannel.collection_channel,
+      collection_channel_label: collectionChannel.collection_channel_label,
       payments: paymentData.payments,
       payments_summary: paymentData.summary,
       applied_line_discounts: appliedLineDiscounts,
@@ -623,6 +708,7 @@ export class SalesOrderService {
         line_items: (so.line_items ?? []).map(mapLineItemWithDiscount),
       },
       pos_collection: header.pos_collection,
+      payment_display: paymentDisplay,
       payments: paymentData.payments,
       payments_summary: paymentData.summary,
       applied_line_discounts: appliedLineDiscounts,
@@ -897,6 +983,61 @@ export class SalesOrderService {
     return pendingByOrder;
   }
 
+  private async getPaymentDisplayByOrderIds(
+    tenantId: string,
+    orders: Array<
+      Pick<SalesOrder, 'id' | 'sales_order_type' | 'collected_by_user_id' | 'is_credit'>
+    >,
+  ) {
+    const displayByOrder = new Map<
+      string,
+      {
+        display: ReturnType<typeof buildSalesOrderPaymentDisplay>;
+        collection_channel: ReturnType<
+          typeof resolveSalesOrderCollectionChannel
+        >['collection_channel'];
+        collection_channel_label: string | null;
+      }
+    >();
+    if (orders.length === 0) return displayByOrder;
+
+    const orderIds = orders.map((order) => order.id);
+    const collections = await this.posCollectionRepo.find({
+      where: { tenant_id: tenantId, sales_order_id: In(orderIds) },
+    });
+    const payments = await this.paymentRepo.find({
+      where: { tenant_id: tenantId, sales_order_id: In(orderIds) },
+      select: ['id', 'sales_order_id', 'payment_method', 'amount', 'currency', 'source'],
+    });
+
+    const collectionByOrder = new Map(collections.map((row) => [row.sales_order_id, row]));
+    const paymentsByOrder = new Map<string, typeof payments>();
+    for (const payment of payments) {
+      const list = paymentsByOrder.get(payment.sales_order_id) ?? [];
+      list.push(payment);
+      paymentsByOrder.set(payment.sales_order_id, list);
+    }
+    const channelByOrder = mapCollectionChannelByOrderId(orders, collections, payments);
+
+    for (const order of orders) {
+      const channel = channelByOrder.get(order.id) ?? {
+        collection_channel: null,
+        collection_channel_label: null,
+      };
+      displayByOrder.set(order.id, {
+        display: buildSalesOrderPaymentDisplay({
+          collection: collectionByOrder.get(order.id),
+          payments: paymentsByOrder.get(order.id),
+          isCredit: !!order.is_credit,
+        }),
+        collection_channel: channel.collection_channel,
+        collection_channel_label: channel.collection_channel_label,
+      });
+    }
+
+    return displayByOrder;
+  }
+
   private async getPaymentsForOrder(order: SalesOrder) {
     const payments = await this.paymentRepo.find({
       where: { sales_order_id: order.id, tenant_id: order.tenant_id },
@@ -911,8 +1052,61 @@ export class SalesOrderService {
     };
   }
 
+  private async assertPosSellerUser(
+    userId: string,
+    tenantId: string,
+    notFoundMessage: string,
+  ): Promise<User> {
+    const user = await this.userRepo.findOne({
+      where: { id: userId, tenant_id: tenantId },
+    });
+
+    if (!user) {
+      throw new BadRequestException(notFoundMessage);
+    }
+
+    if (user.pos_user_code == null) {
+      throw new BadRequestException('El vendedor debe tener un código POS');
+    }
+
+    return user;
+  }
+
+  private async resolveAssignedSellerUserId(
+    tenantId: string,
+    customerId: number,
+    sellerUserId: string,
+    explicitAssignedSellerId?: string,
+  ): Promise<string> {
+    if (explicitAssignedSellerId) {
+      const explicit = await this.assertPosSellerUser(
+        explicitAssignedSellerId,
+        tenantId,
+        'Comisionado no válido',
+      );
+      return explicit.id;
+    }
+
+    const customer = await this.customerRepo.findOne({
+      where: { id: customerId, tenant_id: tenantId },
+      select: ['id', 'assigned_seller_user_id'],
+    });
+
+    if (customer?.assigned_seller_user_id) {
+      const assigned = await this.userRepo.findOne({
+        where: { id: customer.assigned_seller_user_id, tenant_id: tenantId },
+        select: ['id', 'pos_user_code'],
+      });
+      if (assigned?.pos_user_code != null) {
+        return assigned.id;
+      }
+    }
+
+    return sellerUserId;
+  }
+
   private mapOrderLocation(so: SalesOrder) {
-    const branch = so.warehouse?.billing_branch ?? null;
+    const branch = so.billing_branch ?? so.warehouse?.billing_branch ?? null;
     const fiscal = so.fiscal_configuration ?? null;
     const { warehouse: _warehouse, ...rest } = so;
 
@@ -927,7 +1121,7 @@ export class SalesOrderService {
             rfc: fiscal.rfc,
           }
         : null,
-      billing_branch_id: so.warehouse?.billing_branch_id ?? branch?.id ?? null,
+      billing_branch_id: so.billing_branch_id ?? so.warehouse?.billing_branch_id ?? branch?.id ?? null,
       billing_branch: branch
         ? {
             id: branch.id,
@@ -978,6 +1172,7 @@ export class SalesOrderService {
       reference_number: payment.reference_number,
       notes: payment.notes,
       source: payment.source,
+      source_label: collectionChannelSourceLabel(payment.source),
       created_by: payment.created_by,
       created_by_name: payment.creator
         ? [payment.creator.first_name, payment.creator.last_name].filter(Boolean).join(' ').trim()
@@ -1042,23 +1237,43 @@ export class SalesOrderService {
       throw new BadRequestException('No se puede cambiar el vendedor de una orden cancelada');
     }
 
-    const seller = await this.userRepo.findOne({
-      where: { id: sellerUserId, tenant_id: tenantId },
-    });
-
-    if (!seller) {
-      throw new BadRequestException('Vendedor no válido');
-    }
-
-    if (seller.pos_user_code == null) {
-      throw new BadRequestException(
-        'El vendedor debe tener un código POS',
-      );
-    }
+    const seller = await this.assertPosSellerUser(sellerUserId, tenantId, 'Vendedor no válido');
 
     await this.soRepo.update(
       { id, tenant_id: tenantId },
-      { seller_user_id: sellerUserId, updated_by: userId },
+      { seller_user_id: seller.id, updated_by: userId },
+    );
+
+    return this.findOneDetail(id, tenantId);
+  }
+
+  /**
+   * Cambia el comisionado de la orden (quien cobra comisión).
+   * Disponible en cualquier estado excepto Cancelada.
+   */
+  async updateAssignedSeller(
+    id: string,
+    assignedSellerUserId: string,
+    tenantId: string,
+    userId: string,
+  ) {
+    const so = await this.findOne(id, tenantId);
+
+    if (so.general_status === 'Cancelada') {
+      throw new BadRequestException(
+        'No se puede cambiar el comisionado de una orden cancelada',
+      );
+    }
+
+    const assigned = await this.assertPosSellerUser(
+      assignedSellerUserId,
+      tenantId,
+      'Comisionado no válido',
+    );
+
+    await this.soRepo.update(
+      { id, tenant_id: tenantId },
+      { assigned_seller_user_id: assigned.id, updated_by: userId },
     );
 
     return this.findOneDetail(id, tenantId);
@@ -1090,7 +1305,7 @@ export class SalesOrderService {
       await this.fulfillOrderLines(
         qr,
         id,
-        so.warehouse_id,
+        this.allocationScope(so),
         so.line_items,
         userId,
         dto.notes ?? so.notes ?? undefined,
@@ -1181,6 +1396,9 @@ export class SalesOrderService {
       );
     }
 
+    const isPosSale = (dto.sales_order_type || existing.sales_order_type) === 'POS';
+    const location = await this.resolveSalesOrderLocation(tenantId, dto, isPosSale);
+
     const qr = this.dataSource.createQueryRunner();
     await qr.connect();
     await qr.startTransaction();
@@ -1193,7 +1411,8 @@ export class SalesOrderService {
       }
 
       so.fiscal_configuration_id = dto.fiscal_configuration_id;
-      so.warehouse_id = dto.warehouse_id;
+      so.billing_branch_id = location.billingBranchId;
+      so.warehouse_id = location.warehouseId;
       if (dto.customer_id != null) {
         so.customer_id = dto.customer_id;
       }
@@ -1236,13 +1455,13 @@ export class SalesOrderService {
   private async fulfillOrderLines(
     qr: QueryRunner,
     salesOrderId: string,
-    warehouseId: string,
+    scope: { warehouseId?: string | null; billingBranchId?: string | null },
     lineItems: SalesOrderDetail[],
     userId: string,
     notes?: string,
   ): Promise<void> {
     for (const detail of lineItems) {
-      await this.fulfillmentService.allocateFifo(detail, warehouseId, userId, qr.manager);
+      await this.fulfillmentService.allocateFifo(detail, userId, qr.manager, scope);
     }
 
     await qr.manager.update(SalesOrder, { id: salesOrderId }, {
@@ -1380,11 +1599,7 @@ export class SalesOrderService {
 
     if (!keepPrevious) {
       await this.deleteDocumentsByType(id, SalesOrderService.DOC_TYPE_DOCUMENTO_ORIGINAL);
-      const receiptTypeId = await this.documentsService.ensureDocumentType(
-        'RECIBO',
-        'Recibo PDF de la orden de venta',
-      );
-      await this.deleteDocumentsByType(id, receiptTypeId);
+      await this.deleteDocumentsByTypeNames(id, SalesOrderService.DOC_TYPE_NAMES_ENTREGA);
     }
 
     const fullOrder = await this.loadOrderForPdf(id, tenantId);
@@ -1410,7 +1625,7 @@ export class SalesOrderService {
       language,
     );
 
-    await this.generateAndUploadReceiptPdf(fullOrder, id, userId, language);
+    await this.generateAndUploadDeliveryPdf(fullOrder, id, userId, language);
 
     return {
       success: true,
@@ -1430,5 +1645,111 @@ export class SalesOrderService {
       SalesOrderService.DOC_TYPE_DOCUMENTO_ORIGINAL,
     );
     return this.regenerateDocumentoOriginal(id, tenantId, userId, language);
+  }
+
+  private allocationScope(so: {
+    warehouse_id?: string | null;
+    billing_branch_id?: string | null;
+  }): { warehouseId?: string | null; billingBranchId?: string | null } {
+    if (so.warehouse_id) {
+      return { warehouseId: so.warehouse_id };
+    }
+    return { billingBranchId: so.billing_branch_id };
+  }
+
+  private async resolveSalesOrderLocation(
+    tenantId: string,
+    dto: CreateSalesOrderDto,
+    isPosSale: boolean,
+  ): Promise<{
+    fiscalConfigurationId: string;
+    billingBranchId: string;
+    warehouseId: string | null;
+  }> {
+    if (isPosSale) {
+      if (!dto.warehouse_id) {
+        throw new BadRequestException('Las ventas POS requieren warehouse_id');
+      }
+
+      const warehouse = await this.warehouseRepo.findOne({
+        where: { id: dto.warehouse_id, tenant_id: tenantId },
+        relations: ['billing_branch'],
+      });
+      if (!warehouse) {
+        throw new BadRequestException('Almacén no encontrado');
+      }
+
+      const branch = warehouse.billing_branch;
+      if (!branch) {
+        throw new BadRequestException('El almacén no pertenece a ninguna sucursal');
+      }
+
+      const billingBranchId = dto.billing_branch_id ?? branch.id;
+      if (billingBranchId !== branch.id) {
+        throw new BadRequestException('El almacén no pertenece a la sucursal seleccionada');
+      }
+      if (branch.fiscal_configuration_id !== dto.fiscal_configuration_id) {
+        throw new BadRequestException(
+          'La sucursal del almacén no pertenece a la razón social seleccionada',
+        );
+      }
+
+      return {
+        fiscalConfigurationId: dto.fiscal_configuration_id,
+        billingBranchId,
+        warehouseId: warehouse.id,
+      };
+    }
+
+    let billingBranchId = dto.billing_branch_id ?? null;
+    let warehouseId = dto.warehouse_id ?? null;
+
+    if (!billingBranchId && warehouseId) {
+      const warehouse = await this.warehouseRepo.findOne({
+        where: { id: warehouseId, tenant_id: tenantId },
+      });
+      if (!warehouse) {
+        throw new BadRequestException('Almacén no encontrado');
+      }
+      if (!warehouse.billing_branch_id) {
+        throw new BadRequestException('El almacén no pertenece a ninguna sucursal');
+      }
+      billingBranchId = warehouse.billing_branch_id;
+    }
+
+    if (!billingBranchId) {
+      throw new BadRequestException('Las órdenes manuales requieren billing_branch_id');
+    }
+
+    const branch = await this.billingBranchRepo.findOne({
+      where: { id: billingBranchId },
+      relations: ['fiscal_configuration'],
+    });
+    if (!branch || branch.fiscal_configuration?.tenant_id !== tenantId) {
+      throw new BadRequestException('Sucursal no encontrada');
+    }
+    if (branch.fiscal_configuration_id !== dto.fiscal_configuration_id) {
+      throw new BadRequestException(
+        'La sucursal no pertenece a la razón social seleccionada',
+      );
+    }
+
+    if (warehouseId) {
+      const warehouse = await this.warehouseRepo.findOne({
+        where: { id: warehouseId, tenant_id: tenantId },
+      });
+      if (!warehouse) {
+        throw new BadRequestException('Almacén no encontrado');
+      }
+      if (warehouse.billing_branch_id !== billingBranchId) {
+        throw new BadRequestException('El almacén no pertenece a la sucursal seleccionada');
+      }
+    }
+
+    return {
+      fiscalConfigurationId: dto.fiscal_configuration_id,
+      billingBranchId,
+      warehouseId,
+    };
   }
 }

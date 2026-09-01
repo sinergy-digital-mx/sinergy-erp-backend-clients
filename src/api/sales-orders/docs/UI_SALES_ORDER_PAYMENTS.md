@@ -34,11 +34,56 @@ También vienen en el detalle:
 
 ```
 GET /api/tenant/sales-orders/:id
+→ data.header.payment_method
+→ data.header.payment_method_label
+→ data.header.payment_breakdown_label
+→ data.header.payment_display
+→ data.header.collection_channel
+→ data.header.collection_channel_label
 → data.header.payments
 → data.header.payments_summary
 → data.payments
 → data.payments_summary
+→ data.payment_display
+→ data.pos_collection
 ```
+
+`payment_status` es **Pagado / Pendiente**. No es cómo se pagó ni **dónde** se cobró.
+
+`collection_channel` es **dónde** se cobró: POS Cobranza vs detalle de la OV.
+
+---
+
+## Cómo se pagó (detalle y listado)
+
+En **FECHAS** del detalle, debajo de Estado de pago, pintar la forma de pago. No basta con `Pagado`.
+
+```
+Estado de pago:  Pagado
+Origen cobro:    POS cobranza
+Forma de pago:   Mixto
+                 Efectivo + Tarjeta
+  · Efectivo     $500.00
+  · Tarjeta      $300.50
+```
+
+| UI | Campo | Ejemplo |
+|----|--------|---------|
+| Origen cobro | `header.collection_channel_label` | `POS cobranza`, `Cobrada manual`, `POS cobranza + Manual` |
+| Código origen | `header.collection_channel` | `pos_cobranza` \| `manual` \| `mixed` \| `null` |
+| Forma de pago | `header.payment_method_label` | `Efectivo`, `Tarjeta`, `Transferencia`, `Mixto`, `Crédito` |
+| Código | `header.payment_method` | `cash` \| `card` \| `transfer` \| `mixed` \| `credit` \| `null` |
+| Detalle mixto | `header.payment_breakdown_label` | `Efectivo + Tarjeta` |
+| Líneas con montos | `header.payment_display.lines[]` | `{ method, label, amount_mxn, amount_usd }` |
+
+Si `payment_method_label` es `null` → `Sin cobro`.
+Si `collection_channel` es `null` → no pintar chip de origen (aún no hay cobro).
+
+Mismo binding en el listado: cada fila trae `payment_method`, `payment_method_label`, `payment_breakdown_label`, `collection_channel`, `collection_channel_label`.
+
+No uses `sales_order_type` para este chip. Layout del listado: `UI_SALES_ORDER_LIST.md` § 2.1.
+
+`pos_collection` sigue ahí para el desglose de recibido/cambio. Para el chip del header usa `payment_display`, no armes el label en Pollux.
 
 ---
 
@@ -79,6 +124,7 @@ Content-Type: application/json
     "payment_method": "transfer",
     "reference_number": "SPEI-998877",
     "source": "manual",
+    "source_label": "Cobrada manual",
     "documents": [],
     "created_by_name": "Admin User"
   },
@@ -119,8 +165,9 @@ Respuesta incluye `url` firmada (15 min) para previsualizar/descargar.
 │ PAGOS                              Total: $1,500.00     │
 │ Pagado: $500.00   Pendiente: $1,000.00   [Pendiente]    │
 ├─────────────────────────────────────────────────────────┤
-│ Fecha       Método        Monto     Ref        Acciones │
-│ 03/07/2026  Transferencia $500.00   SPEI-99…  📎 🗑     │
+│ Fecha       Método        Monto     Origen           Ref        Acciones │
+│ 03/07/2026  Transferencia $500.00   Cobrada manual   SPEI-99…  📎 🗑     │
+│ 03/07/2026  Efectivo      $1,000.00 POS cobranza     —         📎        │
 ├─────────────────────────────────────────────────────────┤
 │ [ + Registrar pago ]                                    │
 └─────────────────────────────────────────────────────────┘
@@ -146,6 +193,7 @@ Respuesta incluye `url` firmada (15 min) para previsualizar/descargar.
 | Pago `source = pos_cobranza` | No permitir eliminar (solo lectura) |
 | Pago `source = manual` | Permitir eliminar y recalcular saldo |
 | Chip estatus | `payments_summary.payment_status` |
+| Origen por pago | `source_label` (`POS cobranza` / `Cobrada manual`) |
 
 ### Función Pollux
 
@@ -231,6 +279,11 @@ Por cobrar:      $1,000.00   ← amount_pending
 ## Checklist Pollux
 
 - [ ] Sección **Pagos** en detalle de orden de venta
+- [ ] En FECHAS: **Forma de pago** con `payment_method_label` (no solo Pagado/Pendiente)
+- [ ] En FECHAS y listado: **Origen cobro** con `collection_channel_label` (`POS cobranza` / `Cobrada manual`)
+- [ ] Mixto: mostrar `payment_breakdown_label` y `payment_display.lines`
+- [ ] Listado: columna Pago con `payment_method_label` + chip de origen
+- [ ] Tabla de pagos: columna Origen con `source_label`
 - [ ] Mostrar `payments_summary` (pagado / pendiente / estatus)
 - [ ] Formulario registrar pago (método + monto + referencia + notas)
 - [ ] Subida opcional de comprobante tras crear pago

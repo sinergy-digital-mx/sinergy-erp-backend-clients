@@ -5,6 +5,10 @@ export class TransferContextBatchDto {
   @ApiProperty() batch_id: string;
   @ApiProperty() batch_number: string;
   @ApiProperty({ nullable: true }) source_tag_identifier: string | null;
+  @ApiProperty({ nullable: true }) measure: string | null;
+  @ApiProperty({ nullable: true }) measure_uom_id: string | null;
+  @ApiProperty({ nullable: true }) measure_uom_name: string | null;
+  @ApiProperty({ nullable: true }) measure_label: string | null;
   @ApiProperty() available_quantity: string;
   @ApiProperty() initial_quantity: string;
   @ApiProperty({ nullable: true }) purchase_order_folio: string | null;

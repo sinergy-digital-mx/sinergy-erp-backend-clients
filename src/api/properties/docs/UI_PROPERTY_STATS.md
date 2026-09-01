@@ -1,6 +1,8 @@
 # UI — Stats y filtros del listado de lotes
 
-Contrato para Pollux: el listado de **Lotes** lleva una tira de KPI (como Contratos) y un filtro de **grupo de cliente**. Los números siguen el **proyecto** y el resto de filtros; no se calculan en el front.
+Contrato para Pollux: **un solo catálogo** — **Grupo de cliente**. No hay “Proyecto”.
+
+`property_groups` ya no aplica a lotes. `properties.group_id` es un UUID de `customer_groups` (el mismo de Clientes y Contratos).
 
 Máximo **4 cards**. No clonar el grid de 12 del Divino Dashboard.
 
@@ -8,21 +10,19 @@ Máximo **4 cards**. No clonar el grid de 12 del Divino Dashboard.
 
 ## Layout
 
-Entre la barra de filtros y la tabla:
-
 ```
 [ Título Lotes ]                         [ + Crear Lote ]
 
-[ Buscar… ] [ Proyecto ▼ ] [ Estado ▼ ] [ Grupo de cliente ▼ ]
+[ Buscar… ] [ Grupo de cliente ▼ ] [ Estado ▼ ]
 
 [ TOTAL ] [ DISPONIBLES ] [ ACTIVOS EN PAGO ] [ PRECIO PROM. $/M² ]
 
 [ Tabla ]
 ```
 
-Misma familia visual que Contratos (tira de 4, pastel + borde superior de color) con el acabado de Divino: valor grande, label en caps muted, icono chico, 1 línea de subdato. Grid: `1` col mobile, `2` tablet, `4` desktop.
+**Quitar** el dropdown “Proyecto” / “Todos los proyectos”. **Quitar** `GET /tenant/property-groups` de esta pantalla (listado, crear y editar lote).
 
-No son clickeables.
+Misma familia visual que Contratos: tira de 4, borde superior de color, valor grande, label caps muted, icono chico, 1 línea de sub. Grid: `1` col mobile, `2` tablet, `4` desktop. No clickeables.
 
 ---
 
@@ -30,20 +30,19 @@ No son clickeables.
 
 | UI | Query param | Catálogo |
 |----|-------------|----------|
-| Proyecto | `groupId` | `GET /api/tenant/property-groups` (ya existe) |
+| **Grupo de cliente** | `group_id` | `GET /api/tenant/customers/groups` |
 | Estado | `status` | `disponible` \| `vendido` \| `reservado` \| `cancelado` |
-| Grupo de cliente | `customer_group_id` | `GET /api/tenant/customers/groups` |
 | Búsqueda | `search` | ya existe |
 
-**`groupId` ≠ `customer_group_id`.** El primero es el proyecto (property group). El segundo es el grupo de clientes. No enviar `group_id` en lotes: ese nombre es de contratos/clientes.
+Mismo GET de grupos que Clientes y Contratos. Nunca un array fijo ni UUIDs de Divino.
 
-Opciones de grupo de cliente: mismo catálogo que Clientes/Contratos. No hardcodear.
+“Todos los grupos de cliente” / “Todos los estados” = **omitir** el param.
 
-“Todos los proyectos” / “Todos los grupos” / “Todos los estados” = **omitir** el param.
-
-`customer_group_id` deja lotes **con al menos un contrato** cuyo cliente está en ese grupo. Los disponibles sin cliente **salen** del listado y de las cards. Es correcto: el grupo aplica a quién compró, no al inventario vacío.
+Compat (no usar en código nuevo): `groupId` y `customer_group_id` se tratan como `group_id`.
 
 Al cambiar cualquier filtro: refetch **lista + stats en paralelo**.
+
+Filtrar por grupo incluye lotes **disponibles** de ese grupo (el grupo vive en el lote, no solo en el comprador).
 
 ---
 
@@ -53,29 +52,34 @@ Al cambiar cualquier filtro: refetch **lista + stats en paralelo**.
 |-----|------|---------|
 | Tabla | `GET /api/tenant/properties` | `Property:Read` |
 | Cards | `GET /api/tenant/properties/stats` | `Property:Read` |
-| Grupos de cliente | `GET /api/tenant/customers/groups` | `customers:Read` |
-| Proyectos | `GET /api/tenant/property-groups` | `Property:Read` |
-
-Stats **antes** de `/:id` en el back; el path es `/properties/stats`.
-
-Mismos filtros en ambos GET (stats **sin** `page`/`limit`):
+| Grupos | `GET /api/tenant/customers/groups` | `customers:Read` |
 
 ```
-GET /api/tenant/properties?groupId={proyecto}&customer_group_id={grupo}&status=disponible&page=1&limit=20
-GET /api/tenant/properties/stats?groupId={proyecto}&customer_group_id={grupo}&status=disponible
+GET /api/tenant/properties?group_id={uuid}&status=disponible&page=1&limit=20
+GET /api/tenant/properties/stats?group_id={uuid}&status=disponible
 ```
 
-Solo un proyecto:
+Stats **sin** `page`/`limit`. Cubren todo el filtro, no la página.
 
+---
+
+## Crear / editar lote
+
+`group_id` en el body = UUID de `GET /tenant/customers/groups`.
+
+```json
+{ "group_id": "uuid-del-grupo-de-cliente", "code": "LOT-1-01", "name": "…" }
 ```
-GET /api/tenant/properties/stats?groupId={uuid}
-```
+
+`400` si el uuid no es de esta organización. Select: **Grupo de cliente**, mismas opciones que el filtro.
+
+La respuesta trae `group: { id, name, … }` (customer group). Columna de tabla: `group.name`. No pintar una columna “Proyecto” aparte.
 
 ---
 
 ## Respuesta de stats
 
-No sumar `data[]`. `avg_price_per_m2` es Σ precio / Σ m² del filtro (ponderado por área).
+No sumar `data[]`. `avg_price_per_m2` = Σ precio / Σ m² del filtro.
 
 ```json
 {
@@ -88,78 +92,36 @@ No sumar `data[]`. `avg_price_per_m2` es Σ precio / Σ m² del filtro (ponderad
 }
 ```
 
-Contadores: number. Montos y m²: number (2 decimales en UI). Vacío: 0.
-
-`active_in_payment`: lotes con contrato `activo` (en proceso de pago), dentro del filtro.
-
-`reserved` y `sold` van en el payload por si se usan como chip; **no** abrir una 5ª/6ª card.
+`reserved` / `sold`: chip opcional en TOTAL. No abrir más cards.
 
 ---
 
 ## Las 4 cards
 
-Estilo: borde superior de color (~3px), icono outline 20–24px arriba a la derecha, número 24–28px tabular, label 11px caps muted, sub 12px.
+| # | Color borde | Título | Valor | Sub |
+|---|-------------|--------|--------|-----|
+| 1 | navy | TOTAL · Lotes | `total.count` | `{total.area} m² · {total.value}` |
+| 2 | verde | DISPONIBLES | `available.count` | `{available.value} · {available.area} m²` |
+| 3 | ámbar | ACTIVOS EN PAGO | `active_in_payment.count` | Pendiente `{remaining_balance}` |
+| 4 | teal | PRECIO PROM. $/M² | `avg_price_per_m2` | Sobre el filtro actual |
 
-| # | Color borde | Título | Valor | Sub | Icono |
-|---|-------------|--------|--------|-----|--------|
-| 1 | navy / slate | TOTAL · Lotes | `total.count` | `{total.area} m² · {total.value}` | grid / parcela |
-| 2 | verde | DISPONIBLES | `available.count` | `{available.value} · {available.area} m²` | check / lote libre |
-| 3 | ámbar | ACTIVOS EN PAGO | `active_in_payment.count` | Pendiente `{active_in_payment.remaining_balance}` | calendario / pagos |
-| 4 | teal | PRECIO PROM. $/M² | `avg_price_per_m2` | Sobre el filtro actual | regla / m² |
-
-Chip opcional en card 1, solo si > 0: `{sold.count} vendidos · {reserved.count} reservados`.
-
-Formatos: moneda MXN, m² con 2 decimales, entero en conteos, `$0.00` / `0` / `0.00` si no hay datos.
-
----
-
-## Cliente en la fila
-
-El cliente de la tabla ahora puede traer grupo:
-
-```json
-{
-  "customer": {
-    "id": 12,
-    "name": "Ana",
-    "lastname": "Ruiz",
-    "fullName": "Ana Ruiz",
-    "group_id": "uuid",
-    "group": { "id": "uuid", "name": "Mayoreo" }
-  }
-}
-```
-
-Sin cliente: `customer: null`. Columna grupo opcional: `customer.group?.name ?? '—'`.
-
----
-
-## Estados
-
-| Estado | UI |
-|--------|----|
-| Loading | 4 skeletons del alto de las cards; la tabla puede ir aparte |
-| Error | toast + cards en 0; no romper el listado |
-| Vacío | cards en 0; tabla empty-state de siempre |
-| Filtro | lista y cards del **mismo** alcance |
+MXN, m² con 2 decimales. Vacío: `0` / `$0.00`.
 
 ---
 
 ## Qué no hacer
 
-- Inventar las cards con `data[]` (paginación)
-- Olvidar `groupId` al cambiar de proyecto
-- Mandar `group_id` en lotes (usar `customer_group_id`)
-- Poner 8–12 KPIs; esto no es Divino Dashboard
-- Hardcodear grupos de cliente
+- Dropdown **Proyecto** ni `GET /tenant/property-groups` en Lotes
+- Dos columnas Proyecto + Grupo
+- Inventar cards con `data[]`
+- Hardcodear grupos
 
 ---
 
 ## Checklist Pollux
 
-- [ ] 4 cards arriba de la tabla, estilo Contratos + borde de color
-- [ ] Dropdown **Grupo de cliente** (`customer_group_id`) + **Proyecto** (`groupId`)
-- [ ] `GET /tenant/properties/stats` al entrar y al cambiar filtros (mismo query que la lista, sin page)
-- [ ] Cards leen el GET stats, no la página
-- [ ] `$/m²` = `avg_price_per_m2`; disponibles = `available.count`; en pago = `active_in_payment.count`
-- [ ] Skeletons; error no tumba la tabla
+- [ ] Un solo dropdown **Grupo de cliente** (`group_id` + `GET /tenant/customers/groups`)
+- [ ] Crear/editar lote: `group_id` de ese catálogo
+- [ ] Columna grupo: `group.name`
+- [ ] 4 cards + `GET /tenant/properties/stats` con los mismos filtros
+- [ ] Sin “Proyecto” / `property-groups`

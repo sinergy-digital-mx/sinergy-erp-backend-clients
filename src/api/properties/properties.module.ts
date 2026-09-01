@@ -8,11 +8,13 @@ import { PropertyGroupsService } from './property-groups.service';
 import { PropertiesController } from './properties.controller';
 import { PropertyGroupsController } from './property-groups.controller';
 import { RBACModule } from '../rbac/rbac.module';
+import { CustomersModule } from '../customers/customers.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Property, PropertyGroup, MeasurementUnit]),
     RBACModule,
+    CustomersModule,
   ],
   providers: [PropertiesService, PropertyGroupsService],
   controllers: [PropertiesController, PropertyGroupsController],

@@ -4,10 +4,34 @@ export class BatchBreakdownDto {
   @ApiProperty() batch_id: string;
   @ApiProperty() batch_number: string;
   @ApiProperty({ nullable: true }) source_tag_identifier: string | null;
+  @ApiProperty({
+    nullable: true,
+    description: 'Tamaño (8, 12). Independiente de la UOM de inventario.',
+  })
+  measure: string | null;
+  @ApiProperty({ nullable: true }) measure_uom_id: string | null;
+  @ApiProperty({ nullable: true }) measure_uom_name: string | null;
+  @ApiProperty({ nullable: true, description: 'Ej. "8 Foot". No concatenar con uom_name.' })
+  measure_label: string | null;
   @ApiProperty() available_quantity: string;
   @ApiProperty() initial_quantity: string;
   @ApiProperty() purchase_order_folio: string | null;
   @ApiProperty() created_at: Date;
+}
+
+export class MeasureTotalDto {
+  @ApiProperty({
+    nullable: true,
+    description: 'Tamaño (8, 12). Null = lotes de este SKU sin tamaño.',
+  })
+  measure: string | null;
+  @ApiProperty({ nullable: true }) measure_uom_id: string | null;
+  @ApiProperty({ nullable: true }) measure_uom_name: string | null;
+  @ApiProperty({ nullable: true, description: 'Ej. "8 Foot"' })
+  measure_label: string | null;
+  @ApiProperty() total_available_quantity: string;
+  @ApiProperty() total_initial_quantity: string;
+  @ApiProperty() total_batches: number;
 }
 
 export class ProductInventorySummaryDto {
@@ -56,7 +80,14 @@ export class ProductInventorySummaryDto {
   
   /** Number of batches contributing to this total */
   @ApiProperty() total_batches: number;
-  
+
+  /**
+   * Existencia agrupada por medida (8 vs 12 del mismo SKU).
+   * Vacío si ningún lote de esta fila tiene medida.
+   */
+  @ApiProperty({ type: [MeasureTotalDto] })
+  measure_totals: MeasureTotalDto[];
+
   /** Breakdown of each batch contributing to this product's inventory */
   @ApiProperty({ type: [BatchBreakdownDto] })
   batches: BatchBreakdownDto[];

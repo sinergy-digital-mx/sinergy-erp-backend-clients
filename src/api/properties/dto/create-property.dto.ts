@@ -32,6 +32,7 @@ export class CreatePropertyDto {
   @IsString()
   location?: string;
 
+  /** UUID de grupo de cliente (`GET /tenant/customers/groups`). No usar property-groups. */
   @IsString()
   group_id: string;
 

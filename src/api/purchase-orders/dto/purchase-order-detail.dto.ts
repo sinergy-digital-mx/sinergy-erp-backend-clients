@@ -65,6 +65,15 @@ export class PurchaseOrderDetailDto {
     received_converted_uom_name: string | null;
   }>;
   batches: any[];
+  batches_summary?: {
+    received_lots: number;
+    migrated_lots: number;
+    received_quantity: string;
+    remaining_on_received_lots: string;
+    remaining_total: string;
+    migrated_quantity: string;
+    amount_total: number;
+  };
   documents: Array<{
     id: string;
     purchase_order_id: string;
@@ -80,4 +89,6 @@ export class PurchaseOrderDetailDto {
     path: string;
   }>;
   payments: any[];
+  movements?: any[];
+  movements_count?: number;
 }

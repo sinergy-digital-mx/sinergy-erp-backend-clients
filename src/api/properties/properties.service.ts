@@ -1,15 +1,14 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import { Injectable, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import { Property } from '../../entities/properties/property.entity';
-import { PropertyGroup } from '../../entities/properties/property-group.entity';
 import { MeasurementUnit } from '../../entities/properties/measurement-unit.entity';
 import { CreatePropertyDto } from './dto/create-property.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
+import { CustomerGroupsService } from '../customers/customer-groups.service';
 
 export type PropertyListFilters = {
-  groupId?: string;
-  customer_group_id?: string;
+  group_id?: string;
   search?: string;
   status?: string;
 };
@@ -19,17 +18,24 @@ export class PropertiesService {
   constructor(
     @InjectRepository(Property)
     private propertyRepo: Repository<Property>,
-    @InjectRepository(PropertyGroup)
-    private groupRepo: Repository<PropertyGroup>,
     @InjectRepository(MeasurementUnit)
     private measurementUnitRepo: Repository<MeasurementUnit>,
+    private readonly customerGroupsService: CustomerGroupsService,
   ) {}
 
   async create(tenantId: string, dto: CreatePropertyDto): Promise<Property> {
     await this.assertPropertyCodeAvailable(tenantId, dto.code);
+    const groupId = await this.customerGroupsService.assertBelongsToOrganization(
+      dto.group_id,
+      tenantId,
+    );
+    if (!groupId) {
+      throw new BadRequestException('group_id es obligatorio');
+    }
 
     const property = this.propertyRepo.create({
       ...dto,
+      group_id: groupId,
       tenant_id: tenantId,
       cadastral_key: this.normalizeOptionalText(dto.cadastral_key),
     });
@@ -41,9 +47,6 @@ export class PropertiesService {
       this.rethrowIfDuplicatePropertyCode(err, dto.code);
       throw err;
     }
-
-    // Update group stats
-    await this.updateGroupStats(tenantId, dto.group_id);
 
     return saved;
   }
@@ -152,6 +155,17 @@ export class PropertiesService {
       await this.assertPropertyCodeAvailable(tenantId, dto.code, property.id);
     }
 
+    if (dto.group_id !== undefined) {
+      const groupId = await this.customerGroupsService.assertBelongsToOrganization(
+        dto.group_id,
+        tenantId,
+      );
+      if (!groupId) {
+        throw new BadRequestException('group_id es obligatorio');
+      }
+      dto = { ...dto, group_id: groupId };
+    }
+
     Object.assign(property, dto);
     if (dto.cadastral_key !== undefined) {
       property.cadastral_key = this.normalizeOptionalText(dto.cadastral_key);
@@ -167,9 +181,6 @@ export class PropertiesService {
       throw err;
     }
 
-    // Update group stats
-    await this.updateGroupStats(tenantId, property.group_id);
-
     return updated;
   }
 
@@ -180,32 +191,10 @@ export class PropertiesService {
     }
 
     await this.propertyRepo.remove(property);
-    await this.updateGroupStats(tenantId, property.group_id);
-  }
-
-  async getPropertyStats(tenantId: string, groupId: string): Promise<any> {
-    const stats = await this.propertyRepo
-      .createQueryBuilder('p')
-      .select('COUNT(*)', 'total')
-      .addSelect("SUM(CASE WHEN p.status = 'disponible' THEN 1 ELSE 0 END)", 'available')
-      .addSelect("SUM(CASE WHEN p.status = 'vendido' THEN 1 ELSE 0 END)", 'sold')
-      .addSelect("SUM(CASE WHEN p.status = 'reservado' THEN 1 ELSE 0 END)", 'reserved')
-      .addSelect('SUM(p.total_price)', 'total_value')
-      .where('p.tenant_id = :tenantId', { tenantId })
-      .andWhere('p.group_id = :groupId', { groupId })
-      .getRawOne();
-
-    return {
-      total: parseInt(stats.total) || 0,
-      available: parseInt(stats.available) || 0,
-      sold: parseInt(stats.sold) || 0,
-      reserved: parseInt(stats.reserved) || 0,
-      total_value: parseFloat(stats.total_value) || 0,
-    };
   }
 
   /**
-   * KPIs del listado de lotes. Mismos filtros que GET /properties (proyecto, grupo de cliente, estatus, search).
+   * KPIs del listado de lotes. Mismos filtros que GET /properties (grupo de cliente, estatus, search).
    */
   async getListStats(
     tenantId: string,
@@ -292,24 +281,12 @@ export class PropertiesService {
     query: ReturnType<Repository<Property>['createQueryBuilder']>,
     filters: PropertyListFilters,
   ): void {
-    if (filters.groupId) {
-      query.andWhere('p.group_id = :groupId', { groupId: filters.groupId });
+    if (filters.group_id) {
+      query.andWhere('p.group_id = :group_id', { group_id: filters.group_id });
     }
 
     if (filters.status) {
       query.andWhere('p.status = :status', { status: filters.status });
-    }
-
-    if (filters.customer_group_id) {
-      query.andWhere(
-        `EXISTS (
-          SELECT 1 FROM contracts cg_c
-          INNER JOIN customers cg_cust ON cg_cust.id = cg_c.customer_id
-          WHERE cg_c.property_id = p.id
-            AND cg_cust.group_id = :customerGroupId
-        )`,
-        { customerGroupId: filters.customer_group_id },
-      );
     }
 
     if (filters.search) {
@@ -340,19 +317,6 @@ export class PropertiesService {
 
   private roundMoney(value: number): number {
     return Math.round(value * 100) / 100;
-  }
-
-  private async updateGroupStats(tenantId: string, groupId: string): Promise<void> {
-    const stats = await this.getPropertyStats(tenantId, groupId);
-
-    await this.groupRepo.update(
-      { id: groupId, tenant_id: tenantId },
-      {
-        total_properties: stats.total,
-        available_properties: stats.available,
-        sold_properties: stats.sold,
-      },
-    );
   }
 
   async getMeasurementUnits(): Promise<MeasurementUnit[]> {

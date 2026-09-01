@@ -79,9 +79,11 @@ export class SalesOrderPosReceiptService {
     uploadedBy: string,
   ): Promise<PosReceiptResult> {
     const { order, collection } = await this.loadReceiptContext(tenantId, salesOrderId);
-    const billingBranch = order.warehouse?.billing_branch_id
+    const billingBranchId =
+      order.billing_branch_id ?? order.warehouse?.billing_branch_id ?? null;
+    const billingBranch = billingBranchId
       ? await this.billingBranchRepo.findOne({
-          where: { id: order.warehouse.billing_branch_id },
+          where: { id: billingBranchId },
         })
       : null;
 
@@ -310,6 +312,7 @@ export class SalesOrderPosReceiptService {
       .createQueryBuilder('so')
       .where('so.id = :id AND so.tenant_id = :tenantId', { id: salesOrderId, tenantId })
       .leftJoinAndSelect('so.fiscal_configuration', 'fiscal_configuration')
+      .leftJoinAndSelect('so.billing_branch', 'billing_branch')
       .leftJoinAndSelect('so.warehouse', 'warehouse')
       .leftJoinAndSelect('so.customer', 'customer')
       .leftJoinAndSelect('so.seller_user', 'seller_user')

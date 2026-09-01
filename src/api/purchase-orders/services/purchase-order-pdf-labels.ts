@@ -31,6 +31,7 @@ export interface PurchaseOrderPdfLabels {
   unitPrefix: string;
   modePrefix: string;
   noTag: string;
+  measurePrefix: string;
   noBatchesRegistered: string;
   notesPrefix: string;
   notesEmpty: string;

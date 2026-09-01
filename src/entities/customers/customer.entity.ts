@@ -16,6 +16,7 @@ import { RBACTenant } from '../rbac/tenant.entity';
 import { Contract } from '../contracts/contract.entity';
 import { Warehouse } from '../warehouse/warehouse.entity';
 import { BillingBranch } from '../billing/billing-branch.entity';
+import { FiscalConfiguration } from '../billing/fiscal-configuration.entity';
 import { User } from '../users/user.entity';
 
 @Entity('customers')
@@ -142,6 +143,14 @@ export class Customer {
     @Column({ nullable: true })
     warehouse_id: string;
 
+    /** Razón social de registro. Solo informativo; no restringe compras. */
+    @ManyToOne(() => FiscalConfiguration, { nullable: true, onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'registered_fiscal_configuration_id' })
+    registered_fiscal_configuration: FiscalConfiguration | null;
+
+    @Column({ name: 'registered_fiscal_configuration_id', nullable: true })
+    registered_fiscal_configuration_id: string | null;
+
     /** Sucursal donde se dio de alta. Solo informativo; no restringe compras. */
     @ManyToOne(() => BillingBranch, { nullable: true, onDelete: 'SET NULL' })
     @JoinColumn({ name: 'registered_billing_branch_id' })
@@ -157,6 +166,14 @@ export class Customer {
 
     @Column({ name: 'registered_by_user_id', nullable: true })
     registered_by_user_id: string | null;
+
+    /** Vendedor que comisiona por default en las ventas de este cliente. */
+    @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'assigned_seller_user_id' })
+    assigned_seller_user: User | null;
+
+    @Column({ name: 'assigned_seller_user_id', nullable: true })
+    assigned_seller_user_id: string | null;
 
     /** Legado. El crédito vigente vive en customer_credits por razón social. */
     @Column({ type: 'boolean', default: false })

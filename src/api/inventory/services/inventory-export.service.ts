@@ -12,6 +12,11 @@ import {
   joinInventoryLocation,
 } from '../utils/inventory-location-filter.util';
 import {
+  buildMeasureTotals,
+  formatMeasureLabel,
+  formatMeasureTotalsLabel,
+} from '../utils/inventory-measure.util';
+import {
   buildExportSubtitle,
   buildStyledExcelBuffer,
   ExcelColumnDef,
@@ -31,6 +36,7 @@ export class InventoryExportService {
     { header: 'Sucursal', key: 'sucursal', width: 22 },
     { header: 'Almacén', key: 'warehouse_name', width: 22 },
     { header: 'UOM', key: 'uom_name', width: 12 },
+    { header: 'Medida', key: 'measure', width: 12 },
     { header: 'Cant. inicial', key: 'initial_quantity', width: 14, type: 'number' },
     { header: 'Cant. disponible', key: 'available_quantity', width: 14, type: 'number' },
     { header: 'Folio OC', key: 'purchase_order_folio', width: 14 },
@@ -47,6 +53,7 @@ export class InventoryExportService {
     { header: 'Cant. disponible', key: 'total_available_quantity', width: 16, type: 'number' },
     { header: 'Cant. inicial', key: 'total_initial_quantity', width: 14, type: 'number' },
     { header: 'No. lotes', key: 'total_batches', width: 12, type: 'integer' },
+    { header: 'Por medida', key: 'measure_totals', width: 28 },
     { header: 'Precio sugerido', key: 'suggested_unit_price', width: 14, type: 'currency' },
   ];
 
@@ -67,6 +74,7 @@ export class InventoryExportService {
       sucursal: batch.warehouse?.billing_branch?.code ?? '',
       warehouse_name: batch.warehouse?.name ?? '',
       uom_name: batch.uom?.name ?? '',
+      measure: formatMeasureLabel(batch.measure, batch.measure_uom?.name) ?? '',
       initial_quantity: num(batch.initial_quantity),
       available_quantity: num(batch.available_quantity),
       purchase_order_folio: batch.purchase_order_batch?.folio ?? '',
@@ -123,6 +131,7 @@ export class InventoryExportService {
       .leftJoinAndSelect('batch.product', 'product')
       .leftJoinAndSelect('batch.warehouse', 'warehouse')
       .leftJoinAndSelect('batch.uom', 'uom')
+      .leftJoinAndSelect('batch.measure_uom', 'measure_uom')
       .leftJoinAndSelect('batch.purchase_order_batch', 'purchase_order_batch')
       .where('batch.tenant_id = :tenantId', { tenantId });
 
@@ -188,6 +197,7 @@ export class InventoryExportService {
       .leftJoinAndSelect('batch.product', 'product')
       .leftJoinAndSelect('batch.warehouse', 'warehouse')
       .leftJoinAndSelect('batch.uom', 'uom')
+      .leftJoinAndSelect('batch.measure_uom', 'measure_uom')
       .where('batch.tenant_id = :tenantId', { tenantId });
 
     joinInventoryLocation(qb);
@@ -226,6 +236,7 @@ export class InventoryExportService {
         0,
       );
       const totalInitial = batchGroup.reduce((sum, b) => sum + num(b.initial_quantity), 0);
+      const measureTotals = buildMeasureTotals(batchGroup);
 
       rows.push({
         product_sku: first.product?.sku ?? '',
@@ -237,6 +248,7 @@ export class InventoryExportService {
         total_available_quantity: totalAvailable,
         total_initial_quantity: totalInitial,
         total_batches: batchGroup.length,
+        measure_totals: formatMeasureTotalsLabel(measureTotals),
         suggested_unit_price: null,
       });
     }

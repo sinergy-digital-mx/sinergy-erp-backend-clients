@@ -10,7 +10,11 @@ import { TotalCalculatorService } from './total-calculator.service';
 import { POStatusUpdaterService } from './po-status-updater.service';
 import { TenantValidatorService } from './tenant-validator.service';
 import { UnitConversionService } from './unit-conversion.service';
+import { PurchaseOrderActivityService } from './purchase-order-activity.service';
 import { PurchaseOrderBatch } from '../../../entities/purchase-orders/purchase-order-batch.entity';
+import { PurchaseOrderBatchDetail } from '../../../entities/purchase-orders/purchase-order-batch-detail.entity';
+import { InventoryBatch } from '../../../entities/purchase-orders/inventory-batch.entity';
+import { UoMCatalog } from '../../../entities/uom-catalog/uom-catalog.entity';
 import { ReceivePurchaseOrderDto, ReceivedItemDto } from '../dto/receive-purchase-order.dto';
 
 describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)', () => {
@@ -87,6 +91,25 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
           useValue: mockPurchaseOrderRepository,
         },
         {
+          provide: getRepositoryToken(PurchaseOrderBatchDetail),
+          useValue: { query: jest.fn(), update: jest.fn() },
+        },
+        {
+          provide: getRepositoryToken(InventoryBatch),
+          useValue: { count: jest.fn().mockResolvedValue(0) },
+        },
+        {
+          provide: getRepositoryToken(UoMCatalog),
+          useValue: {
+            createQueryBuilder: jest.fn().mockReturnValue({
+              select: jest.fn().mockReturnThis(),
+              where: jest.fn().mockReturnThis(),
+              andWhere: jest.fn().mockReturnThis(),
+              getMany: jest.fn().mockResolvedValue([]),
+            }),
+          },
+        },
+        {
           provide: ReceiptValidatorService,
           useValue: mockReceiptValidatorService,
         },
@@ -113,6 +136,10 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
         {
           provide: UnitConversionService,
           useValue: mockUnitConversionService,
+        },
+        {
+          provide: PurchaseOrderActivityService,
+          useValue: { record: jest.fn().mockResolvedValue(undefined) },
         },
       ],
     }).compile();

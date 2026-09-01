@@ -19,6 +19,7 @@ import { InventoryService } from '../../inventory/inventory.service';
 import {
   CreateSalesOrderDto,
   QuerySalesOrderDto,
+  QuerySalesOrderProductsSummaryDto,
   FulfillSalesOrderDto,
   RegenerateDocumentDto,
   UpdateSalesOrderNotesDto,
@@ -26,6 +27,7 @@ import {
   QuerySalesOrderDetailExportDto,
   CreateSalesOrderPaymentDto,
   UpdateSalesOrderSellerDto,
+  UpdateSalesOrderAssignedSellerDto,
 } from '../dto';
 
 @ApiTags('Sales Orders')
@@ -88,6 +90,25 @@ export class SalesOrderController {
     return this.salesOrderService.updateSeller(
       id,
       dto.seller_user_id,
+      req.user.tenant_id,
+      req.user.id,
+    );
+  }
+
+  @Patch(':id/assigned-seller')
+  @ApiOperation({
+    summary: 'Cambiar comisionado de la orden',
+    description:
+      'Actualiza assigned_seller_user_id (quien cobra comisión). Independiente del vendedor que vendió.',
+  })
+  async updateAssignedSeller(
+    @Param('id') id: string,
+    @Body() dto: UpdateSalesOrderAssignedSellerDto,
+    @Req() req: any,
+  ) {
+    return this.salesOrderService.updateAssignedSeller(
+      id,
+      dto.assigned_seller_user_id,
       req.user.tenant_id,
       req.user.id,
     );
@@ -344,6 +365,29 @@ export class SalesOrderController {
     res.send(buffer);
   }
 
+  @Get('products-summary')
+  @ApiOperation({
+    summary: 'Inventario de la sucursal para el tab Productos al crear OV',
+    description:
+      'Agrega stock de todos los almacenes de la sucursal. No enviar warehouse_id. Con search, SKU exacto primero y el resto por relevancia.',
+  })
+  async getProductsSummary(
+    @Query() query: QuerySalesOrderProductsSummaryDto,
+    @Req() req: any,
+  ) {
+    return this.inventoryService.getBranchInventorySummary(
+      req.user.tenant_id,
+      query.billing_branch_id,
+      {
+        fiscal_configuration_id: query.fiscal_configuration_id,
+        search: query.search,
+        only_available: true,
+        page: query.page ?? 1,
+        limit: query.limit ?? 40,
+      },
+    );
+  }
+
   @Get('warehouse/:warehouseId/products-summary')
   @ApiOperation({ summary: 'Get summarized inventory products for a warehouse' })
   async getWarehouseProductsSummary(
@@ -481,6 +525,9 @@ export class SalesOrderController {
         line_items: lineItems,
         documents,
         pos_collection: detail.pos_collection,
+        payment_display: detail.payment_display,
+        payments: detail.payments,
+        payments_summary: detail.payments_summary,
         discount_summary: detail.discount_summary,
         applied_line_discounts: detail.applied_line_discounts,
         applied_global_discount: detail.applied_global_discount,

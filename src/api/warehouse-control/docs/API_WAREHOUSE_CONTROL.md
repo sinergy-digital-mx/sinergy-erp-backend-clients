@@ -28,8 +28,8 @@ Módulo RBAC: `warehouse_control` (debe estar enabled para la organización).
 GET /api/tenant/warehouse-control?search=OSV&billing_branch_id=uuid&warehouse_id=uuid&page=1&limit=20
 ```
 
-- `billing_branch_id`: CEDIS / sucursal (`warehouses.billing_branch_id`).
-- `warehouse_id`: filtro opcional de almacén.
+- `billing_branch_id`: CEDIS / sucursal (`sales_orders.billing_branch_id`).
+- `warehouse_id`: filtro opcional. Coincide OV con ese almacén **o** OV MANUAL de la sucursal de ese almacén.
 
 ## Detalle — respuesta (shape)
 
@@ -56,13 +56,16 @@ GET /api/tenant/warehouse-control?search=OSV&billing_branch_id=uuid&warehouse_id
       "quantity_base_uom": 2,
       "warehouse_id": "...",
       "warehouse_name": "...",
-      "available_quantity": 15
+      "available_quantity": 15,
+      "warehouses": [
+        { "warehouse_id": "...", "warehouse_name": "Racks", "available_quantity": 10 }
+      ]
     }
   ]
 }
 ```
 
-MVP: un almacén por OV (`sales_orders.warehouse_id`) en todas las líneas.
+MVP: FIFO en los almacenes de la sucursal (`billing_branch_id`). `warehouse_id` en cabecera puede ser `null`.
 
 ## Corroborar
 

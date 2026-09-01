@@ -100,6 +100,8 @@ export async function seedModulePermissions(
       approve: `Approve access to ${moduleName}`,
       reject: `Reject access to ${moduleName}`,
       Transfer: `Crear transferencias de inventario entre almacenes`,
+      Count: `Realizar conteo físico de inventario por lote`,
+      Authorize: `Autorizar y aplicar correcciones de auditoría de inventario`,
       Read: `Ver ${moduleName}`,
       Write: `Crear y editar ${moduleName}`,
       Delete: `Eliminar ${moduleName}`,

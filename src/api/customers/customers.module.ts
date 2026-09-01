@@ -13,6 +13,7 @@ import { CustomerDocumentsService } from './customer-documents.service';
 import { CustomerStatus } from '../../entities/customers/customer-status.entity';
 import { Customer } from '../../entities/customers/customer.entity';
 import { CustomerCredit } from '../../entities/customers/customer-credit.entity';
+import { CustomerAssignmentChange } from '../../entities/customers/customer-assignment-change.entity';
 import { CustomerGroup } from '../../entities/customers/customer-group.entity';
 import { CustomerActivity } from '../../entities/customers/customer-activity.entity';
 import { CustomerDocument } from '../../entities/customers/customer-document.entity';
@@ -30,12 +31,14 @@ import { S3Service } from '../../common/services/s3.service';
 import { RBACModule } from '../rbac/rbac.module';
 import { CustomerProductInsightsService } from './services/customer-product-insights.service';
 import { CustomerCreditService } from './services/customer-credit.service';
+import { CustomerAssignmentService } from './services/customer-assignment.service';
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([
             Customer,
             CustomerCredit,
+            CustomerAssignmentChange,
             CustomerStatus,
             CustomerGroup,
             CustomerActivity,
@@ -61,6 +64,7 @@ import { CustomerCreditService } from './services/customer-credit.service';
         CustomerDocumentsService,
         CustomerProductInsightsService,
         CustomerCreditService,
+        CustomerAssignmentService,
         S3Service,
     ],
     controllers: [
@@ -70,6 +74,6 @@ import { CustomerCreditService } from './services/customer-credit.service';
         CustomerDocumentsController,
         DocumentTypesController,
     ],
-    exports: [CustomersService, CustomerCreditService],
+    exports: [CustomersService, CustomerCreditService, CustomerGroupsService, CustomerAssignmentService],
 })
 export class CustomersModule { }

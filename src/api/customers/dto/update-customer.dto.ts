@@ -193,6 +193,18 @@ export class UpdateCustomerDto {
     warehouse_id?: string | null;
 
     @ApiProperty({
+        description: 'Razón social de registro (solo informativo)',
+        example: 'fiscal-uuid',
+        required: false,
+        nullable: true,
+    })
+    @Transform(({ value }) => (value === '' ? null : value))
+    @IsOptional()
+    @ValidateIf((_, v) => v !== null)
+    @IsString()
+    registered_fiscal_configuration_id?: string | null;
+
+    @ApiProperty({
         description: 'Sucursal donde se dio de alta el cliente (solo informativo)',
         example: 'branch-uuid',
         required: false,
@@ -215,6 +227,18 @@ export class UpdateCustomerDto {
     @ValidateIf((_, v) => v !== null)
     @IsString()
     registered_by_user_id?: string | null;
+
+    @ApiProperty({
+        description: 'Vendedor asignado al cliente (quien comisiona por default). Usuario con código POS',
+        example: 'user-uuid',
+        required: false,
+        nullable: true,
+    })
+    @Transform(({ value }) => (value === '' ? null : value))
+    @IsOptional()
+    @ValidateIf((_, v) => v !== null)
+    @IsString()
+    assigned_seller_user_id?: string | null;
 
     @ApiProperty({
         description:

@@ -1,7 +1,7 @@
 // src/customers/customers.service.ts
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
@@ -16,6 +16,7 @@ import { Customer } from '../../entities/customers/customer.entity';
 import { CustomerAddress } from '../../entities/customers/customer-address.entity';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { BillingBranch } from '../../entities/billing/billing-branch.entity';
+import { FiscalConfiguration } from '../../entities/billing/fiscal-configuration.entity';
 import { User } from '../../entities/users/user.entity';
 import { parsePhoneNumber } from '../../common/utils/phone.validator';
 import { hasValidGps } from '../../common/utils/geo.helper';
@@ -25,10 +26,16 @@ import {
     hasSatStreetParts,
 } from './utils/fiscal-domicile.util';
 import { CustomerCreditService } from './services/customer-credit.service';
+import { CustomerAssignmentService } from './services/customer-assignment.service';
 import { getFiscalInvoiceReadiness } from './utils/fiscal-invoice-readiness.util';
 import { mapCustomerCheckoutFields } from './utils/map-customer-checkout.util';
 import { buildCreditSnapshot, extractCreditPatchFromBody } from './utils/customer-credit.util';
 import { UpsertCustomerCreditsDto } from './dto/upsert-customer-credit.dto';
+import {
+    assignmentChange,
+    compactAssignmentChanges,
+    formatAssignmentUserLabel,
+} from '../../common/utils/assignment-change.util';
 
 const GENERIC_RFCS = new Set(['XAXX010101000', 'XEXX010101000']);
 const DUPLICATE_MATCH_LIMIT = 10;
@@ -66,11 +73,14 @@ export class CustomersService {
         @InjectRepository(Warehouse) private warehouseRepo: Repository<Warehouse>,
         @InjectRepository(BillingBranch)
         private billingBranchRepo: Repository<BillingBranch>,
+        @InjectRepository(FiscalConfiguration)
+        private fiscalConfigRepo: Repository<FiscalConfiguration>,
         @InjectRepository(User) private userRepo: Repository<User>,
         @InjectRepository(CustomerAddress)
         private addressRepo: Repository<CustomerAddress>,
         private readonly customerGroupsService: CustomerGroupsService,
         private readonly customerCreditService: CustomerCreditService,
+        private readonly customerAssignmentService: CustomerAssignmentService,
     ) { }
 
     private async resolveDefaultStatus(): Promise<CustomerStatus> {
@@ -122,8 +132,9 @@ export class CustomersService {
             tenantId,
         );
 
-        const registeredBillingBranchId = await this.resolveRegisteredBranchOrThrow(
-            dto.registered_billing_branch_id,
+        const registration = await this.resolveRegistrationAssignment(dto, tenantId);
+        const assignedSellerUserId = await this.resolveAssignedSellerOrThrow(
+            dto.assigned_seller_user_id,
             tenantId,
         );
         const registeredByUserId = await this.resolveRegisteredByUserOrThrow(
@@ -132,6 +143,9 @@ export class CustomersService {
                 : currentUserId,
             tenantId,
         );
+        delete dto.registered_fiscal_configuration_id;
+        delete dto.registered_billing_branch_id;
+        delete dto.assigned_seller_user_id;
 
         this.applySatFiscalDomicilio(dto);
         const creditPatch = this.extractCreditPatch(dto);
@@ -145,7 +159,9 @@ export class CustomersService {
             additional_phone: additionalPhone,
             additional_phone_code: additionalPhoneCode,
             warehouse,
-            registered_billing_branch_id: registeredBillingBranchId ?? null,
+            registered_fiscal_configuration_id: registration.fiscalId,
+            registered_billing_branch_id: registration.branchId,
+            assigned_seller_user_id: assignedSellerUserId ?? null,
             registered_by_user_id: registeredByUserId ?? null,
             tenant_id: tenantId,
             status,
@@ -160,14 +176,41 @@ export class CustomersService {
         if (creditPatch) {
             await this.customerCreditService.upsertForAllActiveFiscales(saved, creditPatch);
         }
+
+        const initialChanges = await this.buildAssignmentChanges(
+            tenantId,
+            { fiscalId: null, branchId: null, sellerId: null },
+            {
+                fiscalId: saved.registered_fiscal_configuration_id,
+                branchId: saved.registered_billing_branch_id,
+                sellerId: saved.assigned_seller_user_id,
+            },
+        );
+        await this.customerAssignmentService.record({
+            tenantId,
+            customerId: saved.id,
+            actorId: currentUserId ?? null,
+            type: 'assignment_initialized',
+            changes: initialChanges,
+        });
+
         return saved;
     }
 
-    async update(id: number, dto: UpdateCustomerDto, tenantId: string) {
-        const customer = await this.customerRepo.findOneByOrFail({
-            id,
-            tenant_id: tenantId,
+    async update(id: number, dto: UpdateCustomerDto, tenantId: string, currentUserId?: string) {
+        const customer = await this.customerRepo.findOneOrFail({
+            where: { id, tenant_id: tenantId },
+            relations: [
+                'registered_fiscal_configuration',
+                'registered_billing_branch',
+                'assigned_seller_user',
+            ],
         });
+        const previousAssignment = {
+            fiscalId: customer.registered_fiscal_configuration_id,
+            branchId: customer.registered_billing_branch_id,
+            sellerId: customer.assigned_seller_user_id,
+        };
 
         if (dto.status_id) {
             const status = await this.statusRepo.findOneByOrFail({ id: dto.status_id });
@@ -209,13 +252,24 @@ export class CustomersService {
             delete dto.group_id;
         }
 
-        if (dto.registered_billing_branch_id !== undefined) {
-            customer.registered_billing_branch_id =
-                (await this.resolveRegisteredBranchOrThrow(
-                    dto.registered_billing_branch_id,
+        if (
+            dto.registered_fiscal_configuration_id !== undefined ||
+            dto.registered_billing_branch_id !== undefined
+        ) {
+            const registration = await this.resolveRegistrationAssignment(dto, tenantId, customer);
+            customer.registered_fiscal_configuration_id = registration.fiscalId;
+            customer.registered_billing_branch_id = registration.branchId;
+            delete dto.registered_fiscal_configuration_id;
+            delete dto.registered_billing_branch_id;
+        }
+
+        if (dto.assigned_seller_user_id !== undefined) {
+            customer.assigned_seller_user_id =
+                (await this.resolveAssignedSellerOrThrow(
+                    dto.assigned_seller_user_id,
                     tenantId,
                 )) ?? null;
-            delete dto.registered_billing_branch_id;
+            delete dto.assigned_seller_user_id;
         }
 
         if (dto.registered_by_user_id !== undefined) {
@@ -239,7 +293,29 @@ export class CustomersService {
         if (creditPatch) {
             await this.customerCreditService.upsertForAllActiveFiscales(saved, creditPatch);
         }
-        return this.enrichCustomer(saved);
+
+        const assignmentChanges = await this.buildAssignmentChanges(
+            tenantId,
+            previousAssignment,
+            {
+                fiscalId: saved.registered_fiscal_configuration_id,
+                branchId: saved.registered_billing_branch_id,
+                sellerId: saved.assigned_seller_user_id,
+            },
+        );
+        await this.customerAssignmentService.record({
+            tenantId,
+            customerId: saved.id,
+            actorId: currentUserId ?? null,
+            type: 'assignment_updated',
+            changes: assignmentChanges,
+        });
+
+        const enriched = await this.findOne(saved.id, tenantId);
+        if (!enriched) {
+            throw new NotFoundException('Cliente no encontrado');
+        }
+        return enriched;
     }
 
     async findAll(tenantId: string, query?: QueryCustomersDto): Promise<PaginatedCustomersDto> {
@@ -261,12 +337,26 @@ export class CustomersService {
             )
             .leftJoinAndSelect('customer.warehouse', 'warehouse')
             .leftJoinAndSelect('customer.registered_billing_branch', 'registeredBranch')
+            .leftJoin('customer.registered_fiscal_configuration', 'registeredFiscal')
+            .addSelect([
+                'registeredFiscal.id',
+                'registeredFiscal.razon_social',
+                'registeredFiscal.rfc',
+            ])
             .leftJoin('customer.registered_by_user', 'registeredByUser')
             .addSelect([
                 'registeredByUser.id',
                 'registeredByUser.first_name',
                 'registeredByUser.last_name',
                 'registeredByUser.email',
+            ])
+            .leftJoin('customer.assigned_seller_user', 'assignedSeller')
+            .addSelect([
+                'assignedSeller.id',
+                'assignedSeller.first_name',
+                'assignedSeller.last_name',
+                'assignedSeller.email',
+                'assignedSeller.pos_user_code',
             ])
             .leftJoin('customer.contracts', 'contracts')
             .leftJoin('contracts.property', 'property')
@@ -343,12 +433,26 @@ export class CustomersService {
             )
             .leftJoinAndSelect('customer.warehouse', 'warehouse')
             .leftJoinAndSelect('customer.registered_billing_branch', 'registeredBranch')
+            .leftJoin('customer.registered_fiscal_configuration', 'registeredFiscal')
+            .addSelect([
+                'registeredFiscal.id',
+                'registeredFiscal.razon_social',
+                'registeredFiscal.rfc',
+            ])
             .leftJoin('customer.registered_by_user', 'registeredByUser')
             .addSelect([
                 'registeredByUser.id',
                 'registeredByUser.first_name',
                 'registeredByUser.last_name',
                 'registeredByUser.email',
+            ])
+            .leftJoin('customer.assigned_seller_user', 'assignedSeller')
+            .addSelect([
+                'assignedSeller.id',
+                'assignedSeller.first_name',
+                'assignedSeller.last_name',
+                'assignedSeller.email',
+                'assignedSeller.pos_user_code',
             ])
             .leftJoinAndSelect('customer.contracts', 'contracts')
             .leftJoinAndSelect('contracts.property', 'property')
@@ -394,12 +498,26 @@ export class CustomersService {
             )
             .leftJoinAndSelect('customer.warehouse', 'warehouse')
             .leftJoinAndSelect('customer.registered_billing_branch', 'registeredBranch')
+            .leftJoin('customer.registered_fiscal_configuration', 'registeredFiscal')
+            .addSelect([
+                'registeredFiscal.id',
+                'registeredFiscal.razon_social',
+                'registeredFiscal.rfc',
+            ])
             .leftJoin('customer.registered_by_user', 'registeredByUser')
             .addSelect([
                 'registeredByUser.id',
                 'registeredByUser.first_name',
                 'registeredByUser.last_name',
                 'registeredByUser.email',
+            ])
+            .leftJoin('customer.assigned_seller_user', 'assignedSeller')
+            .addSelect([
+                'assignedSeller.id',
+                'assignedSeller.first_name',
+                'assignedSeller.last_name',
+                'assignedSeller.email',
+                'assignedSeller.pos_user_code',
             ])
             .leftJoinAndSelect('customer.addresses', 'addresses')
             .where('customer.id = :id', { id })
@@ -418,12 +536,26 @@ export class CustomersService {
             )
             .leftJoinAndSelect('customer.warehouse', 'warehouse')
             .leftJoinAndSelect('customer.registered_billing_branch', 'registeredBranch')
+            .leftJoin('customer.registered_fiscal_configuration', 'registeredFiscal')
+            .addSelect([
+                'registeredFiscal.id',
+                'registeredFiscal.razon_social',
+                'registeredFiscal.rfc',
+            ])
             .leftJoin('customer.registered_by_user', 'registeredByUser')
             .addSelect([
                 'registeredByUser.id',
                 'registeredByUser.first_name',
                 'registeredByUser.last_name',
                 'registeredByUser.email',
+            ])
+            .leftJoin('customer.assigned_seller_user', 'assignedSeller')
+            .addSelect([
+                'assignedSeller.id',
+                'assignedSeller.first_name',
+                'assignedSeller.last_name',
+                'assignedSeller.email',
+                'assignedSeller.pos_user_code',
             ])
             .leftJoinAndSelect('customer.activities', 'activities')
             .where('customer.id = :id', { id })
@@ -517,32 +649,58 @@ export class CustomersService {
     }
 
     async getRegistrationOptions(tenantId: string) {
-        const [branches, users] = await Promise.all([
-            this.billingBranchRepo
-                .createQueryBuilder('branch')
-                .innerJoin('branch.fiscal_configuration', 'fc')
-                .where('fc.tenant_id = :tenantId', { tenantId })
-                .orderBy('branch.code', 'ASC')
-                .getMany(),
+        const [fiscales, users, sellers] = await Promise.all([
+            this.fiscalConfigRepo.find({
+                where: { tenant_id: tenantId },
+                relations: ['branches'],
+                order: { razon_social: 'ASC' },
+            }),
             this.userRepo.find({
                 where: { tenant_id: tenantId },
                 select: ['id', 'first_name', 'last_name', 'email'],
                 order: { first_name: 'ASC', last_name: 'ASC' },
             }),
+            this.userRepo.find({
+                where: { tenant_id: tenantId, pos_user_code: Not(IsNull()) },
+                select: ['id', 'first_name', 'last_name', 'email', 'pos_user_code'],
+                order: { first_name: 'ASC', last_name: 'ASC' },
+            }),
         ]);
 
+        const fiscalConfigurations = fiscales.map((fiscal) => ({
+            id: fiscal.id,
+            razon_social: fiscal.razon_social,
+            rfc: fiscal.rfc,
+            status: fiscal.status,
+            branches: [...(fiscal.branches ?? [])]
+                .sort((a, b) => a.code.localeCompare(b.code, 'es'))
+                .map((branch) => ({
+                    id: branch.id,
+                    name: branch.code,
+                })),
+        }));
+
         return {
-            branches: branches.map((branch) => ({
-                id: branch.id,
-                name: branch.code,
-            })),
+            fiscal_configurations: fiscalConfigurations,
             users: users.map((user) => ({
                 id: user.id,
                 first_name: user.first_name,
                 last_name: user.last_name,
                 email: user.email,
             })),
+            sellers: sellers.map((user) => ({
+                id: user.id,
+                first_name: user.first_name,
+                last_name: user.last_name,
+                email: user.email,
+                pos_user_code: user.pos_user_code,
+            })),
         };
+    }
+
+    async getAssignmentHistory(id: number, tenantId: string) {
+        const data = await this.customerAssignmentService.listForCustomer(id, tenantId);
+        return { data, total: data.length };
     }
 
     async findDuplicates(
@@ -744,6 +902,193 @@ export class CustomersService {
         return user.id;
     }
 
+    private async resolveRegisteredFiscalOrThrow(
+        fiscalId: string | null | undefined,
+        tenantId: string,
+    ): Promise<string | null | undefined> {
+        if (fiscalId === undefined) {
+            return undefined;
+        }
+        if (fiscalId === null || fiscalId === '') {
+            return null;
+        }
+
+        const fiscal = await this.fiscalConfigRepo.findOne({
+            where: { id: fiscalId, tenant_id: tenantId },
+            select: ['id'],
+        });
+
+        if (!fiscal) {
+            throw new BadRequestException(
+                'La razón social de registro no es válida para esta organización',
+            );
+        }
+
+        return fiscal.id;
+    }
+
+    private async resolveAssignedSellerOrThrow(
+        userId: string | null | undefined,
+        tenantId: string,
+    ): Promise<string | null | undefined> {
+        if (userId === undefined) {
+            return undefined;
+        }
+        if (userId === null || userId === '') {
+            return null;
+        }
+
+        const user = await this.userRepo.findOne({
+            where: { id: userId, tenant_id: tenantId },
+            select: ['id', 'pos_user_code'],
+        });
+
+        if (!user) {
+            throw new BadRequestException(
+                'El vendedor asignado no es válido para esta organización',
+            );
+        }
+
+        if (user.pos_user_code == null) {
+            throw new BadRequestException(
+                'El vendedor asignado debe tener un código POS',
+            );
+        }
+
+        return user.id;
+    }
+
+    private async resolveRegistrationAssignment(
+        dto: {
+            registered_fiscal_configuration_id?: string | null;
+            registered_billing_branch_id?: string | null;
+        },
+        tenantId: string,
+        existing?: Customer,
+    ): Promise<{ fiscalId: string | null; branchId: string | null }> {
+        const fiscalTouched = dto.registered_fiscal_configuration_id !== undefined;
+        const branchTouched = dto.registered_billing_branch_id !== undefined;
+
+        let fiscalId = fiscalTouched
+            ? await this.resolveRegisteredFiscalOrThrow(
+                  dto.registered_fiscal_configuration_id,
+                  tenantId,
+              )
+            : existing?.registered_fiscal_configuration_id ?? null;
+
+        let branchId = branchTouched
+            ? await this.resolveRegisteredBranchOrThrow(
+                  dto.registered_billing_branch_id,
+                  tenantId,
+              )
+            : existing?.registered_billing_branch_id ?? null;
+
+        fiscalId = fiscalId ?? null;
+        branchId = branchId ?? null;
+
+        if (branchId) {
+            const branch = await this.billingBranchRepo
+                .createQueryBuilder('branch')
+                .innerJoin('branch.fiscal_configuration', 'fc')
+                .addSelect(['branch.id', 'branch.fiscal_configuration_id'])
+                .where('branch.id = :branchId', { branchId })
+                .andWhere('fc.tenant_id = :tenantId', { tenantId })
+                .getOne();
+
+            if (!branch) {
+                throw new BadRequestException(
+                    'La sucursal de registro no es válida para esta organización',
+                );
+            }
+
+            if (fiscalId && branch.fiscal_configuration_id !== fiscalId) {
+                if (fiscalTouched && !branchTouched) {
+                    branchId = null;
+                } else {
+                    throw new BadRequestException(
+                        'La sucursal de registro no pertenece a la razón social seleccionada',
+                    );
+                }
+            }
+
+            if (!fiscalId) {
+                fiscalId = branch.fiscal_configuration_id;
+            }
+        }
+
+        return { fiscalId, branchId };
+    }
+
+    private async buildAssignmentChanges(
+        tenantId: string,
+        previous: { fiscalId: string | null; branchId: string | null; sellerId: string | null },
+        next: { fiscalId: string | null; branchId: string | null; sellerId: string | null },
+    ) {
+        const [previousLabels, nextLabels] = await Promise.all([
+            this.loadAssignmentLabels(tenantId, previous),
+            this.loadAssignmentLabels(tenantId, next),
+        ]);
+
+        return compactAssignmentChanges([
+            assignmentChange(
+                'registered_fiscal_configuration_id',
+                'Razón social de registro',
+                previousLabels.fiscalLabel,
+                nextLabels.fiscalLabel,
+                previous.fiscalId,
+                next.fiscalId,
+            ),
+            assignmentChange(
+                'registered_billing_branch_id',
+                'Sucursal de registro',
+                previousLabels.branchLabel,
+                nextLabels.branchLabel,
+                previous.branchId,
+                next.branchId,
+            ),
+            assignmentChange(
+                'assigned_seller_user_id',
+                'Vendedor asignado',
+                previousLabels.sellerLabel,
+                nextLabels.sellerLabel,
+                previous.sellerId,
+                next.sellerId,
+            ),
+        ]);
+    }
+
+    private async loadAssignmentLabels(
+        tenantId: string,
+        ids: { fiscalId: string | null; branchId: string | null; sellerId: string | null },
+    ): Promise<{ fiscalLabel: string | null; branchLabel: string | null; sellerLabel: string | null }> {
+        const [fiscal, branch, seller] = await Promise.all([
+            ids.fiscalId
+                ? this.fiscalConfigRepo.findOne({
+                      where: { id: ids.fiscalId, tenant_id: tenantId },
+                      select: ['id', 'razon_social'],
+                  })
+                : Promise.resolve(null),
+            ids.branchId
+                ? this.billingBranchRepo.findOne({
+                      where: { id: ids.branchId },
+                      select: ['id', 'code'],
+                  })
+                : Promise.resolve(null),
+            ids.sellerId
+                ? this.userRepo.findOne({
+                      where: { id: ids.sellerId, tenant_id: tenantId },
+                      select: ['id', 'first_name', 'last_name', 'email', 'pos_user_code'],
+                  })
+                : Promise.resolve(null),
+        ]);
+
+        return {
+            fiscalLabel: fiscal?.razon_social ?? null,
+            branchLabel: branch?.code ?? null,
+            sellerLabel: formatAssignmentUserLabel(seller),
+        };
+    }
+
     /** Completa municipio legado y `fiscal_address` desde el domicilio SAT. */
     private applySatFiscalDomicilio(
         dto: CreateCustomerDto | UpdateCustomerDto,
@@ -824,6 +1169,11 @@ export class CustomersService {
             fiscal,
             activeCredit,
         );
+        const assignment_history =
+            await this.customerAssignmentService.listForExistingCustomer(
+                customer.id,
+                customer.tenant_id,
+            );
         const rest = { ...customer } as Record<string, unknown>;
         delete rest.credit_enabled;
         delete rest.credit_days;
@@ -831,6 +1181,7 @@ export class CustomersService {
         return {
             ...rest,
             ...mapped,
+            assignment_history,
         };
     }
 }

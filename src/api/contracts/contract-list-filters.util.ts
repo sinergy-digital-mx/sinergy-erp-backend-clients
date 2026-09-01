@@ -43,7 +43,10 @@ export function applyContractListFilters(
   }
 
   if (filters.group_id) {
-    query.andWhere('customer.group_id = :group_id', { group_id: filters.group_id });
+    query.andWhere(
+      '(customer.group_id = :group_id OR property.group_id = :group_id)',
+      { group_id: filters.group_id },
+    );
   }
 
   if (filters.hasOverdue === true) {

@@ -5,6 +5,7 @@ import { PurchaseOrderBatchDetail } from '../../../entities/purchase-orders/purc
 import {
   ReceiptLotMode,
   ReceivedItemDto,
+  ReceivedLotDto,
 } from '../dto/receive-purchase-order.dto';
 
 @Injectable()
@@ -72,7 +73,15 @@ export class ReceiptValidatorService {
               `La UoM del lote debe coincidir con la UoM de la línea ${item.line_item_id}`,
             );
           }
+
+          this.assertValidMeasure(
+            lot.measure,
+            lot.measure_uom_id ?? item.measure_uom_id,
+            item.line_item_id,
+          );
         }
+      } else {
+        this.assertValidMeasure(item.measure, item.measure_uom_id, item.line_item_id);
       }
 
       // Validation 4: Line item exists in database
@@ -97,6 +106,43 @@ export class ReceiptValidatorService {
     });
     if (!hasAtLeastOneItem) {
       throw new BadRequestException('Se debe recibir al menos un producto con cantidad mayor a cero');
+    }
+  }
+
+  private assertValidMeasure(
+    measure: ReceivedLotDto['measure'],
+    measureUomId: string | undefined,
+    lineItemId: string,
+  ): void {
+    const hasMeasure = measure !== undefined && measure !== null;
+    const hasUom = Boolean(measureUomId?.trim());
+
+    if (!hasMeasure && !hasUom) {
+      return;
+    }
+
+    if (hasMeasure && !hasUom) {
+      throw new BadRequestException(
+        `Indica la unidad del tamaño (Foot, PIES, …) para la línea ${lineItemId}. No uses la unidad de la orden de compra`,
+      );
+    }
+
+    if (!hasMeasure && hasUom) {
+      throw new BadRequestException(
+        `Indica el tamaño (8, 12, …) para la línea ${lineItemId}`,
+      );
+    }
+
+    const value = Number(measure);
+    if (!Number.isFinite(value) || value <= 0) {
+      throw new BadRequestException(
+        `El tamaño debe ser mayor a cero para la línea ${lineItemId}`,
+      );
+    }
+    if (value > 999999.999) {
+      throw new BadRequestException(
+        `El tamaño excede el límite máximo (999,999.999) para la línea ${lineItemId}`,
+      );
     }
   }
 }

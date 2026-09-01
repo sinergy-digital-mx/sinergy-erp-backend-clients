@@ -58,8 +58,26 @@ export class CreateSalesOrderDto {
   @IsUUID()
   fiscal_configuration_id: string;
 
+  @ApiProperty({
+    required: false,
+    description:
+      'Sucursal. Obligatoria en MANUAL. En POS, si se omite se toma del almacén.',
+  })
+  @IsOptional()
   @IsUUID()
-  warehouse_id: string;
+  billing_branch_id?: string;
+
+  @ApiProperty({
+    required: false,
+    description:
+      'Almacén. Obligatorio en POS. En MANUAL no se envía: el inventario sale de los almacenes de la sucursal.',
+  })
+  @ValidateIf(
+    (dto: CreateSalesOrderDto) =>
+      dto.sales_order_type === 'POS' || dto.warehouse_id != null,
+  )
+  @IsUUID()
+  warehouse_id?: string;
 
   @ApiProperty({
     required: false,
@@ -85,6 +103,15 @@ export class CreateSalesOrderDto {
       'Vendedor. Obligatorio en POS. En MANUAL, si se omite se usa el usuario que crea la orden.',
   })
   seller_user_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  @ApiProperty({
+    required: false,
+    description:
+      'Comisionado (quien cobra comisión). Si se omite, se toma del vendedor asignado del cliente; si el cliente no tiene, se usa el vendedor.',
+  })
+  assigned_seller_user_id?: string;
 
   @ApiProperty({
     required: false,

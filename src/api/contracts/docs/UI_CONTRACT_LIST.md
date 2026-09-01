@@ -28,7 +28,9 @@ Cargar al abrir Contratos. Cachear solo en esa pantalla.
 | Todos los grupos | omitir `group_id` | — |
 | Un grupo | `group_id` | UUID del catálogo |
 
-No usar `customer_group_id` aquí. En contratos el param es **`group_id`** (igual que Clientes).
+`group_id` filtra por el grupo del **cliente** o del **lote** (mismo catálogo).
+
+No usar `customer_group_id`. En contratos el param es **`group_id`**.
 
 ---
 
@@ -119,6 +121,7 @@ Sin `status` en el query, `total` es activo + completado (igual que hoy). Con `s
 - Dejar las cards con el GET stats **sin** query params mientras la tabla sí está filtrada
 - Calcular totals con `data[]`
 - Hardcodear grupos o pegar el CRUD de Configuración (`/customer-groups`) en este dropdown
+- Dropdown “Proyecto” ni `GET /tenant/property-groups` en Contratos
 - Usar la palabra "tenant" en copy de UI
 
 ---

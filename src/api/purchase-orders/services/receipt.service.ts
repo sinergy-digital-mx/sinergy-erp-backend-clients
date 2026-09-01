@@ -4,6 +4,7 @@ import { DataSource, Repository } from 'typeorm';
 import { PurchaseOrderBatch } from '../../../entities/purchase-orders/purchase-order-batch.entity';
 import { PurchaseOrderBatchDetail } from '../../../entities/purchase-orders/purchase-order-batch-detail.entity';
 import { InventoryBatch } from '../../../entities/purchase-orders/inventory-batch.entity';
+import { UoMCatalog } from '../../../entities/uom-catalog/uom-catalog.entity';
 import {
   ReceivePurchaseOrderDto,
   ReceiptLotMode,
@@ -12,7 +13,13 @@ import { ReceiptValidatorService } from './receipt-validator.service';
 import { BatchCreatorService } from './batch-creator.service';
 import { TotalCalculatorService } from './total-calculator.service';
 import { TenantValidatorService } from './tenant-validator.service';
+import { PurchaseOrderActivityService } from './purchase-order-activity.service';
 import { computeReceivedLineBreakdown, roundPoUnitCost } from '../utils/purchase-order-line-breakdown.util';
+import {
+  activityChange,
+  compactActivityChanges,
+} from '../utils/purchase-order-activity-change.util';
+import { PURCHASE_ORDER_MOVEMENT_TYPES } from '../constants/purchase-order-movements';
 
 /**
  * Orquestador de recepción de órdenes de compra.
@@ -29,10 +36,13 @@ export class ReceiptService {
     private readonly lineItemRepository: Repository<PurchaseOrderBatchDetail>,
     @InjectRepository(InventoryBatch)
     private readonly inventoryBatchRepository: Repository<InventoryBatch>,
+    @InjectRepository(UoMCatalog)
+    private readonly uomCatalogRepository: Repository<UoMCatalog>,
     private readonly receiptValidatorService: ReceiptValidatorService,
     private readonly batchCreatorService: BatchCreatorService,
     private readonly totalCalculatorService: TotalCalculatorService,
     private readonly tenantValidatorService: TenantValidatorService,
+    private readonly activityService: PurchaseOrderActivityService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -67,6 +77,7 @@ export class ReceiptService {
           `PO ${id} tiene lotes pero sigue en Creada; se completa el estado a Recibida`,
         );
         await this.finalizeReceivedStatus(id, tenantId, userId, dto, purchaseOrder);
+        await this.recordReceivedStatus(id, tenantId, userId, dto.received_items.length);
         return this.loadReceivedPurchaseOrder(id);
       }
 
@@ -83,6 +94,7 @@ export class ReceiptService {
       }
 
       await this.receiptValidatorService.validateReceivedItems(dto.received_items);
+      await this.assertMeasureUomsExist(dto.received_items, tenantId);
 
       const productIds = [...new Set(dto.received_items.map((item) => item.product_id))];
       const productUomsMap = new Map<string, any[]>();
@@ -174,6 +186,8 @@ export class ReceiptService {
                 ...receivedItem,
                 quantity: Number(lot.quantity || 0),
                 product_uom_id: lot.product_uom_id,
+                measure: lot.measure ?? receivedItem.measure,
+                measure_uom_id: lot.measure_uom_id ?? receivedItem.measure_uom_id,
               };
               await this.batchCreatorService.createBatchForReceivedItem(
                 lotReceivedItem,
@@ -217,6 +231,7 @@ export class ReceiptService {
       this.logger.log(
         `Recepción procesada para OC ${id} por usuario ${userId}`,
       );
+      await this.recordReceivedStatus(id, tenantId, userId, dto.received_items.length);
 
       return this.loadReceivedPurchaseOrder(id);
     } catch (error) {
@@ -253,6 +268,7 @@ export class ReceiptService {
   ): Promise<void> {
     if (dto?.received_items?.length) {
       await this.receiptValidatorService.validateReceivedItems(dto.received_items);
+      await this.assertMeasureUomsExist(dto.received_items, tenantId);
       await this.applyReceivedTotals(
         this.purchaseOrderRepository,
         id,
@@ -323,6 +339,29 @@ export class ReceiptService {
     );
   }
 
+  private async recordReceivedStatus(
+    purchaseOrderId: string,
+    tenantId: string,
+    userId: string,
+    receivedItems: number,
+  ): Promise<void> {
+    try {
+      await this.activityService.record({
+        tenantId,
+        purchaseOrderId,
+        type: PURCHASE_ORDER_MOVEMENT_TYPES.STATUS_CHANGED,
+        actorId: userId,
+        description: 'La orden pasó de Creada a Recibida.',
+        changes: compactActivityChanges([
+          activityChange('general_status', 'Estatus', 'Creada', 'Recibida'),
+        ]),
+        metadata: { received_items: receivedItems },
+      });
+    } catch (error) {
+      this.logger.error('No se pudo guardar el movimiento de recepción', error);
+    }
+  }
+
   private async loadReceivedPurchaseOrder(id: string): Promise<PurchaseOrderBatch> {
     const updatedPO = await this.purchaseOrderRepository.findOne({
       where: { id },
@@ -341,6 +380,39 @@ export class ReceiptService {
     }
 
     return updatedPO;
+  }
+
+  private async assertMeasureUomsExist(
+    items: ReceivePurchaseOrderDto['received_items'],
+    tenantId: string,
+  ): Promise<void> {
+    const ids = new Set<string>();
+    for (const item of items) {
+      if (item.measure_uom_id) {
+        ids.add(item.measure_uom_id);
+      }
+      for (const lot of item.lots || []) {
+        if (lot.measure_uom_id) {
+          ids.add(lot.measure_uom_id);
+        }
+      }
+    }
+    if (ids.size === 0) {
+      return;
+    }
+
+    const found = await this.uomCatalogRepository
+      .createQueryBuilder('uom')
+      .select('uom.id')
+      .where('uom.tenant_id = :tenantId', { tenantId })
+      .andWhere('uom.id IN (:...ids)', { ids: [...ids] })
+      .getMany();
+
+    if (found.length !== ids.size) {
+      throw new BadRequestException(
+        'Unidad de tamaño no encontrada en el catálogo. Elige Foot, PIES u otra unidad; no uses la de la orden de compra',
+      );
+    }
   }
 
   private roundMoney(value: number): number {

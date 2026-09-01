@@ -284,7 +284,7 @@ Columnas actuales + **Crédito**:
 | Almacén / sucursal | según listado actual |
 | Estado | `general_status` |
 | Total | `total` |
-| Pago | `payment_status` + chip **Crédito** si `is_credit` |
+| Pago | `payment_status` + chip **Crédito** si `is_credit` + chip origen (`collection_channel_label`) |
 | Fecha | `created_at` |
 
 Chip: si `is_credit` → badge púrpura **Crédito**. Si además `payment_status === 'Pendiente'` → *Crédito / Pendiente de cobro*. Si ya pagaron después → *Crédito / Pagado*.

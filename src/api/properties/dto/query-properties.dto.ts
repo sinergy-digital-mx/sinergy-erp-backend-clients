@@ -4,14 +4,21 @@ import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class QueryPropertiesDto {
   @ApiPropertyOptional({
-    description: 'Filtrar por proyecto (property group UUID). groupId, no group_id.',
+    description: 'Grupo de cliente (UUID). Mismo catálogo que Clientes/Contratos.',
+  })
+  @IsOptional()
+  @IsString()
+  group_id?: string;
+
+  @ApiPropertyOptional({
+    description: 'Alias de group_id (compat). Preferir group_id.',
   })
   @IsOptional()
   @IsString()
   groupId?: string;
 
   @ApiPropertyOptional({
-    description: 'Filtrar por grupo de cliente (UUID). Lotes con al menos un contrato de ese grupo.',
+    description: 'Alias de group_id (compat). Preferir group_id.',
   })
   @IsOptional()
   @IsString()

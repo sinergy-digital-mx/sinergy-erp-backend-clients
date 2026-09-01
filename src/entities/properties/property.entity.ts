@@ -9,10 +9,10 @@ import {
   UpdateDateColumn,
   Index,
 } from 'typeorm';
-import { PropertyGroup } from './property-group.entity';
 import { MeasurementUnit } from './measurement-unit.entity';
 import { RBACTenant } from '../rbac/tenant.entity';
 import { Contract } from '../contracts/contract.entity';
+import { CustomerGroup } from '../customers/customer-group.entity';
 
 @Entity('properties')
 @Index('tenant_index', ['tenant_id'])
@@ -29,9 +29,10 @@ export class Property {
   @Column()
   tenant_id: string;
 
-  @ManyToOne(() => PropertyGroup, (group) => group.properties, { onDelete: 'CASCADE', nullable: false })
+  /** Grupo de cliente (mismo catálogo que clientes y contratos). */
+  @ManyToOne(() => CustomerGroup, { onDelete: 'RESTRICT', nullable: false })
   @JoinColumn({ name: 'group_id' })
-  group: PropertyGroup;
+  group: CustomerGroup;
 
   @Column()
   group_id: string;

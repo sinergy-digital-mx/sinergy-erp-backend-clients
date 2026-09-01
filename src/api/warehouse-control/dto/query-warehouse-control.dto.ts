@@ -6,7 +6,7 @@ export class QueryWarehouseControlDto {
   @IsString()
   search?: string;
 
-  /** CEDIS / sucursal fiscal (warehouses.billing_branch_id) */
+  /** CEDIS / sucursal fiscal (`sales_orders.billing_branch_id`) */
   @IsOptional()
   @IsUUID()
   billing_branch_id?: string;

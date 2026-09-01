@@ -3,6 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder, Brackets, In } from 'typeorm';
 import { InventoryBatch } from '../../entities/purchase-orders/inventory-batch.entity';
 import { InventoryTransferLine } from '../../entities/inventory/inventory-transfer-line.entity';
+import { InventoryAuditLine } from '../../entities/inventory/inventory-audit-line.entity';
+import { InventoryAuditStatus } from '../../entities/inventory/inventory-audit-status.enum';
+import { Product } from '../../entities/products/product.entity';
 import { ProductPrice } from '../../entities/products/product-price.entity';
 import { ProductDiscount } from '../../entities/products/product-discount.entity';
 import { ProductUoM } from '../../entities/products/product-uom.entity';
@@ -15,14 +18,17 @@ import { User } from '../../entities/users/user.entity';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { FiscalConfiguration } from '../../entities/billing/fiscal-configuration.entity';
 import { BillingBranch } from '../../entities/billing/billing-branch.entity';
+import { UoMCatalog } from '../../entities/uom-catalog/uom-catalog.entity';
 import { S3Service } from '../../common/services/s3.service';
 import { BatchFilterDto } from './dto/batch-filter.dto';
 import { BatchListResponseDto } from './dto/batch-list-response.dto';
 import { BatchResponseDto } from './dto/batch-response.dto';
 import { BatchDetailResponseDto } from './dto/batch-detail-response.dto';
+import { InventoryBatchMovementDto } from './dto/inventory-batch-movement.dto';
+import { UpdateInventoryBatchDto } from './dto/update-inventory-batch.dto';
 import { InventorySummaryFilterDto } from './dto/inventory-summary-filter.dto';
 import { InventorySummaryResponseDto, ProductInventorySummaryDto } from './dto/inventory-summary-response.dto';
-import { PosSessionInventorySummaryResponseDto, PosSessionProductInventorySummaryDto } from './dto/pos-session-inventory-summary-response.dto';
+import { PosSessionInventorySummaryResponseDto, PosSessionProductInventorySummaryDto, PosSessionBatchBreakdownDto } from './dto/pos-session-inventory-summary-response.dto';
 import { InventoryLocationTreeResponseDto } from './dto/inventory-location-tree-response.dto';
 import { InventoryStatsFilterDto } from './dto/inventory-stats-filter.dto';
 import { InventoryStatsResponseDto } from './dto/inventory-stats-response.dto';
@@ -32,6 +38,17 @@ import {
   InventoryLocationQuery,
   joinInventoryLocation,
 } from './utils/inventory-location-filter.util';
+import {
+  buildMeasureTotals,
+  formatMeasure,
+  mapBatchMeasure,
+} from './utils/inventory-measure.util';
+import {
+  applyProductSearchFilter,
+  applyProductSearchOrder,
+} from './utils/product-search-rank.util';
+import { InventoryBatchMovementsService } from './services/inventory-batch-movements.service';
+import { INVENTORY_BATCH_MOVEMENT_TYPES } from './constants/inventory-batch-movements';
 
 /** Costo unitario en UOM de inventario: precio OC × (qty original / qty convertida). */
 const UNIT_COST_SQL = `(
@@ -46,15 +63,23 @@ const UNIT_COST_SQL = `(
     END
 )`;
 
+const BRANCH_SUMMARY_PAGE_MAX = 40;
+const SIGNED_PHOTO_CACHE_MS = 8 * 60 * 1000;
+
 @Injectable()
 export class InventoryService {
   private readonly logger = new Logger(InventoryService.name);
+  private readonly signedPhotoCache = new Map<string, { url: string; expiresAt: number }>();
 
   constructor(
     @InjectRepository(InventoryBatch)
     private inventoryBatchRepo: Repository<InventoryBatch>,
+    @InjectRepository(Product)
+    private readonly productRepo: Repository<Product>,
     @InjectRepository(InventoryTransferLine)
     private readonly transferLineRepo: Repository<InventoryTransferLine>,
+    @InjectRepository(InventoryAuditLine)
+    private readonly auditLineRepo: Repository<InventoryAuditLine>,
     @InjectRepository(ProductPrice)
     private readonly productPriceRepo: Repository<ProductPrice>,
     @InjectRepository(ProductDiscount)
@@ -71,12 +96,26 @@ export class InventoryService {
     private readonly fiscalConfigRepo: Repository<FiscalConfiguration>,
     @InjectRepository(BillingBranch)
     private readonly billingBranchRepo: Repository<BillingBranch>,
+    @InjectRepository(UoMCatalog)
+    private readonly uomCatalogRepo: Repository<UoMCatalog>,
     private readonly s3Service: S3Service,
+    private readonly batchMovementsService: InventoryBatchMovementsService,
   ) {}
 
   private async getSignedPhotoUrl(photoKey: string | null | undefined): Promise<string | null> {
     if (!photoKey) return null;
-    return this.s3Service.getSignedUrl(photoKey, 900).catch(() => photoKey);
+    const cached = this.signedPhotoCache.get(photoKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.url;
+    }
+    const url = await this.s3Service.getSignedUrl(photoKey, 900).catch(() => photoKey);
+    if (url) {
+      this.signedPhotoCache.set(photoKey, {
+        url,
+        expiresAt: Date.now() + SIGNED_PHOTO_CACHE_MS,
+      });
+    }
+    return url;
   }
 
   /** Árbol razón social → sucursal → almacén para los dropdowns de inventario. */
@@ -348,16 +387,57 @@ export class InventoryService {
       throw new BadRequestException('El usuario POS no tiene una sucursal asignada');
     }
 
+    return this.getBranchInventorySummary(tenantId, terminalUser.billing_branch_id, filters, {
+      fiscalConfigurationId: terminalUser.billing_branch?.fiscal_configuration_id ?? null,
+      emptyWarehousesMessage: 'No se encontraron almacenes para la sucursal de la terminal',
+      warehouseMismatchMessage:
+        'El almacén seleccionado no pertenece a la sucursal de esta terminal POS. Omita warehouse_id o use un almacén de la lista.',
+      pageMax: 40,
+    });
+  }
+
+  /**
+   * Inventario de todos los almacenes de una sucursal (crear OV manual / POS).
+   */
+  async getBranchInventorySummary(
+    tenantId: string,
+    billingBranchId: string,
+    filters: InventorySummaryFilterDto,
+    options?: {
+      fiscalConfigurationId?: string | null;
+      emptyWarehousesMessage?: string;
+      warehouseMismatchMessage?: string;
+      pageMax?: number;
+    },
+  ): Promise<PosSessionInventorySummaryResponseDto> {
+    const branch = await this.billingBranchRepo.findOne({
+      where: { id: billingBranchId },
+      relations: ['fiscal_configuration'],
+    });
+    if (!branch || branch.fiscal_configuration?.tenant_id !== tenantId) {
+      throw new NotFoundException('Sucursal no encontrada');
+    }
+    if (
+      filters.fiscal_configuration_id &&
+      branch.fiscal_configuration_id !== filters.fiscal_configuration_id
+    ) {
+      throw new BadRequestException(
+        'La sucursal no pertenece a la razón social seleccionada',
+      );
+    }
+
     const branchWarehouses = await this.warehouseRepo.find({
-      where: { tenant_id: tenantId, billing_branch_id: terminalUser.billing_branch_id },
+      where: { tenant_id: tenantId, billing_branch_id: billingBranchId },
       select: ['id', 'name', 'status'],
       order: { name: 'ASC' },
     });
 
     if (branchWarehouses.length === 0) {
       throw new NotFoundException({
-        message: 'No se encontraron almacenes para la sucursal de la terminal',
-        billing_branch_id: terminalUser.billing_branch_id,
+        message:
+          options?.emptyWarehousesMessage ??
+          'No se encontraron almacenes para la sucursal',
+        billing_branch_id: billingBranchId,
         warehouses: [],
       });
     }
@@ -368,8 +448,9 @@ export class InventoryService {
     if (selectedWarehouseId && !availableWarehouseIds.has(selectedWarehouseId)) {
       throw new BadRequestException({
         message:
-          'El almacén seleccionado no pertenece a la sucursal de esta terminal POS. Omita warehouse_id o use un almacén de la lista.',
-        billing_branch_id: terminalUser.billing_branch_id,
+          options?.warehouseMismatchMessage ??
+          'El almacén seleccionado no pertenece a la sucursal. Omita warehouse_id o use un almacén de la lista.',
+        billing_branch_id: billingBranchId,
         warehouses: branchWarehouses.map((w) => ({
           id: w.id,
           name: w.name,
@@ -382,79 +463,126 @@ export class InventoryService {
       ? [selectedWarehouseId]
       : branchWarehouses.map((w) => w.id);
 
-    let query = this.inventoryBatchRepo
-      .createQueryBuilder('batch')
-      .leftJoinAndSelect('batch.product', 'product')
-      .leftJoinAndSelect('batch.warehouse', 'warehouse')
-      .leftJoinAndSelect('batch.uom', 'uom')
-      .leftJoinAndSelect('batch.purchase_order_batch', 'po')
-      .where('batch.tenant_id = :tenantId', { tenantId })
-      .andWhere('batch.warehouse_id IN (:...warehouseIds)', { warehouseIds: targetWarehouseIds });
+    const page = filters.page && filters.page > 0 ? filters.page : 1;
+    const limitRaw = filters.limit && filters.limit > 0 ? filters.limit : 20;
+    const limit = Math.min(limitRaw, options?.pageMax ?? BRANCH_SUMMARY_PAGE_MAX);
+    const skip = (page - 1) * limit;
+    const searchTerm = filters.search?.trim();
 
-    if (filters.search) {
-      query = query.andWhere(
-        '(LOWER(product.name) LIKE LOWER(:search) OR LOWER(product.sku) LIKE LOWER(:search))',
-        { search: `%${filters.search}%` },
-      );
+    const matchingProductIds = await this.findBranchSummaryProductIds(
+      tenantId,
+      targetWarehouseIds,
+      filters,
+      skip,
+      limit + 1,
+    );
+    const hasMore = matchingProductIds.length > limit;
+    const pageProductIds = matchingProductIds.slice(0, limit);
+
+    const emptyResponse = {
+      billing_branch_id: billingBranchId,
+      fiscal_configuration_id:
+        options?.fiscalConfigurationId ?? branch.fiscal_configuration_id ?? null,
+      warehouses: branchWarehouses.map((w) => ({
+        id: w.id,
+        name: w.name,
+        status: w.status,
+      })),
+      applied_warehouse_id: selectedWarehouseId ?? null,
+      data: [] as PosSessionProductInventorySummaryDto[],
+      total: skip + pageProductIds.length + (hasMore ? 1 : 0),
+      page,
+      limit,
+      totalPages: hasMore ? page + 1 : page,
+    };
+
+    if (pageProductIds.length === 0) {
+      return { ...emptyResponse, total: skip, totalPages: page > 1 ? page : 0 };
     }
 
-    if (filters.product_id) {
-      query = query.andWhere('batch.product_id = :product_id', {
-        product_id: filters.product_id,
-      });
+    const groupsQb = this.buildBranchSummaryBaseQuery(tenantId, targetWarehouseIds, filters)
+      .andWhere('batch.product_id IN (:...pageProductIds)', { pageProductIds })
+      .select('batch.product_id', 'product_id')
+      .addSelect('batch.uom_id', 'uom_id')
+      .addSelect('MAX(product.name)', 'product_name')
+      .addSelect('MAX(product.sku)', 'product_sku')
+      .addSelect('MAX(product.external_sku)', 'product_external_sku')
+      .addSelect('MAX(product.photo)', 'product_photo')
+      .addSelect('MAX(uom.name)', 'uom_name')
+      .addSelect('COALESCE(SUM(batch.available_quantity), 0)', 'total_available')
+      .addSelect('COALESCE(SUM(batch.initial_quantity), 0)', 'total_initial')
+      .addSelect('COUNT(batch.id)', 'total_batches')
+      .groupBy('batch.product_id')
+      .addGroupBy('batch.uom_id');
+
+    const ranked = applyProductSearchOrder(groupsQb, searchTerm, true);
+    if (!ranked) {
+      const sortBy = filters.sort_by || 'product_name';
+      const sortOrder = (filters.sort_order || 'ASC') as 'ASC' | 'DESC';
+      const sortExpression =
+        sortBy === 'product_sku'
+          ? 'MAX(product.sku)'
+          : sortBy === 'total_available_quantity'
+            ? 'SUM(batch.available_quantity)'
+            : 'MAX(product.name)';
+      groupsQb.orderBy(sortExpression, sortOrder);
     }
 
-    if (filters.only_available) {
-      query = query.andWhere('batch.available_quantity > 0');
+    const groups = await groupsQb.getRawMany<{
+      product_id: string;
+      uom_id: string;
+      product_name: string;
+      product_sku: string;
+      product_external_sku: string | null;
+      product_photo: string | null;
+      uom_name: string;
+      total_available: string | number;
+      total_initial: string | number;
+      total_batches: string | number;
+    }>();
+
+    if (groups.length === 0) {
+      return emptyResponse;
     }
 
-    const batches = await query.getMany();
-    const grouped = new Map<string, InventoryBatch[]>();
+    const productIds = Array.from(new Set(groups.map((row) => row.product_id)));
+    const uomIds = Array.from(new Set(groups.map((row) => row.uom_id).filter(Boolean)));
+    const [batchesByGroup, priceMap, productUomMap, discountsByProductId, photoMap] =
+      await Promise.all([
+        this.loadBranchSummaryBatches(
+          tenantId,
+          targetWarehouseIds,
+          groups,
+          filters.only_available,
+        ),
+        this.buildPriceMap(productIds, uomIds),
+        this.buildProductUomMap(productIds, uomIds),
+        this.buildDiscountsByProductMap(productIds),
+        this.signPhotoMap(groups.map((row) => row.product_photo)),
+      ]);
 
-    for (const batch of batches) {
-      const key = `${batch.product_id}|${batch.uom_id}`;
-      if (!grouped.has(key)) grouped.set(key, []);
-      grouped.get(key)!.push(batch);
-    }
-
-    const productIds = Array.from(new Set(batches.map((b) => b.product_id)));
-    const uomIds = Array.from(new Set(batches.map((b) => b.uom_id)));
-    const priceMap = await this.buildPriceMap(productIds, uomIds);
-    const productUomMap = await this.buildProductUomMap(productIds, uomIds);
-    const discountsByProductId = await this.buildDiscountsByProductMap(productIds);
-
-    const summaries: PosSessionProductInventorySummaryDto[] = [];
-
-    for (const batchGroup of grouped.values()) {
-      const first = batchGroup[0];
-      const totalAvailable = batchGroup.reduce(
-        (sum, b) => sum + parseFloat(b.available_quantity?.toString() ?? '0'),
-        0,
-      );
-      const totalInitial = batchGroup.reduce(
-        (sum, b) => sum + parseFloat(b.initial_quantity?.toString() ?? '0'),
-        0,
-      );
-      const warehouseIds = Array.from(new Set(batchGroup.map((b) => b.warehouse_id)));
+    const data: PosSessionProductInventorySummaryDto[] = groups.map((row) => {
+      const key = `${row.product_id}|${row.uom_id}`;
+      const batches = batchesByGroup.get(key) ?? [];
+      const warehouseIds = Array.from(new Set(batches.map((batch) => batch.warehouse_id)));
       const warehouseNames = Array.from(
-        new Set(batchGroup.map((b) => b.warehouse?.name).filter((name): name is string => !!name)),
+        new Set(batches.map((batch) => batch.warehouse_name).filter(Boolean)),
       );
-
-      const priceKey = `${first.product_id}|${first.uom_id}`;
-      const pricingOptions = priceMap.get(priceKey) || [];
+      const pricingOptions = priceMap.get(key) || [];
       const suggestedPrice = pricingOptions[0] || null;
-      const productUomId = productUomMap.get(priceKey) ?? '';
-      const applicableDiscounts = (discountsByProductId.get(first.product_id) ?? [])
+      const productUomId = productUomMap.get(key) ?? '';
+      const applicableDiscounts = (discountsByProductId.get(row.product_id) ?? [])
         .filter((discount) => productUomId && isProductDiscountApplicable(discount, productUomId))
         .map(mapApplicableProductDiscount);
+      const photoKey = row.product_photo ?? null;
 
-      summaries.push({
-        product_id: first.product_id,
-        product_name: first.product?.name ?? '',
-        product_sku: first.product?.sku ?? '',
-        product_photo: await this.getSignedPhotoUrl(first.product?.photo),
-        uom_id: first.uom_id,
-        uom_name: first.uom?.name ?? '',
+      return {
+        product_id: row.product_id,
+        product_name: row.product_name ?? '',
+        product_sku: row.product_sku ?? '',
+        product_photo: photoKey ? (photoMap.get(photoKey) ?? null) : null,
+        uom_id: row.uom_id,
+        uom_name: row.uom_name ?? '',
         warehouse_ids: warehouseIds,
         warehouse_names: warehouseNames,
         suggested_unit_price: suggestedPrice?.price ?? null,
@@ -464,68 +592,167 @@ export class InventoryService {
         product_uom_id: productUomId,
         has_applicable_discounts: applicableDiscounts.length > 0,
         applicable_discounts: applicableDiscounts,
-        total_available_quantity: totalAvailable.toFixed(3),
-        total_initial_quantity: totalInitial.toFixed(3),
-        total_batches: batchGroup.length,
-        batches: batchGroup.map((b) => ({
-          batch_id: b.id,
-          batch_number: b.batch_number,
-          source_tag_identifier: b.source_tag_identifier ?? null,
-          warehouse_id: b.warehouse_id,
-          warehouse_name: b.warehouse?.name ?? '',
-          available_quantity: parseFloat(b.available_quantity?.toString() ?? '0').toFixed(3),
-          initial_quantity: parseFloat(b.initial_quantity?.toString() ?? '0').toFixed(3),
-          purchase_order_folio: b.purchase_order_batch?.folio ?? null,
-          created_at: b.created_at,
-        })),
+        total_available_quantity: this.formatQty(this.parseDecimal(row.total_available)),
+        total_initial_quantity: this.formatQty(this.parseDecimal(row.total_initial)),
+        total_batches: this.parseIntSafe(row.total_batches),
+        measure_totals: buildMeasureTotals(batches),
+        batches,
+      };
+    });
+
+    return {
+      ...emptyResponse,
+      data,
+    };
+  }
+
+  private async findBranchSummaryProductIds(
+    tenantId: string,
+    warehouseIds: string[],
+    filters: InventorySummaryFilterDto,
+    skip: number,
+    fetchLimit: number,
+  ): Promise<string[]> {
+    if (warehouseIds.length === 0 || fetchLimit <= 0) return [];
+
+    const qb = this.productRepo
+      .createQueryBuilder('product')
+      .select('product.id', 'id')
+      .where('product.tenant_id = :tenantId', { tenantId })
+      .andWhere(
+        `EXISTS (
+          SELECT 1 FROM inv_s_batches stock
+          WHERE stock.product_id = product.id
+            AND stock.tenant_id = :tenantId
+            AND stock.warehouse_id IN (:...warehouseIds)
+            ${filters.only_available ? 'AND stock.available_quantity > 0' : ''}
+        )`,
+        { warehouseIds },
+      );
+
+    applyProductSearchFilter(qb, filters.search);
+
+    if (filters.product_id) {
+      qb.andWhere('product.id = :product_id', { product_id: filters.product_id });
+    }
+
+    const ranked = applyProductSearchOrder(qb, filters.search, false);
+    if (!ranked) {
+      qb.orderBy('product.name', 'ASC');
+    }
+
+    const rows = await qb.offset(skip).limit(fetchLimit).getRawMany<{ id: string }>();
+    return rows.map((row) => row.id);
+  }
+
+  private buildBranchSummaryBaseQuery(
+    tenantId: string,
+    warehouseIds: string[],
+    filters: InventorySummaryFilterDto,
+  ): SelectQueryBuilder<InventoryBatch> {
+    const qb = this.inventoryBatchRepo
+      .createQueryBuilder('batch')
+      .innerJoin('batch.product', 'product')
+      .leftJoin('batch.uom', 'uom')
+      .where('batch.tenant_id = :tenantId', { tenantId })
+      .andWhere('batch.warehouse_id IN (:...warehouseIds)', { warehouseIds });
+
+    applyProductSearchFilter(qb, filters.search);
+
+    if (filters.product_id) {
+      qb.andWhere('batch.product_id = :product_id', {
+        product_id: filters.product_id,
       });
     }
 
-    const sortBy = filters.sort_by || 'product_name';
-    const sortOrder = filters.sort_order || 'ASC';
-    summaries.sort((a, b) => {
-      let valA: string | number;
-      let valB: string | number;
-      switch (sortBy) {
-        case 'product_sku':
-          valA = a.product_sku;
-          valB = b.product_sku;
-          break;
-        case 'total_available_quantity':
-          valA = parseFloat(a.total_available_quantity);
-          valB = parseFloat(b.total_available_quantity);
-          break;
-        default:
-          valA = a.product_name;
-          valB = b.product_name;
-      }
-      if (valA < valB) return sortOrder === 'ASC' ? -1 : 1;
-      if (valA > valB) return sortOrder === 'ASC' ? 1 : -1;
-      return 0;
-    });
+    if (filters.only_available) {
+      qb.andWhere('batch.available_quantity > 0');
+    }
 
-    const page = filters.page || 1;
-    const limit = filters.limit || 20;
-    const total = summaries.length;
-    const start = (page - 1) * limit;
-    const paginatedData = summaries.slice(start, start + limit);
+    return qb;
+  }
 
-    return {
-      billing_branch_id: terminalUser.billing_branch_id,
-      fiscal_configuration_id:
-        terminalUser.billing_branch?.fiscal_configuration_id ?? null,
-      warehouses: branchWarehouses.map((w) => ({
-        id: w.id,
-        name: w.name,
-        status: w.status,
-      })),
-      applied_warehouse_id: selectedWarehouseId ?? null,
-      data: paginatedData,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
+  private async loadBranchSummaryBatches(
+    tenantId: string,
+    warehouseIds: string[],
+    groups: Array<{ product_id: string; uom_id: string }>,
+    onlyAvailable?: boolean,
+  ): Promise<Map<string, PosSessionBatchBreakdownDto[]>> {
+    const map = new Map<string, PosSessionBatchBreakdownDto[]>();
+    if (groups.length === 0) return map;
+
+    const productIds = Array.from(new Set(groups.map((group) => group.product_id)));
+    const uomIds = Array.from(new Set(groups.map((group) => group.uom_id).filter(Boolean)));
+    if (productIds.length === 0 || uomIds.length === 0) return map;
+
+    const allowedKeys = new Set(groups.map((group) => `${group.product_id}|${group.uom_id}`));
+
+    const qb = this.inventoryBatchRepo
+      .createQueryBuilder('batch')
+      .leftJoin('batch.purchase_order_batch', 'po')
+      .leftJoin('batch.measure_uom', 'measure_uom')
+      .leftJoin('batch.warehouse', 'warehouse')
+      .select('batch.id', 'batch_id')
+      .addSelect('batch.product_id', 'product_id')
+      .addSelect('batch.uom_id', 'uom_id')
+      .addSelect('batch.warehouse_id', 'warehouse_id')
+      .addSelect('warehouse.name', 'warehouse_name')
+      .addSelect('batch.batch_number', 'batch_number')
+      .addSelect('batch.source_tag_identifier', 'source_tag_identifier')
+      .addSelect('batch.measure', 'measure')
+      .addSelect('batch.measure_uom_id', 'measure_uom_id')
+      .addSelect('measure_uom.name', 'measure_uom_name')
+      .addSelect('batch.available_quantity', 'available_quantity')
+      .addSelect('batch.initial_quantity', 'initial_quantity')
+      .addSelect('po.folio', 'purchase_order_folio')
+      .addSelect('batch.created_at', 'created_at')
+      .where('batch.tenant_id = :tenantId', { tenantId })
+      .andWhere('batch.warehouse_id IN (:...warehouseIds)', { warehouseIds })
+      .andWhere('batch.product_id IN (:...productIds)', { productIds })
+      .andWhere('batch.uom_id IN (:...uomIds)', { uomIds })
+      .orderBy('batch.created_at', 'DESC');
+
+    if (onlyAvailable) {
+      qb.andWhere('batch.available_quantity > 0');
+    }
+
+    const rows = await qb.getRawMany<{
+      batch_id: string;
+      product_id: string;
+      uom_id: string;
+      warehouse_id: string;
+      warehouse_name: string | null;
+      batch_number: string;
+      source_tag_identifier: string | null;
+      measure: string | number | null;
+      measure_uom_id: string | null;
+      measure_uom_name: string | null;
+      available_quantity: string | number;
+      initial_quantity: string | number;
+      purchase_order_folio: string | null;
+      created_at: Date;
+    }>();
+
+    for (const row of rows) {
+      const key = `${row.product_id}|${row.uom_id}`;
+      if (!allowedKeys.has(key)) continue;
+      const list = map.get(key) ?? [];
+      list.push({
+        batch_id: row.batch_id,
+        batch_number: row.batch_number,
+        source_tag_identifier: row.source_tag_identifier ?? null,
+        ...mapBatchMeasure(row),
+        warehouse_id: row.warehouse_id,
+        warehouse_name: row.warehouse_name ?? '',
+        available_quantity: this.formatQty(this.parseDecimal(row.available_quantity)),
+        initial_quantity: this.formatQty(this.parseDecimal(row.initial_quantity)),
+        purchase_order_folio: row.purchase_order_folio ?? null,
+        created_at: row.created_at,
+      });
+      map.set(key, list);
+    }
+
+    return map;
   }
 
   /**
@@ -736,6 +963,7 @@ export class InventoryService {
         .leftJoinAndSelect('batch.product', 'product')
         .leftJoinAndSelect('batch.warehouse', 'warehouse')
         .leftJoinAndSelect('batch.uom', 'uom')
+        .leftJoinAndSelect('batch.measure_uom', 'measure_uom')
         .leftJoinAndSelect('batch.purchase_order_batch', 'purchase_order_batch')
         .leftJoinAndSelect('batch.transferred_from_batch', 'transferred_from_batch');
 
@@ -749,7 +977,12 @@ export class InventoryService {
       }
 
       this.logger.log(`Successfully retrieved batch: ${id}`);
-      return this.mapToDetailResponseDto(found, await this.loadTransferHistory(found.id));
+      const [transferHistory, auditHistory, movements] = await Promise.all([
+        this.loadTransferHistory(found.id),
+        this.loadAuditHistory(found.id),
+        this.batchMovementsService.listForLoadedBatch(found),
+      ]);
+      return this.mapToDetailResponseDto(found, transferHistory, auditHistory, movements);
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -759,6 +992,87 @@ export class InventoryService {
         error.stack,
       );
       throw error;
+    }
+  }
+
+  /**
+   * Actualiza tag y/o medida del lote.
+   * Medida solo si aún no existe (no se capturó en el recibo).
+   * El almacén no se cambia aquí: usar transferencia.
+   */
+  async updateBatch(
+    id: string,
+    tenantId: string,
+    dto: UpdateInventoryBatchDto,
+  ): Promise<BatchDetailResponseDto> {
+    const hasTag = dto.source_tag_identifier !== undefined;
+    const hasMeasureValue = dto.measure !== undefined;
+    const hasMeasureUom = dto.measure_uom_id !== undefined;
+
+    if (!hasTag && !hasMeasureValue && !hasMeasureUom) {
+      throw new BadRequestException('Indica el tag o la medida a actualizar');
+    }
+
+    const batch = await this.inventoryBatchRepo.findOne({
+      where: { id, tenant_id: tenantId },
+    });
+    if (!batch) {
+      throw new NotFoundException(`Batch not found: ${id}`);
+    }
+
+    if (hasTag) {
+      const raw = dto.source_tag_identifier;
+      const trimmed = typeof raw === 'string' ? raw.trim() : '';
+      batch.source_tag_identifier = trimmed || null;
+    }
+
+    if (hasMeasureValue || hasMeasureUom) {
+      if (formatMeasure(batch.measure) !== null) {
+        throw new BadRequestException(
+          'La medida de este lote ya está definida y no se puede cambiar',
+        );
+      }
+      this.assertMeasurePair(dto.measure, dto.measure_uom_id);
+      await this.assertMeasureUomExists(dto.measure_uom_id as string, tenantId);
+      batch.measure = dto.measure as number;
+      batch.measure_uom_id = dto.measure_uom_id as string;
+    }
+
+    await this.inventoryBatchRepo.save(batch);
+    this.logger.log(`Updated inventory batch ${id}`);
+    return this.findById(id, tenantId);
+  }
+
+  async listMovements(
+    id: string,
+    tenantId: string,
+  ): Promise<{ data: InventoryBatchMovementDto[]; total: number }> {
+    return this.batchMovementsService.list(id, tenantId);
+  }
+
+  private assertMeasurePair(measure: number | undefined, measureUomId: string | undefined): void {
+    const hasMeasure = measure !== undefined && measure !== null;
+    const hasUom = Boolean(measureUomId?.trim());
+
+    if (hasMeasure && !hasUom) {
+      throw new BadRequestException(
+        'Indica la unidad del tamaño (Foot, PIES, …). No uses la unidad de la orden de compra',
+      );
+    }
+    if (!hasMeasure && hasUom) {
+      throw new BadRequestException('Indica el tamaño (8, 12, …)');
+    }
+  }
+
+  private async assertMeasureUomExists(measureUomId: string, tenantId: string): Promise<void> {
+    const uom = await this.uomCatalogRepo.findOne({
+      where: { id: measureUomId, tenant_id: tenantId },
+      select: ['id'],
+    });
+    if (!uom) {
+      throw new BadRequestException(
+        'Unidad de tamaño no encontrada en el catálogo. Elige Foot, PIES u otra unidad; no uses la de la orden de compra',
+      );
     }
   }
 
@@ -833,6 +1147,7 @@ export class InventoryService {
       id: batch.id,
       batch_number: batch.batch_number,
       source_tag_identifier: batch.source_tag_identifier ?? null,
+      ...mapBatchMeasure(batch),
       warehouse_id: batch.warehouse_id,
       warehouse_name: batch.warehouse?.name,
       ...this.mapLocationFields(batch.warehouse),
@@ -942,6 +1257,8 @@ export class InventoryService {
       .addSelect(['fiscal_configuration.id', 'fiscal_configuration.razon_social'])
       .leftJoin('batch.uom', 'uom')
       .addSelect(['uom.id', 'uom.name'])
+      .leftJoin('batch.measure_uom', 'measure_uom')
+      .addSelect(['measure_uom.id', 'measure_uom.name'])
       .leftJoin('batch.purchase_order_batch', 'purchase_order_batch')
       .addSelect(['purchase_order_batch.id', 'purchase_order_batch.folio']);
   }
@@ -1093,6 +1410,7 @@ export class InventoryService {
 
       const data: ProductInventorySummaryDto[] = groups.map((row) => {
         const key = `${row.product_id}|${row.warehouse_id}`;
+        const batches = batchesByGroup.get(key) ?? [];
         const pricingOptions = priceMap.get(`${row.product_id}|${row.uom_id}`) || [];
         const suggestedPrice = pricingOptions[0] || null;
         const photoKey = row.product_photo ?? null;
@@ -1117,7 +1435,8 @@ export class InventoryService {
           total_available_quantity: this.formatQty(this.parseDecimal(row.total_available)),
           total_initial_quantity: this.formatQty(this.parseDecimal(row.total_initial)),
           total_batches: this.parseIntSafe(row.total_batches),
-          batches: batchesByGroup.get(key) ?? [],
+          measure_totals: buildMeasureTotals(batches),
+          batches,
         };
       });
 
@@ -1150,6 +1469,7 @@ export class InventoryService {
       .leftJoin('warehouse.billing_branch', 'billing_branch')
       .leftJoin('billing_branch.fiscal_configuration', 'fiscal_configuration')
       .leftJoin('batch.uom', 'uom')
+      .leftJoin('batch.measure_uom', 'measure_uom')
       .where('batch.tenant_id = :tenantId', { tenantId });
 
     applyInventoryLocationFilters(qb, filters);
@@ -1182,11 +1502,15 @@ export class InventoryService {
     const qb = this.inventoryBatchRepo
       .createQueryBuilder('batch')
       .leftJoin('batch.purchase_order_batch', 'po')
+      .leftJoin('batch.measure_uom', 'measure_uom')
       .select('batch.id', 'batch_id')
       .addSelect('batch.product_id', 'product_id')
       .addSelect('batch.warehouse_id', 'warehouse_id')
       .addSelect('batch.batch_number', 'batch_number')
       .addSelect('batch.source_tag_identifier', 'source_tag_identifier')
+      .addSelect('batch.measure', 'measure')
+      .addSelect('batch.measure_uom_id', 'measure_uom_id')
+      .addSelect('measure_uom.name', 'measure_uom_name')
       .addSelect('batch.available_quantity', 'available_quantity')
       .addSelect('batch.initial_quantity', 'initial_quantity')
       .addSelect('po.folio', 'purchase_order_folio')
@@ -1217,6 +1541,9 @@ export class InventoryService {
       warehouse_id: string;
       batch_number: string;
       source_tag_identifier: string | null;
+      measure: string | number | null;
+      measure_uom_id: string | null;
+      measure_uom_name: string | null;
       available_quantity: string | number;
       initial_quantity: string | number;
       purchase_order_folio: string | null;
@@ -1229,6 +1556,10 @@ export class InventoryService {
         batch_id: string;
         batch_number: string;
         source_tag_identifier: string | null;
+        measure: string | null;
+        measure_uom_id: string | null;
+        measure_uom_name: string | null;
+        measure_label: string | null;
         available_quantity: string;
         initial_quantity: string;
         purchase_order_folio: string | null;
@@ -1243,6 +1574,7 @@ export class InventoryService {
         batch_id: row.batch_id,
         batch_number: row.batch_number,
         source_tag_identifier: row.source_tag_identifier ?? null,
+        ...mapBatchMeasure(row),
         available_quantity: this.formatQty(this.parseDecimal(row.available_quantity)),
         initial_quantity: this.formatQty(this.parseDecimal(row.initial_quantity)),
         purchase_order_folio: row.purchase_order_folio ?? null,
@@ -1302,6 +1634,56 @@ export class InventoryService {
   }
 
   /**
+   * Ajustes aplicados por auditorías autorizadas sobre este lote.
+   */
+  private async loadAuditHistory(batchId: string) {
+    const lines = await this.auditLineRepo
+      .createQueryBuilder('line')
+      .leftJoinAndSelect('line.inventory_audit', 'audit')
+      .leftJoinAndSelect('audit.authorized_by_user', 'authorized_by_user')
+      .leftJoinAndSelect('line.counted_by_user', 'counted_by_user')
+      .where('line.inventory_batch_id = :batchId', { batchId })
+      .andWhere('audit.status = :status', { status: InventoryAuditStatus.POSTED })
+      .orderBy('audit.authorized_at', 'DESC')
+      .getMany();
+
+    return lines.map((line) => ({
+      audit_id: line.inventory_audit_id,
+      audit_folio: line.inventory_audit?.folio ?? '',
+      system_quantity: parseFloat(line.system_quantity?.toString() ?? '0').toFixed(3),
+      counted_quantity:
+        line.counted_quantity === null || line.counted_quantity === undefined
+          ? null
+          : parseFloat(line.counted_quantity.toString()).toFixed(3),
+      variance:
+        line.variance === null || line.variance === undefined
+          ? null
+          : parseFloat(line.variance.toString()).toFixed(3),
+      quantity_before_post:
+        line.quantity_before_post === null || line.quantity_before_post === undefined
+          ? null
+          : parseFloat(line.quantity_before_post.toString()).toFixed(3),
+      quantity_after_post:
+        line.quantity_after_post === null || line.quantity_after_post === undefined
+          ? null
+          : parseFloat(line.quantity_after_post.toString()).toFixed(3),
+      reason: line.reason,
+      counted_by_name: [line.counted_by_user?.first_name, line.counted_by_user?.last_name]
+        .filter(Boolean)
+        .join(' ')
+        .trim() || null,
+      authorized_by_name: [
+        line.inventory_audit?.authorized_by_user?.first_name,
+        line.inventory_audit?.authorized_by_user?.last_name,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .trim() || null,
+      authorized_at: line.inventory_audit?.authorized_at ?? null,
+    }));
+  }
+
+  /**
    * Map InventoryBatch entity to BatchDetailResponseDto
    */
   private mapToDetailResponseDto(
@@ -1316,6 +1698,20 @@ export class InventoryService {
       warehouse_name: string | null;
       created_at: Date;
     }> = [],
+    auditHistory: Array<{
+      audit_id: string;
+      audit_folio: string;
+      system_quantity: string;
+      counted_quantity: string | null;
+      variance: string | null;
+      quantity_before_post: string | null;
+      quantity_after_post: string | null;
+      reason: string | null;
+      counted_by_name: string | null;
+      authorized_by_name: string | null;
+      authorized_at: Date | null;
+    }> = [],
+    movements: InventoryBatchMovementDto[] = [],
   ): BatchDetailResponseDto {
     const initial = parseFloat(batch.initial_quantity?.toString() ?? '0');
     const available = parseFloat(batch.available_quantity?.toString() ?? '0');
@@ -1323,13 +1719,24 @@ export class InventoryService {
     const availabilityPct = initial > 0 ? Math.round((available / initial) * 100) : 100;
     const transfersOut = transferHistory.filter((t) => t.direction === 'out');
     const transfersIn = transferHistory.filter((t) => t.direction === 'in');
-    const totalOut = transfersOut.reduce((sum, t) => sum + parseFloat(t.quantity), 0);
-    const totalIn = transfersIn.reduce((sum, t) => sum + parseFloat(t.quantity), 0);
+    const sales = movements.filter(
+      (item) => item.type === INVENTORY_BATCH_MOVEMENT_TYPES.STOCK_SOLD,
+    );
+    const adjustments = movements.filter(
+      (item) => item.type === INVENTORY_BATCH_MOVEMENT_TYPES.INVENTORY_ADJUSTED,
+    );
+    const totalOut = movements
+      .filter((item) => item.direction === 'out')
+      .reduce((sum, item) => sum + parseFloat(item.quantity ?? '0'), 0);
+    const totalIn = movements
+      .filter((item) => item.direction === 'in')
+      .reduce((sum, item) => sum + parseFloat(item.quantity ?? '0'), 0);
 
     return {
       id: batch.id,
       batch_number: batch.batch_number,
       source_tag_identifier: batch.source_tag_identifier ?? null,
+      ...mapBatchMeasure(batch),
       product_id: batch.product_id,
       product_name: batch.product?.name ?? null,
       product_sku: batch.product?.sku ?? null,
@@ -1352,15 +1759,21 @@ export class InventoryService {
       transferred_from_batch_id: batch.transferred_from_batch_id ?? null,
       transferred_from_batch_number: batch.transferred_from_batch?.batch_number ?? null,
       transfer_history: transferHistory,
+      audit_history: auditHistory,
+      movements,
+      movements_count: movements.length,
+      can_edit_tag: true,
+      can_edit_measure: formatMeasure(batch.measure) === null,
+      can_transfer: available > 0,
       movement_summary: {
-        total_movements: transferHistory.length,
+        total_movements: movements.length,
         total_out: parseFloat(totalOut.toFixed(3)),
         total_in: parseFloat(totalIn.toFixed(3)),
         by_type: {
-          orders: 0,
+          orders: sales.length,
           transfers_out: transfersOut.length,
           transfers_in: transfersIn.length,
-          adjustments: 0,
+          adjustments: adjustments.length || auditHistory.length,
         },
       },
     };

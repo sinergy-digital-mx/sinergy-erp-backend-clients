@@ -33,7 +33,7 @@ Base: `/api/tenant/goals`
 
 ## Comisión activa (%) — por tenant
 
-Configurable en el módulo Metas. El **Reporte de Ventas Zona Norte** la usa automáticamente (no hardcodear 1 ni 4.5 en el front).
+Configurable en el módulo Metas. El reporte (`view=commissions`) la usa automáticamente (no hardcodear 1 ni 4.5 en el front). Vista ventas no muestra comisión.
 
 ### Leer
 
