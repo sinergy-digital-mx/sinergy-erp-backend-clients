@@ -114,4 +114,14 @@ export class UpdateUserDto {
   @ValidateNested()
   @Type(() => EmployeeProfileDto)
   employee?: EmployeeProfileDto;
+
+  @ApiProperty({
+    required: false,
+    type: [String],
+    description: 'Almacenes de Mesa de Control asignados al usuario',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  warehouse_ids?: string[];
 }

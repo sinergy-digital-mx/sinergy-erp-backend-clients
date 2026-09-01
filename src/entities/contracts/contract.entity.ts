@@ -121,7 +121,7 @@ export class Contract {
   @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
   interest_rate: number; // Porcentaje de interés moratorio (ej: 0.10 = 10%)
 
-  @Column({ length: 10, default: 'MXN' })
+  @Column({ length: 10, default: 'USD' })
   currency: string;
 
   @Column({

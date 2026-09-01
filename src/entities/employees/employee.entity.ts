@@ -65,6 +65,10 @@ export class Employee {
   @Column({ type: 'date', nullable: true })
   hire_date: string | null;
 
+  // Días extra o no tomados del periodo anterior. RH los captura a mano.
+  @Column({ type: 'decimal', precision: 5, scale: 1, default: 0 })
+  vacation_carryover_days: number;
+
   @Column({ type: 'date', nullable: true })
   birth_date: string | null;
 

@@ -42,8 +42,14 @@ export class CreatePropertyDto {
   @IsString()
   measurement_unit_id: string;
 
+  @IsOptional()
   @IsNumber()
-  total_price: number;
+  total_price?: number;
+
+  /** Si se envía, el backend calcula total_price = total_area × price_per_m2. */
+  @IsOptional()
+  @IsNumber()
+  price_per_m2?: number;
 
   @IsOptional()
   @IsString()

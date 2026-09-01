@@ -77,10 +77,12 @@ Permiso: `Contract:Read`.
 
 No sumar `data[]`. La página está cortada.
 
-Shape (igual que ahora):
+Shape (igual que ahora, más moneda):
 
 ```json
 {
+  "currency": "USD",
+  "currencies": ["USD"],
   "total": { "count": 61, "value": 2913337.14 },
   "completed": { "count": 21, "value": 886902 },
   "pending": {
@@ -104,7 +106,7 @@ Shape (igual que ahora):
 | 3 | ACTIVOS · En proceso de pago | `pending.value` | Pagado `pending.paid` · Pendiente `pending.remaining` · `pending.count` |
 | 4 | VENCIDOS · Con pagos atrasados | `overdue.value` | Contratos `overdue.contracts_count` · Pagos `overdue.payments_count` |
 
-Montos MXN. Vacío = 0 / `$0.00`.
+Montos según `currency` de cada fila / de stats (`USD` hoy). Vacío = 0 / `$0.00`. Ver `UI_CONTRACT_CURRENCY.md`.
 
 Sin `status` en el query, `total` es activo + completado (igual que hoy). Con `status=activo`, las 4 cards quedan dentro de ese estatus (completados en 0).
 
@@ -113,6 +115,8 @@ Sin `status` en el query, `total` es activo + completado (igual que hoy). Con `s
 ## Relación en la fila
 
 `customer.group` viene en el listado (`id`, `name`) si el cliente tiene grupo. Columna opcional: `customer.group?.name ?? '—'`.
+
+**Precio Total** y **Saldo Pendiente**: badge `currency` (`USD` \| `MXN`). No `MX$`. Ver `UI_CONTRACT_CURRENCY.md`.
 
 ---
 
@@ -131,6 +135,7 @@ Sin `status` en el query, `total` es activo + completado (igual que hoy). Con `s
 - [ ] Dropdown **Grupo de cliente** con `GET /tenant/customers/groups`
 - [ ] `group_id` en lista, stats y Excel
 - [ ] Al cambiar grupo / búsqueda / estatus / vencidos: refetch **lista + stats** juntos
-- [ ] Cards leen `GET /tenant/contracts/stats?...mismos filtros`
+- [ ] Cards leen `GET /tenant/contracts/stats?...mismos filtros` con `stats.currency` (USD)
+- [ ] Precio Total / Saldo Pendiente con badge `data[].currency`
 - [ ] “Todos los grupos” = no enviar `group_id`
 - [ ] Skeletons en cards mientras carga; error no tumba la tabla

@@ -36,6 +36,7 @@ PUT  /tenant/users/:userId
     "department": "Ventas",
     "hire_date": "2022-02-01",
     "birth_date": "1990-01-01",
+    "vacation_carryover_days": 4,
     "monthly_salary": 12000,
     "payment_frequency": "biweekly",
     "bank_name": "BBVA",
@@ -75,9 +76,11 @@ Cada fila incluye el resumen de vacaciones y conteo de solicitudes:
       "vacation": {
         "years_of_service": 3,
         "entitled_days": 16,
+        "carryover_days": 4,
+        "balance_days": 20,
         "taken_days": 5,
         "pending_days": 2,
-        "available_days": 9,
+        "available_days": 13,
         "current_period_start": "2025-02-01"
       },
       "payroll": {
@@ -97,6 +100,8 @@ Cada fila incluye el resumen de vacaciones y conteo de solicitudes:
 ```
 
 Columnas sugeridas: **Empleado**, **Puesto**, **Antigüedad**, **Vacaciones disponibles** (`vacation.available_days`), **Solicitudes** (`request_counts.pending` como badge), **Estatus**.
+
+`vacation.entitled_days` = días de ley (art. 76). `vacation.carryover_days` = días extra / no tomados el año anterior; RH los captura en `vacation_carryover_days` (alta/edición de empleado o tab Empleado del usuario). `available_days` = `entitled_days + carryover_days − taken_days − pending_days`.
 
 ## 3. Detalle del empleado
 
@@ -140,14 +145,35 @@ POST /tenant/employees/:id/leave-requests
 ```json
 {
   "type": "vacation",
-  "start_date": "2026-08-01",
-  "end_date": "2026-08-05",
+  "start_date": "2026-04-16",
+  "end_date": "2026-04-24",
   "reason": "Vacaciones de verano",
   "is_paid": true
 }
 ```
 
-`days` se calcula solo. Para `vacation` se valida contra los días disponibles.
+`days` se calcula solo: **vacaciones = días hábiles (lun–vie)**. 16–24 abril = **7**, no 9. Faltas/permisos/incapacidad siguen en días naturales.
+
+RH puede controlar el conteo:
+
+| Campo | Default | Uso |
+| ----- | ------- | --- |
+| `days` | calculado | Override (medios días o un ajuste puntual). |
+| `count_weekends` | `false` en vacation | `true` si esa ausencia sí debe contar sáb/dom. |
+
+Para `vacation` se valida contra `available_days`.
+
+### Corregir una solicitud ya cargada
+
+```http
+PUT /tenant/employees/leave-requests/:requestId
+```
+
+```json
+{ "days": 7 }
+```
+
+Sirve para el caso 16–24 abril que quedó en 9: mándalo a 7. Si cambias fechas y no mandas `days`, se recalcula (hábiles en vacation). No aplica a canceladas/rechazadas.
 
 ### Aprobar / rechazar
 
@@ -172,6 +198,6 @@ PUT /tenant/employees/leave-requests/:requestId/cancel
 - `Employee:ViewMenu` → mostrar el módulo en el menú.
 - `Employee:Create` → alta de empleado.
 - `Employee:Read` → lista y detalle.
-- `Employee:Update` → editar datos, subir foto, registrar solicitudes.
+- `Employee:Update` → editar datos, arrastre de vacaciones, subir foto, registrar o corregir solicitudes.
 - `Employee:Delete` → eliminar perfil.
 - `Employee:ManageLeave` → aprobar/rechazar/cancelar solicitudes.

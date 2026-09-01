@@ -9,6 +9,8 @@ import { UserStatus } from '../../entities/users/user-status.entity';
 import { BillingBranch } from '../../entities/billing/billing-branch.entity';
 import { PosDailyShift } from '../../entities/pos/pos-daily-shift.entity';
 import { UserManagerReport } from '../../entities/users/user-manager-report.entity';
+import { UserWarehouseAssignment } from '../../entities/control-desk/user-warehouse-assignment.entity';
+import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { EmployeesService } from '../employees/employees.service';
 
 jest.mock('bcrypt', () => ({
@@ -37,6 +39,8 @@ describe('UsersService.changePassword', () => {
         { provide: getRepositoryToken(BillingBranch), useValue: {} },
         { provide: getRepositoryToken(PosDailyShift), useValue: {} },
         { provide: getRepositoryToken(UserManagerReport), useValue: {} },
+        { provide: getRepositoryToken(UserWarehouseAssignment), useValue: { find: jest.fn().mockResolvedValue([]) } },
+        { provide: getRepositoryToken(Warehouse), useValue: {} },
         { provide: EmployeesService, useValue: {} },
       ],
     }).compile();
@@ -155,6 +159,8 @@ describe('UsersService.managerReports', () => {
         { provide: getRepositoryToken(BillingBranch), useValue: {} },
         { provide: getRepositoryToken(PosDailyShift), useValue: {} },
         { provide: getRepositoryToken(UserManagerReport), useValue: managerReportRepo },
+        { provide: getRepositoryToken(UserWarehouseAssignment), useValue: { find: jest.fn().mockResolvedValue([]) } },
+        { provide: getRepositoryToken(Warehouse), useValue: {} },
         { provide: EmployeesService, useValue: {} },
       ],
     }).compile();
@@ -293,6 +299,8 @@ describe('UsersService.userStatus', () => {
         { provide: getRepositoryToken(BillingBranch), useValue: {} },
         { provide: getRepositoryToken(PosDailyShift), useValue: {} },
         { provide: getRepositoryToken(UserManagerReport), useValue: managerReportRepo },
+        { provide: getRepositoryToken(UserWarehouseAssignment), useValue: { find: jest.fn().mockResolvedValue([]) } },
+        { provide: getRepositoryToken(Warehouse), useValue: {} },
         { provide: EmployeesService, useValue: {} },
       ],
     }).compile();

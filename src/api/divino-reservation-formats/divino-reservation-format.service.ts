@@ -56,7 +56,7 @@ export class DivinoReservationFormatService {
       lot_number: dto.lot_number ?? property.lot_number ?? null,
       surface: dto.surface ?? property.total_area ?? null,
       purchase_price: dto.purchase_price ?? property.total_price ?? null,
-      currency: dto.currency ?? property.currency ?? 'MXN',
+      currency: dto.currency ?? property.currency ?? 'USD',
       payable_to: dto.payable_to ?? DIVINO_RESERVATION_BRAND.defaultPayableTo,
       status: 'draft',
       created_by: userId,

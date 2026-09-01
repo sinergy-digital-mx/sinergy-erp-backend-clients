@@ -288,7 +288,7 @@ OV con `general_status` = `Surtida` **o** `Lista para entrega` de la sucursal (c
 
 No uses el listado genérico de OV con `warehouse_id` para este wizard.
 
-Las OV en **Lista para entrega** vienen del módulo **Control de almacén** (corroboración). Ver `src/api/warehouse-control/docs/UI_WAREHOUSE_CONTROL.md`.
+Las OV en **Lista para entrega** vienen de **Mesa de Control** (armado / corroboración). Ver `src/api/warehouse-control/docs/UI_WAREHOUSE_CONTROL.md`.
 
 ## Distancia
 

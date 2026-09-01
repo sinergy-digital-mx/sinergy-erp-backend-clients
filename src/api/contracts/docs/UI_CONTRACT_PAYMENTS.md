@@ -24,6 +24,7 @@ No va en el tab Editar. El calendario se arma aquí.
 |--------|-----------|
 | `payment_months` | Cantidad de cuotas. Read-only. Ej. `96`. |
 | `monthly_payment` | Monto de cada cuota. |
+| `currency` | `USD` o `MXN`. Badge junto a montos. Ver `UI_CONTRACT_CURRENCY.md`. |
 | `first_payment_date` | Default del día/mes/año si el usuario no ha tocado nada. |
 
 ---
@@ -72,7 +73,8 @@ GET /api/tenant/contracts/:contractId/payments/schedule-preview?start_date=2026-
   "payment_months": 96,
   "payment_day": 5,
   "payments_count": 96,
-  "monthly_payment": 286.46
+  "monthly_payment": 286.46,
+  "currency": "USD"
 }
 ```
 
@@ -119,6 +121,7 @@ Content-Type: application/json
   "payment_day": 5,
   "payments_count": 96,
   "monthly_payment": 286.46,
+  "currency": "USD",
   "payments": [ ]
 }
 ```
@@ -177,3 +180,4 @@ Cuando `paid_or_partial_count` vuelva a 0, aparece Regenerar.
 - [ ] Regenerar solo si `can_regenerate`.
 - [ ] Si hay pagados/parciales: banner + revertir (`reset`), sin regenerar.
 - [ ] `POST generate` / `regenerate` leen `response.payments`, no el root como array.
+- [ ] Montos con badge `currency` (USD), no MXN.

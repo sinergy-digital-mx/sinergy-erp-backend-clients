@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { User } from '../../entities/users/user.entity';
+import { UserWarehouseAssignment } from '../../entities/control-desk/user-warehouse-assignment.entity';
 import { PermissionService } from '../rbac/services/permission.service';
 import { RoleService } from '../rbac/services/role.service';
 import { isActiveUserStatus } from '../users/user-status.constants';
@@ -16,6 +17,8 @@ export class AuthService {
 
     constructor(
         @InjectRepository(User) private userRepo: Repository<User>,
+        @InjectRepository(UserWarehouseAssignment)
+        private warehouseAssignmentRepo: Repository<UserWarehouseAssignment>,
         private jwtService: JwtService,
         private permissionService: PermissionService,
         private roleService: RoleService,
@@ -118,6 +121,10 @@ export class AuthService {
                 permissions_version: user.permissions_version,
                 last_login_at: user.last_login_at,
                 ...this.mapPosSessionFields(user),
+                assigned_warehouses: await this.loadAssignedWarehouses(
+                    user.id,
+                    user.tenant.id.toString(),
+                ),
             },
         };
     }
@@ -173,8 +180,39 @@ export class AuthService {
                 permissions_flat: permissionsForJwt,
                 permissions_version: user.permissions_version,
                 ...this.mapPosSessionFields(user),
+                assigned_warehouses: await this.loadAssignedWarehouses(
+                    user.id,
+                    user.tenant.id.toString(),
+                ),
             },
         };
+    }
+
+    private async loadAssignedWarehouses(userId: string, tenantId: string) {
+        const rows = await this.warehouseAssignmentRepo.find({
+            where: { tenant_id: tenantId, user_id: userId },
+            relations: ['warehouse', 'warehouse.billing_branch'],
+        });
+        return rows
+            .filter((row) => row.warehouse)
+            .map((row) => ({
+                id: row.warehouse.id,
+                name: row.warehouse.name,
+                code: row.warehouse.code,
+                billing_branch_id: row.warehouse.billing_branch_id,
+                billing_branch: row.warehouse.billing_branch
+                    ? {
+                          id: row.warehouse.billing_branch.id,
+                          code: row.warehouse.billing_branch.code,
+                          display_name: [
+                              row.warehouse.billing_branch.code,
+                              row.warehouse.billing_branch.city,
+                          ]
+                              .filter(Boolean)
+                              .join(' — '),
+                      }
+                    : null,
+            }));
     }
 
     private mapPosSessionFields(user: User) {

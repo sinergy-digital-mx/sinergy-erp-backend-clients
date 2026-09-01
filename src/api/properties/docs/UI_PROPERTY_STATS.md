@@ -75,6 +75,30 @@ Stats **sin** `page`/`limit`. Cubren todo el filtro, no la página.
 
 La respuesta trae `group: { id, name, … }` (customer group). Columna de tabla: `group.name`. No pintar una columna “Proyecto” aparte.
 
+### Precio por m² (opcional)
+
+En crear/editar puedes mandar **una** de estas dos formas:
+
+| Campo | Obligatorio | Qué hace |
+| ----- | ----------- | -------- |
+| `total_price` | No, si mandas `price_per_m2` | Precio total capturado a mano. |
+| `price_per_m2` | No | El backend calcula `total_price = total_area × price_per_m2`. |
+
+```json
+{
+  "code": "LOT-1-01",
+  "name": "Lote 1",
+  "group_id": "uuid-del-grupo-de-cliente",
+  "total_area": 200,
+  "measurement_unit_id": "uuid-m2",
+  "price_per_m2": 1850
+}
+```
+
+Respuesta: `total_price: 370000` y `price_per_m2: 1850`.
+
+Si solo mandas `total_price`, se conserva ese monto y `price_per_m2` se deriva (`total / área`). Si cambias el área y el lote ya tenía `price_per_m2`, el total se recalcula. `400` si en el alta no va ni total ni precio/m².
+
 ---
 
 ## Respuesta de stats
@@ -122,6 +146,7 @@ MXN, m² con 2 decimales. Vacío: `0` / `$0.00`.
 
 - [ ] Un solo dropdown **Grupo de cliente** (`group_id` + `GET /tenant/customers/groups`)
 - [ ] Crear/editar lote: `group_id` de ese catálogo
+- [ ] Crear/editar lote: `price_per_m2` opcional; si va, el backend calcula `total_price`
 - [ ] Columna grupo: `group.name`
 - [ ] 4 cards + `GET /tenant/properties/stats` con los mismos filtros
 - [ ] Sin “Proyecto” / `property-groups`

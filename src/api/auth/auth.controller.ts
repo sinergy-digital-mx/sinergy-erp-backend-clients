@@ -1,5 +1,5 @@
 // src/api/auth/auth.controller.ts
-import { Controller, Post, Get, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards, Req, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { ApiBody, ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
@@ -82,14 +82,8 @@ export class AuthController {
             }
         }
     })
-    async refresh() {
-        const userId = this.tenantContextService.getCurrentUserId();
-        const tenantId = this.tenantContextService.getCurrentTenantId();
-
-        if (!userId || !tenantId) {
-            throw new Error('User context is required');
-        }
-
+    async refresh(@Req() req: { user?: Record<string, unknown> }) {
+        const { userId, tenantId } = this.resolveAuthContext(req);
         return this.authService.refresh(userId, tenantId);
     }
 
@@ -117,13 +111,8 @@ export class AuthController {
             }
         }
     })
-    async getCurrentUserPermissions() {
-        const userId = this.tenantContextService.getCurrentUserId();
-        const tenantId = this.tenantContextService.getCurrentTenantId();
-
-        if (!userId || !tenantId) {
-            throw new Error('User context is required');
-        }
+    async getCurrentUserPermissions(@Req() req: { user?: Record<string, unknown> }) {
+        const { userId, tenantId } = this.resolveAuthContext(req);
 
         const permissions = await this.permissionService.getUserPermissions(userId, tenantId);
 
@@ -147,5 +136,30 @@ export class AuthController {
             permissions: permissions.map(p => `${p.entity_type}:${p.action}`),
             permissions_by_module: permissionsByModule,
         };
+    }
+
+    /**
+     * Refresh no pasa por PermissionGuard, así que el contexto de organización
+     * no se setea. El usuario autenticado vive en request.user (JWT).
+     */
+    private resolveAuthContext(req?: { user?: Record<string, unknown> }): {
+        userId: string;
+        tenantId: string;
+    } {
+        const user = req?.user;
+        const userId =
+            (typeof user?.id === 'string' && user.id) ||
+            (typeof user?.user_id === 'string' && user.user_id) ||
+            this.tenantContextService.getCurrentUserId();
+        const tenantId =
+            (typeof user?.tenant_id === 'string' && user.tenant_id) ||
+            (typeof user?.tenantId === 'string' && user.tenantId) ||
+            this.tenantContextService.getCurrentTenantId();
+
+        if (!userId || !tenantId) {
+            throw new UnauthorizedException('User context is required');
+        }
+
+        return { userId, tenantId };
     }
 }

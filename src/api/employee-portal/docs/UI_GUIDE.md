@@ -41,9 +41,11 @@ Devuelve el perfil completo del empleado autenticado:
   "years_of_service": 3,
   "vacation": {
     "entitled_days": 16,
+    "carryover_days": 4,
+    "balance_days": 20,
     "taken_days": 5,
     "pending_days": 2,
-    "available_days": 9,
+    "available_days": 13,
     "current_period_start": "2025-02-01"
   },
   "payroll": {
@@ -108,7 +110,8 @@ POST /tenant/employee-portal/me/leave-requests
 ```
 
 - `type`: `vacation` | `absence` | `permission` | `sick_leave`.
-- Los `days` se calculan automáticamente (días naturales inclusivos).
+- En `vacation`, `days` = días hábiles (lun–vie). Ejemplo: 16–24 abril = 7, no 9.
+- Faltas / permisos / incapacidad siguen en días naturales.
 - Para `vacation`, si excedes tus días disponibles el backend responde `400`.
 - La solicitud queda en `pending` hasta que RH la apruebe/rechace.
 

@@ -17,6 +17,7 @@ src/api/employees/
 │   ├── update-employee.dto.ts
 │   ├── query-employee.dto.ts
 │   ├── create-leave-request.dto.ts  # reusado por el Portal
+│   ├── update-leave-request.dto.ts
 │   ├── review-leave-request.dto.ts
 │   └── query-leave-request.dto.ts
 ├── docs/
@@ -41,6 +42,7 @@ src/entities/employees/
 src/database/migrations/1784700000000-create-employees-table.ts
 src/database/migrations/1784700100000-create-employee-leave-requests-table.ts
 src/database/migrations/1784700200000-add-is-employee-to-users.ts
+src/database/migrations/1788000000000-add-vacation-carryover-days.ts
 src/database/seeds/seed-employees-module.ts
 ```
 
@@ -67,6 +69,7 @@ Prefijo: `tenant/employees`
 | GET    | `/leave-requests/all`                 | `Employee:Read`      | Todas las solicitudes de la organización.          |
 | GET    | `/:id/leave-requests`                 | `Employee:Read`      | Solicitudes de un empleado.                        |
 | POST   | `/:id/leave-requests`                 | `Employee:Update`    | Registrar solicitud a nombre de un empleado.       |
+| PUT    | `/leave-requests/:requestId`          | `Employee:Update`    | Corregir fechas o días de una solicitud.           |
 | PUT    | `/leave-requests/:requestId/review`   | `Employee:ManageLeave` | Aprobar o rechazar una solicitud.                |
 | PUT    | `/leave-requests/:requestId/cancel`   | `Employee:ManageLeave` | Cancelar una solicitud pendiente.                |
 
@@ -75,6 +78,7 @@ Prefijo: `tenant/employees`
 - Identidad/fiscal: `employee_code`, `rfc`, `curp`, `nss`.
 - Puesto: `position`, `department`.
 - Fechas: `hire_date` (antigüedad), `birth_date`, `termination_date`.
+- Vacaciones extra: `vacation_carryover_days` (arrastre del año anterior; lo captura RH).
 - Nómina: `monthly_salary`, `payment_frequency` (`monthly`/`biweekly`/`weekly`), `bank_name`, `clabe`, `bank_account`.
 - Otros: `status` (`active`/`inactive`/`terminated`), `photo_s3_key` (se sirve como `photo_url` firmada).
 
@@ -100,16 +104,20 @@ El backend devuelve un objeto `vacation` por empleado:
 {
   "years_of_service": 3,
   "entitled_days": 16,
+  "carryover_days": 4,
+  "balance_days": 20,
   "taken_days": 5,
   "pending_days": 2,
-  "available_days": 9,
+  "available_days": 13,
   "current_period_start": "2026-02-01"
 }
 ```
 
+- `entitled_days`: días de ley del periodo vigente.
+- `carryover_days`: días extra / no tomados el año anterior (`vacation_carryover_days`). RH los captura; no se calculan solos.
 - `taken_days`: vacaciones **aprobadas** dentro del periodo (año laboral) vigente.
 - `pending_days`: vacaciones en solicitudes **pendientes** del periodo vigente.
-- `available_days`: `entitled_days − taken_days − pending_days` (nunca negativo).
+- `available_days`: `entitled_days + carryover_days − taken_days − pending_days` (nunca negativo).
 
 ## Cálculo de nómina
 
@@ -131,8 +139,9 @@ Deriva del `monthly_salary`. El SDI usa el factor de integración = `1 + (15 + d
 
 - Tipos (`type`): `vacation`, `absence`, `permission`, `sick_leave`.
 - Estatus (`status`): `pending`, `approved`, `rejected`, `cancelled`.
-- Los `days` se calculan como días naturales inclusivos entre `start_date` y `end_date`.
-- Al crear una solicitud de `vacation` se valida que no exceda los `available_days`.
+- En `vacation`, `days` = días hábiles (lun–vie). El resto de tipos usa días naturales.
+- RH puede mandar `days` o `count_weekends` para controlar el conteo, y corregir una solicitud existente con `PUT /leave-requests/:requestId`.
+- Al crear o editar una solicitud de `vacation` se valida que no exceda los `available_days`.
 
 ## Migración y seed
 

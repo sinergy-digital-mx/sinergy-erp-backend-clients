@@ -1,10 +1,11 @@
+import { Transform } from 'class-transformer';
 import {
   IsDateString,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsNumber,
   IsOptional,
-  IsString,
   Max,
   Min,
 } from 'class-validator';
@@ -40,8 +41,11 @@ export class GenerateHoaPaymentsDto {
   @Min(0.01, { message: 'El monto mensual debe ser mayor a 0' })
   monthly_amount: number;
 
-  /** Moneda de las cuotas (default: moneda del contrato). Ej. USD, MXN */
+  /** Moneda de las cuotas (default: moneda del contrato, USD). */
   @IsOptional()
-  @IsString()
-  currency?: string;
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().toUpperCase() : value,
+  )
+  @IsIn(['USD', 'MXN'])
+  currency?: 'USD' | 'MXN';
 }

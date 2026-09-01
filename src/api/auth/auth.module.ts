@@ -7,12 +7,13 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { User } from '../../entities/users/user.entity';
+import { UserWarehouseAssignment } from '../../entities/control-desk/user-warehouse-assignment.entity';
 import { RBACModule } from '../rbac/rbac.module';
 import { PermissionVersionGuard } from './guards/permission-version.guard';
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([User]),
+        TypeOrmModule.forFeature([User, UserWarehouseAssignment]),
         PassportModule,
         JwtModule.register({
             secret: process.env.JWT_SECRET,

@@ -30,6 +30,7 @@ import { UsersService } from '../../users/users.service';
 import { CreateUserDto } from '../../users/dto/create-user.dto';
 import { UpdateUserDto } from '../../users/dto/update-user.dto';
 import { AssignUserBranchDto } from '../../users/dto/assign-user-branch.dto';
+import { AssignUserWarehousesDto } from '../../users/dto/assign-user-warehouses.dto';
 import { AssignUserReportDto } from '../../users/dto/assign-user-report.dto';
 import { ChangePasswordDto } from '../../users/dto/change-password.dto';
 import { QueryUsersDto } from '../../users/dto/query-users.dto';
@@ -295,6 +296,46 @@ export class UsersRolesController {
 
     return {
       message: 'Usuario desasignado del gerente',
+    };
+  }
+
+  @Get(':userId/warehouses')
+  @RequirePermissions({ entityType: 'User', action: 'Read' })
+  @ApiOperation({
+    summary: 'List warehouses assigned to the user for Mesa de Control',
+  })
+  @ApiParam({ name: 'userId', description: 'User ID' })
+  async getUserWarehouses(@Param('userId') userId: string) {
+    const tenantId = this.tenantContextService.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+    return this.usersService.getAssignedWarehouses(userId, tenantId);
+  }
+
+  @Put(':userId/warehouses')
+  @RequirePermissions({ entityType: 'User', action: 'Update' })
+  @ApiOperation({
+    summary: 'Replace Mesa de Control warehouse assignments',
+  })
+  @ApiParam({ name: 'userId', description: 'User ID' })
+  @ApiBody({ type: AssignUserWarehousesDto })
+  async assignUserWarehouses(
+    @Param('userId') userId: string,
+    @Body() dto: AssignUserWarehousesDto,
+  ) {
+    const tenantId = this.tenantContextService.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+    const warehouses = await this.usersService.replaceAssignedWarehouses(
+      userId,
+      tenantId,
+      dto.warehouse_ids,
+    );
+    return {
+      message: 'Almacenes de Mesa de Control actualizados',
+      ...warehouses,
     };
   }
 

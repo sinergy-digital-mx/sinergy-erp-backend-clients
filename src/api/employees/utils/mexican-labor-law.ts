@@ -24,7 +24,7 @@ export function completedYearsOfService(
   reference: Date = new Date(),
 ): number {
   if (!hireDate) return 0;
-  const hire = typeof hireDate === 'string' ? new Date(hireDate) : hireDate;
+  const hire = parseCalendarDate(hireDate);
   if (isNaN(hire.getTime())) return 0;
 
   let years = reference.getFullYear() - hire.getFullYear();
@@ -60,7 +60,7 @@ export function currentAnniversaryStart(
   hireDate: Date | string,
   reference: Date = new Date(),
 ): Date {
-  const hire = typeof hireDate === 'string' ? new Date(hireDate) : hireDate;
+  const hire = parseCalendarDate(hireDate);
   const years = completedYearsOfService(hire, reference);
   return new Date(hire.getFullYear() + years, hire.getMonth(), hire.getDate());
 }
@@ -68,10 +68,12 @@ export function currentAnniversaryStart(
 export interface VacationSummary {
   hire_date: string | null;
   years_of_service: number;
-  entitled_days: number; // días que corresponden en el periodo vigente
+  entitled_days: number; // días de ley en el periodo vigente (art. 76 LFT)
+  carryover_days: number; // días extra / no tomados del periodo anterior (RH)
+  balance_days: number; // entitled + carryover
   taken_days: number; // días de vacaciones aprobados en el periodo vigente
   pending_days: number; // días de vacaciones en solicitudes pendientes
-  available_days: number; // disponibles = corresponden - tomados - pendientes
+  available_days: number; // disponibles = balance - tomados - pendientes
   current_period_start: string | null;
 }
 
@@ -81,24 +83,30 @@ export interface VacationSummary {
  *
  * @param takenDaysThisPeriod  Días de vacaciones ya aprobados dentro del periodo vigente.
  * @param pendingDaysThisPeriod Días de vacaciones en solicitudes pendientes del periodo vigente.
+ * @param carryoverDays Días de arrastre o extra que RH captura (no se calculan solos).
  */
 export function buildVacationSummary(
   hireDate: Date | string | null | undefined,
   takenDaysThisPeriod = 0,
   pendingDaysThisPeriod = 0,
+  carryoverDays = 0,
   reference: Date = new Date(),
 ): VacationSummary {
   const years = completedYearsOfService(hireDate, reference);
   const entitled = vacationDaysForYears(years);
+  const carryover = Math.max(0, Number(carryoverDays) || 0);
+  const balance = entitled + carryover;
   const available = Math.max(
     0,
-    entitled - takenDaysThisPeriod - pendingDaysThisPeriod,
+    balance - takenDaysThisPeriod - pendingDaysThisPeriod,
   );
 
   return {
     hire_date: hireDate ? toISODate(hireDate) : null,
     years_of_service: years,
     entitled_days: entitled,
+    carryover_days: carryover,
+    balance_days: balance,
     taken_days: takenDaysThisPeriod,
     pending_days: pendingDaysThisPeriod,
     available_days: available,
@@ -150,16 +158,95 @@ export function buildPayrollSummary(
 }
 
 /**
+ * Interpreta YYYY-MM-DD (o Date) como fecha de calendario, sin desfase UTC.
+ */
+export function parseCalendarDate(value: Date | string): Date {
+  if (typeof value === 'string') {
+    const [year, month, day] = value.slice(0, 10).split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+  return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+}
+
+/**
  * Cuenta los días naturales entre dos fechas inclusivas (start y end).
  */
 export function inclusiveDayCount(
   start: Date | string,
   end: Date | string,
 ): number {
-  const s = typeof start === 'string' ? new Date(start) : start;
-  const e = typeof end === 'string' ? new Date(end) : end;
+  const s = parseCalendarDate(start);
+  const e = parseCalendarDate(end);
   const diff = Math.round((e.getTime() - s.getTime()) / MS_PER_DAY);
   return diff + 1;
+}
+
+/**
+ * Cuenta días hábiles (lunes a viernes) entre dos fechas inclusivas.
+ * Sábado y domingo no descuentan vacaciones.
+ */
+export function inclusiveBusinessDayCount(
+  start: Date | string,
+  end: Date | string,
+): number {
+  const s = parseCalendarDate(start);
+  const e = parseCalendarDate(end);
+  if (e < s) return 0;
+
+  let count = 0;
+  const cursor = new Date(s);
+  while (cursor <= e) {
+    const weekday = cursor.getDay();
+    if (weekday !== 0 && weekday !== 6) {
+      count += 1;
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return count;
+}
+
+/**
+ * Resuelve los días de una solicitud.
+ * Vacaciones: días hábiles (sin fines de semana) salvo que se pidan
+ * `count_weekends` o se mande `days` a mano.
+ * Faltas / permisos / incapacidades: días naturales, salvo override.
+ */
+export function resolveLeaveDays(params: {
+  type: string;
+  startDate: Date | string;
+  endDate: Date | string;
+  days?: number | null;
+  countWeekends?: boolean | null;
+}): { days: number; counted_weekends: boolean; calendar_days: number } {
+  const calendarDays = inclusiveDayCount(params.startDate, params.endDate);
+  const countWeekends =
+    params.countWeekends ?? params.type !== 'vacation';
+  const computed = countWeekends
+    ? calendarDays
+    : inclusiveBusinessDayCount(params.startDate, params.endDate);
+
+  if (params.days != null && params.days !== undefined) {
+    const days = Number(params.days);
+    if (!Number.isFinite(days) || days <= 0) {
+      throw new Error('Los días deben ser mayores a 0');
+    }
+    if (days > calendarDays) {
+      throw new Error(
+        `Los días no pueden superar el rango de fechas (${calendarDays})`,
+      );
+    }
+    return {
+      days,
+      counted_weekends: countWeekends,
+      calendar_days: calendarDays,
+    };
+  }
+
+  return {
+    days: computed,
+    counted_weekends: countWeekends,
+    calendar_days: calendarDays,
+  };
 }
 
 function round2(value: number): number {
@@ -167,6 +254,9 @@ function round2(value: number): number {
 }
 
 function toISODate(value: Date | string): string {
-  const d = typeof value === 'string' ? new Date(value) : value;
-  return d.toISOString().slice(0, 10);
+  const d = parseCalendarDate(value);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }

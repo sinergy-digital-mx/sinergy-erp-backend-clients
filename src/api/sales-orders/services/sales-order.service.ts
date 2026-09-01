@@ -56,6 +56,8 @@ import {
 import { ElectronicInvoiceService } from '../../electronic-invoicing/services/electronic-invoice.service';
 import { BillingBranch } from '../../../entities/billing/billing-branch.entity';
 import { Warehouse } from '../../../entities/warehouse/warehouse.entity';
+import { ControlDeskLifecycleService } from '../../warehouse-control/control-desk-lifecycle.service';
+import { WarehouseControlService } from '../../warehouse-control/warehouse-control.service';
 import { buildSalesOrderPaymentDisplay } from '../utils/sales-order-payment-display.util';
 import {
   applySalesOrderCollectionChannelFilter,
@@ -104,6 +106,8 @@ export class SalesOrderService {
     @InjectRepository(Warehouse)
     private readonly warehouseRepo: Repository<Warehouse>,
     private readonly electronicInvoiceService: ElectronicInvoiceService,
+    private readonly controlDeskLifecycle: ControlDeskLifecycleService,
+    private readonly warehouseControlService: WarehouseControlService,
   ) {}
 
   private async deleteDocumentsByType(
@@ -500,6 +504,16 @@ export class SalesOrderService {
       );
       await qr.manager.save(SalesOrder, savedSO);
 
+      if (requiresSelectionAssembly) {
+        await this.controlDeskLifecycle.syncJobForSalesOrder(qr.manager, {
+          tenantId,
+          userId,
+          salesOrder: savedSO,
+          details: savedDetails,
+          requiresSelection: true,
+        });
+      }
+
       if (salesOrderType === 'POS') {
         await this.fulfillOrderLines(
           qr,
@@ -699,6 +713,10 @@ export class SalesOrderService {
       discount_summary: discountSummary,
       can_cancel: cancelBlockedReason === null,
       cancel_blocked_reason: cancelBlockedReason,
+      control_desk: await this.warehouseControlService.getSalesOrderSummary(
+        so.id,
+        tenantId,
+      ),
     };
 
     return {
@@ -1289,7 +1307,7 @@ export class SalesOrderService {
 
     if (so.general_status === 'En Selección') {
       throw new BadRequestException(
-        `La orden ${so.folio} está en selección; debe corroborarse en Control de almacén`,
+        `La orden ${so.folio} está en selección; debe corroborarse en Mesa de Control`,
       );
     }
 
@@ -1341,6 +1359,13 @@ export class SalesOrderService {
           `Sales order ${so.folio}: released ${allAllocations.length} batch allocation(s) on cancel`,
         );
       }
+
+      await this.controlDeskLifecycle.cancelJobForSalesOrder(
+        qr.manager,
+        tenantId,
+        id,
+        userId,
+      );
 
       await qr.manager.update(SalesOrder, { id }, {
         general_status: 'Cancelada',
@@ -1404,6 +1429,13 @@ export class SalesOrderService {
     await qr.startTransaction();
 
     try {
+      const existingJob = await this.controlDeskLifecycle.findActiveJob(
+        qr.manager,
+        tenantId,
+        id,
+      );
+      this.controlDeskLifecycle.assertJobEditable(existingJob);
+
       await qr.manager.delete(SalesOrderDetail, { sales_order_id: id });
       const so = await qr.manager.findOne(SalesOrder, { where: { id, tenant_id: tenantId } });
       if (!so) {
@@ -1434,8 +1466,22 @@ export class SalesOrderService {
       so.updated_by = userId;
 
       await qr.manager.save(SalesOrder, so);
-      await this.insertSalesOrderLineItems(qr, so.id, dto.line_items, userId, tenantId);
+      const savedDetails = await this.insertSalesOrderLineItems(
+        qr,
+        so.id,
+        dto.line_items,
+        userId,
+        tenantId,
+      );
       await this.recomputeTotals(qr, so.id, tenantId, userId);
+
+      await this.controlDeskLifecycle.syncJobForSalesOrder(qr.manager, {
+        tenantId,
+        userId,
+        salesOrder: so,
+        details: savedDetails,
+        requiresSelection: !!so.requires_selection_assembly,
+      });
 
       await qr.commitTransaction();
 
@@ -1477,7 +1523,8 @@ export class SalesOrderService {
     lineItems: CreateSalesOrderLineItemDto[],
     userId: string,
     tenantId: string,
-  ): Promise<void> {
+  ): Promise<SalesOrderDetail[]> {
+    const saved: SalesOrderDetail[] = [];
     for (const item of lineItems) {
       const productUomRow = await this.resolveProductUom(
         qr,
@@ -1532,7 +1579,9 @@ export class SalesOrderService {
         created_by: userId,
       });
       await qr.manager.save(SalesOrderDetail, detail);
+      saved.push(detail);
     }
+    return saved;
   }
 
   private async recomputeTotals(

@@ -61,36 +61,44 @@ describe('AuthController', () => {
         },
       };
 
-      mockTenantContextService.getCurrentUserId.mockReturnValue(userId);
-      mockTenantContextService.getCurrentTenantId.mockReturnValue(tenantId);
       mockAuthService.refresh.mockResolvedValue(mockResponse);
 
       // Act
-      const result = await controller.refresh();
+      const result = await controller.refresh({
+        user: { id: userId, tenant_id: tenantId },
+      });
 
       // Assert
       expect(result).toEqual(mockResponse);
-      expect(mockTenantContextService.getCurrentUserId).toHaveBeenCalled();
-      expect(mockTenantContextService.getCurrentTenantId).toHaveBeenCalled();
       expect(mockAuthService.refresh).toHaveBeenCalledWith(userId, tenantId);
     });
 
+    it('should refresh from JWT when tenant context is empty', async () => {
+      mockTenantContextService.getCurrentUserId.mockReturnValue(null);
+      mockTenantContextService.getCurrentTenantId.mockReturnValue(null);
+      mockAuthService.refresh.mockResolvedValue({ access_token: 'new-jwt-token' });
+
+      await controller.refresh({
+        user: { id: 'user-123', tenantId: 'tenant-456' },
+      });
+
+      expect(mockAuthService.refresh).toHaveBeenCalledWith('user-123', 'tenant-456');
+    });
+
     it('should throw error when user context is missing', async () => {
-      // Arrange
       mockTenantContextService.getCurrentUserId.mockReturnValue(null);
       mockTenantContextService.getCurrentTenantId.mockReturnValue('tenant-456');
 
-      // Act & Assert
-      await expect(controller.refresh()).rejects.toThrow('User context is required');
+      await expect(controller.refresh({})).rejects.toThrow('User context is required');
     });
 
     it('should throw error when tenant context is missing', async () => {
-      // Arrange
       mockTenantContextService.getCurrentUserId.mockReturnValue('user-123');
       mockTenantContextService.getCurrentTenantId.mockReturnValue(null);
 
-      // Act & Assert
-      await expect(controller.refresh()).rejects.toThrow('User context is required');
+      await expect(controller.refresh({ user: { id: 'user-123' } })).rejects.toThrow(
+        'User context is required',
+      );
     });
   });
 

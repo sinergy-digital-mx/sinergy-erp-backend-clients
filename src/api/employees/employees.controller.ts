@@ -32,6 +32,7 @@ import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { QueryEmployeeDto } from './dto/query-employee.dto';
 import { CreateLeaveRequestDto } from './dto/create-leave-request.dto';
 import { ReviewLeaveRequestDto } from './dto/review-leave-request.dto';
+import { UpdateLeaveRequestDto } from './dto/update-leave-request.dto';
 import { QueryLeaveRequestDto } from './dto/query-leave-request.dto';
 import { EMPLOYEES_ENTITY_CODE } from './employees.constants';
 
@@ -143,6 +144,19 @@ export class EmployeesController {
       dto,
       this.tenantContext.getCurrentUserId(),
     );
+  }
+
+  @Put('leave-requests/:requestId')
+  @RequirePermission(EMPLOYEES_ENTITY_CODE, 'Update')
+  @ApiOperation({
+    summary: 'Corregir fechas o días de una solicitud (p. ej. hábiles vs naturales)',
+  })
+  @ApiParam({ name: 'requestId', type: 'string' })
+  updateLeaveRequest(
+    @Param('requestId') requestId: string,
+    @Body() dto: UpdateLeaveRequestDto,
+  ) {
+    return this.leaveService.update(this.getTenantId(), requestId, dto);
   }
 
   @Put('leave-requests/:requestId/review')

@@ -60,7 +60,7 @@ Content-Type: application/json
   "evidenced_by": "Transferencia SPEI ref. 998877",
 
   "purchase_price": 850000,
-  "currency": "MXN",
+  "currency": "USD",
 
   "reservation_deposit": 50000,
   "reservation_date": "2026-07-17",

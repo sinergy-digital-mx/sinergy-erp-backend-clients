@@ -134,6 +134,7 @@ export class ContractsExportService {
         'Cliente': `${contract.customer?.name || ''} ${contract.customer?.lastname || ''}`.trim(),
         'Lote': contract.property?.code || '',
         'Fecha Inicio': this.formatDate(contract.contract_date),
+        'Moneda': (contract.currency || 'USD').toString().trim().toUpperCase() || 'USD',
         'Precio Total': totalPrice,
         'Enganche': downPayment,
         'Monto Financiado': financedAmount,
@@ -201,16 +202,13 @@ export class ContractsExportService {
         };
 
         // Alignment
-        if (colNumber <= 4 || colNumber === 13) {
-          // Text columns (left align)
+        if (colNumber <= 5 || colNumber === 12 || colNumber === 14) {
           cell.alignment = { horizontal: 'left', vertical: 'middle' };
         } else {
-          // Number columns (right align)
           cell.alignment = { horizontal: 'right', vertical: 'middle' };
         }
 
-        // Format numbers as currency
-        if (colNumber >= 5 && colNumber <= 12 && colNumber !== 9 && colNumber !== 13) {
+        if ([6, 7, 8, 9, 11, 13].includes(colNumber)) {
           if (typeof cell.value === 'number') {
             cell.numFmt = '$#,##0.00';
           }
@@ -224,6 +222,7 @@ export class ContractsExportService {
       { width: 25 }, // Cliente
       { width: 12 }, // Lote
       { width: 15 }, // Fecha Inicio
+      { width: 10 }, // Moneda
       { width: 14 }, // Precio Total
       { width: 14 }, // Enganche
       { width: 16 }, // Monto Financiado
@@ -240,7 +239,7 @@ export class ContractsExportService {
     worksheet.views = [{ state: 'frozen', ySplit: 1 }];
 
     // Add summary stats to the right of the table
-    const statsStartColumn = 17; // Column Q (after the 14 data columns + some space)
+    const statsStartColumn = 18;
     const statsStartRow = 2;
 
     // Add stats title

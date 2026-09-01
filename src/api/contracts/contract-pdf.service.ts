@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import PdfPrinter from 'pdfmake';
 import { Contract } from '../../entities/contracts/contract.entity';
 import { Payment } from '../../entities/contracts/payment.entity';
+import { resolveStoredContractCurrency } from './contract-currency.util';
 
 @Injectable()
 export class ContractPdfService {
@@ -26,6 +27,9 @@ export class ContractPdfService {
     if (!contract) {
       throw new Error('Contract not found');
     }
+
+    const currency = resolveStoredContractCurrency(contract.currency);
+    const money = (amount: number) => this.formatMoney(amount, currency);
 
     const payments = await this.paymentRepo
       .createQueryBuilder('p')
@@ -69,7 +73,7 @@ export class ContractPdfService {
               color: '#2C3E50',
             },
             {
-              text: `${contract.contract_number}`,
+              text: `${contract.contract_number} · ${currency}`,
               fontSize: 11,
               alignment: 'right',
               color: '#7F8C8D',
@@ -140,7 +144,7 @@ export class ContractPdfService {
                 {
                   stack: [
                     { text: 'Precio Total', fontSize: 7, color: '#666', marginBottom: 4 },
-                    { text: `$${Number(contract.total_price).toFixed(2)}`, fontSize: 11, bold: true },
+                    { text: money(Number(contract.total_price)), fontSize: 11, bold: true },
                   ],
                   alignment: 'center',
                   border: [false, false, false, false],
@@ -149,7 +153,7 @@ export class ContractPdfService {
                 {
                   stack: [
                     { text: 'Enganche', fontSize: 7, color: '#666', marginBottom: 4 },
-                    { text: `$${Number(contract.down_payment).toFixed(2)}`, fontSize: 11, bold: true },
+                    { text: money(Number(contract.down_payment)), fontSize: 11, bold: true },
                   ],
                   alignment: 'center',
                   border: [false, false, false, false],
@@ -158,7 +162,7 @@ export class ContractPdfService {
                 {
                   stack: [
                     { text: 'Financiado', fontSize: 7, color: '#666', marginBottom: 4 },
-                    { text: `$${(Number(contract.total_price) - Number(contract.down_payment)).toFixed(2)}`, fontSize: 11, bold: true },
+                    { text: money(Number(contract.total_price) - Number(contract.down_payment)), fontSize: 11, bold: true },
                   ],
                   alignment: 'center',
                   border: [false, false, false, false],
@@ -167,7 +171,7 @@ export class ContractPdfService {
                 {
                   stack: [
                     { text: 'Saldo Pendiente', fontSize: 7, color: '#666', marginBottom: 4 },
-                    { text: `$${Number(contract.remaining_balance).toFixed(2)}`, fontSize: 11, bold: true, color: '#E74C3C' },
+                    { text: money(Number(contract.remaining_balance)), fontSize: 11, bold: true, color: '#E74C3C' },
                   ],
                   alignment: 'center',
                   border: [false, false, false, false],
@@ -180,7 +184,7 @@ export class ContractPdfService {
                   stack: [
                     { text: paidPayments.length.toString(), fontSize: 16, bold: true, color: '#27AE60', marginBottom: 3 },
                     { text: 'Pagados', fontSize: 8, color: '#27AE60', marginBottom: 4 },
-                    { text: `$${totalPaid.toFixed(2)}`, fontSize: 10, bold: true },
+                    { text: money(totalPaid), fontSize: 10, bold: true },
                   ],
                   alignment: 'center',
                   border: [false, false, false, false],
@@ -190,7 +194,7 @@ export class ContractPdfService {
                   stack: [
                     { text: pendingPayments.length.toString(), fontSize: 16, bold: true, color: '#F39C12', marginBottom: 3 },
                     { text: 'Pendientes', fontSize: 8, color: '#F39C12', marginBottom: 4 },
-                    { text: `$${pendingPayments.reduce((sum, p) => sum + Number(p.amount), 0).toFixed(2)}`, fontSize: 10, bold: true },
+                    { text: money(pendingPayments.reduce((sum, p) => sum + Number(p.amount), 0)), fontSize: 10, bold: true },
                   ],
                   alignment: 'center',
                   border: [false, false, false, false],
@@ -200,7 +204,7 @@ export class ContractPdfService {
                   stack: [
                     { text: partialPayments.length.toString(), fontSize: 16, bold: true, color: '#3498DB', marginBottom: 3 },
                     { text: 'Parciales', fontSize: 8, color: '#3498DB', marginBottom: 4 },
-                    { text: `$${partialPayments.reduce((sum, p) => sum + Number(p.amount_paid || 0), 0).toFixed(2)}`, fontSize: 10, bold: true },
+                    { text: money(partialPayments.reduce((sum, p) => sum + Number(p.amount_paid || 0), 0)), fontSize: 10, bold: true },
                   ],
                   alignment: 'center',
                   border: [false, false, false, false],
@@ -210,7 +214,7 @@ export class ContractPdfService {
                   stack: [
                     { text: overduePayments.length.toString(), fontSize: 16, bold: true, color: '#E74C3C', marginBottom: 3 },
                     { text: 'Vencidos', fontSize: 8, color: '#E74C3C', marginBottom: 4 },
-                    { text: `$${overduePayments.reduce((sum, p) => sum + Number(p.amount_pending || p.amount), 0).toFixed(2)}`, fontSize: 10, bold: true },
+                    { text: money(overduePayments.reduce((sum, p) => sum + Number(p.amount_pending || p.amount), 0)), fontSize: 10, bold: true },
                   ],
                   alignment: 'center',
                   border: [false, false, false, false],
@@ -257,9 +261,9 @@ export class ContractPdfService {
               ...payments.map((payment) => [
                 { text: payment.payment_number.toString(), fontSize: 6, alignment: 'center' },
                 { text: payment.payment_number.toString(), fontSize: 6, alignment: 'center' },
-                { text: `$${Number(payment.amount).toFixed(2)}`, fontSize: 6, alignment: 'right' },
-                { text: `$${Number(payment.amount_paid || 0).toFixed(2)}`, fontSize: 6, alignment: 'right' },
-                { text: `$${Number(payment.amount_pending || 0).toFixed(2)}`, fontSize: 6, alignment: 'right' },
+                { text: money(Number(payment.amount)), fontSize: 6, alignment: 'right' },
+                { text: money(Number(payment.amount_paid || 0)), fontSize: 6, alignment: 'right' },
+                { text: money(Number(payment.amount_pending || 0)), fontSize: 6, alignment: 'right' },
                 { text: this.formatDate(payment.due_date), fontSize: 6, alignment: 'center' },
                 { text: payment.paid_date ? this.formatDate(payment.paid_date) : '—', fontSize: 6, alignment: 'center' },
                 {
@@ -306,6 +310,10 @@ export class ContractPdfService {
       pdfDoc.on('error', reject);
       pdfDoc.end();
     });
+  }
+
+  private formatMoney(amount: number, currency: string): string {
+    return `$${Number(amount || 0).toFixed(2)} ${currency}`;
   }
 
   private formatDate(date: any): string {

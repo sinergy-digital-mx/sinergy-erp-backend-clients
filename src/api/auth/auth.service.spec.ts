@@ -3,6 +3,7 @@ import { AuthService } from './auth.service';
 import { JwtService } from '@nestjs/jwt';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { User } from '../../entities/users/user.entity';
+import { UserWarehouseAssignment } from '../../entities/control-desk/user-warehouse-assignment.entity';
 import { PermissionService } from '../rbac/services/permission.service';
 import { RoleService } from '../rbac/services/role.service';
 import { UnauthorizedException } from '@nestjs/common';
@@ -40,6 +41,10 @@ describe('AuthService', () => {
       providers: [
         AuthService,
         { provide: getRepositoryToken(User), useValue: mockUserRepo },
+        {
+          provide: getRepositoryToken(UserWarehouseAssignment),
+          useValue: { find: jest.fn().mockResolvedValue([]) },
+        },
         { provide: JwtService, useValue: mockJwtService },
         { provide: PermissionService, useValue: mockPermissionService },
         { provide: RoleService, useValue: mockRoleService },

@@ -1,6 +1,8 @@
+import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
   IsDate,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -10,7 +12,6 @@ import {
   Max,
   Min,
 } from 'class-validator';
-import { Type } from 'class-transformer';
 
 export class CreateContractDto {
   @IsNumber()
@@ -79,10 +80,13 @@ export class CreateContractDto {
   @Type(() => Date)
   first_payment_date: Date;
 
+  /** Default USD. Si se omite, se toma la moneda del lote o USD. */
   @IsOptional()
-  @IsString()
-  @Length(1, 10)
-  currency?: string;
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().toUpperCase() : value,
+  )
+  @IsIn(['USD', 'MXN'])
+  currency?: 'USD' | 'MXN';
 
   @IsOptional()
   @IsString()

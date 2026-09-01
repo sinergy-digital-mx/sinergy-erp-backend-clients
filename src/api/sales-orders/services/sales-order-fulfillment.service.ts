@@ -23,8 +23,14 @@ export class SalesOrderFulfillmentService {
     userId: string,
     manager: EntityManager,
     scope: { warehouseId?: string | null; billingBranchId?: string | null },
+    quantityBase?: number,
   ): Promise<SalesOrderBatchAllocation[]> {
-    const needed = parseFloat(detail.quantity_base_uom.toString());
+    const needed = parseFloat(
+      (quantityBase ?? detail.quantity_base_uom).toString(),
+    );
+    if (needed <= 0) {
+      return [];
+    }
     const warehouseId = scope.warehouseId || undefined;
     const billingBranchId = scope.billingBranchId || undefined;
 

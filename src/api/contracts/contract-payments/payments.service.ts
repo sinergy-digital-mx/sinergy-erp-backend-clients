@@ -10,6 +10,7 @@ import {
   resolveContractFinancials,
 } from '../contract-financial.util';
 import { GenerateContractPaymentsDto } from './dto/generate-contract-payments.dto';
+import { resolveStoredContractCurrency } from '../contract-currency.util';
 
 export interface PaymentSchedulePreview {
   start_date: string;
@@ -18,6 +19,7 @@ export interface PaymentSchedulePreview {
   payment_day: number;
   payments_count: number;
   monthly_payment: number;
+  currency: string;
 }
 
 export interface GeneratedPaymentsResult extends PaymentSchedulePreview {
@@ -154,15 +156,20 @@ export class PaymentsService {
 
     return {
       ...schedule,
-      payments: saved,
+      payments: saved.map((payment) => ({
+        ...payment,
+        currency: schedule.currency,
+      })),
     };
   }
 
   /**
    * Get all payments for a contract - FIXED ORDERING
    */
-  async getContractPayments(tenantId: string, contractId: string): Promise<Payment[]> {
-    return this.paymentRepo
+  async getContractPayments(tenantId: string, contractId: string): Promise<any[]> {
+    const contract = await this.getContractOrThrow(tenantId, contractId);
+    const currency = resolveStoredContractCurrency(contract.currency);
+    const payments = await this.paymentRepo
       .createQueryBuilder('p')
       .select([
         'p.id', 'p.payment_number', 'p.status', 'p.is_overdue', 
@@ -173,6 +180,11 @@ export class PaymentsService {
       .andWhere('p.contract_id = :contractId', { contractId })
       .orderBy('CAST(p.payment_number AS UNSIGNED)', 'ASC') // Fix: Order by number as integer
       .getMany();
+
+    return payments.map((payment) => ({
+      ...payment,
+      currency,
+    }));
   }
 
   /**
@@ -263,6 +275,7 @@ export class PaymentsService {
     ).length;
 
     const stats = {
+      currency: resolveStoredContractCurrency(contract.currency),
       total_payments: payments.length,
       paid_count: payments.filter(p => p.status === 'pagado').length,
       partial_count: payments.filter(p => p.status === 'parcial' && !p.is_overdue).length,
@@ -753,6 +766,7 @@ export class PaymentsService {
       payment_day: startDate.getDate(),
       payments_count: paymentMonths,
       monthly_payment: Math.round(Number(contract.monthly_payment || 0) * 100) / 100,
+      currency: resolveStoredContractCurrency(contract.currency),
     };
   }
 
@@ -775,6 +789,7 @@ export class PaymentsService {
         payment_day: firstDue.getDate(),
         payments_count: payments.length,
         monthly_payment: Math.round(Number(contract.monthly_payment || 0) * 100) / 100,
+        currency: resolveStoredContractCurrency(contract.currency),
       };
     }
 

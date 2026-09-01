@@ -14,6 +14,11 @@ import {
   ContractListFilters,
   joinContractFilterRelations,
 } from './contract-list-filters.util';
+import {
+  DEFAULT_CONTRACT_CURRENCY,
+  normalizeContractCurrency,
+  resolveStoredContractCurrency,
+} from './contract-currency.util';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { UpdateContractDto } from './dto/update-contract.dto';
 
@@ -48,7 +53,7 @@ export class ContractsService {
     );
 
     const propertyRows = await this.contractRepo.manager.query(
-      `SELECT total_price, list_price FROM properties WHERE id = ? AND tenant_id = ? LIMIT 1`,
+      `SELECT total_price, list_price, currency FROM properties WHERE id = ? AND tenant_id = ? LIMIT 1`,
       [dto.property_id, tenantId],
     );
     const propertyListPrice = propertyRows[0]
@@ -56,6 +61,10 @@ export class ContractsService {
       : Number(dto.total_price);
     const contractListPrice =
       dto.list_price != null ? Number(dto.list_price) : propertyListPrice;
+    const currency = normalizeContractCurrency(
+      dto.currency,
+      propertyRows[0]?.currency || DEFAULT_CONTRACT_CURRENCY,
+    );
 
     const contract = this.contractRepo.create({
       ...dto,
@@ -63,6 +72,7 @@ export class ContractsService {
       down_payment_target: financed ? downPaymentTarget : null,
       down_payment: downPaymentApplied,
       list_price: contractListPrice,
+      currency,
       contract_number: contractNumber,
       tenant_id: tenantId,
       payment_months,
@@ -286,6 +296,7 @@ export class ContractsService {
 
       return {
         ...contract,
+        currency: resolveStoredContractCurrency(contract.currency),
         down_payment_applied: financials.down_payment_applied,
         down_payment_target: contract.down_payment_target,
         down_payment_target_defined:
@@ -445,7 +456,7 @@ export class ContractsService {
       first_payment_date: contract.first_payment_date,
       payment_due_day: contract.payment_due_day,
       interest_rate: contract.interest_rate,
-      currency: contract.currency,
+      currency: resolveStoredContractCurrency(contract.currency),
       status: contract.status,
       notes: contract.notes,
       metadata: contract.metadata,
@@ -592,6 +603,10 @@ export class ContractsService {
     const contract = await this.findOne(tenantId, id);
     if (!contract) {
       throw new Error('Contract not found');
+    }
+
+    if (dto.currency != null) {
+      dto.currency = normalizeContractCurrency(dto.currency);
     }
 
     const financed =
@@ -810,7 +825,24 @@ export class ContractsService {
 
     const overdueStats = await overdueQuery.getRawOne();
 
+    const currencyRows = await baseQuery()
+      .select('UPPER(TRIM(c.currency))', 'currency')
+      .distinct(true)
+      .getRawMany();
+    const currencies = Array.from(
+      new Set(
+        currencyRows
+          .map((row) => resolveStoredContractCurrency(row.currency))
+          .filter(Boolean),
+      ),
+    );
+    const displayCurrencies =
+      currencies.length > 0 ? currencies : [DEFAULT_CONTRACT_CURRENCY];
+
     return {
+      currency:
+        displayCurrencies.length === 1 ? displayCurrencies[0] : null,
+      currencies: displayCurrencies,
       total: {
         count: parseInt(totalStats.count) || 0,
         value: parseFloat(totalStats.value) || 0,

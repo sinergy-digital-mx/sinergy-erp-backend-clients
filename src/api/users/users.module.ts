@@ -9,6 +9,8 @@ import { User } from '../../entities/users/user.entity';
 import { BillingBranch } from '../../entities/billing/billing-branch.entity';
 import { PosDailyShift } from '../../entities/pos/pos-daily-shift.entity';
 import { UserManagerReport } from '../../entities/users/user-manager-report.entity';
+import { UserWarehouseAssignment } from '../../entities/control-desk/user-warehouse-assignment.entity';
+import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { RBACModule } from '../rbac/rbac.module';
 import { UsersRolesController } from '../rbac/controllers/users-roles.controller';
 import { EmployeesModule } from '../employees/employees.module';
@@ -22,6 +24,8 @@ import { EmployeesModule } from '../employees/employees.module';
             BillingBranch,
             PosDailyShift,
             UserManagerReport,
+            UserWarehouseAssignment,
+            Warehouse,
         ]),
         RBACModule,
         EmployeesModule,

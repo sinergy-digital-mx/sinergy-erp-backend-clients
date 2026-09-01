@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  IsArray,
   IsBoolean,
   IsEmail,
   IsEnum,
@@ -119,4 +120,14 @@ export class CreateUserDto {
   @ValidateNested()
   @Type(() => EmployeeProfileDto)
   employee?: EmployeeProfileDto;
+
+  @ApiProperty({
+    required: false,
+    type: [String],
+    description: 'Almacenes de Mesa de Control asignados al usuario',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  warehouse_ids?: string[];
 }

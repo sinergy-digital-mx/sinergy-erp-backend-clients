@@ -1,7 +1,9 @@
+import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
   IsDate,
   IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -11,7 +13,6 @@ import {
   Max,
   Min,
 } from 'class-validator';
-import { Type } from 'class-transformer';
 
 export class UpdateContractDto {
   @IsOptional()
@@ -77,6 +78,13 @@ export class UpdateContractDto {
   @IsOptional()
   @IsNumber()
   list_price?: number;
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().toUpperCase() : value,
+  )
+  @IsIn(['USD', 'MXN'])
+  currency?: 'USD' | 'MXN';
 
   @IsOptional()
   @IsEnum(['activo', 'completado', 'cancelado', 'suspendido'])

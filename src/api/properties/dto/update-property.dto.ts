@@ -53,6 +53,10 @@ export class UpdatePropertyDto {
 
   @IsOptional()
   @IsNumber()
+  price_per_m2?: number;
+
+  @IsOptional()
+  @IsNumber()
   list_price?: number;
 
   @IsOptional()

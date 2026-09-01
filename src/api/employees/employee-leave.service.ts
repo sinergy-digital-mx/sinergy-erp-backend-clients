@@ -14,7 +14,8 @@ import { CreateLeaveRequestDto } from './dto/create-leave-request.dto';
 import { ReviewLeaveRequestDto } from './dto/review-leave-request.dto';
 import { QueryLeaveRequestDto } from './dto/query-leave-request.dto';
 import { EmployeesService, mapLeaveRequest } from './employees.service';
-import { inclusiveDayCount } from './utils/mexican-labor-law';
+import { resolveLeaveDays } from './utils/mexican-labor-law';
+import { UpdateLeaveRequestDto } from './dto/update-leave-request.dto';
 
 @Injectable()
 export class EmployeeLeaveService {
@@ -50,7 +51,13 @@ export class EmployeeLeaveService {
       );
     }
 
-    const days = inclusiveDayCount(dto.start_date, dto.end_date);
+    const { days } = this.resolveDays({
+      type: dto.type,
+      startDate: dto.start_date,
+      endDate: dto.end_date,
+      days: dto.days,
+      countWeekends: dto.count_weekends,
+    });
 
     // Para vacaciones, validar que no exceda los días disponibles.
     if (dto.type === LeaveType.VACATION) {
@@ -222,5 +229,98 @@ export class EmployeeLeaveService {
     request.status = LeaveStatus.CANCELLED;
     const saved = await this.leaveRepo.save(request);
     return mapLeaveRequest(saved);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Corrección de fechas/días (RH). Permite ajustar un rango que contó
+  // naturales (p. ej. 9) a hábiles (7) sin recrear la solicitud.
+  // ---------------------------------------------------------------------------
+  async update(
+    tenantId: string,
+    id: string,
+    dto: UpdateLeaveRequestDto,
+  ) {
+    const request = await this.findOne(tenantId, id);
+
+    if (
+      request.status === LeaveStatus.CANCELLED ||
+      request.status === LeaveStatus.REJECTED
+    ) {
+      throw new BadRequestException(
+        'No se pueden editar solicitudes canceladas o rechazadas',
+      );
+    }
+
+    const startDate = dto.start_date ?? request.start_date;
+    const endDate = dto.end_date ?? request.end_date;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (end < start) {
+      throw new BadRequestException(
+        'La fecha de fin no puede ser anterior a la de inicio',
+      );
+    }
+
+    const datesChanged =
+      dto.start_date !== undefined || dto.end_date !== undefined;
+    const shouldRecalculate =
+      datesChanged || dto.count_weekends !== undefined;
+    const { days } = this.resolveDays({
+      type: request.type,
+      startDate,
+      endDate,
+      days: dto.days ?? (shouldRecalculate ? undefined : Number(request.days)),
+      countWeekends: dto.count_weekends,
+    });
+
+    if (request.type === LeaveType.VACATION) {
+      const employee = await this.employeeRepo.findOne({
+        where: { id: request.employee_id, tenant_id: tenantId },
+      });
+      if (!employee) {
+        throw new NotFoundException('Empleado no encontrado');
+      }
+      const summary = await this.employeesService.getVacationSummary(employee);
+      const alreadyCounted =
+        request.status === LeaveStatus.APPROVED ||
+        request.status === LeaveStatus.PENDING
+          ? Number(request.days)
+          : 0;
+      const availableWithoutThis = summary.available_days + alreadyCounted;
+      if (days > availableWithoutThis) {
+        throw new BadRequestException(
+          `Días de vacaciones insuficientes. Disponibles: ${availableWithoutThis}, solicitados: ${days}`,
+        );
+      }
+    }
+
+    request.start_date = startDate;
+    request.end_date = endDate;
+    request.days = days;
+    if (dto.reason !== undefined) {
+      request.reason = dto.reason ?? null;
+    }
+    if (dto.is_paid !== undefined) {
+      request.is_paid = dto.is_paid;
+    }
+
+    const saved = await this.leaveRepo.save(request);
+    return mapLeaveRequest(saved);
+  }
+
+  private resolveDays(params: {
+    type: string;
+    startDate: string;
+    endDate: string;
+    days?: number;
+    countWeekends?: boolean;
+  }) {
+    try {
+      return resolveLeaveDays(params);
+    } catch (err) {
+      throw new BadRequestException(
+        err instanceof Error ? err.message : 'No se pudieron calcular los días',
+      );
+    }
   }
 }

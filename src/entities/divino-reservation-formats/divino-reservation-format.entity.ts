@@ -91,7 +91,7 @@ export class DivinoReservationFormat {
   @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
   purchase_price: number | null;
 
-  @Column({ length: 10, default: 'MXN' })
+  @Column({ length: 10, default: 'USD' })
   currency: string;
 
   // --- Plan de pagos ---

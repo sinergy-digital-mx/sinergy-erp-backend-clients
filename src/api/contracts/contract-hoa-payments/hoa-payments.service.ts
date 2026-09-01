@@ -3,6 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Contract } from '../../../entities/contracts/contract.entity';
 import { ContractHoaPayment } from '../../../entities/contracts/contract-hoa-payment.entity';
+import {
+  normalizeContractCurrency,
+  resolveStoredContractCurrency,
+} from '../contract-currency.util';
 import { GenerateHoaPaymentsDto } from './dto/generate-hoa-payments.dto';
 import { RecordHoaPaymentDto } from './dto/record-hoa-payment.dto';
 import { UpdateHoaPaymentDto } from './dto/update-hoa-payment.dto';
@@ -135,10 +139,10 @@ export class HoaPaymentsService {
     });
     const payments = await this.getContractHoaPayments(tenantId, contractId);
     const partialPayment = payments.find((p) => p.status === 'parcial') ?? null;
-    const currency =
+    const currency = resolveStoredContractCurrency(
       payments.find((payment) => payment.currency)?.currency ??
-      contract?.currency ??
-      'MXN';
+        contract?.currency,
+    );
 
     const totalPaid = payments.reduce((sum, p) => {
       if (p.status === 'pagado') {
@@ -510,16 +514,10 @@ export class HoaPaymentsService {
     requestedCurrency: string | undefined,
     contractCurrency: string | undefined,
   ): string {
-    const normalized = (requestedCurrency ?? contractCurrency ?? 'MXN')
+    const normalized = (requestedCurrency ?? contractCurrency ?? 'USD')
       .trim()
       .toUpperCase();
 
-    if (!/^[A-Z]{3}$/.test(normalized)) {
-      throw new BadRequestException(
-        'La moneda debe ser un código ISO de 3 letras (ej. USD, MXN)',
-      );
-    }
-
-    return normalized;
+    return normalizeContractCurrency(normalized);
   }
 }

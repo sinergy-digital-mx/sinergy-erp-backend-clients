@@ -3,9 +3,11 @@ import {
   IsBoolean,
   IsEnum,
   IsISO8601,
+  IsNumber,
   IsOptional,
   IsString,
   MaxLength,
+  Min,
 } from 'class-validator';
 import { LeaveType } from '../../../entities/employees/leave-type.enum';
 
@@ -42,4 +44,23 @@ export class CreateLeaveRequestDto {
   @IsOptional()
   @IsBoolean({ message: 'is_paid debe ser verdadero o falso' })
   is_paid?: boolean;
+
+  @ApiProperty({
+    required: false,
+    description:
+      'Días a descontar. Si se omite, vacaciones = hábiles (lun–vie) y el resto = naturales.',
+  })
+  @IsOptional()
+  @IsNumber({}, { message: 'Los días deben ser un número' })
+  @Min(0.5, { message: 'Los días deben ser al menos 0.5' })
+  days?: number;
+
+  @ApiProperty({
+    required: false,
+    description:
+      'Si es true, cuenta sábados y domingo. Default false en vacation, true en los demás tipos.',
+  })
+  @IsOptional()
+  @IsBoolean({ message: 'count_weekends debe ser verdadero o falso' })
+  count_weekends?: boolean;
 }

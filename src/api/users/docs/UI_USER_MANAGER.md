@@ -8,7 +8,7 @@ Ya está en API.
 
 ## Cuándo mostrar el tab
 
-Siempre visible en el modal de usuario, junto a POS / Empleado / Sucursales asignadas.
+Siempre visible en el modal de usuario, junto a POS / Empleado / Sucursales asignadas / Almacenes Mesa de Control.
 
 El contenido del tab (lista + agregar usuarios) solo se habilita si `is_manager === true`.
 
@@ -189,4 +189,5 @@ Sin permiso nuevo: `User` + `Read` / `Update` (los mismos del modal).
 3. Empleado
 4. Gerente
 5. Sucursales asignadas
+5b. Almacenes Mesa de Control (`src/api/users/docs/UI_USER_WAREHOUSES.md`)
 6. Seguridad (solo perfil propio)

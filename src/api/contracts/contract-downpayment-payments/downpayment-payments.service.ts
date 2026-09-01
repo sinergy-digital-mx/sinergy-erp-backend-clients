@@ -10,6 +10,7 @@ import {
 } from '../contract-financial.util';
 import { CreateManualDownpaymentPaymentDto } from './dto/create-manual-downpayment-payment.dto';
 import { GenerateDownpaymentPaymentsDto } from './dto/generate-downpayment-payments.dto';
+import { resolveStoredContractCurrency } from '../contract-currency.util';
 
 @Injectable()
 export class DownpaymentPaymentsService {
@@ -209,20 +210,30 @@ export class DownpaymentPaymentsService {
   async getDownpaymentPayments(
     tenantId: string,
     contractId: string,
-  ): Promise<ContractDownpaymentPayment[]> {
+  ): Promise<any[]> {
     await this.ensureContractExists(tenantId, contractId);
-    return this.downpaymentRepo
+    const contract = await this.contractRepo.findOne({
+      where: { id: contractId, tenant_id: tenantId },
+      select: ['currency'],
+    });
+    const currency = resolveStoredContractCurrency(contract?.currency);
+    const payments = await this.downpaymentRepo
       .createQueryBuilder('p')
       .where('p.tenant_id = :tenantId', { tenantId })
       .andWhere('p.contract_id = :contractId', { contractId })
       .orderBy('CAST(p.payment_number AS UNSIGNED)', 'ASC')
       .getMany();
+
+    return payments.map((payment) => ({
+      ...payment,
+      currency,
+    }));
   }
 
   async getDownpaymentPaymentStats(tenantId: string, contractId: string): Promise<any> {
     const contract = await this.contractRepo.findOne({
       where: { id: contractId, tenant_id: tenantId },
-      select: ['down_payment', 'down_payment_target', 'down_payment_financed'],
+      select: ['down_payment', 'down_payment_target', 'down_payment_financed', 'currency'],
     });
     const payments = await this.getDownpaymentPayments(tenantId, contractId);
     const partialPayment = payments.find((p) => p.status === 'parcial') ?? null;
@@ -248,6 +259,7 @@ export class DownpaymentPaymentsService {
     const totalExpected = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
     return {
+      currency: resolveStoredContractCurrency(contract?.currency),
       total_payments: payments.length,
       paid_count: payments.filter((p) => p.status === 'pagado').length,
       pending_count: payments.filter((p) => p.status === 'pendiente').length,

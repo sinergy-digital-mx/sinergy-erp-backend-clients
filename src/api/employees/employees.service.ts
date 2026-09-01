@@ -117,6 +117,7 @@ export class EmployeesService {
       'bank_account',
       'status',
       'termination_date',
+      'vacation_carryover_days',
     ];
     for (const field of fields) {
       if (profile[field] !== undefined) {
@@ -125,6 +126,9 @@ export class EmployeesService {
         (employee as any)[field] =
           value === '' ? null : value;
       }
+    }
+    if (employee.vacation_carryover_days == null) {
+      employee.vacation_carryover_days = 0;
     }
   }
 
@@ -289,7 +293,12 @@ export class EmployeesService {
       periodStart,
     );
 
-    return buildVacationSummary(employee.hire_date, approved, pending);
+    return buildVacationSummary(
+      employee.hire_date,
+      approved,
+      pending,
+      Number(employee.vacation_carryover_days ?? 0),
+    );
   }
 
   private async sumVacationDays(
@@ -337,6 +346,7 @@ export class EmployeesService {
       department: employee.department,
       hire_date: employee.hire_date,
       birth_date: employee.birth_date,
+      vacation_carryover_days: Number(employee.vacation_carryover_days ?? 0),
       monthly_salary:
         employee.monthly_salary != null ? Number(employee.monthly_salary) : null,
       payment_frequency: employee.payment_frequency,

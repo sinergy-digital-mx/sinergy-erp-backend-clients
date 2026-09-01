@@ -6,6 +6,12 @@ import { MeasurementUnit } from '../../entities/properties/measurement-unit.enti
 import { CreatePropertyDto } from './dto/create-property.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
 import { CustomerGroupsService } from '../customers/customer-groups.service';
+import {
+  derivePricePerM2,
+  PropertyPricingError,
+  resolvePropertyPricing,
+  roundMoney,
+} from './utils/property-pricing.util';
 
 export type PropertyListFilters = {
   group_id?: string;
@@ -33,11 +39,21 @@ export class PropertiesService {
       throw new BadRequestException('group_id es obligatorio');
     }
 
+    const pricing = this.resolvePricing({
+      totalArea: dto.total_area,
+      totalPrice: dto.total_price,
+      pricePerM2: dto.price_per_m2,
+      isCreate: true,
+    });
+
     const property = this.propertyRepo.create({
       ...dto,
       group_id: groupId,
       tenant_id: tenantId,
+      currency: dto.currency?.trim().toUpperCase() || 'USD',
       cadastral_key: this.normalizeOptionalText(dto.cadastral_key),
+      total_price: pricing.total_price,
+      price_per_m2: pricing.price_per_m2,
     });
 
     let saved: Property;
@@ -48,7 +64,7 @@ export class PropertiesService {
       throw err;
     }
 
-    return saved;
+    return this.presentProperty(saved);
   }
 
   async findAll(
@@ -109,7 +125,8 @@ export class PropertiesService {
             : null,
         } : null,
         // Keep the original contracts array for backward compatibility
-        contracts: property.contracts
+        contracts: property.contracts,
+        ...this.pricingFields(property),
       };
     });
 
@@ -127,7 +144,7 @@ export class PropertiesService {
   }
 
   async findOne(tenantId: string, id: string): Promise<Property | null> {
-    return this.propertyRepo
+    const property = await this.propertyRepo
       .createQueryBuilder('p')
       .leftJoinAndSelect('p.group', 'g')
       .leftJoinAndSelect('p.measurement_unit', 'mu')
@@ -136,13 +153,15 @@ export class PropertiesService {
       .where('p.id = :id', { id })
       .andWhere('p.tenant_id = :tenantId', { tenantId })
       .getOne();
+    return property ? this.presentProperty(property) : null;
   }
 
   async findByCode(tenantId: string, code: string): Promise<Property | null> {
-    return this.propertyRepo.findOne({
+    const property = await this.propertyRepo.findOne({
       where: { code, tenant_id: tenantId },
       relations: ['group', 'measurement_unit'],
     });
+    return property ? this.presentProperty(property) : null;
   }
 
   async update(tenantId: string, id: string, dto: UpdatePropertyDto): Promise<Property> {
@@ -166,9 +185,29 @@ export class PropertiesService {
       dto = { ...dto, group_id: groupId };
     }
 
+    const existingTotalPrice = Number(property.total_price);
+    const existingPricePerM2 =
+      property.price_per_m2 != null ? Number(property.price_per_m2) : null;
+    const pricingTouched =
+      dto.total_area !== undefined ||
+      dto.total_price !== undefined ||
+      dto.price_per_m2 !== undefined;
+
     Object.assign(property, dto);
     if (dto.cadastral_key !== undefined) {
       property.cadastral_key = this.normalizeOptionalText(dto.cadastral_key);
+    }
+
+    if (pricingTouched) {
+      const pricing = this.resolvePricing({
+        totalArea: dto.total_area ?? Number(property.total_area),
+        totalPrice: dto.total_price,
+        pricePerM2: dto.price_per_m2,
+        existingTotalPrice,
+        existingPricePerM2,
+      });
+      property.total_price = pricing.total_price;
+      property.price_per_m2 = pricing.price_per_m2;
     }
 
     let updated: Property;
@@ -181,7 +220,7 @@ export class PropertiesService {
       throw err;
     }
 
-    return updated;
+    return this.presentProperty(updated);
   }
 
   async remove(tenantId: string, id: string): Promise<void> {
@@ -249,8 +288,8 @@ export class PropertiesService {
       .addSelect('COALESCE(SUM(ac.remaining_balance), 0)', 'remaining_balance')
       .getRawOne();
 
-    const area = this.roundMoney(parseFloat(totals?.area) || 0);
-    const value = this.roundMoney(parseFloat(totals?.value) || 0);
+    const area = roundMoney(parseFloat(totals?.area) || 0);
+    const value = roundMoney(parseFloat(totals?.value) || 0);
 
     return {
       total: {
@@ -260,12 +299,12 @@ export class PropertiesService {
       },
       available: {
         count: parseInt(totals?.available_count, 10) || 0,
-        area: this.roundMoney(parseFloat(totals?.available_area) || 0),
-        value: this.roundMoney(parseFloat(totals?.available_value) || 0),
+        area: roundMoney(parseFloat(totals?.available_area) || 0),
+        value: roundMoney(parseFloat(totals?.available_value) || 0),
       },
       active_in_payment: {
         count: parseInt(active?.count, 10) || 0,
-        remaining_balance: this.roundMoney(parseFloat(active?.remaining_balance) || 0),
+        remaining_balance: roundMoney(parseFloat(active?.remaining_balance) || 0),
       },
       reserved: {
         count: parseInt(totals?.reserved_count, 10) || 0,
@@ -273,7 +312,7 @@ export class PropertiesService {
       sold: {
         count: parseInt(totals?.sold_count, 10) || 0,
       },
-      avg_price_per_m2: area > 0 ? this.roundMoney(value / area) : 0,
+      avg_price_per_m2: area > 0 ? roundMoney(value / area) : 0,
     };
   }
 
@@ -315,8 +354,40 @@ export class PropertiesService {
     }
   }
 
-  private roundMoney(value: number): number {
-    return Math.round(value * 100) / 100;
+  private resolvePricing(
+    params: Parameters<typeof resolvePropertyPricing>[0],
+  ): ReturnType<typeof resolvePropertyPricing> {
+    try {
+      return resolvePropertyPricing(params);
+    } catch (err) {
+      if (err instanceof PropertyPricingError) {
+        throw new BadRequestException(err.message);
+      }
+      throw err;
+    }
+  }
+
+  private pricingFields(property: Property): {
+    total_price: number;
+    price_per_m2: number | null;
+  } {
+    const totalPrice = Number(property.total_price);
+    const storedUnit =
+      property.price_per_m2 != null ? Number(property.price_per_m2) : null;
+    return {
+      total_price: Number.isFinite(totalPrice) ? totalPrice : 0,
+      price_per_m2:
+        storedUnit != null && Number.isFinite(storedUnit)
+          ? storedUnit
+          : derivePricePerM2(property.total_price, property.total_area),
+    };
+  }
+
+  private presentProperty(property: Property): Property {
+    const pricing = this.pricingFields(property);
+    property.total_price = pricing.total_price;
+    property.price_per_m2 = pricing.price_per_m2;
+    return property;
   }
 
   async getMeasurementUnits(): Promise<MeasurementUnit[]> {

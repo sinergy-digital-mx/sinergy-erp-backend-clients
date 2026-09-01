@@ -112,4 +112,14 @@ export class EmployeeProfileDto {
   @ValidateIf((_, value) => !isEmpty(value))
   @IsISO8601({}, { message: 'La fecha de baja debe tener formato YYYY-MM-DD' })
   termination_date?: string;
+
+  @ApiProperty({
+    required: false,
+    description:
+      'Días de vacaciones extra o no tomados el año anterior. RH los captura; no se calculan solos.',
+  })
+  @ValidateIf((_, value) => value !== null && value !== undefined && value !== '')
+  @IsNumber({}, { message: 'Los días de arrastre deben ser un número' })
+  @Min(0, { message: 'Los días de arrastre no pueden ser negativos' })
+  vacation_carryover_days?: number;
 }

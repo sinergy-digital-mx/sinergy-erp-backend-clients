@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -21,6 +21,8 @@ import { PosDailyShift } from '../../entities/pos/pos-daily-shift.entity';
 import { PosDailyShiftStatus } from '../../entities/pos/pos-daily-shift-status.enum';
 import { EmployeesService } from '../employees/employees.service';
 import { UserManagerReport } from '../../entities/users/user-manager-report.entity';
+import { UserWarehouseAssignment } from '../../entities/control-desk/user-warehouse-assignment.entity';
+import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { QueryUsersDto } from './dto/query-users.dto';
 import {
   USER_STATUS_CODE,
@@ -39,6 +41,10 @@ export class UsersService {
     private dailyShiftRepo: Repository<PosDailyShift>,
     @InjectRepository(UserManagerReport)
     private managerReportRepo: Repository<UserManagerReport>,
+    @InjectRepository(UserWarehouseAssignment)
+    private warehouseAssignmentRepo: Repository<UserWarehouseAssignment>,
+    @InjectRepository(Warehouse)
+    private warehouseRepo: Repository<Warehouse>,
     private employeesService: EmployeesService,
   ) {}
 
@@ -61,6 +67,7 @@ export class UsersService {
       is_employee,
       employee,
       is_manager,
+      warehouse_ids,
       ...userFields
     } = dto;
 
@@ -81,6 +88,10 @@ export class UsersService {
 
     if (dto.is_employee) {
       await this.employeesService.upsertForUser(tenantId, user.id, employee ?? {});
+    }
+
+    if (warehouse_ids) {
+      await this.replaceAssignedWarehouses(user.id, tenantId, warehouse_ids);
     }
 
     const created = await this.findOne(user.id, tenantId);
@@ -150,6 +161,7 @@ export class UsersService {
       is_employee,
       employee,
       is_manager,
+      warehouse_ids,
       ...userFields
     } = dto;
 
@@ -171,6 +183,9 @@ export class UsersService {
 
     if (dto.billing_branch_id !== undefined) {
       user.billing_branch_id = dto.billing_branch_id;
+      if (warehouse_ids === undefined) {
+        await this.dropWarehousesOutsideBranch(id, tenantId, dto.billing_branch_id);
+      }
     }
 
     if (is_manager !== undefined) {
@@ -187,6 +202,10 @@ export class UsersService {
       await this.employeesService.setEmployeeFlag(tenantId, id, false);
     } else if (employee) {
       await this.employeesService.upsertForUser(tenantId, id, employee);
+    }
+
+    if (warehouse_ids) {
+      await this.replaceAssignedWarehouses(id, tenantId, warehouse_ids);
     }
 
     const updated = await this.findOne(id, tenantId);
@@ -311,8 +330,13 @@ export class UsersService {
     const users = await qb.getMany();
 
     const managerByUserId = await this.getManagerByUserIdMap(tenantId);
+    const warehousesByUserId = await this.getAssignedWarehousesByUserIdMap(
+      tenantId,
+      users.map((user) => user.id),
+    );
     for (const user of users) {
       (user as any).managerUser = managerByUserId.get(user.id) ?? null;
+      (user as any).assignedWarehouses = warehousesByUserId.get(user.id) ?? [];
     }
 
     return users;
@@ -347,6 +371,11 @@ export class UsersService {
     if (user.is_manager) {
       (user as any).managedUsers = await this.loadManagedUsers(id, tenantId);
     }
+
+    (user as any).assignedWarehouses = await this.loadAssignedWarehouses(
+      id,
+      tenantId,
+    );
 
     return user;
   }
@@ -527,7 +556,56 @@ export class UsersService {
         ? { reports: (user as any).managedUsers }
         : {}),
       ...this.mapUserBranchResponse(user),
+      assigned_warehouses:
+        (user as any).assignedWarehouses ?? [],
     };
+  }
+
+  async getAssignedWarehouses(userId: string, tenantId: string) {
+    const user = await this.userRepo.findOne({
+      where: { id: userId, tenant_id: tenantId },
+    });
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+    return {
+      assigned_warehouses: await this.loadAssignedWarehouses(userId, tenantId),
+    };
+  }
+
+  async replaceAssignedWarehouses(
+    userId: string,
+    tenantId: string,
+    warehouseIds: string[],
+  ) {
+    const user = await this.userRepo.findOne({
+      where: { id: userId, tenant_id: tenantId },
+    });
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    const uniqueIds = [...new Set(warehouseIds)];
+    await this.assertWarehousesForUser(tenantId, user.billing_branch_id, uniqueIds);
+
+    await this.warehouseAssignmentRepo.delete({
+      tenant_id: tenantId,
+      user_id: userId,
+    });
+
+    if (uniqueIds.length) {
+      await this.warehouseAssignmentRepo.save(
+        uniqueIds.map((warehouseId) =>
+          this.warehouseAssignmentRepo.create({
+            tenant_id: tenantId,
+            user_id: userId,
+            warehouse_id: warehouseId,
+          }),
+        ),
+      );
+    }
+
+    return this.getAssignedWarehouses(userId, tenantId);
   }
 
   mapUserBranchResponse(user: User) {
@@ -537,6 +615,103 @@ export class UsersService {
         ? this.mapBillingBranch(user.billing_branch)
         : null,
       has_all_branches_access: user.billing_branch_id == null,
+    };
+  }
+
+  private async loadAssignedWarehouses(userId: string, tenantId: string) {
+    const rows = await this.warehouseAssignmentRepo.find({
+      where: { tenant_id: tenantId, user_id: userId },
+      relations: ['warehouse', 'warehouse.billing_branch'],
+      order: { created_at: 'ASC' },
+    });
+    return rows.filter((row) => row.warehouse).map((row) => this.mapWarehouse(row.warehouse));
+  }
+
+  private async getAssignedWarehousesByUserIdMap(
+    tenantId: string,
+    userIds: string[],
+  ) {
+    const map = new Map<string, ReturnType<UsersService['mapWarehouse']>[]>();
+    if (!userIds.length) {
+      return map;
+    }
+    const rows = await this.warehouseAssignmentRepo.find({
+      where: { tenant_id: tenantId, user_id: In(userIds) },
+      relations: ['warehouse', 'warehouse.billing_branch'],
+    });
+    for (const row of rows) {
+      if (!row.warehouse) {
+        continue;
+      }
+      const list = map.get(row.user_id) ?? [];
+      list.push(this.mapWarehouse(row.warehouse));
+      map.set(row.user_id, list);
+    }
+    return map;
+  }
+
+  private async assertWarehousesForUser(
+    tenantId: string,
+    billingBranchId: string | null,
+    warehouseIds: string[],
+  ) {
+    if (!warehouseIds.length) {
+      return;
+    }
+    const warehouses = await this.warehouseRepo.find({
+      where: warehouseIds.map((id) => ({ id, tenant_id: tenantId })),
+    });
+    if (warehouses.length !== warehouseIds.length) {
+      throw new BadRequestException(
+        'Uno o más almacenes no existen o no pertenecen a la organización',
+      );
+    }
+    if (billingBranchId) {
+      const outside = warehouses.filter(
+        (warehouse) => warehouse.billing_branch_id !== billingBranchId,
+      );
+      if (outside.length) {
+        throw new BadRequestException(
+          'El almacén debe pertenecer a la sucursal asignada al usuario',
+        );
+      }
+    }
+  }
+
+  private async dropWarehousesOutsideBranch(
+    userId: string,
+    tenantId: string,
+    billingBranchId: string | null,
+  ) {
+    if (!billingBranchId) {
+      return;
+    }
+    const rows = await this.warehouseAssignmentRepo.find({
+      where: { tenant_id: tenantId, user_id: userId },
+      relations: ['warehouse', 'warehouse.billing_branch'],
+    });
+    const toRemove = rows.filter(
+      (row) => row.warehouse?.billing_branch_id !== billingBranchId,
+    );
+    if (toRemove.length) {
+      await this.warehouseAssignmentRepo.remove(toRemove);
+    }
+  }
+
+  private mapWarehouse(warehouse: Warehouse) {
+    const branch = warehouse.billing_branch;
+    return {
+      id: warehouse.id,
+      name: warehouse.name,
+      code: warehouse.code,
+      billing_branch_id: warehouse.billing_branch_id,
+      billing_branch: branch
+        ? {
+            id: branch.id,
+            code: branch.code,
+            display_name: [branch.code, branch.city].filter(Boolean).join(' — '),
+          }
+        : null,
     };
   }
 
