@@ -12,6 +12,11 @@ import {
   resolvePropertyPricing,
   roundMoney,
 } from './utils/property-pricing.util';
+import {
+  DEFAULT_CONTRACT_CURRENCY,
+  normalizeContractCurrency,
+  resolveStoredContractCurrency,
+} from '../contracts/contract-currency.util';
 
 export type PropertyListFilters = {
   group_id?: string;
@@ -50,7 +55,7 @@ export class PropertiesService {
       ...dto,
       group_id: groupId,
       tenant_id: tenantId,
-      currency: dto.currency?.trim().toUpperCase() || 'USD',
+      currency: normalizeContractCurrency(dto.currency, DEFAULT_CONTRACT_CURRENCY),
       cadastral_key: this.normalizeOptionalText(dto.cadastral_key),
       total_price: pricing.total_price,
       price_per_m2: pricing.price_per_m2,
@@ -127,6 +132,7 @@ export class PropertiesService {
         // Keep the original contracts array for backward compatibility
         contracts: property.contracts,
         ...this.pricingFields(property),
+        currency: resolveStoredContractCurrency(property.currency),
       };
     });
 
@@ -197,6 +203,9 @@ export class PropertiesService {
     if (dto.cadastral_key !== undefined) {
       property.cadastral_key = this.normalizeOptionalText(dto.cadastral_key);
     }
+    if (dto.currency !== undefined) {
+      property.currency = normalizeContractCurrency(dto.currency);
+    }
 
     if (pricingTouched) {
       const pricing = this.resolvePricing({
@@ -239,6 +248,8 @@ export class PropertiesService {
     tenantId: string,
     filters: PropertyListFilters = {},
   ): Promise<{
+    currency: string | null;
+    currencies: string[];
     total: { count: number; area: number; value: number };
     available: { count: number; area: number; value: number };
     active_in_payment: { count: number; remaining_balance: number };
@@ -291,7 +302,27 @@ export class PropertiesService {
     const area = roundMoney(parseFloat(totals?.area) || 0);
     const value = roundMoney(parseFloat(totals?.value) || 0);
 
+    const currencyQuery = this.propertyRepo
+      .createQueryBuilder('p')
+      .where('p.tenant_id = :tenantId', { tenantId });
+    this.applyPropertyListFilters(currencyQuery, filters);
+    const currencyRows = await currencyQuery
+      .select('UPPER(TRIM(p.currency))', 'currency')
+      .distinct(true)
+      .getRawMany();
+    const currencies = Array.from(
+      new Set(
+        currencyRows
+          .map((row) => resolveStoredContractCurrency(row.currency))
+          .filter(Boolean),
+      ),
+    );
+    const displayCurrencies =
+      currencies.length > 0 ? currencies : [DEFAULT_CONTRACT_CURRENCY];
+
     return {
+      currency: displayCurrencies.length === 1 ? displayCurrencies[0] : null,
+      currencies: displayCurrencies,
       total: {
         count: parseInt(totals?.count, 10) || 0,
         area,
@@ -387,6 +418,7 @@ export class PropertiesService {
     const pricing = this.pricingFields(property);
     property.total_price = pricing.total_price;
     property.price_per_m2 = pricing.price_per_m2;
+    property.currency = resolveStoredContractCurrency(property.currency);
     return property;
   }
 

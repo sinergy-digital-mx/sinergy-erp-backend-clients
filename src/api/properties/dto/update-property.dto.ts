@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, Length, IsEnum, MaxLength } from 'class-validator';
+import { IsString, IsNumber, IsOptional, Length, IsEnum, IsIn, MaxLength } from 'class-validator';
 
 export class UpdatePropertyDto {
   @IsOptional()
@@ -60,9 +60,8 @@ export class UpdatePropertyDto {
   list_price?: number;
 
   @IsOptional()
-  @IsString()
-  @Length(1, 10)
-  currency?: string;
+  @IsIn(['USD', 'MXN'])
+  currency?: 'USD' | 'MXN';
 
   @IsOptional()
   @IsEnum(['disponible', 'vendido', 'reservado', 'cancelado'])

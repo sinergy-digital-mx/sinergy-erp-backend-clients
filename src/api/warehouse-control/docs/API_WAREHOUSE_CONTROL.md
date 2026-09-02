@@ -11,7 +11,7 @@ Picking por almacén y armado de OV en **En Selección**. Mensajes al cliente ha
 | CRUD posiciones | `WarehouseControl` + `Create` |
 | Menú | `WarehouseControl` + `ViewMenu` |
 
-Módulo RBAC: `warehouse_control` (enabled en la organización).
+Módulo RBAC: `warehouse_control` (enabled en la organización). **No** habilitar en Divino.
 
 Alcance de datos: si el usuario tiene `assigned_warehouses` y **no** es Admin, solo ve/actúa tareas de esos almacenes. Armar y corroborar son de supervisor (Admin o sin almacén asignado).
 

@@ -16,7 +16,7 @@ Dos combos en cascada (obligatorios), en este orden. **Quitar el dropdown Almac�
 | 2 | **Sucursal** * | `billing_branch_id` | Sucursales de esa razón |
 | 3 | **Cliente** * | `customer_id` | Búsqueda de clientes |
 | 4 | **Fecha de entrega** * | `expected_delivery_date` | Date |
-| 5 | Checkbox selección/armado | `requires_selection_assembly` | Mesa de Control. Ayuda: “La orden se surtirá por almacén (picking y armado en Mesa de Control)”. Ver `UI_SALES_ORDER_SELECTION_ASSEMBLY.md` |
+| 5 | Checkbox selección/armado | `requires_selection_assembly` | Solo si `warehouse_control` está enabled. **No** en Divino. Ver `UI_SALES_ORDER_SELECTION_ASSEMBLY.md` |
 | 6 | **Notas** | `notes` | Texto opcional |
 
 No pintar **Almacén**. No enviar `warehouse_id` en MANUAL.

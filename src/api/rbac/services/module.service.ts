@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Module } from '../../../entities/rbac/module.entity';
@@ -8,6 +8,9 @@ import { TenantContextService } from './tenant-context.service';
 import { PermissionVersionService } from './permission-version.service';
 import { PermissionCacheService } from './permission-cache.service';
 import { getModuleCategoryLabel } from '../constants/module-categories.constants';
+import { DIVINO_DASHBOARD_ALLOWED_TENANT_ID } from '../../divino-dashboard/divino-dashboard.constants';
+
+const DIVINO_EXCLUDED_MODULE_CODES = ['warehouse_control'];
 
 @Injectable()
 export class ModuleService {
@@ -188,6 +191,13 @@ export class ModuleService {
 
     if (!module) {
       throw new NotFoundException(`Module with ID ${moduleId} not found`);
+    }
+
+    if (
+      tenantId === DIVINO_DASHBOARD_ALLOWED_TENANT_ID &&
+      DIVINO_EXCLUDED_MODULE_CODES.includes(module.code)
+    ) {
+      throw new BadRequestException('Este módulo no aplica a esta organización');
     }
 
     const existingTenantModule = await this.tenantModuleRepository.findOne({

@@ -12,6 +12,8 @@ Al crear o editar un lote el precio por m² es **opcional**. Si lo capturan, el 
 
 `POST /tenant/properties` y `PUT /tenant/properties/:id`.
 
+`currency` opcional: `USD` \| `MXN`. Default **USD**. Los montos de las cards y la tabla se pintan con esa moneda, no con `MX$`.
+
 ## UI sugerida
 
 1. Campo **Área (m²)** (`total_area`).

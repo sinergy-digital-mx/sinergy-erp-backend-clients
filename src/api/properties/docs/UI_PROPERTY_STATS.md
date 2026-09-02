@@ -107,6 +107,8 @@ No sumar `data[]`. `avg_price_per_m2` = Σ precio / Σ m² del filtro.
 
 ```json
 {
+  "currency": "USD",
+  "currencies": ["USD"],
   "total": { "count": 120, "area": 45120.5, "value": 8500000 },
   "available": { "count": 48, "area": 18000.25, "value": 3200000 },
   "active_in_payment": { "count": 40, "remaining_balance": 1219701.15 },
@@ -129,7 +131,9 @@ No sumar `data[]`. `avg_price_per_m2` = Σ precio / Σ m² del filtro.
 | 3 | ámbar | ACTIVOS EN PAGO | `active_in_payment.count` | Pendiente `{remaining_balance}` |
 | 4 | teal | PRECIO PROM. $/M² | `avg_price_per_m2` | Sobre el filtro actual |
 
-MXN, m² con 2 decimales. Vacío: `0` / `$0.00`.
+Montos según `stats.currency` (**USD** hoy). `Intl` con esa moneda, no `MXN` fijo: eso pinta `MX$`. Mismo patrón que Contratos (`UI_CONTRACT_CURRENCY.md`). m² con 2 decimales. Vacío: `0` / `$0.00` + badge USD.
+
+En la tabla: `data[].currency` junto a precio y `$/m²`.
 
 ---
 
@@ -139,6 +143,7 @@ MXN, m² con 2 decimales. Vacío: `0` / `$0.00`.
 - Dos columnas Proyecto + Grupo
 - Inventar cards con `data[]`
 - Hardcodear grupos
+- `style: 'currency', currency: 'MXN'` fijo ni prefijo `MX$`
 
 ---
 
@@ -149,4 +154,5 @@ MXN, m² con 2 decimales. Vacío: `0` / `$0.00`.
 - [ ] Crear/editar lote: `price_per_m2` opcional; si va, el backend calcula `total_price`
 - [ ] Columna grupo: `group.name`
 - [ ] 4 cards + `GET /tenant/properties/stats` con los mismos filtros
+- [ ] Cards y tabla con `stats.currency` / `data[].currency` (USD), no MXN
 - [ ] Sin “Proyecto” / `property-groups`

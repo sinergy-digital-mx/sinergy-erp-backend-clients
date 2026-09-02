@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, Length, IsEnum, MaxLength } from 'class-validator';
+import { IsString, IsNumber, IsOptional, Length, IsEnum, IsIn, MaxLength } from 'class-validator';
 
 export class CreatePropertyDto {
   @IsString()
@@ -52,9 +52,8 @@ export class CreatePropertyDto {
   price_per_m2?: number;
 
   @IsOptional()
-  @IsString()
-  @Length(1, 10)
-  currency?: string;
+  @IsIn(['USD', 'MXN'])
+  currency?: 'USD' | 'MXN';
 
   @IsOptional()
   @IsEnum(['disponible', 'vendido', 'reservado', 'cancelado'])

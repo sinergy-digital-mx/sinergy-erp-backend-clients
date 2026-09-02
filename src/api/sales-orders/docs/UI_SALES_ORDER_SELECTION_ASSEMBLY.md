@@ -4,6 +4,8 @@ Checkbox en el modal **Crear Orden de Venta**, tab **Información**, entre fecha
 
 **Necesita proceso de selección y armado** → `requires_selection_assembly: true|false`
 
+Mostrar el checkbox **solo** si `warehouse_control` está enabled. En Divino no: ni checkbox ni menú Mesa de Control.
+
 Texto de ayuda: “La orden se surtirá por almacén (picking y armado en Mesa de Control)”.
 
 **No** pedir almacén por línea. El back parte el pedido según el stock de cada almacén de la sucursal.

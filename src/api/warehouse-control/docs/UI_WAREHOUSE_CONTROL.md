@@ -6,6 +6,8 @@ Ruta API: `/api/tenant/warehouse-control`
 Código módulo RBAC: `warehouse_control`  
 Menú: **Mesa de Control** (`WarehouseControl` + `ViewMenu`). El módulo debe estar enabled.
 
+**No** en Divino. Es inmobiliario: sin picking ni este menú. Pollux solo pinta el ítem si `warehouse_control` viene en módulos enabled.
+
 POS no entra. OV sin checkbox siguen `Creada` → fulfill.
 
 ---
