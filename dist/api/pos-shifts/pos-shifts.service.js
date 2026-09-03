@@ -25,6 +25,7 @@ const pos_daily_shift_status_enum_1 = require("../../entities/pos/pos-daily-shif
 const pos_sale_collection_entity_1 = require("../../entities/pos/pos-sale-collection.entity");
 const pos_sale_payment_method_enum_1 = require("../../entities/pos/pos-sale-payment-method.enum");
 const user_entity_1 = require("../../entities/users/user.entity");
+const user_billing_branch_entity_1 = require("../../entities/users/user-billing-branch.entity");
 const pos_user_type_enum_1 = require("../../entities/users/pos-user-type.enum");
 const sales_order_entity_1 = require("../../entities/sales-orders/sales-order.entity");
 const customer_entity_1 = require("../../entities/customers/customer.entity");
@@ -42,6 +43,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
     dailyShiftRepo;
     partialShiftRepo;
     userRepo;
+    branchAssignmentRepo;
     salesOrderRepo;
     customerRepo;
     warehouseRepo;
@@ -50,10 +52,11 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
     salesOrderService;
     customerCreditService;
     logger = new common_1.Logger(PosShiftsService_1.name);
-    constructor(dailyShiftRepo, partialShiftRepo, userRepo, salesOrderRepo, customerRepo, warehouseRepo, collectionRepo, posReceiptService, salesOrderService, customerCreditService) {
+    constructor(dailyShiftRepo, partialShiftRepo, userRepo, branchAssignmentRepo, salesOrderRepo, customerRepo, warehouseRepo, collectionRepo, posReceiptService, salesOrderService, customerCreditService) {
         this.dailyShiftRepo = dailyShiftRepo;
         this.partialShiftRepo = partialShiftRepo;
         this.userRepo = userRepo;
+        this.branchAssignmentRepo = branchAssignmentRepo;
         this.salesOrderRepo = salesOrderRepo;
         this.customerRepo = customerRepo;
         this.warehouseRepo = warehouseRepo;
@@ -83,12 +86,13 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             pos_user_type: terminalUser.pos_user_type,
         };
     }
-    async getCurrentDailyShift(tenantId, terminalUserId) {
+    async getCurrentDailyShift(tenantId, terminalUserId, billingBranchId) {
         const terminalUser = await this.requirePosTerminal(tenantId, terminalUserId);
-        return this.getBranchOpenDailyShift(tenantId, terminalUser.billing_branch_id);
+        const branchId = await this.resolveAccessibleBranchId(terminalUser, billingBranchId);
+        return this.getBranchOpenDailyShift(tenantId, branchId);
     }
-    async getCurrentDailyShiftResponse(tenantId, terminalUserId) {
-        const shift = await this.getCurrentDailyShift(tenantId, terminalUserId);
+    async getCurrentDailyShiftResponse(tenantId, terminalUserId, billingBranchId) {
+        const shift = await this.getCurrentDailyShift(tenantId, terminalUserId, billingBranchId);
         const dailyShift = shift
             ? await this.findDailyShiftById(shift.id, tenantId)
             : null;
@@ -110,7 +114,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
     async getBranchOpenDailyShift(tenantId, billingBranchId) {
         return this.dailyShiftRepo
             .createQueryBuilder('shift')
-            .innerJoinAndSelect('shift.terminal_user', 'terminal_user')
+            .leftJoinAndSelect('shift.terminal_user', 'terminal_user')
             .leftJoinAndSelect('shift.billing_branch', 'billing_branch')
             .leftJoinAndSelect('billing_branch.fiscal_configuration', 'fiscal_configuration')
             .leftJoinAndSelect('shift.partial_shifts', 'partial_shifts')
@@ -119,9 +123,6 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             .where('shift.tenant_id = :tenantId', { tenantId })
             .andWhere('shift.billing_branch_id = :billingBranchId', { billingBranchId })
             .andWhere('shift.status = :status', { status: pos_daily_shift_status_enum_1.PosDailyShiftStatus.OPEN })
-            .andWhere('terminal_user.pos_user_type IN (:...collectTypes)', {
-            collectTypes: pos_user_type_enum_1.POS_COLLECT_TYPES,
-        })
             .orderBy('shift.shift_date', 'ASC')
             .addOrderBy('shift.created_at', 'ASC')
             .addOrderBy('partial_shifts.partial_number', 'ASC')
@@ -931,10 +932,34 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         if (!shift) {
             throw new common_1.NotFoundException('Corte global abierto no encontrado');
         }
-        if (shift.billing_branch_id !== terminalUser.billing_branch_id) {
-            throw new common_1.BadRequestException('Este corte no pertenece a la sucursal activa');
+        const canAccess = await this.userCanAccessBranch(terminalUser, shift.billing_branch_id);
+        if (!canAccess) {
+            throw new common_1.BadRequestException('Este corte no pertenece a una sucursal asignada a tu usuario');
         }
         return shift;
+    }
+    async resolveAccessibleBranchId(user, requestedBranchId) {
+        const requested = requestedBranchId?.trim();
+        if (!requested) {
+            return user.billing_branch_id;
+        }
+        const canAccess = await this.userCanAccessBranch(user, requested);
+        if (!canAccess) {
+            throw new common_1.BadRequestException('La sucursal no está asignada a este usuario');
+        }
+        return requested;
+    }
+    async userCanAccessBranch(user, billingBranchId) {
+        if (user.billing_branch_id === billingBranchId) {
+            return true;
+        }
+        const rows = await this.branchAssignmentRepo.find({
+            where: { tenant_id: user.tenant_id, user_id: user.id },
+        });
+        if (!rows.length) {
+            return user.billing_branch_id == null;
+        }
+        return rows.some((row) => row.billing_branch_id === billingBranchId);
     }
     async getShiftRemovedTotals(dailyShiftId) {
         const result = await this.partialShiftRepo
@@ -1189,13 +1214,15 @@ exports.PosShiftsService = PosShiftsService = PosShiftsService_1 = __decorate([
     __param(0, (0, typeorm_1.InjectRepository)(pos_daily_shift_entity_1.PosDailyShift)),
     __param(1, (0, typeorm_1.InjectRepository)(pos_partial_shift_entity_1.PosPartialShift)),
     __param(2, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
-    __param(3, (0, typeorm_1.InjectRepository)(sales_order_entity_1.SalesOrder)),
-    __param(4, (0, typeorm_1.InjectRepository)(customer_entity_1.Customer)),
-    __param(5, (0, typeorm_1.InjectRepository)(warehouse_entity_1.Warehouse)),
-    __param(6, (0, typeorm_1.InjectRepository)(pos_sale_collection_entity_1.PosSaleCollection)),
-    __param(7, (0, common_1.Inject)((0, common_1.forwardRef)(() => sales_order_pos_receipt_service_1.SalesOrderPosReceiptService))),
-    __param(8, (0, common_1.Inject)((0, common_1.forwardRef)(() => sales_order_service_1.SalesOrderService))),
+    __param(3, (0, typeorm_1.InjectRepository)(user_billing_branch_entity_1.UserBillingBranch)),
+    __param(4, (0, typeorm_1.InjectRepository)(sales_order_entity_1.SalesOrder)),
+    __param(5, (0, typeorm_1.InjectRepository)(customer_entity_1.Customer)),
+    __param(6, (0, typeorm_1.InjectRepository)(warehouse_entity_1.Warehouse)),
+    __param(7, (0, typeorm_1.InjectRepository)(pos_sale_collection_entity_1.PosSaleCollection)),
+    __param(8, (0, common_1.Inject)((0, common_1.forwardRef)(() => sales_order_pos_receipt_service_1.SalesOrderPosReceiptService))),
+    __param(9, (0, common_1.Inject)((0, common_1.forwardRef)(() => sales_order_service_1.SalesOrderService))),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,

@@ -44,7 +44,7 @@ export declare class PosShiftsController {
         requires_daily_shift: boolean;
         pos_user_type: import("../../entities/users/pos-user-type.enum").PosUserType | null;
     }>;
-    getCurrentDailyShift(req: any): Promise<{
+    getCurrentDailyShift(req: any, billingBranchId?: string): Promise<{
         daily_shift: {
             id: string;
             shift_date: string;

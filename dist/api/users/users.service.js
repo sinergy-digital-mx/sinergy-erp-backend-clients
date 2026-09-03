@@ -269,8 +269,7 @@ let UsersService = class UsersService {
         }
         await this.validateBillingBranch(tenantId, billingBranchId);
         if (user.billing_branch_id !== billingBranchId) {
-            user.billing_branch_id = billingBranchId;
-            await this.userRepo.save(user);
+            await this.userRepo.update({ id: userId, tenant_id: tenantId }, { billing_branch_id: billingBranchId });
         }
         const updated = await this.findOne(userId, tenantId);
         if (!updated) {

@@ -5,6 +5,7 @@ import { PosDailyShiftStatus } from '../../entities/pos/pos-daily-shift-status.e
 import { PosSaleCollection } from '../../entities/pos/pos-sale-collection.entity';
 import { PosSalePaymentMethod } from '../../entities/pos/pos-sale-payment-method.enum';
 import { User } from '../../entities/users/user.entity';
+import { UserBillingBranch } from '../../entities/users/user-billing-branch.entity';
 import { SalesOrder } from '../../entities/sales-orders/sales-order.entity';
 import { Customer } from '../../entities/customers/customer.entity';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
@@ -20,6 +21,7 @@ export declare class PosShiftsService {
     private readonly dailyShiftRepo;
     private readonly partialShiftRepo;
     private readonly userRepo;
+    private readonly branchAssignmentRepo;
     private readonly salesOrderRepo;
     private readonly customerRepo;
     private readonly warehouseRepo;
@@ -28,7 +30,7 @@ export declare class PosShiftsService {
     private readonly salesOrderService;
     private readonly customerCreditService;
     private readonly logger;
-    constructor(dailyShiftRepo: Repository<PosDailyShift>, partialShiftRepo: Repository<PosPartialShift>, userRepo: Repository<User>, salesOrderRepo: Repository<SalesOrder>, customerRepo: Repository<Customer>, warehouseRepo: Repository<Warehouse>, collectionRepo: Repository<PosSaleCollection>, posReceiptService: SalesOrderPosReceiptService, salesOrderService: SalesOrderService, customerCreditService: CustomerCreditService);
+    constructor(dailyShiftRepo: Repository<PosDailyShift>, partialShiftRepo: Repository<PosPartialShift>, userRepo: Repository<User>, branchAssignmentRepo: Repository<UserBillingBranch>, salesOrderRepo: Repository<SalesOrder>, customerRepo: Repository<Customer>, warehouseRepo: Repository<Warehouse>, collectionRepo: Repository<PosSaleCollection>, posReceiptService: SalesOrderPosReceiptService, salesOrderService: SalesOrderService, customerCreditService: CustomerCreditService);
     validateSellerCode(tenantId: string, terminalUserId: string, code: number): Promise<{
         seller: {
             id: string;
@@ -64,8 +66,8 @@ export declare class PosShiftsService {
         requires_daily_shift: boolean;
         pos_user_type: import("../../entities/users/pos-user-type.enum").PosUserType | null;
     }>;
-    getCurrentDailyShift(tenantId: string, terminalUserId: string): Promise<PosDailyShift | null>;
-    getCurrentDailyShiftResponse(tenantId: string, terminalUserId: string): Promise<{
+    getCurrentDailyShift(tenantId: string, terminalUserId: string, billingBranchId?: string): Promise<PosDailyShift | null>;
+    getCurrentDailyShiftResponse(tenantId: string, terminalUserId: string, billingBranchId?: string): Promise<{
         daily_shift: {
             id: string;
             shift_date: string;
@@ -888,6 +890,8 @@ export declare class PosShiftsService {
     private requireCobranzaTerminal;
     private requirePosTerminal;
     private requireOpenDailyShift;
+    private resolveAccessibleBranchId;
+    private userCanAccessBranch;
     private getShiftRemovedTotals;
     private getShiftCashTotals;
     private getShiftSalesStats;

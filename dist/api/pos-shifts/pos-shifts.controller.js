@@ -34,8 +34,8 @@ let PosShiftsController = class PosShiftsController {
     async validateSellerCode(dto, req) {
         return this.posShiftsService.validateSellerCode(req.user.tenant_id, req.user.id, dto.code);
     }
-    async getCurrentDailyShift(req) {
-        return this.posShiftsService.getCurrentDailyShiftResponse(req.user.tenant_id, req.user.id);
+    async getCurrentDailyShift(req, billingBranchId) {
+        return this.posShiftsService.getCurrentDailyShiftResponse(req.user.tenant_id, req.user.id, billingBranchId);
     }
     async openDailyShift(dto, req) {
         const { shift, queued_sales_assigned } = await this.posShiftsService.openDailyShift(req.user.tenant_id, req.user.id, dto);
@@ -111,8 +111,9 @@ __decorate([
         description: 'Si el corte abierto es de un día anterior, incluye unclosed_shift_alert para forzar el cierre antes de continuar.',
     }),
     __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Query)('billing_branch_id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], PosShiftsController.prototype, "getCurrentDailyShift", null);
 __decorate([
