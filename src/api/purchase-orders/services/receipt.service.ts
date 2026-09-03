@@ -14,6 +14,7 @@ import { BatchCreatorService } from './batch-creator.service';
 import { TotalCalculatorService } from './total-calculator.service';
 import { TenantValidatorService } from './tenant-validator.service';
 import { PurchaseOrderActivityService } from './purchase-order-activity.service';
+import { PurchaseOrderRealCostService } from './purchase-order-real-cost.service';
 import { computeReceivedLineBreakdown, roundPoUnitCost } from '../utils/purchase-order-line-breakdown.util';
 import {
   activityChange,
@@ -43,6 +44,7 @@ export class ReceiptService {
     private readonly totalCalculatorService: TotalCalculatorService,
     private readonly tenantValidatorService: TenantValidatorService,
     private readonly activityService: PurchaseOrderActivityService,
+    private readonly realCostService: PurchaseOrderRealCostService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -77,6 +79,7 @@ export class ReceiptService {
           `PO ${id} tiene lotes pero sigue en Creada; se completa el estado a Recibida`,
         );
         await this.finalizeReceivedStatus(id, tenantId, userId, dto, purchaseOrder);
+        await this.realCostService.recalculateIfEnabled(tenantId, id);
         await this.recordReceivedStatus(id, tenantId, userId, dto.received_items.length);
         return this.loadReceivedPurchaseOrder(id);
       }
@@ -231,6 +234,7 @@ export class ReceiptService {
       this.logger.log(
         `Recepción procesada para OC ${id} por usuario ${userId}`,
       );
+      await this.realCostService.recalculateIfEnabled(tenantId, id);
       await this.recordReceivedStatus(id, tenantId, userId, dto.received_items.length);
 
       return this.loadReceivedPurchaseOrder(id);

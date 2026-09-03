@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { PurchaseOrderBatch, PurchaseOrderBatchDetail, InventoryBatch, PurchaseOrderDocument, PurchaseOrderDocumentType, PurchaseOrderPayment, PurchaseOrderActivity } from '../../entities/purchase-orders';
+import { PurchaseOrderBatch, PurchaseOrderBatchDetail, InventoryBatch, PurchaseOrderDocument, PurchaseOrderDocumentType, PurchaseOrderPayment, PurchaseOrderLandedCostLine, PurchaseOrderActivity } from '../../entities/purchase-orders';
 import { InventoryTransferLine } from '../../entities/inventory/inventory-transfer-line.entity';
 import { InventoryTransfer } from '../../entities/inventory/inventory-transfer.entity';
 import { InventoryAuditLine } from '../../entities/inventory/inventory-audit-line.entity';
@@ -39,6 +39,7 @@ import {
   PurchaseOrderLotsService,
   PurchaseOrderActivityService,
   PurchaseOrderMovementsService,
+  PurchaseOrderRealCostService,
 } from './services';
 
 @Module({
@@ -50,6 +51,7 @@ import {
       PurchaseOrderDocument,
       PurchaseOrderDocumentType,
       PurchaseOrderPayment,
+      PurchaseOrderLandedCostLine,
       PurchaseOrderActivity,
       InventoryTransferLine,
       InventoryTransfer,
@@ -93,6 +95,7 @@ import {
     PurchaseOrderLotsService,
     PurchaseOrderActivityService,
     PurchaseOrderMovementsService,
+    PurchaseOrderRealCostService,
     S3Service,
   ],
   exports: [
@@ -114,6 +117,7 @@ import {
     PurchaseOrderLotsService,
     PurchaseOrderActivityService,
     PurchaseOrderMovementsService,
+    PurchaseOrderRealCostService,
   ],
 })
 export class PurchaseOrdersModule {}

@@ -57,12 +57,33 @@ export class UpdateUserDto {
     required: false,
     nullable: true,
     description:
-      'Sucursal asignada. null = acceso a todas. Obligatorio si is_pos_user es true.',
+      'Sucursal activa / principal. Si no envías billing_branch_ids, se trata como asignación única. null = acceso a todas (solo no POS).',
   })
   @ValidateIf((_, value) => value !== null)
   @IsOptional()
   @IsUUID()
   billing_branch_id?: string | null;
+
+  @ApiProperty({
+    required: false,
+    type: [String],
+    description:
+      'Sucursales asignadas. Vacío con billing_branch_id null = acceso a todas (solo no POS). POS requiere al menos una.',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  billing_branch_ids?: string[];
+
+  @ApiProperty({
+    required: false,
+    nullable: true,
+    description: 'Sucursal principal. Debe estar en billing_branch_ids.',
+  })
+  @ValidateIf((_, value) => value !== null)
+  @IsOptional()
+  @IsUUID()
+  primary_billing_branch_id?: string | null;
 
   @ApiProperty({ required: false })
   @IsOptional()

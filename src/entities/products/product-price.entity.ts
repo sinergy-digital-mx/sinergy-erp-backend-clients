@@ -42,7 +42,8 @@ export class ProductPrice {
   @Column()
   product_uom_id: string;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  /** Precio unitario de lista. Hasta 4 decimales (p. ej. 2.150). */
+  @Column({ type: 'decimal', precision: 16, scale: 4 })
   price: number;
 
   @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })

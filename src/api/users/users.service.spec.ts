@@ -4,6 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from './users.service';
 import { User } from '../../entities/users/user.entity';
+import { UserBillingBranch } from '../../entities/users/user-billing-branch.entity';
 import { RBACTenant } from '../../entities/rbac/tenant.entity';
 import { UserStatus } from '../../entities/users/user-status.entity';
 import { BillingBranch } from '../../entities/billing/billing-branch.entity';
@@ -34,6 +35,7 @@ describe('UsersService.changePassword', () => {
       providers: [
         UsersService,
         { provide: getRepositoryToken(User), useValue: userRepo },
+        { provide: getRepositoryToken(UserBillingBranch), useValue: { find: jest.fn().mockResolvedValue([]), delete: jest.fn(), save: jest.fn(), create: jest.fn() } },
         { provide: getRepositoryToken(RBACTenant), useValue: {} },
         { provide: getRepositoryToken(UserStatus), useValue: {} },
         { provide: getRepositoryToken(BillingBranch), useValue: {} },
@@ -154,6 +156,7 @@ describe('UsersService.managerReports', () => {
       providers: [
         UsersService,
         { provide: getRepositoryToken(User), useValue: userRepo },
+        { provide: getRepositoryToken(UserBillingBranch), useValue: { find: jest.fn().mockResolvedValue([]), delete: jest.fn(), save: jest.fn(), create: jest.fn() } },
         { provide: getRepositoryToken(RBACTenant), useValue: {} },
         { provide: getRepositoryToken(UserStatus), useValue: {} },
         { provide: getRepositoryToken(BillingBranch), useValue: {} },
@@ -294,6 +297,7 @@ describe('UsersService.userStatus', () => {
       providers: [
         UsersService,
         { provide: getRepositoryToken(User), useValue: userRepo },
+        { provide: getRepositoryToken(UserBillingBranch), useValue: { find: jest.fn().mockResolvedValue([]), delete: jest.fn(), save: jest.fn(), create: jest.fn() } },
         { provide: getRepositoryToken(RBACTenant), useValue: {} },
         { provide: getRepositoryToken(UserStatus), useValue: statusRepo },
         { provide: getRepositoryToken(BillingBranch), useValue: {} },

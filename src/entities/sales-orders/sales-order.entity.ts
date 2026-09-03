@@ -120,6 +120,10 @@ export class SalesOrder {
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
+  /** Cotización origen si esta OV se creó con POST /quotations/:id/convert. */
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  converted_from_quotation_id: string | null;
+
   /** Si true, la OV entra en proceso de selección/armado (Control de almacén). */
   @Column({ type: 'boolean', default: false })
   requires_selection_assembly: boolean;

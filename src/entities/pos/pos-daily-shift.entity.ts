@@ -52,6 +52,32 @@ export class PosDailyShift {
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   opening_cash_usd: number;
 
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  closing_cash_mxn: number | null;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  closing_cash_usd: number | null;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  expected_cash_mxn: number | null;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  expected_cash_usd: number | null;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  cash_difference_mxn: number | null;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  cash_difference_usd: number | null;
+
+  @Column({ type: 'json', nullable: true })
+  closing_denominations: Array<{
+    currency: 'MXN' | 'USD';
+    denomination: number;
+    bill_count: number;
+    amount: number;
+  }> | null;
+
   @Column({
     type: 'enum',
     enum: PosDailyShiftStatus,

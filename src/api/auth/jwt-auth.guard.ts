@@ -1,4 +1,4 @@
-import { Injectable, ExecutionContext, UnauthorizedException, Logger } from '@nestjs/common';
+import { Injectable, ExecutionContext, Optional, UnauthorizedException, Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { PermissionVersionService } from '../rbac/services/permission-version.service';
 
@@ -6,7 +6,9 @@ import { PermissionVersionService } from '../rbac/services/permission-version.se
 export class JwtAuthGuard extends AuthGuard('jwt') {
   private readonly logger = new Logger(JwtAuthGuard.name);
 
-  constructor(private readonly permissionVersionService: PermissionVersionService) {
+  constructor(
+    @Optional() private readonly permissionVersionService?: PermissionVersionService,
+  ) {
     super();
   }
 
@@ -34,8 +36,11 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       return true;
     }
 
+    if (!this.permissionVersionService) {
+      return true;
+    }
+
     try {
-      // Get current version from database
       const dbVersion = await this.permissionVersionService.getUserVersion(user.id);
 
       this.logger.debug(

@@ -38,6 +38,11 @@ import {
   isWalkInCustomer,
 } from './mappers/pos-sale-collection.mapper';
 import {
+  cashDifference,
+  expectedCashInDrawer,
+  roundPosMoney,
+} from './utils/cash-drawer';
+import {
   buildUnclosedShiftAlert,
   getTodayDateString,
   isPreviousDayOpenShift,
@@ -337,8 +342,43 @@ export class PosShiftsService {
       dailyShiftId,
     );
 
+    const cashTotals = await this.getShiftCashTotals(shift.id);
+    const removed = await this.getShiftRemovedTotals(shift.id);
+
+    const countedFromDenoms = dto.denominations?.length
+      ? this.computeDenominations(dto.denominations)
+      : null;
+    const closingCashMxn = roundPosMoney(
+      countedFromDenoms ? countedFromDenoms.removedTotalMxn : dto.closing_cash_mxn,
+    );
+    const closingCashUsd = roundPosMoney(
+      countedFromDenoms
+        ? countedFromDenoms.removedTotalUsd
+        : dto.closing_cash_usd ?? 0,
+    );
+
+    const expectedMxn = expectedCashInDrawer({
+      opening: Number(shift.opening_cash_mxn),
+      collectedCash: cashTotals.cash_mxn,
+      removed: removed.mxn,
+    });
+    const expectedUsd = expectedCashInDrawer({
+      opening: Number(shift.opening_cash_usd),
+      collectedCash: cashTotals.cash_usd,
+      removed: removed.usd,
+    });
+
     shift.status = PosDailyShiftStatus.CLOSED;
     shift.closed_at = new Date();
+    shift.closing_cash_mxn = closingCashMxn;
+    shift.closing_cash_usd = closingCashUsd;
+    shift.expected_cash_mxn = expectedMxn;
+    shift.expected_cash_usd = expectedUsd;
+    shift.cash_difference_mxn = cashDifference(closingCashMxn, expectedMxn);
+    shift.cash_difference_usd = cashDifference(closingCashUsd, expectedUsd);
+    shift.closing_denominations = countedFromDenoms
+      ? countedFromDenoms.denominationRows
+      : null;
     if (dto.notes) {
       shift.notes = [shift.notes, dto.notes].filter(Boolean).join('\n');
     }
@@ -394,6 +434,16 @@ export class PosShiftsService {
 
       throw new BadRequestException(
         'No hay corte global abierto en la sucursal. La terminal de cobranza debe abrir el corte del día.',
+      );
+    }
+
+    if (isPreviousDayOpenShift(shift.shift_date)) {
+      if (!canPosCollect(terminalUser.pos_user_type)) {
+        return { shift: null, terminalUser, queued: true };
+      }
+
+      throw new BadRequestException(
+        'Hay un corte abierto de un día anterior. Ciérralo antes de continuar.',
       );
     }
 
@@ -841,17 +891,46 @@ export class PosShiftsService {
       .andWhere('warehouse.billing_branch_id = :billingBranchId', { billingBranchId })
       .getMany();
 
-    if (!queued.length) {
+    const leftoverUnpaid = await this.salesOrderRepo
+      .createQueryBuilder('so')
+      .innerJoin('so.warehouse', 'warehouse')
+      .where('so.tenant_id = :tenantId', { tenantId })
+      .andWhere('so.sales_order_type = :type', { type: 'POS' })
+      .andWhere('so.general_status = :surtida', { surtida: 'Surtida' })
+      .andWhere('so.payment_status = :pending', { pending: 'Pendiente' })
+      .andWhere('warehouse.billing_branch_id = :billingBranchId', { billingBranchId })
+      .andWhere('(so.pos_daily_shift_id IS NULL OR so.pos_daily_shift_id != :shiftId)', {
+        shiftId,
+      })
+      .andWhere(
+        `NOT EXISTS (
+          SELECT 1 FROM pos_sale_collections col
+          WHERE col.sales_order_id = so.id
+        )`,
+      )
+      .getMany();
+
+    const toAssign = [...queued, ...leftoverUnpaid];
+    if (!toAssign.length) {
       return 0;
     }
 
-    for (const order of queued) {
+    const seen = new Set<string>();
+    const unique = toAssign.filter((order) => {
+      if (seen.has(order.id)) {
+        return false;
+      }
+      seen.add(order.id);
+      return true;
+    });
+
+    for (const order of unique) {
       order.general_status = 'Surtida';
       order.pos_daily_shift_id = shiftId;
     }
 
-    await this.salesOrderRepo.save(queued);
-    return queued.length;
+    await this.salesOrderRepo.save(unique);
+    return unique.length;
   }
 
   private async requireSellerUser(tenantId: string, sellerUserId: string) {
@@ -1256,6 +1335,46 @@ export class PosShiftsService {
     return shift;
   }
 
+  private async getShiftRemovedTotals(dailyShiftId: string) {
+    const result = await this.partialShiftRepo
+      .createQueryBuilder('partial')
+      .select('COALESCE(SUM(partial.removed_total_mxn), 0)', 'mxn')
+      .addSelect('COALESCE(SUM(partial.removed_total_usd), 0)', 'usd')
+      .where('partial.daily_shift_id = :dailyShiftId', { dailyShiftId })
+      .getRawOne<{ mxn: string; usd: string }>();
+
+    return {
+      mxn: Number(result?.mxn ?? 0),
+      usd: Number(result?.usd ?? 0),
+    };
+  }
+
+  private async getShiftCashTotals(dailyShiftId: string) {
+    const result = await this.collectionRepo
+      .createQueryBuilder('collection')
+      .select('COALESCE(SUM(collection.amount_cash_mxn), 0)', 'cash_mxn')
+      .addSelect('COALESCE(SUM(collection.amount_cash_usd), 0)', 'cash_usd')
+      .addSelect('COALESCE(SUM(collection.amount_transfer_mxn), 0)', 'transfer_mxn')
+      .addSelect('COALESCE(SUM(collection.amount_card_mxn), 0)', 'card_mxn')
+      .addSelect('COALESCE(SUM(collection.amount_credit_mxn), 0)', 'credit_mxn')
+      .where('collection.pos_daily_shift_id = :dailyShiftId', { dailyShiftId })
+      .getRawOne<{
+        cash_mxn: string;
+        cash_usd: string;
+        transfer_mxn: string;
+        card_mxn: string;
+        credit_mxn: string;
+      }>();
+
+    return {
+      cash_mxn: Number(result?.cash_mxn ?? 0),
+      cash_usd: Number(result?.cash_usd ?? 0),
+      transfer_mxn: Number(result?.transfer_mxn ?? 0),
+      card_mxn: Number(result?.card_mxn ?? 0),
+      credit_mxn: Number(result?.credit_mxn ?? 0),
+    };
+  }
+
   private async getShiftSalesStats(dailyShiftId: string) {
     const result = await this.salesOrderRepo
       .createQueryBuilder('so')
@@ -1296,10 +1415,10 @@ export class PosShiftsService {
     }> = [];
 
     for (const item of denominations) {
-      const amount = Number(item.denomination) * item.bill_count;
+      const amount = roundPosMoney(Number(item.denomination) * item.bill_count);
       denominationRows.push({
         currency: item.currency,
-        denomination: item.denomination,
+        denomination: Number(item.denomination),
         bill_count: item.bill_count,
         amount,
       });
@@ -1311,7 +1430,11 @@ export class PosShiftsService {
       }
     }
 
-    return { removedTotalMxn, removedTotalUsd, denominationRows };
+    return {
+      removedTotalMxn: roundPosMoney(removedTotalMxn),
+      removedTotalUsd: roundPosMoney(removedTotalUsd),
+      denominationRows,
+    };
   }
 
 
@@ -1375,6 +1498,22 @@ export class PosShiftsService {
       0,
     );
 
+    const cashTotals = await this.getShiftCashTotals(shift.id);
+    const expectedMxn = expectedCashInDrawer({
+      opening: Number(shift.opening_cash_mxn),
+      collectedCash: cashTotals.cash_mxn,
+      removed: removedMxn,
+    });
+    const expectedUsd = expectedCashInDrawer({
+      opening: Number(shift.opening_cash_usd),
+      collectedCash: cashTotals.cash_usd,
+      removed: removedUsd,
+    });
+    const closingMxn =
+      shift.closing_cash_mxn == null ? null : Number(shift.closing_cash_mxn);
+    const closingUsd =
+      shift.closing_cash_usd == null ? null : Number(shift.closing_cash_usd);
+
     return {
       id: shift.id,
       shift_date: shift.shift_date,
@@ -1416,6 +1555,36 @@ export class PosShiftsService {
         removed_total_mxn: removedMxn,
         removed_total_usd: removedUsd,
         sales_total_mxn: salesStats.total,
+      },
+      cash_drawer: {
+        opening_cash_mxn: Number(shift.opening_cash_mxn),
+        opening_cash_usd: Number(shift.opening_cash_usd),
+        collected_cash_mxn: cashTotals.cash_mxn,
+        collected_cash_usd: cashTotals.cash_usd,
+        collected_transfer_mxn: cashTotals.transfer_mxn,
+        collected_card_mxn: cashTotals.card_mxn,
+        collected_credit_mxn: cashTotals.credit_mxn,
+        removed_total_mxn: removedMxn,
+        removed_total_usd: removedUsd,
+        expected_cash_mxn:
+          shift.expected_cash_mxn == null
+            ? expectedMxn
+            : Number(shift.expected_cash_mxn),
+        expected_cash_usd:
+          shift.expected_cash_usd == null
+            ? expectedUsd
+            : Number(shift.expected_cash_usd),
+        closing_cash_mxn: closingMxn,
+        closing_cash_usd: closingUsd,
+        cash_difference_mxn:
+          shift.cash_difference_mxn == null
+            ? null
+            : Number(shift.cash_difference_mxn),
+        cash_difference_usd:
+          shift.cash_difference_usd == null
+            ? null
+            : Number(shift.cash_difference_usd),
+        closing_denominations: shift.closing_denominations ?? null,
       },
     };
   }

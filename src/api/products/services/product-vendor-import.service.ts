@@ -17,6 +17,7 @@ import {
   VendorImportTemplateRow,
 } from '../utils/product-vendor-import-excel.util';
 import { formatExportDateTime } from '../../../common/utils/excel-export.util';
+import { roundUnitAmount } from '../../../common/utils/unit-amount.util';
 
 export interface VendorImportPreview {
   vendor_id: string;
@@ -448,11 +449,11 @@ export class ProductVendorImportService {
   }
 
   private roundUnitCost(cost: number): number {
-    return Number((Number(cost) || 0).toFixed(4));
+    return roundUnitAmount(cost);
   }
 
   private roundPrice(price: number): number {
-    return Number((Number(price) || 0).toFixed(2));
+    return roundUnitAmount(price);
   }
 
   private calculateTotals(base: number, ivaPercentage: number, iepsPercentage: number) {

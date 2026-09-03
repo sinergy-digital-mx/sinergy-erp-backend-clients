@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { User } from '../../entities/users/user.entity';
+import { UserBillingBranch } from '../../entities/users/user-billing-branch.entity';
 import { UserWarehouseAssignment } from '../../entities/control-desk/user-warehouse-assignment.entity';
 import { PermissionService } from '../rbac/services/permission.service';
 import { RoleService } from '../rbac/services/role.service';
@@ -17,6 +18,8 @@ export class AuthService {
 
     constructor(
         @InjectRepository(User) private userRepo: Repository<User>,
+        @InjectRepository(UserBillingBranch)
+        private branchAssignmentRepo: Repository<UserBillingBranch>,
         @InjectRepository(UserWarehouseAssignment)
         private warehouseAssignmentRepo: Repository<UserWarehouseAssignment>,
         private jwtService: JwtService,
@@ -121,6 +124,7 @@ export class AuthService {
                 permissions_version: user.permissions_version,
                 last_login_at: user.last_login_at,
                 ...this.mapPosSessionFields(user),
+                ...(await this.loadSessionBranchFields(user.id, user.tenant.id.toString())),
                 assigned_warehouses: await this.loadAssignedWarehouses(
                     user.id,
                     user.tenant.id.toString(),
@@ -180,12 +184,43 @@ export class AuthService {
                 permissions_flat: permissionsForJwt,
                 permissions_version: user.permissions_version,
                 ...this.mapPosSessionFields(user),
+                ...(await this.loadSessionBranchFields(user.id, user.tenant.id.toString())),
                 assigned_warehouses: await this.loadAssignedWarehouses(
                     user.id,
                     user.tenant.id.toString(),
                 ),
             },
         };
+    }
+
+    private async loadSessionBranchFields(userId: string, tenantId: string) {
+        const assigned_branches = await this.loadAssignedBranches(userId, tenantId);
+        const primary = assigned_branches.find((row) => row.is_primary) ?? assigned_branches[0];
+        return {
+            assigned_branches,
+            primary_billing_branch_id: primary?.id ?? null,
+            can_switch_branch: assigned_branches.length > 1,
+        };
+    }
+
+    private async loadAssignedBranches(userId: string, tenantId: string) {
+        const rows = await this.branchAssignmentRepo.find({
+            where: { tenant_id: tenantId, user_id: userId },
+            relations: ['billing_branch', 'billing_branch.fiscal_configuration'],
+        });
+        return rows
+            .filter((row) => row.billing_branch)
+            .sort((a, b) => Number(b.is_primary) - Number(a.is_primary))
+            .map((row) => ({
+                id: row.billing_branch.id,
+                code: row.billing_branch.code,
+                city: row.billing_branch.city,
+                display_name: [row.billing_branch.code, row.billing_branch.city]
+                    .filter(Boolean)
+                    .join(' — '),
+                is_primary: Boolean(row.is_primary),
+                fiscal_configuration_id: row.billing_branch.fiscal_configuration_id,
+            }));
     }
 
     private async loadAssignedWarehouses(userId: string, tenantId: string) {

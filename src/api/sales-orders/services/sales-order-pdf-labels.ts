@@ -41,6 +41,7 @@ export interface SalesOrderPdfLabels {
   statusReadyForDelivery?: string;
   statusFulfilled: string;
   statusCancelled: string;
+  statusConverted?: string;
   paymentPending: string;
   paymentPaid: string;
   dateLocale: string;
@@ -72,6 +73,8 @@ export function translateGeneralStatus(
       return labels.statusFulfilled;
     case 'Cancelada':
       return labels.statusCancelled;
+    case 'Convertida':
+      return labels.statusConverted ?? status;
     default:
       return status || 'N/A';
   }

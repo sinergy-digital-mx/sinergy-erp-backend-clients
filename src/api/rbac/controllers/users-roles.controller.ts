@@ -6,10 +6,12 @@ import {
   Delete,
   Body,
   Param,
+  Req,
   UseGuards,
   HttpCode,
   HttpStatus,
   Query,
+  UnauthorizedException,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -30,6 +32,7 @@ import { UsersService } from '../../users/users.service';
 import { CreateUserDto } from '../../users/dto/create-user.dto';
 import { UpdateUserDto } from '../../users/dto/update-user.dto';
 import { AssignUserBranchDto } from '../../users/dto/assign-user-branch.dto';
+import { SetActiveBranchDto } from '../../users/dto/set-active-branch.dto';
 import { AssignUserWarehousesDto } from '../../users/dto/assign-user-warehouses.dto';
 import { AssignUserReportDto } from '../../users/dto/assign-user-report.dto';
 import { ChangePasswordDto } from '../../users/dto/change-password.dto';
@@ -81,6 +84,44 @@ export class UsersRolesController {
   })
   async getUserStatuses() {
     return this.usersService.findAllStatuses();
+  }
+
+  @Get('me/branches')
+  @ApiOperation({
+    summary: 'Sucursales del usuario en sesión',
+    description:
+      'Devuelve sucursales asignadas, principal, activa y si puede cambiar de sucursal en POS.',
+  })
+  async getMyBranches(@Req() req: { user?: Record<string, unknown> }) {
+    const { userId, tenantId } = this.resolveSessionContext(req);
+    const user = await this.usersService.findOne(userId, tenantId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    return this.usersService.mapUserBranchResponse(user);
+  }
+
+  @Put('me/active-branch')
+  @ApiOperation({
+    summary: 'Cambiar sucursal activa',
+    description:
+      'El usuario elige en qué sucursal opera (POS: inventario y corte). Debe estar asignada. El corte de la sucursal anterior no se cierra.',
+  })
+  @ApiBody({ type: SetActiveBranchDto })
+  async setMyActiveBranch(
+    @Req() req: { user?: Record<string, unknown> },
+    @Body() dto: SetActiveBranchDto,
+  ) {
+    const { userId, tenantId } = this.resolveSessionContext(req);
+    const branch = await this.usersService.setActiveBranch(
+      userId,
+      tenantId,
+      dto.billing_branch_id,
+    );
+    return {
+      message: 'Sucursal activa actualizada',
+      ...branch,
+    };
   }
 
   @Get()
@@ -214,7 +255,7 @@ export class UsersRolesController {
   @ApiOperation({
     summary: 'Get user branch assignment',
     description:
-      'Returns the single branch assigned to the user, or null if has access to all branches',
+      'Returns assigned branches, primary, active branch, or all-access when none are assigned',
   })
   @ApiParam({ name: 'userId', description: 'User ID' })
   async getUserBranch(@Param('userId') userId: string) {
@@ -342,9 +383,9 @@ export class UsersRolesController {
   @Put(':userId/branch')
   @RequirePermissions({ entityType: 'User', action: 'Update' })
   @ApiOperation({
-    summary: 'Assign branch to user',
+    summary: 'Assign branches to user',
     description:
-      'Assigns a single branch to the user. Send billing_branch_id null for access to all branches. Required for POS users.',
+      'Assigns one or more branches. Send billing_branch_ids empty and billing_branch_id null for access to all (non-POS). POS requires at least one. primary_billing_branch_id marks the default.',
   })
   @ApiParam({ name: 'userId', description: 'User ID' })
   @ApiBody({ type: AssignUserBranchDto })
@@ -357,11 +398,7 @@ export class UsersRolesController {
       throw new Error('Tenant context is required');
     }
 
-    const branch = await this.usersService.assignBranch(
-      userId,
-      tenantId,
-      dto.billing_branch_id ?? null,
-    );
+    const branch = await this.usersService.assignBranch(userId, tenantId, dto);
 
     return {
       message: 'Branch assignment updated successfully',
@@ -644,5 +681,26 @@ export class UsersRolesController {
     return {
       message: 'Role removed successfully',
     };
+  }
+
+  private resolveSessionContext(req?: { user?: Record<string, unknown> }): {
+    userId: string;
+    tenantId: string;
+  } {
+    const user = req?.user;
+    const userId =
+      (typeof user?.id === 'string' && user.id) ||
+      (typeof user?.user_id === 'string' && user.user_id) ||
+      this.tenantContextService.getCurrentUserId();
+    const tenantId =
+      (typeof user?.tenant_id === 'string' && user.tenant_id) ||
+      (typeof user?.tenantId === 'string' && user.tenantId) ||
+      this.tenantContextService.getCurrentTenantId();
+
+    if (!userId || !tenantId) {
+      throw new UnauthorizedException('Se requiere sesión');
+    }
+
+    return { userId, tenantId };
   }
 }

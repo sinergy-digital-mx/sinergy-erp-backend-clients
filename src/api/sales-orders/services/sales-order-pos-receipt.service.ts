@@ -21,6 +21,7 @@ import {
   bufferToEscPosHex,
   compactMoneyLine,
   formatMoney,
+  formatUnitMoney,
   formatUsd,
   labelValueLine,
   leftLabelLines,
@@ -406,7 +407,7 @@ export class SalesOrderPosReceiptService {
         `!N!${productLine(
           description,
           this.formatQuantity(qty),
-          formatMoney(unitPrice),
+          formatUnitMoney(unitPrice),
           formatMoney(lineTotal),
           ESCPOS_CHARS_PER_LINE,
         )}`,

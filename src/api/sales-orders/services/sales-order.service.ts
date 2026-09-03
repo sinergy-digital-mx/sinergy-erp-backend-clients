@@ -24,6 +24,7 @@ import { User } from '../../../entities/users/user.entity';
 import { Customer } from '../../../entities/customers/customer.entity';
 import { S3Service } from '../../../common/services/s3.service';
 import { buildSelfInvoicePortalUrl } from '../../../common/utils/public-invoice-code.util';
+import { roundUnitAmount } from '../../../common/utils/unit-amount.util';
 import { SalesOrderFolioService } from './sales-order-folio.service';
 import { SalesOrderFulfillmentService } from './sales-order-fulfillment.service';
 import { SalesOrderPdfService } from './sales-order-pdf.service';
@@ -325,8 +326,14 @@ export class SalesOrderService {
     );
   }
 
-  async create(dto: CreateSalesOrderDto, tenantId: string, userId: string): Promise<SalesOrder> {
+  async create(
+    dto: CreateSalesOrderDto,
+    tenantId: string,
+    userId: string,
+    options?: { fromQuotation?: boolean },
+  ): Promise<SalesOrder> {
     const isPosSale = dto.sales_order_type === 'POS';
+    const fromQuotation = options?.fromQuotation === true;
     let posDailyShiftId: string | null = null;
     let paymentStatus = dto.payment_status || 'Pendiente';
     let collectedByUserId: string | null = null;
@@ -352,7 +359,7 @@ export class SalesOrderService {
       dto.assigned_seller_user_id,
     );
 
-    if (isPosSale) {
+    if (isPosSale && !fromQuotation) {
       await this.posShiftsService.assertPosWarehouseForTerminal(
         tenantId,
         userId,
@@ -375,6 +382,10 @@ export class SalesOrderService {
       } else if (paymentStatus === 'Pagado') {
         collectedByUserId = userId;
       }
+    }
+
+    if (isPosSale && fromQuotation) {
+      paymentStatus = 'Pendiente';
     }
 
     const qr = this.dataSource.createQueryRunner();
@@ -462,7 +473,7 @@ export class SalesOrderService {
           quantity: item.quantity,
           quantity_base_uom: qty_base,
           base_uom_id: baseUomRow.uom_catalog_id,
-          unit_price: item.unit_price,
+          unit_price: roundUnitAmount(item.unit_price),
           discount_percentage: discountAmounts.discount_percentage,
           discount_unit: discountAmounts.discount_unit,
           product_discount_id: discountAmounts.product_discount_id,
@@ -634,6 +645,17 @@ export class SalesOrderService {
       limit,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  async linkConvertedFromQuotation(
+    salesOrderId: string,
+    quotationId: string,
+    tenantId: string,
+  ): Promise<void> {
+    await this.soRepo.update(
+      { id: salesOrderId, tenant_id: tenantId },
+      { converted_from_quotation_id: quotationId },
+    );
   }
 
   async findOne(id: string, tenantId: string): Promise<SalesOrder> {
@@ -1568,7 +1590,7 @@ export class SalesOrderService {
         quantity: item.quantity,
         quantity_base_uom: qty_base,
         base_uom_id: baseUomRow.uom_catalog_id,
-        unit_price: item.unit_price,
+        unit_price: roundUnitAmount(item.unit_price),
         discount_percentage: discountAmounts.discount_percentage,
         discount_unit: discountAmounts.discount_unit,
         product_discount_id: discountAmounts.product_discount_id,

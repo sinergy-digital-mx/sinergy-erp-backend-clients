@@ -74,6 +74,11 @@ import { WarehouseControlModule } from '../warehouse-control/warehouse-control.m
     SalesOrderInvoicingService,
     S3Service,
   ],
-  exports: [SalesOrderService, SalesOrderPosReceiptService, SalesOrderFulfillmentService],
+  exports: [
+    SalesOrderService,
+    SalesOrderPosReceiptService,
+    SalesOrderFulfillmentService,
+    SalesOrderPdfService,
+  ],
 })
 export class SalesOrdersModule {}

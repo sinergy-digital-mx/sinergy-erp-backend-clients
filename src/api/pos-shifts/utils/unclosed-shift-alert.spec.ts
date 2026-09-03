@@ -57,8 +57,11 @@ describe('unclosed-shift-alert', () => {
     );
   });
 
-  it('formats today as YYYY-MM-DD', () => {
+  it('formats today as YYYY-MM-DD in America/Mexico_City', () => {
     expect(getTodayDateString(new Date('2026-08-17T18:50:00.000Z'))).toBe(
+      '2026-08-17',
+    );
+    expect(getTodayDateString(new Date('2026-08-18T04:00:00.000Z'))).toBe(
       '2026-08-17',
     );
   });

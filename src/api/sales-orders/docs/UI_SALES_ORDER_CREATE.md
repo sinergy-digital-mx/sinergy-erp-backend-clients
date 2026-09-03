@@ -102,6 +102,8 @@ Respuesta (shape POS, agregado por sucursal):
 
 Al agregar línea: `product_id`, `product_uom_id`, `quantity`, `unit_price`, impuestos. **No** mandar `warehouse_id` por línea.
 
+`unit_price` admite hasta **4 decimales** (p. ej. `2.150`). No redondear a 2 en el cliente ni en el API. Los totales de cabecera siguen a 2 decimales.
+
 Si `total_available_quantity` es 0, no dejar agregar (o avisar). El surtido/corroboración descuenta FIFO entre los almacenes de la sucursal.
 
 ---
@@ -125,7 +127,7 @@ POST /api/tenant/sales-orders
       "product_id": "uuid",
       "product_uom_id": "uuid",
       "quantity": 2,
-      "unit_price": 120,
+      "unit_price": 2.15,
       "iva_percentage": 16,
       "ieps_percentage": 0
     }

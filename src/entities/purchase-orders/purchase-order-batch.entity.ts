@@ -17,6 +17,7 @@ import { User } from '../users/user.entity';
 import { PurchaseOrderBatchDetail } from './purchase-order-batch-detail.entity';
 import { InventoryBatch } from './inventory-batch.entity';
 import { PurchaseOrderPayment } from './purchase-order-payment.entity';
+import { PurchaseOrderLandedCostLine } from './purchase-order-landed-cost-line.entity';
 
 @Entity('inv_s_purchase_order_batch')
 @Index('idx_tenant', ['tenant_id'])
@@ -92,6 +93,24 @@ export class PurchaseOrderBatch {
   @Column({ type: 'varchar', length: 30, nullable: true })
   pedimento_number: string | null;
 
+  /** Fecha del pedimento / aduana. Independiente del tipo de cambio diario. */
+  @Column({ type: 'date', nullable: true })
+  customs_date: Date | string | null;
+
+  /** Tipo de cambio de aduana. No se reconvierte al tipo del día al facturar. */
+  @Column({ type: 'decimal', precision: 10, scale: 4, nullable: true })
+  customs_exchange_rate: number | null;
+
+  /** GTOS% persistido (gastos / mercancía × 100). */
+  @Column({ type: 'decimal', precision: 8, scale: 4, default: 0 })
+  landed_increment_percentage: number;
+
+  @Column({ type: 'decimal', precision: 14, scale: 2, default: 0 })
+  landed_merchandise_mxn: number;
+
+  @Column({ type: 'decimal', precision: 14, scale: 2, default: 0 })
+  landed_extras_mxn: number;
+
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   requested_subtotal: number;
 
@@ -144,4 +163,10 @@ export class PurchaseOrderBatch {
 
   @OneToMany(() => PurchaseOrderPayment, (payment: PurchaseOrderPayment) => payment.purchase_order_batch)
   payments: PurchaseOrderPayment[];
+
+  @OneToMany(
+    () => PurchaseOrderLandedCostLine,
+    (line: PurchaseOrderLandedCostLine) => line.purchase_order_batch,
+  )
+  landed_cost_lines: PurchaseOrderLandedCostLine[];
 }

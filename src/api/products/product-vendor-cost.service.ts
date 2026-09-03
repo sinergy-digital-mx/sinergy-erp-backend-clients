@@ -5,6 +5,7 @@ import { ProductVendorCost } from '../../entities/products/product-vendor-cost.e
 import { Product } from '../../entities/products/product.entity';
 import { CreateProductVendorCostDto } from './dto/create-product-vendor-cost.dto';
 import { UpdateProductVendorCostDto } from './dto/update-product-vendor-cost.dto';
+import { roundUnitAmount } from '../../common/utils/unit-amount.util';
 
 @Injectable()
 export class ProductVendorCostService {
@@ -16,7 +17,7 @@ export class ProductVendorCostService {
   ) {}
 
   private roundUnitCost(cost: number): number {
-    return Number((Number(cost) || 0).toFixed(4));
+    return roundUnitAmount(cost);
   }
 
   private calculateTotals(cost: number, iva_percentage: number, ieps_percentage: number) {

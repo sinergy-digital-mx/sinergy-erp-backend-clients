@@ -2,6 +2,7 @@ import {
   EscPosBuilder,
   ESCPOS_CHARS_PER_LINE,
   formatMoney,
+  formatUnitMoney,
   labelValueLine,
   productLine,
   padLeft,
@@ -14,6 +15,12 @@ describe('escpos.util', () => {
     expect(line.length).toBe(ESCPOS_CHARS_PER_LINE);
     expect(line).toContain('32');
     expect(line).toContain('$564.48');
+  });
+
+  it('keeps unit prices at up to 4 decimals', () => {
+    expect(formatUnitMoney(2.15)).toBe('$2.15');
+    expect(formatUnitMoney(2.215)).toBe('$2.215');
+    expect(formatUnitMoney(2.15)).not.toBe('$2.2');
   });
 
   it('aligns label and value', () => {

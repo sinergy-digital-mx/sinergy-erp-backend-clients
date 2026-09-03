@@ -73,10 +73,11 @@ Si **marcado** (terminal):
 
 #### Tab: Sucursales asignadas
 
-- **Una sola sucursal** (radio/select), no multi-select.
-- Opción “Sin restricción / Todas” → `billing_branch_id: null` (solo usuarios **no POS**).
-- Si `is_pos_user === true` → sucursal **obligatoria**.
-- Si `is_pos_user === true` y `pos_user_type === COBRANZA` → sucursal obligatoria (misma regla).
+- **Una o más sucursales** (checkboxes) + una **principal**.
+- Opción “Sin restricción / Todas” → sin asignaciones (solo usuarios **no POS**).
+- Si `is_pos_user === true` → **al menos una** sucursal.
+- `billing_branch_id` en sesión = sucursal **activa** (inventario y corte). El usuario con más de una la elige en POS.
+- Detalle: `src/api/users/docs/UI_USER_BRANCHES.md`.
 
 **API usuarios:**
 - `POST /api/tenant/users`
@@ -303,6 +304,10 @@ Al entrar a `/pos/cobranza`, si `unclosed_shift_alert` viene con datos, mostrar 
 - Mientras el corte atrasado siga abierto, **sí** se puede cobrar pendientes y registrar parciales de **ese** corte (hay que terminarlo). **No** se puede abrir el corte de hoy.
 - `POST /pos/daily-shift/open` responde 400: *Hay un corte abierto del YYYY-MM-DD sin cerrar. Ciérralo antes de abrir otro.*
 - Tras `PATCH .../close` exitoso, volver a `GET current`. Si `daily_shift: null`, mostrar **Abrir corte del día**.
+
+**UI Ventas (`/pos/ventas`):** mismo payload. Modal bloqueante: cobranza debe cerrar el corte de ayer. CTA **Entendido**. Las ventas nuevas **no** se ligan a ese corte; van a cola (`queued: true`) hasta que cierren el anterior y abran el de hoy.
+
+**Día calendario:** `shift_date` y “hoy” se calculan en `America/Mexico_City`.
 
 ### Paso 3 — Abrir corte global (solo COBRANZA)
 ```
@@ -612,8 +617,30 @@ Cada ítem en `partial_shifts[]` incluye el monto retirado en **`total_mxn`** (a
 PATCH /api/tenant/pos/daily-shift/:id/close
 ```
 ```json
-{ "notes": "Cierre turno" }
+{
+  "closing_cash_mxn": 605.59,
+  "closing_cash_usd": 0,
+  "denominations": [
+    { "currency": "MXN", "denomination": 500, "bill_count": 1 },
+    { "currency": "MXN", "denomination": 100, "bill_count": 1 },
+    { "currency": "MXN", "denomination": 5, "bill_count": 1 }
+  ],
+  "notes": "Cierre turno"
+}
 ```
+
+**Qué debe haber en caja (esperado):**
+`efectivo inicial + cobrado en efectivo − retiros de cortes parciales`
+
+Tarjeta, transferencia y crédito **no** quedan en caja.
+
+**UI cierre:**
+- Mostrar esperado vs contado. Billetes y monedas ($1000 a $1) con contador; los centavos se capturan en un campo libre (ej. `0.56`) y se suman al contado.
+- Diferencia: **cuadra** / **sobrante** / **faltante**. Se puede cerrar con diferencia; queda registrada en `cash_drawer`.
+- Se puede cerrar con ventas **aún no cobradas**. No se cancelan. Al abrir el siguiente corte de la sucursal se reasignan a ese corte (igual que la cola) y vuelven a `pending-sales`.
+- Las ventas **ya cobradas a crédito** no están “por cobrar” en POS: tienen `pos_sale_collections` y salen en **Órdenes cobradas**. El saldo queda en el crédito del cliente (Contabilidad / Cobranza). No entran al efectivo esperado.
+
+- `GET daily-shift/:id` incluye `cash_drawer` (esperado en vivo si el corte sigue abierto; contado y diferencia tras cerrar).
 
 Después del cierre, en backoffice ya se puede cambiar tipo/sucursal del usuario COBRANZA.
 
@@ -749,6 +776,15 @@ Texto bajo el total (según corte):
 - Sin corte: *“Venta en cola hasta que cobranza abra el día.”*
 
 Tras **Registrar venta**, mostrar modal/toast con **folio** (ej. `OV-000123`) y mensaje: *“Pase a cobranza con este folio.”*
+
+Botones del carrito (Ventas):
+
+| Botón | Endpoint | Efecto |
+|-------|----------|--------|
+| **Registrar** | `POST /api/tenant/sales-orders` | Venta: descuenta inventario |
+| **Cotizar** | `POST /api/tenant/quotations` | Cotización: **no** descuenta inventario, **no** va a cobranza |
+
+El payload de **Cotizar** es el mismo carrito (`unit_price`, impuestos, descuentos). Ver `src/api/quotations/docs/UI_QUOTATIONS.md`.
 
 ### Paso 5 — Armar venta y confirmar
 ```

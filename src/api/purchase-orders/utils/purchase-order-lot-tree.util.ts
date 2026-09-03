@@ -36,6 +36,8 @@ export type PurchaseOrderLotNode = {
   measure_label: string | null;
   source_tag_identifier: string | null;
   unit_cost: number;
+  real_unit_cost_usd: number | null;
+  real_unit_cost_mxn: number | null;
   amount: number;
   ordered_quantity: string | null;
   received_quantity: string;
@@ -91,6 +93,8 @@ export type PurchaseOrderLotLineInput = {
   quantity: number | string;
   unit_total: number | string;
   received_original_unit_total?: number | string | null;
+  real_unit_cost_usd?: number | string | null;
+  real_unit_cost_mxn?: number | string | null;
 };
 
 export type PurchaseOrderLotTransferInput = {
@@ -122,6 +126,14 @@ function roundQty(value: number): number {
 
 function roundMoney(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+function optionalUnitCost(value: unknown): number | null {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function unitCostFromLine(line?: PurchaseOrderLotLineInput): number {
@@ -280,6 +292,8 @@ function buildLeaf(
     measure_label: measure.measure_label,
     source_tag_identifier: batch.source_tag_identifier ?? null,
     unit_cost: unitCost,
+    real_unit_cost_usd: optionalUnitCost(line?.real_unit_cost_usd),
+    real_unit_cost_mxn: optionalUnitCost(line?.real_unit_cost_mxn),
     amount: roundMoney(unitCost * qtyForAmount),
     ordered_quantity: origin === 'receipt' && line ? formatQty(toQty(line.quantity)) : null,
     received_quantity: formatQty(initial),

@@ -43,8 +43,13 @@ export class SalesOrderPdfService {
   async generatePdf(
     salesOrder: SalesOrder,
     language: DocumentLanguage = DocumentLanguage.ES,
+    options?: {
+      title?: string;
+      subtitle?: string;
+      hidePayment?: boolean;
+    },
   ): Promise<Buffer> {
-    return this.buildDocument(salesOrder, language, 'original');
+    return this.buildDocument(salesOrder, language, 'original', options);
   }
 
   async generateDeliveryPdf(
@@ -58,13 +63,21 @@ export class SalesOrderPdfService {
     salesOrder: SalesOrder,
     language: DocumentLanguage,
     kind: 'original' | 'delivery',
+    options?: {
+      title?: string;
+      subtitle?: string;
+      hidePayment?: boolean;
+    },
   ): Promise<Buffer> {
     const printer = new PdfPrinter(this.fonts);
     const labels = getSalesOrderPdfLabels(language);
     const logoImage = await this.getFiscalLogoImage(salesOrder);
     const subtitle =
-      kind === 'original' ? labels.originalDocumentTitle : labels.deliveryDocumentTitle;
-    const title = kind === 'original' ? labels.salesOrderTitle : labels.deliveryTitle;
+      options?.subtitle ??
+      (kind === 'original' ? labels.originalDocumentTitle : labels.deliveryDocumentTitle);
+    const title =
+      options?.title ??
+      (kind === 'original' ? labels.salesOrderTitle : labels.deliveryTitle);
 
     const docDefinition: any = {
       pageSize: 'A4',
@@ -72,7 +85,7 @@ export class SalesOrderPdfService {
       content: [
         this.buildHeader(salesOrder, labels, logoImage, subtitle, title),
         this.buildAccentLine(),
-        this.buildMetaCards(salesOrder, labels),
+        this.buildMetaCards(salesOrder, labels, options?.hidePayment === true),
         this.buildPartyCards(salesOrder, labels),
         this.buildProductsSection(salesOrder, labels),
         this.buildNotesAndTotals(salesOrder, labels),
@@ -103,16 +116,17 @@ export class SalesOrderPdfService {
   }
 
   async uploadPdfToS3(
-    salesOrder: SalesOrder,
+    salesOrder: Pick<SalesOrder, 'id' | 'folio' | 'tenant_id'>,
     pdfBuffer: Buffer,
     documentType: string = 'DOCUMENTO_ORIGINAL',
+    entityFolder: string = 'sales_orders',
   ): Promise<{ s3Key: string; signedUrl: string }> {
     const safeDocumentType = documentType.replace(/\s+/g, '_').toUpperCase();
     const fileName = `${safeDocumentType}-${salesOrder.folio}.pdf`;
 
     const s3Key = await this.s3Service.uploadEntityFile(
       salesOrder.tenant_id,
-      'sales_orders',
+      entityFolder,
       salesOrder.id,
       safeDocumentType,
       pdfBuffer,
@@ -192,7 +206,11 @@ export class SalesOrderPdfService {
     };
   }
 
-  private buildMetaCards(salesOrder: SalesOrder, labels: SalesOrderPdfLabels): any {
+  private buildMetaCards(
+    salesOrder: SalesOrder,
+    labels: SalesOrderPdfLabels,
+    hidePayment = false,
+  ): any {
     const creatorName = [salesOrder.creator?.first_name, salesOrder.creator?.last_name]
       .filter(Boolean)
       .join(' ')
@@ -205,6 +223,25 @@ export class SalesOrderPdfService {
     const status = translateGeneralStatus(salesOrder.general_status, labels);
     const payment = translatePaymentStatus(salesOrder.payment_status, labels);
 
+    const cells = [
+      this.metaCell(labels.creationDate, createdAt),
+      this.gapCell(),
+      this.metaCell(labels.createdBy, creatorName),
+      this.gapCell(),
+      this.metaCell(labels.expectedDate, expectedAt),
+      this.gapCell(),
+      this.metaCell(labels.status, status, this.statusColor(salesOrder.general_status)),
+    ];
+    const widths: Array<string | number> = ['*', 6, '*', 6, '*', 6, '*'];
+
+    if (!hidePayment) {
+      cells.push(
+        this.gapCell(),
+        this.metaCell(labels.payment, payment, this.paymentColor(salesOrder.payment_status)),
+      );
+      widths.push(6, '*');
+    }
+
     return {
       stack: [
         {
@@ -216,20 +253,8 @@ export class SalesOrderPdfService {
         },
         {
           table: {
-            widths: ['*', 6, '*', 6, '*', 6, '*', 6, '*'],
-            body: [
-              [
-                this.metaCell(labels.creationDate, createdAt),
-                this.gapCell(),
-                this.metaCell(labels.createdBy, creatorName),
-                this.gapCell(),
-                this.metaCell(labels.expectedDate, expectedAt),
-                this.gapCell(),
-                this.metaCell(labels.status, status, this.statusColor(salesOrder.general_status)),
-                this.gapCell(),
-                this.metaCell(labels.payment, payment, this.paymentColor(salesOrder.payment_status)),
-              ],
-            ],
+            widths,
+            body: [cells],
           },
           layout: this.equalHeightLayout(),
         },
@@ -331,7 +356,7 @@ export class SalesOrderPdfService {
           ],
         },
         { text: `${quantity} ${uomName}`, fontSize: 9, alignment: 'center', color: COLORS.text },
-        { text: this.formatCurrency(unitPrice), fontSize: 9, alignment: 'right', color: COLORS.text },
+        { text: this.formatUnitCurrency(unitPrice), fontSize: 9, alignment: 'right', color: COLORS.text },
         { text: `${discountPct}%`, fontSize: 9, alignment: 'center', color: COLORS.text },
         {
           text: this.formatCurrency(lineTotal),
@@ -551,6 +576,7 @@ export class SalesOrderPdfService {
     switch (status) {
       case 'Surtida':
       case 'Lista para entrega':
+      case 'Convertida':
         return COLORS.success;
       case 'Cancelada':
         return COLORS.danger;
@@ -577,6 +603,13 @@ export class SalesOrderPdfService {
     return (
       '$' +
       amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    );
+  }
+
+  private formatUnitCurrency(amount: number): string {
+    return (
+      '$' +
+      amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })
     );
   }
 

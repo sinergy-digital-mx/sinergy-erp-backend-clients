@@ -26,6 +26,10 @@ export class CreateSalesOrderLineItemDto {
   @IsPositive()
   quantity: number;
 
+  @ApiProperty({
+    description: 'Precio unitario. Hasta 4 decimales (p. ej. 2.150). No redondear a 2.',
+    example: 2.15,
+  })
   @IsNumber()
   @Min(0)
   unit_price: number;

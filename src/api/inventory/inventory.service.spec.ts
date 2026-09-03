@@ -53,9 +53,19 @@ describe('InventoryService', () => {
     initial_quantity: 100,
     available_quantity: 100,
     purchase_order_batch_id: '550e8400-e29b-41d4-a716-446655440040',
-    purchase_order_batch: { folio: 'OC-000012', pedimento_number: '162430010001234' } as any,
+    purchase_order_batch: {
+      folio: 'OC-000012',
+      pedimento_number: '162430010001234',
+      payment_currency: 'USD',
+      customs_exchange_rate: 16.9593,
+    } as any,
     purchase_order_detail_id: '550e8400-e29b-41d4-a716-446655440050',
-    purchase_order_detail: {} as any,
+    purchase_order_detail: {
+      unit_total: 1.8,
+      received_original_unit_total: 1.8,
+      real_unit_cost_usd: 1.9005,
+      real_unit_cost_mxn: 32.231,
+    } as any,
     created_by: mockUserId,
     created_at: new Date('2024-01-01'),
     tenant: {} as any,
@@ -84,7 +94,14 @@ describe('InventoryService', () => {
       save: jest.fn(),
     };
     mockProductPriceRepository = {
-      createQueryBuilder: jest.fn(),
+      createQueryBuilder: jest.fn().mockReturnValue({
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([]),
+      }),
     };
     mockProductVendorCostRepository = {
       createQueryBuilder: jest.fn().mockReturnValue({
@@ -541,6 +558,11 @@ describe('InventoryService', () => {
       expect(result).toHaveProperty('can_edit_measure');
       expect(result).toHaveProperty('can_transfer');
       expect(result.pedimento_number).toBe('162430010001234');
+      expect(result.payment_currency).toBe('USD');
+      expect(result.unit_cost).toBe(1.8);
+      expect(result.real_unit_cost_usd).toBe(1.9005);
+      expect(result.real_unit_cost_mxn).toBe(32.231);
+      expect(result.customs_exchange_rate).toBe(16.9593);
       expect(result.can_edit_tag).toBe(true);
       expect(result.can_edit_measure).toBe(true);
       expect(result.can_transfer).toBe(true);

@@ -91,6 +91,33 @@ export class BatchDetailResponseDto {
   })
   pedimento_number: string | null;
 
+  @ApiProperty({
+    nullable: true,
+    description: 'Moneda de la OC de origen (costo proveedor).',
+  })
+  payment_currency: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    description: 'Costo unitario de proveedor/recepción. Hasta 4 decimales.',
+  })
+  unit_cost: number | null;
+
+  @ApiProperty({ nullable: true, description: 'Costo real unitario en USD (T.C. de aduana).' })
+  real_unit_cost_usd: number | null;
+
+  @ApiProperty({ nullable: true, description: 'Costo real unitario en MXN (T.C. de aduana).' })
+  real_unit_cost_mxn: number | null;
+
+  @ApiProperty({ nullable: true, description: 'Tipo de cambio de aduana de la OC.' })
+  customs_exchange_rate: number | null;
+
+  @ApiProperty({ nullable: true, description: 'Precio sugerido de la primera lista activa.' })
+  suggested_unit_price: number | null;
+
+  @ApiProperty({ nullable: true, description: 'Moneda del precio sugerido.' })
+  suggested_price_currency: string | null;
+
   @ApiProperty() uom_id: string;
   @ApiProperty() uom_name: string;
 

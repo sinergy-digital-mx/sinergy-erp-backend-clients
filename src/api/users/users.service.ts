@@ -12,9 +12,11 @@ import * as bcrypt from 'bcrypt';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { AssignUserBranchDto } from './dto/assign-user-branch.dto';
 import { UserStatus } from '../../entities/users/user-status.entity';
 import { RBACTenant } from '../../entities/rbac/tenant.entity';
 import { User } from '../../entities/users/user.entity';
+import { UserBillingBranch } from '../../entities/users/user-billing-branch.entity';
 import { BillingBranch } from '../../entities/billing/billing-branch.entity';
 import { PosUserType, canPosCollect, canPosSell } from '../../entities/users/pos-user-type.enum';
 import { PosDailyShift } from '../../entities/pos/pos-daily-shift.entity';
@@ -37,6 +39,8 @@ export class UsersService {
     @InjectRepository(UserStatus) private statusRepo: Repository<UserStatus>,
     @InjectRepository(BillingBranch)
     private branchRepo: Repository<BillingBranch>,
+    @InjectRepository(UserBillingBranch)
+    private branchAssignmentRepo: Repository<UserBillingBranch>,
     @InjectRepository(PosDailyShift)
     private dailyShiftRepo: Repository<PosDailyShift>,
     @InjectRepository(UserManagerReport)
@@ -51,10 +55,14 @@ export class UsersService {
   async create(dto: CreateUserDto, tenantId: string) {
     const status = await this.statusRepo.findOneByOrFail({ id: dto.status_id });
     const isPosUser = dto.is_pos_user ?? false;
-    const billingBranchId = dto.billing_branch_id ?? null;
+    const assignment = this.resolveBranchAssignmentInput(dto) ?? {
+      ids: dto.billing_branch_id ? [dto.billing_branch_id] : [],
+      primary: dto.billing_branch_id ?? null,
+      active: dto.billing_branch_id ?? null,
+    };
 
-    await this.validateBillingBranch(tenantId, billingBranchId);
-    this.validateBranchAssignment(isPosUser, billingBranchId);
+    await this.validateBillingBranches(tenantId, assignment.ids);
+    this.validateBranchAssignment(isPosUser, assignment.ids);
     this.validatePosUserType(isPosUser, dto.pos_user_type, dto.is_manager ?? false);
     await this.validatePosFields(tenantId, dto.pos_user_code);
 
@@ -62,7 +70,9 @@ export class UsersService {
     const {
       is_pos_user,
       pos_user_code,
-      billing_branch_id,
+      billing_branch_id: _billing_branch_id,
+      billing_branch_ids: _billing_branch_ids,
+      primary_billing_branch_id: _primary_billing_branch_id,
       pos_user_type,
       is_employee,
       employee,
@@ -81,10 +91,12 @@ export class UsersService {
       is_pos_user: isPosUser,
       pos_user_code: dto.pos_user_code ?? null,
       pos_user_type: isPosUser ? dto.pos_user_type ?? null : null,
-      billing_branch_id: billingBranchId,
+      billing_branch_id: assignment.active,
       is_employee: false,
       is_manager: is_manager ?? false,
     });
+
+    await this.replaceAssignedBranches(user.id, tenantId, assignment);
 
     if (dto.is_employee) {
       await this.employeesService.upsertForUser(tenantId, user.id, employee ?? {});
@@ -117,27 +129,30 @@ export class UsersService {
     }
 
     const nextIsPosUser = dto.is_pos_user ?? user.is_pos_user;
-    const nextBillingBranchId =
-      dto.billing_branch_id !== undefined
-        ? dto.billing_branch_id
-        : user.billing_branch_id;
+    const assignment = this.resolveBranchAssignmentInput(dto, user.billing_branch_id);
+    const currentAssignedIds = assignment
+      ? assignment.ids
+      : await this.loadAssignedBranchIds(id, tenantId);
+    const nextBillingBranchId = assignment
+      ? assignment.active
+      : user.billing_branch_id;
     const nextPosCode =
       dto.pos_user_code !== undefined ? dto.pos_user_code : user.pos_user_code;
     const nextPosUserType =
       dto.pos_user_type !== undefined ? dto.pos_user_type : user.pos_user_type;
     const nextIsManager = dto.is_manager ?? Boolean(user.is_manager);
 
-    if (dto.billing_branch_id !== undefined) {
-      await this.validateBillingBranch(tenantId, dto.billing_branch_id);
+    if (assignment) {
+      await this.validateBillingBranches(tenantId, assignment.ids);
     }
 
     if (
       dto.is_pos_user !== undefined ||
-      dto.billing_branch_id !== undefined ||
+      assignment !== undefined ||
       dto.pos_user_type !== undefined ||
       dto.is_manager !== undefined
     ) {
-      this.validateBranchAssignment(nextIsPosUser, nextBillingBranchId);
+      this.validateBranchAssignment(nextIsPosUser, currentAssignedIds);
       this.validatePosUserType(nextIsPosUser, nextPosUserType, nextIsManager);
     }
 
@@ -156,7 +171,9 @@ export class UsersService {
     const {
       is_pos_user,
       pos_user_code,
-      billing_branch_id,
+      billing_branch_id: _billing_branch_id,
+      billing_branch_ids: _billing_branch_ids,
+      primary_billing_branch_id: _primary_billing_branch_id,
       pos_user_type,
       is_employee,
       employee,
@@ -181,10 +198,11 @@ export class UsersService {
       user.pos_user_code = dto.pos_user_code;
     }
 
-    if (dto.billing_branch_id !== undefined) {
-      user.billing_branch_id = dto.billing_branch_id;
+    if (assignment) {
+      user.billing_branch_id = assignment.active;
+      await this.replaceAssignedBranches(id, tenantId, assignment);
       if (warehouse_ids === undefined) {
-        await this.dropWarehousesOutsideBranch(id, tenantId, dto.billing_branch_id);
+        await this.dropWarehousesOutsideBranches(id, tenantId, assignment.ids);
       }
     }
 
@@ -253,22 +271,74 @@ export class UsersService {
   async assignBranch(
     userId: string,
     tenantId: string,
-    billingBranchId: string | null,
+    dto: AssignUserBranchDto | string | null,
   ) {
     const user = await this.userRepo.findOneByOrFail({
       id: userId,
       tenant_id: tenantId,
     });
 
-    await this.validateBillingBranch(tenantId, billingBranchId);
-    this.validateBranchAssignment(user.is_pos_user, billingBranchId);
+    const input: AssignUserBranchDto =
+      dto && typeof dto === 'object'
+        ? dto
+        : { billing_branch_id: dto ?? null };
+    const assignment = this.resolveBranchAssignmentInput(
+      input,
+      user.billing_branch_id,
+    ) ?? {
+      ids: input.billing_branch_id ? [input.billing_branch_id] : [],
+      primary: input.billing_branch_id ?? null,
+      active: input.billing_branch_id ?? null,
+    };
 
-    user.billing_branch_id = billingBranchId;
+    await this.validateBillingBranches(tenantId, assignment.ids);
+    this.validateBranchAssignment(user.is_pos_user, assignment.ids);
+    await this.assertCobranzaConfigChangeAllowed(
+      user,
+      tenantId,
+      Boolean(user.is_pos_user),
+      user.pos_user_type,
+      assignment.active,
+    );
+
+    user.billing_branch_id = assignment.active;
     await this.userRepo.save(user);
+    await this.replaceAssignedBranches(userId, tenantId, assignment);
+    await this.dropWarehousesOutsideBranches(userId, tenantId, assignment.ids);
 
     const updated = await this.findOne(userId, tenantId);
     if (!updated) {
       throw new NotFoundException('User not found after branch assignment');
+    }
+    return this.mapUserBranchResponse(updated);
+  }
+
+  async setActiveBranch(userId: string, tenantId: string, billingBranchId: string) {
+    const user = await this.userRepo.findOne({
+      where: { id: userId, tenant_id: tenantId },
+      relations: ['billing_branch', 'billing_branch.fiscal_configuration'],
+    });
+    if (!user) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+
+    const assignedIds = await this.loadAssignedBranchIds(userId, tenantId);
+    if (!assignedIds.includes(billingBranchId)) {
+      throw new BadRequestException(
+        'La sucursal no está asignada a este usuario',
+      );
+    }
+
+    await this.validateBillingBranch(tenantId, billingBranchId);
+
+    if (user.billing_branch_id !== billingBranchId) {
+      user.billing_branch_id = billingBranchId;
+      await this.userRepo.save(user);
+    }
+
+    const updated = await this.findOne(userId, tenantId);
+    if (!updated) {
+      throw new NotFoundException('Usuario no encontrado');
     }
     return this.mapUserBranchResponse(updated);
   }
@@ -334,9 +404,14 @@ export class UsersService {
       tenantId,
       users.map((user) => user.id),
     );
+    const branchesByUserId = await this.getAssignedBranchesByUserIdMap(
+      tenantId,
+      users.map((user) => user.id),
+    );
     for (const user of users) {
       (user as any).managerUser = managerByUserId.get(user.id) ?? null;
       (user as any).assignedWarehouses = warehousesByUserId.get(user.id) ?? [];
+      (user as any).assignedBranches = branchesByUserId.get(user.id) ?? [];
     }
 
     return users;
@@ -373,6 +448,10 @@ export class UsersService {
     }
 
     (user as any).assignedWarehouses = await this.loadAssignedWarehouses(
+      id,
+      tenantId,
+    );
+    (user as any).assignedBranches = await this.loadAssignedBranches(
       id,
       tenantId,
     );
@@ -586,7 +665,8 @@ export class UsersService {
     }
 
     const uniqueIds = [...new Set(warehouseIds)];
-    await this.assertWarehousesForUser(tenantId, user.billing_branch_id, uniqueIds);
+    const assignedBranchIds = await this.loadAssignedBranchIds(userId, tenantId);
+    await this.assertWarehousesForUser(tenantId, assignedBranchIds, uniqueIds);
 
     await this.warehouseAssignmentRepo.delete({
       tenant_id: tenantId,
@@ -609,12 +689,21 @@ export class UsersService {
   }
 
   mapUserBranchResponse(user: User) {
+    const assigned =
+      (user as any).assignedBranches ?? ([] as ReturnType<UsersService['mapAssignedBranch']>[]);
+    const primary = assigned.find((row) => row.is_primary) ?? assigned[0] ?? null;
     return {
       billing_branch_id: user.billing_branch_id,
       billing_branch: user.billing_branch
         ? this.mapBillingBranch(user.billing_branch)
         : null,
-      has_all_branches_access: user.billing_branch_id == null,
+      fiscal_configuration_id:
+        user.billing_branch?.fiscal_configuration_id ?? null,
+      primary_billing_branch_id: primary?.id ?? user.billing_branch_id ?? null,
+      assigned_branches: assigned,
+      can_switch_branch: assigned.length > 1,
+      has_all_branches_access:
+        assigned.length === 0 && user.billing_branch_id == null,
     };
   }
 
@@ -652,7 +741,7 @@ export class UsersService {
 
   private async assertWarehousesForUser(
     tenantId: string,
-    billingBranchId: string | null,
+    assignedBranchIds: string[],
     warehouseIds: string[],
   ) {
     if (!warehouseIds.length) {
@@ -666,32 +755,38 @@ export class UsersService {
         'Uno o más almacenes no existen o no pertenecen a la organización',
       );
     }
-    if (billingBranchId) {
+    if (assignedBranchIds.length) {
+      const allowed = new Set(assignedBranchIds);
       const outside = warehouses.filter(
-        (warehouse) => warehouse.billing_branch_id !== billingBranchId,
+        (warehouse) =>
+          !warehouse.billing_branch_id ||
+          !allowed.has(warehouse.billing_branch_id),
       );
       if (outside.length) {
         throw new BadRequestException(
-          'El almacén debe pertenecer a la sucursal asignada al usuario',
+          'El almacén debe pertenecer a una sucursal asignada al usuario',
         );
       }
     }
   }
 
-  private async dropWarehousesOutsideBranch(
+  private async dropWarehousesOutsideBranches(
     userId: string,
     tenantId: string,
-    billingBranchId: string | null,
+    assignedBranchIds: string[],
   ) {
-    if (!billingBranchId) {
+    if (!assignedBranchIds.length) {
       return;
     }
+    const allowed = new Set(assignedBranchIds);
     const rows = await this.warehouseAssignmentRepo.find({
       where: { tenant_id: tenantId, user_id: userId },
       relations: ['warehouse', 'warehouse.billing_branch'],
     });
     const toRemove = rows.filter(
-      (row) => row.warehouse?.billing_branch_id !== billingBranchId,
+      (row) =>
+        !row.warehouse?.billing_branch_id ||
+        !allowed.has(row.warehouse.billing_branch_id),
     );
     if (toRemove.length) {
       await this.warehouseAssignmentRepo.remove(toRemove);
@@ -762,13 +857,10 @@ export class UsersService {
     }
   }
 
-  private validateBranchAssignment(
-    isPosUser: boolean,
-    billingBranchId?: string | null,
-  ) {
-    if (isPosUser && !billingBranchId) {
+  private validateBranchAssignment(isPosUser: boolean, assignedBranchIds: string[]) {
+    if (isPosUser && assignedBranchIds.length === 0) {
       throw new BadRequestException(
-        'Los usuarios POS deben tener exactamente una sucursal asignada',
+        'Los usuarios POS deben tener al menos una sucursal asignada',
       );
     }
   }
@@ -814,6 +906,149 @@ export class UsersService {
     });
 
     return count > 0;
+  }
+
+  private resolveBranchAssignmentInput(
+    dto: {
+      billing_branch_id?: string | null;
+      billing_branch_ids?: string[];
+      primary_billing_branch_id?: string | null;
+    },
+    currentActive?: string | null,
+  ): { ids: string[]; primary: string | null; active: string | null } | undefined {
+    if (
+      dto.billing_branch_ids === undefined &&
+      dto.billing_branch_id === undefined &&
+      dto.primary_billing_branch_id === undefined
+    ) {
+      return undefined;
+    }
+
+    let ids: string[];
+    if (dto.billing_branch_ids !== undefined) {
+      ids = [...new Set(dto.billing_branch_ids.filter((id): id is string => !!id))];
+    } else if (dto.billing_branch_id) {
+      ids = [dto.billing_branch_id];
+    } else {
+      ids = [];
+    }
+
+    const requestedPrimary =
+      dto.primary_billing_branch_id ?? dto.billing_branch_id ?? null;
+    const primary =
+      (requestedPrimary && ids.includes(requestedPrimary)
+        ? requestedPrimary
+        : null) ??
+      ids[0] ??
+      null;
+    const active =
+      (currentActive && ids.includes(currentActive) ? currentActive : null) ??
+      primary;
+
+    if (ids.length > 0 && dto.primary_billing_branch_id && !primary) {
+      throw new BadRequestException(
+        'La sucursal principal debe estar en las sucursales asignadas',
+      );
+    }
+
+    return { ids, primary, active };
+  }
+
+  private async replaceAssignedBranches(
+    userId: string,
+    tenantId: string,
+    assignment: { ids: string[]; primary: string | null },
+  ) {
+    await this.branchAssignmentRepo.delete({
+      tenant_id: tenantId,
+      user_id: userId,
+    });
+
+    if (!assignment.ids.length) {
+      return;
+    }
+
+    await this.branchAssignmentRepo.save(
+      assignment.ids.map((billingBranchId) =>
+        this.branchAssignmentRepo.create({
+          tenant_id: tenantId,
+          user_id: userId,
+          billing_branch_id: billingBranchId,
+          is_primary: billingBranchId === assignment.primary,
+        }),
+      ),
+    );
+  }
+
+  private async loadAssignedBranchIds(userId: string, tenantId: string) {
+    const rows = await this.branchAssignmentRepo.find({
+      where: { tenant_id: tenantId, user_id: userId },
+    });
+    return rows.map((row) => row.billing_branch_id);
+  }
+
+  private async loadAssignedBranches(userId: string, tenantId: string) {
+    const rows = await this.branchAssignmentRepo.find({
+      where: { tenant_id: tenantId, user_id: userId },
+      relations: ['billing_branch', 'billing_branch.fiscal_configuration'],
+      order: { created_at: 'ASC' },
+    });
+    return rows
+      .filter((row) => row.billing_branch)
+      .sort((a, b) => Number(b.is_primary) - Number(a.is_primary))
+      .map((row) => this.mapAssignedBranch(row));
+  }
+
+  private async getAssignedBranchesByUserIdMap(tenantId: string, userIds: string[]) {
+    const map = new Map<string, ReturnType<UsersService['mapAssignedBranch']>[]>();
+    if (!userIds.length) {
+      return map;
+    }
+    const rows = await this.branchAssignmentRepo.find({
+      where: { tenant_id: tenantId, user_id: In(userIds) },
+      relations: ['billing_branch', 'billing_branch.fiscal_configuration'],
+    });
+    for (const row of rows) {
+      if (!row.billing_branch) {
+        continue;
+      }
+      const list = map.get(row.user_id) ?? [];
+      list.push(this.mapAssignedBranch(row));
+      map.set(row.user_id, list);
+    }
+    for (const [userId, list] of map) {
+      list.sort((a, b) => Number(b.is_primary) - Number(a.is_primary));
+      map.set(userId, list);
+    }
+    return map;
+  }
+
+  private mapAssignedBranch(row: UserBillingBranch) {
+    const branch = row.billing_branch;
+    return {
+      id: branch.id,
+      code: branch.code,
+      address: branch.address,
+      city: branch.city,
+      state: branch.state,
+      display_name: [branch.code, branch.city].filter(Boolean).join(' — '),
+      name: [branch.code, branch.city].filter(Boolean).join(' — '),
+      is_primary: Boolean(row.is_primary),
+      fiscal_configuration_id: branch.fiscal_configuration_id,
+      fiscal_configuration: branch.fiscal_configuration
+        ? {
+            id: branch.fiscal_configuration.id,
+            razon_social: branch.fiscal_configuration.razon_social,
+            rfc: branch.fiscal_configuration.rfc,
+          }
+        : null,
+    };
+  }
+
+  private async validateBillingBranches(tenantId: string, billingBranchIds: string[]) {
+    for (const billingBranchId of billingBranchIds) {
+      await this.validateBillingBranch(tenantId, billingBranchId);
+    }
   }
 
   private async validateBillingBranch(

@@ -39,6 +39,7 @@ export const SALES_ORDER_PDF_LABELS_ES: SalesOrderPdfLabels = {
   statusReadyForDelivery: 'Lista para entrega',
   statusFulfilled: 'Surtida',
   statusCancelled: 'Cancelada',
+  statusConverted: 'Convertida',
   paymentPending: 'Pendiente',
   paymentPaid: 'Pagado',
   dateLocale: 'es-MX',

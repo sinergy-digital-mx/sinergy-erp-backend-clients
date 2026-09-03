@@ -1,3 +1,5 @@
+import { roundUnitAmount } from '../../../common/utils/unit-amount.util';
+
 /** Redondeo a 2 decimales para montos de OC (líneas y header). */
 export function roundPoMoney(value: number): number {
   return Math.round((Number(value) || 0) * 100) / 100;
@@ -5,7 +7,7 @@ export function roundPoMoney(value: number): number {
 
 /** Costo unitario: hasta 4 decimales (p. ej. 2.215). */
 export function roundPoUnitCost(value: number): number {
-  return Number((Number(value) || 0).toFixed(4));
+  return roundUnitAmount(value);
 }
 
 export interface RequestedLineBreakdown {

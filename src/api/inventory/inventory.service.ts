@@ -965,6 +965,7 @@ export class InventoryService {
         .leftJoinAndSelect('batch.uom', 'uom')
         .leftJoinAndSelect('batch.measure_uom', 'measure_uom')
         .leftJoinAndSelect('batch.purchase_order_batch', 'purchase_order_batch')
+        .leftJoinAndSelect('batch.purchase_order_detail', 'purchase_order_detail')
         .leftJoinAndSelect('batch.transferred_from_batch', 'transferred_from_batch');
 
       joinInventoryLocation(batch);
@@ -982,7 +983,8 @@ export class InventoryService {
         this.loadAuditHistory(found.id),
         this.batchMovementsService.listForLoadedBatch(found),
       ]);
-      return this.mapToDetailResponseDto(found, transferHistory, auditHistory, movements);
+      const mapped = this.mapToDetailResponseDto(found, transferHistory, auditHistory, movements);
+      return this.attachBatchCosting(mapped, found);
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -1748,6 +1750,15 @@ export class InventoryService {
       purchase_order_detail_id: batch.purchase_order_detail_id ?? null,
       purchase_order_folio: batch.purchase_order_batch?.folio ?? null,
       pedimento_number: batch.purchase_order_batch?.pedimento_number ?? null,
+      payment_currency: batch.purchase_order_batch?.payment_currency ?? null,
+      unit_cost: this.unitCostFromPurchaseLine(batch.purchase_order_detail),
+      real_unit_cost_usd: this.optionalMoney(batch.purchase_order_detail?.real_unit_cost_usd),
+      real_unit_cost_mxn: this.optionalMoney(batch.purchase_order_detail?.real_unit_cost_mxn),
+      customs_exchange_rate: this.optionalMoney(
+        batch.purchase_order_batch?.customs_exchange_rate,
+      ),
+      suggested_unit_price: null,
+      suggested_price_currency: null,
       uom_id: batch.uom_id,
       uom_name: batch.uom?.name ?? null,
       initial_quantity: initial.toFixed(3),
@@ -1776,6 +1787,47 @@ export class InventoryService {
           adjustments: adjustments.length || auditHistory.length,
         },
       },
+    };
+  }
+
+  private optionalMoney(value: unknown): number | null {
+    if (value === undefined || value === null || value === '') {
+      return null;
+    }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  private unitCostFromPurchaseLine(line?: {
+    unit_total?: unknown;
+    received_original_unit_total?: unknown;
+  } | null): number | null {
+    if (!line) {
+      return null;
+    }
+    const received = this.optionalMoney(line.received_original_unit_total);
+    if (received != null) {
+      return received;
+    }
+    return this.optionalMoney(line.unit_total);
+  }
+
+  private async attachBatchCosting(
+    dto: BatchDetailResponseDto,
+    batch: InventoryBatch,
+  ): Promise<BatchDetailResponseDto> {
+    if (!batch.product_id || !batch.uom_id) {
+      return dto;
+    }
+    const priceMap = await this.buildPriceMap([batch.product_id], [batch.uom_id]);
+    const suggested = priceMap.get(`${batch.product_id}|${batch.uom_id}`)?.[0];
+    if (!suggested) {
+      return dto;
+    }
+    return {
+      ...dto,
+      suggested_unit_price: this.parseDecimal(suggested.price),
+      suggested_price_currency: 'MXN',
     };
   }
 }

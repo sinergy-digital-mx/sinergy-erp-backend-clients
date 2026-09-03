@@ -13,6 +13,7 @@ export { CreatePurchaseOrderPaymentDto } from './create-purchase-order-payment.d
 export { RegenerateDocumentDto } from './regenerate-document.dto';
 export { UpdatePurchaseOrderNotesDto } from './update-purchase-order-notes.dto';
 export { UpdatePurchaseOrderPedimentoDto } from './update-purchase-order-pedimento.dto';
+export { UpdatePurchaseOrderRealCostDto } from './update-purchase-order-real-cost.dto';
 export {
   QueryPurchaseOrderHeaderExportDto,
   QueryPurchaseOrderDetailExportDto,

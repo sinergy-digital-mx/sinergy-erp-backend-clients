@@ -137,6 +137,18 @@ export class PurchaseOrderBatchDetail {
   @Column({ type: 'decimal', precision: 12, scale: 3, nullable: true })
   received_converted_quantity: number;
 
+  /** IGI % opcional de la línea. Default 0. */
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
+  igi_percentage: number;
+
+  /** Costo real unitario en USD (T.C. de aduana). */
+  @Column({ type: 'decimal', precision: 16, scale: 4, nullable: true })
+  real_unit_cost_usd: number | null;
+
+  /** Costo real unitario en MXN (T.C. de aduana). */
+  @Column({ type: 'decimal', precision: 16, scale: 4, nullable: true })
+  real_unit_cost_mxn: number | null;
+
   @Column()
   created_by: string;
 

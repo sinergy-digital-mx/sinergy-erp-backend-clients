@@ -5,6 +5,7 @@ import { ProductPrice } from '../../entities/products/product-price.entity';
 import { Product } from '../../entities/products/product.entity';
 import { CreateProductPriceDto } from './dto/create-product-price.dto';
 import { UpdateProductPriceDto } from './dto/update-product-price.dto';
+import { roundUnitAmount } from '../../common/utils/unit-amount.util';
 
 @Injectable()
 export class ProductPriceService {
@@ -59,10 +60,12 @@ export class ProductPriceService {
       throw new ConflictException('Ya existe un precio para esta lista y UOM en este producto');
     }
 
-    const totals = this.calculateTotals(dto.price, dto.iva_percentage, dto.ieps_percentage);
+    const price = roundUnitAmount(dto.price);
+    const totals = this.calculateTotals(price, dto.iva_percentage, dto.ieps_percentage);
 
     const productPrice = this.productPriceRepository.create({
       ...dto,
+      price,
       ...totals,
       product_id: productId,
     });
@@ -118,13 +121,14 @@ export class ProductPriceService {
   async update(id: string, productId: string, dto: UpdateProductPriceDto, tenantId: string): Promise<ProductPrice> {
     const productPrice = await this.findOne(id, productId, tenantId);
 
+    const price = roundUnitAmount(dto.price ?? productPrice.price);
     const totals = this.calculateTotals(
-      dto.price ?? productPrice.price,
+      price,
       dto.iva_percentage ?? productPrice.iva_percentage,
       dto.ieps_percentage ?? productPrice.ieps_percentage,
     );
 
-    Object.assign(productPrice, dto, totals);
+    Object.assign(productPrice, dto, totals, { price });
     return await this.productPriceRepository.save(productPrice);
   }
 

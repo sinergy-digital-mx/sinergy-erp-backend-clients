@@ -99,6 +99,8 @@ export class PurchaseOrderLotsService {
         quantity: line.quantity,
         unit_total: line.unit_total,
         received_original_unit_total: line.received_original_unit_total,
+        real_unit_cost_usd: line.real_unit_cost_usd,
+        real_unit_cost_mxn: line.real_unit_cost_mxn,
       })),
       transferLines.map((line) => ({
         id: line.inventory_transfer_id,

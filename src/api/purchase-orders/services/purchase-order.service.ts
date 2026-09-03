@@ -15,6 +15,9 @@ import { QueryPurchaseOrderDto } from '../dto/query-purchase-order.dto';
 import { CreatePurchaseOrderPaymentDto } from '../dto/create-purchase-order-payment.dto';
 import { UpdatePurchaseOrderNotesDto } from '../dto/update-purchase-order-notes.dto';
 import { UpdatePurchaseOrderPedimentoDto } from '../dto/update-purchase-order-pedimento.dto';
+import { UpdatePurchaseOrderRealCostDto } from '../dto/update-purchase-order-real-cost.dto';
+import { PurchaseOrderRealCostService } from './purchase-order-real-cost.service';
+import { isRealCostEnabled, parseRealCostNumber } from '../utils/purchase-order-real-cost.util';
 import { UnitConversionService } from './unit-conversion.service';
 import { BatchNumberGeneratorService } from './batch-number-generator.service';
 import { FolioGeneratorService } from './folio-generator.service';
@@ -90,6 +93,7 @@ export class PurchaseOrderService {
     private readonly documentsService: PurchaseOrderDocumentsService,
     private readonly lotsService: PurchaseOrderLotsService,
     private readonly activityService: PurchaseOrderActivityService,
+    private readonly realCostService: PurchaseOrderRealCostService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -534,6 +538,8 @@ export class PurchaseOrderService {
       .leftJoinAndSelect('line_items.received_product', 'received_product')
       .leftJoinAndSelect('line_items.received_uom', 'received_uom')
       .leftJoinAndSelect('line_items.converted_uom', 'converted_uom')
+      .leftJoinAndSelect('po.landed_cost_lines', 'landed_cost_lines')
+      .addOrderBy('landed_cost_lines.sort_order', 'ASC')
       .leftJoinAndSelect('po.batches', 'batches')
       .leftJoinAndSelect('batches.product', 'batch_product')
       .leftJoinAndSelect('batches.uom', 'batch_uom')
@@ -651,6 +657,11 @@ export class PurchaseOrderService {
     return {
       ...line,
       unit_total: Number(line.unit_total),
+      igi_percentage: parseRealCostNumber(line.igi_percentage),
+      real_unit_cost_usd:
+        line.real_unit_cost_usd == null ? null : Number(line.real_unit_cost_usd),
+      real_unit_cost_mxn:
+        line.real_unit_cost_mxn == null ? null : Number(line.real_unit_cost_mxn),
       received_original_unit_total:
         line.received_original_unit_total == null
           ? line.received_original_unit_total
@@ -678,12 +689,35 @@ export class PurchaseOrderService {
     const branch = po.warehouse?.billing_branch ?? null;
     const fiscal = po.fiscal_configuration ?? null;
     const isInternationalVendor = po.vendor?.vendor_type === VendorType.INTERNATIONAL;
+    const extraCosts = [...(po.landed_cost_lines ?? [])]
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+      .map((extra) => ({
+        id: extra.id,
+        concept: extra.concept,
+        amount: Number(extra.amount),
+        currency: extra.currency,
+        sort_order: extra.sort_order,
+      }));
+    const hasRealCost =
+      isRealCostEnabled(po.customs_exchange_rate, extraCosts.length) ||
+      parseRealCostNumber(po.landed_extras_mxn) > 0;
 
     return {
       ...po,
       can_edit_lines: po.general_status === 'Creada',
+      can_edit_real_cost: po.general_status !== 'Cancelada',
       is_international_vendor: isInternationalVendor,
       pedimento_number: isInternationalVendor ? po.pedimento_number ?? null : null,
+      has_real_cost: hasRealCost,
+      extra_costs_count: extraCosts.length,
+      extra_costs: extraCosts,
+      customs_exchange_rate:
+        po.customs_exchange_rate == null
+          ? null
+          : parseRealCostNumber(po.customs_exchange_rate, 0) || null,
+      landed_increment_percentage: parseRealCostNumber(po.landed_increment_percentage),
+      landed_merchandise_mxn: parseRealCostNumber(po.landed_merchandise_mxn),
+      landed_extras_mxn: parseRealCostNumber(po.landed_extras_mxn),
       razon_social: fiscal?.razon_social ?? null,
       sucursal: branch?.code ?? null,
       billing_branch_id: po.warehouse?.billing_branch_id ?? branch?.id ?? null,
@@ -1259,6 +1293,7 @@ export class PurchaseOrderService {
       );
 
       await queryRunner.commitTransaction();
+      await this.realCostService.recalculateIfEnabled(tenantId, id);
       await this.recordActivity({
         tenantId,
         purchaseOrderId: id,
@@ -1359,6 +1394,19 @@ export class PurchaseOrderService {
       });
     }
 
+    return this.findOne(id, tenantId);
+  }
+
+  /**
+   * Reemplaza el tab de costo real (T.C. de aduana + gastos libres + IGI).
+   */
+  async updateRealCost(
+    id: string,
+    dto: UpdatePurchaseOrderRealCostDto,
+    tenantId: string,
+    userId: string,
+  ): Promise<any> {
+    await this.realCostService.updateRealCost(id, dto, tenantId, userId);
     return this.findOne(id, tenantId);
   }
 
@@ -1526,6 +1574,7 @@ export class PurchaseOrderService {
       );
     });
 
+    await this.realCostService.recalculateIfEnabled(tenantId, id);
     return this.findOne(id, tenantId);
   }
 
@@ -1608,6 +1657,7 @@ export class PurchaseOrderService {
       await queryRunner.release();
     }
 
+    await this.realCostService.recalculateIfEnabled(tenantId, orderId);
     this.scheduleDocumentoOriginalRegen(orderId, tenantId, userId, 'add line item');
     const addedName =
       (purchaseOrder.line_items || []).find((line) => line.product_id === dto.product_id)
@@ -1803,6 +1853,7 @@ export class PurchaseOrderService {
       await queryRunner.release();
     }
 
+    await this.realCostService.recalculateIfEnabled(tenantId, orderId);
     this.scheduleDocumentoOriginalRegen(orderId, tenantId, userId, 'update line item');
     const changes = compactActivityChanges([
       activityChange('quantity', 'Cantidad', before.quantity, lineItem.quantity),
@@ -1873,6 +1924,7 @@ export class PurchaseOrderService {
       await queryRunner.release();
     }
 
+    await this.realCostService.recalculateIfEnabled(tenantId, orderId);
     this.scheduleDocumentoOriginalRegen(orderId, tenantId, userId, 'remove line item');
     await this.recordActivity({
       tenantId,

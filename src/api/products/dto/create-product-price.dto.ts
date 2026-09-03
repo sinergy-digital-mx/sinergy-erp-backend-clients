@@ -13,7 +13,7 @@ export class CreateProductPriceDto {
   @IsUUID()
   product_uom_id: string;
 
-  @ApiProperty({ example: 100.50, description: 'Precio base del producto' })
+  @ApiProperty({ example: 2.15, description: 'Precio unitario. Hasta 4 decimales (p. ej. 2.150).' })
   @IsNotEmpty()
   @Type(() => Number)
   @IsNumber()

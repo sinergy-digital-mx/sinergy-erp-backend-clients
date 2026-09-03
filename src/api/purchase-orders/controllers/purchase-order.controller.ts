@@ -30,6 +30,7 @@ import {
   RegenerateDocumentDto,
   UpdatePurchaseOrderNotesDto,
   UpdatePurchaseOrderPedimentoDto,
+  UpdatePurchaseOrderRealCostDto,
   QueryPurchaseOrderHeaderExportDto,
   QueryPurchaseOrderDetailExportDto,
 } from '../dto';
@@ -244,6 +245,17 @@ export class PurchaseOrderController {
     const tenantId = req.user.tenant_id;
     const userId = req.user.id;
     return this.purchaseOrderService.updatePedimento(id, dto, tenantId, userId);
+  }
+
+  @Put(':id/real-cost')
+  async updateRealCost(
+    @Param('id') id: string,
+    @Body() dto: UpdatePurchaseOrderRealCostDto,
+    @Req() req: any,
+  ) {
+    const tenantId = req.user.tenant_id;
+    const userId = req.user.id;
+    return this.purchaseOrderService.updateRealCost(id, dto, tenantId, userId);
   }
 
   /**

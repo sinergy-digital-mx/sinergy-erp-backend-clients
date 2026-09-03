@@ -11,6 +11,7 @@ import { POStatusUpdaterService } from './po-status-updater.service';
 import { TenantValidatorService } from './tenant-validator.service';
 import { UnitConversionService } from './unit-conversion.service';
 import { PurchaseOrderActivityService } from './purchase-order-activity.service';
+import { PurchaseOrderRealCostService } from './purchase-order-real-cost.service';
 import { PurchaseOrderBatch } from '../../../entities/purchase-orders/purchase-order-batch.entity';
 import { PurchaseOrderBatchDetail } from '../../../entities/purchase-orders/purchase-order-batch-detail.entity';
 import { InventoryBatch } from '../../../entities/purchase-orders/inventory-batch.entity';
@@ -140,6 +141,10 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
         {
           provide: PurchaseOrderActivityService,
           useValue: { record: jest.fn().mockResolvedValue(undefined) },
+        },
+        {
+          provide: PurchaseOrderRealCostService,
+          useValue: { recalculateIfEnabled: jest.fn().mockResolvedValue(null) },
         },
       ],
     }).compile();

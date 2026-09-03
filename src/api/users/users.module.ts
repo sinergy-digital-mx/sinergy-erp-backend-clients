@@ -6,6 +6,7 @@ import { UsersService } from './users.service';
 import { RBACTenant } from '../../entities/rbac/tenant.entity';
 import { UserStatus } from '../../entities/users/user-status.entity';
 import { User } from '../../entities/users/user.entity';
+import { UserBillingBranch } from '../../entities/users/user-billing-branch.entity';
 import { BillingBranch } from '../../entities/billing/billing-branch.entity';
 import { PosDailyShift } from '../../entities/pos/pos-daily-shift.entity';
 import { UserManagerReport } from '../../entities/users/user-manager-report.entity';
@@ -19,6 +20,7 @@ import { EmployeesModule } from '../employees/employees.module';
     imports: [
         TypeOrmModule.forFeature([
             User,
+            UserBillingBranch,
             RBACTenant,
             UserStatus,
             BillingBranch,

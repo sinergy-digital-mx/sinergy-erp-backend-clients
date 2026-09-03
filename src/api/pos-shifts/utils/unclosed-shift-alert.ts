@@ -9,8 +9,16 @@ export type UnclosedShiftAlert = {
   severity: 'blocking';
 };
 
+/** Día calendario POS (México). Evita tratar el corte de hoy como “ayer” por UTC. */
+const POS_CALENDAR_TIMEZONE = 'America/Mexico_City';
+
 export function getTodayDateString(now = new Date()): string {
-  return now.toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: POS_CALENDAR_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
 }
 
 export function toDateOnlyString(value: string | Date): string {

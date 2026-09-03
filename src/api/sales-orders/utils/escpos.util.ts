@@ -136,6 +136,14 @@ export function formatMoney(amount: number): string {
   return '$' + amount.toFixed(2);
 }
 
+/** Precio unitario: hasta 4 decimales. No recorta 2.150 a 2.2. */
+export function formatUnitMoney(amount: number): string {
+  const n = Number(amount) || 0;
+  const [integer, fraction = ''] = n.toFixed(4).split('.');
+  const decimals = fraction.replace(/0+$/, '').padEnd(2, '0');
+  return '$' + integer + '.' + decimals;
+}
+
 export function formatUsd(amount: number): string {
   return 'USD ' + amount.toFixed(2);
 }

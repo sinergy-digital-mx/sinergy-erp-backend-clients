@@ -16,8 +16,9 @@ export class PartialShiftDenominationDto {
   @IsEnum(['MXN', 'USD'])
   currency: 'MXN' | 'USD';
 
-  @ApiProperty({ example: 50 })
-  @IsNumber()
+  @ApiProperty({ example: 50, description: 'Valor de la pieza, incluyendo centavos (0.50, 0.20, 0.10, 0.05, 0.01)' })
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)
   denomination: number;
 

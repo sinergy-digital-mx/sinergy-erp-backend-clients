@@ -25,7 +25,9 @@ import { EmailTemplatesModule } from './api/email-templates/email-templates.modu
 import { PurchaseOrdersModule } from './api/purchase-orders/purchase-orders.module';
 import { InventoryModule } from './api/inventory/inventory.module';
 import { SalesOrdersModule } from './api/sales-orders/sales-orders.module';
+import { QuotationsModule } from './api/quotations/quotations.module';
 import { SalesReportsModule } from './api/sales-reports/sales-reports.module';
+import { CustomerSalesReportsModule } from './api/customer-sales-reports/customer-sales-reports.module';
 import { AccountingModule } from './api/accounting/accounting.module';
 import { ExchangeRateModule } from './api/exchange-rate/exchange-rate.module';
 import { DivinoDashboardModule } from './api/divino-dashboard/divino-dashboard.module';
@@ -67,7 +69,9 @@ import { PermissionVersionGuard } from './api/auth/guards/permission-version.gua
     PurchaseOrdersModule,
     InventoryModule,
     SalesOrdersModule,
+    QuotationsModule,
     SalesReportsModule,
+    CustomerSalesReportsModule,
     AccountingModule,
     ExchangeRateModule,
     DivinoDashboardModule,

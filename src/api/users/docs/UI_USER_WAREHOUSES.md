@@ -10,7 +10,7 @@ Ya está en API.
 
 Siempre visible en crear / editar usuario. Sirve para el rol **Jefe de almacén** (permisos `WarehouseControl` en RBAC). La asignación recorta el tablero a esos almacenes.
 
-Si el usuario tiene sucursal (`billing_branch_id`), el combo de almacenes **solo** lista almacenes de esa sucursal.
+Si el usuario tiene sucursales asignadas, el combo de almacenes **solo** lista almacenes de esas sucursales.
 
 ```
 GET /api/tenant/inventory/locations
@@ -61,9 +61,9 @@ PUT /api/tenant/users/:userId/warehouses
 { "warehouse_ids": ["uuid-almacen-1"] }
 ```
 
-`[]` quita todos. El almacén debe ser de la sucursal del usuario si tiene sucursal (400 si no).
+`[]` quita todos. El almacén debe ser de **alguna** sucursal asignada al usuario (400 si no).
 
-Al cambiar de sucursal, el back suelta almacenes que ya no pertenecen.
+Al cambiar el set de sucursales, el back suelta almacenes que ya no pertenecen.
 
 ---
 
