@@ -1,4 +1,5 @@
 export { CreateSalesOrderDto, CreateSalesOrderLineItemDto } from './create-sales-order.dto';
+export { UpdateSalesOrderLineItemDto } from './update-sales-order-line-item.dto';
 export { QuerySalesOrderDto } from './query-sales-order.dto';
 export { QuerySalesOrderProductsSummaryDto } from './query-sales-order-products-summary.dto';
 export { FulfillSalesOrderDto } from './fulfill-sales-order.dto';

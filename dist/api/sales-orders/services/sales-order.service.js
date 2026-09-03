@@ -478,6 +478,7 @@ let SalesOrderService = class SalesOrderService {
             inferredPosCollection: so.sales_order_type === 'POS' && !!so.collected_by_user_id,
         });
         const cancelBlockedReason = await this.getCancelBlockedReason(so, tenantId);
+        const controlDesk = await this.warehouseControlService.getSalesOrderSummary(so.id, tenantId);
         const header = {
             ...this.mapOrderLocation(so),
             public_invoice_code: so.public_invoice_code ?? null,
@@ -506,7 +507,8 @@ let SalesOrderService = class SalesOrderService {
             discount_summary: discountSummary,
             can_cancel: cancelBlockedReason === null,
             cancel_blocked_reason: cancelBlockedReason,
-            control_desk: await this.warehouseControlService.getSalesOrderSummary(so.id, tenantId),
+            can_edit_lines: this.resolveCanEditLines(so.general_status, controlDesk),
+            control_desk: controlDesk,
         };
         return {
             header,
@@ -1021,6 +1023,170 @@ let SalesOrderService = class SalesOrderService {
             await qr.release();
         }
     }
+    async addLineItem(orderId, dto, tenantId, userId) {
+        const qr = this.dataSource.createQueryRunner();
+        await qr.connect();
+        await qr.startTransaction();
+        try {
+            const so = await qr.manager.findOne(sales_order_entity_1.SalesOrder, {
+                where: { id: orderId, tenant_id: tenantId },
+            });
+            if (!so) {
+                throw new common_1.NotFoundException(`Orden de venta no encontrada: ${orderId}`);
+            }
+            await this.assertLineItemsEditable(qr, so, tenantId);
+            await this.insertSalesOrderLineItems(qr, so.id, [dto], userId, tenantId);
+            await this.recomputeTotals(qr, so.id, tenantId, userId);
+            const details = await qr.manager.find(sales_order_detail_entity_1.SalesOrderDetail, {
+                where: { sales_order_id: so.id },
+            });
+            await this.controlDeskLifecycle.syncJobForSalesOrder(qr.manager, {
+                tenantId,
+                userId,
+                salesOrder: so,
+                details,
+                requiresSelection: !!so.requires_selection_assembly,
+            });
+            await qr.commitTransaction();
+        }
+        catch (err) {
+            await qr.rollbackTransaction();
+            throw err;
+        }
+        finally {
+            await qr.release();
+        }
+        this.regenerateDocumentoOriginalPreservingLanguage(orderId, tenantId, userId).catch((err) => {
+            this.logger.error('[PDF] Error regenerating DOCUMENTO_ORIGINAL after add line:', err);
+        });
+    }
+    async updateLineItem(orderId, lineItemId, dto, tenantId, userId) {
+        const qr = this.dataSource.createQueryRunner();
+        await qr.connect();
+        await qr.startTransaction();
+        try {
+            const so = await qr.manager.findOne(sales_order_entity_1.SalesOrder, {
+                where: { id: orderId, tenant_id: tenantId },
+            });
+            if (!so) {
+                throw new common_1.NotFoundException(`Orden de venta no encontrada: ${orderId}`);
+            }
+            await this.assertLineItemsEditable(qr, so, tenantId);
+            const line = await qr.manager.findOne(sales_order_detail_entity_1.SalesOrderDetail, {
+                where: { id: lineItemId, sales_order_id: orderId },
+            });
+            if (!line) {
+                throw new common_1.NotFoundException(`Línea no encontrada: ${lineItemId}`);
+            }
+            if (dto.quantity !== undefined) {
+                line.quantity = dto.quantity;
+            }
+            if (dto.unit_price !== undefined) {
+                line.unit_price = (0, unit_amount_util_1.roundUnitAmount)(dto.unit_price);
+            }
+            if (dto.iva_percentage !== undefined) {
+                line.iva_percentage = dto.iva_percentage;
+            }
+            if (dto.ieps_percentage !== undefined) {
+                line.ieps_percentage = dto.ieps_percentage;
+            }
+            const productUomId = dto.product_uom_id || line.product_uom_id;
+            const productUomRow = await this.resolveProductUom(qr, line.product_id, productUomId);
+            line.product_uom_id = productUomRow.id;
+            const factor = productUomRow.factor || 1;
+            line.quantity_base_uom = productUomRow.is_base
+                ? Number(line.quantity)
+                : Number(line.quantity) * factor;
+            const discountAmounts = await this.resolveLineDiscountAmounts(tenantId, {
+                product_id: line.product_id,
+                product_uom_id: productUomRow.id,
+                quantity: Number(line.quantity),
+                unit_price: Number(line.unit_price),
+                discount_percentage: dto.discount_percentage !== undefined
+                    ? dto.discount_percentage
+                    : Number(line.discount_percentage || 0),
+                product_discount_id: line.product_discount_id ?? undefined,
+                iva_percentage: Number(line.iva_percentage || 0),
+                ieps_percentage: Number(line.ieps_percentage || 0),
+            }, productUomRow.id);
+            line.discount_percentage = discountAmounts.discount_percentage;
+            line.discount_unit = discountAmounts.discount_unit;
+            line.product_discount_id = discountAmounts.product_discount_id;
+            this.applyPersistedLineTaxes(line);
+            await qr.manager.save(sales_order_detail_entity_1.SalesOrderDetail, line);
+            await this.recomputeTotals(qr, so.id, tenantId, userId);
+            const details = await qr.manager.find(sales_order_detail_entity_1.SalesOrderDetail, {
+                where: { sales_order_id: so.id },
+            });
+            await this.controlDeskLifecycle.syncJobForSalesOrder(qr.manager, {
+                tenantId,
+                userId,
+                salesOrder: so,
+                details,
+                requiresSelection: !!so.requires_selection_assembly,
+            });
+            await qr.commitTransaction();
+        }
+        catch (err) {
+            await qr.rollbackTransaction();
+            throw err;
+        }
+        finally {
+            await qr.release();
+        }
+        this.regenerateDocumentoOriginalPreservingLanguage(orderId, tenantId, userId).catch((err) => {
+            this.logger.error('[PDF] Error regenerating DOCUMENTO_ORIGINAL after update line:', err);
+        });
+    }
+    async removeLineItem(orderId, lineItemId, tenantId, userId) {
+        const qr = this.dataSource.createQueryRunner();
+        await qr.connect();
+        await qr.startTransaction();
+        try {
+            const so = await qr.manager.findOne(sales_order_entity_1.SalesOrder, {
+                where: { id: orderId, tenant_id: tenantId },
+            });
+            if (!so) {
+                throw new common_1.NotFoundException(`Orden de venta no encontrada: ${orderId}`);
+            }
+            await this.assertLineItemsEditable(qr, so, tenantId);
+            const line = await qr.manager.findOne(sales_order_detail_entity_1.SalesOrderDetail, {
+                where: { id: lineItemId, sales_order_id: orderId },
+            });
+            if (!line) {
+                throw new common_1.NotFoundException(`Línea no encontrada: ${lineItemId}`);
+            }
+            const remaining = await qr.manager.count(sales_order_detail_entity_1.SalesOrderDetail, {
+                where: { sales_order_id: orderId },
+            });
+            if (remaining <= 1) {
+                throw new common_1.BadRequestException('La orden debe tener al menos un producto');
+            }
+            await qr.manager.delete(sales_order_detail_entity_1.SalesOrderDetail, { id: lineItemId, sales_order_id: orderId });
+            await this.recomputeTotals(qr, so.id, tenantId, userId);
+            const details = await qr.manager.find(sales_order_detail_entity_1.SalesOrderDetail, {
+                where: { sales_order_id: so.id },
+            });
+            await this.controlDeskLifecycle.syncJobForSalesOrder(qr.manager, {
+                tenantId,
+                userId,
+                salesOrder: so,
+                details,
+                requiresSelection: !!so.requires_selection_assembly,
+            });
+            await qr.commitTransaction();
+        }
+        catch (err) {
+            await qr.rollbackTransaction();
+            throw err;
+        }
+        finally {
+            await qr.release();
+        }
+        this.regenerateDocumentoOriginalPreservingLanguage(orderId, tenantId, userId).catch((err) => {
+            this.logger.error('[PDF] Error regenerating DOCUMENTO_ORIGINAL after remove line:', err);
+        });
+    }
     async fulfillOrderLines(qr, salesOrderId, scope, lineItems, userId, notes) {
         for (const detail of lineItems) {
             await this.fulfillmentService.allocateFifo(detail, userId, qr.manager, scope);
@@ -1074,6 +1240,35 @@ let SalesOrderService = class SalesOrderService {
             saved.push(detail);
         }
         return saved;
+    }
+    resolveCanEditLines(status, controlDesk) {
+        if (status !== 'Creada' && status !== 'En Selección') {
+            return false;
+        }
+        if (!controlDesk) {
+            return true;
+        }
+        if (controlDesk.status && controlDesk.status !== 'released') {
+            return false;
+        }
+        return (controlDesk.progress?.warehouses_done ?? 0) <= 0;
+    }
+    async assertLineItemsEditable(qr, so, tenantId) {
+        if (so.general_status !== 'Creada' && so.general_status !== 'En Selección') {
+            throw new common_1.BadRequestException(`No se puede actualizar la línea de la orden de venta con estado: ${so.general_status}`);
+        }
+        const existingJob = await this.controlDeskLifecycle.findActiveJob(qr.manager, tenantId, so.id);
+        this.controlDeskLifecycle.assertJobEditable(existingJob);
+    }
+    applyPersistedLineTaxes(line) {
+        const qty = Number(line.quantity || 0);
+        const lineSubtotal = qty * Number(line.unit_price || 0);
+        const lineDiscount = qty * Number(line.discount_unit || 0);
+        const taxable = Math.max(lineSubtotal - lineDiscount, 0);
+        const lineIva = (taxable * Number(line.iva_percentage || 0)) / 100;
+        const lineIeps = (taxable * Number(line.ieps_percentage || 0)) / 100;
+        line.iva_unit = qty > 0 ? lineIva / qty : 0;
+        line.ieps_unit = qty > 0 ? lineIeps / qty : 0;
     }
     async recomputeTotals(qr, salesOrderId, tenantId, userId) {
         const so = await qr.manager.findOne(sales_order_entity_1.SalesOrder, { where: { id: salesOrderId, tenant_id: tenantId } });

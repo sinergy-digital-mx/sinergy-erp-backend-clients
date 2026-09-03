@@ -7,7 +7,7 @@ import { ShippingsService } from '../../shippings/shippings.service';
 import { CancelElectronicInvoiceDto } from '../../electronic-invoicing/dto/cancel-electronic-invoice.dto';
 import { StampSalesOrderInvoiceDto } from '../dto/stamp-sales-order-invoice.dto';
 import { InventoryService } from '../../inventory/inventory.service';
-import { CreateSalesOrderDto, QuerySalesOrderDto, QuerySalesOrderProductsSummaryDto, FulfillSalesOrderDto, RegenerateDocumentDto, UpdateSalesOrderNotesDto, QuerySalesOrderHeaderExportDto, QuerySalesOrderDetailExportDto, CreateSalesOrderPaymentDto, UpdateSalesOrderSellerDto, UpdateSalesOrderAssignedSellerDto } from '../dto';
+import { CreateSalesOrderDto, CreateSalesOrderLineItemDto, UpdateSalesOrderLineItemDto, QuerySalesOrderDto, QuerySalesOrderProductsSummaryDto, FulfillSalesOrderDto, RegenerateDocumentDto, UpdateSalesOrderNotesDto, QuerySalesOrderHeaderExportDto, QuerySalesOrderDetailExportDto, CreateSalesOrderPaymentDto, UpdateSalesOrderSellerDto, UpdateSalesOrderAssignedSellerDto } from '../dto';
 export declare class SalesOrderController {
     private readonly salesOrderService;
     private readonly documentsService;
@@ -19,6 +19,1329 @@ export declare class SalesOrderController {
     constructor(salesOrderService: SalesOrderService, documentsService: SalesOrderDocumentsService, posReceiptService: SalesOrderPosReceiptService, inventoryService: InventoryService, exportService: SalesOrderExportService, invoicingService: SalesOrderInvoicingService, shippingsService: ShippingsService);
     create(dto: CreateSalesOrderDto, req: any): Promise<import("../../../entities/sales-orders").SalesOrder>;
     replace(id: string, dto: CreateSalesOrderDto, req: any): Promise<import("../../../entities/sales-orders").SalesOrder>;
+    addLineItem(id: string, dto: CreateSalesOrderLineItemDto, req: any): Promise<{
+        data: {
+            header: {
+                public_invoice_code: string | null;
+                self_invoice_url: string | null;
+                customer_display_name: string | null;
+                customer_summary: {
+                    id: number;
+                    name: string;
+                    lastname: string;
+                    company_name: string;
+                    fiscal_razon_social: string;
+                    display_name: string | null;
+                    is_walk_in: boolean;
+                } | null;
+                seller_user: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    pos_user_code: number | null;
+                    pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                } | null;
+                assigned_seller_user: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    pos_user_code: number | null;
+                    pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                } | null;
+                terminal_user: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    pos_user_code: number | null;
+                    pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                } | null;
+                collected_by_user: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    pos_user_code: number | null;
+                    pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                } | null;
+                corroborated_by_user: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    pos_user_code: number | null;
+                    pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                } | null;
+                pos_collection: {
+                    id: string;
+                    sales_order_id: string;
+                    pos_daily_shift_id: string;
+                    customer_id: number;
+                    customer: {
+                        id: number;
+                        name: string;
+                        lastname: string;
+                        company_name: string;
+                        fiscal_razon_social: string;
+                        display_name: string | null;
+                        is_walk_in: boolean;
+                    } | null;
+                    payment_method: import("../../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
+                    order_total_mxn: number;
+                    amount_cash_mxn: number;
+                    amount_cash_usd: number;
+                    usd_exchange_rate: number | null;
+                    amount_transfer_mxn: number;
+                    transfer_reference: string | null;
+                    amount_card_mxn: number;
+                    amount_credit_mxn: number;
+                    card_reference: string | null;
+                    received_cash_mxn: number;
+                    received_cash_usd: number;
+                    change_cash_mxn: number;
+                    change_cash_usd: number;
+                    collected_by_user_id: string;
+                    collected_by_user: {
+                        id: string;
+                        first_name: string;
+                        last_name: string;
+                        pos_user_code: number | null;
+                        pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                    } | null;
+                    notes: string | null;
+                    collected_at: Date;
+                    created_at: Date;
+                } | null;
+                payment_method: import("../../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod | null;
+                payment_method_label: string | null;
+                payment_breakdown_label: string | null;
+                payment_display: import("../utils/sales-order-payment-display.util").SalesOrderPaymentDisplay;
+                collection_channel: "mixed" | "manual" | "pos_cobranza" | null;
+                collection_channel_label: string | null;
+                payments: {
+                    id: string;
+                    sales_order_id: string;
+                    payment_date: Date;
+                    amount: number;
+                    currency: string;
+                    payment_method: import("../../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
+                    reference_number: string | null;
+                    notes: string | null;
+                    source: string;
+                    source_label: string | null;
+                    created_by: string;
+                    created_by_name: string | null;
+                    created_at: Date;
+                    documents: {
+                        id: string;
+                        payment_id: string;
+                        file_name: string;
+                        mime_type: string;
+                        file_size: number;
+                        notes: string | null;
+                        uploaded_by: string | null;
+                        created_at: Date;
+                        url: string | null;
+                    }[];
+                }[];
+                payments_summary: {
+                    amount_paid: number;
+                    amount_pending: number;
+                    payment_status: string;
+                    currency: string;
+                    order_total: number;
+                };
+                applied_line_discounts: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedLineDiscountDto[];
+                applied_global_discount: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedGlobalDiscountDto | null;
+                applied_discounts: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedLineDiscountDto[];
+                discount_summary: {
+                    line_discount_total: number;
+                    global_discount_amount: number;
+                    discount_total: number;
+                    line_items: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedLineDiscountDto[];
+                    global_discount: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedGlobalDiscountDto | null;
+                };
+                can_cancel: boolean;
+                cancel_blocked_reason: string | null;
+                can_edit_lines: boolean;
+                control_desk: {
+                    id: string;
+                    folio: string;
+                    customer_name: string | null;
+                    customer_display_name: string | null;
+                    expected_delivery_date: Date;
+                    status: "cancelled" | "released" | "picking" | "waiting_assembly" | "assembling" | "assembled";
+                    has_shortage: boolean;
+                    created_at: Date;
+                    sales_order: {
+                        id: string;
+                        folio: string;
+                        general_status: string;
+                        expected_delivery_date: Date;
+                        notes: string | null;
+                        total: number;
+                        created_at: Date;
+                        customer_display_name: string | null;
+                        customer: {
+                            id: number;
+                            name: string;
+                            lastname: string;
+                            display_name: string | null;
+                            phone: string;
+                            company_name: string;
+                        } | null;
+                    } | null;
+                    billing_branch: {
+                        id: string;
+                        code: string;
+                        display_name: string;
+                    } | null;
+                    position: {
+                        id: string;
+                        code: string;
+                        name: string | null;
+                        row: number;
+                        col: number;
+                    } | null;
+                    progress: {
+                        warehouses_done: number;
+                        warehouses_total: number;
+                    };
+                    tasks: {
+                        id: string;
+                        status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
+                        warehouse: {
+                            id: string;
+                            name: string;
+                            code: string;
+                        } | null;
+                        started_at: Date | null;
+                        completed_at: Date | null;
+                        started_by_user: {
+                            id: string;
+                            first_name: string;
+                            last_name: string;
+                            pos_user_code: number | null;
+                            pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                        } | null;
+                        completed_by_user: {
+                            id: string;
+                            first_name: string;
+                            last_name: string;
+                            pos_user_code: number | null;
+                            pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                        } | null;
+                        lines_count: number;
+                        quantity_requested_total: number;
+                        lines: {
+                            id: string;
+                            sales_order_detail_id: string;
+                            product_id: string;
+                            product_name: string;
+                            product_sku: string;
+                            quantity: number;
+                            quantity_picked: number;
+                            uom_name: string;
+                            quantity_base_requested: number;
+                            quantity_base_picked: number;
+                            quantity_base_missing: number;
+                            status: "pending" | "cancelled" | "short" | "picked";
+                        }[];
+                    }[];
+                    pick_tasks: {
+                        id: string;
+                        status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
+                        warehouse: {
+                            id: string;
+                            name: string;
+                            code: string;
+                        } | null;
+                        started_at: Date | null;
+                        completed_at: Date | null;
+                        started_by_user: {
+                            id: string;
+                            first_name: string;
+                            last_name: string;
+                            pos_user_code: number | null;
+                            pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                        } | null;
+                        completed_by_user: {
+                            id: string;
+                            first_name: string;
+                            last_name: string;
+                            pos_user_code: number | null;
+                            pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                        } | null;
+                        lines_count: number;
+                        quantity_requested_total: number;
+                        lines: {
+                            id: string;
+                            sales_order_detail_id: string;
+                            product_id: string;
+                            product_name: string;
+                            product_sku: string;
+                            quantity: number;
+                            quantity_picked: number;
+                            uom_name: string;
+                            quantity_base_requested: number;
+                            quantity_base_picked: number;
+                            quantity_base_missing: number;
+                            status: "pending" | "cancelled" | "short" | "picked";
+                        }[];
+                    }[];
+                    missing: {
+                        warehouse_id: string | null;
+                        warehouse_name: string | null;
+                        product_name: string;
+                        product_sku: string;
+                        quantity_base_missing: number;
+                    }[];
+                } | null;
+                razon_social: string;
+                sucursal: string | null;
+                fiscal_configuration: {
+                    id: string;
+                    razon_social: string;
+                    rfc: string;
+                } | null;
+                billing_branch_id: string | null;
+                billing_branch: {
+                    id: string;
+                    code: string;
+                    address: string;
+                    city: string;
+                    state: string;
+                    country: string;
+                    postal_code: string;
+                } | null;
+                id: string;
+                tenant: import("../../rbac").RBACTenant;
+                tenant_id: string;
+                folio: string;
+                fiscal_configuration_id: string;
+                warehouse_id: string | null;
+                customer: import("../../../entities/customers/customer.entity").Customer;
+                customer_id: number;
+                expected_delivery_date: Date;
+                sales_order_type: string;
+                fiscal_razon_social: string;
+                payment_status: string;
+                is_credit: boolean;
+                invoice_requested: boolean;
+                general_status: string;
+                notes: string | null;
+                converted_from_quotation_id: string | null;
+                requires_selection_assembly: boolean;
+                corroborator: import("../../../entities/users/user.entity").User | null;
+                corroborated_by: string | null;
+                corroborated_at: Date | null;
+                subtotal: number;
+                iva_total: number;
+                ieps_total: number;
+                discount_total: number;
+                global_discount: import("../../../entities/global-discounts/global-discount.entity").GlobalDiscount | null;
+                global_discount_id: string | null;
+                global_discount_amount: number;
+                total: number;
+                creator: import("../../../entities/users/user.entity").User;
+                created_by: string;
+                terminal_user_id: string | null;
+                seller_user_id: string | null;
+                assigned_seller_user_id: string | null;
+                pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
+                pos_daily_shift_id: string | null;
+                collected_by_user_id: string | null;
+                created_at: Date;
+                updated_by: string;
+                updated_at: Date;
+                line_items: import("../../../entities/sales-orders").SalesOrderDetail[];
+            };
+            line_items: any[];
+            documents: any[];
+            pos_collection: {
+                id: string;
+                sales_order_id: string;
+                pos_daily_shift_id: string;
+                customer_id: number;
+                customer: {
+                    id: number;
+                    name: string;
+                    lastname: string;
+                    company_name: string;
+                    fiscal_razon_social: string;
+                    display_name: string | null;
+                    is_walk_in: boolean;
+                } | null;
+                payment_method: import("../../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
+                order_total_mxn: number;
+                amount_cash_mxn: number;
+                amount_cash_usd: number;
+                usd_exchange_rate: number | null;
+                amount_transfer_mxn: number;
+                transfer_reference: string | null;
+                amount_card_mxn: number;
+                amount_credit_mxn: number;
+                card_reference: string | null;
+                received_cash_mxn: number;
+                received_cash_usd: number;
+                change_cash_mxn: number;
+                change_cash_usd: number;
+                collected_by_user_id: string;
+                collected_by_user: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    pos_user_code: number | null;
+                    pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                } | null;
+                notes: string | null;
+                collected_at: Date;
+                created_at: Date;
+            } | null;
+            payment_display: import("../utils/sales-order-payment-display.util").SalesOrderPaymentDisplay;
+            payments: {
+                id: string;
+                sales_order_id: string;
+                payment_date: Date;
+                amount: number;
+                currency: string;
+                payment_method: import("../../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
+                reference_number: string | null;
+                notes: string | null;
+                source: string;
+                source_label: string | null;
+                created_by: string;
+                created_by_name: string | null;
+                created_at: Date;
+                documents: {
+                    id: string;
+                    payment_id: string;
+                    file_name: string;
+                    mime_type: string;
+                    file_size: number;
+                    notes: string | null;
+                    uploaded_by: string | null;
+                    created_at: Date;
+                    url: string | null;
+                }[];
+            }[];
+            payments_summary: {
+                amount_paid: number;
+                amount_pending: number;
+                payment_status: string;
+                currency: string;
+                order_total: number;
+            };
+            discount_summary: {
+                line_discount_total: number;
+                global_discount_amount: number;
+                discount_total: number;
+                line_items: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedLineDiscountDto[];
+                global_discount: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedGlobalDiscountDto | null;
+            };
+            applied_line_discounts: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedLineDiscountDto[];
+            applied_global_discount: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedGlobalDiscountDto | null;
+            shipping: {
+                has_shipping: boolean;
+                shipping_id: null;
+                status: null;
+                driver_name: null;
+                truck_name: null;
+                stop_sequence: null;
+                route_summary: null;
+            } | {
+                has_shipping: boolean;
+                shipping_id: string;
+                status: "Cancelado" | "Creado" | "En Ruta" | "Completado";
+                driver_name: string | null;
+                truck_name: string;
+                stop_sequence: number;
+                route_summary: {
+                    distance_km: number | null;
+                    stops_count: number;
+                };
+            };
+        };
+    }>;
+    updateLineItem(orderId: string, lineItemId: string, dto: UpdateSalesOrderLineItemDto, req: any): Promise<{
+        data: {
+            header: {
+                public_invoice_code: string | null;
+                self_invoice_url: string | null;
+                customer_display_name: string | null;
+                customer_summary: {
+                    id: number;
+                    name: string;
+                    lastname: string;
+                    company_name: string;
+                    fiscal_razon_social: string;
+                    display_name: string | null;
+                    is_walk_in: boolean;
+                } | null;
+                seller_user: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    pos_user_code: number | null;
+                    pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                } | null;
+                assigned_seller_user: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    pos_user_code: number | null;
+                    pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                } | null;
+                terminal_user: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    pos_user_code: number | null;
+                    pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                } | null;
+                collected_by_user: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    pos_user_code: number | null;
+                    pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                } | null;
+                corroborated_by_user: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    pos_user_code: number | null;
+                    pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                } | null;
+                pos_collection: {
+                    id: string;
+                    sales_order_id: string;
+                    pos_daily_shift_id: string;
+                    customer_id: number;
+                    customer: {
+                        id: number;
+                        name: string;
+                        lastname: string;
+                        company_name: string;
+                        fiscal_razon_social: string;
+                        display_name: string | null;
+                        is_walk_in: boolean;
+                    } | null;
+                    payment_method: import("../../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
+                    order_total_mxn: number;
+                    amount_cash_mxn: number;
+                    amount_cash_usd: number;
+                    usd_exchange_rate: number | null;
+                    amount_transfer_mxn: number;
+                    transfer_reference: string | null;
+                    amount_card_mxn: number;
+                    amount_credit_mxn: number;
+                    card_reference: string | null;
+                    received_cash_mxn: number;
+                    received_cash_usd: number;
+                    change_cash_mxn: number;
+                    change_cash_usd: number;
+                    collected_by_user_id: string;
+                    collected_by_user: {
+                        id: string;
+                        first_name: string;
+                        last_name: string;
+                        pos_user_code: number | null;
+                        pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                    } | null;
+                    notes: string | null;
+                    collected_at: Date;
+                    created_at: Date;
+                } | null;
+                payment_method: import("../../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod | null;
+                payment_method_label: string | null;
+                payment_breakdown_label: string | null;
+                payment_display: import("../utils/sales-order-payment-display.util").SalesOrderPaymentDisplay;
+                collection_channel: "mixed" | "manual" | "pos_cobranza" | null;
+                collection_channel_label: string | null;
+                payments: {
+                    id: string;
+                    sales_order_id: string;
+                    payment_date: Date;
+                    amount: number;
+                    currency: string;
+                    payment_method: import("../../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
+                    reference_number: string | null;
+                    notes: string | null;
+                    source: string;
+                    source_label: string | null;
+                    created_by: string;
+                    created_by_name: string | null;
+                    created_at: Date;
+                    documents: {
+                        id: string;
+                        payment_id: string;
+                        file_name: string;
+                        mime_type: string;
+                        file_size: number;
+                        notes: string | null;
+                        uploaded_by: string | null;
+                        created_at: Date;
+                        url: string | null;
+                    }[];
+                }[];
+                payments_summary: {
+                    amount_paid: number;
+                    amount_pending: number;
+                    payment_status: string;
+                    currency: string;
+                    order_total: number;
+                };
+                applied_line_discounts: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedLineDiscountDto[];
+                applied_global_discount: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedGlobalDiscountDto | null;
+                applied_discounts: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedLineDiscountDto[];
+                discount_summary: {
+                    line_discount_total: number;
+                    global_discount_amount: number;
+                    discount_total: number;
+                    line_items: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedLineDiscountDto[];
+                    global_discount: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedGlobalDiscountDto | null;
+                };
+                can_cancel: boolean;
+                cancel_blocked_reason: string | null;
+                can_edit_lines: boolean;
+                control_desk: {
+                    id: string;
+                    folio: string;
+                    customer_name: string | null;
+                    customer_display_name: string | null;
+                    expected_delivery_date: Date;
+                    status: "cancelled" | "released" | "picking" | "waiting_assembly" | "assembling" | "assembled";
+                    has_shortage: boolean;
+                    created_at: Date;
+                    sales_order: {
+                        id: string;
+                        folio: string;
+                        general_status: string;
+                        expected_delivery_date: Date;
+                        notes: string | null;
+                        total: number;
+                        created_at: Date;
+                        customer_display_name: string | null;
+                        customer: {
+                            id: number;
+                            name: string;
+                            lastname: string;
+                            display_name: string | null;
+                            phone: string;
+                            company_name: string;
+                        } | null;
+                    } | null;
+                    billing_branch: {
+                        id: string;
+                        code: string;
+                        display_name: string;
+                    } | null;
+                    position: {
+                        id: string;
+                        code: string;
+                        name: string | null;
+                        row: number;
+                        col: number;
+                    } | null;
+                    progress: {
+                        warehouses_done: number;
+                        warehouses_total: number;
+                    };
+                    tasks: {
+                        id: string;
+                        status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
+                        warehouse: {
+                            id: string;
+                            name: string;
+                            code: string;
+                        } | null;
+                        started_at: Date | null;
+                        completed_at: Date | null;
+                        started_by_user: {
+                            id: string;
+                            first_name: string;
+                            last_name: string;
+                            pos_user_code: number | null;
+                            pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                        } | null;
+                        completed_by_user: {
+                            id: string;
+                            first_name: string;
+                            last_name: string;
+                            pos_user_code: number | null;
+                            pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                        } | null;
+                        lines_count: number;
+                        quantity_requested_total: number;
+                        lines: {
+                            id: string;
+                            sales_order_detail_id: string;
+                            product_id: string;
+                            product_name: string;
+                            product_sku: string;
+                            quantity: number;
+                            quantity_picked: number;
+                            uom_name: string;
+                            quantity_base_requested: number;
+                            quantity_base_picked: number;
+                            quantity_base_missing: number;
+                            status: "pending" | "cancelled" | "short" | "picked";
+                        }[];
+                    }[];
+                    pick_tasks: {
+                        id: string;
+                        status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
+                        warehouse: {
+                            id: string;
+                            name: string;
+                            code: string;
+                        } | null;
+                        started_at: Date | null;
+                        completed_at: Date | null;
+                        started_by_user: {
+                            id: string;
+                            first_name: string;
+                            last_name: string;
+                            pos_user_code: number | null;
+                            pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                        } | null;
+                        completed_by_user: {
+                            id: string;
+                            first_name: string;
+                            last_name: string;
+                            pos_user_code: number | null;
+                            pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                        } | null;
+                        lines_count: number;
+                        quantity_requested_total: number;
+                        lines: {
+                            id: string;
+                            sales_order_detail_id: string;
+                            product_id: string;
+                            product_name: string;
+                            product_sku: string;
+                            quantity: number;
+                            quantity_picked: number;
+                            uom_name: string;
+                            quantity_base_requested: number;
+                            quantity_base_picked: number;
+                            quantity_base_missing: number;
+                            status: "pending" | "cancelled" | "short" | "picked";
+                        }[];
+                    }[];
+                    missing: {
+                        warehouse_id: string | null;
+                        warehouse_name: string | null;
+                        product_name: string;
+                        product_sku: string;
+                        quantity_base_missing: number;
+                    }[];
+                } | null;
+                razon_social: string;
+                sucursal: string | null;
+                fiscal_configuration: {
+                    id: string;
+                    razon_social: string;
+                    rfc: string;
+                } | null;
+                billing_branch_id: string | null;
+                billing_branch: {
+                    id: string;
+                    code: string;
+                    address: string;
+                    city: string;
+                    state: string;
+                    country: string;
+                    postal_code: string;
+                } | null;
+                id: string;
+                tenant: import("../../rbac").RBACTenant;
+                tenant_id: string;
+                folio: string;
+                fiscal_configuration_id: string;
+                warehouse_id: string | null;
+                customer: import("../../../entities/customers/customer.entity").Customer;
+                customer_id: number;
+                expected_delivery_date: Date;
+                sales_order_type: string;
+                fiscal_razon_social: string;
+                payment_status: string;
+                is_credit: boolean;
+                invoice_requested: boolean;
+                general_status: string;
+                notes: string | null;
+                converted_from_quotation_id: string | null;
+                requires_selection_assembly: boolean;
+                corroborator: import("../../../entities/users/user.entity").User | null;
+                corroborated_by: string | null;
+                corroborated_at: Date | null;
+                subtotal: number;
+                iva_total: number;
+                ieps_total: number;
+                discount_total: number;
+                global_discount: import("../../../entities/global-discounts/global-discount.entity").GlobalDiscount | null;
+                global_discount_id: string | null;
+                global_discount_amount: number;
+                total: number;
+                creator: import("../../../entities/users/user.entity").User;
+                created_by: string;
+                terminal_user_id: string | null;
+                seller_user_id: string | null;
+                assigned_seller_user_id: string | null;
+                pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
+                pos_daily_shift_id: string | null;
+                collected_by_user_id: string | null;
+                created_at: Date;
+                updated_by: string;
+                updated_at: Date;
+                line_items: import("../../../entities/sales-orders").SalesOrderDetail[];
+            };
+            line_items: any[];
+            documents: any[];
+            pos_collection: {
+                id: string;
+                sales_order_id: string;
+                pos_daily_shift_id: string;
+                customer_id: number;
+                customer: {
+                    id: number;
+                    name: string;
+                    lastname: string;
+                    company_name: string;
+                    fiscal_razon_social: string;
+                    display_name: string | null;
+                    is_walk_in: boolean;
+                } | null;
+                payment_method: import("../../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
+                order_total_mxn: number;
+                amount_cash_mxn: number;
+                amount_cash_usd: number;
+                usd_exchange_rate: number | null;
+                amount_transfer_mxn: number;
+                transfer_reference: string | null;
+                amount_card_mxn: number;
+                amount_credit_mxn: number;
+                card_reference: string | null;
+                received_cash_mxn: number;
+                received_cash_usd: number;
+                change_cash_mxn: number;
+                change_cash_usd: number;
+                collected_by_user_id: string;
+                collected_by_user: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    pos_user_code: number | null;
+                    pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                } | null;
+                notes: string | null;
+                collected_at: Date;
+                created_at: Date;
+            } | null;
+            payment_display: import("../utils/sales-order-payment-display.util").SalesOrderPaymentDisplay;
+            payments: {
+                id: string;
+                sales_order_id: string;
+                payment_date: Date;
+                amount: number;
+                currency: string;
+                payment_method: import("../../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
+                reference_number: string | null;
+                notes: string | null;
+                source: string;
+                source_label: string | null;
+                created_by: string;
+                created_by_name: string | null;
+                created_at: Date;
+                documents: {
+                    id: string;
+                    payment_id: string;
+                    file_name: string;
+                    mime_type: string;
+                    file_size: number;
+                    notes: string | null;
+                    uploaded_by: string | null;
+                    created_at: Date;
+                    url: string | null;
+                }[];
+            }[];
+            payments_summary: {
+                amount_paid: number;
+                amount_pending: number;
+                payment_status: string;
+                currency: string;
+                order_total: number;
+            };
+            discount_summary: {
+                line_discount_total: number;
+                global_discount_amount: number;
+                discount_total: number;
+                line_items: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedLineDiscountDto[];
+                global_discount: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedGlobalDiscountDto | null;
+            };
+            applied_line_discounts: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedLineDiscountDto[];
+            applied_global_discount: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedGlobalDiscountDto | null;
+            shipping: {
+                has_shipping: boolean;
+                shipping_id: null;
+                status: null;
+                driver_name: null;
+                truck_name: null;
+                stop_sequence: null;
+                route_summary: null;
+            } | {
+                has_shipping: boolean;
+                shipping_id: string;
+                status: "Cancelado" | "Creado" | "En Ruta" | "Completado";
+                driver_name: string | null;
+                truck_name: string;
+                stop_sequence: number;
+                route_summary: {
+                    distance_km: number | null;
+                    stops_count: number;
+                };
+            };
+        };
+    }>;
+    removeLineItem(orderId: string, lineItemId: string, req: any): Promise<{
+        data: {
+            header: {
+                public_invoice_code: string | null;
+                self_invoice_url: string | null;
+                customer_display_name: string | null;
+                customer_summary: {
+                    id: number;
+                    name: string;
+                    lastname: string;
+                    company_name: string;
+                    fiscal_razon_social: string;
+                    display_name: string | null;
+                    is_walk_in: boolean;
+                } | null;
+                seller_user: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    pos_user_code: number | null;
+                    pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                } | null;
+                assigned_seller_user: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    pos_user_code: number | null;
+                    pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                } | null;
+                terminal_user: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    pos_user_code: number | null;
+                    pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                } | null;
+                collected_by_user: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    pos_user_code: number | null;
+                    pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                } | null;
+                corroborated_by_user: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    pos_user_code: number | null;
+                    pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                } | null;
+                pos_collection: {
+                    id: string;
+                    sales_order_id: string;
+                    pos_daily_shift_id: string;
+                    customer_id: number;
+                    customer: {
+                        id: number;
+                        name: string;
+                        lastname: string;
+                        company_name: string;
+                        fiscal_razon_social: string;
+                        display_name: string | null;
+                        is_walk_in: boolean;
+                    } | null;
+                    payment_method: import("../../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
+                    order_total_mxn: number;
+                    amount_cash_mxn: number;
+                    amount_cash_usd: number;
+                    usd_exchange_rate: number | null;
+                    amount_transfer_mxn: number;
+                    transfer_reference: string | null;
+                    amount_card_mxn: number;
+                    amount_credit_mxn: number;
+                    card_reference: string | null;
+                    received_cash_mxn: number;
+                    received_cash_usd: number;
+                    change_cash_mxn: number;
+                    change_cash_usd: number;
+                    collected_by_user_id: string;
+                    collected_by_user: {
+                        id: string;
+                        first_name: string;
+                        last_name: string;
+                        pos_user_code: number | null;
+                        pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                    } | null;
+                    notes: string | null;
+                    collected_at: Date;
+                    created_at: Date;
+                } | null;
+                payment_method: import("../../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod | null;
+                payment_method_label: string | null;
+                payment_breakdown_label: string | null;
+                payment_display: import("../utils/sales-order-payment-display.util").SalesOrderPaymentDisplay;
+                collection_channel: "mixed" | "manual" | "pos_cobranza" | null;
+                collection_channel_label: string | null;
+                payments: {
+                    id: string;
+                    sales_order_id: string;
+                    payment_date: Date;
+                    amount: number;
+                    currency: string;
+                    payment_method: import("../../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
+                    reference_number: string | null;
+                    notes: string | null;
+                    source: string;
+                    source_label: string | null;
+                    created_by: string;
+                    created_by_name: string | null;
+                    created_at: Date;
+                    documents: {
+                        id: string;
+                        payment_id: string;
+                        file_name: string;
+                        mime_type: string;
+                        file_size: number;
+                        notes: string | null;
+                        uploaded_by: string | null;
+                        created_at: Date;
+                        url: string | null;
+                    }[];
+                }[];
+                payments_summary: {
+                    amount_paid: number;
+                    amount_pending: number;
+                    payment_status: string;
+                    currency: string;
+                    order_total: number;
+                };
+                applied_line_discounts: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedLineDiscountDto[];
+                applied_global_discount: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedGlobalDiscountDto | null;
+                applied_discounts: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedLineDiscountDto[];
+                discount_summary: {
+                    line_discount_total: number;
+                    global_discount_amount: number;
+                    discount_total: number;
+                    line_items: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedLineDiscountDto[];
+                    global_discount: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedGlobalDiscountDto | null;
+                };
+                can_cancel: boolean;
+                cancel_blocked_reason: string | null;
+                can_edit_lines: boolean;
+                control_desk: {
+                    id: string;
+                    folio: string;
+                    customer_name: string | null;
+                    customer_display_name: string | null;
+                    expected_delivery_date: Date;
+                    status: "cancelled" | "released" | "picking" | "waiting_assembly" | "assembling" | "assembled";
+                    has_shortage: boolean;
+                    created_at: Date;
+                    sales_order: {
+                        id: string;
+                        folio: string;
+                        general_status: string;
+                        expected_delivery_date: Date;
+                        notes: string | null;
+                        total: number;
+                        created_at: Date;
+                        customer_display_name: string | null;
+                        customer: {
+                            id: number;
+                            name: string;
+                            lastname: string;
+                            display_name: string | null;
+                            phone: string;
+                            company_name: string;
+                        } | null;
+                    } | null;
+                    billing_branch: {
+                        id: string;
+                        code: string;
+                        display_name: string;
+                    } | null;
+                    position: {
+                        id: string;
+                        code: string;
+                        name: string | null;
+                        row: number;
+                        col: number;
+                    } | null;
+                    progress: {
+                        warehouses_done: number;
+                        warehouses_total: number;
+                    };
+                    tasks: {
+                        id: string;
+                        status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
+                        warehouse: {
+                            id: string;
+                            name: string;
+                            code: string;
+                        } | null;
+                        started_at: Date | null;
+                        completed_at: Date | null;
+                        started_by_user: {
+                            id: string;
+                            first_name: string;
+                            last_name: string;
+                            pos_user_code: number | null;
+                            pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                        } | null;
+                        completed_by_user: {
+                            id: string;
+                            first_name: string;
+                            last_name: string;
+                            pos_user_code: number | null;
+                            pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                        } | null;
+                        lines_count: number;
+                        quantity_requested_total: number;
+                        lines: {
+                            id: string;
+                            sales_order_detail_id: string;
+                            product_id: string;
+                            product_name: string;
+                            product_sku: string;
+                            quantity: number;
+                            quantity_picked: number;
+                            uom_name: string;
+                            quantity_base_requested: number;
+                            quantity_base_picked: number;
+                            quantity_base_missing: number;
+                            status: "pending" | "cancelled" | "short" | "picked";
+                        }[];
+                    }[];
+                    pick_tasks: {
+                        id: string;
+                        status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
+                        warehouse: {
+                            id: string;
+                            name: string;
+                            code: string;
+                        } | null;
+                        started_at: Date | null;
+                        completed_at: Date | null;
+                        started_by_user: {
+                            id: string;
+                            first_name: string;
+                            last_name: string;
+                            pos_user_code: number | null;
+                            pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                        } | null;
+                        completed_by_user: {
+                            id: string;
+                            first_name: string;
+                            last_name: string;
+                            pos_user_code: number | null;
+                            pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                        } | null;
+                        lines_count: number;
+                        quantity_requested_total: number;
+                        lines: {
+                            id: string;
+                            sales_order_detail_id: string;
+                            product_id: string;
+                            product_name: string;
+                            product_sku: string;
+                            quantity: number;
+                            quantity_picked: number;
+                            uom_name: string;
+                            quantity_base_requested: number;
+                            quantity_base_picked: number;
+                            quantity_base_missing: number;
+                            status: "pending" | "cancelled" | "short" | "picked";
+                        }[];
+                    }[];
+                    missing: {
+                        warehouse_id: string | null;
+                        warehouse_name: string | null;
+                        product_name: string;
+                        product_sku: string;
+                        quantity_base_missing: number;
+                    }[];
+                } | null;
+                razon_social: string;
+                sucursal: string | null;
+                fiscal_configuration: {
+                    id: string;
+                    razon_social: string;
+                    rfc: string;
+                } | null;
+                billing_branch_id: string | null;
+                billing_branch: {
+                    id: string;
+                    code: string;
+                    address: string;
+                    city: string;
+                    state: string;
+                    country: string;
+                    postal_code: string;
+                } | null;
+                id: string;
+                tenant: import("../../rbac").RBACTenant;
+                tenant_id: string;
+                folio: string;
+                fiscal_configuration_id: string;
+                warehouse_id: string | null;
+                customer: import("../../../entities/customers/customer.entity").Customer;
+                customer_id: number;
+                expected_delivery_date: Date;
+                sales_order_type: string;
+                fiscal_razon_social: string;
+                payment_status: string;
+                is_credit: boolean;
+                invoice_requested: boolean;
+                general_status: string;
+                notes: string | null;
+                converted_from_quotation_id: string | null;
+                requires_selection_assembly: boolean;
+                corroborator: import("../../../entities/users/user.entity").User | null;
+                corroborated_by: string | null;
+                corroborated_at: Date | null;
+                subtotal: number;
+                iva_total: number;
+                ieps_total: number;
+                discount_total: number;
+                global_discount: import("../../../entities/global-discounts/global-discount.entity").GlobalDiscount | null;
+                global_discount_id: string | null;
+                global_discount_amount: number;
+                total: number;
+                creator: import("../../../entities/users/user.entity").User;
+                created_by: string;
+                terminal_user_id: string | null;
+                seller_user_id: string | null;
+                assigned_seller_user_id: string | null;
+                pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
+                pos_daily_shift_id: string | null;
+                collected_by_user_id: string | null;
+                created_at: Date;
+                updated_by: string;
+                updated_at: Date;
+                line_items: import("../../../entities/sales-orders").SalesOrderDetail[];
+            };
+            line_items: any[];
+            documents: any[];
+            pos_collection: {
+                id: string;
+                sales_order_id: string;
+                pos_daily_shift_id: string;
+                customer_id: number;
+                customer: {
+                    id: number;
+                    name: string;
+                    lastname: string;
+                    company_name: string;
+                    fiscal_razon_social: string;
+                    display_name: string | null;
+                    is_walk_in: boolean;
+                } | null;
+                payment_method: import("../../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
+                order_total_mxn: number;
+                amount_cash_mxn: number;
+                amount_cash_usd: number;
+                usd_exchange_rate: number | null;
+                amount_transfer_mxn: number;
+                transfer_reference: string | null;
+                amount_card_mxn: number;
+                amount_credit_mxn: number;
+                card_reference: string | null;
+                received_cash_mxn: number;
+                received_cash_usd: number;
+                change_cash_mxn: number;
+                change_cash_usd: number;
+                collected_by_user_id: string;
+                collected_by_user: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    pos_user_code: number | null;
+                    pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                } | null;
+                notes: string | null;
+                collected_at: Date;
+                created_at: Date;
+            } | null;
+            payment_display: import("../utils/sales-order-payment-display.util").SalesOrderPaymentDisplay;
+            payments: {
+                id: string;
+                sales_order_id: string;
+                payment_date: Date;
+                amount: number;
+                currency: string;
+                payment_method: import("../../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
+                reference_number: string | null;
+                notes: string | null;
+                source: string;
+                source_label: string | null;
+                created_by: string;
+                created_by_name: string | null;
+                created_at: Date;
+                documents: {
+                    id: string;
+                    payment_id: string;
+                    file_name: string;
+                    mime_type: string;
+                    file_size: number;
+                    notes: string | null;
+                    uploaded_by: string | null;
+                    created_at: Date;
+                    url: string | null;
+                }[];
+            }[];
+            payments_summary: {
+                amount_paid: number;
+                amount_pending: number;
+                payment_status: string;
+                currency: string;
+                order_total: number;
+            };
+            discount_summary: {
+                line_discount_total: number;
+                global_discount_amount: number;
+                discount_total: number;
+                line_items: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedLineDiscountDto[];
+                global_discount: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedGlobalDiscountDto | null;
+            };
+            applied_line_discounts: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedLineDiscountDto[];
+            applied_global_discount: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedGlobalDiscountDto | null;
+            shipping: {
+                has_shipping: boolean;
+                shipping_id: null;
+                status: null;
+                driver_name: null;
+                truck_name: null;
+                stop_sequence: null;
+                route_summary: null;
+            } | {
+                has_shipping: boolean;
+                shipping_id: string;
+                status: "Cancelado" | "Creado" | "En Ruta" | "Completado";
+                driver_name: string | null;
+                truck_name: string;
+                stop_sequence: number;
+                route_summary: {
+                    distance_km: number | null;
+                    stops_count: number;
+                };
+            };
+        };
+    }>;
     updateNotes(id: string, dto: UpdateSalesOrderNotesDto, req: any): Promise<import("../../../entities/sales-orders").SalesOrder>;
     updateSeller(id: string, dto: UpdateSalesOrderSellerDto, req: any): Promise<{
         header: {
@@ -160,6 +1483,7 @@ export declare class SalesOrderController {
             };
             can_cancel: boolean;
             cancel_blocked_reason: string | null;
+            can_edit_lines: boolean;
             control_desk: {
                 id: string;
                 folio: string;
@@ -356,6 +1680,9 @@ export declare class SalesOrderController {
             line_items: {
                 line_subtotal: number;
                 line_discount_amount: number;
+                line_iva: number;
+                line_ieps: number;
+                line_total: number;
                 applied_product_discount: {
                     id: string;
                     name: string | null;
@@ -663,6 +1990,7 @@ export declare class SalesOrderController {
             };
             can_cancel: boolean;
             cancel_blocked_reason: string | null;
+            can_edit_lines: boolean;
             control_desk: {
                 id: string;
                 folio: string;
@@ -859,6 +2187,9 @@ export declare class SalesOrderController {
             line_items: {
                 line_subtotal: number;
                 line_discount_amount: number;
+                line_iva: number;
+                line_ieps: number;
+                line_total: number;
                 applied_product_discount: {
                     id: string;
                     name: string | null;
@@ -1387,6 +2718,7 @@ export declare class SalesOrderController {
                 };
                 can_cancel: boolean;
                 cancel_blocked_reason: string | null;
+                can_edit_lines: boolean;
                 control_desk: {
                     id: string;
                     folio: string;

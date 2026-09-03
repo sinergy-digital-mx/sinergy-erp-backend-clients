@@ -42,10 +42,13 @@ let UsersRolesController = class UsersRolesController {
         this.tenantContextService = tenantContextService;
         this.usersService = usersService;
     }
-    async createUser(dto) {
-        const tenantId = this.tenantContextService.getCurrentTenantId();
+    async createUser(dto, req) {
+        const tenantId = this.tenantContextService.getCurrentTenantId() ||
+            req?.user?.tenant_id ||
+            req?.user?.tenantId ||
+            null;
         if (!tenantId) {
-            throw new Error('Tenant context is required');
+            throw new common_1.BadRequestException('Contexto de organización requerido');
         }
         const user = await this.usersService.create(dto, tenantId);
         return {
@@ -190,10 +193,13 @@ let UsersRolesController = class UsersRolesController {
         const canResetOthers = await this.permissionService.hasPermission(currentUserId, tenantId, 'User', 'Reset_Password');
         return this.usersService.changePassword(userId, dto, tenantId, currentUserId, canResetOthers);
     }
-    async updateUser(userId, updateData) {
-        const tenantId = this.tenantContextService.getCurrentTenantId();
+    async updateUser(userId, updateData, req) {
+        const tenantId = this.tenantContextService.getCurrentTenantId() ||
+            req?.user?.tenant_id ||
+            req?.user?.tenantId ||
+            null;
         if (!tenantId) {
-            throw new Error('Tenant context is required');
+            throw new common_1.BadRequestException('Contexto de organización requerido');
         }
         const user = await this.usersService.update(userId, updateData, tenantId);
         return {
@@ -303,8 +309,9 @@ __decorate([
         description: 'User created successfully',
     }),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [create_user_dto_1.CreateUserDto]),
+    __metadata("design:paramtypes", [create_user_dto_1.CreateUserDto, Object]),
     __metadata("design:returntype", Promise)
 ], UsersRolesController.prototype, "createUser", null);
 __decorate([
@@ -565,8 +572,9 @@ __decorate([
     }),
     __param(0, (0, common_1.Param)('userId')),
     __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, update_user_dto_1.UpdateUserDto]),
+    __metadata("design:paramtypes", [String, update_user_dto_1.UpdateUserDto, Object]),
     __metadata("design:returntype", Promise)
 ], UsersRolesController.prototype, "updateUser", null);
 __decorate([

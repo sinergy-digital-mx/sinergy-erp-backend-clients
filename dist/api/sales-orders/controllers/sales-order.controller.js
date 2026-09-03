@@ -51,6 +51,18 @@ let SalesOrderController = class SalesOrderController {
     async replace(id, dto, req) {
         return this.salesOrderService.replace(id, dto, req.user.tenant_id, req.user.id);
     }
+    async addLineItem(id, dto, req) {
+        await this.salesOrderService.addLineItem(id, dto, req.user.tenant_id, req.user.id);
+        return this.findOne(id, req);
+    }
+    async updateLineItem(orderId, lineItemId, dto, req) {
+        await this.salesOrderService.updateLineItem(orderId, lineItemId, dto, req.user.tenant_id, req.user.id);
+        return this.findOne(orderId, req);
+    }
+    async removeLineItem(orderId, lineItemId, req) {
+        await this.salesOrderService.removeLineItem(orderId, lineItemId, req.user.tenant_id, req.user.id);
+        return this.findOne(orderId, req);
+    }
     async updateNotes(id, dto, req) {
         return this.salesOrderService.updateNotes(id, dto, req.user.tenant_id, req.user.id);
     }
@@ -245,6 +257,48 @@ __decorate([
     __metadata("design:paramtypes", [String, dto_1.CreateSalesOrderDto, Object]),
     __metadata("design:returntype", Promise)
 ], SalesOrderController.prototype, "replace", null);
+__decorate([
+    (0, common_1.Post)(':id/line-items'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Agregar una línea a la orden de venta',
+        description: 'Solo Creada o En Selección, si el picking de Mesa de Control no empezó. No usar PUT para una sola línea.',
+    }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, dto_1.CreateSalesOrderLineItemDto, Object]),
+    __metadata("design:returntype", Promise)
+], SalesOrderController.prototype, "addLineItem", null);
+__decorate([
+    (0, common_1.Patch)(':orderId/line-items/:lineItemId'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Editar una línea de la orden de venta',
+        description: 'Cantidad, precio, IVA e IEPS. Recalcula totales. Solo Creada o En Selección.',
+    }),
+    __param(0, (0, common_1.Param)('orderId')),
+    __param(1, (0, common_1.Param)('lineItemId')),
+    __param(2, (0, common_1.Body)()),
+    __param(3, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, dto_1.UpdateSalesOrderLineItemDto, Object]),
+    __metadata("design:returntype", Promise)
+], SalesOrderController.prototype, "updateLineItem", null);
+__decorate([
+    (0, common_1.Delete)(':orderId/line-items/:lineItemId'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Eliminar una línea de la orden de venta',
+        description: 'Recalcula totales. La orden debe quedar con al menos un producto.',
+    }),
+    __param(0, (0, common_1.Param)('orderId')),
+    __param(1, (0, common_1.Param)('lineItemId')),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object]),
+    __metadata("design:returntype", Promise)
+], SalesOrderController.prototype, "removeLineItem", null);
 __decorate([
     (0, common_1.Patch)(':id/notes'),
     (0, swagger_1.ApiOperation)({

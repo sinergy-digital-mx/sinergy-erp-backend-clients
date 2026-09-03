@@ -4,7 +4,8 @@ import { SalesOrderDetail } from '../../../entities/sales-orders/sales-order-det
 import { SalesOrderBatchAllocation } from '../../../entities/sales-orders/sales-order-batch-allocation.entity';
 import { SalesOrderPayment } from '../../../entities/sales-orders/sales-order-payment.entity';
 import { SalesOrderPaymentDocument } from '../../../entities/sales-orders/sales-order-payment-document.entity';
-import { CreateSalesOrderDto } from '../dto/create-sales-order.dto';
+import { CreateSalesOrderDto, CreateSalesOrderLineItemDto } from '../dto/create-sales-order.dto';
+import { UpdateSalesOrderLineItemDto } from '../dto/update-sales-order-line-item.dto';
 import { QuerySalesOrderDto } from '../dto/query-sales-order.dto';
 import { FulfillSalesOrderDto } from '../dto/fulfill-sales-order.dto';
 import { UpdateSalesOrderNotesDto } from '../dto/update-sales-order-notes.dto';
@@ -286,6 +287,7 @@ export declare class SalesOrderService {
             };
             can_cancel: boolean;
             cancel_blocked_reason: string | null;
+            can_edit_lines: boolean;
             control_desk: {
                 id: string;
                 folio: string;
@@ -482,6 +484,9 @@ export declare class SalesOrderService {
             line_items: {
                 line_subtotal: number;
                 line_discount_amount: number;
+                line_iva: number;
+                line_ieps: number;
+                line_total: number;
                 applied_product_discount: {
                     id: string;
                     name: string | null;
@@ -915,6 +920,7 @@ export declare class SalesOrderService {
             };
             can_cancel: boolean;
             cancel_blocked_reason: string | null;
+            can_edit_lines: boolean;
             control_desk: {
                 id: string;
                 folio: string;
@@ -1111,6 +1117,9 @@ export declare class SalesOrderService {
             line_items: {
                 line_subtotal: number;
                 line_discount_amount: number;
+                line_iva: number;
+                line_ieps: number;
+                line_total: number;
                 applied_product_discount: {
                     id: string;
                     name: string | null;
@@ -1418,6 +1427,7 @@ export declare class SalesOrderService {
             };
             can_cancel: boolean;
             cancel_blocked_reason: string | null;
+            can_edit_lines: boolean;
             control_desk: {
                 id: string;
                 folio: string;
@@ -1614,6 +1624,9 @@ export declare class SalesOrderService {
             line_items: {
                 line_subtotal: number;
                 line_discount_amount: number;
+                line_iva: number;
+                line_ieps: number;
+                line_total: number;
                 applied_product_discount: {
                     id: string;
                     name: string | null;
@@ -1785,8 +1798,14 @@ export declare class SalesOrderService {
     cancel(id: string, tenantId: string, userId: string): Promise<SalesOrder>;
     private getCancelBlockedReason;
     replace(id: string, dto: CreateSalesOrderDto, tenantId: string, userId: string): Promise<SalesOrder>;
+    addLineItem(orderId: string, dto: CreateSalesOrderLineItemDto, tenantId: string, userId: string): Promise<void>;
+    updateLineItem(orderId: string, lineItemId: string, dto: UpdateSalesOrderLineItemDto, tenantId: string, userId: string): Promise<void>;
+    removeLineItem(orderId: string, lineItemId: string, tenantId: string, userId: string): Promise<void>;
     private fulfillOrderLines;
     private insertSalesOrderLineItems;
+    private resolveCanEditLines;
+    private assertLineItemsEditable;
+    private applyPersistedLineTaxes;
     private recomputeTotals;
     regenerateDocumentoOriginal(id: string, tenantId: string, userId: string, language: DocumentLanguage, keepPrevious?: boolean): Promise<{
         success: boolean;

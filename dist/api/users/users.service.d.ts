@@ -231,6 +231,7 @@ export declare class UsersService {
     private mapWarehouse;
     private mapBillingBranch;
     private validatePosUserType;
+    private assertEmailAvailable;
     private validateBranchAssignment;
     private assertCobranzaConfigChangeAllowed;
     private hasOpenDailyShift;

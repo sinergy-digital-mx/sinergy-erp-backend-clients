@@ -1,9 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.StampSalesOrderInvoiceDto = exports.UpdateSalesOrderAssignedSellerDto = exports.UpdateSalesOrderSellerDto = exports.CreateSalesOrderPaymentDto = exports.QuerySalesOrderDetailExportDto = exports.QuerySalesOrderHeaderExportDto = exports.UpdateSalesOrderNotesDto = exports.RegenerateDocumentDto = exports.FulfillSalesOrderDto = exports.QuerySalesOrderProductsSummaryDto = exports.QuerySalesOrderDto = exports.CreateSalesOrderLineItemDto = exports.CreateSalesOrderDto = void 0;
+exports.StampSalesOrderInvoiceDto = exports.UpdateSalesOrderAssignedSellerDto = exports.UpdateSalesOrderSellerDto = exports.CreateSalesOrderPaymentDto = exports.QuerySalesOrderDetailExportDto = exports.QuerySalesOrderHeaderExportDto = exports.UpdateSalesOrderNotesDto = exports.RegenerateDocumentDto = exports.FulfillSalesOrderDto = exports.QuerySalesOrderProductsSummaryDto = exports.QuerySalesOrderDto = exports.UpdateSalesOrderLineItemDto = exports.CreateSalesOrderLineItemDto = exports.CreateSalesOrderDto = void 0;
 var create_sales_order_dto_1 = require("./create-sales-order.dto");
 Object.defineProperty(exports, "CreateSalesOrderDto", { enumerable: true, get: function () { return create_sales_order_dto_1.CreateSalesOrderDto; } });
 Object.defineProperty(exports, "CreateSalesOrderLineItemDto", { enumerable: true, get: function () { return create_sales_order_dto_1.CreateSalesOrderLineItemDto; } });
+var update_sales_order_line_item_dto_1 = require("./update-sales-order-line-item.dto");
+Object.defineProperty(exports, "UpdateSalesOrderLineItemDto", { enumerable: true, get: function () { return update_sales_order_line_item_dto_1.UpdateSalesOrderLineItemDto; } });
 var query_sales_order_dto_1 = require("./query-sales-order.dto");
 Object.defineProperty(exports, "QuerySalesOrderDto", { enumerable: true, get: function () { return query_sales_order_dto_1.QuerySalesOrderDto; } });
 var query_sales_order_products_summary_dto_1 = require("./query-sales-order-products-summary.dto");

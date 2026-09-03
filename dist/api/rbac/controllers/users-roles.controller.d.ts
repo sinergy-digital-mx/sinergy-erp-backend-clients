@@ -17,7 +17,7 @@ export declare class UsersRolesController {
     private tenantContextService;
     private usersService;
     constructor(roleService: RoleService, permissionService: PermissionService, tenantContextService: TenantContextService, usersService: UsersService);
-    createUser(dto: CreateUserDto): Promise<{
+    createUser(dto: CreateUserDto, req: any): Promise<{
         message: string;
         user: {
             assigned_warehouses: any;
@@ -427,7 +427,7 @@ export declare class UsersRolesController {
     changePassword(userId: string, dto: ChangePasswordDto): Promise<{
         message: string;
     }>;
-    updateUser(userId: string, updateData: UpdateUserDto): Promise<{
+    updateUser(userId: string, updateData: UpdateUserDto, req: any): Promise<{
         message: string;
         user: {
             assigned_warehouses: any;

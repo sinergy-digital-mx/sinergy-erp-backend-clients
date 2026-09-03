@@ -48,10 +48,17 @@ function mapLineItemWithDiscount(item) {
     const qty = Number(item.quantity) || 0;
     const discountUnit = Number(item.discount_unit) || 0;
     const lineSubtotal = qty * Number(item.unit_price || 0);
+    const lineDiscount = discountUnit * qty;
+    const taxable = Math.max(lineSubtotal - lineDiscount, 0);
+    const lineIva = (taxable * Number(item.iva_percentage || 0)) / 100;
+    const lineIeps = (taxable * Number(item.ieps_percentage || 0)) / 100;
     return {
         ...item,
         line_subtotal: Number(lineSubtotal.toFixed(2)),
-        line_discount_amount: Number((discountUnit * qty).toFixed(2)),
+        line_discount_amount: Number(lineDiscount.toFixed(2)),
+        line_iva: Number(lineIva.toFixed(2)),
+        line_ieps: Number(lineIeps.toFixed(2)),
+        line_total: Number((taxable + lineIva + lineIeps).toFixed(2)),
         applied_product_discount: item.product_discount_id
             ? {
                 id: item.product_discount_id,

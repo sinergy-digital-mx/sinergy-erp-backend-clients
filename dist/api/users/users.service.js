@@ -87,7 +87,11 @@ let UsersService = class UsersService {
         this.employeesService = employeesService;
     }
     async create(dto, tenantId) {
-        const status = await this.statusRepo.findOneByOrFail({ id: dto.status_id });
+        const status = await this.statusRepo.findOne({ where: { id: dto.status_id } });
+        if (!status) {
+            throw new common_1.BadRequestException('Estatus de usuario inválido');
+        }
+        await this.assertEmailAvailable(tenantId, dto.email);
         const isPosUser = dto.is_pos_user ?? false;
         const assignment = this.resolveBranchAssignmentInput(dto) ?? {
             ids: dto.billing_branch_id ? [dto.billing_branch_id] : [],
@@ -99,21 +103,30 @@ let UsersService = class UsersService {
         this.validatePosUserType(isPosUser, dto.pos_user_type, dto.is_manager ?? false);
         await this.validatePosFields(tenantId, dto.pos_user_code);
         const hashedPassword = await bcrypt.hash(dto.password, 10);
-        const { is_pos_user, pos_user_code, billing_branch_id: _billing_branch_id, billing_branch_ids: _billing_branch_ids, primary_billing_branch_id: _primary_billing_branch_id, pos_user_type, is_employee, employee, is_manager, warehouse_ids, ...userFields } = dto;
-        const user = await this.userRepo.save({
-            ...userFields,
-            password: hashedPassword,
-            tenant: { id: tenantId },
-            tenant_id: tenantId,
-            status,
-            permissions_version: 1,
-            is_pos_user: isPosUser,
-            pos_user_code: dto.pos_user_code ?? null,
-            pos_user_type: isPosUser ? dto.pos_user_type ?? null : null,
-            billing_branch_id: assignment.active,
-            is_employee: false,
-            is_manager: is_manager ?? false,
-        });
+        const { is_pos_user, pos_user_code, billing_branch_id: _billing_branch_id, billing_branch_ids: _billing_branch_ids, primary_billing_branch_id: _primary_billing_branch_id, pos_user_type, is_employee, employee, is_manager, warehouse_ids, status_id: _status_id, ...userFields } = dto;
+        let user;
+        try {
+            user = await this.userRepo.save({
+                ...userFields,
+                password: hashedPassword,
+                tenant: { id: tenantId },
+                tenant_id: tenantId,
+                status,
+                permissions_version: 1,
+                is_pos_user: isPosUser,
+                pos_user_code: dto.pos_user_code ?? null,
+                pos_user_type: isPosUser ? dto.pos_user_type ?? null : null,
+                billing_branch_id: assignment.active,
+                is_employee: false,
+                is_manager: is_manager ?? false,
+            });
+        }
+        catch (error) {
+            if (error?.code === 'ER_DUP_ENTRY' || String(error?.message || '').includes('Duplicate')) {
+                throw new common_1.ConflictException('Ya existe un usuario con ese correo');
+            }
+            throw error;
+        }
         await this.replaceAssignedBranches(user.id, tenantId, assignment);
         if (dto.is_employee) {
             await this.employeesService.upsertForUser(tenantId, user.id, employee ?? {});
@@ -128,16 +141,24 @@ let UsersService = class UsersService {
         return created;
     }
     async update(id, dto, tenantId) {
-        const user = await this.userRepo.findOneByOrFail({
-            id,
-            tenant_id: tenantId,
+        const user = await this.userRepo.findOne({
+            where: { id, tenant_id: tenantId },
         });
+        if (!user) {
+            throw new common_1.NotFoundException('Usuario no encontrado');
+        }
         if (dto.status_id) {
-            const status = await this.statusRepo.findOneByOrFail({ id: dto.status_id });
+            const status = await this.statusRepo.findOne({ where: { id: dto.status_id } });
+            if (!status) {
+                throw new common_1.BadRequestException('Estatus de usuario inválido');
+            }
             user.status = status;
         }
         if (dto.password) {
             dto.password = await bcrypt.hash(dto.password, 10);
+        }
+        if (dto.email && dto.email !== user.email) {
+            await this.assertEmailAvailable(tenantId, dto.email, id);
         }
         const nextIsPosUser = dto.is_pos_user ?? user.is_pos_user;
         const assignment = this.resolveBranchAssignmentInput(dto, user.billing_branch_id);
@@ -164,7 +185,7 @@ let UsersService = class UsersService {
             await this.validatePosFields(tenantId, nextPosCode, id);
         }
         await this.assertCobranzaConfigChangeAllowed(user, tenantId, nextIsPosUser, nextPosUserType, nextBillingBranchId);
-        const { is_pos_user, pos_user_code, billing_branch_id: _billing_branch_id, billing_branch_ids: _billing_branch_ids, primary_billing_branch_id: _primary_billing_branch_id, pos_user_type, is_employee, employee, is_manager, warehouse_ids, ...userFields } = dto;
+        const { is_pos_user, pos_user_code, billing_branch_id: _billing_branch_id, billing_branch_ids: _billing_branch_ids, primary_billing_branch_id: _primary_billing_branch_id, pos_user_type, is_employee, employee, is_manager, warehouse_ids, status_id: _status_id, password, ...userFields } = dto;
         if (dto.is_pos_user === true) {
             user.is_pos_user = true;
             if (dto.pos_user_type !== undefined) {
@@ -190,6 +211,9 @@ let UsersService = class UsersService {
         }
         if (is_manager !== undefined) {
             user.is_manager = is_manager;
+        }
+        if (password) {
+            user.password = password;
         }
         Object.assign(user, userFields);
         await this.userRepo.save(user);
@@ -230,10 +254,12 @@ let UsersService = class UsersService {
         return { message: 'Contraseña actualizada correctamente' };
     }
     async assignBranch(userId, tenantId, dto) {
-        const user = await this.userRepo.findOneByOrFail({
-            id: userId,
-            tenant_id: tenantId,
+        const user = await this.userRepo.findOne({
+            where: { id: userId, tenant_id: tenantId },
         });
+        if (!user) {
+            throw new common_1.NotFoundException('Usuario no encontrado');
+        }
         const input = dto && typeof dto === 'object'
             ? dto
             : { billing_branch_id: dto ?? null };
@@ -644,6 +670,27 @@ let UsersService = class UsersService {
         }
         if (posUserType === pos_user_type_enum_1.PosUserType.AMBOS && !isManager) {
             throw new common_1.BadRequestException('Solo un gerente puede tener POS de ventas y cobranza (AMBOS)');
+        }
+    }
+    async assertEmailAvailable(tenantId, email, excludeUserId) {
+        const normalized = String(email || '').trim().toLowerCase();
+        if (!normalized) {
+            throw new common_1.BadRequestException('El correo es obligatorio');
+        }
+        const qb = this.userRepo
+            .createQueryBuilder('user')
+            .leftJoin('user.status', 'status')
+            .where('user.tenant_id = :tenantId', { tenantId })
+            .andWhere('LOWER(user.email) = :email', { email: normalized })
+            .andWhere('(status.code IS NULL OR LOWER(status.code) != :deleted)', {
+            deleted: user_status_constants_1.USER_STATUS_CODE.DELETED,
+        });
+        if (excludeUserId) {
+            qb.andWhere('user.id != :excludeUserId', { excludeUserId });
+        }
+        const existing = await qb.getOne();
+        if (existing) {
+            throw new common_1.ConflictException('Ya existe un usuario con ese correo');
         }
     }
     validateBranchAssignment(isPosUser, assignedBranchIds) {
