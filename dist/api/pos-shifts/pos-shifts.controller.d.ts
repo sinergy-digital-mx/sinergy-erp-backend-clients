@@ -110,7 +110,7 @@ export declare class PosShiftsController {
                 } | null;
                 denominations: {
                     id: string;
-                    currency: "MXN" | "USD";
+                    currency: "USD" | "MXN";
                     denomination: number;
                     bill_count: number;
                     amount: number;
@@ -216,7 +216,7 @@ export declare class PosShiftsController {
                 } | null;
                 denominations: {
                     id: string;
-                    currency: "MXN" | "USD";
+                    currency: "USD" | "MXN";
                     denomination: number;
                     bill_count: number;
                     amount: number;
@@ -320,7 +320,7 @@ export declare class PosShiftsController {
                 } | null;
                 denominations: {
                     id: string;
-                    currency: "MXN" | "USD";
+                    currency: "USD" | "MXN";
                     denomination: number;
                     bill_count: number;
                     amount: number;
@@ -423,7 +423,7 @@ export declare class PosShiftsController {
                 } | null;
                 denominations: {
                     id: string;
-                    currency: "MXN" | "USD";
+                    currency: "USD" | "MXN";
                     denomination: number;
                     bill_count: number;
                     amount: number;
@@ -482,7 +482,7 @@ export declare class PosShiftsController {
             } | null;
             denominations: {
                 id: string;
-                currency: "MXN" | "USD";
+                currency: "USD" | "MXN";
                 denomination: number;
                 bill_count: number;
                 amount: number;
@@ -556,7 +556,7 @@ export declare class PosShiftsController {
                 } | null;
                 denominations: {
                     id: string;
-                    currency: "MXN" | "USD";
+                    currency: "USD" | "MXN";
                     denomination: number;
                     bill_count: number;
                     amount: number;

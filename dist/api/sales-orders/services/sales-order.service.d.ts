@@ -73,7 +73,7 @@ export declare class SalesOrderService {
             payment_method_label: string | null;
             payment_breakdown_label: string | null;
             payment_display: import("../utils/sales-order-payment-display.util").SalesOrderPaymentDisplay;
-            collection_channel: "manual" | "pos_cobranza" | "mixed" | null;
+            collection_channel: "mixed" | "manual" | "pos_cobranza" | null;
             collection_channel_label: string | null;
             razon_social: string;
             sucursal: string | null;
@@ -239,7 +239,7 @@ export declare class SalesOrderService {
             payment_method_label: string | null;
             payment_breakdown_label: string | null;
             payment_display: import("../utils/sales-order-payment-display.util").SalesOrderPaymentDisplay;
-            collection_channel: "manual" | "pos_cobranza" | "mixed" | null;
+            collection_channel: "mixed" | "manual" | "pos_cobranza" | null;
             collection_channel_label: string | null;
             payments: {
                 id: string;
@@ -331,7 +331,7 @@ export declare class SalesOrderService {
                 };
                 tasks: {
                     id: string;
-                    status: "cancelled" | "pending" | "in_progress" | "picked" | "short";
+                    status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
                     warehouse: {
                         id: string;
                         name: string;
@@ -367,12 +367,12 @@ export declare class SalesOrderService {
                         quantity_base_requested: number;
                         quantity_base_picked: number;
                         quantity_base_missing: number;
-                        status: "cancelled" | "pending" | "picked" | "short";
+                        status: "pending" | "cancelled" | "short" | "picked";
                     }[];
                 }[];
                 pick_tasks: {
                     id: string;
-                    status: "cancelled" | "pending" | "in_progress" | "picked" | "short";
+                    status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
                     warehouse: {
                         id: string;
                         name: string;
@@ -408,7 +408,7 @@ export declare class SalesOrderService {
                         quantity_base_requested: number;
                         quantity_base_picked: number;
                         quantity_base_missing: number;
-                        status: "cancelled" | "pending" | "picked" | "short";
+                        status: "pending" | "cancelled" | "short" | "picked";
                     }[];
                 }[];
                 missing: {
@@ -868,7 +868,7 @@ export declare class SalesOrderService {
             payment_method_label: string | null;
             payment_breakdown_label: string | null;
             payment_display: import("../utils/sales-order-payment-display.util").SalesOrderPaymentDisplay;
-            collection_channel: "manual" | "pos_cobranza" | "mixed" | null;
+            collection_channel: "mixed" | "manual" | "pos_cobranza" | null;
             collection_channel_label: string | null;
             payments: {
                 id: string;
@@ -960,7 +960,7 @@ export declare class SalesOrderService {
                 };
                 tasks: {
                     id: string;
-                    status: "cancelled" | "pending" | "in_progress" | "picked" | "short";
+                    status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
                     warehouse: {
                         id: string;
                         name: string;
@@ -996,12 +996,12 @@ export declare class SalesOrderService {
                         quantity_base_requested: number;
                         quantity_base_picked: number;
                         quantity_base_missing: number;
-                        status: "cancelled" | "pending" | "picked" | "short";
+                        status: "pending" | "cancelled" | "short" | "picked";
                     }[];
                 }[];
                 pick_tasks: {
                     id: string;
-                    status: "cancelled" | "pending" | "in_progress" | "picked" | "short";
+                    status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
                     warehouse: {
                         id: string;
                         name: string;
@@ -1037,7 +1037,7 @@ export declare class SalesOrderService {
                         quantity_base_requested: number;
                         quantity_base_picked: number;
                         quantity_base_missing: number;
-                        status: "cancelled" | "pending" | "picked" | "short";
+                        status: "pending" | "cancelled" | "short" | "picked";
                     }[];
                 }[];
                 missing: {
@@ -1371,7 +1371,7 @@ export declare class SalesOrderService {
             payment_method_label: string | null;
             payment_breakdown_label: string | null;
             payment_display: import("../utils/sales-order-payment-display.util").SalesOrderPaymentDisplay;
-            collection_channel: "manual" | "pos_cobranza" | "mixed" | null;
+            collection_channel: "mixed" | "manual" | "pos_cobranza" | null;
             collection_channel_label: string | null;
             payments: {
                 id: string;
@@ -1463,7 +1463,7 @@ export declare class SalesOrderService {
                 };
                 tasks: {
                     id: string;
-                    status: "cancelled" | "pending" | "in_progress" | "picked" | "short";
+                    status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
                     warehouse: {
                         id: string;
                         name: string;
@@ -1499,12 +1499,12 @@ export declare class SalesOrderService {
                         quantity_base_requested: number;
                         quantity_base_picked: number;
                         quantity_base_missing: number;
-                        status: "cancelled" | "pending" | "picked" | "short";
+                        status: "pending" | "cancelled" | "short" | "picked";
                     }[];
                 }[];
                 pick_tasks: {
                     id: string;
-                    status: "cancelled" | "pending" | "in_progress" | "picked" | "short";
+                    status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
                     warehouse: {
                         id: string;
                         name: string;
@@ -1540,7 +1540,7 @@ export declare class SalesOrderService {
                         quantity_base_requested: number;
                         quantity_base_picked: number;
                         quantity_base_missing: number;
-                        status: "cancelled" | "pending" | "picked" | "short";
+                        status: "pending" | "cancelled" | "short" | "picked";
                     }[];
                 }[];
                 missing: {

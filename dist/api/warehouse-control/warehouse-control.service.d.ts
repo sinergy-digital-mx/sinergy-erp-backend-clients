@@ -122,7 +122,7 @@ export declare class WarehouseControlService {
                 };
                 tasks: {
                     id: string;
-                    status: "cancelled" | "pending" | "short" | "picked" | "in_progress";
+                    status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
                     warehouse: {
                         id: string;
                         name: string;
@@ -158,12 +158,12 @@ export declare class WarehouseControlService {
                         quantity_base_requested: number;
                         quantity_base_picked: number;
                         quantity_base_missing: number;
-                        status: "cancelled" | "pending" | "short" | "picked";
+                        status: "pending" | "cancelled" | "short" | "picked";
                     }[];
                 }[];
                 pick_tasks: {
                     id: string;
-                    status: "cancelled" | "pending" | "short" | "picked" | "in_progress";
+                    status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
                     warehouse: {
                         id: string;
                         name: string;
@@ -199,7 +199,7 @@ export declare class WarehouseControlService {
                         quantity_base_requested: number;
                         quantity_base_picked: number;
                         quantity_base_missing: number;
-                        status: "cancelled" | "pending" | "short" | "picked";
+                        status: "pending" | "cancelled" | "short" | "picked";
                     }[];
                 }[];
                 missing: {
@@ -256,7 +256,7 @@ export declare class WarehouseControlService {
             };
             tasks: {
                 id: string;
-                status: "cancelled" | "pending" | "short" | "picked" | "in_progress";
+                status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
                 warehouse: {
                     id: string;
                     name: string;
@@ -292,12 +292,12 @@ export declare class WarehouseControlService {
                     quantity_base_requested: number;
                     quantity_base_picked: number;
                     quantity_base_missing: number;
-                    status: "cancelled" | "pending" | "short" | "picked";
+                    status: "pending" | "cancelled" | "short" | "picked";
                 }[];
             }[];
             pick_tasks: {
                 id: string;
-                status: "cancelled" | "pending" | "short" | "picked" | "in_progress";
+                status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
                 warehouse: {
                     id: string;
                     name: string;
@@ -333,7 +333,7 @@ export declare class WarehouseControlService {
                     quantity_base_requested: number;
                     quantity_base_picked: number;
                     quantity_base_missing: number;
-                    status: "cancelled" | "pending" | "short" | "picked";
+                    status: "pending" | "cancelled" | "short" | "picked";
                 }[];
             }[];
             missing: {
@@ -389,7 +389,7 @@ export declare class WarehouseControlService {
             };
             tasks: {
                 id: string;
-                status: "cancelled" | "pending" | "short" | "picked" | "in_progress";
+                status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
                 warehouse: {
                     id: string;
                     name: string;
@@ -425,12 +425,12 @@ export declare class WarehouseControlService {
                     quantity_base_requested: number;
                     quantity_base_picked: number;
                     quantity_base_missing: number;
-                    status: "cancelled" | "pending" | "short" | "picked";
+                    status: "pending" | "cancelled" | "short" | "picked";
                 }[];
             }[];
             pick_tasks: {
                 id: string;
-                status: "cancelled" | "pending" | "short" | "picked" | "in_progress";
+                status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
                 warehouse: {
                     id: string;
                     name: string;
@@ -466,7 +466,7 @@ export declare class WarehouseControlService {
                     quantity_base_requested: number;
                     quantity_base_picked: number;
                     quantity_base_missing: number;
-                    status: "cancelled" | "pending" | "short" | "picked";
+                    status: "pending" | "cancelled" | "short" | "picked";
                 }[];
             }[];
             missing: {
@@ -564,7 +564,7 @@ export declare class WarehouseControlService {
         };
         tasks: {
             id: string;
-            status: "cancelled" | "pending" | "short" | "picked" | "in_progress";
+            status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
             warehouse: {
                 id: string;
                 name: string;
@@ -600,12 +600,12 @@ export declare class WarehouseControlService {
                 quantity_base_requested: number;
                 quantity_base_picked: number;
                 quantity_base_missing: number;
-                status: "cancelled" | "pending" | "short" | "picked";
+                status: "pending" | "cancelled" | "short" | "picked";
             }[];
         }[];
         pick_tasks: {
             id: string;
-            status: "cancelled" | "pending" | "short" | "picked" | "in_progress";
+            status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
             warehouse: {
                 id: string;
                 name: string;
@@ -641,7 +641,7 @@ export declare class WarehouseControlService {
                 quantity_base_requested: number;
                 quantity_base_picked: number;
                 quantity_base_missing: number;
-                status: "cancelled" | "pending" | "short" | "picked";
+                status: "pending" | "cancelled" | "short" | "picked";
             }[];
         }[];
         missing: {
@@ -697,7 +697,7 @@ export declare class WarehouseControlService {
         };
         tasks: {
             id: string;
-            status: "cancelled" | "pending" | "short" | "picked" | "in_progress";
+            status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
             warehouse: {
                 id: string;
                 name: string;
@@ -733,12 +733,12 @@ export declare class WarehouseControlService {
                 quantity_base_requested: number;
                 quantity_base_picked: number;
                 quantity_base_missing: number;
-                status: "cancelled" | "pending" | "short" | "picked";
+                status: "pending" | "cancelled" | "short" | "picked";
             }[];
         }[];
         pick_tasks: {
             id: string;
-            status: "cancelled" | "pending" | "short" | "picked" | "in_progress";
+            status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
             warehouse: {
                 id: string;
                 name: string;
@@ -774,7 +774,7 @@ export declare class WarehouseControlService {
                 quantity_base_requested: number;
                 quantity_base_picked: number;
                 quantity_base_missing: number;
-                status: "cancelled" | "pending" | "short" | "picked";
+                status: "pending" | "cancelled" | "short" | "picked";
             }[];
         }[];
         missing: {
@@ -830,7 +830,7 @@ export declare class WarehouseControlService {
         };
         tasks: {
             id: string;
-            status: "cancelled" | "pending" | "short" | "picked" | "in_progress";
+            status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
             warehouse: {
                 id: string;
                 name: string;
@@ -866,12 +866,12 @@ export declare class WarehouseControlService {
                 quantity_base_requested: number;
                 quantity_base_picked: number;
                 quantity_base_missing: number;
-                status: "cancelled" | "pending" | "short" | "picked";
+                status: "pending" | "cancelled" | "short" | "picked";
             }[];
         }[];
         pick_tasks: {
             id: string;
-            status: "cancelled" | "pending" | "short" | "picked" | "in_progress";
+            status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
             warehouse: {
                 id: string;
                 name: string;
@@ -907,7 +907,7 @@ export declare class WarehouseControlService {
                 quantity_base_requested: number;
                 quantity_base_picked: number;
                 quantity_base_missing: number;
-                status: "cancelled" | "pending" | "short" | "picked";
+                status: "pending" | "cancelled" | "short" | "picked";
             }[];
         }[];
         missing: {
@@ -963,7 +963,7 @@ export declare class WarehouseControlService {
         };
         tasks: {
             id: string;
-            status: "cancelled" | "pending" | "short" | "picked" | "in_progress";
+            status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
             warehouse: {
                 id: string;
                 name: string;
@@ -999,12 +999,12 @@ export declare class WarehouseControlService {
                 quantity_base_requested: number;
                 quantity_base_picked: number;
                 quantity_base_missing: number;
-                status: "cancelled" | "pending" | "short" | "picked";
+                status: "pending" | "cancelled" | "short" | "picked";
             }[];
         }[];
         pick_tasks: {
             id: string;
-            status: "cancelled" | "pending" | "short" | "picked" | "in_progress";
+            status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
             warehouse: {
                 id: string;
                 name: string;
@@ -1040,7 +1040,7 @@ export declare class WarehouseControlService {
                 quantity_base_requested: number;
                 quantity_base_picked: number;
                 quantity_base_missing: number;
-                status: "cancelled" | "pending" | "short" | "picked";
+                status: "pending" | "cancelled" | "short" | "picked";
             }[];
         }[];
         missing: {
@@ -1096,7 +1096,7 @@ export declare class WarehouseControlService {
         };
         tasks: {
             id: string;
-            status: "cancelled" | "pending" | "short" | "picked" | "in_progress";
+            status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
             warehouse: {
                 id: string;
                 name: string;
@@ -1132,12 +1132,12 @@ export declare class WarehouseControlService {
                 quantity_base_requested: number;
                 quantity_base_picked: number;
                 quantity_base_missing: number;
-                status: "cancelled" | "pending" | "short" | "picked";
+                status: "pending" | "cancelled" | "short" | "picked";
             }[];
         }[];
         pick_tasks: {
             id: string;
-            status: "cancelled" | "pending" | "short" | "picked" | "in_progress";
+            status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
             warehouse: {
                 id: string;
                 name: string;
@@ -1173,7 +1173,7 @@ export declare class WarehouseControlService {
                 quantity_base_requested: number;
                 quantity_base_picked: number;
                 quantity_base_missing: number;
-                status: "cancelled" | "pending" | "short" | "picked";
+                status: "pending" | "cancelled" | "short" | "picked";
             }[];
         }[];
         missing: {
@@ -1229,7 +1229,7 @@ export declare class WarehouseControlService {
         };
         tasks: {
             id: string;
-            status: "cancelled" | "pending" | "short" | "picked" | "in_progress";
+            status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
             warehouse: {
                 id: string;
                 name: string;
@@ -1265,12 +1265,12 @@ export declare class WarehouseControlService {
                 quantity_base_requested: number;
                 quantity_base_picked: number;
                 quantity_base_missing: number;
-                status: "cancelled" | "pending" | "short" | "picked";
+                status: "pending" | "cancelled" | "short" | "picked";
             }[];
         }[];
         pick_tasks: {
             id: string;
-            status: "cancelled" | "pending" | "short" | "picked" | "in_progress";
+            status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
             warehouse: {
                 id: string;
                 name: string;
@@ -1306,7 +1306,7 @@ export declare class WarehouseControlService {
                 quantity_base_requested: number;
                 quantity_base_picked: number;
                 quantity_base_missing: number;
-                status: "cancelled" | "pending" | "short" | "picked";
+                status: "pending" | "cancelled" | "short" | "picked";
             }[];
         }[];
         missing: {
@@ -1371,7 +1371,7 @@ export declare class WarehouseControlService {
             };
             tasks: {
                 id: string;
-                status: "cancelled" | "pending" | "short" | "picked" | "in_progress";
+                status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
                 warehouse: {
                     id: string;
                     name: string;
@@ -1407,12 +1407,12 @@ export declare class WarehouseControlService {
                     quantity_base_requested: number;
                     quantity_base_picked: number;
                     quantity_base_missing: number;
-                    status: "cancelled" | "pending" | "short" | "picked";
+                    status: "pending" | "cancelled" | "short" | "picked";
                 }[];
             }[];
             pick_tasks: {
                 id: string;
-                status: "cancelled" | "pending" | "short" | "picked" | "in_progress";
+                status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
                 warehouse: {
                     id: string;
                     name: string;
@@ -1448,7 +1448,7 @@ export declare class WarehouseControlService {
                     quantity_base_requested: number;
                     quantity_base_picked: number;
                     quantity_base_missing: number;
-                    status: "cancelled" | "pending" | "short" | "picked";
+                    status: "pending" | "cancelled" | "short" | "picked";
                 }[];
             }[];
             missing: {
@@ -1511,7 +1511,7 @@ export declare class WarehouseControlService {
         };
         tasks: {
             id: string;
-            status: "cancelled" | "pending" | "short" | "picked" | "in_progress";
+            status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
             warehouse: {
                 id: string;
                 name: string;
@@ -1547,12 +1547,12 @@ export declare class WarehouseControlService {
                 quantity_base_requested: number;
                 quantity_base_picked: number;
                 quantity_base_missing: number;
-                status: "cancelled" | "pending" | "short" | "picked";
+                status: "pending" | "cancelled" | "short" | "picked";
             }[];
         }[];
         pick_tasks: {
             id: string;
-            status: "cancelled" | "pending" | "short" | "picked" | "in_progress";
+            status: "pending" | "cancelled" | "in_progress" | "short" | "picked";
             warehouse: {
                 id: string;
                 name: string;
@@ -1588,7 +1588,7 @@ export declare class WarehouseControlService {
                 quantity_base_requested: number;
                 quantity_base_picked: number;
                 quantity_base_missing: number;
-                status: "cancelled" | "pending" | "short" | "picked";
+                status: "pending" | "cancelled" | "short" | "picked";
             }[];
         }[];
         missing: {

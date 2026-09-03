@@ -81,7 +81,7 @@ export declare class DivinoDashboardController {
             month: number | null;
             mode: "year" | "month";
         };
-        period: "annual" | "monthly" | "quarterly" | "semiannual";
+        period: "monthly" | "quarterly" | "semiannual" | "annual";
         year: number | null;
         month: number | null;
         series: {

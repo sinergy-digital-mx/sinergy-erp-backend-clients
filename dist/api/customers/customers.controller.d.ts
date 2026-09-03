@@ -76,7 +76,7 @@ export declare class CustomersController {
         credit_usage_percent: number;
         auto_generate_invoice: boolean;
         fiscal_ready_for_invoice: boolean;
-        fiscal_missing_fields: ("fiscal_razon_social" | "fiscal_rfc" | "fiscal_postal_code")[];
+        fiscal_missing_fields: ("fiscal_rfc" | "fiscal_razon_social" | "fiscal_postal_code")[];
     }>;
     findAllStatuses(): Promise<import("../../entities/customers/customer-status.entity").CustomerStatus[]>;
     findGroups(req: any): Promise<import("./customer-groups.service").CustomerGroupOption[]>;
@@ -124,7 +124,7 @@ export declare class CustomersController {
         credit_usage_percent: number;
         auto_generate_invoice: boolean;
         fiscal_ready_for_invoice: boolean;
-        fiscal_missing_fields: ("fiscal_razon_social" | "fiscal_rfc" | "fiscal_postal_code")[];
+        fiscal_missing_fields: ("fiscal_rfc" | "fiscal_razon_social" | "fiscal_postal_code")[];
     } | null>;
     getProductInsights(id: string, query: QueryCustomerProductInsightsDto, req: any): Promise<{
         customer_id: number;

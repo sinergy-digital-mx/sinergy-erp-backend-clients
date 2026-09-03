@@ -107,7 +107,7 @@ export declare class CustomersService {
         credit_usage_percent: number;
         auto_generate_invoice: boolean;
         fiscal_ready_for_invoice: boolean;
-        fiscal_missing_fields: ("fiscal_razon_social" | "fiscal_rfc" | "fiscal_postal_code")[];
+        fiscal_missing_fields: ("fiscal_rfc" | "fiscal_razon_social" | "fiscal_postal_code")[];
     }>;
     findAll(tenantId: string, query?: QueryCustomersDto): Promise<PaginatedCustomersDto>;
     findOne(id: number, tenantId: string, fiscalConfigurationId?: string): Promise<{
@@ -121,7 +121,7 @@ export declare class CustomersService {
         credit_usage_percent: number;
         auto_generate_invoice: boolean;
         fiscal_ready_for_invoice: boolean;
-        fiscal_missing_fields: ("fiscal_razon_social" | "fiscal_rfc" | "fiscal_postal_code")[];
+        fiscal_missing_fields: ("fiscal_rfc" | "fiscal_razon_social" | "fiscal_postal_code")[];
     } | null>;
     listCredits(id: number, tenantId: string): Promise<import("./utils/customer-credit.util").CustomerCreditFiscalSnapshot[]>;
     upsertCredits(id: number, dto: UpsertCustomerCreditsDto, tenantId: string): Promise<import("./utils/customer-credit.util").CustomerCreditFiscalSnapshot[]>;

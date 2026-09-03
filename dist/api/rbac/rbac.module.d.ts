@@ -32,10 +32,10 @@ export declare class RBACModule {
                 customRoleTemplates: any[];
             };
         }[];
-        exports: (string | typeof PermissionGuard | typeof PermissionService | typeof RoleService | typeof RoleTemplateService | typeof TenantContextService | typeof TenantService | typeof PermissionCacheService | typeof PermissionVersionService | typeof QueryCacheService | typeof AuditLogService | typeof MigrationService | typeof DataCleanupService | typeof RBACErrorHandlerService | typeof RBACExceptionFilter | typeof TenantContextMiddleware)[];
+        exports: (string | typeof PermissionVersionService | typeof TenantContextService | typeof PermissionCacheService | typeof QueryCacheService | typeof PermissionService | typeof PermissionGuard | typeof RoleService | typeof RoleTemplateService | typeof AuditLogService | typeof TenantService | typeof MigrationService | typeof DataCleanupService | typeof RBACErrorHandlerService | typeof RBACExceptionFilter | typeof TenantContextMiddleware)[];
     };
     static forFeature(): {
         module: typeof RBACModule;
-        exports: (typeof PermissionGuard | typeof PermissionService | typeof RoleService | typeof TenantContextService | typeof RBACErrorHandlerService)[];
+        exports: (typeof TenantContextService | typeof PermissionService | typeof PermissionGuard | typeof RoleService | typeof RBACErrorHandlerService)[];
     };
 }
