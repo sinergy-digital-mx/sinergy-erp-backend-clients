@@ -1,0 +1,38 @@
+import { RBACTenant } from '../rbac/tenant.entity';
+import { Warehouse } from '../warehouse/warehouse.entity';
+import { Product } from '../products/product.entity';
+import { User } from '../users/user.entity';
+import { InventoryAuditStatus } from './inventory-audit-status.enum';
+import { InventoryAuditLine } from './inventory-audit-line.entity';
+export declare class InventoryAudit {
+    id: string;
+    tenant: RBACTenant;
+    tenant_id: string;
+    folio: string;
+    warehouse: Warehouse;
+    warehouse_id: string;
+    product: Product | null;
+    product_id: string | null;
+    include_empty_lots: boolean;
+    status: InventoryAuditStatus;
+    notes: string | null;
+    created_by_user: User;
+    created_by: string;
+    created_at: Date;
+    updated_at: Date;
+    submitted_by_user: User | null;
+    submitted_by: string | null;
+    submitted_at: Date | null;
+    authorized_by_user: User | null;
+    authorized_by: string | null;
+    authorized_at: Date | null;
+    rejected_by_user: User | null;
+    rejected_by: string | null;
+    rejected_at: Date | null;
+    rejection_reason: string | null;
+    cancelled_by_user: User | null;
+    cancelled_by: string | null;
+    cancelled_at: Date | null;
+    cancellation_reason: string | null;
+    lines: InventoryAuditLine[];
+}

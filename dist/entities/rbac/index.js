@@ -1,0 +1,22 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.TenantModule = exports.Module = exports.AuditResult = exports.AuditAction = exports.AuditLog = exports.RolePermission = exports.UserRole = exports.Permission = exports.Role = exports.RBACTenant = void 0;
+var tenant_entity_1 = require("./tenant.entity");
+Object.defineProperty(exports, "RBACTenant", { enumerable: true, get: function () { return tenant_entity_1.RBACTenant; } });
+var role_entity_1 = require("./role.entity");
+Object.defineProperty(exports, "Role", { enumerable: true, get: function () { return role_entity_1.Role; } });
+var permission_entity_1 = require("./permission.entity");
+Object.defineProperty(exports, "Permission", { enumerable: true, get: function () { return permission_entity_1.Permission; } });
+var user_role_entity_1 = require("./user-role.entity");
+Object.defineProperty(exports, "UserRole", { enumerable: true, get: function () { return user_role_entity_1.UserRole; } });
+var role_permission_entity_1 = require("./role-permission.entity");
+Object.defineProperty(exports, "RolePermission", { enumerable: true, get: function () { return role_permission_entity_1.RolePermission; } });
+var audit_log_entity_1 = require("./audit-log.entity");
+Object.defineProperty(exports, "AuditLog", { enumerable: true, get: function () { return audit_log_entity_1.AuditLog; } });
+Object.defineProperty(exports, "AuditAction", { enumerable: true, get: function () { return audit_log_entity_1.AuditAction; } });
+Object.defineProperty(exports, "AuditResult", { enumerable: true, get: function () { return audit_log_entity_1.AuditResult; } });
+var module_entity_1 = require("./module.entity");
+Object.defineProperty(exports, "Module", { enumerable: true, get: function () { return module_entity_1.Module; } });
+var tenant_module_entity_1 = require("./tenant-module.entity");
+Object.defineProperty(exports, "TenantModule", { enumerable: true, get: function () { return tenant_module_entity_1.TenantModule; } });
+//# sourceMappingURL=index.js.map

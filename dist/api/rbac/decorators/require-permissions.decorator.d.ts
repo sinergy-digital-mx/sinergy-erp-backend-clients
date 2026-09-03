@@ -1,0 +1,35 @@
+export interface RequiredPermission {
+    entityType: string;
+    action: string;
+}
+export declare const PERMISSIONS_KEY = "permissions";
+export declare const RequirePermissions: (...permissions: RequiredPermission[]) => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequirePermission: (entityType: string, action: string) => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireCreate: (entityType: string) => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireRead: (entityType: string) => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireUpdate: (entityType: string) => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireDelete: (entityType: string) => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireCustomerRead: () => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireCustomerCreate: () => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireCustomerUpdate: () => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireCustomerDelete: () => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireLeadRead: () => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireLeadCreate: () => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireLeadUpdate: () => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireLeadDelete: () => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireUserRead: () => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireUserCreate: () => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireUserUpdate: () => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireUserDelete: () => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireAdmin: () => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireReadOnly: (...entityTypes: string[]) => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireFullAccess: (entityType: string) => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireVerMenu: (entityType: string) => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireCustomerMenu: () => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireLeadMenu: () => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireVendorMenu: () => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireProductMenu: () => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireWarehouseMenu: () => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireContractMenu: () => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireActivityMenu: () => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireReportMenu: () => import("@nestjs/common").CustomDecorator<string>;

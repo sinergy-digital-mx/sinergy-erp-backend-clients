@@ -1,0 +1,32 @@
+export declare const ESCPOS_CHARS_PER_LINE = 48;
+export declare function bufferToEscPosHex(buffer: Buffer): string;
+export declare class EscPosBuilder {
+    private readonly chunks;
+    initialize(): this;
+    selectFontB(): this;
+    selectFontA(): this;
+    setCodePageLatin1(): this;
+    characterSizeNormal(): this;
+    characterSizeDouble(): this;
+    raw(bytes: number[]): this;
+    align(mode: 'left' | 'center' | 'right'): this;
+    bold(enabled?: boolean): this;
+    textLine(line?: string): this;
+    blankLines(count?: number): this;
+    separator(char?: string): this;
+    qr(data: string, moduleSize?: number): this;
+    cut(partial?: boolean): this;
+    build(): Buffer;
+    private sanitize;
+}
+export declare function padLeft(value: string, width: number): string;
+export declare function padRight(value: string, width: number): string;
+export declare function formatMoney(amount: number): string;
+export declare function formatUnitMoney(amount: number): string;
+export declare function formatUsd(amount: number): string;
+export declare function compactMoneyLine(label: string, formattedValue: string, width?: number): string;
+export declare function labelValueLine(label: string, value: string, width?: number): string;
+export declare function leftLabelLines(label: string, value: string, width?: number): string[];
+export declare function twoColumnLine(left: string, right: string, width?: number): string;
+export declare function wrapLines(text: string, width?: number): string[];
+export declare function productLine(description: string, quantity: string, unitPrice: string, lineTotal: string, width?: number): string;

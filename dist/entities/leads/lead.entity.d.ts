@@ -1,0 +1,38 @@
+import { LeadStatus } from './lead-status.entity';
+import { LeadAddress } from './lead-address.entity';
+import { LeadActivity } from './lead-activity.entity';
+import { LeadGroup } from './lead-group.entity';
+import { RBACTenant } from '../rbac/tenant.entity';
+import { EmailThread } from '../email/email-thread.entity';
+export declare class Lead {
+    id: number;
+    tenant: RBACTenant;
+    tenant_id: string;
+    status: LeadStatus;
+    group: LeadGroup;
+    group_id: string;
+    name: string;
+    lastname: string;
+    email: string;
+    phone: string;
+    phone_country: string;
+    phone_code: string;
+    source: string;
+    company_name: string;
+    company_phone: string;
+    website: string;
+    addresses: LeadAddress[];
+    activities: LeadActivity[];
+    emailThreads: EmailThread[];
+    assigned_rep_id: string;
+    email_contacted: boolean;
+    first_email_sent_at: Date;
+    customer_answered: boolean;
+    customer_answered_at: Date;
+    agent_replied_back: boolean;
+    agent_replied_back_at: Date;
+    last_email_thread_status: 'draft' | 'sent' | 'replied' | 'closed' | 'archived';
+    last_email_thread_id: string;
+    email_thread_count: number;
+    created_at: Date;
+}

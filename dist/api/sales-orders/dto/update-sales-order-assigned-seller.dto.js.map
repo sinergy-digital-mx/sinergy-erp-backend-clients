@@ -1,0 +1,1 @@
+{"version":3,"file":"update-sales-order-assigned-seller.dto.js","sourceRoot":"","sources":["../../../../src/api/sales-orders/dto/update-sales-order-assigned-seller.dto.ts"],"names":[],"mappings":";;;;;;;;;;;;AAAA,6CAA8C;AAC9C,qDAAyC;AAEzC,MAAa,iCAAiC;IAK5C,uBAAuB,CAAS;CACjC;AAND,8EAMC;AADC;IAJC,IAAA,qBAAW,EAAC;QACX,WAAW,EAAE,yEAAyE;KACvF,CAAC;IACD,IAAA,wBAAM,GAAE;;kFACuB"}

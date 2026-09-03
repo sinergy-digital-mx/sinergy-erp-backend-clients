@@ -161,7 +161,9 @@ export class PosShiftsService {
       .andWhere('terminal_user.pos_user_type IN (:...collectTypes)', {
         collectTypes: POS_COLLECT_TYPES,
       })
-      .orderBy('partial_shifts.partial_number', 'ASC')
+      .orderBy('shift.shift_date', 'ASC')
+      .addOrderBy('shift.created_at', 'ASC')
+      .addOrderBy('partial_shifts.partial_number', 'ASC')
       .getOne();
   }
 
@@ -1317,19 +1319,24 @@ export class PosShiftsService {
     terminalUserId: string,
     dailyShiftId: string,
   ) {
-    await this.requireCobranzaTerminal(tenantId, terminalUserId);
+    const terminalUser = await this.requireCobranzaTerminal(tenantId, terminalUserId);
 
     const shift = await this.dailyShiftRepo.findOne({
       where: {
         id: dailyShiftId,
         tenant_id: tenantId,
-        terminal_user_id: terminalUserId,
         status: PosDailyShiftStatus.OPEN,
       },
     });
 
     if (!shift) {
       throw new NotFoundException('Corte global abierto no encontrado');
+    }
+
+    if (shift.billing_branch_id !== terminalUser.billing_branch_id) {
+      throw new BadRequestException(
+        'Este corte no pertenece a la sucursal activa',
+      );
     }
 
     return shift;
@@ -1530,10 +1537,14 @@ export class PosShiftsService {
       terminal_user: shift.terminal_user
         ? this.mapTerminalUser(shift.terminal_user)
         : null,
+      billing_branch_id: shift.billing_branch_id,
       billing_branch: shift.billing_branch
         ? {
             id: shift.billing_branch.id,
             code: shift.billing_branch.code,
+            display_name: [shift.billing_branch.code, shift.billing_branch.city]
+              .filter(Boolean)
+              .join(' — '),
             fiscal_configuration: shift.billing_branch.fiscal_configuration
               ? {
                   id: shift.billing_branch.fiscal_configuration.id,

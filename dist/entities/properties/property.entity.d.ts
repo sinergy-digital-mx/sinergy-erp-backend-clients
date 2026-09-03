@@ -1,0 +1,30 @@
+import { MeasurementUnit } from './measurement-unit.entity';
+import { RBACTenant } from '../rbac/tenant.entity';
+import { Contract } from '../contracts/contract.entity';
+import { CustomerGroup } from '../customers/customer-group.entity';
+export declare class Property {
+    id: string;
+    tenant: RBACTenant;
+    tenant_id: string;
+    group: CustomerGroup;
+    group_id: string;
+    code: string;
+    block: string;
+    lot_number: string;
+    cadastral_key: string | null;
+    name: string;
+    description: string;
+    location: string;
+    total_area: number;
+    measurement_unit: MeasurementUnit;
+    measurement_unit_id: string;
+    total_price: number;
+    price_per_m2: number | null;
+    list_price: number | null;
+    currency: string;
+    status: string;
+    metadata: Record<string, any>;
+    contracts: Contract[];
+    created_at: Date;
+    updated_at: Date;
+}

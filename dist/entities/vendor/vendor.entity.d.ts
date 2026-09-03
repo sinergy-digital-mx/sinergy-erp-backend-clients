@@ -1,0 +1,33 @@
+import { RBACTenant } from '../rbac/tenant.entity';
+import { VendorType } from './vendor-type.enum';
+export declare class Vendor {
+    id: string;
+    tenant: RBACTenant;
+    tenant_id: string;
+    vendor_type: VendorType;
+    vendor_code: string | null;
+    name: string;
+    company_name: string | null;
+    street: string | null;
+    city: string | null;
+    state: string | null;
+    zip_code: string | null;
+    country: string | null;
+    razon_social: string | null;
+    rfc: string | null;
+    persona_type: string | null;
+    tax_id: string | null;
+    legal_name: string | null;
+    bank_name: string | null;
+    bank_account_holder: string | null;
+    bank_account_number: string | null;
+    bank_clabe: string | null;
+    bank_swift_bic: string | null;
+    bank_iban: string | null;
+    bank_currency: string | null;
+    credit_days: number | null;
+    credit_limit: string | null;
+    status: string;
+    created_at: Date;
+    updated_at: Date;
+}

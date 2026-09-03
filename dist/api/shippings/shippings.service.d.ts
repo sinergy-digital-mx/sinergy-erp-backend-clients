@@ -1,0 +1,185 @@
+import { DataSource, Repository } from 'typeorm';
+import { Shipping } from '../../entities/logistics/shipping.entity';
+import { LocationStatus, ShippingStop } from '../../entities/logistics/shipping-stop.entity';
+import { Truck } from '../../entities/logistics/truck.entity';
+import { Warehouse } from '../../entities/warehouse/warehouse.entity';
+import { BillingBranch } from '../../entities/billing/billing-branch.entity';
+import { User } from '../../entities/users/user.entity';
+import { SalesOrder } from '../../entities/sales-orders/sales-order.entity';
+import { CustomerAddress } from '../../entities/customers/customer-address.entity';
+import { AddShippingStopsDto, CreateShippingDto, PreviewShippingDto, QueryAvailableShippingOrdersDto, QueryShippingDto, ResolveOrdersDto, UpdateShippingStatusDto } from './dto/shipping.dto';
+export declare class ShippingsService {
+    private readonly shippingRepo;
+    private readonly stopRepo;
+    private readonly truckRepo;
+    private readonly warehouseRepo;
+    private readonly branchRepo;
+    private readonly userRepo;
+    private readonly soRepo;
+    private readonly addressRepo;
+    private readonly dataSource;
+    constructor(shippingRepo: Repository<Shipping>, stopRepo: Repository<ShippingStop>, truckRepo: Repository<Truck>, warehouseRepo: Repository<Warehouse>, branchRepo: Repository<BillingBranch>, userRepo: Repository<User>, soRepo: Repository<SalesOrder>, addressRepo: Repository<CustomerAddress>, dataSource: DataSource);
+    preview(dto: PreviewShippingDto, tenantId: string): Promise<{
+        origin: {
+            label: string;
+            billing_branch_id: string | null;
+            fiscal_configuration_id: string | null;
+            warehouse_id: string | null;
+            name: string;
+            street: string | null;
+            city: string | null;
+            state: string | null;
+            zip_code: string | null;
+            country: string | null;
+            address_summary: string;
+            latitude: number | null;
+            longitude: number | null;
+            location_status: LocationStatus;
+            distance_from_previous_km: number | null;
+        };
+        orders: {
+            label: string;
+            sales_order_id: string;
+            folio: string;
+            customer_id: number | null;
+            customer_name: string | null;
+            stop_sequence: number;
+            location_status: LocationStatus;
+            delivery_latitude: number | null;
+            delivery_longitude: number | null;
+            address_summary: string | null;
+            customer_address_id: number | null;
+            address_type: string | null;
+            distance_from_previous_km: number | null;
+            distance_from_origin_km: number | null;
+        }[];
+        route_points: ({
+            label: string;
+            kind: "stop";
+            name: string | null;
+            address_summary: string | null;
+            latitude: number | null;
+            longitude: number | null;
+            location_status: LocationStatus;
+            distance_from_previous_km: number | null;
+            billing_branch_id: null;
+            warehouse_id: null;
+            sales_order_id: string;
+            customer_id: number | null;
+            customer_address_id: number | null;
+        } | {
+            label: string;
+            kind: "origin";
+            name: string;
+            address_summary: string;
+            latitude: number | null;
+            longitude: number | null;
+            location_status: LocationStatus;
+            distance_from_previous_km: null;
+            billing_branch_id: string | null;
+            warehouse_id: string | null;
+            sales_order_id: null;
+            customer_id: null;
+            customer_address_id: null;
+        })[];
+        estimated_distance_km: number | null;
+        missing_location_count: number;
+        origin_missing_location: boolean;
+    }>;
+    create(dto: CreateShippingDto, tenantId: string, userId: string): Promise<Shipping>;
+    findAll(tenantId: string, query?: QueryShippingDto): Promise<{
+        data: Shipping[];
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+        hasNext: boolean;
+        hasPrev: boolean;
+    }>;
+    findAvailableOrders(tenantId: string, query: QueryAvailableShippingOrdersDto): Promise<{
+        data: {
+            id: string;
+            folio: string;
+            general_status: string;
+            payment_status: string;
+            total: number;
+            created_at: Date;
+            fiscal_configuration_id: string;
+            razon_social: string | null;
+            billing_branch_id: string | null;
+            sucursal: string | null;
+            billing_branch: {
+                id: string;
+                code: string;
+                city: string;
+                state: string;
+            } | null;
+            customer_id: number;
+            customer_name: string | null;
+            customer: {
+                id: number;
+                name: string;
+                lastname: string;
+                company_name: string;
+            } | null;
+        }[];
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+        hasNext: boolean;
+        hasPrev: boolean;
+    }>;
+    findOne(id: string, tenantId: string): Promise<Shipping>;
+    addStops(id: string, dto: AddShippingStopsDto, tenantId: string): Promise<Shipping>;
+    recalculateDistance(id: string, tenantId: string): Promise<Shipping>;
+    updateStatus(id: string, dto: UpdateShippingStatusDto, tenantId: string, userId: string): Promise<Shipping>;
+    resolveOrders(dto: ResolveOrdersDto, tenantId: string): Promise<{
+        orders: {
+            sales_order_id: string;
+            found: boolean;
+            folio?: string;
+            customer_name?: string | null;
+            customer_address_id?: number | null;
+            location_status: LocationStatus | string;
+            delivery_latitude?: number | null;
+            delivery_longitude?: number | null;
+            address_summary?: string | null;
+        }[];
+        missing_location_count: number;
+    }>;
+    getShippingSummaryForOrder(salesOrderId: string, tenantId: string): Promise<{
+        has_shipping: boolean;
+        shipping_id: null;
+        status: null;
+        driver_name: null;
+        truck_name: null;
+        stop_sequence: null;
+        route_summary: null;
+    } | {
+        has_shipping: boolean;
+        shipping_id: string;
+        status: "Cancelado" | "Creado" | "En Ruta" | "Completado";
+        driver_name: string | null;
+        truck_name: string;
+        stop_sequence: number;
+        route_summary: {
+            distance_km: number | null;
+            stops_count: number;
+        };
+    }>;
+    private buildStopDistances;
+    private resolveStops;
+    private resolveAddressForOrder;
+    private sortStopsByDistanceFromOrigin;
+    private buildPreviewResponse;
+    private addressSummary;
+    private customerName;
+    private originFromBranch;
+    private originFromWarehouse;
+    private getOriginBranch;
+    private getRouteOriginFromBranch;
+    private getRouteOriginFromShipping;
+    private getActiveTruck;
+    private getDriver;
+}

@@ -29,7 +29,7 @@ export class CustomerActivitiesController {
   ) {}
 
   @Post()
-  @RequirePermissions({ entityType: 'Customer', action: 'Activity:Create' })
+  @RequirePermissions({ entityType: 'customers', action: 'Update' })
   async create(
     @Param('customerId', ParseIntPipe) customerId: number,
     @Body() createActivityDto: CreateCustomerActivityDto,
@@ -43,7 +43,7 @@ export class CustomerActivitiesController {
   }
 
   @Get()
-  @RequirePermissions({ entityType: 'Customer', action: 'Activity:Read' })
+  @RequirePermissions({ entityType: 'customers', action: 'Read' })
   async findAll(
     @Param('customerId', ParseIntPipe) customerId: number,
     @Query() query: QueryCustomerActivityDto,
@@ -57,7 +57,7 @@ export class CustomerActivitiesController {
   }
 
   @Get('summary')
-  @RequirePermissions({ entityType: 'Customer', action: 'Activity:Read' })
+  @RequirePermissions({ entityType: 'customers', action: 'Read' })
   async getActivitySummary(
     @Param('customerId', ParseIntPipe) customerId: number,
     @Request() req: any,
@@ -70,7 +70,7 @@ export class CustomerActivitiesController {
   }
 
   @Get(':id')
-  @RequirePermissions({ entityType: 'Customer', action: 'Activity:Read' })
+  @RequirePermissions({ entityType: 'customers', action: 'Read' })
   async findOne(
     @Param('customerId', ParseIntPipe) customerId: number,
     @Param('id', ParseUUIDPipe) id: string,
@@ -84,7 +84,7 @@ export class CustomerActivitiesController {
   }
 
   @Patch(':id')
-  @RequirePermissions({ entityType: 'Customer', action: 'Activity:Update' })
+  @RequirePermissions({ entityType: 'customers', action: 'Update' })
   async update(
     @Param('customerId', ParseIntPipe) customerId: number,
     @Param('id', ParseUUIDPipe) id: string,

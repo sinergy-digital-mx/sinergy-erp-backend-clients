@@ -1,0 +1,31 @@
+import { Quotation } from './quotation.entity';
+import { Product } from '../products/product.entity';
+import { ProductUoM } from '../products/product-uom.entity';
+import { ProductDiscount } from '../products/product-discount.entity';
+import { UoMCatalog } from '../uom-catalog/uom-catalog.entity';
+export declare class QuotationDetail {
+    id: string;
+    quotation: Quotation;
+    quotation_id: string;
+    product: Product;
+    product_id: string;
+    product_uom: ProductUoM;
+    product_uom_id: string;
+    quantity: number;
+    quantity_base_uom: number;
+    base_uom: UoMCatalog;
+    base_uom_id: string;
+    unit_price: number;
+    discount_percentage: number;
+    discount_unit: number;
+    product_discount: ProductDiscount | null;
+    product_discount_id: string | null;
+    iva_percentage: number;
+    iva_unit: number;
+    ieps_percentage: number;
+    ieps_unit: number;
+    created_by: string;
+    created_at: Date;
+    updated_by: string;
+    updated_at: Date;
+}

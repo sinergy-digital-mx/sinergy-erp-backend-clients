@@ -1,0 +1,30 @@
+import { InventoryService } from './inventory.service';
+import { BatchFilterDto } from './dto/batch-filter.dto';
+import { BatchListResponseDto } from './dto/batch-list-response.dto';
+import { BatchDetailResponseDto } from './dto/batch-detail-response.dto';
+import { InventoryBatchMovementListResponseDto } from './dto/inventory-batch-movement.dto';
+import { UpdateInventoryBatchDto } from './dto/update-inventory-batch.dto';
+import { InventorySummaryFilterDto } from './dto/inventory-summary-filter.dto';
+import { InventorySummaryResponseDto } from './dto/inventory-summary-response.dto';
+import { PosSessionInventorySummaryResponseDto } from './dto/pos-session-inventory-summary-response.dto';
+import { InventoryLocationTreeResponseDto } from './dto/inventory-location-tree-response.dto';
+import { InventoryStatsFilterDto } from './dto/inventory-stats-filter.dto';
+import { InventoryStatsResponseDto } from './dto/inventory-stats-response.dto';
+import { InventoryExportService } from './services/inventory-export.service';
+import { QueryInventoryBatchExportDto, QueryInventorySummaryExportDto } from './dto/query-inventory-export.dto';
+export declare class InventoryController {
+    private readonly inventoryService;
+    private readonly exportService;
+    constructor(inventoryService: InventoryService, exportService: InventoryExportService);
+    exportBatchesExcel(filters: QueryInventoryBatchExportDto, req: any, res: any): Promise<void>;
+    exportSummaryExcel(filters: QueryInventorySummaryExportDto, req: any, res: any): Promise<void>;
+    getLocations(req: any): Promise<InventoryLocationTreeResponseDto>;
+    getStats(filters: InventoryStatsFilterDto, req: any): Promise<InventoryStatsResponseDto>;
+    findAll(filters: BatchFilterDto, req: any): Promise<BatchListResponseDto>;
+    getInventorySummary(filters: InventorySummaryFilterDto, req: any): Promise<InventorySummaryResponseDto>;
+    getPosTerminalInventorySummary(filters: InventorySummaryFilterDto, req: any): Promise<PosSessionInventorySummaryResponseDto>;
+    findByPurchaseOrder(poId: string, filters: BatchFilterDto, req: any): Promise<BatchListResponseDto>;
+    listBatchMovements(id: string, req: any): Promise<InventoryBatchMovementListResponseDto>;
+    findOne(id: string, req: any): Promise<BatchDetailResponseDto>;
+    updateBatch(id: string, dto: UpdateInventoryBatchDto, req: any): Promise<BatchDetailResponseDto>;
+}

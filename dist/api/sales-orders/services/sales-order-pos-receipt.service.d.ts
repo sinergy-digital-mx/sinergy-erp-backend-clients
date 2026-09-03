@@ -1,0 +1,70 @@
+import { ConfigService } from '@nestjs/config';
+import { Repository } from 'typeorm';
+import { S3Service } from '../../../common/services/s3.service';
+import { SalesOrder } from '../../../entities/sales-orders/sales-order.entity';
+import { PosSaleCollection } from '../../../entities/pos/pos-sale-collection.entity';
+import { BillingBranch } from '../../../entities/billing/billing-branch.entity';
+import { SalesOrderDocumentsService } from './sales-order-documents.service';
+import { SalesOrderDocumentType } from '../../../entities/sales-orders/sales-order-document-type.entity';
+export declare const SALES_ORDER_TICKET_RECIBO_NAMES: readonly ["TICKET / RECIBO", "TICKET_RECIBO"];
+export interface PosReceiptResult {
+    document_id: string;
+    file_name: string;
+    mime_type: string;
+    download_url: string | null;
+    escpos_base64: string;
+    escpos_hex: string;
+    plain_text: string;
+    printer_profile: string;
+    print_mode: 'raw_escpos_base64';
+    qz_raw_config: {
+        type: 'raw';
+        format: 'command';
+        flavor: 'hex';
+        data: string;
+    };
+    public_invoice_code: string | null;
+    self_invoice_url: string | null;
+}
+export declare class SalesOrderPosReceiptService {
+    private readonly salesOrderRepo;
+    private readonly collectionRepo;
+    private readonly billingBranchRepo;
+    private readonly documentTypeRepo;
+    private readonly documentsService;
+    private readonly s3Service;
+    private readonly configService;
+    private readonly logger;
+    private ticketDocumentTypeIdCache;
+    constructor(salesOrderRepo: Repository<SalesOrder>, collectionRepo: Repository<PosSaleCollection>, billingBranchRepo: Repository<BillingBranch>, documentTypeRepo: Repository<SalesOrderDocumentType>, documentsService: SalesOrderDocumentsService, s3Service: S3Service, configService: ConfigService);
+    generateAndSavePosTicket(tenantId: string, salesOrderId: string, uploadedBy: string): Promise<PosReceiptResult>;
+    getPosTicketRawBuffer(tenantId: string, salesOrderId: string): Promise<{
+        buffer: Buffer;
+        fileName: string;
+    }>;
+    getPosTicket(tenantId: string, salesOrderId: string): Promise<PosReceiptResult>;
+    reprintPosTicket(tenantId: string, salesOrderId: string): Promise<PosReceiptResult>;
+    regeneratePosTicket(tenantId: string, salesOrderId: string, uploadedBy: string): Promise<PosReceiptResult>;
+    private buildReceiptResult;
+    private buildReceiptResultFromDocument;
+    private findExistingTicket;
+    private resolveTicketDocumentTypeId;
+    private loadReceiptContext;
+    private deleteExistingTickets;
+    private buildPlainTextReceipt;
+    private pushFooterLines;
+    private buildEscPosReceipt;
+    private parseStyleLine;
+    private stripStyleMarkers;
+    private buildPaymentLines;
+    private formatBranchAddress;
+    private formatBranchPhone;
+    private formatCustomerName;
+    private formatUserName;
+    private formatDateTime;
+    private formatQuantity;
+    private ensurePublicInvoiceCode;
+    private buildPortalUrl;
+    private isUniqueViolation;
+    private extractPlainTextFromEscPos;
+}

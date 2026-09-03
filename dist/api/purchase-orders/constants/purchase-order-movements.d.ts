@@ -1,0 +1,23 @@
+export declare const PURCHASE_ORDER_MOVEMENT_TYPES: {
+    readonly CREATED: "created";
+    readonly STATUS_CHANGED: "status_changed";
+    readonly LINE_ADDED: "line_added";
+    readonly LINE_UPDATED: "line_updated";
+    readonly LINE_REMOVED: "line_removed";
+    readonly NOTES_UPDATED: "notes_updated";
+    readonly PEDIMENTO_UPDATED: "pedimento_updated";
+    readonly REAL_COST_UPDATED: "real_cost_updated";
+    readonly HEADER_REPLACED: "header_replaced";
+    readonly RECEIVED: "received";
+    readonly LOT_RECEIVED: "lot_received";
+    readonly LOT_MIGRATED: "lot_migrated";
+    readonly DOCUMENT_UPLOADED: "document_uploaded";
+    readonly DOCUMENT_GENERATED: "document_generated";
+    readonly PAYMENT_RECORDED: "payment_recorded";
+    readonly PAYMENT_DELETED: "payment_deleted";
+    readonly INVENTORY_ADJUSTED: "inventory_adjusted";
+    readonly STOCK_SOLD: "stock_sold";
+};
+export type PurchaseOrderMovementType = (typeof PURCHASE_ORDER_MOVEMENT_TYPES)[keyof typeof PURCHASE_ORDER_MOVEMENT_TYPES];
+export declare const GENERATED_PURCHASE_ORDER_DOCUMENT_TYPE_IDS: Set<number>;
+export declare const PURCHASE_ORDER_MOVEMENT_TYPE_LABELS: Record<PurchaseOrderMovementType, string>;

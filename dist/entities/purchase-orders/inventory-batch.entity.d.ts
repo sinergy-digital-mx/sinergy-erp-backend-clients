@@ -1,0 +1,33 @@
+import { RBACTenant } from '../rbac/tenant.entity';
+import { Warehouse } from '../warehouse/warehouse.entity';
+import { Product } from '../products/product.entity';
+import { UoMCatalog } from '../uom-catalog/uom-catalog.entity';
+import { PurchaseOrderBatch } from './purchase-order-batch.entity';
+import { PurchaseOrderBatchDetail } from './purchase-order-batch-detail.entity';
+export declare class InventoryBatch {
+    id: string;
+    tenant: RBACTenant;
+    tenant_id: string;
+    batch_number: string;
+    source_tag_identifier: string | null;
+    measure: number | null;
+    measure_uom: UoMCatalog | null;
+    measure_uom_id: string | null;
+    photo: string | null;
+    warehouse: Warehouse;
+    warehouse_id: string;
+    product: Product;
+    product_id: string;
+    uom: UoMCatalog;
+    uom_id: string;
+    initial_quantity: number;
+    available_quantity: number;
+    purchase_order_batch: PurchaseOrderBatch;
+    purchase_order_batch_id: string;
+    purchase_order_detail: PurchaseOrderBatchDetail;
+    purchase_order_detail_id: string;
+    transferred_from_batch: InventoryBatch | null;
+    transferred_from_batch_id: string | null;
+    created_by: string;
+    created_at: Date;
+}

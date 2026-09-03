@@ -1,0 +1,163 @@
+import { CustomersService } from './customers.service';
+import { CreateCustomerDto } from './dto/create-customer.dto';
+import { UpdateCustomerDto } from './dto/update-customer.dto';
+import { QueryCustomersDto } from './dto/query-customers.dto';
+import { QueryCustomersExportDto } from './dto/query-customers-export.dto';
+import { CreateCustomerAddressDto, UpdateCustomerAddressDto } from './dto/customer-address.dto';
+import { CustomersExportService } from './services/customers-export.service';
+import { CustomerProductInsightsService } from './services/customer-product-insights.service';
+import { QueryCustomerProductInsightsDto } from './dto/query-customer-product-insights.dto';
+import { CustomerGroupsService } from './customer-groups.service';
+import { CheckCustomerDuplicatesDto } from './dto/check-customer-duplicates.dto';
+import { UpsertCustomerCreditsDto } from './dto/upsert-customer-credit.dto';
+export declare class CustomersController {
+    private readonly customersService;
+    private readonly exportService;
+    private readonly productInsightsService;
+    private readonly customerGroupsService;
+    constructor(customersService: CustomersService, exportService: CustomersExportService, productInsightsService: CustomerProductInsightsService, customerGroupsService: CustomerGroupsService);
+    create(dto: CreateCustomerDto, req: any): Promise<{
+        credit_enabled?: boolean;
+        credit_days?: number | null | undefined;
+        credit_amount?: number | null | undefined;
+        group_id: string | null;
+        phone: string | undefined;
+        phone_code: string | undefined;
+        additional_phone: string | undefined;
+        additional_phone_code: string | undefined;
+        warehouse: import("../../entities/warehouse").Warehouse | null | undefined;
+        registered_fiscal_configuration_id: string | null;
+        registered_billing_branch_id: string | null;
+        assigned_seller_user_id: string | null;
+        registered_by_user_id: string | null;
+        tenant_id: string;
+        status: import("../../entities/customers/customer-status.entity").CustomerStatus;
+        status_id?: number;
+        name: string;
+        lastname?: string;
+        email?: string;
+        phone_country?: string;
+        country?: string;
+        company_name?: string;
+        website?: string;
+        additional_name?: string;
+        additional_lastname?: string;
+        additional_email?: string;
+        additional_phone_country?: string;
+        fiscal_rfc?: string;
+        fiscal_razon_social?: string;
+        fiscal_person_type?: "fisica" | "moral" | "otro";
+        fiscal_address?: string;
+        fiscal_street?: string;
+        fiscal_exterior_number?: string;
+        fiscal_interior_number?: string;
+        fiscal_colonia?: string;
+        fiscal_localidad?: string;
+        fiscal_municipio?: string;
+        fiscal_country?: string;
+        fiscal_city?: string;
+        fiscal_state?: string;
+        fiscal_postal_code?: string;
+        warehouse_id?: string;
+        auto_generate_invoice?: boolean;
+    } & import("../../entities/customers/customer.entity").Customer>;
+    checkDuplicates(dto: CheckCustomerDuplicatesDto, req: any): Promise<{
+        found: boolean;
+        matches: import("./customers.service").CustomerDuplicateMatch[];
+    }>;
+    update(id: string, dto: UpdateCustomerDto, req: any): Promise<{
+        assignment_history: import("../../common/utils/assignment-change.util").AssignmentHistoryRow[];
+        credits: import("./utils/customer-credit.util").CustomerCreditFiscalSnapshot[];
+        credit_enabled: boolean;
+        credit_days: number | null;
+        credit_amount: number;
+        credit_used: number;
+        credit_available: number;
+        credit_usage_percent: number;
+        auto_generate_invoice: boolean;
+        fiscal_ready_for_invoice: boolean;
+        fiscal_missing_fields: ("fiscal_razon_social" | "fiscal_rfc" | "fiscal_postal_code")[];
+    }>;
+    findAllStatuses(): Promise<import("../../entities/customers/customer-status.entity").CustomerStatus[]>;
+    findGroups(req: any): Promise<import("./customer-groups.service").CustomerGroupOption[]>;
+    getRegistrationOptions(req: any): Promise<{
+        fiscal_configurations: {
+            id: string;
+            razon_social: string;
+            rfc: string;
+            status: string;
+            branches: {
+                id: string;
+                name: string;
+            }[];
+        }[];
+        users: {
+            id: string;
+            first_name: string;
+            last_name: string;
+            email: string | null;
+        }[];
+        sellers: {
+            id: string;
+            first_name: string;
+            last_name: string;
+            email: string | null;
+            pos_user_code: number | null;
+        }[];
+    }>;
+    exportExcel(query: QueryCustomersExportDto, req: any, res: any): Promise<void>;
+    findAll(query: QueryCustomersDto, req: any): Promise<any>;
+    getAssignmentHistory(id: string, req: any): Promise<{
+        data: import("../../common/utils/assignment-change.util").AssignmentHistoryRow[];
+        total: number;
+    }>;
+    listCredits(id: string, req: any): Promise<import("./utils/customer-credit.util").CustomerCreditFiscalSnapshot[]>;
+    upsertCredits(id: string, dto: UpsertCustomerCreditsDto, req: any): Promise<import("./utils/customer-credit.util").CustomerCreditFiscalSnapshot[]>;
+    findOne(id: string, fiscalConfigurationId: string | undefined, req: any): Promise<{
+        assignment_history: import("../../common/utils/assignment-change.util").AssignmentHistoryRow[];
+        credits: import("./utils/customer-credit.util").CustomerCreditFiscalSnapshot[];
+        credit_enabled: boolean;
+        credit_days: number | null;
+        credit_amount: number;
+        credit_used: number;
+        credit_available: number;
+        credit_usage_percent: number;
+        auto_generate_invoice: boolean;
+        fiscal_ready_for_invoice: boolean;
+        fiscal_missing_fields: ("fiscal_razon_social" | "fiscal_rfc" | "fiscal_postal_code")[];
+    } | null>;
+    getProductInsights(id: string, query: QueryCustomerProductInsightsDto, req: any): Promise<{
+        customer_id: number;
+        most_purchased: {
+            product_id: string;
+            name: string | null;
+            sku: string | null;
+            photo: string | null;
+            category_id: string | null;
+            category_name: string | null;
+            subcategory_id: string | null;
+            subcategory_name: string | null;
+            times_ordered: number;
+            total_quantity: number;
+            total_amount: number;
+            last_purchased_at: string | null;
+        }[];
+        recommended: {
+            product_id: string;
+            name: string;
+            sku: string;
+            photo: string | null;
+            category_id: string | null;
+            category_name: string | null;
+            subcategory_id: string | null;
+            subcategory_name: string | null;
+            reason: string;
+            reason_label: string;
+        }[];
+    }>;
+    remove(id: string, req: any): void;
+    getAddresses(id: string, req: any): Promise<import("../../entities/customers/customer-address.entity").CustomerAddress[]>;
+    createAddress(id: string, dto: CreateCustomerAddressDto, req: any): Promise<import("../../entities/customers/customer-address.entity").CustomerAddress>;
+    updateAddress(id: string, addressId: string, dto: UpdateCustomerAddressDto, req: any): Promise<import("../../entities/customers/customer-address.entity").CustomerAddress>;
+    getActivities(id: string, req: any): Promise<import("../../entities/customers/customer-activity.entity").CustomerActivity[]>;
+}

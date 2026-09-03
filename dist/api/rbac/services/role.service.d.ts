@@ -1,0 +1,46 @@
+import { Repository } from 'typeorm';
+import { Role } from '../../../entities/rbac/role.entity';
+import { UserRole } from '../../../entities/rbac/user-role.entity';
+import { RolePermission } from '../../../entities/rbac/role-permission.entity';
+import { Permission } from '../../../entities/rbac/permission.entity';
+import { RBACTenant } from '../../../entities/rbac/tenant.entity';
+import { TenantModule } from '../../../entities/rbac/tenant-module.entity';
+import { TenantContextService } from './tenant-context.service';
+import { PermissionCacheService } from './permission-cache.service';
+import { PermissionVersionService } from './permission-version.service';
+export declare class RoleService {
+    private roleRepository;
+    private userRoleRepository;
+    private rolePermissionRepository;
+    private permissionRepository;
+    private tenantRepository;
+    private tenantModuleRepository;
+    private tenantContextService;
+    private permissionCacheService;
+    private permissionVersionService;
+    constructor(roleRepository: Repository<Role>, userRoleRepository: Repository<UserRole>, rolePermissionRepository: Repository<RolePermission>, permissionRepository: Repository<Permission>, tenantRepository: Repository<RBACTenant>, tenantModuleRepository: Repository<TenantModule>, tenantContextService: TenantContextService, permissionCacheService: PermissionCacheService, permissionVersionService: PermissionVersionService);
+    createRole(tenantId: string, name: string, description?: string): Promise<Role>;
+    createRoleInCurrentContext(name: string, description?: string): Promise<Role>;
+    assignRoleToUser(userId: string, roleId: string, tenantId: string): Promise<UserRole>;
+    assignPermissionToRole(roleId: string, permissionId: string, tenantId?: string): Promise<RolePermission>;
+    replaceRolePermissions(roleId: string, permissionIds: string[], tenantId: string): Promise<void>;
+    getUserRoles(userId: string, tenantId: string): Promise<Role[]>;
+    getCurrentUserRoles(): Promise<Role[]>;
+    getTenantRoles(tenantId: string): Promise<Role[]>;
+    getRoleById(roleId: string, tenantId: string): Promise<Role>;
+    getRolePermissions(roleId: string): Promise<Permission[]>;
+    removeRoleFromUser(userId: string, roleId: string, tenantId: string): Promise<void>;
+    removePermissionFromRole(roleId: string, permissionId: string): Promise<void>;
+    updateRole(roleId: string, tenantId: string, updates: {
+        name?: string;
+        description?: string;
+    }): Promise<Role>;
+    deleteRole(roleId: string, tenantId: string): Promise<void>;
+    createSystemRoles(tenantId: string): Promise<Role[]>;
+    private validateTenantContext;
+    private validateCrossTenantRoleAssignment;
+    getUsersWithRole(roleId: string, tenantId: string): Promise<string[]>;
+    userHasRole(userId: string, roleId: string, tenantId: string): Promise<boolean>;
+    getEnabledModulesForTenant(tenantId: string): Promise<TenantModule[]>;
+    getAllPermissions(): Promise<Permission[]>;
+}

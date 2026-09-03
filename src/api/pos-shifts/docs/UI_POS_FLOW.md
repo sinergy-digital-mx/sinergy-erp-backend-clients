@@ -38,12 +38,13 @@ Un POS normal es **Ventas o Cobranza**, nunca los dos. Si el usuario es gerente 
 | Acción | Terminal VENTAS | Terminal COBRANZA |
 |--------|-----------------|-------------------|
 | Catálogo + carrito | Sí | No (solo cobra pendientes) |
-| Seleccionar cliente | **No** | **Sí** (al cobrar) |
+| Seleccionar cliente | **Opcional** (preselección para cobranza) | **Sí** (al cobrar; puede cambiar o completar) |
 | Método de pago / efectivo / cambio | **No** | **Sí** |
+| Generar factura | **No** | **Sí** (si el cliente tiene datos fiscales) |
 | Crear pre-orden (`POST sales-orders`) | Sí | Solo casos excepcionales |
 | Cobrar (`POST pos/sales/:id/collect`) | **No** | Sí |
 
-La orden POS es una **pre-orden**: productos + vendedor + total. Cliente y pago se resuelven en cobranza.
+La orden POS es una **pre-orden**: productos + vendedor + total. El cliente se puede preseleccionar en ventas; si se omite, queda mostrador. Cobranza puede dejarlo, cambiarlo o asignarlo. Pago y factura solo en cobranza.
 
 ---
 
@@ -391,7 +392,7 @@ Si hay corte abierto, no filtra por almacén: las órdenes ligadas al corte apar
 
 ### Paso 6 — Cobrar venta (solo COBRANZA)
 
-**Ventas NO captura pago ni cliente final** (salvo mostrador por defecto). Todo el cobro ocurre aquí.
+**Ventas no captura pago ni factura.** El cliente de la pre-orden es opcional: si Ventas lo eligió, Cobranza lo ve prellenado y puede dejarlo o cambiarlo. Si no, queda mostrador y Cobranza puede asignarlo. Todo el cobro ocurre aquí.
 
 ```
 POST /api/tenant/pos/sales/:salesOrderId/collect
@@ -616,6 +617,9 @@ Cada ítem en `partial_shifts[]` incluye el monto retirado en **`total_mxn`** (a
 ```
 PATCH /api/tenant/pos/daily-shift/:id/close
 ```
+
+El corte es de la **sucursal**, no de quien lo abrió. Cualquier terminal de cobranza de esa sucursal puede cerrarlo o registrar parciales.
+```
 ```json
 {
   "closing_cash_mxn": 605.59,
@@ -656,12 +660,13 @@ flowchart TD
     C --> E[Ingresar código vendedor]
     D --> E
     E --> F[Catálogo / carrito]
-    F --> G[Crear orden POS]
-    G -->|Sin corte| H[En cola — sin pos_daily_shift_id]
-    G -->|Con corte| I[Surtida + Pendiente — ligada al corte]
-    H --> J[Cobranza abre corte → auto-asigna cola]
-    J --> K[Pendientes de cobro en Cobranza]
-    I --> K
+    F --> G[Cliente opcional]
+    G --> H[Crear orden POS]
+    H -->|Sin corte| I[En cola — sin pos_daily_shift_id]
+    H -->|Con corte| J[Surtida + Pendiente — ligada al corte]
+    I --> K[Cobranza abre corte → auto-asigna cola]
+    K --> L[Pendientes de cobro en Cobranza]
+    J --> L
 ```
 
 ### Paso 1 — Login
@@ -748,22 +753,21 @@ Si recibes 400 con lista `warehouses`, actualiza el id en estado local; el uuid 
 
 **Requisito técnico:** al crear la orden POS necesitas `warehouse_id` y `fiscal_configuration_id`. `billing_branch_id` es opcional (se toma del almacén). La terminal debe tener sucursal y al menos un almacén de esa sucursal.
 
-### Paso 4b — Qué **eliminar** del UI actual de Ventas
+### Paso 4b — Cliente opcional y qué **no** va en Ventas
 
-El panel derecho del POS **no debe incluir**:
+El panel derecho **sí** puede preseleccionar cliente (mismo listado que Cobranza). **No** incluye pago ni factura:
 
-| Elemento actual (incorrecto) | Acción UI |
-|------------------------------|-----------|
-| Bloque **CLIENTE** / “Toca para elegir cliente” | **Quitar por completo** |
+| Elemento | Acción UI |
+|----------|-----------|
+| Bloque **CLIENTE** / listado | **Opcional.** Default: Público en General. Si eligen uno, enviarlo en `customer_id`. |
 | Selector de método de pago | **Quitar** |
 | Campos efectivo MXN / USD / transferencia | **Quitar** |
-| Cálculo de cambio | **Quitar** |
-
-**Reemplazar** el bloque cliente por un resumen mínimo:
+| Cálculo de cambio / generar factura | **Solo Cobranza** |
 
 ```
 ┌─────────────────────────────┐
 │ Carrito (N productos)       │
+│ Cliente: Público / elegido  │
 │ Subtotal / IVA / IEPS       │
 │ TOTAL                       │
 │                             │
@@ -796,12 +800,13 @@ POST /api/tenant/sales-orders
   "seller_user_id": "uuid-del-vendedor",
   "fiscal_configuration_id": "uuid",
   "warehouse_id": "uuid",
+  "customer_id": 42,
   "expected_delivery_date": "2026-06-25",
   "line_items": [ ... ]
 }
 ```
 
-**`customer_id` es opcional en POS.** Si se omite, el backend usa el cliente de mostrador (`Público en General` / razón social `VENTA DE MOSTRADOR`). **No enviar método de pago desde Ventas.**
+**`customer_id` es opcional en POS.** Si Ventas lo envía, Cobranza prellena ese cliente. Si se omite, el backend usa el cliente de mostrador (`Público en General` / razón social `VENTA DE MOSTRADOR`). Cobranza puede cambiarlo o asignarlo al cobrar. **No enviar método de pago ni `generate_invoice` desde Ventas.**
 
 **No es obligatorio** enviar `pos_daily_shift_id`; el backend lo resuelve si hay corte abierto en la sucursal.
 
@@ -1026,14 +1031,14 @@ El método de pago **no** se guarda en la orden; vive en `pos_sale_collections`.
 
 ### Cliente de mostrador (Ventas sin cliente)
 
-Si Ventas **no envía** `customer_id`, el backend asigna automáticamente el cliente de mostrador del tenant:
+Si Ventas **no envía** `customer_id`, el backend asigna automáticamente el cliente de mostrador de la organización:
 
 - Nombre: `Público en General`, o
 - Razón social: `VENTA DE MOSTRADOR`
 
 Debe existir ese cliente en el tenant (seed o alta manual). En `pending-sales`, las órdenes sin cliente real muestran `customer.is_walk_in: true`.
 
-En Cobranza, el cajero **puede dejar mostrador** o buscar/cambiar cliente antes de confirmar el cobro.
+En Cobranza, el cajero **puede dejar** el cliente que vino de Ventas (o mostrador) o buscar/cambiarlo antes de confirmar el cobro.
 
 ---
 
@@ -1367,9 +1372,9 @@ Mismo `printPosReceipt(receipt.escpos_base64)`. En **Órdenes cobradas**, acció
 ### Checklist implementación UI
 
 **Terminal VENTAS**
-- [ ] Quitar selector de cliente del panel derecho
-- [ ] Quitar cualquier UI de pago
-- [ ] `POST sales-orders` sin `customer_id`
+- [ ] Selector de cliente opcional (mismo listado que Cobranza)
+- [ ] Quitar cualquier UI de pago o factura
+- [ ] `POST sales-orders` con `customer_id` solo si se preseleccionó
 - [ ] Mostrar folio + “Pase a cobranza”
 - [ ] Banner corte activo / en cola
 

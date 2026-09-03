@@ -1,0 +1,23 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.PriceList = exports.ProductDiscountType = exports.ProductDiscount = exports.ProductPrice = exports.ProductVendorCost = exports.ProductUoM = exports.ProductAttributeAssignment = exports.ProductAttributeValue = exports.ProductAttribute = exports.Product = void 0;
+var product_entity_1 = require("./product.entity");
+Object.defineProperty(exports, "Product", { enumerable: true, get: function () { return product_entity_1.Product; } });
+var product_attribute_entity_1 = require("./product-attribute.entity");
+Object.defineProperty(exports, "ProductAttribute", { enumerable: true, get: function () { return product_attribute_entity_1.ProductAttribute; } });
+var product_attribute_value_entity_1 = require("./product-attribute-value.entity");
+Object.defineProperty(exports, "ProductAttributeValue", { enumerable: true, get: function () { return product_attribute_value_entity_1.ProductAttributeValue; } });
+var product_attribute_assignment_entity_1 = require("./product-attribute-assignment.entity");
+Object.defineProperty(exports, "ProductAttributeAssignment", { enumerable: true, get: function () { return product_attribute_assignment_entity_1.ProductAttributeAssignment; } });
+var product_uom_entity_1 = require("./product-uom.entity");
+Object.defineProperty(exports, "ProductUoM", { enumerable: true, get: function () { return product_uom_entity_1.ProductUoM; } });
+var product_vendor_cost_entity_1 = require("./product-vendor-cost.entity");
+Object.defineProperty(exports, "ProductVendorCost", { enumerable: true, get: function () { return product_vendor_cost_entity_1.ProductVendorCost; } });
+var product_price_entity_1 = require("./product-price.entity");
+Object.defineProperty(exports, "ProductPrice", { enumerable: true, get: function () { return product_price_entity_1.ProductPrice; } });
+var product_discount_entity_1 = require("./product-discount.entity");
+Object.defineProperty(exports, "ProductDiscount", { enumerable: true, get: function () { return product_discount_entity_1.ProductDiscount; } });
+Object.defineProperty(exports, "ProductDiscountType", { enumerable: true, get: function () { return product_discount_entity_1.ProductDiscountType; } });
+var price_list_entity_1 = require("./price-list.entity");
+Object.defineProperty(exports, "PriceList", { enumerable: true, get: function () { return price_list_entity_1.PriceList; } });
+//# sourceMappingURL=index.js.map

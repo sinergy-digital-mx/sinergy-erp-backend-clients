@@ -1,0 +1,1 @@
+{"version":3,"file":"purchase-order-detail.dto.js","sourceRoot":"","sources":["../../../../src/api/purchase-orders/dto/purchase-order-detail.dto.ts"],"names":[],"mappings":";;;AAAA,MAAa,sBAAsB;IACjC,MAAM,CA8BJ;IACF,QAAQ,CAiCL;IACH,OAAO,CAAQ;IACf,eAAe,CAQb;IACF,SAAS,CAaN;IACH,QAAQ,CAAQ;IAChB,SAAS,CAAS;IAClB,eAAe,CAAU;CAC1B;AA7FD,wDA6FC"}

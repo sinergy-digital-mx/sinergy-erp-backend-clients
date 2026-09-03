@@ -1,0 +1,32 @@
+import { RBACTenant } from '../rbac/tenant.entity';
+import { User } from '../users/user.entity';
+import { Warehouse } from '../warehouse/warehouse.entity';
+import { BillingBranch } from '../billing/billing-branch.entity';
+import { Truck } from './truck.entity';
+import { ShippingStop } from './shipping-stop.entity';
+export declare const SHIPPING_STATUSES: readonly ["Creado", "En Ruta", "Completado", "Cancelado"];
+export type ShippingStatus = (typeof SHIPPING_STATUSES)[number];
+export declare class Shipping {
+    id: string;
+    tenant: RBACTenant;
+    tenant_id: string;
+    shipping_date: Date;
+    creator: User;
+    created_by: string;
+    editor: User | null;
+    edited_by: string | null;
+    driver: User;
+    driver_id: string;
+    truck: Truck;
+    truck_id: string;
+    origin_billing_branch: BillingBranch | null;
+    origin_billing_branch_id: string | null;
+    origin_warehouse: Warehouse | null;
+    origin_warehouse_id: string | null;
+    status: ShippingStatus;
+    distance_km: number | null;
+    notes: string | null;
+    stops: ShippingStop[];
+    created_at: Date;
+    updated_at: Date;
+}

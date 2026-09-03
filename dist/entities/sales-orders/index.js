@@ -1,0 +1,18 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.SalesOrderPaymentDocument = exports.SalesOrderPayment = exports.SalesOrderDocumentType = exports.SalesOrderDocument = exports.SalesOrderBatchAllocation = exports.SalesOrderDetail = exports.SalesOrder = void 0;
+var sales_order_entity_1 = require("./sales-order.entity");
+Object.defineProperty(exports, "SalesOrder", { enumerable: true, get: function () { return sales_order_entity_1.SalesOrder; } });
+var sales_order_detail_entity_1 = require("./sales-order-detail.entity");
+Object.defineProperty(exports, "SalesOrderDetail", { enumerable: true, get: function () { return sales_order_detail_entity_1.SalesOrderDetail; } });
+var sales_order_batch_allocation_entity_1 = require("./sales-order-batch-allocation.entity");
+Object.defineProperty(exports, "SalesOrderBatchAllocation", { enumerable: true, get: function () { return sales_order_batch_allocation_entity_1.SalesOrderBatchAllocation; } });
+var sales_order_document_entity_1 = require("./sales-order-document.entity");
+Object.defineProperty(exports, "SalesOrderDocument", { enumerable: true, get: function () { return sales_order_document_entity_1.SalesOrderDocument; } });
+var sales_order_document_type_entity_1 = require("./sales-order-document-type.entity");
+Object.defineProperty(exports, "SalesOrderDocumentType", { enumerable: true, get: function () { return sales_order_document_type_entity_1.SalesOrderDocumentType; } });
+var sales_order_payment_entity_1 = require("./sales-order-payment.entity");
+Object.defineProperty(exports, "SalesOrderPayment", { enumerable: true, get: function () { return sales_order_payment_entity_1.SalesOrderPayment; } });
+var sales_order_payment_document_entity_1 = require("./sales-order-payment-document.entity");
+Object.defineProperty(exports, "SalesOrderPaymentDocument", { enumerable: true, get: function () { return sales_order_payment_document_entity_1.SalesOrderPaymentDocument; } });
+//# sourceMappingURL=index.js.map

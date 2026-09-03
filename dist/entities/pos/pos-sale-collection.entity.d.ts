@@ -1,0 +1,35 @@
+import { RBACTenant } from '../rbac/tenant.entity';
+import { SalesOrder } from '../sales-orders/sales-order.entity';
+import { PosDailyShift } from './pos-daily-shift.entity';
+import { Customer } from '../customers/customer.entity';
+import { User } from '../users/user.entity';
+import { PosSalePaymentMethod } from './pos-sale-payment-method.enum';
+export declare class PosSaleCollection {
+    id: string;
+    tenant_id: string;
+    tenant: RBACTenant;
+    sales_order_id: string;
+    sales_order: SalesOrder;
+    pos_daily_shift_id: string;
+    pos_daily_shift: PosDailyShift;
+    customer_id: number;
+    customer: Customer;
+    payment_method: PosSalePaymentMethod;
+    order_total_mxn: number;
+    amount_cash_mxn: number;
+    amount_cash_usd: number;
+    usd_exchange_rate: number | null;
+    amount_transfer_mxn: number;
+    transfer_reference: string | null;
+    amount_card_mxn: number;
+    amount_credit_mxn: number;
+    card_reference: string | null;
+    received_cash_mxn: number;
+    received_cash_usd: number;
+    change_cash_mxn: number;
+    change_cash_usd: number;
+    collected_by_user_id: string;
+    collected_by_user: User;
+    notes: string | null;
+    created_at: Date;
+}

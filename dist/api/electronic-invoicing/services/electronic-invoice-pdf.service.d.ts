@@ -1,0 +1,61 @@
+import { Repository } from 'typeorm';
+import { S3Service } from '../../../common/services/s3.service';
+import { ElectronicInvoice } from '../../../entities/electronic-invoicing/electronic-invoice.entity';
+import { FiscalConfiguration } from '../../../entities/billing/fiscal-configuration.entity';
+import { BillingBranch } from '../../../entities/billing/billing-branch.entity';
+import { Customer } from '../../../entities/customers/customer.entity';
+import { SalesOrder } from '../../../entities/sales-orders/sales-order.entity';
+export interface ElectronicInvoicePdfUploadResult {
+    s3Key: string;
+    signedUrl: string;
+    fileName: string;
+    preview?: boolean;
+}
+export declare class ElectronicInvoicePdfService {
+    private readonly s3Service;
+    private readonly billingBranchRepo;
+    private readonly customerRepo;
+    private readonly salesOrderRepo;
+    private readonly logger;
+    private readonly brandText;
+    private readonly sectionBg;
+    private readonly panelBg;
+    private readonly borderColor;
+    private readonly fonts;
+    constructor(s3Service: S3Service, billingBranchRepo: Repository<BillingBranch>, customerRepo: Repository<Customer>, salesOrderRepo: Repository<SalesOrder>);
+    generateAndUpload(invoice: ElectronicInvoice, fiscal: FiscalConfiguration): Promise<ElectronicInvoicePdfUploadResult>;
+    getSignedPdfUrl(invoice: ElectronicInvoice): Promise<ElectronicInvoicePdfUploadResult>;
+    generatePreviewAndUpload(invoice: ElectronicInvoice, fiscal: FiscalConfiguration): Promise<ElectronicInvoicePdfUploadResult>;
+    private buildPdfBuffer;
+    private uploadPdf;
+    resolveS3Path(invoice: ElectronicInvoice, preview?: boolean): {
+        entityType: string;
+        entityId: string;
+        documentType: string;
+    };
+    private buildFileName;
+    private formatEmisorAddress;
+    private findReceptorCustomer;
+    private formatReceptorAddress;
+    private formatCountry;
+    private formatCurrency;
+    private formatTaxRate;
+    private formatConceptTaxLine;
+    private totalRow;
+    private buildTotalsRows;
+    private wrapUnbreakable;
+    private buildComprobanteHeader;
+    private headerDivider;
+    private sectionBar;
+    private buildFacturaBox;
+    private facturaRow;
+    private infoPairsTable;
+    private sealBlock;
+    private footerMeta;
+    private facturaBoxLayout;
+    private boxLayout;
+    private totalsLayout;
+    private tableLayout;
+    private getLogoImage;
+    private renderPdf;
+}

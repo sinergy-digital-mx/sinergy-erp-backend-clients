@@ -1,0 +1,574 @@
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.SalesReportsService = void 0;
+const common_1 = require("@nestjs/common");
+const typeorm_1 = require("@nestjs/typeorm");
+const typeorm_2 = require("typeorm");
+const sales_order_entity_1 = require("../../entities/sales-orders/sales-order.entity");
+const sales_goal_entity_1 = require("../../entities/goals/sales-goal.entity");
+const goals_service_1 = require("../goals/goals.service");
+const query_sales_by_seller_report_dto_1 = require("./dto/query-sales-by-seller-report.dto");
+const user_entity_1 = require("../../entities/users/user.entity");
+const excel_export_util_1 = require("../../common/utils/excel-export.util");
+let SalesReportsService = class SalesReportsService {
+    salesOrderRepo;
+    userRepo;
+    goalsService;
+    constructor(salesOrderRepo, userRepo, goalsService) {
+        this.salesOrderRepo = salesOrderRepo;
+        this.userRepo = userRepo;
+        this.goalsService = goalsService;
+    }
+    async getSalesBySellerReport(tenantId, filters) {
+        const view = filters.view ?? query_sales_by_seller_report_dto_1.SalesReportView.SALES;
+        const commissions = view === query_sales_by_seller_report_dto_1.SalesReportView.COMMISSIONS;
+        const period = filters.period ?? query_sales_by_seller_report_dto_1.SalesReportPeriod.MONTH;
+        const tenantCommission = await this.goalsService.getCommissionRate(tenantId);
+        const commissionRate = commissions
+            ? filters.commission_rate !== undefined && filters.commission_rate !== null
+                ? Number(filters.commission_rate)
+                : tenantCommission
+            : null;
+        const { dateFrom, dateTo } = this.resolveDateRange(period, filters.date_from, filters.date_to);
+        const personIdSql = commissions
+            ? 'COALESCE(assigned_seller.id, seller.id, creator.id)'
+            : 'COALESCE(seller.id, creator.id)';
+        const personFirstSql = commissions
+            ? 'COALESCE(assigned_seller.first_name, seller.first_name, creator.first_name)'
+            : 'COALESCE(seller.first_name, creator.first_name)';
+        const personLastSql = commissions
+            ? 'COALESCE(assigned_seller.last_name, seller.last_name, creator.last_name)'
+            : 'COALESCE(seller.last_name, creator.last_name)';
+        const personCodeSql = commissions
+            ? 'COALESCE(assigned_seller.pos_user_code, seller.pos_user_code)'
+            : 'COALESCE(seller.pos_user_code, creator.pos_user_code)';
+        const branchIdSql = 'COALESCE(so_branch.id, wh_branch.id)';
+        const branchCodeSql = 'COALESCE(so_branch.code, wh_branch.code)';
+        const branchCitySql = 'COALESCE(so_branch.city, wh_branch.city)';
+        const qb = this.salesOrderRepo
+            .createQueryBuilder('so')
+            .leftJoin('so.billing_branch', 'so_branch')
+            .leftJoin('so.warehouse', 'warehouse')
+            .leftJoin('warehouse.billing_branch', 'wh_branch')
+            .innerJoin('so.fiscal_configuration', 'fiscal')
+            .innerJoin('so.creator', 'creator')
+            .leftJoin('so.assigned_seller_user', 'assigned_seller')
+            .leftJoin('so.seller_user', 'seller')
+            .select(branchIdSql, 'billing_branch_id')
+            .addSelect(branchCodeSql, 'branch_code')
+            .addSelect(branchCitySql, 'branch_city')
+            .addSelect(personIdSql, 'seller_id')
+            .addSelect(personFirstSql, 'seller_first_name')
+            .addSelect(personLastSql, 'seller_last_name')
+            .addSelect(personCodeSql, 'seller_pos_user_code')
+            .addSelect('COUNT(so.id)', 'total_sales_count')
+            .addSelect('COALESCE(SUM(so.total), 0)', 'amount_sold')
+            .where('so.tenant_id = :tenantId', { tenantId })
+            .andWhere('so.general_status = :status', { status: 'Surtida' })
+            .andWhere('so.created_at >= :dateFrom', { dateFrom })
+            .andWhere('so.created_at <= :dateTo', { dateTo })
+            .andWhere('COALESCE(so.billing_branch_id, warehouse.billing_branch_id) IS NOT NULL');
+        if (filters.fiscal_configuration_id) {
+            qb.andWhere('so.fiscal_configuration_id = :fiscalConfigurationId', {
+                fiscalConfigurationId: filters.fiscal_configuration_id,
+            });
+        }
+        if (filters.billing_branch_id) {
+            qb.andWhere('COALESCE(so.billing_branch_id, warehouse.billing_branch_id) = :billingBranchId', { billingBranchId: filters.billing_branch_id });
+        }
+        qb.groupBy(branchIdSql)
+            .addGroupBy(branchCodeSql)
+            .addGroupBy(branchCitySql)
+            .addGroupBy(personIdSql)
+            .addGroupBy(personFirstSql)
+            .addGroupBy(personLastSql)
+            .addGroupBy(personCodeSql);
+        const rawRows = await qb.getRawMany();
+        const periodYear = dateFrom.getFullYear();
+        const periodMonth = dateFrom.getMonth() + 1;
+        const activeGoals = await this.goalsService.findActiveForPeriod(tenantId, filters.billing_branch_id ?? null, periodYear, periodMonth);
+        const branchGoals = activeGoals.filter((g) => g.goal_scope === sales_goal_entity_1.SalesGoalScope.BRANCH);
+        const userRoleGoals = activeGoals.filter((g) => g.goal_scope === sales_goal_entity_1.SalesGoalScope.USER_ROLE);
+        const branchGoalByBranch = new Map();
+        for (const g of branchGoals) {
+            branchGoalByBranch.set(g.billing_branch_id, g);
+        }
+        const userRoleGoalByBranch = new Map();
+        for (const g of userRoleGoals) {
+            userRoleGoalByBranch.set(g.billing_branch_id, g);
+        }
+        const branchTotals = new Map();
+        for (const row of rawRows) {
+            const amountSold = Number(row.amount_sold || 0);
+            const count = Number(row.total_sales_count || 0);
+            const existing = branchTotals.get(row.billing_branch_id) ?? {
+                count: 0,
+                amount: 0,
+                name: this.buildBranchName(row.branch_code, row.branch_city),
+            };
+            existing.count += count;
+            existing.amount += amountSold;
+            branchTotals.set(row.billing_branch_id, existing);
+        }
+        let branchGoalProgress = null;
+        if (filters.billing_branch_id && branchGoalByBranch.has(filters.billing_branch_id)) {
+            const goal = branchGoalByBranch.get(filters.billing_branch_id);
+            const totals = branchTotals.get(filters.billing_branch_id) ?? {
+                count: 0,
+                amount: 0,
+                name: goal.billing_branch
+                    ? this.buildBranchName(goal.billing_branch.code, goal.billing_branch.city)
+                    : 'Sucursal',
+            };
+            branchGoalProgress = this.mapBranchGoal(goal, totals);
+        }
+        else if (!filters.billing_branch_id && branchGoals.length === 1) {
+            const goal = branchGoals[0];
+            const totals = branchTotals.get(goal.billing_branch_id) ?? {
+                count: 0,
+                amount: 0,
+                name: goal.billing_branch
+                    ? this.buildBranchName(goal.billing_branch.code, goal.billing_branch.city)
+                    : 'Sucursal',
+            };
+            branchGoalProgress = this.mapBranchGoal(goal, totals);
+        }
+        let userRoleGoalSummary = null;
+        const primaryUserRoleGoal = (filters.billing_branch_id && userRoleGoalByBranch.get(filters.billing_branch_id)) ||
+            (userRoleGoals.length === 1 ? userRoleGoals[0] : null);
+        if (primaryUserRoleGoal) {
+            userRoleGoalSummary = {
+                goal_id: primaryUserRoleGoal.id,
+                role_id: primaryUserRoleGoal.role_id,
+                role_name: primaryUserRoleGoal.role?.name ?? 'Rol',
+                metric_type: primaryUserRoleGoal.metric_type,
+                target_value: Number(primaryUserRoleGoal.target_value),
+            };
+        }
+        const hasActiveGoals = activeGoals.length > 0;
+        const rows = rawRows.map((row) => {
+            const amountSold = Number(row.amount_sold || 0);
+            const salesCount = Number(row.total_sales_count || 0);
+            const commissionAmount = commissions && commissionRate != null
+                ? Number(((amountSold * commissionRate) / 100).toFixed(2))
+                : null;
+            const userGoal = userRoleGoalByBranch.get(row.billing_branch_id);
+            let goalBlock = null;
+            if (userGoal) {
+                const current = userGoal.metric_type === sales_goal_entity_1.SalesGoalMetricType.SALES_COUNT
+                    ? salesCount
+                    : amountSold;
+                goalBlock = {
+                    has_goal: true,
+                    metric_type: userGoal.metric_type,
+                    target_value: Number(userGoal.target_value),
+                    current_value: Number(current.toFixed(2)),
+                    progress_percentage: this.progressPct(current, Number(userGoal.target_value)),
+                };
+            }
+            else if (hasActiveGoals) {
+                goalBlock = {
+                    has_goal: false,
+                    metric_type: null,
+                    target_value: null,
+                    current_value: 0,
+                    progress_percentage: 0,
+                };
+            }
+            return {
+                billing_branch_id: row.billing_branch_id,
+                branch_code: row.branch_code,
+                branch_initials: this.buildBranchInitials(row.branch_code, row.branch_city),
+                branch_name: this.buildBranchName(row.branch_code, row.branch_city),
+                seller_id: row.seller_id,
+                seller_name: this.buildSellerName(row.seller_first_name, row.seller_last_name),
+                seller_pos_user_code: row.seller_pos_user_code
+                    ? Number(row.seller_pos_user_code)
+                    : null,
+                total_sales_count: salesCount,
+                amount_sold: amountSold,
+                average_ticket: salesCount > 0 ? Number((amountSold / salesCount).toFixed(2)) : 0,
+                commission_percentage: commissions ? commissionRate : null,
+                commission_amount: commissionAmount,
+                goal: goalBlock,
+            };
+        });
+        rows.sort((a, b) => {
+            if (commissions) {
+                const aPct = a.goal?.has_goal ? a.goal.progress_percentage : -1;
+                const bPct = b.goal?.has_goal ? b.goal.progress_percentage : -1;
+                if (bPct !== aPct)
+                    return bPct - aPct;
+            }
+            if (b.amount_sold !== a.amount_sold)
+                return b.amount_sold - a.amount_sold;
+            return b.total_sales_count - a.total_sales_count;
+        });
+        const totalSalesCount = rows.reduce((sum, row) => sum + row.total_sales_count, 0);
+        const totalAmount = rows.reduce((sum, row) => sum + row.amount_sold, 0);
+        const totalCommission = commissions
+            ? Number(rows.reduce((sum, row) => sum + Number(row.commission_amount || 0), 0).toFixed(2))
+            : null;
+        const top = rows[0]
+            ? {
+                id: rows[0].seller_id,
+                name: rows[0].seller_name,
+                pos_user_code: rows[0].seller_pos_user_code,
+                amount: rows[0].amount_sold,
+                sales_count: rows[0].total_sales_count,
+            }
+            : null;
+        const peopleCount = new Set(rows.map((row) => row.seller_id)).size;
+        return {
+            view,
+            view_label: commissions
+                ? 'Comisiones por comisionado'
+                : 'Ventas por vendedor',
+            summary: {
+                total_sellers: peopleCount,
+                people_count: peopleCount,
+                people_label: commissions ? 'Comisionados' : 'Vendedores',
+                total_sales_count: totalSalesCount,
+                total_amount: Number(totalAmount.toFixed(2)),
+                average_ticket: totalSalesCount > 0
+                    ? Number((totalAmount / totalSalesCount).toFixed(2))
+                    : 0,
+                total_commission: totalCommission,
+                commission_rate: commissionRate,
+                top,
+                branches: Array.from(branchTotals.entries())
+                    .map(([id, totals]) => ({
+                    billing_branch_id: id,
+                    branch_name: totals.name,
+                    sales_count: totals.count,
+                    amount: Number(totals.amount.toFixed(2)),
+                }))
+                    .sort((a, b) => b.amount - a.amount),
+            },
+            filters_applied: {
+                view,
+                fiscal_configuration_id: filters.fiscal_configuration_id ?? null,
+                billing_branch_id: filters.billing_branch_id ?? null,
+                period,
+                period_label: this.periodLabel(period, dateFrom, dateTo),
+                date_from: dateFrom.toISOString(),
+                date_to: dateTo.toISOString(),
+                commission_rate: commissionRate,
+            },
+            goals: {
+                has_active_goals: hasActiveGoals,
+                message: hasActiveGoals
+                    ? null
+                    : `No hay metas activas para ${periodMonth.toString().padStart(2, '0')}/${periodYear}`,
+                branch_goal: branchGoalProgress,
+                user_role_goal: userRoleGoalSummary,
+            },
+            rows,
+        };
+    }
+    async exportSalesBySellerExcel(tenantId, filters) {
+        const report = await this.getSalesBySellerReport(tenantId, filters);
+        const commissions = report.view === query_sales_by_seller_report_dto_1.SalesReportView.COMMISSIONS;
+        const columns = commissions
+            ? [
+                { header: 'Sucursal', key: 'branch_name', width: 28 },
+                { header: 'Comisionado', key: 'seller_name', width: 26 },
+                { header: 'Código POS', key: 'seller_pos_user_code', width: 14, type: 'integer' },
+                { header: 'Ventas', key: 'total_sales_count', width: 12, type: 'integer' },
+                { header: 'Monto', key: 'amount_sold', width: 14, type: 'currency' },
+                { header: 'Ticket promedio', key: 'average_ticket', width: 16, type: 'currency' },
+                { header: 'Comisión %', key: 'commission_percentage', width: 12, type: 'percent' },
+                { header: 'Comisión $', key: 'commission_amount', width: 14, type: 'currency' },
+                { header: 'Avance meta %', key: 'goal_progress', width: 14, type: 'percent' },
+            ]
+            : [
+                { header: 'Sucursal', key: 'branch_name', width: 28 },
+                { header: 'Vendedor', key: 'seller_name', width: 26 },
+                { header: 'Código POS', key: 'seller_pos_user_code', width: 14, type: 'integer' },
+                { header: 'Ventas', key: 'total_sales_count', width: 12, type: 'integer' },
+                { header: 'Monto', key: 'amount_sold', width: 14, type: 'currency' },
+                { header: 'Ticket promedio', key: 'average_ticket', width: 16, type: 'currency' },
+                { header: 'Avance meta %', key: 'goal_progress', width: 14, type: 'percent' },
+            ];
+        const rows = report.rows.map((row) => ({
+            branch_name: row.branch_name,
+            seller_name: row.seller_name,
+            seller_pos_user_code: row.seller_pos_user_code,
+            total_sales_count: row.total_sales_count,
+            amount_sold: row.amount_sold,
+            average_ticket: row.average_ticket,
+            commission_percentage: row.commission_percentage,
+            commission_amount: row.commission_amount,
+            goal_progress: row.goal?.has_goal ? row.goal.progress_percentage : null,
+        }));
+        const f = report.filters_applied;
+        const subtitle = (0, excel_export_util_1.buildExportSubtitle)([
+            report.view_label,
+            f.period_label,
+            `Generado: ${(0, excel_export_util_1.formatExportDate)(new Date())}`,
+            `${report.summary.people_count} ${report.summary.people_label.toLowerCase()}`,
+            `${report.summary.total_sales_count} ventas`,
+            `Monto: ${this.formatMoney(report.summary.total_amount)}`,
+            commissions && report.summary.total_commission != null
+                ? `Comisión: ${this.formatMoney(report.summary.total_commission)}`
+                : '',
+        ]);
+        return (0, excel_export_util_1.buildStyledExcelBuffer)({
+            sheetName: commissions ? 'Comisiones' : 'Ventas',
+            title: commissions ? 'Reporte de comisiones' : 'Reporte de ventas',
+            subtitle,
+            columns,
+            rows,
+            headerColor: commissions ? 'FF6B4C9A' : 'FF1B7F5E',
+            titleColor: commissions ? 'FF4A2C7A' : 'FF145A47',
+        });
+    }
+    getExportFilename(viewSlug) {
+        const day = new Date();
+        const ymd = [
+            day.getFullYear(),
+            String(day.getMonth() + 1).padStart(2, '0'),
+            String(day.getDate()).padStart(2, '0'),
+        ].join('-');
+        return `reporte-${viewSlug}-${ymd}.xlsx`;
+    }
+    async getSalesBySellerOrders(tenantId, filters) {
+        const view = filters.view ?? query_sales_by_seller_report_dto_1.SalesReportView.SALES;
+        const commissions = view === query_sales_by_seller_report_dto_1.SalesReportView.COMMISSIONS;
+        const period = filters.period ?? query_sales_by_seller_report_dto_1.SalesReportPeriod.MONTH;
+        const { dateFrom, dateTo } = this.resolveDateRange(period, filters.date_from, filters.date_to);
+        const page = filters.page ?? 1;
+        const limit = filters.limit ?? 50;
+        const sellerId = filters.seller_id;
+        const seller = await this.userRepo.findOne({
+            where: { id: sellerId, tenant_id: tenantId },
+        });
+        const qb = this.salesOrderRepo
+            .createQueryBuilder('so')
+            .leftJoinAndSelect('so.customer', 'customer')
+            .leftJoinAndSelect('so.assigned_seller_user', 'assigned_seller')
+            .leftJoinAndSelect('so.seller_user', 'seller')
+            .leftJoinAndSelect('so.billing_branch', 'so_branch')
+            .leftJoinAndSelect('so.warehouse', 'warehouse')
+            .leftJoinAndSelect('warehouse.billing_branch', 'wh_branch')
+            .where('so.tenant_id = :tenantId', { tenantId })
+            .andWhere('so.general_status = :status', { status: 'Surtida' })
+            .andWhere('so.created_at >= :dateFrom', { dateFrom })
+            .andWhere('so.created_at <= :dateTo', { dateTo });
+        if (commissions) {
+            qb.andWhere(`(so.assigned_seller_user_id = :sellerId
+          OR (so.assigned_seller_user_id IS NULL AND so.seller_user_id = :sellerId)
+          OR (so.assigned_seller_user_id IS NULL AND so.seller_user_id IS NULL AND so.created_by = :sellerId))`, { sellerId });
+        }
+        else {
+            qb.andWhere(`(so.seller_user_id = :sellerId
+          OR (so.seller_user_id IS NULL AND so.created_by = :sellerId))`, { sellerId });
+        }
+        if (filters.fiscal_configuration_id) {
+            qb.andWhere('so.fiscal_configuration_id = :fiscalConfigurationId', {
+                fiscalConfigurationId: filters.fiscal_configuration_id,
+            });
+        }
+        if (filters.billing_branch_id) {
+            qb.andWhere('COALESCE(so.billing_branch_id, warehouse.billing_branch_id) = :billingBranchId', { billingBranchId: filters.billing_branch_id });
+        }
+        qb.orderBy('so.created_at', 'DESC')
+            .skip((page - 1) * limit)
+            .take(limit);
+        const [orders, total] = await qb.getManyAndCount();
+        const data = orders.map((so) => {
+            const companyName = so.customer?.company_name?.trim() || null;
+            const personName = [so.customer?.name, so.customer?.lastname].filter(Boolean).join(' ').trim() || null;
+            const branch = so.billing_branch ?? so.warehouse?.billing_branch ?? null;
+            return {
+                id: so.id,
+                folio: so.folio,
+                created_at: so.created_at,
+                total: Number(so.total),
+                payment_status: so.payment_status,
+                general_status: so.general_status,
+                sales_order_type: so.sales_order_type,
+                customer_company_name: companyName,
+                customer_person_name: personName,
+                customer_display_name: companyName || personName,
+                seller_name: so.seller_user
+                    ? this.buildSellerName(so.seller_user.first_name, so.seller_user.last_name)
+                    : null,
+                assigned_seller_name: so.assigned_seller_user
+                    ? this.buildSellerName(so.assigned_seller_user.first_name, so.assigned_seller_user.last_name)
+                    : null,
+                branch_name: branch
+                    ? this.buildBranchName(branch.code, branch.city)
+                    : null,
+                billing_branch_id: so.billing_branch_id ?? so.warehouse?.billing_branch_id ?? branch?.id ?? null,
+            };
+        });
+        const amountSold = data.reduce((sum, row) => sum + row.total, 0);
+        return {
+            view,
+            seller: {
+                id: sellerId,
+                name: seller
+                    ? this.buildSellerName(seller.first_name, seller.last_name)
+                    : commissions
+                        ? 'Comisionado'
+                        : 'Vendedor',
+                role_label: commissions ? 'Comisionado' : 'Vendedor',
+                pos_user_code: seller?.pos_user_code ?? null,
+            },
+            filters_applied: {
+                view,
+                seller_id: sellerId,
+                fiscal_configuration_id: filters.fiscal_configuration_id ?? null,
+                billing_branch_id: filters.billing_branch_id ?? null,
+                period,
+                date_from: dateFrom.toISOString(),
+                date_to: dateTo.toISOString(),
+            },
+            summary: {
+                total_sales_count: total,
+                amount_sold: Number(amountSold.toFixed(2)),
+            },
+            data,
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit) || 1,
+        };
+    }
+    mapBranchGoal(goal, totals) {
+        const current = goal.metric_type === sales_goal_entity_1.SalesGoalMetricType.SALES_COUNT
+            ? totals.count
+            : totals.amount;
+        return {
+            goal_id: goal.id,
+            billing_branch_id: goal.billing_branch_id,
+            branch_name: totals.name,
+            metric_type: goal.metric_type,
+            target_value: Number(goal.target_value),
+            current_value: Number(current.toFixed(2)),
+            progress_percentage: this.progressPct(current, Number(goal.target_value)),
+        };
+    }
+    progressPct(current, target) {
+        if (!target || target <= 0)
+            return 0;
+        return Number(Math.min(100, (current / target) * 100).toFixed(2));
+    }
+    resolveDateRange(period, dateFrom, dateTo) {
+        const now = new Date();
+        switch (period) {
+            case query_sales_by_seller_report_dto_1.SalesReportPeriod.TODAY:
+                return {
+                    dateFrom: this.startOfDay(now),
+                    dateTo: this.endOfDay(now),
+                };
+            case query_sales_by_seller_report_dto_1.SalesReportPeriod.WEEK: {
+                const start = new Date(now);
+                const day = start.getDay();
+                const diff = day === 0 ? 6 : day - 1;
+                start.setDate(start.getDate() - diff);
+                return {
+                    dateFrom: this.startOfDay(start),
+                    dateTo: this.endOfDay(now),
+                };
+            }
+            case query_sales_by_seller_report_dto_1.SalesReportPeriod.MONTH: {
+                const start = new Date(now.getFullYear(), now.getMonth(), 1);
+                return {
+                    dateFrom: this.startOfDay(start),
+                    dateTo: this.endOfDay(now),
+                };
+            }
+            case query_sales_by_seller_report_dto_1.SalesReportPeriod.YEAR: {
+                const start = new Date(now.getFullYear(), 0, 1);
+                return {
+                    dateFrom: this.startOfDay(start),
+                    dateTo: this.endOfDay(now),
+                };
+            }
+            case query_sales_by_seller_report_dto_1.SalesReportPeriod.RANGE:
+            default: {
+                const from = dateFrom ? new Date(dateFrom) : this.startOfDay(now);
+                const to = dateTo ? new Date(dateTo) : this.endOfDay(now);
+                return {
+                    dateFrom: this.startOfDay(from),
+                    dateTo: this.endOfDay(to),
+                };
+            }
+        }
+    }
+    periodLabel(period, dateFrom, dateTo) {
+        const range = `${(0, excel_export_util_1.formatExportDate)(dateFrom)} — ${(0, excel_export_util_1.formatExportDate)(dateTo)}`;
+        switch (period) {
+            case query_sales_by_seller_report_dto_1.SalesReportPeriod.TODAY:
+                return `Hoy · ${range}`;
+            case query_sales_by_seller_report_dto_1.SalesReportPeriod.WEEK:
+                return `Semana · ${range}`;
+            case query_sales_by_seller_report_dto_1.SalesReportPeriod.MONTH:
+                return `Mes · ${range}`;
+            case query_sales_by_seller_report_dto_1.SalesReportPeriod.YEAR:
+                return `Año · ${range}`;
+            default:
+                return `Rango · ${range}`;
+        }
+    }
+    formatMoney(value) {
+        return new Intl.NumberFormat('es-MX', {
+            style: 'currency',
+            currency: 'MXN',
+        }).format(value);
+    }
+    startOfDay(date) {
+        const value = new Date(date);
+        value.setHours(0, 0, 0, 0);
+        return value;
+    }
+    endOfDay(date) {
+        const value = new Date(date);
+        value.setHours(23, 59, 59, 999);
+        return value;
+    }
+    buildSellerName(firstName, lastName) {
+        return [firstName, lastName].filter(Boolean).join(' ').trim() || 'Sin nombre';
+    }
+    buildBranchName(code, city) {
+        if (city && code)
+            return `${city} (${code})`;
+        return city || code || 'Sucursal';
+    }
+    buildBranchInitials(code, city) {
+        if (code) {
+            return code.replace(/[^a-zA-Z0-9]/g, '').slice(0, 2).toUpperCase();
+        }
+        if (!city)
+            return 'SU';
+        const words = city.trim().split(/\s+/);
+        if (words.length >= 2) {
+            return `${words[0][0] ?? ''}${words[1][0] ?? ''}`.toUpperCase();
+        }
+        return city.slice(0, 2).toUpperCase();
+    }
+};
+exports.SalesReportsService = SalesReportsService;
+exports.SalesReportsService = SalesReportsService = __decorate([
+    (0, common_1.Injectable)(),
+    __param(0, (0, typeorm_1.InjectRepository)(sales_order_entity_1.SalesOrder)),
+    __param(1, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
+    __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
+        goals_service_1.GoalsService])
+], SalesReportsService);
+//# sourceMappingURL=sales-reports.service.js.map

@@ -1,0 +1,61 @@
+import { Customer } from '../../../entities/customers/customer.entity';
+import { PosSaleCollection } from '../../../entities/pos/pos-sale-collection.entity';
+import { User } from '../../../entities/users/user.entity';
+export declare function isWalkInCustomer(customer: Customer): boolean;
+export declare function formatCustomerDisplayName(customer?: Customer | null): string | null;
+export declare function mapPosCustomer(customer?: Customer | null): {
+    id: number;
+    name: string;
+    lastname: string;
+    company_name: string;
+    fiscal_razon_social: string;
+    display_name: string | null;
+    is_walk_in: boolean;
+} | null;
+export declare function mapPosUser(user?: User | null): {
+    id: string;
+    first_name: string;
+    last_name: string;
+    pos_user_code: number | null;
+    pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+} | null;
+export declare function mapPosSaleCollection(collection: PosSaleCollection): {
+    id: string;
+    sales_order_id: string;
+    pos_daily_shift_id: string;
+    customer_id: number;
+    customer: {
+        id: number;
+        name: string;
+        lastname: string;
+        company_name: string;
+        fiscal_razon_social: string;
+        display_name: string | null;
+        is_walk_in: boolean;
+    } | null;
+    payment_method: import("../../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
+    order_total_mxn: number;
+    amount_cash_mxn: number;
+    amount_cash_usd: number;
+    usd_exchange_rate: number | null;
+    amount_transfer_mxn: number;
+    transfer_reference: string | null;
+    amount_card_mxn: number;
+    amount_credit_mxn: number;
+    card_reference: string | null;
+    received_cash_mxn: number;
+    received_cash_usd: number;
+    change_cash_mxn: number;
+    change_cash_usd: number;
+    collected_by_user_id: string;
+    collected_by_user: {
+        id: string;
+        first_name: string;
+        last_name: string;
+        pos_user_code: number | null;
+        pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+    } | null;
+    notes: string | null;
+    collected_at: Date;
+    created_at: Date;
+};

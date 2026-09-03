@@ -1,0 +1,42 @@
+import { Repository } from 'typeorm';
+import { ElectronicInvoice, ElectronicInvoiceSourceModule } from '../../../entities/electronic-invoicing/electronic-invoice.entity';
+import { ElectronicInvoiceSyncLog } from '../../../entities/electronic-invoicing/electronic-invoice-sync-log.entity';
+import { FiscalConfiguration } from '../../../entities/billing/fiscal-configuration.entity';
+import { StampElectronicInvoiceDto } from '../dto/stamp-electronic-invoice.dto';
+import { CancelElectronicInvoiceDto } from '../dto/cancel-electronic-invoice.dto';
+import { QueryElectronicInvoiceDto } from '../dto/query-electronic-invoice.dto';
+import { FinkokProviderConfigurationService } from './finkok-provider-configuration.service';
+import { FinkokSoapClient } from './finkok-soap.client';
+import { ElectronicInvoicePdfService } from './electronic-invoice-pdf.service';
+export declare class ElectronicInvoiceService {
+    private readonly invoiceRepo;
+    private readonly syncLogRepo;
+    private readonly fiscalRepo;
+    private readonly finkokConfigService;
+    private readonly finkokClient;
+    private readonly pdfService;
+    private readonly logger;
+    constructor(invoiceRepo: Repository<ElectronicInvoice>, syncLogRepo: Repository<ElectronicInvoiceSyncLog>, fiscalRepo: Repository<FiscalConfiguration>, finkokConfigService: FinkokProviderConfigurationService, finkokClient: FinkokSoapClient, pdfService: ElectronicInvoicePdfService);
+    stamp(tenantId: string, userId: string, dto: StampElectronicInvoiceDto): Promise<ElectronicInvoice>;
+    cancel(id: string, tenantId: string, userId: string, dto: CancelElectronicInvoiceDto): Promise<ElectronicInvoice>;
+    syncSatStatus(id: string, tenantId: string, userId: string | null, trigger?: 'manual' | 'scheduled' | 'batch'): Promise<ElectronicInvoice>;
+    findBySource(tenantId: string, sourceModule: ElectronicInvoiceSourceModule, sourceId: string): Promise<ElectronicInvoice[]>;
+    isCfdiVigente(invoice: ElectronicInvoice): boolean;
+    findVigenteBySource(tenantId: string, sourceModule: ElectronicInvoiceSourceModule, sourceId: string): Promise<ElectronicInvoice[]>;
+    findAll(tenantId: string, query: QueryElectronicInvoiceDto): Promise<ElectronicInvoice[]>;
+    findOne(id: string, tenantId: string): Promise<ElectronicInvoice>;
+    getPdfDownload(id: string, tenantId: string, regenerate?: boolean, preview?: boolean): Promise<import("./electronic-invoice-pdf.service").ElectronicInvoicePdfUploadResult>;
+    getXmlDownload(id: string, tenantId: string): Promise<{
+        xml: string;
+        fileName: string;
+    }>;
+    private getPdfPreviewDownload;
+    private mapSatEstado;
+    private tryFinkokSatStatus;
+    private generatePdfAfterStamp;
+    private resolveFinkokEnvironment;
+    private resolveCancelCertificateSerial;
+    private readNoCertificadoFromXml;
+    private rememberFiscalCertificateSerial;
+    private getByIdOrFail;
+}

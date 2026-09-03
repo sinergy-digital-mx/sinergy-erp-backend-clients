@@ -1,0 +1,33 @@
+import { RBACTenant } from '../rbac/tenant.entity';
+import { User } from '../users/user.entity';
+import { EmployeeStatus } from './employee-status.enum';
+import { EmployeePaymentFrequency } from './employee-payment-frequency.enum';
+import { EmployeeLeaveRequest } from './employee-leave-request.entity';
+export declare class Employee {
+    id: string;
+    tenant: RBACTenant;
+    tenant_id: string;
+    user: User;
+    user_id: string;
+    employee_code: string | null;
+    rfc: string | null;
+    curp: string | null;
+    nss: string | null;
+    position: string | null;
+    department: string | null;
+    hire_date: string | null;
+    vacation_carryover_days: number;
+    birth_date: string | null;
+    monthly_salary: number | null;
+    payment_frequency: EmployeePaymentFrequency;
+    bank_name: string | null;
+    clabe: string | null;
+    bank_account: string | null;
+    photo_s3_key: string | null;
+    status: EmployeeStatus;
+    termination_date: string | null;
+    metadata: Record<string, any> | null;
+    leave_requests: EmployeeLeaveRequest[];
+    created_at: Date;
+    updated_at: Date;
+}

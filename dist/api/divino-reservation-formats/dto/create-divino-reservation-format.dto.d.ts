@@ -1,0 +1,34 @@
+export declare class CreateDivinoReservationFormatDto {
+    property_id: string;
+    fiscal_configuration_id?: string;
+    payable_to?: string;
+    received_from?: string;
+    amount_in_words?: string;
+    evidenced_by?: string;
+    block?: string;
+    lot_number?: string;
+    surface?: number;
+    purchase_price?: number;
+    currency?: string;
+    reservation_deposit?: number;
+    reservation_date?: string;
+    down_payment?: number;
+    down_payment_date?: string;
+    financed_balance?: number;
+    financing_years?: number;
+    monthly_payments_count?: number;
+    monthly_payment_amount?: number;
+    maintenance_fee?: number;
+    maintenance_currency?: string;
+    payment_day?: string;
+    buyer_name?: string;
+    buyer_address?: string;
+    buyer_phone?: string;
+    buyer_email?: string;
+    lead_source?: string;
+    lead_source_other?: string;
+    format_date?: string;
+    agent_name?: string;
+    notes?: string;
+    metadata?: Record<string, any>;
+}

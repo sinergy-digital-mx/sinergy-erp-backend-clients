@@ -1,0 +1,34 @@
+import { DataSource, Repository } from 'typeorm';
+import { PurchaseOrderBatch } from '../../../entities/purchase-orders/purchase-order-batch.entity';
+import { PurchaseOrderBatchDetail } from '../../../entities/purchase-orders/purchase-order-batch-detail.entity';
+import { InventoryBatch } from '../../../entities/purchase-orders/inventory-batch.entity';
+import { UoMCatalog } from '../../../entities/uom-catalog/uom-catalog.entity';
+import { ReceivePurchaseOrderDto } from '../dto/receive-purchase-order.dto';
+import { ReceiptValidatorService } from './receipt-validator.service';
+import { BatchCreatorService } from './batch-creator.service';
+import { TotalCalculatorService } from './total-calculator.service';
+import { TenantValidatorService } from './tenant-validator.service';
+import { PurchaseOrderActivityService } from './purchase-order-activity.service';
+import { PurchaseOrderRealCostService } from './purchase-order-real-cost.service';
+export declare class ReceiptService {
+    private readonly purchaseOrderRepository;
+    private readonly lineItemRepository;
+    private readonly inventoryBatchRepository;
+    private readonly uomCatalogRepository;
+    private readonly receiptValidatorService;
+    private readonly batchCreatorService;
+    private readonly totalCalculatorService;
+    private readonly tenantValidatorService;
+    private readonly activityService;
+    private readonly realCostService;
+    private readonly dataSource;
+    private readonly logger;
+    constructor(purchaseOrderRepository: Repository<PurchaseOrderBatch>, lineItemRepository: Repository<PurchaseOrderBatchDetail>, inventoryBatchRepository: Repository<InventoryBatch>, uomCatalogRepository: Repository<UoMCatalog>, receiptValidatorService: ReceiptValidatorService, batchCreatorService: BatchCreatorService, totalCalculatorService: TotalCalculatorService, tenantValidatorService: TenantValidatorService, activityService: PurchaseOrderActivityService, realCostService: PurchaseOrderRealCostService, dataSource: DataSource);
+    receive(id: string, dto: ReceivePurchaseOrderDto, tenantId: string, userId: string): Promise<PurchaseOrderBatch>;
+    private finalizeReceivedStatus;
+    private applyReceivedTotals;
+    private recordReceivedStatus;
+    private loadReceivedPurchaseOrder;
+    private assertMeasureUomsExist;
+    private roundMoney;
+}

@@ -1,5 +1,5 @@
 # compiled output
-/dist
+# /dist  — se versiona para deploy (el server no corre nest build)
 /node_modules
 /build
 
