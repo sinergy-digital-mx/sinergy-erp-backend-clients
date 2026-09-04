@@ -25,6 +25,8 @@ const inventory_batch_entity_1 = require("../../../entities/purchase-orders/inve
 const warehouse_entity_1 = require("../../../entities/warehouse/warehouse.entity");
 const inventory_measure_util_1 = require("../utils/inventory-measure.util");
 const inventory_audit_folio_service_1 = require("./inventory-audit-folio.service");
+const inventory_stock_ledger_service_1 = require("./inventory-stock-ledger.service");
+const inventory_stock_ledger_movement_type_enum_1 = require("../../../entities/inventory/inventory-stock-ledger-movement-type.enum");
 const OPEN_STATUSES = [inventory_audit_status_enum_1.InventoryAuditStatus.DRAFT, inventory_audit_status_enum_1.InventoryAuditStatus.SUBMITTED];
 const VARIANCE_EPSILON = 0.001;
 let InventoryAuditService = InventoryAuditService_1 = class InventoryAuditService {
@@ -33,14 +35,16 @@ let InventoryAuditService = InventoryAuditService_1 = class InventoryAuditServic
     batchRepo;
     warehouseRepo;
     folioService;
+    stockLedger;
     dataSource;
     logger = new common_1.Logger(InventoryAuditService_1.name);
-    constructor(auditRepo, lineRepo, batchRepo, warehouseRepo, folioService, dataSource) {
+    constructor(auditRepo, lineRepo, batchRepo, warehouseRepo, folioService, stockLedger, dataSource) {
         this.auditRepo = auditRepo;
         this.lineRepo = lineRepo;
         this.batchRepo = batchRepo;
         this.warehouseRepo = warehouseRepo;
         this.folioService = folioService;
+        this.stockLedger = stockLedger;
         this.dataSource = dataSource;
     }
     async getContext(tenantId, warehouseId, productId) {
@@ -243,6 +247,7 @@ let InventoryAuditService = InventoryAuditService_1 = class InventoryAuditServic
             const lines = await qr.manager.find(inventory_audit_line_entity_1.InventoryAuditLine, {
                 where: { inventory_audit_id: locked.id },
             });
+            const authorizedAt = new Date();
             for (const line of lines) {
                 if (line.counted_quantity === null) {
                     throw new common_1.BadRequestException('Hay líneas sin cantidad contada');
@@ -263,10 +268,26 @@ let InventoryAuditService = InventoryAuditService_1 = class InventoryAuditServic
                 line.quantity_before_post = before;
                 line.quantity_after_post = counted;
                 await qr.manager.save(inventory_audit_line_entity_1.InventoryAuditLine, line);
+                const delta = this.roundQty(counted - before);
+                await this.stockLedger.append({
+                    tenantId,
+                    productId: batch.product_id,
+                    warehouseId: batch.warehouse_id,
+                    uomId: batch.uom_id,
+                    inventoryBatchId: batch.id,
+                    movementType: inventory_stock_ledger_movement_type_enum_1.InventoryStockLedgerMovementType.AUDIT_ADJUSTMENT,
+                    quantityDelta: delta,
+                    occurredAt: authorizedAt,
+                    referenceType: inventory_stock_ledger_service_1.STOCK_LEDGER_REFERENCE.INVENTORY_AUDIT,
+                    referenceId: locked.id,
+                    referenceFolio: locked.folio,
+                    createdBy: userId,
+                    notes: line.reason ?? null,
+                }, qr.manager);
             }
             locked.status = inventory_audit_status_enum_1.InventoryAuditStatus.POSTED;
             locked.authorized_by = userId;
-            locked.authorized_at = new Date();
+            locked.authorized_at = authorizedAt;
             if (dto.notes) {
                 locked.notes = locked.notes
                     ? `${locked.notes}\n\nAutorización: ${dto.notes}`
@@ -631,6 +652,7 @@ exports.InventoryAuditService = InventoryAuditService = InventoryAuditService_1 
         typeorm_2.Repository,
         typeorm_2.Repository,
         inventory_audit_folio_service_1.InventoryAuditFolioService,
+        inventory_stock_ledger_service_1.InventoryStockLedgerService,
         typeorm_2.DataSource])
 ], InventoryAuditService);
 //# sourceMappingURL=inventory-audit.service.js.map

@@ -26,6 +26,8 @@ const warehouse_entity_1 = require("../../../entities/warehouse/warehouse.entity
 const batch_number_generator_service_1 = require("../../purchase-orders/services/batch-number-generator.service");
 const inventory_transfer_folio_service_1 = require("./inventory-transfer-folio.service");
 const inventory_service_1 = require("../inventory.service");
+const inventory_stock_ledger_service_1 = require("./inventory-stock-ledger.service");
+const inventory_stock_ledger_movement_type_enum_1 = require("../../../entities/inventory/inventory-stock-ledger-movement-type.enum");
 const inventory_measure_util_1 = require("../utils/inventory-measure.util");
 let InventoryTransferService = InventoryTransferService_1 = class InventoryTransferService {
     transferRepo;
@@ -34,15 +36,17 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
     folioService;
     batchNumberGenerator;
     inventoryService;
+    stockLedger;
     dataSource;
     logger = new common_1.Logger(InventoryTransferService_1.name);
-    constructor(transferRepo, batchRepo, warehouseRepo, folioService, batchNumberGenerator, inventoryService, dataSource) {
+    constructor(transferRepo, batchRepo, warehouseRepo, folioService, batchNumberGenerator, inventoryService, stockLedger, dataSource) {
         this.transferRepo = transferRepo;
         this.batchRepo = batchRepo;
         this.warehouseRepo = warehouseRepo;
         this.folioService = folioService;
         this.batchNumberGenerator = batchNumberGenerator;
         this.inventoryService = inventoryService;
+        this.stockLedger = stockLedger;
         this.dataSource = dataSource;
     }
     async getTransferContext(tenantId, productId, warehouseId) {
@@ -218,6 +222,35 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
                     destination_inventory_batch_id: destinationBatch.id,
                 });
                 await qr.manager.save(inventory_transfer_line_entity_1.InventoryTransferLine, line);
+                const occurredAt = line.created_at ?? new Date();
+                await this.stockLedger.append({
+                    tenantId,
+                    productId: sourceBatch.product_id,
+                    warehouseId: sourceBatch.warehouse_id,
+                    uomId: sourceBatch.uom_id,
+                    inventoryBatchId: sourceBatch.id,
+                    movementType: inventory_stock_ledger_movement_type_enum_1.InventoryStockLedgerMovementType.TRANSFER_OUT,
+                    quantityDelta: -requested,
+                    occurredAt,
+                    referenceType: inventory_stock_ledger_service_1.STOCK_LEDGER_REFERENCE.INVENTORY_TRANSFER,
+                    referenceId: transfer.id,
+                    referenceFolio: folio,
+                    createdBy: userId,
+                }, qr.manager);
+                await this.stockLedger.append({
+                    tenantId,
+                    productId: destinationBatch.product_id,
+                    warehouseId: destinationBatch.warehouse_id,
+                    uomId: destinationBatch.uom_id,
+                    inventoryBatchId: destinationBatch.id,
+                    movementType: inventory_stock_ledger_movement_type_enum_1.InventoryStockLedgerMovementType.TRANSFER_IN,
+                    quantityDelta: requested,
+                    occurredAt,
+                    referenceType: inventory_stock_ledger_service_1.STOCK_LEDGER_REFERENCE.INVENTORY_TRANSFER,
+                    referenceId: transfer.id,
+                    referenceFolio: folio,
+                    createdBy: userId,
+                }, qr.manager);
             }
             await qr.commitTransaction();
             this.logger.log(`Transfer ${folio} created: ${totalRequested} units from ${dto.source_warehouse_id} to ${dto.destination_warehouse_id}`);
@@ -409,6 +442,7 @@ exports.InventoryTransferService = InventoryTransferService = InventoryTransferS
         inventory_transfer_folio_service_1.InventoryTransferFolioService,
         batch_number_generator_service_1.BatchNumberGeneratorService,
         inventory_service_1.InventoryService,
+        inventory_stock_ledger_service_1.InventoryStockLedgerService,
         typeorm_2.DataSource])
 ], InventoryTransferService);
 //# sourceMappingURL=inventory-transfer.service.js.map

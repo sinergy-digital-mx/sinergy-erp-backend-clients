@@ -11,11 +11,17 @@ import { InventoryLocationTreeResponseDto } from './dto/inventory-location-tree-
 import { InventoryStatsFilterDto } from './dto/inventory-stats-filter.dto';
 import { InventoryStatsResponseDto } from './dto/inventory-stats-response.dto';
 import { InventoryExportService } from './services/inventory-export.service';
+import { InventoryStockFlowService } from './services/inventory-stock-flow.service';
 import { QueryInventoryBatchExportDto, QueryInventorySummaryExportDto } from './dto/query-inventory-export.dto';
+import { QueryStockFlowDto } from './dto/query-stock-flow.dto';
+import { StockFlowResponseDto } from './dto/stock-flow-response.dto';
 export declare class InventoryController {
     private readonly inventoryService;
     private readonly exportService;
-    constructor(inventoryService: InventoryService, exportService: InventoryExportService);
+    private readonly stockFlowService;
+    constructor(inventoryService: InventoryService, exportService: InventoryExportService, stockFlowService: InventoryStockFlowService);
+    getStockFlow(filters: QueryStockFlowDto, req: any): Promise<StockFlowResponseDto>;
+    exportStockFlowExcel(filters: QueryStockFlowDto, req: any, res: any): Promise<void>;
     exportBatchesExcel(filters: QueryInventoryBatchExportDto, req: any, res: any): Promise<void>;
     exportSummaryExcel(filters: QueryInventorySummaryExportDto, req: any, res: any): Promise<void>;
     getLocations(req: any): Promise<InventoryLocationTreeResponseDto>;

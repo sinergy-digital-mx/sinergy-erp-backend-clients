@@ -21,6 +21,7 @@ const vendor_entity_1 = require("../../entities/vendor/vendor.entity");
 const uom_catalog_entity_1 = require("../../entities/uom-catalog/uom-catalog.entity");
 const inventory_batch_entity_1 = require("../../entities/purchase-orders/inventory-batch.entity");
 const purchase_orders_module_1 = require("../purchase-orders/purchase-orders.module");
+const inventory_stock_ledger_module_1 = require("../inventory/inventory-stock-ledger.module");
 const rbac_module_1 = require("../rbac/rbac.module");
 const madereria_inventory_import_controller_1 = require("./madereria-inventory-import.controller");
 const madereria_inventory_import_service_1 = require("./madereria-inventory-import.service");
@@ -44,6 +45,7 @@ exports.MadereriaInventoryImportModule = MadereriaInventoryImportModule = __deco
                 inventory_batch_entity_1.InventoryBatch,
             ]),
             purchase_orders_module_1.PurchaseOrdersModule,
+            inventory_stock_ledger_module_1.InventoryStockLedgerModule,
             rbac_module_1.RBACModule,
         ],
         controllers: [madereria_inventory_import_controller_1.MadereriaInventoryImportController],

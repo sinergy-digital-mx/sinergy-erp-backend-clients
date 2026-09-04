@@ -26,6 +26,7 @@ const uom_catalog_entity_1 = require("../../entities/uom-catalog/uom-catalog.ent
 const vendor_entity_1 = require("../../entities/vendor/vendor.entity");
 const rbac_1 = require("../../entities/rbac");
 const auth_module_1 = require("../auth/auth.module");
+const inventory_stock_ledger_module_1 = require("../inventory/inventory-stock-ledger.module");
 const s3_service_1 = require("../../common/services/s3.service");
 const controllers_1 = require("./controllers");
 const services_1 = require("./services");
@@ -64,6 +65,7 @@ exports.PurchaseOrdersModule = PurchaseOrdersModule = __decorate([
                 rbac_1.Module,
             ]),
             auth_module_1.AuthModule,
+            inventory_stock_ledger_module_1.InventoryStockLedgerModule,
         ],
         controllers: [controllers_1.PurchaseOrderController, controllers_1.VendorProductsController, controllers_1.PurchaseOrderDocumentsController, controllers_1.ReceiptController, controllers_1.InventoryBatchController],
         providers: [

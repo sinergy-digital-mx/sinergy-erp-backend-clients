@@ -18,15 +18,19 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const inventory_batch_entity_1 = require("../../../entities/purchase-orders/inventory-batch.entity");
+const inventory_stock_ledger_movement_type_enum_1 = require("../../../entities/inventory/inventory-stock-ledger-movement-type.enum");
 const batch_number_generator_service_1 = require("./batch-number-generator.service");
 const inventory_measure_util_1 = require("../../inventory/utils/inventory-measure.util");
+const inventory_stock_ledger_service_1 = require("../../inventory/services/inventory-stock-ledger.service");
 let BatchCreatorService = BatchCreatorService_1 = class BatchCreatorService {
     inventoryBatchRepository;
     batchNumberGeneratorService;
+    stockLedger;
     logger = new common_1.Logger(BatchCreatorService_1.name);
-    constructor(inventoryBatchRepository, batchNumberGeneratorService) {
+    constructor(inventoryBatchRepository, batchNumberGeneratorService, stockLedger) {
         this.inventoryBatchRepository = inventoryBatchRepository;
         this.batchNumberGeneratorService = batchNumberGeneratorService;
+        this.stockLedger = stockLedger;
     }
     async createBatchForReceivedItem(receivedItem, purchaseOrder, purchaseOrderDetailId, userId, productUoms, sourceTagIdentifier, manager) {
         try {
@@ -65,6 +69,20 @@ let BatchCreatorService = BatchCreatorService_1 = class BatchCreatorService {
                 created_at: new Date(),
             });
             const savedBatch = await repo.save(batch);
+            await this.stockLedger.append({
+                tenantId: purchaseOrder.tenant_id,
+                productId: savedBatch.product_id,
+                warehouseId: savedBatch.warehouse_id,
+                uomId: savedBatch.uom_id,
+                inventoryBatchId: savedBatch.id,
+                movementType: inventory_stock_ledger_movement_type_enum_1.InventoryStockLedgerMovementType.PURCHASE_RECEIPT,
+                quantityDelta: parseFloat(String(convertedQuantity)),
+                occurredAt: savedBatch.created_at ?? new Date(),
+                referenceType: inventory_stock_ledger_service_1.STOCK_LEDGER_REFERENCE.PURCHASE_ORDER,
+                referenceId: purchaseOrder.id,
+                referenceFolio: purchaseOrder.folio ?? null,
+                createdBy: userId,
+            }, manager);
             this.logger.log(`Batch created: ${batchNumber} for product ${receivedItem.product_id}`);
             return savedBatch;
         }
@@ -79,6 +97,7 @@ exports.BatchCreatorService = BatchCreatorService = BatchCreatorService_1 = __de
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(inventory_batch_entity_1.InventoryBatch)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
-        batch_number_generator_service_1.BatchNumberGeneratorService])
+        batch_number_generator_service_1.BatchNumberGeneratorService,
+        inventory_stock_ledger_service_1.InventoryStockLedgerService])
 ], BatchCreatorService);
 //# sourceMappingURL=batch-creator.service.js.map

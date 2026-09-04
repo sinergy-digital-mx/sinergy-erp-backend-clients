@@ -3,10 +3,12 @@ import { InventoryBatch } from '../../../entities/purchase-orders/inventory-batc
 import { PurchaseOrderBatch } from '../../../entities/purchase-orders/purchase-order-batch.entity';
 import { ReceivedItemDto } from '../dto/receive-purchase-order.dto';
 import { BatchNumberGeneratorService } from './batch-number-generator.service';
+import { InventoryStockLedgerService } from '../../inventory/services/inventory-stock-ledger.service';
 export declare class BatchCreatorService {
     private readonly inventoryBatchRepository;
     private readonly batchNumberGeneratorService;
+    private readonly stockLedger;
     private readonly logger;
-    constructor(inventoryBatchRepository: Repository<InventoryBatch>, batchNumberGeneratorService: BatchNumberGeneratorService);
+    constructor(inventoryBatchRepository: Repository<InventoryBatch>, batchNumberGeneratorService: BatchNumberGeneratorService, stockLedger: InventoryStockLedgerService);
     createBatchForReceivedItem(receivedItem: ReceivedItemDto, purchaseOrder: PurchaseOrderBatch, purchaseOrderDetailId: string, userId: string, productUoms?: any[], sourceTagIdentifier?: string, manager?: EntityManager): Promise<InventoryBatch>;
 }

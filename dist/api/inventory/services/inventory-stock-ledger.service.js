@@ -1,0 +1,106 @@
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.InventoryStockLedgerService = exports.STOCK_LEDGER_REFERENCE = void 0;
+const common_1 = require("@nestjs/common");
+const typeorm_1 = require("@nestjs/typeorm");
+const typeorm_2 = require("typeorm");
+const inventory_stock_ledger_entity_1 = require("../../../entities/inventory/inventory-stock-ledger.entity");
+exports.STOCK_LEDGER_REFERENCE = {
+    PURCHASE_ORDER: 'purchase_order',
+    SALES_ORDER: 'sales_order',
+    INVENTORY_TRANSFER: 'inventory_transfer',
+    INVENTORY_AUDIT: 'inventory_audit',
+    INVENTORY_BATCH: 'inventory_batch',
+};
+function roundQty(value) {
+    return parseFloat(value.toFixed(3));
+}
+let InventoryStockLedgerService = class InventoryStockLedgerService {
+    ledgerRepo;
+    constructor(ledgerRepo) {
+        this.ledgerRepo = ledgerRepo;
+    }
+    async append(params, manager) {
+        const delta = roundQty(params.quantityDelta);
+        if (delta === 0) {
+            return null;
+        }
+        const repo = manager
+            ? manager.getRepository(inventory_stock_ledger_entity_1.InventoryStockLedger)
+            : this.ledgerRepo;
+        const previousBalance = await this.getLastBalance({
+            tenantId: params.tenantId,
+            productId: params.productId,
+            warehouseId: params.warehouseId,
+            uomId: params.uomId,
+        }, manager);
+        const balanceAfter = roundQty(previousBalance + delta);
+        const occurredAt = params.occurredAt ?? new Date();
+        const row = repo.create({
+            tenant_id: params.tenantId,
+            product_id: params.productId,
+            warehouse_id: params.warehouseId,
+            uom_id: params.uomId,
+            inventory_batch_id: params.inventoryBatchId ?? null,
+            movement_type: params.movementType,
+            quantity_delta: delta,
+            balance_after: balanceAfter,
+            occurred_at: occurredAt,
+            reference_type: params.referenceType ?? null,
+            reference_id: params.referenceId ?? null,
+            reference_folio: params.referenceFolio ?? null,
+            created_by: params.createdBy ?? null,
+            notes: params.notes ?? null,
+        });
+        return repo.save(row);
+    }
+    async getLastBalance(key, manager) {
+        const repo = manager
+            ? manager.getRepository(inventory_stock_ledger_entity_1.InventoryStockLedger)
+            : this.ledgerRepo;
+        const qb = repo
+            .createQueryBuilder('ledger')
+            .where('ledger.tenant_id = :tenantId', { tenantId: key.tenantId })
+            .andWhere('ledger.product_id = :productId', { productId: key.productId })
+            .andWhere('ledger.warehouse_id = :warehouseId', {
+            warehouseId: key.warehouseId,
+        })
+            .andWhere('ledger.uom_id = :uomId', { uomId: key.uomId })
+            .orderBy('ledger.occurred_at', 'DESC')
+            .addOrderBy('ledger.created_at', 'DESC')
+            .addOrderBy('ledger.id', 'DESC');
+        if (manager) {
+            qb.setLock('pessimistic_write');
+        }
+        const last = await qb.getOne();
+        if (!last) {
+            return 0;
+        }
+        return roundQty(parseFloat(String(last.balance_after ?? 0)));
+    }
+    async countForTenant(tenantId, manager) {
+        const repo = manager
+            ? manager.getRepository(inventory_stock_ledger_entity_1.InventoryStockLedger)
+            : this.ledgerRepo;
+        return repo.count({ where: { tenant_id: tenantId } });
+    }
+};
+exports.InventoryStockLedgerService = InventoryStockLedgerService;
+exports.InventoryStockLedgerService = InventoryStockLedgerService = __decorate([
+    (0, common_1.Injectable)(),
+    __param(0, (0, typeorm_1.InjectRepository)(inventory_stock_ledger_entity_1.InventoryStockLedger)),
+    __metadata("design:paramtypes", [typeorm_2.Repository])
+], InventoryStockLedgerService);
+//# sourceMappingURL=inventory-stock-ledger.service.js.map

@@ -1,0 +1,31 @@
+import { RBACTenant } from '../rbac/tenant.entity';
+import { Product } from '../products/product.entity';
+import { Warehouse } from '../warehouse/warehouse.entity';
+import { UoMCatalog } from '../uom-catalog/uom-catalog.entity';
+import { InventoryBatch } from '../purchase-orders/inventory-batch.entity';
+import { User } from '../users/user.entity';
+import { InventoryStockLedgerMovementType } from './inventory-stock-ledger-movement-type.enum';
+export declare class InventoryStockLedger {
+    id: string;
+    tenant: RBACTenant;
+    tenant_id: string;
+    product: Product;
+    product_id: string;
+    warehouse: Warehouse;
+    warehouse_id: string;
+    uom: UoMCatalog;
+    uom_id: string;
+    inventory_batch: InventoryBatch | null;
+    inventory_batch_id: string | null;
+    movement_type: InventoryStockLedgerMovementType;
+    quantity_delta: number;
+    balance_after: number;
+    occurred_at: Date;
+    reference_type: string | null;
+    reference_id: string | null;
+    reference_folio: string | null;
+    created_by_user: User | null;
+    created_by: string | null;
+    notes: string | null;
+    created_at: Date;
+}

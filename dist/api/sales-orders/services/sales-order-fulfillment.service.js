@@ -18,12 +18,18 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const inventory_batch_entity_1 = require("../../../entities/purchase-orders/inventory-batch.entity");
+const sales_order_entity_1 = require("../../../entities/sales-orders/sales-order.entity");
+const sales_order_detail_entity_1 = require("../../../entities/sales-orders/sales-order-detail.entity");
 const sales_order_batch_allocation_entity_1 = require("../../../entities/sales-orders/sales-order-batch-allocation.entity");
+const inventory_stock_ledger_movement_type_enum_1 = require("../../../entities/inventory/inventory-stock-ledger-movement-type.enum");
+const inventory_stock_ledger_service_1 = require("../../inventory/services/inventory-stock-ledger.service");
 let SalesOrderFulfillmentService = SalesOrderFulfillmentService_1 = class SalesOrderFulfillmentService {
     batchRepo;
+    stockLedger;
     logger = new common_1.Logger(SalesOrderFulfillmentService_1.name);
-    constructor(batchRepo) {
+    constructor(batchRepo, stockLedger) {
         this.batchRepo = batchRepo;
+        this.stockLedger = stockLedger;
     }
     async allocateFifo(detail, userId, manager, scope, quantityBase) {
         const needed = parseFloat((quantityBase ?? detail.quantity_base_uom).toString());
@@ -53,6 +59,7 @@ let SalesOrderFulfillmentService = SalesOrderFulfillmentService_1 = class SalesO
             throw new common_1.BadRequestException(`Stock insuficiente para el producto ${detail.product_id}. ` +
                 `Requerido: ${needed}, disponible: ${totalAvailable}`);
         }
+        const salesOrder = await this.resolveSalesOrder(detail, manager);
         const allocations = [];
         let remaining = needed;
         for (const batch of batches) {
@@ -70,6 +77,20 @@ let SalesOrderFulfillmentService = SalesOrderFulfillmentService_1 = class SalesO
             });
             await manager.save(sales_order_batch_allocation_entity_1.SalesOrderBatchAllocation, allocation);
             allocations.push(allocation);
+            await this.stockLedger.append({
+                tenantId: batch.tenant_id,
+                productId: batch.product_id,
+                warehouseId: batch.warehouse_id,
+                uomId: batch.uom_id,
+                inventoryBatchId: batch.id,
+                movementType: inventory_stock_ledger_movement_type_enum_1.InventoryStockLedgerMovementType.SALE,
+                quantityDelta: -take,
+                occurredAt: allocation.created_at ?? new Date(),
+                referenceType: inventory_stock_ledger_service_1.STOCK_LEDGER_REFERENCE.SALES_ORDER,
+                referenceId: salesOrder?.id ?? detail.sales_order_id,
+                referenceFolio: salesOrder?.folio ?? null,
+                createdBy: userId,
+            }, manager);
             this.logger.log(`FIFO alloc: batch ${batch.batch_number} → ${take} units (remaining: ${remaining - take})`);
             remaining = parseFloat((remaining - take).toFixed(3));
         }
@@ -90,14 +111,55 @@ let SalesOrderFulfillmentService = SalesOrderFulfillmentService_1 = class SalesO
             const qty = parseFloat(alloc.quantity_allocated.toString());
             batch.available_quantity = parseFloat((current + qty).toFixed(3));
             await manager.save(inventory_batch_entity_1.InventoryBatch, batch);
+            const salesMeta = await this.resolveSalesMetaFromAllocation(alloc, manager);
+            await this.stockLedger.append({
+                tenantId: batch.tenant_id,
+                productId: batch.product_id,
+                warehouseId: batch.warehouse_id,
+                uomId: batch.uom_id,
+                inventoryBatchId: batch.id,
+                movementType: inventory_stock_ledger_movement_type_enum_1.InventoryStockLedgerMovementType.SALE_REVERSAL,
+                quantityDelta: qty,
+                occurredAt: new Date(),
+                referenceType: inventory_stock_ledger_service_1.STOCK_LEDGER_REFERENCE.SALES_ORDER,
+                referenceId: salesMeta.salesOrderId,
+                referenceFolio: salesMeta.folio,
+                createdBy: alloc.created_by ?? null,
+            }, manager);
         }
         await manager.remove(sales_order_batch_allocation_entity_1.SalesOrderBatchAllocation, allocations);
+    }
+    async resolveSalesOrder(detail, manager) {
+        if (detail.sales_order?.folio) {
+            return detail.sales_order;
+        }
+        if (!detail.sales_order_id) {
+            return null;
+        }
+        return manager.findOne(sales_order_entity_1.SalesOrder, { where: { id: detail.sales_order_id } });
+    }
+    async resolveSalesMetaFromAllocation(alloc, manager) {
+        const detail = alloc.sales_order_detail ??
+            (await manager.findOne(sales_order_detail_entity_1.SalesOrderDetail, {
+                where: { id: alloc.sales_order_detail_id },
+                relations: ['sales_order'],
+            }));
+        if (!detail) {
+            return { salesOrderId: null, folio: null };
+        }
+        const so = detail.sales_order ??
+            (await manager.findOne(sales_order_entity_1.SalesOrder, { where: { id: detail.sales_order_id } }));
+        return {
+            salesOrderId: detail.sales_order_id,
+            folio: so?.folio ?? null,
+        };
     }
 };
 exports.SalesOrderFulfillmentService = SalesOrderFulfillmentService;
 exports.SalesOrderFulfillmentService = SalesOrderFulfillmentService = SalesOrderFulfillmentService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(inventory_batch_entity_1.InventoryBatch)),
-    __metadata("design:paramtypes", [typeorm_2.Repository])
+    __metadata("design:paramtypes", [typeorm_2.Repository,
+        inventory_stock_ledger_service_1.InventoryStockLedgerService])
 ], SalesOrderFulfillmentService);
 //# sourceMappingURL=sales-order-fulfillment.service.js.map

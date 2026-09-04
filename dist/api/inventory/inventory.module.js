@@ -37,6 +37,9 @@ const inventory_export_service_1 = require("./services/inventory-export.service"
 const inventory_audit_folio_service_1 = require("./services/inventory-audit-folio.service");
 const inventory_audit_service_1 = require("./services/inventory-audit.service");
 const inventory_batch_movements_service_1 = require("./services/inventory-batch-movements.service");
+const inventory_stock_flow_service_1 = require("./services/inventory-stock-flow.service");
+const inventory_stock_ledger_module_1 = require("./inventory-stock-ledger.module");
+const inventory_stock_ledger_entity_1 = require("../../entities/inventory/inventory-stock-ledger.entity");
 const rbac_module_1 = require("../rbac/rbac.module");
 const purchase_orders_module_1 = require("../purchase-orders/purchase-orders.module");
 let InventoryModule = class InventoryModule {
@@ -62,9 +65,11 @@ exports.InventoryModule = InventoryModule = __decorate([
                 fiscal_configuration_entity_1.FiscalConfiguration,
                 billing_branch_entity_1.BillingBranch,
                 uom_catalog_entity_1.UoMCatalog,
+                inventory_stock_ledger_entity_1.InventoryStockLedger,
             ]),
             rbac_module_1.RBACModule,
             purchase_orders_module_1.PurchaseOrdersModule,
+            inventory_stock_ledger_module_1.InventoryStockLedgerModule,
         ],
         providers: [
             inventory_service_1.InventoryService,
@@ -75,10 +80,16 @@ exports.InventoryModule = InventoryModule = __decorate([
             inventory_audit_folio_service_1.InventoryAuditFolioService,
             inventory_audit_service_1.InventoryAuditService,
             inventory_batch_movements_service_1.InventoryBatchMovementsService,
+            inventory_stock_flow_service_1.InventoryStockFlowService,
             s3_service_1.S3Service,
         ],
         controllers: [inventory_controller_1.InventoryController, inventory_transfer_controller_1.InventoryTransferController, inventory_audit_controller_1.InventoryAuditController],
-        exports: [inventory_service_1.InventoryService, inventory_transfer_service_1.InventoryTransferService, inventory_audit_service_1.InventoryAuditService],
+        exports: [
+            inventory_service_1.InventoryService,
+            inventory_transfer_service_1.InventoryTransferService,
+            inventory_audit_service_1.InventoryAuditService,
+            inventory_stock_ledger_module_1.InventoryStockLedgerModule,
+        ],
     })
 ], InventoryModule);
 //# sourceMappingURL=inventory.module.js.map

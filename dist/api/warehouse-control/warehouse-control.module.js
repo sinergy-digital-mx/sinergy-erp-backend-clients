@@ -17,6 +17,7 @@ const billing_branch_entity_1 = require("../../entities/billing/billing-branch.e
 const warehouse_entity_1 = require("../../entities/warehouse/warehouse.entity");
 const rbac_1 = require("../../entities/rbac");
 const control_desk_1 = require("../../entities/control-desk");
+const inventory_stock_ledger_module_1 = require("../inventory/inventory-stock-ledger.module");
 const auth_module_1 = require("../auth/auth.module");
 const rbac_module_1 = require("../rbac/rbac.module");
 const tenant_module_validation_guard_1 = require("../auth/tenant-module-validation.guard");
@@ -47,6 +48,7 @@ exports.WarehouseControlModule = WarehouseControlModule = __decorate([
             ]),
             auth_module_1.AuthModule,
             rbac_module_1.RBACModule,
+            inventory_stock_ledger_module_1.InventoryStockLedgerModule,
         ],
         controllers: [warehouse_control_controller_1.WarehouseControlController],
         providers: [

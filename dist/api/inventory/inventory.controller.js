@@ -30,13 +30,28 @@ const inventory_location_tree_response_dto_1 = require("./dto/inventory-location
 const inventory_stats_filter_dto_1 = require("./dto/inventory-stats-filter.dto");
 const inventory_stats_response_dto_1 = require("./dto/inventory-stats-response.dto");
 const inventory_export_service_1 = require("./services/inventory-export.service");
+const inventory_stock_flow_service_1 = require("./services/inventory-stock-flow.service");
 const query_inventory_export_dto_1 = require("./dto/query-inventory-export.dto");
+const query_stock_flow_dto_1 = require("./dto/query-stock-flow.dto");
+const stock_flow_response_dto_1 = require("./dto/stock-flow-response.dto");
 let InventoryController = class InventoryController {
     inventoryService;
     exportService;
-    constructor(inventoryService, exportService) {
+    stockFlowService;
+    constructor(inventoryService, exportService, stockFlowService) {
         this.inventoryService = inventoryService;
         this.exportService = exportService;
+        this.stockFlowService = stockFlowService;
+    }
+    async getStockFlow(filters, req) {
+        return this.stockFlowService.getReport(req.user.tenant_id, filters);
+    }
+    async exportStockFlowExcel(filters, req, res) {
+        const buffer = await this.stockFlowService.exportExcel(req.user.tenant_id, filters);
+        const view = filters.view ?? query_stock_flow_dto_1.StockFlowView.SUMMARY;
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${this.stockFlowService.getFilename(view)}"`);
+        res.send(buffer);
     }
     async exportBatchesExcel(filters, req, res) {
         const buffer = await this.exportService.exportBatches(req.user.tenant_id, filters);
@@ -84,6 +99,31 @@ let InventoryController = class InventoryController {
     }
 };
 exports.InventoryController = InventoryController;
+__decorate([
+    (0, common_1.Get)('stock-flow'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'inventory', action: 'StockFlow' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Reporte de existencia / kardex (TRK-017 + TRK-018)',
+        description: 'Resumen (apertura/compras/ventas/cierre) o flujo detallado por rango de fechas. Permiso inventory:StockFlow.',
+    }),
+    (0, swagger_1.ApiResponse)({ status: 200, type: stock_flow_response_dto_1.StockFlowResponseDto }),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [query_stock_flow_dto_1.QueryStockFlowDto, Object]),
+    __metadata("design:returntype", Promise)
+], InventoryController.prototype, "getStockFlow", null);
+__decorate([
+    (0, common_1.Get)('stock-flow/export/excel'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'inventory', action: 'StockFlow' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Excel del reporte de existencia' }),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Req)()),
+    __param(2, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [query_stock_flow_dto_1.QueryStockFlowDto, Object, Object]),
+    __metadata("design:returntype", Promise)
+], InventoryController.prototype, "exportStockFlowExcel", null);
 __decorate([
     (0, common_1.Get)('export/excel/batches'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'inventory', action: 'read' }),
@@ -299,6 +339,7 @@ exports.InventoryController = InventoryController = __decorate([
     (0, swagger_1.ApiBearerAuth)(),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     __metadata("design:paramtypes", [inventory_service_1.InventoryService,
-        inventory_export_service_1.InventoryExportService])
+        inventory_export_service_1.InventoryExportService,
+        inventory_stock_flow_service_1.InventoryStockFlowService])
 ], InventoryController);
 //# sourceMappingURL=inventory.controller.js.map

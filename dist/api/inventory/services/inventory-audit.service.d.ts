@@ -12,15 +12,17 @@ import { QueryInventoryAuditDto } from '../dto/query-inventory-audit.dto';
 import { RejectInventoryAuditDto } from '../dto/reject-inventory-audit.dto';
 import { UpdateInventoryAuditLinesDto } from '../dto/update-inventory-audit-lines.dto';
 import { InventoryAuditFolioService } from './inventory-audit-folio.service';
+import { InventoryStockLedgerService } from './inventory-stock-ledger.service';
 export declare class InventoryAuditService {
     private readonly auditRepo;
     private readonly lineRepo;
     private readonly batchRepo;
     private readonly warehouseRepo;
     private readonly folioService;
+    private readonly stockLedger;
     private readonly dataSource;
     private readonly logger;
-    constructor(auditRepo: Repository<InventoryAudit>, lineRepo: Repository<InventoryAuditLine>, batchRepo: Repository<InventoryBatch>, warehouseRepo: Repository<Warehouse>, folioService: InventoryAuditFolioService, dataSource: DataSource);
+    constructor(auditRepo: Repository<InventoryAudit>, lineRepo: Repository<InventoryAuditLine>, batchRepo: Repository<InventoryBatch>, warehouseRepo: Repository<Warehouse>, folioService: InventoryAuditFolioService, stockLedger: InventoryStockLedgerService, dataSource: DataSource);
     getContext(tenantId: string, warehouseId: string, productId?: string): Promise<InventoryAuditContextResponseDto>;
     create(dto: CreateInventoryAuditDto, tenantId: string, userId: string): Promise<InventoryAuditResponseDto>;
     updateLines(id: string, dto: UpdateInventoryAuditLinesDto, tenantId: string, userId: string): Promise<InventoryAuditResponseDto>;
