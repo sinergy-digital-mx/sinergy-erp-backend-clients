@@ -1,6 +1,9 @@
 import { DataSource, Repository } from 'typeorm';
 import { SalesOrder } from '../../../entities/sales-orders/sales-order.entity';
+import { SalesOrderSaleScope } from '../../../entities/sales-orders/sales-order-sale-scope.enum';
 import { SalesOrderDetail } from '../../../entities/sales-orders/sales-order-detail.entity';
+import { Product } from '../../../entities/products/product.entity';
+import { ProductItemKind } from '../../../entities/products/product-item-kind.enum';
 import { SalesOrderBatchAllocation } from '../../../entities/sales-orders/sales-order-batch-allocation.entity';
 import { SalesOrderPayment } from '../../../entities/sales-orders/sales-order-payment.entity';
 import { SalesOrderPaymentDocument } from '../../../entities/sales-orders/sales-order-payment-document.entity';
@@ -111,6 +114,7 @@ export declare class SalesOrderService {
             general_status: string;
             notes: string | null;
             converted_from_quotation_id: string | null;
+            sale_scope: SalesOrderSaleScope;
             requires_selection_assembly: boolean;
             corroborator: User | null;
             corroborated_by: string | null;
@@ -455,6 +459,7 @@ export declare class SalesOrderService {
             general_status: string;
             notes: string | null;
             converted_from_quotation_id: string | null;
+            sale_scope: SalesOrderSaleScope;
             requires_selection_assembly: boolean;
             corroborator: User | null;
             corroborated_by: string | null;
@@ -482,6 +487,7 @@ export declare class SalesOrderService {
         };
         sales_order: {
             line_items: {
+                item_kind: ProductItemKind;
                 line_subtotal: number;
                 line_discount_amount: number;
                 line_iva: number;
@@ -496,7 +502,7 @@ export declare class SalesOrderService {
                 id: string;
                 sales_order: SalesOrder;
                 sales_order_id: string;
-                product: import("../../../entities/products").Product;
+                product: Product;
                 product_id: string;
                 product_uom: import("../../../entities/products").ProductUoM;
                 product_uom_id: string;
@@ -541,6 +547,7 @@ export declare class SalesOrderService {
             general_status: string;
             notes: string | null;
             converted_from_quotation_id: string | null;
+            sale_scope: SalesOrderSaleScope;
             requires_selection_assembly: boolean;
             corroborator: User | null;
             corroborated_by: string | null;
@@ -1088,6 +1095,7 @@ export declare class SalesOrderService {
             general_status: string;
             notes: string | null;
             converted_from_quotation_id: string | null;
+            sale_scope: SalesOrderSaleScope;
             requires_selection_assembly: boolean;
             corroborator: User | null;
             corroborated_by: string | null;
@@ -1115,6 +1123,7 @@ export declare class SalesOrderService {
         };
         sales_order: {
             line_items: {
+                item_kind: ProductItemKind;
                 line_subtotal: number;
                 line_discount_amount: number;
                 line_iva: number;
@@ -1129,7 +1138,7 @@ export declare class SalesOrderService {
                 id: string;
                 sales_order: SalesOrder;
                 sales_order_id: string;
-                product: import("../../../entities/products").Product;
+                product: Product;
                 product_id: string;
                 product_uom: import("../../../entities/products").ProductUoM;
                 product_uom_id: string;
@@ -1174,6 +1183,7 @@ export declare class SalesOrderService {
             general_status: string;
             notes: string | null;
             converted_from_quotation_id: string | null;
+            sale_scope: SalesOrderSaleScope;
             requires_selection_assembly: boolean;
             corroborator: User | null;
             corroborated_by: string | null;
@@ -1595,6 +1605,7 @@ export declare class SalesOrderService {
             general_status: string;
             notes: string | null;
             converted_from_quotation_id: string | null;
+            sale_scope: SalesOrderSaleScope;
             requires_selection_assembly: boolean;
             corroborator: User | null;
             corroborated_by: string | null;
@@ -1622,6 +1633,7 @@ export declare class SalesOrderService {
         };
         sales_order: {
             line_items: {
+                item_kind: ProductItemKind;
                 line_subtotal: number;
                 line_discount_amount: number;
                 line_iva: number;
@@ -1636,7 +1648,7 @@ export declare class SalesOrderService {
                 id: string;
                 sales_order: SalesOrder;
                 sales_order_id: string;
-                product: import("../../../entities/products").Product;
+                product: Product;
                 product_id: string;
                 product_uom: import("../../../entities/products").ProductUoM;
                 product_uom_id: string;
@@ -1681,6 +1693,7 @@ export declare class SalesOrderService {
             general_status: string;
             notes: string | null;
             converted_from_quotation_id: string | null;
+            sale_scope: SalesOrderSaleScope;
             requires_selection_assembly: boolean;
             corroborator: User | null;
             corroborated_by: string | null;
@@ -1802,6 +1815,9 @@ export declare class SalesOrderService {
     updateLineItem(orderId: string, lineItemId: string, dto: UpdateSalesOrderLineItemDto, tenantId: string, userId: string): Promise<void>;
     removeLineItem(orderId: string, lineItemId: string, tenantId: string, userId: string): Promise<void>;
     private fulfillOrderLines;
+    private assertLineItemsMatchSaleScope;
+    private loadProductKinds;
+    private filterGoodsDetails;
     private insertSalesOrderLineItems;
     private resolveCanEditLines;
     private assertLineItemsEditable;

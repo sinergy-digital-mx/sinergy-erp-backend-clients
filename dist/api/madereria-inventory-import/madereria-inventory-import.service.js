@@ -32,6 +32,7 @@ const uom_catalog_entity_1 = require("../../entities/uom-catalog/uom-catalog.ent
 const inventory_batch_entity_1 = require("../../entities/purchase-orders/inventory-batch.entity");
 const batch_number_generator_service_1 = require("../purchase-orders/services/batch-number-generator.service");
 const inventory_stock_ledger_service_1 = require("../inventory/services/inventory-stock-ledger.service");
+const inventory_stock_ledger_valuation_service_1 = require("../inventory/services/inventory-stock-ledger-valuation.service");
 const inventory_stock_ledger_movement_type_enum_1 = require("../../entities/inventory/inventory-stock-ledger-movement-type.enum");
 const madereria_inventory_import_constants_1 = require("./madereria-inventory-import.constants");
 const excel_inventory_parser_1 = require("./excel-inventory.parser");
@@ -43,14 +44,16 @@ let MadereriaInventoryImportService = MadereriaInventoryImportService_1 = class 
     warehouseRepository;
     batchNumberGenerator;
     stockLedger;
+    stockLedgerValuation;
     logger = new common_1.Logger(MadereriaInventoryImportService_1.name);
-    constructor(dataSource, fiscalRepository, branchRepository, warehouseRepository, batchNumberGenerator, stockLedger) {
+    constructor(dataSource, fiscalRepository, branchRepository, warehouseRepository, batchNumberGenerator, stockLedger, stockLedgerValuation) {
         this.dataSource = dataSource;
         this.fiscalRepository = fiscalRepository;
         this.branchRepository = branchRepository;
         this.warehouseRepository = warehouseRepository;
         this.batchNumberGenerator = batchNumberGenerator;
         this.stockLedger = stockLedger;
+        this.stockLedgerValuation = stockLedgerValuation;
     }
     assertOrganization(organizationId) {
         if (organizationId !== madereria_inventory_import_constants_1.MADERERIA_ORGANIZATION_ID) {
@@ -294,6 +297,7 @@ let MadereriaInventoryImportService = MadereriaInventoryImportService_1 = class 
             inventoryBatchId: savedBatch.id,
             movementType: inventory_stock_ledger_movement_type_enum_1.InventoryStockLedgerMovementType.IMPORT,
             quantityDelta: row.quantity,
+            ...this.stockLedgerValuation.mapFromImport(row.cost, row.price),
             occurredAt: savedBatch.created_at ?? new Date(),
             referenceType: inventory_stock_ledger_service_1.STOCK_LEDGER_REFERENCE.INVENTORY_BATCH,
             referenceId: savedBatch.id,
@@ -494,6 +498,7 @@ exports.MadereriaInventoryImportService = MadereriaInventoryImportService = Made
         typeorm_2.Repository,
         typeorm_2.Repository,
         batch_number_generator_service_1.BatchNumberGeneratorService,
-        inventory_stock_ledger_service_1.InventoryStockLedgerService])
+        inventory_stock_ledger_service_1.InventoryStockLedgerService,
+        inventory_stock_ledger_valuation_service_1.InventoryStockLedgerValuationService])
 ], MadereriaInventoryImportService);
 //# sourceMappingURL=madereria-inventory-import.service.js.map

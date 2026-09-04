@@ -19,7 +19,10 @@ const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const uuid_1 = require("uuid");
 const sales_order_entity_1 = require("../../../entities/sales-orders/sales-order.entity");
+const sales_order_sale_scope_enum_1 = require("../../../entities/sales-orders/sales-order-sale-scope.enum");
 const sales_order_detail_entity_1 = require("../../../entities/sales-orders/sales-order-detail.entity");
+const product_entity_1 = require("../../../entities/products/product.entity");
+const product_item_kind_enum_1 = require("../../../entities/products/product-item-kind.enum");
 const sales_order_batch_allocation_entity_1 = require("../../../entities/sales-orders/sales-order-batch-allocation.entity");
 const sales_order_payment_entity_1 = require("../../../entities/sales-orders/sales-order-payment.entity");
 const sales_order_payment_document_entity_1 = require("../../../entities/sales-orders/sales-order-payment-document.entity");
@@ -49,6 +52,7 @@ const warehouse_entity_1 = require("../../../entities/warehouse/warehouse.entity
 const control_desk_lifecycle_service_1 = require("../../warehouse-control/control-desk-lifecycle.service");
 const warehouse_control_service_1 = require("../../warehouse-control/warehouse-control.service");
 const sales_order_payment_display_util_1 = require("../utils/sales-order-payment-display.util");
+const sale_scope_util_1 = require("../utils/sale-scope.util");
 const sales_order_collection_channel_util_1 = require("../utils/sales-order-collection-channel.util");
 let SalesOrderService = class SalesOrderService {
     static { SalesOrderService_1 = this; }
@@ -252,7 +256,15 @@ let SalesOrderService = class SalesOrderService {
         try {
             const folio = await this.folioService.generateFolio(tenantId);
             const salesOrderType = dto.sales_order_type || 'MANUAL';
-            const requiresSelectionAssembly = !isPosSale && salesOrderType === 'MANUAL' && !!dto.requires_selection_assembly;
+            const saleScope = (0, sale_scope_util_1.resolveSaleScope)(dto.sale_scope, isPosSale);
+            const lineKinds = await this.loadProductKinds(qr, dto.line_items.map((item) => item.product_id));
+            this.assertLineItemsMatchSaleScope(dto.line_items, saleScope, lineKinds);
+            const hasGoodsLines = [...lineKinds.values()].some((kind) => kind === product_item_kind_enum_1.ProductItemKind.Goods);
+            const requiresSelectionAssembly = !isPosSale &&
+                salesOrderType === 'MANUAL' &&
+                saleScope !== sales_order_sale_scope_enum_1.SalesOrderSaleScope.Services &&
+                hasGoodsLines &&
+                !!dto.requires_selection_assembly;
             const initialStatus = requiresSelectionAssembly ? 'En Selección' : 'Creada';
             const so = qr.manager.create(sales_order_entity_1.SalesOrder, {
                 id: (0, uuid_1.v4)(),
@@ -268,6 +280,7 @@ let SalesOrderService = class SalesOrderService {
                 payment_status: paymentStatus,
                 general_status: initialStatus,
                 notes: dto.notes,
+                sale_scope: saleScope,
                 requires_selection_assembly: requiresSelectionAssembly,
                 created_by: userId,
                 terminal_user_id: isPosSale ? userId : null,
@@ -362,7 +375,7 @@ let SalesOrderService = class SalesOrderService {
         }
     }
     async findAll(tenantId, filters) {
-        const { search, general_status, payment_status, is_credit, sales_order_type, collection_channel, fiscal_configuration_id, billing_branch_id, customer_id, created_from, created_to, page = 1, limit = 20, sort_by = 'created_at', sort_order = 'DESC', } = filters;
+        const { search, general_status, payment_status, is_credit, sales_order_type, sale_scope, collection_channel, fiscal_configuration_id, billing_branch_id, customer_id, created_from, created_to, page = 1, limit = 20, sort_by = 'created_at', sort_order = 'DESC', } = filters;
         const qb = this.soRepo
             .createQueryBuilder('so')
             .leftJoinAndSelect('so.customer', 'customer')
@@ -392,6 +405,8 @@ let SalesOrderService = class SalesOrderService {
         }
         if (sales_order_type)
             qb.andWhere('so.sales_order_type = :sales_order_type', { sales_order_type });
+        if (sale_scope)
+            qb.andWhere('so.sale_scope = :sale_scope', { sale_scope });
         (0, sales_order_collection_channel_util_1.applySalesOrderCollectionChannelFilter)(qb, 'so', collection_channel);
         if (fiscal_configuration_id) {
             qb.andWhere('so.fiscal_configuration_id = :fiscal_configuration_id', {
@@ -992,11 +1007,25 @@ let SalesOrderService = class SalesOrderService {
             if (dto.notes !== undefined) {
                 so.notes = dto.notes;
             }
+            const saleScope = (0, sale_scope_util_1.resolveSaleScope)(dto.sale_scope ?? so.sale_scope, so.sales_order_type === 'POS');
+            so.sale_scope = saleScope;
+            const lineKinds = await this.loadProductKinds(qr, dto.line_items.map((item) => item.product_id));
+            this.assertLineItemsMatchSaleScope(dto.line_items, saleScope, lineKinds);
+            const hasGoodsLines = [...lineKinds.values()].some((kind) => kind === product_item_kind_enum_1.ProductItemKind.Goods);
             if (dto.requires_selection_assembly !== undefined && so.sales_order_type === 'MANUAL') {
-                so.requires_selection_assembly = !!dto.requires_selection_assembly;
+                so.requires_selection_assembly =
+                    saleScope !== sales_order_sale_scope_enum_1.SalesOrderSaleScope.Services &&
+                        hasGoodsLines &&
+                        !!dto.requires_selection_assembly;
                 so.general_status = so.requires_selection_assembly
                     ? 'En Selección'
                     : 'Creada';
+            }
+            else if (saleScope === sales_order_sale_scope_enum_1.SalesOrderSaleScope.Services || !hasGoodsLines) {
+                so.requires_selection_assembly = false;
+                if (so.general_status === 'En Selección') {
+                    so.general_status = 'Creada';
+                }
             }
             so.updated_by = userId;
             await qr.manager.save(sales_order_entity_1.SalesOrder, so);
@@ -1035,6 +1064,9 @@ let SalesOrderService = class SalesOrderService {
                 throw new common_1.NotFoundException(`Orden de venta no encontrada: ${orderId}`);
             }
             await this.assertLineItemsEditable(qr, so, tenantId);
+            const saleScope = (0, sale_scope_util_1.resolveSaleScope)(so.sale_scope, so.sales_order_type === 'POS');
+            const lineKinds = await this.loadProductKinds(qr, [dto.product_id]);
+            this.assertLineItemsMatchSaleScope([dto], saleScope, lineKinds);
             await this.insertSalesOrderLineItems(qr, so.id, [dto], userId, tenantId);
             await this.recomputeTotals(qr, so.id, tenantId, userId);
             const details = await qr.manager.find(sales_order_detail_entity_1.SalesOrderDetail, {
@@ -1188,7 +1220,11 @@ let SalesOrderService = class SalesOrderService {
         });
     }
     async fulfillOrderLines(qr, salesOrderId, scope, lineItems, userId, notes) {
-        for (const detail of lineItems) {
+        const goodsDetails = await this.filterGoodsDetails(qr, lineItems);
+        if (!goodsDetails.length) {
+            throw new common_1.BadRequestException('Esta orden no tiene líneas de inventario para surtir');
+        }
+        for (const detail of goodsDetails) {
             await this.fulfillmentService.allocateFifo(detail, userId, qr.manager, scope);
         }
         await qr.manager.update(sales_order_entity_1.SalesOrder, { id: salesOrderId }, {
@@ -1196,6 +1232,34 @@ let SalesOrderService = class SalesOrderService {
             ...(notes !== undefined ? { notes } : {}),
             updated_by: userId,
         });
+    }
+    assertLineItemsMatchSaleScope(lineItems, saleScope, kinds) {
+        for (const item of lineItems) {
+            const kind = kinds.get(item.product_id);
+            if (!kind) {
+                throw new common_1.BadRequestException(`Producto no encontrado: ${item.product_id}`);
+            }
+            (0, sale_scope_util_1.assertItemKindMatchesSaleScope)(saleScope, kind);
+        }
+    }
+    async loadProductKinds(qr, productIds) {
+        const map = new Map();
+        const uniqueIds = [...new Set(productIds.filter(Boolean))];
+        if (!uniqueIds.length) {
+            return map;
+        }
+        const products = await qr.manager.find(product_entity_1.Product, {
+            where: { id: (0, typeorm_2.In)(uniqueIds) },
+            select: ['id', 'item_kind'],
+        });
+        for (const product of products) {
+            map.set(product.id, product.item_kind ?? product_item_kind_enum_1.ProductItemKind.Goods);
+        }
+        return map;
+    }
+    async filterGoodsDetails(qr, lineItems) {
+        const kinds = await this.loadProductKinds(qr, lineItems.map((item) => item.product_id));
+        return lineItems.filter((item) => (kinds.get(item.product_id) ?? product_item_kind_enum_1.ProductItemKind.Goods) === product_item_kind_enum_1.ProductItemKind.Goods);
     }
     async insertSalesOrderLineItems(qr, salesOrderId, lineItems, userId, tenantId) {
         const saved = [];

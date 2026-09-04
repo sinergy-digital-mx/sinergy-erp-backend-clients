@@ -105,6 +105,7 @@ let ProductsExportService = class ProductsExportService {
     buildColumns(priceLists) {
         const columns = [
             { header: 'Nombre', key: 'name', width: 32 },
+            { header: 'Tipo', key: 'item_kind', width: 12 },
             { header: 'SKU', key: 'sku', width: 16 },
             { header: 'SKU externo', key: 'external_sku', width: 16 },
             { header: 'Categoría', key: 'category', width: 20 },
@@ -128,6 +129,7 @@ let ProductsExportService = class ProductsExportService {
     buildRow(product, uom, avgCost, avgPrice, priceLists, priceByUomAndList) {
         const row = {
             name: product.name ?? '',
+            item_kind: product.item_kind === 'service' ? 'Servicio' : 'Producto',
             sku: product.sku ?? '',
             external_sku: product.external_sku ?? '',
             category: product.category?.name ?? '',
@@ -147,7 +149,7 @@ let ProductsExportService = class ProductsExportService {
         return row;
     }
     async fetchProducts(orgId, query) {
-        const { search, sku, external_sku, name, category_id, subcategory_id, is_active } = query;
+        const { search, sku, external_sku, name, category_id, subcategory_id, is_active, item_kind } = query;
         const queryBuilder = this.productRepo
             .createQueryBuilder('product')
             .leftJoinAndSelect('product.category', 'category')
@@ -180,6 +182,9 @@ let ProductsExportService = class ProductsExportService {
         }
         if (is_active !== undefined) {
             queryBuilder.andWhere('product.is_active = :isActive', { isActive: is_active });
+        }
+        if (item_kind) {
+            queryBuilder.andWhere('product.item_kind = :itemKind', { itemKind: item_kind });
         }
         return queryBuilder.orderBy('product.name', 'ASC').getMany();
     }
@@ -221,6 +226,10 @@ let ProductsExportService = class ProductsExportService {
             parts.push('Solo activos');
         if (filters.is_active === false)
             parts.push('Solo inactivos');
+        if (filters.item_kind === 'service')
+            parts.push('Solo servicios');
+        if (filters.item_kind === 'goods')
+            parts.push('Solo productos');
         return parts.join(' | ');
     }
 };

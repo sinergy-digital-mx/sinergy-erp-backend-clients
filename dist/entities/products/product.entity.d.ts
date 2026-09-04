@@ -1,6 +1,7 @@
 import { RBACTenant } from '../rbac/tenant.entity';
 import { Category } from '../categories/category.entity';
 import { Subcategory } from '../categories/subcategory.entity';
+import { ProductItemKind } from './product-item-kind.enum';
 export declare class Product {
     id: string;
     tenant: RBACTenant;
@@ -11,6 +12,7 @@ export declare class Product {
     description: string;
     photo: string | null;
     is_active: boolean;
+    item_kind: ProductItemKind;
     category: Category | null;
     category_id: string | null;
     subcategory: Subcategory | null;

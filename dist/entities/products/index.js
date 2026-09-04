@@ -1,8 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PriceList = exports.ProductDiscountType = exports.ProductDiscount = exports.ProductPrice = exports.ProductVendorCost = exports.ProductUoM = exports.ProductAttributeAssignment = exports.ProductAttributeValue = exports.ProductAttribute = exports.Product = void 0;
+exports.PriceList = exports.ProductDiscountType = exports.ProductDiscount = exports.ProductPrice = exports.ProductVendorCost = exports.ProductUoM = exports.ProductAttributeAssignment = exports.ProductAttributeValue = exports.ProductAttribute = exports.ProductItemKind = exports.Product = void 0;
 var product_entity_1 = require("./product.entity");
 Object.defineProperty(exports, "Product", { enumerable: true, get: function () { return product_entity_1.Product; } });
+var product_item_kind_enum_1 = require("./product-item-kind.enum");
+Object.defineProperty(exports, "ProductItemKind", { enumerable: true, get: function () { return product_item_kind_enum_1.ProductItemKind; } });
 var product_attribute_entity_1 = require("./product-attribute.entity");
 Object.defineProperty(exports, "ProductAttribute", { enumerable: true, get: function () { return product_attribute_entity_1.ProductAttribute; } });
 var product_attribute_value_entity_1 = require("./product-attribute-value.entity");

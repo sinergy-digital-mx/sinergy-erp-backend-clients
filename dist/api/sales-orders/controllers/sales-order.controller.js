@@ -27,20 +27,23 @@ const shippings_service_1 = require("../../shippings/shippings.service");
 const cancel_electronic_invoice_dto_1 = require("../../electronic-invoicing/dto/cancel-electronic-invoice.dto");
 const stamp_sales_order_invoice_dto_1 = require("../dto/stamp-sales-order-invoice.dto");
 const inventory_service_1 = require("../../inventory/inventory.service");
+const sales_order_products_picker_service_1 = require("../services/sales-order-products-picker.service");
 const dto_1 = require("../dto");
 let SalesOrderController = class SalesOrderController {
     salesOrderService;
     documentsService;
     posReceiptService;
     inventoryService;
+    productsPicker;
     exportService;
     invoicingService;
     shippingsService;
-    constructor(salesOrderService, documentsService, posReceiptService, inventoryService, exportService, invoicingService, shippingsService) {
+    constructor(salesOrderService, documentsService, posReceiptService, inventoryService, productsPicker, exportService, invoicingService, shippingsService) {
         this.salesOrderService = salesOrderService;
         this.documentsService = documentsService;
         this.posReceiptService = posReceiptService;
         this.inventoryService = inventoryService;
+        this.productsPicker = productsPicker;
         this.exportService = exportService;
         this.invoicingService = invoicingService;
         this.shippingsService = shippingsService;
@@ -144,13 +147,7 @@ let SalesOrderController = class SalesOrderController {
         res.send(buffer);
     }
     async getProductsSummary(query, req) {
-        return this.inventoryService.getBranchInventorySummary(req.user.tenant_id, query.billing_branch_id, {
-            fiscal_configuration_id: query.fiscal_configuration_id,
-            search: query.search,
-            only_available: true,
-            page: query.page ?? 1,
-            limit: query.limit ?? 40,
-        });
+        return this.productsPicker.getSummary(req.user.tenant_id, query);
     }
     async getWarehouseProductsSummary(warehouseId, req) {
         return this.inventoryService.getInventorySummary(req.user.tenant_id, {
@@ -643,6 +640,7 @@ exports.SalesOrderController = SalesOrderController = __decorate([
         sales_order_documents_service_1.SalesOrderDocumentsService,
         sales_order_pos_receipt_service_1.SalesOrderPosReceiptService,
         inventory_service_1.InventoryService,
+        sales_order_products_picker_service_1.SalesOrderProductsPickerService,
         sales_order_export_service_1.SalesOrderExportService,
         sales_order_invoicing_service_1.SalesOrderInvoicingService,
         shippings_service_1.ShippingsService])

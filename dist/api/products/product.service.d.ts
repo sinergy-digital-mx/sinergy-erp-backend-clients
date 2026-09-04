@@ -1,15 +1,25 @@
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Product } from '../../entities/products/product.entity';
+import { ProductUoM } from '../../entities/products/product-uom.entity';
+import { ProductPrice } from '../../entities/products/product-price.entity';
+import { ProductDiscount } from '../../entities/products/product-discount.entity';
+import { ProductItemKind } from '../../entities/products/product-item-kind.enum';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { QueryProductDto } from './dto/query-product.dto';
 import { PaginatedProductDto } from './dto/paginated-product.dto';
 import { ToggleStatusDto } from './dto/toggle-status.dto';
 import { S3Service } from '../../common/services/s3.service';
+import { UoMCatalogService } from '../uom-catalog/uom-catalog.service';
 export declare class ProductService {
     private readonly productRepository;
+    private readonly productUomRepository;
+    private readonly productPriceRepository;
+    private readonly productDiscountRepository;
+    private readonly uomCatalogService;
+    private readonly dataSource;
     private readonly s3Service;
-    constructor(productRepository: Repository<Product>, s3Service: S3Service);
+    constructor(productRepository: Repository<Product>, productUomRepository: Repository<ProductUoM>, productPriceRepository: Repository<ProductPrice>, productDiscountRepository: Repository<ProductDiscount>, uomCatalogService: UoMCatalogService, dataSource: DataSource, s3Service: S3Service);
     private resolveSatClave;
     private extractAllowedProductFields;
     create(dto: CreateProductDto, tenantId: string): Promise<Product>;
@@ -19,6 +29,58 @@ export declare class ProductService {
     toggleStatus(id: string, dto: ToggleStatusDto, tenantId: string): Promise<Product>;
     remove(id: string, tenantId: string): Promise<void>;
     uploadPhoto(id: string, tenantId: string, file: Express.Multer.File): Promise<Product>;
+    findServiceCatalogSummary(tenantId: string, query: {
+        search?: string;
+        page?: number;
+        limit?: number;
+        billing_branch_id?: string;
+        fiscal_configuration_id?: string;
+    }): Promise<{
+        billing_branch_id: string | null;
+        fiscal_configuration_id: string | null;
+        warehouses: never[];
+        applied_warehouse_id: null;
+        data: {
+            product_id: string;
+            product_name: string;
+            product_sku: string;
+            product_description: string;
+            sat_clave: string | null;
+            product_photo: string | null;
+            item_kind: ProductItemKind;
+            uom_id: string;
+            uom_name: string;
+            warehouse_ids: string[];
+            warehouse_names: string[];
+            suggested_unit_price: string;
+            suggested_iva_percentage: string;
+            suggested_ieps_percentage: string;
+            pricing_options: {
+                price_list_id: string;
+                price_list_name: string;
+                price: string;
+                iva_percentage: string;
+                ieps_percentage: string;
+                total: string;
+            }[];
+            product_uom_id: string;
+            has_applicable_discounts: boolean;
+            applicable_discounts: import("./utils/product-discount.util").ApplicableProductDiscountSummary[];
+            total_available_quantity: null;
+            total_initial_quantity: null;
+            total_batches: number;
+            measure_totals: never[];
+            batches: never[];
+        }[];
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+    }>;
+    private generateServiceSku;
+    private loadBaseUoms;
+    private loadActivePrices;
+    private loadActiveDiscounts;
     private getByIdOrFail;
     private toResponseWithPhotoUrl;
 }

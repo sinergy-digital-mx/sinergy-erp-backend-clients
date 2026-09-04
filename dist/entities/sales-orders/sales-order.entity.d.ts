@@ -7,6 +7,7 @@ import { User } from '../users/user.entity';
 import { PosDailyShift } from '../pos/pos-daily-shift.entity';
 import { SalesOrderDetail } from './sales-order-detail.entity';
 import { GlobalDiscount } from '../global-discounts/global-discount.entity';
+import { SalesOrderSaleScope } from './sales-order-sale-scope.enum';
 export declare class SalesOrder {
     id: string;
     tenant: RBACTenant;
@@ -30,6 +31,7 @@ export declare class SalesOrder {
     general_status: string;
     notes: string | null;
     converted_from_quotation_id: string | null;
+    sale_scope: SalesOrderSaleScope;
     requires_selection_assembly: boolean;
     corroborator: User | null;
     corroborated_by: string | null;

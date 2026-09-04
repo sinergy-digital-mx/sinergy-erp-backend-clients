@@ -54,6 +54,7 @@ function mapLineItemWithDiscount(item) {
     const lineIeps = (taxable * Number(item.ieps_percentage || 0)) / 100;
     return {
         ...item,
+        item_kind: item.product?.item_kind ?? 'goods',
         line_subtotal: Number(lineSubtotal.toFixed(2)),
         line_discount_amount: Number(lineDiscount.toFixed(2)),
         line_iva: Number(lineIva.toFixed(2)),

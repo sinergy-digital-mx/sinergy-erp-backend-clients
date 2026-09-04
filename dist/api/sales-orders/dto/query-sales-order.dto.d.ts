@@ -4,6 +4,7 @@ export declare class QuerySalesOrderDto {
     payment_status?: string;
     is_credit?: boolean;
     sales_order_type?: 'POS' | 'MANUAL';
+    sale_scope?: 'inventory' | 'services' | 'combined';
     collection_channel?: 'pos_cobranza' | 'manual' | 'mixed';
     fiscal_configuration_id?: string;
     billing_branch_id?: string;

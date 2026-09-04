@@ -22,6 +22,7 @@ export declare class CreateSalesOrderDto {
     payment_status?: string;
     notes?: string;
     requires_selection_assembly?: boolean;
+    sale_scope?: 'inventory' | 'services' | 'combined';
     global_discount_id?: string;
     line_items: CreateSalesOrderLineItemDto[];
 }

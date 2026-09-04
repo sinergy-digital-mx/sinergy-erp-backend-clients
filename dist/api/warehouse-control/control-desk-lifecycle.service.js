@@ -9,7 +9,10 @@ var ControlDeskLifecycleService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ControlDeskLifecycleService = void 0;
 const common_1 = require("@nestjs/common");
+const typeorm_1 = require("typeorm");
 const uuid_1 = require("uuid");
+const product_entity_1 = require("../../entities/products/product.entity");
+const product_item_kind_enum_1 = require("../../entities/products/product-item-kind.enum");
 const inventory_batch_entity_1 = require("../../entities/purchase-orders/inventory-batch.entity");
 const warehouse_entity_1 = require("../../entities/warehouse/warehouse.entity");
 const control_desk_job_entity_1 = require("../../entities/control-desk/control-desk-job.entity");
@@ -35,7 +38,9 @@ let ControlDeskLifecycleService = ControlDeskLifecycleService_1 = class ControlD
         }
     }
     async syncJobForSalesOrder(manager, params) {
-        const { tenantId, userId, salesOrder, details, requiresSelection } = params;
+        const { tenantId, userId, salesOrder } = params;
+        const goodsDetails = await this.filterGoodsDetails(manager, params.details);
+        const requiresSelection = params.requiresSelection && goodsDetails.length > 0;
         const existing = await this.findActiveJob(manager, tenantId, salesOrder.id);
         if (!requiresSelection) {
             if (existing && existing.status !== 'cancelled') {
@@ -56,9 +61,23 @@ let ControlDeskLifecycleService = ControlDeskLifecycleService_1 = class ControlD
             tenantId,
             userId,
             salesOrder,
-            details,
+            details: goodsDetails,
             billingBranchId: branchId,
         });
+    }
+    async filterGoodsDetails(manager, details) {
+        const productIds = [...new Set(details.map((detail) => detail.product_id).filter(Boolean))];
+        if (!productIds.length) {
+            return [];
+        }
+        const products = await manager.find(product_entity_1.Product, {
+            where: { id: (0, typeorm_1.In)(productIds) },
+            select: ['id', 'item_kind'],
+        });
+        const goodsIds = new Set(products
+            .filter((product) => (product.item_kind ?? product_item_kind_enum_1.ProductItemKind.Goods) === product_item_kind_enum_1.ProductItemKind.Goods)
+            .map((product) => product.id));
+        return details.filter((detail) => goodsIds.has(detail.product_id));
     }
     async cancelJobForSalesOrder(manager, tenantId, salesOrderId, userId) {
         const job = await this.findActiveJob(manager, tenantId, salesOrderId);

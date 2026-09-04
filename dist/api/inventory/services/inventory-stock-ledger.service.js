@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const inventory_stock_ledger_entity_1 = require("../../../entities/inventory/inventory-stock-ledger.entity");
+const stock_ledger_valuation_util_1 = require("../utils/stock-ledger-valuation.util");
 exports.STOCK_LEDGER_REFERENCE = {
     PURCHASE_ORDER: 'purchase_order',
     SALES_ORDER: 'sales_order',
@@ -40,14 +41,39 @@ let InventoryStockLedgerService = class InventoryStockLedgerService {
         const repo = manager
             ? manager.getRepository(inventory_stock_ledger_entity_1.InventoryStockLedger)
             : this.ledgerRepo;
-        const previousBalance = await this.getLastBalance({
+        const previous = await this.getLastRow({
             tenantId: params.tenantId,
             productId: params.productId,
             warehouseId: params.warehouseId,
             uomId: params.uomId,
         }, manager);
+        const previousBalance = previous
+            ? roundQty(parseFloat(String(previous.balance_after ?? 0)))
+            : 0;
+        const previousCostBalance = previous?.cost_balance_after_mxn != null
+            ? (0, stock_ledger_valuation_util_1.roundStockMoney)(parseFloat(String(previous.cost_balance_after_mxn)))
+            : 0;
         const balanceAfter = roundQty(previousBalance + delta);
         const occurredAt = params.occurredAt ?? new Date();
+        let unitCost = params.unitCostMxn != null && Number.isFinite(params.unitCostMxn)
+            ? (0, stock_ledger_valuation_util_1.roundStockMoney)(params.unitCostMxn)
+            : null;
+        if (unitCost == null && delta < 0 && previousBalance > 0 && previousCostBalance !== 0) {
+            unitCost = (0, stock_ledger_valuation_util_1.roundStockMoney)(previousCostBalance / previousBalance);
+        }
+        let costBalanceAfter = null;
+        if (unitCost != null) {
+            costBalanceAfter = (0, stock_ledger_valuation_util_1.roundStockMoney)(previousCostBalance + delta * unitCost);
+            if (balanceAfter === 0) {
+                costBalanceAfter = 0;
+            }
+        }
+        else if (previous?.cost_balance_after_mxn != null) {
+            costBalanceAfter = previousCostBalance;
+        }
+        const unitSale = params.unitSalePriceMxn != null && Number.isFinite(params.unitSalePriceMxn)
+            ? (0, stock_ledger_valuation_util_1.roundStockMoney)(params.unitSalePriceMxn)
+            : null;
         const row = repo.create({
             tenant_id: params.tenantId,
             product_id: params.productId,
@@ -57,6 +83,9 @@ let InventoryStockLedgerService = class InventoryStockLedgerService {
             movement_type: params.movementType,
             quantity_delta: delta,
             balance_after: balanceAfter,
+            unit_cost_mxn: unitCost,
+            unit_sale_price_mxn: unitSale,
+            cost_balance_after_mxn: costBalanceAfter,
             occurred_at: occurredAt,
             reference_type: params.referenceType ?? null,
             reference_id: params.referenceId ?? null,
@@ -67,6 +96,19 @@ let InventoryStockLedgerService = class InventoryStockLedgerService {
         return repo.save(row);
     }
     async getLastBalance(key, manager) {
+        const last = await this.getLastRow(key, manager);
+        if (!last) {
+            return 0;
+        }
+        return roundQty(parseFloat(String(last.balance_after ?? 0)));
+    }
+    async countForTenant(tenantId, manager) {
+        const repo = manager
+            ? manager.getRepository(inventory_stock_ledger_entity_1.InventoryStockLedger)
+            : this.ledgerRepo;
+        return repo.count({ where: { tenant_id: tenantId } });
+    }
+    async getLastRow(key, manager) {
         const repo = manager
             ? manager.getRepository(inventory_stock_ledger_entity_1.InventoryStockLedger)
             : this.ledgerRepo;
@@ -84,17 +126,7 @@ let InventoryStockLedgerService = class InventoryStockLedgerService {
         if (manager) {
             qb.setLock('pessimistic_write');
         }
-        const last = await qb.getOne();
-        if (!last) {
-            return 0;
-        }
-        return roundQty(parseFloat(String(last.balance_after ?? 0)));
-    }
-    async countForTenant(tenantId, manager) {
-        const repo = manager
-            ? manager.getRepository(inventory_stock_ledger_entity_1.InventoryStockLedger)
-            : this.ledgerRepo;
-        return repo.count({ where: { tenant_id: tenantId } });
+        return qb.getOne();
     }
 };
 exports.InventoryStockLedgerService = InventoryStockLedgerService;

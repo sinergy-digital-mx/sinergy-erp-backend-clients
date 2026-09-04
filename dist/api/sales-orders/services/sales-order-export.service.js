@@ -255,6 +255,9 @@ let SalesOrderExportService = class SalesOrderExportService {
                 sales_order_type: filters.sales_order_type,
             });
         }
+        if (filters.sale_scope) {
+            qb.andWhere('so.sale_scope = :sale_scope', { sale_scope: filters.sale_scope });
+        }
         (0, sales_order_collection_channel_util_1.applySalesOrderCollectionChannelFilter)(qb, 'so', filters.collection_channel);
         if (filters.fiscal_configuration_id) {
             qb.andWhere('so.fiscal_configuration_id = :fiscal_configuration_id', {
@@ -286,6 +289,8 @@ let SalesOrderExportService = class SalesOrderExportService {
                 return false;
             }
             if (filters.sales_order_type && so.sales_order_type !== filters.sales_order_type)
+                return false;
+            if (filters.sale_scope && so.sale_scope !== filters.sale_scope)
                 return false;
             if (filters.fiscal_configuration_id &&
                 so.fiscal_configuration_id !== filters.fiscal_configuration_id) {

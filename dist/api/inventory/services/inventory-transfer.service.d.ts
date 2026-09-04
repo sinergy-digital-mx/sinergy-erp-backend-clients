@@ -6,6 +6,7 @@ import { BatchNumberGeneratorService } from '../../purchase-orders/services/batc
 import { InventoryTransferFolioService } from './inventory-transfer-folio.service';
 import { InventoryService } from '../inventory.service';
 import { InventoryStockLedgerService } from './inventory-stock-ledger.service';
+import { InventoryStockLedgerValuationService } from './inventory-stock-ledger-valuation.service';
 import { CreateInventoryTransferDto } from '../dto/create-inventory-transfer.dto';
 import { QueryInventoryTransferDto } from '../dto/query-inventory-transfer.dto';
 import { InventoryTransferListResponseDto, InventoryTransferResponseDto } from '../dto/inventory-transfer-response.dto';
@@ -18,9 +19,10 @@ export declare class InventoryTransferService {
     private readonly batchNumberGenerator;
     private readonly inventoryService;
     private readonly stockLedger;
+    private readonly stockLedgerValuation;
     private readonly dataSource;
     private readonly logger;
-    constructor(transferRepo: Repository<InventoryTransfer>, batchRepo: Repository<InventoryBatch>, warehouseRepo: Repository<Warehouse>, folioService: InventoryTransferFolioService, batchNumberGenerator: BatchNumberGeneratorService, inventoryService: InventoryService, stockLedger: InventoryStockLedgerService, dataSource: DataSource);
+    constructor(transferRepo: Repository<InventoryTransfer>, batchRepo: Repository<InventoryBatch>, warehouseRepo: Repository<Warehouse>, folioService: InventoryTransferFolioService, batchNumberGenerator: BatchNumberGeneratorService, inventoryService: InventoryService, stockLedger: InventoryStockLedgerService, stockLedgerValuation: InventoryStockLedgerValuationService, dataSource: DataSource);
     getTransferContext(tenantId: string, productId: string, warehouseId: string): Promise<TransferContextResponseDto>;
     create(dto: CreateInventoryTransferDto, tenantId: string, userId: string): Promise<InventoryTransferResponseDto>;
     findAll(tenantId: string, filters: QueryInventoryTransferDto): Promise<InventoryTransferListResponseDto>;

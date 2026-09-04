@@ -25,6 +25,7 @@ var StockFlowView;
 (function (StockFlowView) {
     StockFlowView["SUMMARY"] = "summary";
     StockFlowView["LEDGER"] = "ledger";
+    StockFlowView["TOTALIZED"] = "totalized";
 })(StockFlowView || (exports.StockFlowView = StockFlowView = {}));
 class QueryStockFlowDto {
     period = StockFlowPeriod.MONTH;
@@ -66,7 +67,9 @@ __decorate([
     __metadata("design:type", String)
 ], QueryStockFlowDto.prototype, "fiscal_configuration_id", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ description: 'Sucursal opcional dentro de la razón social' }),
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Sucursal opcional. En totalizado, omitir = todas las de la razón social',
+    }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsUUID)(),
     __metadata("design:type", String)

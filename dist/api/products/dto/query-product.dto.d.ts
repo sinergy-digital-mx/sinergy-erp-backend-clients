@@ -1,3 +1,4 @@
+import { ProductItemKind } from '../../../entities/products/product-item-kind.enum';
 export declare class QueryProductDto {
     page?: number;
     limit?: number;
@@ -8,4 +9,5 @@ export declare class QueryProductDto {
     category_id?: string;
     subcategory_id?: string;
     is_active?: boolean;
+    item_kind?: ProductItemKind;
 }

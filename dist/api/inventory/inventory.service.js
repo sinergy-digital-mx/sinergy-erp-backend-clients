@@ -22,6 +22,7 @@ const inventory_transfer_line_entity_1 = require("../../entities/inventory/inven
 const inventory_audit_line_entity_1 = require("../../entities/inventory/inventory-audit-line.entity");
 const inventory_audit_status_enum_1 = require("../../entities/inventory/inventory-audit-status.enum");
 const product_entity_1 = require("../../entities/products/product.entity");
+const product_item_kind_enum_1 = require("../../entities/products/product-item-kind.enum");
 const product_price_entity_1 = require("../../entities/products/product-price.entity");
 const product_discount_entity_1 = require("../../entities/products/product-discount.entity");
 const product_uom_entity_1 = require("../../entities/products/product-uom.entity");
@@ -437,6 +438,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
                 product_id: row.product_id,
                 product_name: row.product_name ?? '',
                 product_sku: row.product_sku ?? '',
+                item_kind: product_item_kind_enum_1.ProductItemKind.Goods,
                 product_photo: photoKey ? (photoMap.get(photoKey) ?? null) : null,
                 uom_id: row.uom_id,
                 uom_name: row.uom_name ?? '',
@@ -468,6 +470,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
             .createQueryBuilder('product')
             .select('product.id', 'id')
             .where('product.tenant_id = :tenantId', { tenantId })
+            .andWhere('product.item_kind = :goodsKind', { goodsKind: product_item_kind_enum_1.ProductItemKind.Goods })
             .andWhere(`EXISTS (
           SELECT 1 FROM inv_s_batches stock
           WHERE stock.product_id = product.id
@@ -492,6 +495,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
             .innerJoin('batch.product', 'product')
             .leftJoin('batch.uom', 'uom')
             .where('batch.tenant_id = :tenantId', { tenantId })
+            .andWhere('product.item_kind = :goodsKind', { goodsKind: product_item_kind_enum_1.ProductItemKind.Goods })
             .andWhere('batch.warehouse_id IN (:...warehouseIds)', { warehouseIds });
         (0, product_search_rank_util_1.applyProductSearchFilter)(qb, filters.search);
         if (filters.product_id) {
@@ -1046,7 +1050,8 @@ let InventoryService = InventoryService_1 = class InventoryService {
             .leftJoin('billing_branch.fiscal_configuration', 'fiscal_configuration')
             .leftJoin('batch.uom', 'uom')
             .leftJoin('batch.measure_uom', 'measure_uom')
-            .where('batch.tenant_id = :tenantId', { tenantId });
+            .where('batch.tenant_id = :tenantId', { tenantId })
+            .andWhere('product.item_kind = :goodsKind', { goodsKind: product_item_kind_enum_1.ProductItemKind.Goods });
         (0, inventory_location_filter_util_1.applyInventoryLocationFilters)(qb, filters);
         if (filters.search) {
             qb.andWhere('(LOWER(product.name) LIKE LOWER(:search) OR LOWER(product.sku) LIKE LOWER(:search))', { search: `%${filters.search}%` });

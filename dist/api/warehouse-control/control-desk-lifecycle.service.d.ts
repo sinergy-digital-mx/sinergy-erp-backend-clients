@@ -14,6 +14,7 @@ export declare class ControlDeskLifecycleService {
         details: SalesOrderDetail[];
         requiresSelection: boolean;
     }): Promise<ControlDeskJob | null>;
+    private filterGoodsDetails;
     cancelJobForSalesOrder(manager: EntityManager, tenantId: string, salesOrderId: string, userId: string): Promise<void>;
     cancelJob(manager: EntityManager, job: ControlDeskJob, userId: string): Promise<void>;
     deriveJobStatus(tasks: Array<{

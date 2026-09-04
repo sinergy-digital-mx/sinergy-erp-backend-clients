@@ -1,4 +1,5 @@
 export { Product } from './product.entity';
+export { ProductItemKind } from './product-item-kind.enum';
 export { ProductAttribute } from './product-attribute.entity';
 export { ProductAttributeValue } from './product-attribute-value.entity';
 export { ProductAttributeAssignment } from './product-attribute-assignment.entity';

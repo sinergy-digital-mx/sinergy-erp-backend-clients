@@ -11,13 +11,19 @@ export declare class InventoryStockFlowService {
     getFilename(view?: StockFlowView): string;
     private assertFilters;
     private buildSummary;
+    private buildTotalized;
     private buildLedger;
     private buildDescription;
     private loadOpeningBalancesForBranchKeys;
     private loadMovementsInRange;
+    private mapSummaryRow;
+    private mapTotalizedRow;
+    private mapMoneyBlock;
+    private mapMoneyBlockExcel;
     private buildFiltersApplied;
     private resolveDateRange;
     private periodLabel;
     private startOfDay;
     private endOfDay;
+    private toPeriodCalendarDateIso;
 }

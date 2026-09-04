@@ -21,6 +21,7 @@ const inventory_stock_ledger_movement_type_enum_1 = require("../../../entities/i
 const excel_export_util_1 = require("../../../common/utils/excel-export.util");
 const inventory_stock_ledger_1 = require("../constants/inventory-stock-ledger");
 const query_stock_flow_dto_1 = require("../dto/query-stock-flow.dto");
+const stock_ledger_valuation_util_1 = require("../utils/stock-ledger-valuation.util");
 function branchKey(productId, branchId, uomId) {
     return `${productId}|${branchId}|${uomId}`;
 }
@@ -41,17 +42,33 @@ let InventoryStockFlowService = class InventoryStockFlowService {
             return {
                 filters_applied: filtersApplied,
                 summary: [],
+                totalized: [],
                 ledger,
                 total_summary_rows: 0,
+                total_totalized_rows: 0,
                 total_ledger_rows: ledger.length,
+            };
+        }
+        if (view === query_stock_flow_dto_1.StockFlowView.TOTALIZED) {
+            const totalized = await this.buildTotalized(tenantId, filters, dateFrom, dateTo);
+            return {
+                filters_applied: filtersApplied,
+                summary: [],
+                totalized,
+                ledger: [],
+                total_summary_rows: 0,
+                total_totalized_rows: totalized.length,
+                total_ledger_rows: 0,
             };
         }
         const summary = await this.buildSummary(tenantId, filters, dateFrom, dateTo);
         return {
             filters_applied: filtersApplied,
             summary,
+            totalized: [],
             ledger: [],
             total_summary_rows: summary.length,
+            total_totalized_rows: 0,
             total_ledger_rows: 0,
         };
     }
@@ -60,11 +77,15 @@ let InventoryStockFlowService = class InventoryStockFlowService {
             ...filters,
             view: filters.view ?? query_stock_flow_dto_1.StockFlowView.SUMMARY,
         });
+        const viewLabel = report.filters_applied.view === query_stock_flow_dto_1.StockFlowView.LEDGER
+            ? 'Flujo detallado'
+            : report.filters_applied.view === query_stock_flow_dto_1.StockFlowView.TOTALIZED
+                ? 'Totalizado'
+                : 'Resumen';
         const subtitle = (0, excel_export_util_1.buildExportSubtitle)([
             report.filters_applied.period_label,
-            report.filters_applied.view === query_stock_flow_dto_1.StockFlowView.LEDGER
-                ? 'Flujo detallado'
-                : 'Resumen',
+            viewLabel,
+            'MXN',
         ]);
         if (report.filters_applied.view === query_stock_flow_dto_1.StockFlowView.LEDGER) {
             const columns = [
@@ -78,6 +99,11 @@ let InventoryStockFlowService = class InventoryStockFlowService {
                 { header: 'Entrada', key: 'quantity_in', width: 12, type: 'number' },
                 { header: 'Salida', key: 'quantity_out', width: 12, type: 'number' },
                 { header: 'Saldo', key: 'balance_after', width: 12, type: 'number' },
+                { header: 'Costo unit. MXN', key: 'unit_cost_mxn', width: 14, type: 'number' },
+                { header: 'P. venta unit. MXN', key: 'unit_sale_price_mxn', width: 14, type: 'number' },
+                { header: 'Importe costo MXN', key: 'cost_amount_mxn', width: 14, type: 'number' },
+                { header: 'Importe venta MXN', key: 'sale_amount_mxn', width: 14, type: 'number' },
+                { header: 'Saldo costo MXN', key: 'cost_balance_after_mxn', width: 14, type: 'number' },
                 { header: 'Folio', key: 'reference_folio', width: 16 },
             ];
             const rows = report.ledger.map((row) => ({
@@ -91,11 +117,49 @@ let InventoryStockFlowService = class InventoryStockFlowService {
                 quantity_in: row.quantity_in != null ? parseFloat(row.quantity_in) : null,
                 quantity_out: row.quantity_out != null ? parseFloat(row.quantity_out) : null,
                 balance_after: parseFloat(row.balance_after),
+                unit_cost_mxn: row.unit_cost_mxn != null ? parseFloat(row.unit_cost_mxn) : null,
+                unit_sale_price_mxn: row.unit_sale_price_mxn != null ? parseFloat(row.unit_sale_price_mxn) : null,
+                cost_amount_mxn: row.cost_amount_mxn != null ? parseFloat(row.cost_amount_mxn) : null,
+                sale_amount_mxn: row.sale_amount_mxn != null ? parseFloat(row.sale_amount_mxn) : null,
+                cost_balance_after_mxn: row.cost_balance_after_mxn != null
+                    ? parseFloat(row.cost_balance_after_mxn)
+                    : null,
                 reference_folio: row.reference_folio,
             }));
             return (0, excel_export_util_1.buildStyledExcelBuffer)({
                 sheetName: 'Flujo',
                 title: 'Existencia de inventarios — Flujo',
+                subtitle,
+                columns,
+                rows,
+            });
+        }
+        if (report.filters_applied.view === query_stock_flow_dto_1.StockFlowView.TOTALIZED) {
+            const columns = [
+                { header: 'Razón social', key: 'fiscal_configuration_name', width: 28 },
+                { header: 'Sucursal', key: 'billing_branch_name', width: 18 },
+                { header: 'Inicial', key: 'opening_qty', width: 12, type: 'number' },
+                { header: 'Inicial costo MXN', key: 'opening_cost_mxn', width: 14, type: 'number' },
+                { header: 'Inicial venta MXN', key: 'opening_sale_mxn', width: 14, type: 'number' },
+                { header: 'Compras', key: 'purchases_qty', width: 12, type: 'number' },
+                { header: 'Compras costo MXN', key: 'purchases_cost_mxn', width: 14, type: 'number' },
+                { header: 'Ventas', key: 'sales_qty', width: 12, type: 'number' },
+                { header: 'Ventas costo MXN', key: 'sales_cost_mxn', width: 14, type: 'number' },
+                { header: 'Ventas ingreso MXN', key: 'sales_revenue_mxn', width: 14, type: 'number' },
+                { header: 'Transf. entrada', key: 'transfer_in_qty', width: 14, type: 'number' },
+                { header: 'Transf. ent. costo', key: 'transfer_in_cost_mxn', width: 14, type: 'number' },
+                { header: 'Transf. salida', key: 'transfer_out_qty', width: 14, type: 'number' },
+                { header: 'Transf. sal. costo', key: 'transfer_out_cost_mxn', width: 14, type: 'number' },
+                { header: 'Ajustes', key: 'adjustments_qty', width: 12, type: 'number' },
+                { header: 'Ajustes costo MXN', key: 'adjustments_cost_mxn', width: 14, type: 'number' },
+                { header: 'Final', key: 'closing_qty', width: 12, type: 'number' },
+                { header: 'Final costo MXN', key: 'closing_cost_mxn', width: 14, type: 'number' },
+                { header: 'Final venta MXN', key: 'closing_sale_mxn', width: 14, type: 'number' },
+            ];
+            const rows = report.totalized.map((row) => this.mapMoneyBlockExcel(row));
+            return (0, excel_export_util_1.buildStyledExcelBuffer)({
+                sheetName: 'Totalizado',
+                title: 'Existencia de inventarios — Totalizado',
                 subtitle,
                 columns,
                 rows,
@@ -108,26 +172,28 @@ let InventoryStockFlowService = class InventoryStockFlowService {
             { header: 'Sucursal', key: 'billing_branch_name', width: 18 },
             { header: 'UOM', key: 'uom_name', width: 10 },
             { header: 'Inicial', key: 'opening_qty', width: 12, type: 'number' },
+            { header: 'Inicial costo MXN', key: 'opening_cost_mxn', width: 14, type: 'number' },
+            { header: 'Inicial venta MXN', key: 'opening_sale_mxn', width: 14, type: 'number' },
             { header: 'Compras', key: 'purchases_qty', width: 12, type: 'number' },
+            { header: 'Compras costo MXN', key: 'purchases_cost_mxn', width: 14, type: 'number' },
             { header: 'Ventas', key: 'sales_qty', width: 12, type: 'number' },
+            { header: 'Ventas costo MXN', key: 'sales_cost_mxn', width: 14, type: 'number' },
+            { header: 'Ventas ingreso MXN', key: 'sales_revenue_mxn', width: 14, type: 'number' },
             { header: 'Transf. entrada', key: 'transfer_in_qty', width: 14, type: 'number' },
+            { header: 'Transf. ent. costo', key: 'transfer_in_cost_mxn', width: 14, type: 'number' },
             { header: 'Transf. salida', key: 'transfer_out_qty', width: 14, type: 'number' },
+            { header: 'Transf. sal. costo', key: 'transfer_out_cost_mxn', width: 14, type: 'number' },
             { header: 'Ajustes', key: 'adjustments_qty', width: 12, type: 'number' },
+            { header: 'Ajustes costo MXN', key: 'adjustments_cost_mxn', width: 14, type: 'number' },
             { header: 'Final', key: 'closing_qty', width: 12, type: 'number' },
+            { header: 'Final costo MXN', key: 'closing_cost_mxn', width: 14, type: 'number' },
+            { header: 'Final venta MXN', key: 'closing_sale_mxn', width: 14, type: 'number' },
         ];
         const rows = report.summary.map((row) => ({
             product_sku: row.product_sku,
             product_name: row.product_name,
-            fiscal_configuration_name: row.fiscal_configuration_name,
-            billing_branch_name: row.billing_branch_name,
             uom_name: row.uom_name,
-            opening_qty: parseFloat(row.opening_qty),
-            purchases_qty: parseFloat(row.purchases_qty),
-            sales_qty: parseFloat(row.sales_qty),
-            transfer_in_qty: parseFloat(row.transfer_in_qty),
-            transfer_out_qty: parseFloat(row.transfer_out_qty),
-            adjustments_qty: parseFloat(row.adjustments_qty),
-            closing_qty: parseFloat(row.closing_qty),
+            ...this.mapMoneyBlockExcel(row),
         }));
         return (0, excel_export_util_1.buildStyledExcelBuffer)({
             sheetName: 'Resumen',
@@ -139,7 +205,11 @@ let InventoryStockFlowService = class InventoryStockFlowService {
     }
     getFilename(view = query_stock_flow_dto_1.StockFlowView.SUMMARY) {
         const suffix = new Date().toISOString().slice(0, 10);
-        const kind = view === query_stock_flow_dto_1.StockFlowView.LEDGER ? 'flujo' : 'resumen';
+        const kind = view === query_stock_flow_dto_1.StockFlowView.LEDGER
+            ? 'flujo'
+            : view === query_stock_flow_dto_1.StockFlowView.TOTALIZED
+                ? 'totalizado'
+                : 'resumen';
         return `existencia-inventarios-${kind}-${suffix}.xlsx`;
     }
     assertFilters(filters) {
@@ -188,12 +258,22 @@ let InventoryStockFlowService = class InventoryStockFlowService {
         COALESCE(fc.razon_social, '') AS fiscal_configuration_name,
         COALESCE(u.name, '') AS uom_name,
         COALESCE(op.opening_qty, 0) AS opening_qty,
+        COALESCE(op.opening_cost, 0) AS opening_cost,
+        COALESCE(op.opening_sale, 0) AS opening_sale,
         COALESCE(agg.purchases_qty, 0) AS purchases_qty,
+        COALESCE(agg.purchases_cost, 0) AS purchases_cost,
         COALESCE(agg.sales_qty, 0) AS sales_qty,
+        COALESCE(agg.sales_cost, 0) AS sales_cost,
+        COALESCE(agg.sales_revenue, 0) AS sales_revenue,
         COALESCE(agg.transfer_in_qty, 0) AS transfer_in_qty,
+        COALESCE(agg.transfer_in_cost, 0) AS transfer_in_cost,
         COALESCE(agg.transfer_out_qty, 0) AS transfer_out_qty,
+        COALESCE(agg.transfer_out_cost, 0) AS transfer_out_cost,
         COALESCE(agg.adjustments_qty, 0) AS adjustments_qty,
-        COALESCE(cl.closing_qty, op.opening_qty, 0) AS closing_qty
+        COALESCE(agg.adjustments_cost, 0) AS adjustments_cost,
+        COALESCE(cl.closing_qty, op.opening_qty, 0) AS closing_qty,
+        COALESCE(cl.closing_cost, op.opening_cost, 0) AS closing_cost,
+        COALESCE(cl.closing_sale, op.opening_sale, 0) AS closing_sale
       FROM (
         SELECT DISTINCT l.product_id, w.billing_branch_id, l.uom_id
         FROM inv_s_stock_ledger l
@@ -204,13 +284,21 @@ let InventoryStockFlowService = class InventoryStockFlowService {
           AND l.occurred_at <= ?
       ) k
       LEFT JOIN (
-        SELECT product_id, billing_branch_id, uom_id, SUM(balance_after) AS opening_qty
+        SELECT
+          product_id,
+          billing_branch_id,
+          uom_id,
+          SUM(balance_after) AS opening_qty,
+          SUM(COALESCE(cost_balance_after_mxn, 0)) AS opening_cost,
+          SUM(balance_after * COALESCE(unit_sale_price_mxn, 0)) AS opening_sale
         FROM (
           SELECT
             l.product_id,
             w.billing_branch_id,
             l.uom_id,
             l.balance_after,
+            l.cost_balance_after_mxn,
+            l.unit_sale_price_mxn,
             ROW_NUMBER() OVER (
               PARTITION BY l.product_id, l.warehouse_id, l.uom_id
               ORDER BY l.occurred_at DESC, l.created_at DESC, l.id DESC
@@ -229,13 +317,21 @@ let InventoryStockFlowService = class InventoryStockFlowService {
        AND op.billing_branch_id = k.billing_branch_id
        AND op.uom_id = k.uom_id
       LEFT JOIN (
-        SELECT product_id, billing_branch_id, uom_id, SUM(balance_after) AS closing_qty
+        SELECT
+          product_id,
+          billing_branch_id,
+          uom_id,
+          SUM(balance_after) AS closing_qty,
+          SUM(COALESCE(cost_balance_after_mxn, 0)) AS closing_cost,
+          SUM(balance_after * COALESCE(unit_sale_price_mxn, 0)) AS closing_sale
         FROM (
           SELECT
             l.product_id,
             w.billing_branch_id,
             l.uom_id,
             l.balance_after,
+            l.cost_balance_after_mxn,
+            l.unit_sale_price_mxn,
             ROW_NUMBER() OVER (
               PARTITION BY l.product_id, l.warehouse_id, l.uom_id
               ORDER BY l.occurred_at DESC, l.created_at DESC, l.id DESC
@@ -260,13 +356,47 @@ let InventoryStockFlowService = class InventoryStockFlowService {
           l.uom_id,
           SUM(CASE WHEN l.movement_type IN ('purchase_receipt', 'import') THEN l.quantity_delta ELSE 0 END) AS purchases_qty,
           SUM(CASE
+            WHEN l.movement_type IN ('purchase_receipt', 'import')
+            THEN l.quantity_delta * COALESCE(l.unit_cost_mxn, 0)
+            ELSE 0
+          END) AS purchases_cost,
+          SUM(CASE
             WHEN l.movement_type = 'sale' THEN ABS(l.quantity_delta)
             WHEN l.movement_type = 'sale_reversal' THEN -l.quantity_delta
             ELSE 0
           END) AS sales_qty,
+          SUM(CASE
+            WHEN l.movement_type = 'sale'
+            THEN ABS(l.quantity_delta) * COALESCE(l.unit_cost_mxn, 0)
+            WHEN l.movement_type = 'sale_reversal'
+            THEN -l.quantity_delta * COALESCE(l.unit_cost_mxn, 0)
+            ELSE 0
+          END) AS sales_cost,
+          SUM(CASE
+            WHEN l.movement_type = 'sale'
+            THEN ABS(l.quantity_delta) * COALESCE(l.unit_sale_price_mxn, 0)
+            WHEN l.movement_type = 'sale_reversal'
+            THEN -l.quantity_delta * COALESCE(l.unit_sale_price_mxn, 0)
+            ELSE 0
+          END) AS sales_revenue,
           SUM(CASE WHEN l.movement_type = 'transfer_in' THEN l.quantity_delta ELSE 0 END) AS transfer_in_qty,
+          SUM(CASE
+            WHEN l.movement_type = 'transfer_in'
+            THEN l.quantity_delta * COALESCE(l.unit_cost_mxn, 0)
+            ELSE 0
+          END) AS transfer_in_cost,
           SUM(CASE WHEN l.movement_type = 'transfer_out' THEN ABS(l.quantity_delta) ELSE 0 END) AS transfer_out_qty,
-          SUM(CASE WHEN l.movement_type = 'audit_adjustment' THEN l.quantity_delta ELSE 0 END) AS adjustments_qty
+          SUM(CASE
+            WHEN l.movement_type = 'transfer_out'
+            THEN ABS(l.quantity_delta) * COALESCE(l.unit_cost_mxn, 0)
+            ELSE 0
+          END) AS transfer_out_cost,
+          SUM(CASE WHEN l.movement_type = 'audit_adjustment' THEN l.quantity_delta ELSE 0 END) AS adjustments_qty,
+          SUM(CASE
+            WHEN l.movement_type = 'audit_adjustment'
+            THEN l.quantity_delta * COALESCE(l.unit_cost_mxn, 0)
+            ELSE 0
+          END) AS adjustments_cost
         FROM inv_s_stock_ledger l
         INNER JOIN warehouses w ON w.id = l.warehouse_id
         INNER JOIN billing_branches bb ON bb.id = w.billing_branch_id
@@ -287,33 +417,214 @@ let InventoryStockFlowService = class InventoryStockFlowService {
         ${whereExtra.join('\n')}
         AND (
           COALESCE(op.opening_qty, 0) <> 0
+          OR COALESCE(op.opening_cost, 0) <> 0
+          OR COALESCE(op.opening_sale, 0) <> 0
           OR COALESCE(agg.purchases_qty, 0) <> 0
+          OR COALESCE(agg.purchases_cost, 0) <> 0
           OR COALESCE(agg.sales_qty, 0) <> 0
+          OR COALESCE(agg.sales_cost, 0) <> 0
+          OR COALESCE(agg.sales_revenue, 0) <> 0
           OR COALESCE(agg.transfer_in_qty, 0) <> 0
+          OR COALESCE(agg.transfer_in_cost, 0) <> 0
           OR COALESCE(agg.transfer_out_qty, 0) <> 0
+          OR COALESCE(agg.transfer_out_cost, 0) <> 0
           OR COALESCE(agg.adjustments_qty, 0) <> 0
+          OR COALESCE(agg.adjustments_cost, 0) <> 0
           OR COALESCE(cl.closing_qty, 0) <> 0
+          OR COALESCE(cl.closing_cost, 0) <> 0
+          OR COALESCE(cl.closing_sale, 0) <> 0
         )
       ORDER BY p.name ASC, bb.code ASC
     `;
         const rows = await this.dataSource.query(sql, params);
-        return rows.map((row) => ({
-            product_id: String(row.product_id),
-            product_sku: String(row.product_sku ?? ''),
-            product_name: String(row.product_name ?? ''),
-            billing_branch_id: String(row.billing_branch_id),
-            billing_branch_name: String(row.billing_branch_name ?? ''),
-            fiscal_configuration_name: String(row.fiscal_configuration_name ?? ''),
-            uom_id: String(row.uom_id),
-            uom_name: String(row.uom_name ?? ''),
-            opening_qty: (0, inventory_stock_ledger_1.formatStockQty)(row.opening_qty),
-            purchases_qty: (0, inventory_stock_ledger_1.formatStockQty)(row.purchases_qty),
-            sales_qty: (0, inventory_stock_ledger_1.formatStockQty)(Math.max(0, parseFloat(String(row.sales_qty ?? 0)))),
-            transfer_in_qty: (0, inventory_stock_ledger_1.formatStockQty)(row.transfer_in_qty),
-            transfer_out_qty: (0, inventory_stock_ledger_1.formatStockQty)(row.transfer_out_qty),
-            adjustments_qty: (0, inventory_stock_ledger_1.formatStockQty)(row.adjustments_qty),
-            closing_qty: (0, inventory_stock_ledger_1.formatStockQty)(row.closing_qty),
-        }));
+        return rows.map((row) => this.mapSummaryRow(row));
+    }
+    async buildTotalized(tenantId, filters, dateFrom, dateTo) {
+        const whereExtra = [];
+        const params = [
+            tenantId,
+            filters.fiscal_configuration_id,
+            dateTo,
+            tenantId,
+            filters.fiscal_configuration_id,
+            dateFrom,
+            tenantId,
+            filters.fiscal_configuration_id,
+            dateTo,
+            tenantId,
+            filters.fiscal_configuration_id,
+            dateFrom,
+            dateTo,
+        ];
+        if (filters.billing_branch_id) {
+            whereExtra.push('AND k.billing_branch_id = ?');
+            params.push(filters.billing_branch_id);
+        }
+        const sql = `
+      SELECT
+        k.billing_branch_id AS billing_branch_id,
+        COALESCE(bb.code, bb.city, '') AS billing_branch_name,
+        COALESCE(fc.razon_social, '') AS fiscal_configuration_name,
+        COALESCE(op.opening_qty, 0) AS opening_qty,
+        COALESCE(op.opening_cost, 0) AS opening_cost,
+        COALESCE(op.opening_sale, 0) AS opening_sale,
+        COALESCE(agg.purchases_qty, 0) AS purchases_qty,
+        COALESCE(agg.purchases_cost, 0) AS purchases_cost,
+        COALESCE(agg.sales_qty, 0) AS sales_qty,
+        COALESCE(agg.sales_cost, 0) AS sales_cost,
+        COALESCE(agg.sales_revenue, 0) AS sales_revenue,
+        COALESCE(agg.transfer_in_qty, 0) AS transfer_in_qty,
+        COALESCE(agg.transfer_in_cost, 0) AS transfer_in_cost,
+        COALESCE(agg.transfer_out_qty, 0) AS transfer_out_qty,
+        COALESCE(agg.transfer_out_cost, 0) AS transfer_out_cost,
+        COALESCE(agg.adjustments_qty, 0) AS adjustments_qty,
+        COALESCE(agg.adjustments_cost, 0) AS adjustments_cost,
+        COALESCE(cl.closing_qty, op.opening_qty, 0) AS closing_qty,
+        COALESCE(cl.closing_cost, op.opening_cost, 0) AS closing_cost,
+        COALESCE(cl.closing_sale, op.opening_sale, 0) AS closing_sale
+      FROM (
+        SELECT DISTINCT w.billing_branch_id
+        FROM inv_s_stock_ledger l
+        INNER JOIN warehouses w ON w.id = l.warehouse_id
+        INNER JOIN billing_branches bb ON bb.id = w.billing_branch_id
+        WHERE l.tenant_id = ?
+          AND bb.fiscal_configuration_id = ?
+          AND l.occurred_at <= ?
+      ) k
+      LEFT JOIN (
+        SELECT
+          billing_branch_id,
+          SUM(balance_after) AS opening_qty,
+          SUM(COALESCE(cost_balance_after_mxn, 0)) AS opening_cost,
+          SUM(balance_after * COALESCE(unit_sale_price_mxn, 0)) AS opening_sale
+        FROM (
+          SELECT
+            w.billing_branch_id,
+            l.balance_after,
+            l.cost_balance_after_mxn,
+            l.unit_sale_price_mxn,
+            ROW_NUMBER() OVER (
+              PARTITION BY l.product_id, l.warehouse_id, l.uom_id
+              ORDER BY l.occurred_at DESC, l.created_at DESC, l.id DESC
+            ) AS rn
+          FROM inv_s_stock_ledger l
+          INNER JOIN warehouses w ON w.id = l.warehouse_id
+          INNER JOIN billing_branches bb ON bb.id = w.billing_branch_id
+          WHERE l.tenant_id = ?
+            AND bb.fiscal_configuration_id = ?
+            AND l.occurred_at < ?
+        ) x
+        WHERE rn = 1
+        GROUP BY billing_branch_id
+      ) op ON op.billing_branch_id = k.billing_branch_id
+      LEFT JOIN (
+        SELECT
+          billing_branch_id,
+          SUM(balance_after) AS closing_qty,
+          SUM(COALESCE(cost_balance_after_mxn, 0)) AS closing_cost,
+          SUM(balance_after * COALESCE(unit_sale_price_mxn, 0)) AS closing_sale
+        FROM (
+          SELECT
+            w.billing_branch_id,
+            l.balance_after,
+            l.cost_balance_after_mxn,
+            l.unit_sale_price_mxn,
+            ROW_NUMBER() OVER (
+              PARTITION BY l.product_id, l.warehouse_id, l.uom_id
+              ORDER BY l.occurred_at DESC, l.created_at DESC, l.id DESC
+            ) AS rn
+          FROM inv_s_stock_ledger l
+          INNER JOIN warehouses w ON w.id = l.warehouse_id
+          INNER JOIN billing_branches bb ON bb.id = w.billing_branch_id
+          WHERE l.tenant_id = ?
+            AND bb.fiscal_configuration_id = ?
+            AND l.occurred_at <= ?
+        ) x
+        WHERE rn = 1
+        GROUP BY billing_branch_id
+      ) cl ON cl.billing_branch_id = k.billing_branch_id
+      LEFT JOIN (
+        SELECT
+          w.billing_branch_id,
+          SUM(CASE WHEN l.movement_type IN ('purchase_receipt', 'import') THEN l.quantity_delta ELSE 0 END) AS purchases_qty,
+          SUM(CASE
+            WHEN l.movement_type IN ('purchase_receipt', 'import')
+            THEN l.quantity_delta * COALESCE(l.unit_cost_mxn, 0)
+            ELSE 0
+          END) AS purchases_cost,
+          SUM(CASE
+            WHEN l.movement_type = 'sale' THEN ABS(l.quantity_delta)
+            WHEN l.movement_type = 'sale_reversal' THEN -l.quantity_delta
+            ELSE 0
+          END) AS sales_qty,
+          SUM(CASE
+            WHEN l.movement_type = 'sale'
+            THEN ABS(l.quantity_delta) * COALESCE(l.unit_cost_mxn, 0)
+            WHEN l.movement_type = 'sale_reversal'
+            THEN -l.quantity_delta * COALESCE(l.unit_cost_mxn, 0)
+            ELSE 0
+          END) AS sales_cost,
+          SUM(CASE
+            WHEN l.movement_type = 'sale'
+            THEN ABS(l.quantity_delta) * COALESCE(l.unit_sale_price_mxn, 0)
+            WHEN l.movement_type = 'sale_reversal'
+            THEN -l.quantity_delta * COALESCE(l.unit_sale_price_mxn, 0)
+            ELSE 0
+          END) AS sales_revenue,
+          SUM(CASE WHEN l.movement_type = 'transfer_in' THEN l.quantity_delta ELSE 0 END) AS transfer_in_qty,
+          SUM(CASE
+            WHEN l.movement_type = 'transfer_in'
+            THEN l.quantity_delta * COALESCE(l.unit_cost_mxn, 0)
+            ELSE 0
+          END) AS transfer_in_cost,
+          SUM(CASE WHEN l.movement_type = 'transfer_out' THEN ABS(l.quantity_delta) ELSE 0 END) AS transfer_out_qty,
+          SUM(CASE
+            WHEN l.movement_type = 'transfer_out'
+            THEN ABS(l.quantity_delta) * COALESCE(l.unit_cost_mxn, 0)
+            ELSE 0
+          END) AS transfer_out_cost,
+          SUM(CASE WHEN l.movement_type = 'audit_adjustment' THEN l.quantity_delta ELSE 0 END) AS adjustments_qty,
+          SUM(CASE
+            WHEN l.movement_type = 'audit_adjustment'
+            THEN l.quantity_delta * COALESCE(l.unit_cost_mxn, 0)
+            ELSE 0
+          END) AS adjustments_cost
+        FROM inv_s_stock_ledger l
+        INNER JOIN warehouses w ON w.id = l.warehouse_id
+        INNER JOIN billing_branches bb ON bb.id = w.billing_branch_id
+        WHERE l.tenant_id = ?
+          AND bb.fiscal_configuration_id = ?
+          AND l.occurred_at >= ?
+          AND l.occurred_at <= ?
+        GROUP BY w.billing_branch_id
+      ) agg ON agg.billing_branch_id = k.billing_branch_id
+      INNER JOIN billing_branches bb ON bb.id = k.billing_branch_id
+      LEFT JOIN fiscal_configurations fc ON fc.id = bb.fiscal_configuration_id
+      WHERE 1 = 1
+        ${whereExtra.join('\n')}
+        AND (
+          COALESCE(op.opening_qty, 0) <> 0
+          OR COALESCE(op.opening_cost, 0) <> 0
+          OR COALESCE(op.opening_sale, 0) <> 0
+          OR COALESCE(agg.purchases_qty, 0) <> 0
+          OR COALESCE(agg.purchases_cost, 0) <> 0
+          OR COALESCE(agg.sales_qty, 0) <> 0
+          OR COALESCE(agg.sales_cost, 0) <> 0
+          OR COALESCE(agg.sales_revenue, 0) <> 0
+          OR COALESCE(agg.transfer_in_qty, 0) <> 0
+          OR COALESCE(agg.transfer_in_cost, 0) <> 0
+          OR COALESCE(agg.transfer_out_qty, 0) <> 0
+          OR COALESCE(agg.transfer_out_cost, 0) <> 0
+          OR COALESCE(agg.adjustments_qty, 0) <> 0
+          OR COALESCE(agg.adjustments_cost, 0) <> 0
+          OR COALESCE(cl.closing_qty, 0) <> 0
+          OR COALESCE(cl.closing_cost, 0) <> 0
+          OR COALESCE(cl.closing_sale, 0) <> 0
+        )
+      ORDER BY bb.code ASC
+    `;
+        const rows = await this.dataSource.query(sql, params);
+        return rows.map((row) => this.mapTotalizedRow(row));
     }
     async buildLedger(tenantId, filters, dateFrom, dateTo) {
         const movements = await this.loadMovementsInRange(tenantId, filters, dateFrom, dateTo);
@@ -326,7 +637,8 @@ let InventoryStockFlowService = class InventoryStockFlowService {
         const openingMap = await this.loadOpeningBalancesForBranchKeys(tenantId, filters.fiscal_configuration_id, dateFrom, keys);
         const rows = [];
         const opened = new Set();
-        const running = new Map();
+        const runningQty = new Map();
+        const runningCost = new Map();
         for (const row of movements) {
             const branchId = row.warehouse?.billing_branch_id ?? '';
             if (!branchId)
@@ -337,11 +649,12 @@ let InventoryStockFlowService = class InventoryStockFlowService {
                 '';
             if (!opened.has(key)) {
                 opened.add(key);
-                const opening = openingMap.get(key) ?? 0;
-                running.set(key, opening);
+                const opening = openingMap.get(key) ?? { qty: 0, cost: 0, sale: 0 };
+                runningQty.set(key, opening.qty);
+                runningCost.set(key, opening.cost);
                 rows.push({
                     id: `opening:${key}`,
-                    occurred_at: dateFrom.toISOString(),
+                    occurred_at: this.toPeriodCalendarDateIso(dateFrom),
                     product_id: row.product_id,
                     product_sku: row.product?.sku ?? '',
                     product_name: row.product?.name ?? '',
@@ -351,19 +664,34 @@ let InventoryStockFlowService = class InventoryStockFlowService {
                     movement_type: inventory_stock_ledger_movement_type_enum_1.InventoryStockLedgerMovementType.OPENING_BALANCE,
                     movement_type_label: inventory_stock_ledger_1.STOCK_LEDGER_MOVEMENT_TYPE_LABELS[inventory_stock_ledger_movement_type_enum_1.InventoryStockLedgerMovementType.OPENING_BALANCE],
                     title: 'Saldo inicial',
-                    description: `Saldo al inicio del periodo: ${(0, inventory_stock_ledger_1.formatStockQty)(opening)} ${row.uom?.name ?? ''}`.trim(),
+                    description: `Saldo al inicio del periodo: ${(0, inventory_stock_ledger_1.formatStockQty)(opening.qty)} ${row.uom?.name ?? ''}`.trim(),
                     quantity_in: null,
                     quantity_out: null,
-                    balance_after: (0, inventory_stock_ledger_1.formatStockQty)(opening),
+                    balance_after: (0, inventory_stock_ledger_1.formatStockQty)(opening.qty),
+                    unit_cost_mxn: null,
+                    unit_sale_price_mxn: null,
+                    cost_amount_mxn: null,
+                    sale_amount_mxn: null,
+                    cost_balance_after_mxn: (0, stock_ledger_valuation_util_1.formatStockMoney)(opening.cost),
                     reference_folio: null,
                     is_opening: true,
                 });
             }
             const delta = parseFloat(String(row.quantity_delta));
-            const next = parseFloat(((running.get(key) ?? 0) + delta).toFixed(3));
-            running.set(key, next);
+            const unitCost = row.unit_cost_mxn != null ? parseFloat(String(row.unit_cost_mxn)) : null;
+            const unitSale = row.unit_sale_price_mxn != null
+                ? parseFloat(String(row.unit_sale_price_mxn))
+                : null;
+            const absDelta = Math.abs(delta);
+            const costAmount = unitCost != null && Number.isFinite(unitCost) ? absDelta * unitCost : null;
+            const saleAmount = unitSale != null && Number.isFinite(unitSale) ? absDelta * unitSale : null;
+            const nextQty = parseFloat(((runningQty.get(key) ?? 0) + delta).toFixed(3));
+            runningQty.set(key, nextQty);
+            const costDelta = unitCost != null && Number.isFinite(unitCost) ? delta * unitCost : 0;
+            const nextCost = parseFloat(((runningCost.get(key) ?? 0) + costDelta).toFixed(2));
+            runningCost.set(key, nextCost);
             const typeLabel = inventory_stock_ledger_1.STOCK_LEDGER_MOVEMENT_TYPE_LABELS[row.movement_type] ?? row.movement_type;
-            const qtyAbs = (0, inventory_stock_ledger_1.formatStockQty)(Math.abs(delta));
+            const qtyAbs = (0, inventory_stock_ledger_1.formatStockQty)(absDelta);
             const uom = row.uom?.name ?? '';
             const folio = row.reference_folio ? ` (${row.reference_folio})` : '';
             rows.push({
@@ -380,8 +708,13 @@ let InventoryStockFlowService = class InventoryStockFlowService {
                 title: typeLabel,
                 description: this.buildDescription(row.movement_type, qtyAbs, uom, folio),
                 quantity_in: delta > 0 ? (0, inventory_stock_ledger_1.formatStockQty)(delta) : null,
-                quantity_out: delta < 0 ? (0, inventory_stock_ledger_1.formatStockQty)(Math.abs(delta)) : null,
-                balance_after: (0, inventory_stock_ledger_1.formatStockQty)(next),
+                quantity_out: delta < 0 ? (0, inventory_stock_ledger_1.formatStockQty)(absDelta) : null,
+                balance_after: (0, inventory_stock_ledger_1.formatStockQty)(nextQty),
+                unit_cost_mxn: unitCost != null ? (0, stock_ledger_valuation_util_1.formatStockMoney)(unitCost) : null,
+                unit_sale_price_mxn: unitSale != null ? (0, stock_ledger_valuation_util_1.formatStockMoney)(unitSale) : null,
+                cost_amount_mxn: costAmount != null ? (0, stock_ledger_valuation_util_1.formatStockMoney)(costAmount) : null,
+                sale_amount_mxn: saleAmount != null ? (0, stock_ledger_valuation_util_1.formatStockMoney)(saleAmount) : null,
+                cost_balance_after_mxn: (0, stock_ledger_valuation_util_1.formatStockMoney)(nextCost),
                 reference_folio: row.reference_folio,
                 is_opening: false,
             });
@@ -414,13 +747,21 @@ let InventoryStockFlowService = class InventoryStockFlowService {
             return map;
         const productIds = [...new Set(keys.map((k) => k.split('|')[0]))];
         const rows = await this.dataSource.query(`
-      SELECT product_id, billing_branch_id, uom_id, SUM(balance_after) AS opening_qty
+      SELECT
+        product_id,
+        billing_branch_id,
+        uom_id,
+        SUM(balance_after) AS opening_qty,
+        SUM(COALESCE(cost_balance_after_mxn, 0)) AS opening_cost,
+        SUM(balance_after * COALESCE(unit_sale_price_mxn, 0)) AS opening_sale
       FROM (
         SELECT
           l.product_id,
           w.billing_branch_id,
           l.uom_id,
           l.balance_after,
+          l.cost_balance_after_mxn,
+          l.unit_sale_price_mxn,
           ROW_NUMBER() OVER (
             PARTITION BY l.product_id, l.warehouse_id, l.uom_id
             ORDER BY l.occurred_at DESC, l.created_at DESC, l.id DESC
@@ -439,7 +780,11 @@ let InventoryStockFlowService = class InventoryStockFlowService {
         for (const row of rows) {
             const key = branchKey(String(row.product_id), String(row.billing_branch_id), String(row.uom_id));
             if (keys.includes(key)) {
-                map.set(key, parseFloat(String(row.opening_qty ?? 0)));
+                map.set(key, {
+                    qty: parseFloat(String(row.opening_qty ?? 0)),
+                    cost: parseFloat(String(row.opening_cost ?? 0)),
+                    sale: parseFloat(String(row.opening_sale ?? 0)),
+                });
             }
         }
         return map;
@@ -479,6 +824,74 @@ let InventoryStockFlowService = class InventoryStockFlowService {
             .addOrderBy('ledger.id', 'ASC')
             .getMany();
     }
+    mapSummaryRow(row) {
+        const money = this.mapMoneyBlock(row);
+        return {
+            product_id: String(row.product_id),
+            product_sku: String(row.product_sku ?? ''),
+            product_name: String(row.product_name ?? ''),
+            billing_branch_id: String(row.billing_branch_id),
+            billing_branch_name: String(row.billing_branch_name ?? ''),
+            fiscal_configuration_name: String(row.fiscal_configuration_name ?? ''),
+            uom_id: String(row.uom_id),
+            uom_name: String(row.uom_name ?? ''),
+            ...money,
+        };
+    }
+    mapTotalizedRow(row) {
+        const money = this.mapMoneyBlock(row);
+        return {
+            billing_branch_id: String(row.billing_branch_id),
+            billing_branch_name: String(row.billing_branch_name ?? ''),
+            fiscal_configuration_name: String(row.fiscal_configuration_name ?? ''),
+            ...money,
+        };
+    }
+    mapMoneyBlock(row) {
+        return {
+            opening_qty: (0, inventory_stock_ledger_1.formatStockQty)(row.opening_qty),
+            opening_cost_mxn: (0, stock_ledger_valuation_util_1.formatStockMoney)(row.opening_cost),
+            opening_sale_mxn: (0, stock_ledger_valuation_util_1.formatStockMoney)(row.opening_sale),
+            purchases_qty: (0, inventory_stock_ledger_1.formatStockQty)(row.purchases_qty),
+            purchases_cost_mxn: (0, stock_ledger_valuation_util_1.formatStockMoney)(row.purchases_cost),
+            sales_qty: (0, inventory_stock_ledger_1.formatStockQty)(Math.max(0, parseFloat(String(row.sales_qty ?? 0)))),
+            sales_cost_mxn: (0, stock_ledger_valuation_util_1.formatStockMoney)(Math.max(0, parseFloat(String(row.sales_cost ?? 0)))),
+            sales_revenue_mxn: (0, stock_ledger_valuation_util_1.formatStockMoney)(Math.max(0, parseFloat(String(row.sales_revenue ?? 0)))),
+            transfer_in_qty: (0, inventory_stock_ledger_1.formatStockQty)(row.transfer_in_qty),
+            transfer_in_cost_mxn: (0, stock_ledger_valuation_util_1.formatStockMoney)(row.transfer_in_cost),
+            transfer_out_qty: (0, inventory_stock_ledger_1.formatStockQty)(row.transfer_out_qty),
+            transfer_out_cost_mxn: (0, stock_ledger_valuation_util_1.formatStockMoney)(row.transfer_out_cost),
+            adjustments_qty: (0, inventory_stock_ledger_1.formatStockQty)(row.adjustments_qty),
+            adjustments_cost_mxn: (0, stock_ledger_valuation_util_1.formatStockMoney)(row.adjustments_cost),
+            closing_qty: (0, inventory_stock_ledger_1.formatStockQty)(row.closing_qty),
+            closing_cost_mxn: (0, stock_ledger_valuation_util_1.formatStockMoney)(row.closing_cost),
+            closing_sale_mxn: (0, stock_ledger_valuation_util_1.formatStockMoney)(row.closing_sale),
+        };
+    }
+    mapMoneyBlockExcel(row) {
+        const base = {
+            fiscal_configuration_name: row.fiscal_configuration_name,
+            billing_branch_name: row.billing_branch_name,
+            opening_qty: parseFloat(row.opening_qty),
+            opening_cost_mxn: parseFloat(row.opening_cost_mxn),
+            opening_sale_mxn: parseFloat(row.opening_sale_mxn),
+            purchases_qty: parseFloat(row.purchases_qty),
+            purchases_cost_mxn: parseFloat(row.purchases_cost_mxn),
+            sales_qty: parseFloat(row.sales_qty),
+            sales_cost_mxn: parseFloat(row.sales_cost_mxn),
+            sales_revenue_mxn: parseFloat(row.sales_revenue_mxn),
+            transfer_in_qty: parseFloat(row.transfer_in_qty),
+            transfer_in_cost_mxn: parseFloat(row.transfer_in_cost_mxn),
+            transfer_out_qty: parseFloat(row.transfer_out_qty),
+            transfer_out_cost_mxn: parseFloat(row.transfer_out_cost_mxn),
+            adjustments_qty: parseFloat(row.adjustments_qty),
+            adjustments_cost_mxn: parseFloat(row.adjustments_cost_mxn),
+            closing_qty: parseFloat(row.closing_qty),
+            closing_cost_mxn: parseFloat(row.closing_cost_mxn),
+            closing_sale_mxn: parseFloat(row.closing_sale_mxn),
+        };
+        return base;
+    }
     buildFiltersApplied(filters, dateFrom, dateTo, view) {
         return {
             period: filters.period,
@@ -489,6 +902,7 @@ let InventoryStockFlowService = class InventoryStockFlowService {
             billing_branch_id: filters.billing_branch_id ?? null,
             product_id: filters.product_id ?? null,
             view,
+            currency: 'MXN',
         };
     }
     resolveDateRange(period, dateFrom, dateTo) {
@@ -543,6 +957,12 @@ let InventoryStockFlowService = class InventoryStockFlowService {
         const value = new Date(date);
         value.setHours(23, 59, 59, 999);
         return value;
+    }
+    toPeriodCalendarDateIso(date) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}T12:00:00.000Z`;
     }
 };
 exports.InventoryStockFlowService = InventoryStockFlowService;

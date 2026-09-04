@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.StockFlowResponseDto = exports.StockFlowLedgerRowDto = exports.StockFlowSummaryRowDto = exports.StockFlowFiltersAppliedDto = void 0;
+exports.StockFlowResponseDto = exports.StockFlowLedgerRowDto = exports.StockFlowTotalizedRowDto = exports.StockFlowSummaryRowDto = exports.StockFlowMoneyBlockDto = exports.StockFlowFiltersAppliedDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
 class StockFlowFiltersAppliedDto {
     period;
@@ -20,6 +20,7 @@ class StockFlowFiltersAppliedDto {
     billing_branch_id;
     product_id;
     view;
+    currency;
 }
 exports.StockFlowFiltersAppliedDto = StockFlowFiltersAppliedDto;
 __decorate([
@@ -54,7 +55,64 @@ __decorate([
     (0, swagger_1.ApiProperty)(),
     __metadata("design:type", String)
 ], StockFlowFiltersAppliedDto.prototype, "view", void 0);
-class StockFlowSummaryRowDto {
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Montos en MXN (snapshot del kardex)' }),
+    __metadata("design:type", String)
+], StockFlowFiltersAppliedDto.prototype, "currency", void 0);
+class StockFlowMoneyBlockDto {
+    opening_cost_mxn;
+    opening_sale_mxn;
+    purchases_cost_mxn;
+    sales_cost_mxn;
+    sales_revenue_mxn;
+    transfer_in_cost_mxn;
+    transfer_out_cost_mxn;
+    adjustments_cost_mxn;
+    closing_cost_mxn;
+    closing_sale_mxn;
+}
+exports.StockFlowMoneyBlockDto = StockFlowMoneyBlockDto;
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Valor inventario inicial a costo MXN' }),
+    __metadata("design:type", String)
+], StockFlowMoneyBlockDto.prototype, "opening_cost_mxn", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Valor inventario inicial a precio venta MXN' }),
+    __metadata("design:type", String)
+], StockFlowMoneyBlockDto.prototype, "opening_sale_mxn", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Compras / importaciones a costo' }),
+    __metadata("design:type", String)
+], StockFlowMoneyBlockDto.prototype, "purchases_cost_mxn", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'COGS de ventas (costo)' }),
+    __metadata("design:type", String)
+], StockFlowMoneyBlockDto.prototype, "sales_cost_mxn", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Ingreso de ventas (precio OV)' }),
+    __metadata("design:type", String)
+], StockFlowMoneyBlockDto.prototype, "sales_revenue_mxn", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", String)
+], StockFlowMoneyBlockDto.prototype, "transfer_in_cost_mxn", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", String)
+], StockFlowMoneyBlockDto.prototype, "transfer_out_cost_mxn", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", String)
+], StockFlowMoneyBlockDto.prototype, "adjustments_cost_mxn", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Valor inventario final a costo MXN' }),
+    __metadata("design:type", String)
+], StockFlowMoneyBlockDto.prototype, "closing_cost_mxn", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Valor inventario final a precio venta MXN' }),
+    __metadata("design:type", String)
+], StockFlowMoneyBlockDto.prototype, "closing_sale_mxn", void 0);
+class StockFlowSummaryRowDto extends StockFlowMoneyBlockDto {
     product_id;
     product_sku;
     product_name;
@@ -105,15 +163,15 @@ __decorate([
     __metadata("design:type", String)
 ], StockFlowSummaryRowDto.prototype, "uom_name", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ description: 'Saldo al inicio del rango' }),
+    (0, swagger_1.ApiProperty)(),
     __metadata("design:type", String)
 ], StockFlowSummaryRowDto.prototype, "opening_qty", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ description: 'Compras + importaciones en el rango' }),
+    (0, swagger_1.ApiProperty)(),
     __metadata("design:type", String)
 ], StockFlowSummaryRowDto.prototype, "purchases_qty", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ description: 'Ventas netas (sale − sale_reversal) en el rango' }),
+    (0, swagger_1.ApiProperty)(),
     __metadata("design:type", String)
 ], StockFlowSummaryRowDto.prototype, "sales_qty", void 0);
 __decorate([
@@ -125,13 +183,66 @@ __decorate([
     __metadata("design:type", String)
 ], StockFlowSummaryRowDto.prototype, "transfer_out_qty", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ description: 'Ajustes de auditoría (puede ser negativo)' }),
+    (0, swagger_1.ApiProperty)(),
     __metadata("design:type", String)
 ], StockFlowSummaryRowDto.prototype, "adjustments_qty", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ description: 'Saldo al cierre del rango' }),
+    (0, swagger_1.ApiProperty)(),
     __metadata("design:type", String)
 ], StockFlowSummaryRowDto.prototype, "closing_qty", void 0);
+class StockFlowTotalizedRowDto extends StockFlowMoneyBlockDto {
+    billing_branch_id;
+    billing_branch_name;
+    fiscal_configuration_name;
+    opening_qty;
+    purchases_qty;
+    sales_qty;
+    transfer_in_qty;
+    transfer_out_qty;
+    adjustments_qty;
+    closing_qty;
+}
+exports.StockFlowTotalizedRowDto = StockFlowTotalizedRowDto;
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", String)
+], StockFlowTotalizedRowDto.prototype, "billing_branch_id", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", String)
+], StockFlowTotalizedRowDto.prototype, "billing_branch_name", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", String)
+], StockFlowTotalizedRowDto.prototype, "fiscal_configuration_name", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", String)
+], StockFlowTotalizedRowDto.prototype, "opening_qty", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", String)
+], StockFlowTotalizedRowDto.prototype, "purchases_qty", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", String)
+], StockFlowTotalizedRowDto.prototype, "sales_qty", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", String)
+], StockFlowTotalizedRowDto.prototype, "transfer_in_qty", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", String)
+], StockFlowTotalizedRowDto.prototype, "transfer_out_qty", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", String)
+], StockFlowTotalizedRowDto.prototype, "adjustments_qty", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", String)
+], StockFlowTotalizedRowDto.prototype, "closing_qty", void 0);
 class StockFlowLedgerRowDto {
     id;
     occurred_at;
@@ -148,6 +259,11 @@ class StockFlowLedgerRowDto {
     quantity_in;
     quantity_out;
     balance_after;
+    unit_cost_mxn;
+    unit_sale_price_mxn;
+    cost_amount_mxn;
+    sale_amount_mxn;
+    cost_balance_after_mxn;
     reference_folio;
     is_opening;
 }
@@ -213,6 +329,26 @@ __decorate([
     __metadata("design:type", String)
 ], StockFlowLedgerRowDto.prototype, "balance_after", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ nullable: true, description: 'Costo unitario MXN snapshot' }),
+    __metadata("design:type", Object)
+], StockFlowLedgerRowDto.prototype, "unit_cost_mxn", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ nullable: true, description: 'Precio venta unitario MXN snapshot' }),
+    __metadata("design:type", Object)
+], StockFlowLedgerRowDto.prototype, "unit_sale_price_mxn", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ nullable: true, description: '|qty| × costo' }),
+    __metadata("design:type", Object)
+], StockFlowLedgerRowDto.prototype, "cost_amount_mxn", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ nullable: true, description: '|qty| × precio venta' }),
+    __metadata("design:type", Object)
+], StockFlowLedgerRowDto.prototype, "sale_amount_mxn", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ nullable: true, description: 'Valor inventario a costo tras el movimiento' }),
+    __metadata("design:type", Object)
+], StockFlowLedgerRowDto.prototype, "cost_balance_after_mxn", void 0);
+__decorate([
     (0, swagger_1.ApiPropertyOptional)({ nullable: true }),
     __metadata("design:type", Object)
 ], StockFlowLedgerRowDto.prototype, "reference_folio", void 0);
@@ -223,8 +359,10 @@ __decorate([
 class StockFlowResponseDto {
     filters_applied;
     summary;
+    totalized;
     ledger;
     total_summary_rows;
+    total_totalized_rows;
     total_ledger_rows;
 }
 exports.StockFlowResponseDto = StockFlowResponseDto;
@@ -237,6 +375,10 @@ __decorate([
     __metadata("design:type", Array)
 ], StockFlowResponseDto.prototype, "summary", void 0);
 __decorate([
+    (0, swagger_1.ApiProperty)({ type: [StockFlowTotalizedRowDto] }),
+    __metadata("design:type", Array)
+], StockFlowResponseDto.prototype, "totalized", void 0);
+__decorate([
     (0, swagger_1.ApiProperty)({ type: [StockFlowLedgerRowDto] }),
     __metadata("design:type", Array)
 ], StockFlowResponseDto.prototype, "ledger", void 0);
@@ -244,6 +386,10 @@ __decorate([
     (0, swagger_1.ApiProperty)(),
     __metadata("design:type", Number)
 ], StockFlowResponseDto.prototype, "total_summary_rows", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", Number)
+], StockFlowResponseDto.prototype, "total_totalized_rows", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)(),
     __metadata("design:type", Number)

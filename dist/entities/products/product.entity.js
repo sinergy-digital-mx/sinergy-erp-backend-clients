@@ -14,6 +14,7 @@ const typeorm_1 = require("typeorm");
 const tenant_entity_1 = require("../rbac/tenant.entity");
 const category_entity_1 = require("../categories/category.entity");
 const subcategory_entity_1 = require("../categories/subcategory.entity");
+const product_item_kind_enum_1 = require("./product-item-kind.enum");
 let Product = class Product {
     id;
     tenant;
@@ -24,6 +25,7 @@ let Product = class Product {
     description;
     photo;
     is_active;
+    item_kind;
     category;
     category_id;
     subcategory;
@@ -71,6 +73,10 @@ __decorate([
     __metadata("design:type", Boolean)
 ], Product.prototype, "is_active", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 16, default: product_item_kind_enum_1.ProductItemKind.Goods }),
+    __metadata("design:type", String)
+], Product.prototype, "item_kind", void 0);
+__decorate([
     (0, typeorm_1.ManyToOne)(() => category_entity_1.Category, { onDelete: 'SET NULL', nullable: true }),
     (0, typeorm_1.JoinColumn)({ name: 'category_id' }),
     __metadata("design:type", Object)
@@ -110,6 +116,7 @@ exports.Product = Product = __decorate([
     (0, typeorm_1.Index)('IDX_products_category_id', ['category_id']),
     (0, typeorm_1.Index)('IDX_products_subcategory_id', ['subcategory_id']),
     (0, typeorm_1.Index)('IDX_products_tenant_category', ['tenant_id', 'category_id']),
-    (0, typeorm_1.Index)('IDX_products_tenant_subcategory', ['tenant_id', 'subcategory_id'])
+    (0, typeorm_1.Index)('IDX_products_tenant_subcategory', ['tenant_id', 'subcategory_id']),
+    (0, typeorm_1.Index)('IDX_products_tenant_item_kind', ['tenant_id', 'item_kind'])
 ], Product);
 //# sourceMappingURL=product.entity.js.map

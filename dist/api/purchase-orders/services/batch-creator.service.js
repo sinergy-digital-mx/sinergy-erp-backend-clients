@@ -22,15 +22,18 @@ const inventory_stock_ledger_movement_type_enum_1 = require("../../../entities/i
 const batch_number_generator_service_1 = require("./batch-number-generator.service");
 const inventory_measure_util_1 = require("../../inventory/utils/inventory-measure.util");
 const inventory_stock_ledger_service_1 = require("../../inventory/services/inventory-stock-ledger.service");
+const inventory_stock_ledger_valuation_service_1 = require("../../inventory/services/inventory-stock-ledger-valuation.service");
 let BatchCreatorService = BatchCreatorService_1 = class BatchCreatorService {
     inventoryBatchRepository;
     batchNumberGeneratorService;
     stockLedger;
+    stockLedgerValuation;
     logger = new common_1.Logger(BatchCreatorService_1.name);
-    constructor(inventoryBatchRepository, batchNumberGeneratorService, stockLedger) {
+    constructor(inventoryBatchRepository, batchNumberGeneratorService, stockLedger, stockLedgerValuation) {
         this.inventoryBatchRepository = inventoryBatchRepository;
         this.batchNumberGeneratorService = batchNumberGeneratorService;
         this.stockLedger = stockLedger;
+        this.stockLedgerValuation = stockLedgerValuation;
     }
     async createBatchForReceivedItem(receivedItem, purchaseOrder, purchaseOrderDetailId, userId, productUoms, sourceTagIdentifier, manager) {
         try {
@@ -69,6 +72,8 @@ let BatchCreatorService = BatchCreatorService_1 = class BatchCreatorService {
                 created_at: new Date(),
             });
             const savedBatch = await repo.save(batch);
+            const em = manager ?? this.inventoryBatchRepository.manager;
+            const valuation = await this.stockLedgerValuation.resolveFromBatchId(purchaseOrder.tenant_id, savedBatch.id, em);
             await this.stockLedger.append({
                 tenantId: purchaseOrder.tenant_id,
                 productId: savedBatch.product_id,
@@ -77,6 +82,8 @@ let BatchCreatorService = BatchCreatorService_1 = class BatchCreatorService {
                 inventoryBatchId: savedBatch.id,
                 movementType: inventory_stock_ledger_movement_type_enum_1.InventoryStockLedgerMovementType.PURCHASE_RECEIPT,
                 quantityDelta: parseFloat(String(convertedQuantity)),
+                unitCostMxn: valuation.unitCostMxn,
+                unitSalePriceMxn: valuation.unitSalePriceMxn,
                 occurredAt: savedBatch.created_at ?? new Date(),
                 referenceType: inventory_stock_ledger_service_1.STOCK_LEDGER_REFERENCE.PURCHASE_ORDER,
                 referenceId: purchaseOrder.id,
@@ -98,6 +105,7 @@ exports.BatchCreatorService = BatchCreatorService = BatchCreatorService_1 = __de
     __param(0, (0, typeorm_1.InjectRepository)(inventory_batch_entity_1.InventoryBatch)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
         batch_number_generator_service_1.BatchNumberGeneratorService,
-        inventory_stock_ledger_service_1.InventoryStockLedgerService])
+        inventory_stock_ledger_service_1.InventoryStockLedgerService,
+        inventory_stock_ledger_valuation_service_1.InventoryStockLedgerValuationService])
 ], BatchCreatorService);
 //# sourceMappingURL=batch-creator.service.js.map

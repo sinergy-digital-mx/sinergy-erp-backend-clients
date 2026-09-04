@@ -26,6 +26,7 @@ export declare function mapAppliedLineDiscountsFromOrder(order: Pick<SalesOrder,
 export declare function mapAppliedGlobalDiscountFromOrder(order: Pick<SalesOrder, 'global_discount_id' | 'global_discount_amount' | 'global_discount'>): SalesOrderAppliedGlobalDiscountDto | null;
 export declare function mapAppliedDiscountsFromOrder(order: Pick<SalesOrder, 'line_items'>): SalesOrderAppliedLineDiscountDto[];
 export declare function mapLineItemWithDiscount(item: SalesOrderDetail): {
+    item_kind: import("../../../entities/products").ProductItemKind;
     line_subtotal: number;
     line_discount_amount: number;
     line_iva: number;

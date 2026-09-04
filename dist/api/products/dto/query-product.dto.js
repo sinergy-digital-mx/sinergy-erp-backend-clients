@@ -13,6 +13,7 @@ exports.QueryProductDto = void 0;
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
 const swagger_1 = require("@nestjs/swagger");
+const product_item_kind_enum_1 = require("../../../entities/products/product-item-kind.enum");
 class QueryProductDto {
     page = 1;
     limit = 10;
@@ -23,6 +24,7 @@ class QueryProductDto {
     category_id;
     subcategory_id;
     is_active;
+    item_kind;
 }
 exports.QueryProductDto = QueryProductDto;
 __decorate([
@@ -87,4 +89,10 @@ __decorate([
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], QueryProductDto.prototype, "is_active", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ enum: product_item_kind_enum_1.ProductItemKind, description: 'Filtrar por producto o servicio' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(product_item_kind_enum_1.ProductItemKind),
+    __metadata("design:type", String)
+], QueryProductDto.prototype, "item_kind", void 0);
 //# sourceMappingURL=query-product.dto.js.map

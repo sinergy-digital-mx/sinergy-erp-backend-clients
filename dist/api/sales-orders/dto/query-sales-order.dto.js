@@ -35,6 +35,7 @@ class QuerySalesOrderDto {
     payment_status;
     is_credit;
     sales_order_type;
+    sale_scope;
     collection_channel;
     fiscal_configuration_id;
     billing_branch_id;
@@ -80,6 +81,11 @@ __decorate([
     (0, class_validator_1.IsEnum)(['POS', 'MANUAL']),
     __metadata("design:type", String)
 ], QuerySalesOrderDto.prototype, "sales_order_type", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(['inventory', 'services', 'combined']),
+    __metadata("design:type", String)
+], QuerySalesOrderDto.prototype, "sale_scope", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(['pos_cobranza', 'manual', 'mixed']),

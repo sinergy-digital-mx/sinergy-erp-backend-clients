@@ -12,12 +12,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.QueryQuotationProductsSummaryDto = void 0;
 const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
+const sales_order_sale_scope_enum_1 = require("../../../entities/sales-orders/sales-order-sale-scope.enum");
 class QueryQuotationProductsSummaryDto {
     fiscal_configuration_id;
     billing_branch_id;
     search;
     page = 1;
     limit = 40;
+    sale_scope;
 }
 exports.QueryQuotationProductsSummaryDto = QueryQuotationProductsSummaryDto;
 __decorate([
@@ -47,4 +49,9 @@ __decorate([
     (0, class_validator_1.Min)(1),
     __metadata("design:type", Number)
 ], QueryQuotationProductsSummaryDto.prototype, "limit", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(sales_order_sale_scope_enum_1.SalesOrderSaleScope),
+    __metadata("design:type", String)
+], QueryQuotationProductsSummaryDto.prototype, "sale_scope", void 0);
 //# sourceMappingURL=query-quotation-products-summary.dto.js.map

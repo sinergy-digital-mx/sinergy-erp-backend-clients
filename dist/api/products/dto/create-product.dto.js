@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateProductDto = void 0;
 const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
+const product_item_kind_enum_1 = require("../../../entities/products/product-item-kind.enum");
 class CreateProductDto {
     sku;
     external_sku;
@@ -21,10 +22,14 @@ class CreateProductDto {
     sat_code;
     category_id;
     subcategory_id;
+    item_kind;
+    base_uom_catalog_id;
+    base_uom_id;
 }
 exports.CreateProductDto = CreateProductDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 'PROD-001', description: 'SKU único del producto' }),
+    (0, swagger_1.ApiProperty)({ example: 'PROD-001', description: 'SKU único. En servicio se puede omitir y se genera.' }),
+    (0, class_validator_1.ValidateIf)((dto) => dto.item_kind !== product_item_kind_enum_1.ProductItemKind.Service || !!dto.sku),
     (0, class_validator_1.IsNotEmpty)(),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.Length)(1, 255),
@@ -79,4 +84,25 @@ __decorate([
     (0, class_validator_1.IsUUID)(),
     __metadata("design:type", String)
 ], CreateProductDto.prototype, "subcategory_id", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ enum: product_item_kind_enum_1.ProductItemKind, default: product_item_kind_enum_1.ProductItemKind.Goods }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(product_item_kind_enum_1.ProductItemKind),
+    __metadata("design:type", String)
+], CreateProductDto.prototype, "item_kind", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        example: 'uuid-uom-catalog',
+        description: 'UOM base del catálogo. Si se envía, se crea en la misma transacción.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], CreateProductDto.prototype, "base_uom_catalog_id", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 'uuid-uom-catalog' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], CreateProductDto.prototype, "base_uom_id", void 0);
 //# sourceMappingURL=create-product.dto.js.map

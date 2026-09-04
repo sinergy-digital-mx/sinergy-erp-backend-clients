@@ -87,6 +87,7 @@ class CreateSalesOrderDto {
     payment_status;
     notes;
     requires_selection_assembly;
+    sale_scope;
     global_discount_id;
     line_items;
 }
@@ -183,6 +184,17 @@ __decorate([
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], CreateSalesOrderDto.prototype, "requires_selection_assembly", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        enum: ['inventory', 'services', 'combined'],
+        default: 'inventory',
+        description: 'Inventario, servicios o productos y servicios. POS ignora el valor y queda inventory.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(['inventory', 'services', 'combined']),
+    __metadata("design:type", String)
+], CreateSalesOrderDto.prototype, "sale_scope", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
         required: false,

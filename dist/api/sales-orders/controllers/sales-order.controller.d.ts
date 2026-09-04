@@ -7,16 +7,18 @@ import { ShippingsService } from '../../shippings/shippings.service';
 import { CancelElectronicInvoiceDto } from '../../electronic-invoicing/dto/cancel-electronic-invoice.dto';
 import { StampSalesOrderInvoiceDto } from '../dto/stamp-sales-order-invoice.dto';
 import { InventoryService } from '../../inventory/inventory.service';
+import { SalesOrderProductsPickerService } from '../services/sales-order-products-picker.service';
 import { CreateSalesOrderDto, CreateSalesOrderLineItemDto, UpdateSalesOrderLineItemDto, QuerySalesOrderDto, QuerySalesOrderProductsSummaryDto, FulfillSalesOrderDto, RegenerateDocumentDto, UpdateSalesOrderNotesDto, QuerySalesOrderHeaderExportDto, QuerySalesOrderDetailExportDto, CreateSalesOrderPaymentDto, UpdateSalesOrderSellerDto, UpdateSalesOrderAssignedSellerDto } from '../dto';
 export declare class SalesOrderController {
     private readonly salesOrderService;
     private readonly documentsService;
     private readonly posReceiptService;
     private readonly inventoryService;
+    private readonly productsPicker;
     private readonly exportService;
     private readonly invoicingService;
     private readonly shippingsService;
-    constructor(salesOrderService: SalesOrderService, documentsService: SalesOrderDocumentsService, posReceiptService: SalesOrderPosReceiptService, inventoryService: InventoryService, exportService: SalesOrderExportService, invoicingService: SalesOrderInvoicingService, shippingsService: ShippingsService);
+    constructor(salesOrderService: SalesOrderService, documentsService: SalesOrderDocumentsService, posReceiptService: SalesOrderPosReceiptService, inventoryService: InventoryService, productsPicker: SalesOrderProductsPickerService, exportService: SalesOrderExportService, invoicingService: SalesOrderInvoicingService, shippingsService: ShippingsService);
     create(dto: CreateSalesOrderDto, req: any): Promise<import("../../../entities/sales-orders").SalesOrder>;
     replace(id: string, dto: CreateSalesOrderDto, req: any): Promise<import("../../../entities/sales-orders").SalesOrder>;
     addLineItem(id: string, dto: CreateSalesOrderLineItemDto, req: any): Promise<{
@@ -328,6 +330,7 @@ export declare class SalesOrderController {
                 general_status: string;
                 notes: string | null;
                 converted_from_quotation_id: string | null;
+                sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
                 requires_selection_assembly: boolean;
                 corroborator: import("../../../entities/users/user.entity").User | null;
                 corroborated_by: string | null;
@@ -769,6 +772,7 @@ export declare class SalesOrderController {
                 general_status: string;
                 notes: string | null;
                 converted_from_quotation_id: string | null;
+                sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
                 requires_selection_assembly: boolean;
                 corroborator: import("../../../entities/users/user.entity").User | null;
                 corroborated_by: string | null;
@@ -1210,6 +1214,7 @@ export declare class SalesOrderController {
                 general_status: string;
                 notes: string | null;
                 converted_from_quotation_id: string | null;
+                sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
                 requires_selection_assembly: boolean;
                 corroborator: import("../../../entities/users/user.entity").User | null;
                 corroborated_by: string | null;
@@ -1651,6 +1656,7 @@ export declare class SalesOrderController {
             general_status: string;
             notes: string | null;
             converted_from_quotation_id: string | null;
+            sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
             requires_selection_assembly: boolean;
             corroborator: import("../../../entities/users/user.entity").User | null;
             corroborated_by: string | null;
@@ -1678,6 +1684,7 @@ export declare class SalesOrderController {
         };
         sales_order: {
             line_items: {
+                item_kind: import("../../../entities/products").ProductItemKind;
                 line_subtotal: number;
                 line_discount_amount: number;
                 line_iva: number;
@@ -1737,6 +1744,7 @@ export declare class SalesOrderController {
             general_status: string;
             notes: string | null;
             converted_from_quotation_id: string | null;
+            sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
             requires_selection_assembly: boolean;
             corroborator: import("../../../entities/users/user.entity").User | null;
             corroborated_by: string | null;
@@ -2158,6 +2166,7 @@ export declare class SalesOrderController {
             general_status: string;
             notes: string | null;
             converted_from_quotation_id: string | null;
+            sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
             requires_selection_assembly: boolean;
             corroborator: import("../../../entities/users/user.entity").User | null;
             corroborated_by: string | null;
@@ -2185,6 +2194,7 @@ export declare class SalesOrderController {
         };
         sales_order: {
             line_items: {
+                item_kind: import("../../../entities/products").ProductItemKind;
                 line_subtotal: number;
                 line_discount_amount: number;
                 line_iva: number;
@@ -2244,6 +2254,7 @@ export declare class SalesOrderController {
             general_status: string;
             notes: string | null;
             converted_from_quotation_id: string | null;
+            sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
             requires_selection_assembly: boolean;
             corroborator: import("../../../entities/users/user.entity").User | null;
             corroborated_by: string | null;
@@ -2513,6 +2524,7 @@ export declare class SalesOrderController {
             general_status: string;
             notes: string | null;
             converted_from_quotation_id: string | null;
+            sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
             requires_selection_assembly: boolean;
             corroborator: import("../../../entities/users/user.entity").User | null;
             corroborated_by: string | null;
@@ -2886,6 +2898,7 @@ export declare class SalesOrderController {
                 general_status: string;
                 notes: string | null;
                 converted_from_quotation_id: string | null;
+                sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
                 requires_selection_assembly: boolean;
                 corroborator: import("../../../entities/users/user.entity").User | null;
                 corroborated_by: string | null;

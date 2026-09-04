@@ -25,6 +25,9 @@ export declare class PosSessionProductInventorySummaryDto {
     product_id: string;
     product_name: string;
     product_sku: string;
+    product_description?: string | null;
+    sat_clave?: string | null;
+    item_kind?: 'goods' | 'service';
     product_photo: string | null;
     uom_id: string;
     uom_name: string;
@@ -44,8 +47,8 @@ export declare class PosSessionProductInventorySummaryDto {
     product_uom_id: string;
     has_applicable_discounts: boolean;
     applicable_discounts: PosSessionApplicableDiscountDto[];
-    total_available_quantity: string;
-    total_initial_quantity: string;
+    total_available_quantity: string | null;
+    total_initial_quantity: string | null;
     total_batches: number;
     measure_totals: Array<{
         measure: string | null;

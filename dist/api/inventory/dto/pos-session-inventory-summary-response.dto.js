@@ -112,6 +112,9 @@ class PosSessionProductInventorySummaryDto {
     product_id;
     product_name;
     product_sku;
+    product_description;
+    sat_clave;
+    item_kind;
     product_photo;
     uom_id;
     uom_name;
@@ -143,6 +146,18 @@ __decorate([
     (0, swagger_1.ApiProperty)(),
     __metadata("design:type", String)
 ], PosSessionProductInventorySummaryDto.prototype, "product_sku", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false, nullable: true }),
+    __metadata("design:type", Object)
+], PosSessionProductInventorySummaryDto.prototype, "product_description", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false, nullable: true }),
+    __metadata("design:type", Object)
+], PosSessionProductInventorySummaryDto.prototype, "sat_clave", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false, enum: ['goods', 'service'] }),
+    __metadata("design:type", String)
+], PosSessionProductInventorySummaryDto.prototype, "item_kind", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ nullable: true, description: 'Signed product photo URL (temporary access)' }),
     __metadata("design:type", Object)
@@ -196,12 +211,12 @@ __decorate([
     __metadata("design:type", Array)
 ], PosSessionProductInventorySummaryDto.prototype, "applicable_discounts", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)(),
-    __metadata("design:type", String)
+    (0, swagger_1.ApiProperty)({ nullable: true }),
+    __metadata("design:type", Object)
 ], PosSessionProductInventorySummaryDto.prototype, "total_available_quantity", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)(),
-    __metadata("design:type", String)
+    (0, swagger_1.ApiProperty)({ nullable: true }),
+    __metadata("design:type", Object)
 ], PosSessionProductInventorySummaryDto.prototype, "total_initial_quantity", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)(),

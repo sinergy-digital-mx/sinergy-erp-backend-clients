@@ -16,6 +16,8 @@ export type AppendStockLedgerParams = {
     inventoryBatchId?: string | null;
     movementType: InventoryStockLedgerMovementType;
     quantityDelta: number;
+    unitCostMxn?: number | null;
+    unitSalePriceMxn?: number | null;
     occurredAt?: Date;
     referenceType?: string | null;
     referenceId?: string | null;
@@ -34,4 +36,5 @@ export declare class InventoryStockLedgerService {
         uomId: string;
     }, manager?: EntityManager): Promise<number>;
     countForTenant(tenantId: string, manager?: EntityManager): Promise<number>;
+    private getLastRow;
 }

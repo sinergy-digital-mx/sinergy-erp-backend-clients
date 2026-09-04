@@ -20,6 +20,9 @@ export declare class InventoryStockLedger {
     movement_type: InventoryStockLedgerMovementType;
     quantity_delta: number;
     balance_after: number;
+    unit_cost_mxn: number | null;
+    unit_sale_price_mxn: number | null;
+    cost_balance_after_mxn: number | null;
     occurred_at: Date;
     reference_type: string | null;
     reference_id: string | null;

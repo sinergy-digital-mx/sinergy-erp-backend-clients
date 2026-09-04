@@ -11,14 +11,22 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const inventory_stock_ledger_entity_1 = require("../../entities/inventory/inventory-stock-ledger.entity");
 const inventory_stock_ledger_service_1 = require("./services/inventory-stock-ledger.service");
+const inventory_stock_ledger_valuation_service_1 = require("./services/inventory-stock-ledger-valuation.service");
 let InventoryStockLedgerModule = class InventoryStockLedgerModule {
 };
 exports.InventoryStockLedgerModule = InventoryStockLedgerModule;
 exports.InventoryStockLedgerModule = InventoryStockLedgerModule = __decorate([
     (0, common_1.Module)({
         imports: [typeorm_1.TypeOrmModule.forFeature([inventory_stock_ledger_entity_1.InventoryStockLedger])],
-        providers: [inventory_stock_ledger_service_1.InventoryStockLedgerService],
-        exports: [inventory_stock_ledger_service_1.InventoryStockLedgerService, typeorm_1.TypeOrmModule],
+        providers: [
+            inventory_stock_ledger_service_1.InventoryStockLedgerService,
+            inventory_stock_ledger_valuation_service_1.InventoryStockLedgerValuationService,
+        ],
+        exports: [
+            inventory_stock_ledger_service_1.InventoryStockLedgerService,
+            inventory_stock_ledger_valuation_service_1.InventoryStockLedgerValuationService,
+            typeorm_1.TypeOrmModule,
+        ],
     })
 ], InventoryStockLedgerModule);
 //# sourceMappingURL=inventory-stock-ledger.module.js.map

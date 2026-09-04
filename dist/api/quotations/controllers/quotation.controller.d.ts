@@ -1,4 +1,4 @@
-import { InventoryService } from '../../inventory/inventory.service';
+import { SalesOrderProductsPickerService } from '../../sales-orders/services/sales-order-products-picker.service';
 import { QuotationService } from '../services/quotation.service';
 import { QuotationDocumentsService } from '../services/quotation-documents.service';
 import { QuotationEmailService } from '../services/quotation-email.service';
@@ -8,8 +8,8 @@ export declare class QuotationController {
     private readonly quotationService;
     private readonly documentsService;
     private readonly emailService;
-    private readonly inventoryService;
-    constructor(quotationService: QuotationService, documentsService: QuotationDocumentsService, emailService: QuotationEmailService, inventoryService: InventoryService);
+    private readonly productsPicker;
+    constructor(quotationService: QuotationService, documentsService: QuotationDocumentsService, emailService: QuotationEmailService, productsPicker: SalesOrderProductsPickerService);
     create(dto: CreateQuotationDto, req: any): Promise<import("../../../entities/quotations").Quotation>;
     replace(id: string, dto: CreateQuotationDto, req: any): Promise<import("../../../entities/quotations").Quotation>;
     updateNotes(id: string, dto: UpdateQuotationNotesDto, req: any): Promise<{

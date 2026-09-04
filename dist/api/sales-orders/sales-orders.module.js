@@ -26,6 +26,7 @@ const sales_order_pdf_service_1 = require("./services/sales-order-pdf.service");
 const sales_order_documents_service_1 = require("./services/sales-order-documents.service");
 const sales_order_pos_receipt_service_1 = require("./services/sales-order-pos-receipt.service");
 const sales_order_export_service_1 = require("./services/sales-order-export.service");
+const sales_order_products_picker_service_1 = require("./services/sales-order-products-picker.service");
 const pos_sale_collection_entity_1 = require("../../entities/pos/pos-sale-collection.entity");
 const billing_branch_entity_1 = require("../../entities/billing/billing-branch.entity");
 const warehouse_entity_1 = require("../../entities/warehouse/warehouse.entity");
@@ -76,6 +77,7 @@ exports.SalesOrdersModule = SalesOrdersModule = __decorate([
             sales_order_pos_receipt_service_1.SalesOrderPosReceiptService,
             sales_order_export_service_1.SalesOrderExportService,
             sales_order_invoicing_service_1.SalesOrderInvoicingService,
+            sales_order_products_picker_service_1.SalesOrderProductsPickerService,
             s3_service_1.S3Service,
         ],
         exports: [
@@ -83,6 +85,7 @@ exports.SalesOrdersModule = SalesOrdersModule = __decorate([
             sales_order_pos_receipt_service_1.SalesOrderPosReceiptService,
             sales_order_fulfillment_service_1.SalesOrderFulfillmentService,
             sales_order_pdf_service_1.SalesOrderPdfService,
+            sales_order_products_picker_service_1.SalesOrderProductsPickerService,
         ],
     })
 ], SalesOrdersModule);

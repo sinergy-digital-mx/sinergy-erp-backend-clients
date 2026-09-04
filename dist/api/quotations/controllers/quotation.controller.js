@@ -17,7 +17,7 @@ const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const jwt_auth_guard_1 = require("../../auth/jwt-auth.guard");
 const tenant_module_validation_guard_1 = require("../../auth/tenant-module-validation.guard");
-const inventory_service_1 = require("../../inventory/inventory.service");
+const sales_order_products_picker_service_1 = require("../../sales-orders/services/sales-order-products-picker.service");
 const quotation_service_1 = require("../services/quotation.service");
 const quotation_documents_service_1 = require("../services/quotation-documents.service");
 const quotation_email_service_1 = require("../services/quotation-email.service");
@@ -27,12 +27,12 @@ let QuotationController = class QuotationController {
     quotationService;
     documentsService;
     emailService;
-    inventoryService;
-    constructor(quotationService, documentsService, emailService, inventoryService) {
+    productsPicker;
+    constructor(quotationService, documentsService, emailService, productsPicker) {
         this.quotationService = quotationService;
         this.documentsService = documentsService;
         this.emailService = emailService;
-        this.inventoryService = inventoryService;
+        this.productsPicker = productsPicker;
     }
     create(dto, req) {
         return this.quotationService.create(dto, req.user.tenant_id, req.user.id);
@@ -47,13 +47,7 @@ let QuotationController = class QuotationController {
         return this.quotationService.findAll(req.user.tenant_id, query);
     }
     getProductsSummary(query, req) {
-        return this.inventoryService.getBranchInventorySummary(req.user.tenant_id, query.billing_branch_id, {
-            fiscal_configuration_id: query.fiscal_configuration_id,
-            search: query.search,
-            only_available: true,
-            page: query.page ?? 1,
-            limit: query.limit ?? 40,
-        });
+        return this.productsPicker.getSummary(req.user.tenant_id, query);
     }
     async findOne(id, req) {
         const detail = await this.quotationService.findOneDetail(id, req.user.tenant_id);
@@ -219,6 +213,6 @@ exports.QuotationController = QuotationController = __decorate([
     __metadata("design:paramtypes", [quotation_service_1.QuotationService,
         quotation_documents_service_1.QuotationDocumentsService,
         quotation_email_service_1.QuotationEmailService,
-        inventory_service_1.InventoryService])
+        sales_order_products_picker_service_1.SalesOrderProductsPickerService])
 ], QuotationController);
 //# sourceMappingURL=quotation.controller.js.map

@@ -7,7 +7,8 @@ export declare enum StockFlowPeriod {
 }
 export declare enum StockFlowView {
     SUMMARY = "summary",
-    LEDGER = "ledger"
+    LEDGER = "ledger",
+    TOTALIZED = "totalized"
 }
 export declare class QueryStockFlowDto {
     period: StockFlowPeriod;

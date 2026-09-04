@@ -20,6 +20,7 @@ const user_entity_1 = require("../users/user.entity");
 const pos_daily_shift_entity_1 = require("../pos/pos-daily-shift.entity");
 const sales_order_detail_entity_1 = require("./sales-order-detail.entity");
 const global_discount_entity_1 = require("../global-discounts/global-discount.entity");
+const sales_order_sale_scope_enum_1 = require("./sales-order-sale-scope.enum");
 let SalesOrder = class SalesOrder {
     id;
     tenant;
@@ -43,6 +44,7 @@ let SalesOrder = class SalesOrder {
     general_status;
     notes;
     converted_from_quotation_id;
+    sale_scope;
     requires_selection_assembly;
     corroborator;
     corroborated_by;
@@ -186,6 +188,10 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 36, nullable: true }),
     __metadata("design:type", Object)
 ], SalesOrder.prototype, "converted_from_quotation_id", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 16, default: sales_order_sale_scope_enum_1.SalesOrderSaleScope.Inventory }),
+    __metadata("design:type", String)
+], SalesOrder.prototype, "sale_scope", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'boolean', default: false }),
     __metadata("design:type", Boolean)

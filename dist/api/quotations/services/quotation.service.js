@@ -20,6 +20,8 @@ const typeorm_2 = require("typeorm");
 const uuid_1 = require("uuid");
 const quotation_entity_1 = require("../../../entities/quotations/quotation.entity");
 const quotation_detail_entity_1 = require("../../../entities/quotations/quotation-detail.entity");
+const product_item_kind_enum_1 = require("../../../entities/products/product-item-kind.enum");
+const sales_order_sale_scope_enum_1 = require("../../../entities/sales-orders/sales-order-sale-scope.enum");
 const user_entity_1 = require("../../../entities/users/user.entity");
 const customer_entity_1 = require("../../../entities/customers/customer.entity");
 const billing_branch_entity_1 = require("../../../entities/billing/billing-branch.entity");
@@ -336,6 +338,14 @@ let QuotationService = class QuotationService {
         const notes = [quotation.notes, dto.notes, `Convertida desde ${quotation.folio}`]
             .filter((part) => part && String(part).trim())
             .join(' | ');
+        const lineKinds = (quotation.line_items ?? []).map((line) => line.product?.item_kind ?? product_item_kind_enum_1.ProductItemKind.Goods);
+        const hasGoods = lineKinds.some((kind) => kind === product_item_kind_enum_1.ProductItemKind.Goods);
+        const hasServices = lineKinds.some((kind) => kind === product_item_kind_enum_1.ProductItemKind.Service);
+        const saleScope = hasGoods && hasServices
+            ? sales_order_sale_scope_enum_1.SalesOrderSaleScope.Combined
+            : hasServices
+                ? sales_order_sale_scope_enum_1.SalesOrderSaleScope.Services
+                : sales_order_sale_scope_enum_1.SalesOrderSaleScope.Inventory;
         const createDto = {
             fiscal_configuration_id: quotation.fiscal_configuration_id,
             billing_branch_id: quotation.billing_branch_id ?? undefined,
@@ -343,6 +353,7 @@ let QuotationService = class QuotationService {
             customer_id: dto.customer_id ?? quotation.customer_id,
             expected_delivery_date: expectedDate,
             sales_order_type: quotation.quotation_type === 'POS' ? 'POS' : 'MANUAL',
+            sale_scope: saleScope,
             seller_user_id: quotation.seller_user_id ?? undefined,
             assigned_seller_user_id: quotation.assigned_seller_user_id ?? undefined,
             fiscal_razon_social: quotation.fiscal_razon_social ?? undefined,

@@ -33,6 +33,9 @@ let InventoryStockLedger = class InventoryStockLedger {
     movement_type;
     quantity_delta;
     balance_after;
+    unit_cost_mxn;
+    unit_sale_price_mxn;
+    cost_balance_after_mxn;
     occurred_at;
     reference_type;
     reference_id;
@@ -107,6 +110,18 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'decimal', precision: 12, scale: 3 }),
     __metadata("design:type", Number)
 ], InventoryStockLedger.prototype, "balance_after", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'decimal', precision: 16, scale: 4, nullable: true }),
+    __metadata("design:type", Object)
+], InventoryStockLedger.prototype, "unit_cost_mxn", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'decimal', precision: 16, scale: 4, nullable: true }),
+    __metadata("design:type", Object)
+], InventoryStockLedger.prototype, "unit_sale_price_mxn", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'decimal', precision: 18, scale: 4, nullable: true }),
+    __metadata("design:type", Object)
+], InventoryStockLedger.prototype, "cost_balance_after_mxn", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'timestamp' }),
     __metadata("design:type", Date)
