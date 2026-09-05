@@ -23,6 +23,7 @@ const sales_order_documents_service_1 = require("../services/sales-order-documen
 const sales_order_pos_receipt_service_1 = require("../services/sales-order-pos-receipt.service");
 const sales_order_export_service_1 = require("../services/sales-order-export.service");
 const sales_order_invoicing_service_1 = require("../services/sales-order-invoicing.service");
+const sales_order_invoice_email_service_1 = require("../services/sales-order-invoice-email.service");
 const shippings_service_1 = require("../../shippings/shippings.service");
 const cancel_electronic_invoice_dto_1 = require("../../electronic-invoicing/dto/cancel-electronic-invoice.dto");
 const stamp_sales_order_invoice_dto_1 = require("../dto/stamp-sales-order-invoice.dto");
@@ -37,8 +38,9 @@ let SalesOrderController = class SalesOrderController {
     productsPicker;
     exportService;
     invoicingService;
+    invoiceEmailService;
     shippingsService;
-    constructor(salesOrderService, documentsService, posReceiptService, inventoryService, productsPicker, exportService, invoicingService, shippingsService) {
+    constructor(salesOrderService, documentsService, posReceiptService, inventoryService, productsPicker, exportService, invoicingService, invoiceEmailService, shippingsService) {
         this.salesOrderService = salesOrderService;
         this.documentsService = documentsService;
         this.posReceiptService = posReceiptService;
@@ -46,6 +48,7 @@ let SalesOrderController = class SalesOrderController {
         this.productsPicker = productsPicker;
         this.exportService = exportService;
         this.invoicingService = invoicingService;
+        this.invoiceEmailService = invoiceEmailService;
         this.shippingsService = shippingsService;
     }
     async create(dto, req) {
@@ -131,6 +134,15 @@ let SalesOrderController = class SalesOrderController {
         res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
         res.send(xml);
     }
+    async getInvoiceEmailCompose(id, invoiceId, req) {
+        return this.invoiceEmailService.getCompose(id, invoiceId, req.user.tenant_id);
+    }
+    async sendInvoiceEmail(id, invoiceId, dto, req) {
+        return this.invoiceEmailService.send(id, invoiceId, dto, req.user.tenant_id, req.user.id);
+    }
+    async listInvoiceEmails(id, req) {
+        return this.invoiceEmailService.list(id, req.user.tenant_id);
+    }
     async findAll(filters, req) {
         return this.salesOrderService.findAll(req.user.tenant_id, filters);
     }
@@ -148,6 +160,12 @@ let SalesOrderController = class SalesOrderController {
     }
     async getProductsSummary(query, req) {
         return this.productsPicker.getSummary(req.user.tenant_id, query);
+    }
+    async getInvoiceEmailTemplate(req) {
+        return this.invoiceEmailService.getTemplate(req.user.tenant_id);
+    }
+    async updateInvoiceEmailTemplate(dto, req) {
+        return this.invoiceEmailService.updateTemplate(req.user.tenant_id, req.user.id, dto);
     }
     async getWarehouseProductsSummary(warehouseId, req) {
         return this.inventoryService.getInventorySummary(req.user.tenant_id, {
@@ -474,6 +492,37 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], SalesOrderController.prototype, "getInvoiceXml", null);
 __decorate([
+    (0, common_1.Get)(':id/invoices/:invoiceId/email-compose'),
+    (0, swagger_1.ApiOperation)({ summary: 'Preparar envío por correo de una factura de la orden' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Param)('invoiceId')),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object]),
+    __metadata("design:returntype", Promise)
+], SalesOrderController.prototype, "getInvoiceEmailCompose", null);
+__decorate([
+    (0, common_1.Post)(':id/invoices/:invoiceId/send-email'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({ summary: 'Enviar factura por correo (PDF y XML)' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Param)('invoiceId')),
+    __param(2, (0, common_1.Body)()),
+    __param(3, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, dto_1.SendSalesOrderInvoiceEmailDto, Object]),
+    __metadata("design:returntype", Promise)
+], SalesOrderController.prototype, "sendInvoiceEmail", null);
+__decorate([
+    (0, common_1.Get)(':id/invoice-emails'),
+    (0, swagger_1.ApiOperation)({ summary: 'Historial de correos de facturas de la orden' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], SalesOrderController.prototype, "listInvoiceEmails", null);
+__decorate([
     (0, common_1.Get)(),
     (0, swagger_1.ApiOperation)({ summary: 'List sales orders with filters and pagination' }),
     __param(0, (0, common_1.Query)()),
@@ -517,6 +566,23 @@ __decorate([
     __metadata("design:paramtypes", [dto_1.QuerySalesOrderProductsSummaryDto, Object]),
     __metadata("design:returntype", Promise)
 ], SalesOrderController.prototype, "getProductsSummary", null);
+__decorate([
+    (0, common_1.Get)('invoice-email-template'),
+    (0, swagger_1.ApiOperation)({ summary: 'Obtener plantilla de correo de facturas' }),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], SalesOrderController.prototype, "getInvoiceEmailTemplate", null);
+__decorate([
+    (0, common_1.Patch)('invoice-email-template'),
+    (0, swagger_1.ApiOperation)({ summary: 'Actualizar plantilla de correo de facturas' }),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [dto_1.UpdateInvoiceEmailTemplateDto, Object]),
+    __metadata("design:returntype", Promise)
+], SalesOrderController.prototype, "updateInvoiceEmailTemplate", null);
 __decorate([
     (0, common_1.Get)('warehouse/:warehouseId/products-summary'),
     (0, swagger_1.ApiOperation)({ summary: 'Get summarized inventory products for a warehouse' }),
@@ -643,6 +709,7 @@ exports.SalesOrderController = SalesOrderController = __decorate([
         sales_order_products_picker_service_1.SalesOrderProductsPickerService,
         sales_order_export_service_1.SalesOrderExportService,
         sales_order_invoicing_service_1.SalesOrderInvoicingService,
+        sales_order_invoice_email_service_1.SalesOrderInvoiceEmailService,
         shippings_service_1.ShippingsService])
 ], SalesOrderController);
 //# sourceMappingURL=sales-order.controller.js.map

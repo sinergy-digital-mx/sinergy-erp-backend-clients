@@ -3,12 +3,13 @@ import { SalesOrderDocumentsService } from '../services/sales-order-documents.se
 import { SalesOrderPosReceiptService } from '../services/sales-order-pos-receipt.service';
 import { SalesOrderExportService } from '../services/sales-order-export.service';
 import { SalesOrderInvoicingService } from '../services/sales-order-invoicing.service';
+import { SalesOrderInvoiceEmailService } from '../services/sales-order-invoice-email.service';
 import { ShippingsService } from '../../shippings/shippings.service';
 import { CancelElectronicInvoiceDto } from '../../electronic-invoicing/dto/cancel-electronic-invoice.dto';
 import { StampSalesOrderInvoiceDto } from '../dto/stamp-sales-order-invoice.dto';
 import { InventoryService } from '../../inventory/inventory.service';
 import { SalesOrderProductsPickerService } from '../services/sales-order-products-picker.service';
-import { CreateSalesOrderDto, CreateSalesOrderLineItemDto, UpdateSalesOrderLineItemDto, QuerySalesOrderDto, QuerySalesOrderProductsSummaryDto, FulfillSalesOrderDto, RegenerateDocumentDto, UpdateSalesOrderNotesDto, QuerySalesOrderHeaderExportDto, QuerySalesOrderDetailExportDto, CreateSalesOrderPaymentDto, UpdateSalesOrderSellerDto, UpdateSalesOrderAssignedSellerDto } from '../dto';
+import { CreateSalesOrderDto, CreateSalesOrderLineItemDto, UpdateSalesOrderLineItemDto, QuerySalesOrderDto, QuerySalesOrderProductsSummaryDto, FulfillSalesOrderDto, RegenerateDocumentDto, UpdateSalesOrderNotesDto, QuerySalesOrderHeaderExportDto, QuerySalesOrderDetailExportDto, CreateSalesOrderPaymentDto, UpdateSalesOrderSellerDto, UpdateSalesOrderAssignedSellerDto, SendSalesOrderInvoiceEmailDto, UpdateInvoiceEmailTemplateDto } from '../dto';
 export declare class SalesOrderController {
     private readonly salesOrderService;
     private readonly documentsService;
@@ -17,8 +18,9 @@ export declare class SalesOrderController {
     private readonly productsPicker;
     private readonly exportService;
     private readonly invoicingService;
+    private readonly invoiceEmailService;
     private readonly shippingsService;
-    constructor(salesOrderService: SalesOrderService, documentsService: SalesOrderDocumentsService, posReceiptService: SalesOrderPosReceiptService, inventoryService: InventoryService, productsPicker: SalesOrderProductsPickerService, exportService: SalesOrderExportService, invoicingService: SalesOrderInvoicingService, shippingsService: ShippingsService);
+    constructor(salesOrderService: SalesOrderService, documentsService: SalesOrderDocumentsService, posReceiptService: SalesOrderPosReceiptService, inventoryService: InventoryService, productsPicker: SalesOrderProductsPickerService, exportService: SalesOrderExportService, invoicingService: SalesOrderInvoicingService, invoiceEmailService: SalesOrderInvoiceEmailService, shippingsService: ShippingsService);
     create(dto: CreateSalesOrderDto, req: any): Promise<import("../../../entities/sales-orders").SalesOrder>;
     replace(id: string, dto: CreateSalesOrderDto, req: any): Promise<import("../../../entities/sales-orders").SalesOrder>;
     addLineItem(id: string, dto: CreateSalesOrderLineItemDto, req: any): Promise<{
@@ -2481,6 +2483,83 @@ export declare class SalesOrderController {
     syncInvoiceSat(id: string, invoiceId: string, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     getInvoicePdf(id: string, invoiceId: string, regenerate: string | undefined, preview: string | undefined, req: any): Promise<import("../../electronic-invoicing/services/electronic-invoice-pdf.service").ElectronicInvoicePdfUploadResult>;
     getInvoiceXml(id: string, invoiceId: string, req: any, res: any): Promise<void>;
+    getInvoiceEmailCompose(id: string, invoiceId: string, req: any): Promise<{
+        to_email: string;
+        additional_email: string | null;
+        customer_name: string;
+        customer_company: string;
+        subject: string;
+        preview_html: string;
+        body_html: string;
+        values: Record<string, string>;
+        variables: readonly [{
+            readonly key: "customer_name";
+            readonly label: "Nombre del cliente";
+        }, {
+            readonly key: "customer_company";
+            readonly label: "Empresa del cliente";
+        }, {
+            readonly key: "issuer_name";
+            readonly label: "Razón social emisora";
+        }, {
+            readonly key: "order_folio";
+            readonly label: "Folio de la orden";
+        }, {
+            readonly key: "invoice_folio";
+            readonly label: "Serie y folio de la factura";
+        }, {
+            readonly key: "uuid";
+            readonly label: "UUID / folio fiscal";
+        }, {
+            readonly key: "total";
+            readonly label: "Total";
+        }, {
+            readonly key: "subtotal";
+            readonly label: "Subtotal";
+        }, {
+            readonly key: "stamped_at";
+            readonly label: "Fecha de timbrado";
+        }, {
+            readonly key: "extra_message";
+            readonly label: "Nota personalizada del envío";
+        }];
+        attachments: {
+            kind: "pdf" | "xml";
+            fileName: string;
+        }[];
+        can_send: boolean;
+        block_reason: string | null;
+    }>;
+    sendInvoiceEmail(id: string, invoiceId: string, dto: SendSalesOrderInvoiceEmailDto, req: any): Promise<{
+        id: string;
+        invoice_id: string;
+        to_email: string;
+        cc: string[];
+        subject: string;
+        message: string | null;
+        sent_at: Date;
+        sent_by: {
+            id: string;
+            first_name: string;
+            last_name: string;
+            display_name: string | null;
+        } | null;
+    }>;
+    listInvoiceEmails(id: string, req: any): Promise<{
+        id: string;
+        invoice_id: string;
+        to_email: string;
+        cc: string[];
+        subject: string;
+        message: string | null;
+        sent_at: Date;
+        sent_by: {
+            id: string;
+            first_name: string;
+            last_name: string;
+            display_name: string | null;
+        } | null;
+    }[]>;
     findAll(filters: QuerySalesOrderDto, req: any): Promise<{
         data: {
             payment_method: import("../../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod | null;
@@ -2562,6 +2641,94 @@ export declare class SalesOrderController {
     exportHeadersExcel(filters: QuerySalesOrderHeaderExportDto, req: any, res: any): Promise<void>;
     exportDetailsExcel(filters: QuerySalesOrderDetailExportDto, req: any, res: any): Promise<void>;
     getProductsSummary(query: QuerySalesOrderProductsSummaryDto, req: any): Promise<import("../../inventory/dto/pos-session-inventory-summary-response.dto").PosSessionInventorySummaryResponseDto>;
+    getInvoiceEmailTemplate(req: any): Promise<{
+        id: string;
+        subject: string;
+        body_html: string;
+        variables: readonly [{
+            readonly key: "customer_name";
+            readonly label: "Nombre del cliente";
+        }, {
+            readonly key: "customer_company";
+            readonly label: "Empresa del cliente";
+        }, {
+            readonly key: "issuer_name";
+            readonly label: "Razón social emisora";
+        }, {
+            readonly key: "order_folio";
+            readonly label: "Folio de la orden";
+        }, {
+            readonly key: "invoice_folio";
+            readonly label: "Serie y folio de la factura";
+        }, {
+            readonly key: "uuid";
+            readonly label: "UUID / folio fiscal";
+        }, {
+            readonly key: "total";
+            readonly label: "Total";
+        }, {
+            readonly key: "subtotal";
+            readonly label: "Subtotal";
+        }, {
+            readonly key: "stamped_at";
+            readonly label: "Fecha de timbrado";
+        }, {
+            readonly key: "extra_message";
+            readonly label: "Nota personalizada del envío";
+        }];
+        sample_values: Record<string, string>;
+        sample_html: string;
+        sample_subject: string;
+        updated_at: Date;
+        updated_by: {
+            id: string;
+            display_name: string | null;
+        } | null;
+    }>;
+    updateInvoiceEmailTemplate(dto: UpdateInvoiceEmailTemplateDto, req: any): Promise<{
+        id: string;
+        subject: string;
+        body_html: string;
+        variables: readonly [{
+            readonly key: "customer_name";
+            readonly label: "Nombre del cliente";
+        }, {
+            readonly key: "customer_company";
+            readonly label: "Empresa del cliente";
+        }, {
+            readonly key: "issuer_name";
+            readonly label: "Razón social emisora";
+        }, {
+            readonly key: "order_folio";
+            readonly label: "Folio de la orden";
+        }, {
+            readonly key: "invoice_folio";
+            readonly label: "Serie y folio de la factura";
+        }, {
+            readonly key: "uuid";
+            readonly label: "UUID / folio fiscal";
+        }, {
+            readonly key: "total";
+            readonly label: "Total";
+        }, {
+            readonly key: "subtotal";
+            readonly label: "Subtotal";
+        }, {
+            readonly key: "stamped_at";
+            readonly label: "Fecha de timbrado";
+        }, {
+            readonly key: "extra_message";
+            readonly label: "Nota personalizada del envío";
+        }];
+        sample_values: Record<string, string>;
+        sample_html: string;
+        sample_subject: string;
+        updated_at: Date;
+        updated_by: {
+            id: string;
+            display_name: string | null;
+        } | null;
+    }>;
     getWarehouseProductsSummary(warehouseId: string, req: any): Promise<import("../../inventory/dto/inventory-summary-response.dto").InventorySummaryResponseDto>;
     regenerateDocumentoOriginal(id: string, dto: RegenerateDocumentDto, req: any): Promise<{
         success: boolean;

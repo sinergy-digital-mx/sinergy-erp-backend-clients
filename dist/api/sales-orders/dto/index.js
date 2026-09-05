@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.StampSalesOrderInvoiceDto = exports.UpdateSalesOrderAssignedSellerDto = exports.UpdateSalesOrderSellerDto = exports.CreateSalesOrderPaymentDto = exports.QuerySalesOrderDetailExportDto = exports.QuerySalesOrderHeaderExportDto = exports.UpdateSalesOrderNotesDto = exports.RegenerateDocumentDto = exports.FulfillSalesOrderDto = exports.QuerySalesOrderProductsSummaryDto = exports.QuerySalesOrderDto = exports.UpdateSalesOrderLineItemDto = exports.CreateSalesOrderLineItemDto = exports.CreateSalesOrderDto = void 0;
+exports.UpdateInvoiceEmailTemplateDto = exports.SendSalesOrderInvoiceEmailDto = exports.StampSalesOrderInvoiceDto = exports.UpdateSalesOrderAssignedSellerDto = exports.UpdateSalesOrderSellerDto = exports.CreateSalesOrderPaymentDto = exports.QuerySalesOrderDetailExportDto = exports.QuerySalesOrderHeaderExportDto = exports.UpdateSalesOrderNotesDto = exports.RegenerateDocumentDto = exports.FulfillSalesOrderDto = exports.QuerySalesOrderProductsSummaryDto = exports.QuerySalesOrderDto = exports.UpdateSalesOrderLineItemDto = exports.CreateSalesOrderLineItemDto = exports.CreateSalesOrderDto = void 0;
 var create_sales_order_dto_1 = require("./create-sales-order.dto");
 Object.defineProperty(exports, "CreateSalesOrderDto", { enumerable: true, get: function () { return create_sales_order_dto_1.CreateSalesOrderDto; } });
 Object.defineProperty(exports, "CreateSalesOrderLineItemDto", { enumerable: true, get: function () { return create_sales_order_dto_1.CreateSalesOrderLineItemDto; } });
@@ -27,4 +27,8 @@ var update_sales_order_assigned_seller_dto_1 = require("./update-sales-order-ass
 Object.defineProperty(exports, "UpdateSalesOrderAssignedSellerDto", { enumerable: true, get: function () { return update_sales_order_assigned_seller_dto_1.UpdateSalesOrderAssignedSellerDto; } });
 var stamp_sales_order_invoice_dto_1 = require("./stamp-sales-order-invoice.dto");
 Object.defineProperty(exports, "StampSalesOrderInvoiceDto", { enumerable: true, get: function () { return stamp_sales_order_invoice_dto_1.StampSalesOrderInvoiceDto; } });
+var send_sales_order_invoice_email_dto_1 = require("./send-sales-order-invoice-email.dto");
+Object.defineProperty(exports, "SendSalesOrderInvoiceEmailDto", { enumerable: true, get: function () { return send_sales_order_invoice_email_dto_1.SendSalesOrderInvoiceEmailDto; } });
+var update_invoice_email_template_dto_1 = require("./update-invoice-email-template.dto");
+Object.defineProperty(exports, "UpdateInvoiceEmailTemplateDto", { enumerable: true, get: function () { return update_invoice_email_template_dto_1.UpdateInvoiceEmailTemplateDto; } });
 //# sourceMappingURL=index.js.map

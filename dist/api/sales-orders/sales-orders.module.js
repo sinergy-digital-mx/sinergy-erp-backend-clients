@@ -36,6 +36,8 @@ const electronic_invoicing_module_1 = require("../electronic-invoicing/electroni
 const sales_order_invoicing_service_1 = require("./services/sales-order-invoicing.service");
 const shippings_module_1 = require("../shippings/shippings.module");
 const warehouse_control_module_1 = require("../warehouse-control/warehouse-control.module");
+const mailer_configuration_module_1 = require("../mailer-configuration/mailer-configuration.module");
+const sales_order_invoice_email_service_1 = require("./services/sales-order-invoice-email.service");
 let SalesOrdersModule = class SalesOrdersModule {
 };
 exports.SalesOrdersModule = SalesOrdersModule;
@@ -50,6 +52,8 @@ exports.SalesOrdersModule = SalesOrdersModule = __decorate([
                 sales_orders_1.SalesOrderDocumentType,
                 sales_orders_1.SalesOrderPayment,
                 sales_orders_1.SalesOrderPaymentDocument,
+                sales_orders_1.SalesOrderInvoiceEmail,
+                sales_orders_1.SalesOrderInvoiceEmailTemplate,
                 inventory_batch_entity_1.InventoryBatch,
                 pos_sale_collection_entity_1.PosSaleCollection,
                 billing_branch_entity_1.BillingBranch,
@@ -66,6 +70,7 @@ exports.SalesOrdersModule = SalesOrdersModule = __decorate([
             (0, common_1.forwardRef)(() => pos_shifts_module_1.PosShiftsModule),
             shippings_module_1.ShippingsModule,
             warehouse_control_module_1.WarehouseControlModule,
+            mailer_configuration_module_1.MailerConfigurationModule,
         ],
         controllers: [sales_order_controller_1.SalesOrderController],
         providers: [
@@ -78,6 +83,7 @@ exports.SalesOrdersModule = SalesOrdersModule = __decorate([
             sales_order_export_service_1.SalesOrderExportService,
             sales_order_invoicing_service_1.SalesOrderInvoicingService,
             sales_order_products_picker_service_1.SalesOrderProductsPickerService,
+            sales_order_invoice_email_service_1.SalesOrderInvoiceEmailService,
             s3_service_1.S3Service,
         ],
         exports: [

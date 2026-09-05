@@ -10,3 +10,5 @@ export { CreateSalesOrderPaymentDto } from './create-sales-order-payment.dto';
 export { UpdateSalesOrderSellerDto } from './update-sales-order-seller.dto';
 export { UpdateSalesOrderAssignedSellerDto } from './update-sales-order-assigned-seller.dto';
 export { StampSalesOrderInvoiceDto } from './stamp-sales-order-invoice.dto';
+export { SendSalesOrderInvoiceEmailDto } from './send-sales-order-invoice-email.dto';
+export { UpdateInvoiceEmailTemplateDto } from './update-invoice-email-template.dto';

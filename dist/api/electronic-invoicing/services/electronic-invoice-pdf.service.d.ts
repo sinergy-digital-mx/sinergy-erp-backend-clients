@@ -25,6 +25,10 @@ export declare class ElectronicInvoicePdfService {
     constructor(s3Service: S3Service, billingBranchRepo: Repository<BillingBranch>, customerRepo: Repository<Customer>, salesOrderRepo: Repository<SalesOrder>);
     generateAndUpload(invoice: ElectronicInvoice, fiscal: FiscalConfiguration): Promise<ElectronicInvoicePdfUploadResult>;
     getSignedPdfUrl(invoice: ElectronicInvoice): Promise<ElectronicInvoicePdfUploadResult>;
+    getPdfBuffer(invoice: ElectronicInvoice): Promise<{
+        buffer: Buffer;
+        fileName: string;
+    }>;
     generatePreviewAndUpload(invoice: ElectronicInvoice, fiscal: FiscalConfiguration): Promise<ElectronicInvoicePdfUploadResult>;
     private buildPdfBuffer;
     private uploadPdf;

@@ -112,6 +112,13 @@ let ElectronicInvoicePdfService = ElectronicInvoicePdfService_1 = class Electron
             fileName,
         };
     }
+    async getPdfBuffer(invoice) {
+        if (!invoice.pdf_stamped_s3_key) {
+            throw new common_1.BadRequestException('La factura no tiene PDF generado');
+        }
+        const buffer = await this.s3Service.getFileBuffer(invoice.pdf_stamped_s3_key);
+        return { buffer, fileName: this.buildFileName(invoice) };
+    }
     async generatePreviewAndUpload(invoice, fiscal) {
         const xml = invoice.xml_unsigned?.trim();
         if (!xml) {

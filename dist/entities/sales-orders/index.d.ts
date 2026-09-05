@@ -6,3 +6,5 @@ export { SalesOrderDocument } from './sales-order-document.entity';
 export { SalesOrderDocumentType } from './sales-order-document-type.entity';
 export { SalesOrderPayment } from './sales-order-payment.entity';
 export { SalesOrderPaymentDocument } from './sales-order-payment-document.entity';
+export { SalesOrderInvoiceEmailTemplate } from './sales-order-invoice-email-template.entity';
+export { SalesOrderInvoiceEmail } from './sales-order-invoice-email.entity';

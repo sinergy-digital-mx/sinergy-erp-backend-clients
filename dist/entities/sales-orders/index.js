@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SalesOrderPaymentDocument = exports.SalesOrderPayment = exports.SalesOrderDocumentType = exports.SalesOrderDocument = exports.SalesOrderBatchAllocation = exports.SalesOrderDetail = exports.SalesOrderSaleScope = exports.SalesOrder = void 0;
+exports.SalesOrderInvoiceEmail = exports.SalesOrderInvoiceEmailTemplate = exports.SalesOrderPaymentDocument = exports.SalesOrderPayment = exports.SalesOrderDocumentType = exports.SalesOrderDocument = exports.SalesOrderBatchAllocation = exports.SalesOrderDetail = exports.SalesOrderSaleScope = exports.SalesOrder = void 0;
 var sales_order_entity_1 = require("./sales-order.entity");
 Object.defineProperty(exports, "SalesOrder", { enumerable: true, get: function () { return sales_order_entity_1.SalesOrder; } });
 var sales_order_sale_scope_enum_1 = require("./sales-order-sale-scope.enum");
@@ -17,4 +17,8 @@ var sales_order_payment_entity_1 = require("./sales-order-payment.entity");
 Object.defineProperty(exports, "SalesOrderPayment", { enumerable: true, get: function () { return sales_order_payment_entity_1.SalesOrderPayment; } });
 var sales_order_payment_document_entity_1 = require("./sales-order-payment-document.entity");
 Object.defineProperty(exports, "SalesOrderPaymentDocument", { enumerable: true, get: function () { return sales_order_payment_document_entity_1.SalesOrderPaymentDocument; } });
+var sales_order_invoice_email_template_entity_1 = require("./sales-order-invoice-email-template.entity");
+Object.defineProperty(exports, "SalesOrderInvoiceEmailTemplate", { enumerable: true, get: function () { return sales_order_invoice_email_template_entity_1.SalesOrderInvoiceEmailTemplate; } });
+var sales_order_invoice_email_entity_1 = require("./sales-order-invoice-email.entity");
+Object.defineProperty(exports, "SalesOrderInvoiceEmail", { enumerable: true, get: function () { return sales_order_invoice_email_entity_1.SalesOrderInvoiceEmail; } });
 //# sourceMappingURL=index.js.map
