@@ -15,6 +15,9 @@ export declare class SalesOrderFulfillmentService {
         billingBranchId?: string | null;
     }, quantityBase?: number): Promise<SalesOrderBatchAllocation[]>;
     releaseAllocations(allocations: SalesOrderBatchAllocation[], manager: EntityManager): Promise<void>;
+    private buildInsufficientStockMessage;
+    private formatProductLabel;
+    private formatStockQty;
     private resolveSalesOrder;
     private resolveSalesMetaFromAllocation;
 }

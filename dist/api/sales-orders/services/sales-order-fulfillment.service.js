@@ -44,7 +44,7 @@ let SalesOrderFulfillmentService = SalesOrderFulfillmentService_1 = class SalesO
         }
         const product = await manager.findOne(product_entity_1.Product, {
             where: { id: detail.product_id },
-            select: ['id', 'item_kind'],
+            select: ['id', 'item_kind', 'name', 'sku'],
         });
         if (product?.item_kind === product_item_kind_enum_1.ProductItemKind.Service) {
             return [];
@@ -69,8 +69,7 @@ let SalesOrderFulfillmentService = SalesOrderFulfillmentService_1 = class SalesO
         const batches = await qb.getMany();
         const totalAvailable = batches.reduce((sum, b) => sum + parseFloat(b.available_quantity.toString()), 0);
         if (totalAvailable < needed) {
-            throw new common_1.BadRequestException(`Stock insuficiente para el producto ${detail.product_id}. ` +
-                `Requerido: ${needed}, disponible: ${totalAvailable}`);
+            throw new common_1.BadRequestException(this.buildInsufficientStockMessage(product, needed, totalAvailable));
         }
         const salesOrder = await this.resolveSalesOrder(detail, manager);
         const allocations = [];
@@ -160,6 +159,25 @@ let SalesOrderFulfillmentService = SalesOrderFulfillmentService_1 = class SalesO
             }, manager);
         }
         await manager.remove(sales_order_batch_allocation_entity_1.SalesOrderBatchAllocation, allocations);
+    }
+    buildInsufficientStockMessage(product, needed, available) {
+        const label = this.formatProductLabel(product);
+        const neededLabel = this.formatStockQty(needed);
+        const availableLabel = this.formatStockQty(available);
+        if (label) {
+            return `No hay stock suficiente de ${label}. Pediste ${neededLabel} y hay ${availableLabel} disponible.`;
+        }
+        return `No hay stock suficiente. Pediste ${neededLabel} y hay ${availableLabel} disponible.`;
+    }
+    formatProductLabel(product) {
+        const name = product?.name?.trim();
+        return name || product?.sku?.trim() || null;
+    }
+    formatStockQty(value) {
+        if (!Number.isFinite(value)) {
+            return '0';
+        }
+        return parseFloat(value.toFixed(3)).toString();
     }
     async resolveSalesOrder(detail, manager) {
         if (detail.sales_order?.folio) {

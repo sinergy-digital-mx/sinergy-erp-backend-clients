@@ -1396,6 +1396,9 @@ let SalesOrderService = class SalesOrderService {
         return this.regenerateDocumentoOriginal(id, tenantId, userId, language);
     }
     allocationScope(so) {
+        if (so.sales_order_type === 'POS' && so.billing_branch_id) {
+            return { billingBranchId: so.billing_branch_id };
+        }
         if (so.warehouse_id) {
             return { warehouseId: so.warehouse_id };
         }
