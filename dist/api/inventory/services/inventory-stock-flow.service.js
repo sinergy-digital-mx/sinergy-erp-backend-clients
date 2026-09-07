@@ -770,6 +770,8 @@ let InventoryStockFlowService = class InventoryStockFlowService {
                     sale_amount_mxn: null,
                     cost_balance_after_mxn: (0, stock_ledger_valuation_util_1.formatStockMoney)(opening.cost),
                     reference_folio: null,
+                    reference_type: null,
+                    reference_id: null,
                     is_opening: true,
                 });
             }
@@ -812,6 +814,8 @@ let InventoryStockFlowService = class InventoryStockFlowService {
                 sale_amount_mxn: saleAmount != null ? (0, stock_ledger_valuation_util_1.formatStockMoney)(saleAmount) : null,
                 cost_balance_after_mxn: (0, stock_ledger_valuation_util_1.formatStockMoney)(nextCost),
                 reference_folio: row.reference_folio,
+                reference_type: row.reference_type ?? null,
+                reference_id: row.reference_id ?? null,
                 is_opening: false,
             });
         }

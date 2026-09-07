@@ -270,6 +270,8 @@ class StockFlowLedgerRowDto {
     sale_amount_mxn;
     cost_balance_after_mxn;
     reference_folio;
+    reference_type;
+    reference_id;
     is_opening;
 }
 exports.StockFlowLedgerRowDto = StockFlowLedgerRowDto;
@@ -357,6 +359,17 @@ __decorate([
     (0, swagger_1.ApiPropertyOptional)({ nullable: true }),
     __metadata("design:type", Object)
 ], StockFlowLedgerRowDto.prototype, "reference_folio", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        nullable: true,
+        description: 'sales_order | purchase_order | inventory_transfer | inventory_audit | inventory_batch',
+    }),
+    __metadata("design:type", Object)
+], StockFlowLedgerRowDto.prototype, "reference_type", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ nullable: true, description: 'ID del documento de referencia' }),
+    __metadata("design:type", Object)
+], StockFlowLedgerRowDto.prototype, "reference_id", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)(),
     __metadata("design:type", Boolean)
