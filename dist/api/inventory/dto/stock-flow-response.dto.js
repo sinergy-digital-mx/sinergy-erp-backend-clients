@@ -19,6 +19,7 @@ class StockFlowFiltersAppliedDto {
     fiscal_configuration_id;
     billing_branch_id;
     product_id;
+    vendor_id;
     view;
     currency;
 }
@@ -51,6 +52,10 @@ __decorate([
     (0, swagger_1.ApiPropertyOptional)({ nullable: true }),
     __metadata("design:type", Object)
 ], StockFlowFiltersAppliedDto.prototype, "product_id", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ nullable: true }),
+    __metadata("design:type", Object)
+], StockFlowFiltersAppliedDto.prototype, "vendor_id", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)(),
     __metadata("design:type", String)
@@ -364,6 +369,10 @@ class StockFlowResponseDto {
     total_summary_rows;
     total_totalized_rows;
     total_ledger_rows;
+    page;
+    limit;
+    total;
+    total_pages;
 }
 exports.StockFlowResponseDto = StockFlowResponseDto;
 __decorate([
@@ -394,4 +403,20 @@ __decorate([
     (0, swagger_1.ApiProperty)(),
     __metadata("design:type", Number)
 ], StockFlowResponseDto.prototype, "total_ledger_rows", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Página actual (1-based)' }),
+    __metadata("design:type", Number)
+], StockFlowResponseDto.prototype, "page", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Filas por página' }),
+    __metadata("design:type", Number)
+], StockFlowResponseDto.prototype, "limit", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Total de filas de la vista activa' }),
+    __metadata("design:type", Number)
+], StockFlowResponseDto.prototype, "total", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Total de páginas de la vista activa' }),
+    __metadata("design:type", Number)
+], StockFlowResponseDto.prototype, "total_pages", void 0);
 //# sourceMappingURL=stock-flow-response.dto.js.map

@@ -17,6 +17,9 @@ export declare class QueryStockFlowDto {
     view?: StockFlowView;
     fiscal_configuration_id: string;
     billing_branch_id?: string;
+    vendor_id?: string;
     product_id?: string;
     search?: string;
+    page?: number;
+    limit?: number;
 }

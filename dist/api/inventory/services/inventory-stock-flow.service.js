@@ -32,51 +32,64 @@ let InventoryStockFlowService = class InventoryStockFlowService {
         this.ledgerRepo = ledgerRepo;
         this.dataSource = dataSource;
     }
-    async getReport(tenantId, filters) {
+    async getReport(tenantId, filters, options = {}) {
         this.assertFilters(filters);
         const { dateFrom, dateTo } = this.resolveDateRange(filters.period, filters.date_from, filters.date_to);
         const view = filters.view ?? query_stock_flow_dto_1.StockFlowView.SUMMARY;
+        const { page, limit, skip } = this.resolvePagination(filters, options);
         const filtersApplied = this.buildFiltersApplied(filters, dateFrom, dateTo, view);
+        const emptyMeta = {
+            page,
+            limit,
+            total: 0,
+            total_pages: 0,
+            total_summary_rows: 0,
+            total_totalized_rows: 0,
+            total_ledger_rows: 0,
+        };
         if (view === query_stock_flow_dto_1.StockFlowView.LEDGER) {
-            const ledger = await this.buildLedger(tenantId, filters, dateFrom, dateTo);
+            const { rows: ledger, total } = await this.buildLedger(tenantId, filters, dateFrom, dateTo, { page, limit, skip, allRows: options.allRows });
             return {
                 filters_applied: filtersApplied,
                 summary: [],
                 totalized: [],
                 ledger,
-                total_summary_rows: 0,
-                total_totalized_rows: 0,
-                total_ledger_rows: ledger.length,
+                ...emptyMeta,
+                total,
+                total_pages: this.totalPages(total, limit, options.allRows),
+                total_ledger_rows: total,
             };
         }
         if (view === query_stock_flow_dto_1.StockFlowView.TOTALIZED) {
-            const totalized = await this.buildTotalized(tenantId, filters, dateFrom, dateTo);
+            const { rows: totalized, total } = await this.buildTotalized(tenantId, filters, dateFrom, dateTo, { page, limit, skip, allRows: options.allRows });
             return {
                 filters_applied: filtersApplied,
                 summary: [],
                 totalized,
                 ledger: [],
-                total_summary_rows: 0,
-                total_totalized_rows: totalized.length,
-                total_ledger_rows: 0,
+                ...emptyMeta,
+                total,
+                total_pages: this.totalPages(total, limit, options.allRows),
+                total_totalized_rows: total,
             };
         }
-        const summary = await this.buildSummary(tenantId, filters, dateFrom, dateTo);
+        const { rows: summary, total } = await this.buildSummary(tenantId, filters, dateFrom, dateTo, { page, limit, skip, allRows: options.allRows });
         return {
             filters_applied: filtersApplied,
             summary,
             totalized: [],
             ledger: [],
-            total_summary_rows: summary.length,
-            total_totalized_rows: 0,
-            total_ledger_rows: 0,
+            ...emptyMeta,
+            total,
+            total_pages: this.totalPages(total, limit, options.allRows),
+            total_summary_rows: total,
         };
     }
     async exportExcel(tenantId, filters) {
         const report = await this.getReport(tenantId, {
             ...filters,
             view: filters.view ?? query_stock_flow_dto_1.StockFlowView.SUMMARY,
-        });
+        }, { allRows: true });
         const viewLabel = report.filters_applied.view === query_stock_flow_dto_1.StockFlowView.LEDGER
             ? 'Flujo detallado'
             : report.filters_applied.view === query_stock_flow_dto_1.StockFlowView.TOTALIZED
@@ -217,37 +230,57 @@ let InventoryStockFlowService = class InventoryStockFlowService {
             throw new common_1.BadRequestException('Selecciona una razón social');
         }
     }
-    async buildSummary(tenantId, filters, dateFrom, dateTo) {
+    resolvePagination(filters, options) {
+        const page = Math.max(1, filters.page ?? 1);
+        const limit = options.allRows
+            ? Number.MAX_SAFE_INTEGER
+            : Math.min(100, Math.max(1, filters.limit ?? 50));
+        return { page, limit, skip: (page - 1) * limit };
+    }
+    totalPages(total, limit, allRows) {
+        if (allRows)
+            return total > 0 ? 1 : 0;
+        if (limit <= 0)
+            return 0;
+        return Math.ceil(total / limit) || 0;
+    }
+    vendorProductPredicate(productExpr, vendorId) {
+        if (!vendorId)
+            return { sql: '', params: [] };
+        return {
+            sql: `AND (
+        EXISTS (
+          SELECT 1 FROM product_vendor_costs pvc
+          WHERE pvc.product_id = ${productExpr} AND pvc.vendor_id = ?
+        )
+        OR EXISTS (
+          SELECT 1
+          FROM inv_s_batches b
+          INNER JOIN inv_s_purchase_order_batch pob ON pob.id = b.purchase_order_batch_id
+          WHERE b.product_id = ${productExpr} AND pob.vendor_id = ?
+        )
+      )`,
+            params: [vendorId, vendorId],
+        };
+    }
+    async buildSummary(tenantId, filters, dateFrom, dateTo, pagination) {
         const whereExtra = [];
-        const params = [
-            tenantId,
-            filters.fiscal_configuration_id,
-            dateTo,
-            tenantId,
-            filters.fiscal_configuration_id,
-            dateFrom,
-            tenantId,
-            filters.fiscal_configuration_id,
-            dateTo,
-            tenantId,
-            filters.fiscal_configuration_id,
-            dateFrom,
-            dateTo,
-        ];
         if (filters.billing_branch_id) {
             whereExtra.push('AND k.billing_branch_id = ?');
-            params.push(filters.billing_branch_id);
         }
         if (filters.product_id) {
             whereExtra.push('AND k.product_id = ?');
-            params.push(filters.product_id);
         }
         if (filters.search) {
             whereExtra.push('AND (p.sku LIKE ? OR p.name LIKE ?)');
-            const term = `%${filters.search}%`;
-            params.push(term, term);
         }
-        const sql = `
+        const vendor = this.vendorProductPredicate('k.product_id', filters.vendor_id);
+        if (vendor.sql) {
+            whereExtra.push(vendor.sql);
+        }
+        const vendorLedger = this.vendorProductPredicate('l.product_id', filters.vendor_id);
+        const vendorLedgerSql = vendorLedger.sql;
+        const sqlBody = `
       SELECT
         k.product_id AS product_id,
         k.billing_branch_id AS billing_branch_id,
@@ -282,6 +315,7 @@ let InventoryStockFlowService = class InventoryStockFlowService {
         WHERE l.tenant_id = ?
           AND bb.fiscal_configuration_id = ?
           AND l.occurred_at <= ?
+          ${vendorLedgerSql}
       ) k
       LEFT JOIN (
         SELECT
@@ -309,6 +343,7 @@ let InventoryStockFlowService = class InventoryStockFlowService {
           WHERE l.tenant_id = ?
             AND bb.fiscal_configuration_id = ?
             AND l.occurred_at < ?
+            ${vendorLedgerSql}
         ) x
         WHERE rn = 1
         GROUP BY product_id, billing_branch_id, uom_id
@@ -342,6 +377,7 @@ let InventoryStockFlowService = class InventoryStockFlowService {
           WHERE l.tenant_id = ?
             AND bb.fiscal_configuration_id = ?
             AND l.occurred_at <= ?
+            ${vendorLedgerSql}
         ) x
         WHERE rn = 1
         GROUP BY product_id, billing_branch_id, uom_id
@@ -404,6 +440,7 @@ let InventoryStockFlowService = class InventoryStockFlowService {
           AND bb.fiscal_configuration_id = ?
           AND l.occurred_at >= ?
           AND l.occurred_at <= ?
+          ${vendorLedgerSql}
         GROUP BY l.product_id, w.billing_branch_id, l.uom_id
       ) agg
         ON agg.product_id = k.product_id
@@ -434,33 +471,57 @@ let InventoryStockFlowService = class InventoryStockFlowService {
           OR COALESCE(cl.closing_cost, 0) <> 0
           OR COALESCE(cl.closing_sale, 0) <> 0
         )
-      ORDER BY p.name ASC, bb.code ASC
     `;
-        const rows = await this.dataSource.query(sql, params);
-        return rows.map((row) => this.mapSummaryRow(row));
+        const ledgerParams = [];
+        const pushLedgerBlock = (block) => {
+            ledgerParams.push(...block);
+            if (vendorLedger.params.length) {
+                ledgerParams.push(...vendorLedger.params);
+            }
+        };
+        pushLedgerBlock([tenantId, filters.fiscal_configuration_id, dateTo]);
+        pushLedgerBlock([tenantId, filters.fiscal_configuration_id, dateFrom]);
+        pushLedgerBlock([tenantId, filters.fiscal_configuration_id, dateTo]);
+        pushLedgerBlock([
+            tenantId,
+            filters.fiscal_configuration_id,
+            dateFrom,
+            dateTo,
+        ]);
+        const outerParams = [];
+        if (filters.billing_branch_id)
+            outerParams.push(filters.billing_branch_id);
+        if (filters.product_id)
+            outerParams.push(filters.product_id);
+        if (filters.search) {
+            const term = `%${filters.search}%`;
+            outerParams.push(term, term);
+        }
+        if (vendor.params.length)
+            outerParams.push(...vendor.params);
+        const queryParams = [...ledgerParams, ...outerParams];
+        const countRows = await this.dataSource.query(`SELECT COUNT(*) AS total FROM (${sqlBody}) counted`, queryParams);
+        const total = Number(countRows[0]?.total ?? 0);
+        let pageSql = `${sqlBody} ORDER BY p.name ASC, bb.code ASC`;
+        const pageParams = [...queryParams];
+        if (!pagination.allRows) {
+            pageSql += ' LIMIT ? OFFSET ?';
+            pageParams.push(pagination.limit, pagination.skip);
+        }
+        const rows = await this.dataSource.query(pageSql, pageParams);
+        return {
+            total,
+            rows: rows.map((row) => this.mapSummaryRow(row)),
+        };
     }
-    async buildTotalized(tenantId, filters, dateFrom, dateTo) {
+    async buildTotalized(tenantId, filters, dateFrom, dateTo, pagination) {
         const whereExtra = [];
-        const params = [
-            tenantId,
-            filters.fiscal_configuration_id,
-            dateTo,
-            tenantId,
-            filters.fiscal_configuration_id,
-            dateFrom,
-            tenantId,
-            filters.fiscal_configuration_id,
-            dateTo,
-            tenantId,
-            filters.fiscal_configuration_id,
-            dateFrom,
-            dateTo,
-        ];
         if (filters.billing_branch_id) {
             whereExtra.push('AND k.billing_branch_id = ?');
-            params.push(filters.billing_branch_id);
         }
-        const sql = `
+        const vendorLedger = this.vendorProductPredicate('l.product_id', filters.vendor_id);
+        const vendorLedgerSql = vendorLedger.sql;
+        const sqlBody = `
       SELECT
         k.billing_branch_id AS billing_branch_id,
         COALESCE(bb.code, bb.city, '') AS billing_branch_name,
@@ -490,6 +551,7 @@ let InventoryStockFlowService = class InventoryStockFlowService {
         WHERE l.tenant_id = ?
           AND bb.fiscal_configuration_id = ?
           AND l.occurred_at <= ?
+          ${vendorLedgerSql}
       ) k
       LEFT JOIN (
         SELECT
@@ -513,6 +575,7 @@ let InventoryStockFlowService = class InventoryStockFlowService {
           WHERE l.tenant_id = ?
             AND bb.fiscal_configuration_id = ?
             AND l.occurred_at < ?
+            ${vendorLedgerSql}
         ) x
         WHERE rn = 1
         GROUP BY billing_branch_id
@@ -539,6 +602,7 @@ let InventoryStockFlowService = class InventoryStockFlowService {
           WHERE l.tenant_id = ?
             AND bb.fiscal_configuration_id = ?
             AND l.occurred_at <= ?
+            ${vendorLedgerSql}
         ) x
         WHERE rn = 1
         GROUP BY billing_branch_id
@@ -596,6 +660,7 @@ let InventoryStockFlowService = class InventoryStockFlowService {
           AND bb.fiscal_configuration_id = ?
           AND l.occurred_at >= ?
           AND l.occurred_at <= ?
+          ${vendorLedgerSql}
         GROUP BY w.billing_branch_id
       ) agg ON agg.billing_branch_id = k.billing_branch_id
       INNER JOIN billing_branches bb ON bb.id = k.billing_branch_id
@@ -621,15 +686,46 @@ let InventoryStockFlowService = class InventoryStockFlowService {
           OR COALESCE(cl.closing_cost, 0) <> 0
           OR COALESCE(cl.closing_sale, 0) <> 0
         )
-      ORDER BY bb.code ASC
     `;
-        const rows = await this.dataSource.query(sql, params);
-        return rows.map((row) => this.mapTotalizedRow(row));
+        const ledgerParams = [];
+        const pushLedgerBlock = (block) => {
+            ledgerParams.push(...block);
+            if (vendorLedger.params.length) {
+                ledgerParams.push(...vendorLedger.params);
+            }
+        };
+        pushLedgerBlock([tenantId, filters.fiscal_configuration_id, dateTo]);
+        pushLedgerBlock([tenantId, filters.fiscal_configuration_id, dateFrom]);
+        pushLedgerBlock([tenantId, filters.fiscal_configuration_id, dateTo]);
+        pushLedgerBlock([
+            tenantId,
+            filters.fiscal_configuration_id,
+            dateFrom,
+            dateTo,
+        ]);
+        const outerParams = [];
+        if (filters.billing_branch_id) {
+            outerParams.push(filters.billing_branch_id);
+        }
+        const queryParams = [...ledgerParams, ...outerParams];
+        const countRows = await this.dataSource.query(`SELECT COUNT(*) AS total FROM (${sqlBody}) counted`, queryParams);
+        const total = Number(countRows[0]?.total ?? 0);
+        let pageSql = `${sqlBody} ORDER BY bb.code ASC`;
+        const pageParams = [...queryParams];
+        if (!pagination.allRows) {
+            pageSql += ' LIMIT ? OFFSET ?';
+            pageParams.push(pagination.limit, pagination.skip);
+        }
+        const rows = await this.dataSource.query(pageSql, pageParams);
+        return {
+            total,
+            rows: rows.map((row) => this.mapTotalizedRow(row)),
+        };
     }
-    async buildLedger(tenantId, filters, dateFrom, dateTo) {
+    async buildLedger(tenantId, filters, dateFrom, dateTo, pagination) {
         const movements = await this.loadMovementsInRange(tenantId, filters, dateFrom, dateTo);
         if (!movements.length) {
-            return [];
+            return { rows: [], total: 0 };
         }
         const keys = [
             ...new Set(movements.map((m) => branchKey(m.product_id, m.warehouse?.billing_branch_id ?? '', m.uom_id))),
@@ -719,7 +815,14 @@ let InventoryStockFlowService = class InventoryStockFlowService {
                 is_opening: false,
             });
         }
-        return rows;
+        const total = rows.length;
+        if (pagination.allRows) {
+            return { rows, total };
+        }
+        return {
+            total,
+            rows: rows.slice(pagination.skip, pagination.skip + pagination.limit),
+        };
     }
     buildDescription(type, qty, uom, folio) {
         switch (type) {
@@ -816,6 +919,20 @@ let InventoryStockFlowService = class InventoryStockFlowService {
                 search: `%${filters.search}%`,
             });
         }
+        if (filters.vendor_id) {
+            qb.andWhere(`(
+          EXISTS (
+            SELECT 1 FROM product_vendor_costs pvc
+            WHERE pvc.product_id = ledger.product_id AND pvc.vendor_id = :vendorId
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM inv_s_batches b
+            INNER JOIN inv_s_purchase_order_batch pob ON pob.id = b.purchase_order_batch_id
+            WHERE b.product_id = ledger.product_id AND pob.vendor_id = :vendorId
+          )
+        )`, { vendorId: filters.vendor_id });
+        }
         return qb
             .orderBy('ledger.product_id', 'ASC')
             .addOrderBy('warehouse.billing_branch_id', 'ASC')
@@ -901,6 +1018,7 @@ let InventoryStockFlowService = class InventoryStockFlowService {
             fiscal_configuration_id: filters.fiscal_configuration_id,
             billing_branch_id: filters.billing_branch_id ?? null,
             product_id: filters.product_id ?? null,
+            vendor_id: filters.vendor_id ?? null,
             view,
             currency: 'MXN',
         };

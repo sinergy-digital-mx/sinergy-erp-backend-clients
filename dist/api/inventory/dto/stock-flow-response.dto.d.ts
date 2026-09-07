@@ -6,6 +6,7 @@ export declare class StockFlowFiltersAppliedDto {
     fiscal_configuration_id: string;
     billing_branch_id: string | null;
     product_id: string | null;
+    vendor_id: string | null;
     view: string;
     currency: string;
 }
@@ -82,4 +83,8 @@ export declare class StockFlowResponseDto {
     total_summary_rows: number;
     total_totalized_rows: number;
     total_ledger_rows: number;
+    page: number;
+    limit: number;
+    total: number;
+    total_pages: number;
 }
