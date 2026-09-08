@@ -1224,6 +1224,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
             purchase_order_detail_id: batch.purchase_order_detail_id ?? null,
             purchase_order_folio: batch.purchase_order_batch?.folio ?? null,
             pedimento_number: batch.purchase_order_batch?.pedimento_number ?? null,
+            vendor_invoice_number: batch.purchase_order_batch?.vendor_invoice_number ?? null,
             payment_currency: batch.purchase_order_batch?.payment_currency ?? null,
             unit_cost: this.unitCostFromPurchaseLine(batch.purchase_order_detail),
             real_unit_cost_usd: this.optionalMoney(batch.purchase_order_detail?.real_unit_cost_usd),

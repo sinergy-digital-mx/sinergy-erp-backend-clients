@@ -85,6 +85,7 @@ class CreatePurchaseOrderDto {
     payment_currency;
     notes;
     pedimento_number;
+    vendor_invoice_number;
     line_items;
 }
 exports.CreatePurchaseOrderDto = CreatePurchaseOrderDto;
@@ -134,6 +135,12 @@ __decorate([
     (0, class_validator_1.MaxLength)(30),
     __metadata("design:type", Object)
 ], CreatePurchaseOrderDto.prototype, "pedimento_number", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.MaxLength)(60),
+    __metadata("design:type", Object)
+], CreatePurchaseOrderDto.prototype, "vendor_invoice_number", void 0);
 __decorate([
     (0, class_validator_1.IsArray)(),
     (0, class_validator_1.ArrayMinSize)(1),

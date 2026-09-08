@@ -6,6 +6,7 @@ export declare const PURCHASE_ORDER_MOVEMENT_TYPES: {
     readonly LINE_REMOVED: "line_removed";
     readonly NOTES_UPDATED: "notes_updated";
     readonly PEDIMENTO_UPDATED: "pedimento_updated";
+    readonly VENDOR_INVOICE_UPDATED: "vendor_invoice_updated";
     readonly REAL_COST_UPDATED: "real_cost_updated";
     readonly HEADER_REPLACED: "header_replaced";
     readonly RECEIVED: "received";

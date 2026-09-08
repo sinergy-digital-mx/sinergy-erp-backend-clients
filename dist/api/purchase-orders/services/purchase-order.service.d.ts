@@ -12,6 +12,7 @@ import { QueryPurchaseOrderDto } from '../dto/query-purchase-order.dto';
 import { CreatePurchaseOrderPaymentDto } from '../dto/create-purchase-order-payment.dto';
 import { UpdatePurchaseOrderNotesDto } from '../dto/update-purchase-order-notes.dto';
 import { UpdatePurchaseOrderPedimentoDto } from '../dto/update-purchase-order-pedimento.dto';
+import { UpdatePurchaseOrderVendorInvoiceDto } from '../dto/update-purchase-order-vendor-invoice.dto';
 import { UpdatePurchaseOrderRealCostDto } from '../dto/update-purchase-order-real-cost.dto';
 import { PurchaseOrderRealCostService } from './purchase-order-real-cost.service';
 import { UnitConversionService } from './unit-conversion.service';
@@ -89,6 +90,7 @@ export declare class PurchaseOrderService {
     private scheduleDocumentoOriginalRegen;
     private getVendorOrFail;
     private normalizePedimento;
+    private normalizeVendorInvoice;
     private endOfDay;
     private applyListFilters;
     private emptyCurrencyStats;
@@ -128,6 +130,7 @@ export declare class PurchaseOrderService {
     receive(id: string, dto: ReceivePurchaseOrderDto, tenantId: string, userId: string): Promise<PurchaseOrderBatch>;
     updateNotes(id: string, dto: UpdatePurchaseOrderNotesDto, tenantId: string, userId: string): Promise<PurchaseOrderBatch>;
     updatePedimento(id: string, dto: UpdatePurchaseOrderPedimentoDto, tenantId: string, userId: string): Promise<PurchaseOrderBatch>;
+    updateVendorInvoice(id: string, dto: UpdatePurchaseOrderVendorInvoiceDto, tenantId: string, userId: string): Promise<PurchaseOrderBatch>;
     updateRealCost(id: string, dto: UpdatePurchaseOrderRealCostDto, tenantId: string, userId: string): Promise<any>;
     cancel(id: string, tenantId: string, userId: string): Promise<PurchaseOrderBatch>;
     replacePurchaseOrder(id: string, dto: CreatePurchaseOrderDto, tenantId: string, userId: string): Promise<PurchaseOrderBatch>;

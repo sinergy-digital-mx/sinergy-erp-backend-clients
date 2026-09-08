@@ -8,5 +8,6 @@ export { CreatePurchaseOrderPaymentDto } from './create-purchase-order-payment.d
 export { RegenerateDocumentDto } from './regenerate-document.dto';
 export { UpdatePurchaseOrderNotesDto } from './update-purchase-order-notes.dto';
 export { UpdatePurchaseOrderPedimentoDto } from './update-purchase-order-pedimento.dto';
+export { UpdatePurchaseOrderVendorInvoiceDto } from './update-purchase-order-vendor-invoice.dto';
 export { UpdatePurchaseOrderRealCostDto } from './update-purchase-order-real-cost.dto';
 export { QueryPurchaseOrderHeaderExportDto, QueryPurchaseOrderDetailExportDto, } from './query-purchase-order-export.dto';

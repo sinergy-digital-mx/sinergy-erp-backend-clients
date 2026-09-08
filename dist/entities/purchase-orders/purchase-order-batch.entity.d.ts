@@ -24,6 +24,7 @@ export declare class PurchaseOrderBatch {
     general_status: string;
     notes: string | null;
     pedimento_number: string | null;
+    vendor_invoice_number: string | null;
     customs_date: Date | string | null;
     customs_exchange_rate: number | null;
     landed_increment_percentage: number;

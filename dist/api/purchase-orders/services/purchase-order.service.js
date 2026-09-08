@@ -226,6 +226,7 @@ let PurchaseOrderService = class PurchaseOrderService {
                 general_status: 'Creada',
                 notes: dto.notes,
                 pedimento_number: pedimentoNumber,
+                vendor_invoice_number: this.normalizeVendorInvoice(dto.vendor_invoice_number),
                 created_by: userId,
             });
             const savedOrder = await queryRunner.manager.save(purchaseOrder);
@@ -464,6 +465,7 @@ let PurchaseOrderService = class PurchaseOrderService {
             can_edit_real_cost: po.general_status !== 'Cancelada',
             is_international_vendor: isInternationalVendor,
             pedimento_number: isInternationalVendor ? po.pedimento_number ?? null : null,
+            vendor_invoice_number: po.vendor_invoice_number ?? null,
             has_real_cost: hasRealCost,
             extra_costs_count: extraCosts.length,
             extra_costs: extraCosts,
@@ -528,6 +530,10 @@ let PurchaseOrderService = class PurchaseOrderService {
         const trimmed = value?.trim() ?? '';
         return trimmed.length ? trimmed : null;
     }
+    normalizeVendorInvoice(value) {
+        const trimmed = value?.trim() ?? '';
+        return trimmed.length ? trimmed : null;
+    }
     endOfDay(date) {
         const d = new Date(date);
         d.setHours(23, 59, 59, 999);
@@ -570,7 +576,8 @@ let PurchaseOrderService = class PurchaseOrderService {
                     .orWhere('LOWER(po.folio) LIKE LOWER(:search)', { search })
                     .orWhere("LOWER(REPLACE(REPLACE(po.folio, '-', ''), ' ', '')) LIKE LOWER(:normalizedSearchLike)", { normalizedSearchLike })
                     .orWhere('LOWER(vendor.company_name) LIKE LOWER(:search)', { search })
-                    .orWhere('LOWER(po.pedimento_number) LIKE LOWER(:search)', { search });
+                    .orWhere('LOWER(po.pedimento_number) LIKE LOWER(:search)', { search })
+                    .orWhere('LOWER(po.vendor_invoice_number) LIKE LOWER(:search)', { search });
             }));
         }
         if (filters.created_from) {
@@ -900,6 +907,29 @@ let PurchaseOrderService = class PurchaseOrderService {
         }
         return this.findOne(id, tenantId);
     }
+    async updateVendorInvoice(id, dto, tenantId, userId) {
+        const purchaseOrder = await this.findOne(id, tenantId);
+        if (purchaseOrder.general_status === 'Cancelada') {
+            throw new common_1.BadRequestException('No se puede editar la factura de proveedor de una orden cancelada');
+        }
+        const vendorInvoiceNumber = this.normalizeVendorInvoice(dto.vendor_invoice_number);
+        const previousInvoice = purchaseOrder.vendor_invoice_number ?? null;
+        await this.purchaseOrderBatchRepository.update({ id, tenant_id: tenantId }, { vendor_invoice_number: vendorInvoiceNumber, updated_by: userId });
+        const changes = (0, purchase_order_activity_change_util_1.compactActivityChanges)([
+            (0, purchase_order_activity_change_util_1.activityChange)('vendor_invoice_number', 'Factura de proveedor', previousInvoice, vendorInvoiceNumber),
+        ]);
+        if (changes.length) {
+            await this.recordActivity({
+                tenantId,
+                purchaseOrderId: id,
+                type: purchase_order_movements_1.PURCHASE_ORDER_MOVEMENT_TYPES.VENDOR_INVOICE_UPDATED,
+                actorId: userId,
+                description: 'Se actualizó la factura de proveedor.',
+                changes,
+            });
+        }
+        return this.findOne(id, tenantId);
+    }
     async updateRealCost(id, dto, tenantId, userId) {
         await this.realCostService.updateRealCost(id, dto, tenantId, userId);
         return this.findOne(id, tenantId);
@@ -934,6 +964,9 @@ let PurchaseOrderService = class PurchaseOrderService {
         const pedimentoNumber = this.resolvePedimentoForVendor(vendor, dto.pedimento_number !== undefined
             ? dto.pedimento_number
             : existing.pedimento_number);
+        const vendorInvoiceNumber = dto.vendor_invoice_number !== undefined
+            ? this.normalizeVendorInvoice(dto.vendor_invoice_number)
+            : this.normalizeVendorInvoice(existing.vendor_invoice_number);
         const queryRunner = this.dataSource.createQueryRunner();
         await queryRunner.connect();
         await queryRunner.startTransaction();
@@ -960,6 +993,7 @@ let PurchaseOrderService = class PurchaseOrderService {
                 batch.notes = dto.notes;
             }
             batch.pedimento_number = pedimentoNumber;
+            batch.vendor_invoice_number = vendorInvoiceNumber;
             batch.requested_subtotal = totals.requested_subtotal;
             batch.requested_iva_total = totals.requested_iva_total;
             batch.requested_ieps_total = totals.requested_ieps_total;
@@ -985,6 +1019,7 @@ let PurchaseOrderService = class PurchaseOrderService {
             (0, purchase_order_activity_change_util_1.activityChange)('payment_currency', 'Moneda', existing.payment_currency, dto.payment_currency || existing.payment_currency),
             (0, purchase_order_activity_change_util_1.activityChange)('notes', 'Notas', existing.notes, dto.notes ?? existing.notes),
             (0, purchase_order_activity_change_util_1.activityChange)('pedimento_number', 'Pedimento', existing.pedimento_number, pedimentoNumber),
+            (0, purchase_order_activity_change_util_1.activityChange)('vendor_invoice_number', 'Factura de proveedor', existing.vendor_invoice_number, vendorInvoiceNumber),
             (0, purchase_order_activity_change_util_1.activityChange)('line_items_count', 'Productos', existing.line_items?.length ?? 0, dto.line_items?.length ?? 0),
         ]);
         await this.recordActivity({
