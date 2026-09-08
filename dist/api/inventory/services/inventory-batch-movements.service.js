@@ -23,6 +23,7 @@ const inventory_batch_entity_1 = require("../../../entities/purchase-orders/inve
 const sales_order_batch_allocation_entity_1 = require("../../../entities/sales-orders/sales-order-batch-allocation.entity");
 const user_entity_1 = require("../../../entities/users/user.entity");
 const inventory_batch_movements_1 = require("../constants/inventory-batch-movements");
+const api_datetime_util_1 = require("../../../common/utils/api-datetime.util");
 const user_display_name_util_1 = require("../utils/user-display-name.util");
 function formatQty(value) {
     const parsed = parseFloat(String(value ?? 0));
@@ -297,7 +298,7 @@ let InventoryBatchMovementsService = class InventoryBatchMovementsService {
     movement(input) {
         return {
             id: input.id,
-            occurred_at: input.occurred_at,
+            occurred_at: (0, api_datetime_util_1.parseDbDateTimeAsUtc)(input.occurred_at) ?? new Date(0),
             type: input.type,
             type_label: inventory_batch_movements_1.INVENTORY_BATCH_MOVEMENT_TYPE_LABELS[input.type],
             title: inventory_batch_movements_1.INVENTORY_BATCH_MOVEMENT_TYPE_LABELS[input.type],

@@ -43,5 +43,6 @@ export declare class PurchaseOrderMovementsService {
         total: number;
     }>;
     private fromActivity;
+    private toOccurredAt;
     private movement;
 }
