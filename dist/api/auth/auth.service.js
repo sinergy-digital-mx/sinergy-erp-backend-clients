@@ -59,6 +59,7 @@ const permission_service_1 = require("../rbac/services/permission.service");
 const role_service_1 = require("../rbac/services/role.service");
 const user_status_constants_1 = require("../users/user-status.constants");
 const pos_user_type_enum_1 = require("../../entities/users/pos-user-type.enum");
+const USER_LOGIN_RELATIONS = ['tenant', 'status', 'billing_branch'];
 let AuthService = AuthService_1 = class AuthService {
     userRepo;
     branchAssignmentRepo;
@@ -75,11 +76,11 @@ let AuthService = AuthService_1 = class AuthService {
         this.permissionService = permissionService;
         this.roleService = roleService;
     }
+    async onModuleInit() {
+        await this.ensureUsersCrmAdminColumn();
+    }
     async login(email, password) {
-        const user = await this.userRepo.findOne({
-            where: { email },
-            relations: ['tenant', 'status', 'billing_branch'],
-        });
+        const user = await this.findUserForLogin(email);
         if (!user) {
             this.logger.warn(`Login attempt with non-existent email: ${email}`);
             throw new common_1.UnauthorizedException('Invalid credentials');
@@ -93,8 +94,17 @@ let AuthService = AuthService_1 = class AuthService {
             this.logger.warn(`Login blocked for inactive user: ${email}`);
             throw new common_1.UnauthorizedException('Tu cuenta no está activa');
         }
-        user.last_login_at = new Date();
-        await this.userRepo.save(user);
+        if (!user.tenant?.id) {
+            this.logger.error(`Login aborted: user ${user.id} has no organization`);
+            throw new common_1.UnauthorizedException('Invalid credentials');
+        }
+        try {
+            user.last_login_at = new Date();
+            await this.userRepo.save(user);
+        }
+        catch (error) {
+            this.logger.error(`last_login_at save failed for ${email}: ${this.errorMessage(error)}`);
+        }
         let userRoles = [];
         let userPermissions = [];
         let permissionsByModule = {};
@@ -116,14 +126,14 @@ let AuthService = AuthService_1 = class AuthService {
             this.logger.debug(`User ${user.id} has ${userRoles.length} roles and ${userPermissions.length} permissions in tenant ${user.tenant.id}`);
         }
         catch (error) {
-            this.logger.error(`Failed to load RBAC data for user ${user.id}: ${error.message}`);
+            this.logger.error(`Failed to load RBAC data for user ${user.id}: ${this.errorMessage(error)}`);
         }
         const permissionsForJwt = this.toJwtPermissions(userPermissions);
         const payload = {
             sub: user.id,
             email: user.email,
             tenant_id: user.tenant.id,
-            status: user.status.code,
+            status: user.status?.code,
             roles: userRoles.map(role => ({
                 id: role.id,
                 name: role.name,
@@ -135,7 +145,14 @@ let AuthService = AuthService_1 = class AuthService {
             permissionCount: userPermissions.length,
             iat: Math.floor(Date.now() / 1000),
         };
-        const accessToken = this.jwtService.sign(payload);
+        let accessToken;
+        try {
+            accessToken = this.jwtService.sign(payload);
+        }
+        catch (error) {
+            this.logger.error(`JWT sign failed for ${email} (${permissionsForJwt.length} perms): ${this.errorMessage(error)}`);
+            throw error;
+        }
         this.logger.log(`Successful login for user ${email} in tenant ${user.tenant.id}`);
         return {
             access_token: accessToken,
@@ -143,15 +160,15 @@ let AuthService = AuthService_1 = class AuthService {
                 id: user.id,
                 email: user.email,
                 tenant_id: user.tenant.id,
-                status: user.status.code,
+                status: user.status?.code,
                 roles: userRoles.map(role => role.name),
                 permissions: permissionsByModule,
                 permissions_flat: permissionsForJwt,
                 permissions_version: user.permissions_version,
                 last_login_at: user.last_login_at,
                 ...this.mapPosSessionFields(user),
-                ...(await this.loadSessionBranchFields(user.id, user.tenant.id.toString())),
-                assigned_warehouses: await this.loadAssignedWarehouses(user.id, user.tenant.id.toString()),
+                ...(await this.loadSessionBranchFieldsSafe(user.id, user.tenant.id.toString())),
+                assigned_warehouses: await this.loadAssignedWarehousesSafe(user.id, user.tenant.id.toString()),
             },
         };
     }
@@ -193,10 +210,75 @@ let AuthService = AuthService_1 = class AuthService {
                 permissions_flat: permissionsForJwt,
                 permissions_version: user.permissions_version,
                 ...this.mapPosSessionFields(user),
-                ...(await this.loadSessionBranchFields(user.id, user.tenant.id.toString())),
-                assigned_warehouses: await this.loadAssignedWarehouses(user.id, user.tenant.id.toString()),
+                ...(await this.loadSessionBranchFieldsSafe(user.id, user.tenant.id.toString())),
+                assigned_warehouses: await this.loadAssignedWarehousesSafe(user.id, user.tenant.id.toString()),
             },
         };
+    }
+    async findUserForLogin(email) {
+        try {
+            return await this.userRepo.findOne({
+                where: { email },
+                relations: [...USER_LOGIN_RELATIONS],
+            });
+        }
+        catch (error) {
+            const message = this.errorMessage(error);
+            this.logger.error(`Login findOne failed: ${message}`);
+            if (/unknown column|is_crm_admin/i.test(message)) {
+                await this.ensureUsersCrmAdminColumn();
+                return this.userRepo.findOne({
+                    where: { email },
+                    relations: [...USER_LOGIN_RELATIONS],
+                });
+            }
+            throw error;
+        }
+    }
+    async ensureUsersCrmAdminColumn() {
+        try {
+            const rows = await this.userRepo.query(`SELECT COUNT(*) AS c FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME = 'users'
+                   AND COLUMN_NAME = 'is_crm_admin'`);
+            const count = Number(rows?.[0]?.c ?? rows?.[0]?.C ?? 0);
+            if (count > 0) {
+                return;
+            }
+            await this.userRepo.query(`ALTER TABLE users ADD COLUMN is_crm_admin TINYINT NOT NULL DEFAULT 0`);
+            this.logger.log('Columna users.is_crm_admin creada');
+        }
+        catch (error) {
+            this.logger.error(`No se pudo asegurar users.is_crm_admin: ${this.errorMessage(error)}`);
+        }
+    }
+    async loadSessionBranchFieldsSafe(userId, tenantId) {
+        try {
+            return await this.loadSessionBranchFields(userId, tenantId);
+        }
+        catch (error) {
+            this.logger.error(`Login branches failed for ${userId}: ${this.errorMessage(error)}`);
+            return {
+                assigned_branches: [],
+                primary_billing_branch_id: null,
+                can_switch_branch: false,
+            };
+        }
+    }
+    async loadAssignedWarehousesSafe(userId, tenantId) {
+        try {
+            return await this.loadAssignedWarehouses(userId, tenantId);
+        }
+        catch (error) {
+            this.logger.error(`Login warehouses failed for ${userId}: ${this.errorMessage(error)}`);
+            return [];
+        }
+    }
+    errorMessage(error) {
+        if (error instanceof Error) {
+            return error.message;
+        }
+        return String(error);
     }
     async loadSessionBranchFields(userId, tenantId) {
         const assigned_branches = await this.loadAssignedBranches(userId, tenantId);
