@@ -98,6 +98,7 @@ export declare class PermissionService {
     getCacheWarmingRecommendations(tenantId: string): Promise<string[]>;
     private getUserPermissionsFromDatabase;
     private getUserPermissionsOptimized;
+    private mapRawPermissionRows;
     getBulkUserPermissions(userIds: string[], tenantId: string): Promise<Map<string, Permission[]>>;
     getRoleHierarchyWithPermissions(tenantId: string): Promise<Array<{
         role: {
