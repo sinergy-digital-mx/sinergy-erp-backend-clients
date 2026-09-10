@@ -118,7 +118,7 @@ let AuthService = AuthService_1 = class AuthService {
         catch (error) {
             this.logger.error(`Failed to load RBAC data for user ${user.id}: ${error.message}`);
         }
-        const permissionsForJwt = userPermissions.map(permission => `${permission.entity_type.toLowerCase()}:${permission.action}`);
+        const permissionsForJwt = this.toJwtPermissions(userPermissions);
         const payload = {
             sub: user.id,
             email: user.email,
@@ -165,7 +165,7 @@ let AuthService = AuthService_1 = class AuthService {
         }
         const userRoles = await this.roleService.getUserRoles(userId, tenantId);
         const userPermissions = await this.permissionService.getUserPermissions(userId, tenantId);
-        const permissionsForJwt = userPermissions.map(permission => `${permission.entity_type.toLowerCase()}:${permission.action}`);
+        const permissionsForJwt = this.toJwtPermissions(userPermissions);
         const payload = {
             sub: user.id,
             email: user.email,
@@ -251,6 +251,18 @@ let AuthService = AuthService_1 = class AuthService {
                 }
                 : null,
         }));
+    }
+    toJwtPermissions(permissions) {
+        const keys = new Set();
+        for (const permission of permissions ?? []) {
+            const entity = permission?.entity_type || permission?.entity_registry?.code;
+            const action = permission?.action;
+            if (!entity || !action) {
+                continue;
+            }
+            keys.add(`${String(entity).toLowerCase()}:${action}`);
+        }
+        return [...keys];
     }
     mapPosSessionFields(user) {
         return {

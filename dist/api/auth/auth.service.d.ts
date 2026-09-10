@@ -103,6 +103,7 @@ export declare class AuthService {
     private loadSessionBranchFields;
     private loadAssignedBranches;
     private loadAssignedWarehouses;
+    private toJwtPermissions;
     private mapPosSessionFields;
     refresh(userId: string, tenantId: string): Promise<{
         access_token: string;

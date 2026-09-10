@@ -523,18 +523,7 @@ let PermissionService = PermissionService_1 = class PermissionService {
         return permissions;
     }
     async getUserPermissionsOptimized(userId, tenantId) {
-        const isAdmin = await this.userHasAdminRole(userId, tenantId);
-        const query = isAdmin
-            ? `
-      SELECT DISTINCT p.id, p.action, p.description, p.is_system_permission, p.created_at, p.updated_at,
-             p.entity_registry_id, er.code as entity_code, p.module_id
-      FROM rbac_permissions p
-      INNER JOIN entity_registry er ON p.entity_registry_id = er.id
-      LEFT JOIN tenant_modules tm ON p.module_id = tm.module_id AND tm.tenant_id = ?
-      WHERE (p.module_id IS NULL OR (tm.is_enabled = 1 AND tm.tenant_id = ?))
-      ORDER BY er.code, p.action
-    `
-            : `
+        const query = `
       SELECT DISTINCT p.id, p.action, p.description, p.is_system_permission, p.created_at, p.updated_at,
              p.entity_registry_id, er.code as entity_code, p.module_id
       FROM rbac_permissions p
@@ -547,7 +536,12 @@ let PermissionService = PermissionService_1 = class PermissionService {
         AND (p.module_id IS NULL OR (tm.is_enabled = 1 AND tm.tenant_id = ?))
       ORDER BY er.code, p.action
     `;
-        const rawResults = await this.permissionRepository.query(query, isAdmin ? [tenantId, tenantId] : [tenantId, userId, tenantId, tenantId]);
+        const rawResults = await this.permissionRepository.query(query, [
+            tenantId,
+            userId,
+            tenantId,
+            tenantId,
+        ]);
         return this.mapRawPermissionRows(rawResults);
     }
     mapRawPermissionRows(rawResults) {
