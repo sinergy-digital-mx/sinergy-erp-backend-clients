@@ -26,6 +26,7 @@ const tenant_context_service_1 = require("./tenant-context.service");
 const permission_cache_service_1 = require("./permission-cache.service");
 const permission_version_service_1 = require("./permission-version.service");
 const query_cache_service_1 = require("./query-cache.service");
+const entity_code_util_1 = require("../utils/entity-code.util");
 let PermissionService = PermissionService_1 = class PermissionService {
     permissionRepository;
     userRoleRepository;
@@ -53,8 +54,17 @@ let PermissionService = PermissionService_1 = class PermissionService {
             if (!isValidEntity) {
                 error_utils_1.RBACErrorUtils.throwInvalidEntityType(entityType);
             }
-            let userPermissions = await this.getUserPermissionsWithFallback(userId, tenantId);
-            return userPermissions?.some(permission => permission?.entity_type?.toLowerCase() === entityType.toLowerCase() && permission?.action?.toLowerCase() === action.toLowerCase()) || false;
+            const userPermissions = await this.getUserPermissionsWithFallback(userId, tenantId);
+            const hasExact = userPermissions?.some((permission) => (0, entity_code_util_1.entityCodesMatch)(permission?.entity_type, entityType) &&
+                permission?.action?.toLowerCase() === action.toLowerCase());
+            if (hasExact) {
+                return true;
+            }
+            const isAdmin = await this.userHasAdminRole(userId, tenantId);
+            if (isAdmin) {
+                return userPermissions?.some((permission) => (0, entity_code_util_1.entityCodesMatch)(permission?.entity_type, entityType)) ?? false;
+            }
+            return false;
         }
         catch (error) {
             this.logger.error(`Error checking permission for user ${userId} in tenant ${tenantId}:`, error);
@@ -819,11 +829,9 @@ let PermissionService = PermissionService_1 = class PermissionService {
     async validateEntityTypeWithFallback(entityType) {
         try {
             const entity = await this.entityRegistryRepository.query(`
-        SELECT id FROM entity_registry 
-        WHERE LOWER(code) = LOWER(?)
-        LIMIT 1
-      `, [entityType]);
-            const isValid = entity && entity.length > 0;
+        SELECT code FROM entity_registry
+      `);
+            const isValid = (entity ?? []).some((row) => (0, entity_code_util_1.entityCodesMatch)(row?.code, entityType));
             if (isValid) {
                 this.logger.debug(`Entity type ${entityType} validated from entity_registry`);
             }
@@ -838,9 +846,10 @@ let PermissionService = PermissionService_1 = class PermissionService {
                 const knownEntityTypes = [
                     'user', 'customer', 'lead', 'order', 'product', 'invoice', 'report',
                     'tenant', 'role', 'permission', 'userrole', 'rolepermission',
-                    'activity', 'auditlog', 'activities', 'customers', 'leads'
+                    'activity', 'auditlog', 'activities', 'customers', 'leads',
+                    'contract', 'contracts',
                 ];
-                const isKnownEntity = knownEntityTypes.includes(entityType.toLowerCase());
+                const isKnownEntity = knownEntityTypes.some((known) => (0, entity_code_util_1.entityCodesMatch)(known, entityType));
                 if (isKnownEntity) {
                     this.logger.debug(`Entity type ${entityType} validated using fallback list`);
                 }

@@ -46,6 +46,7 @@ export declare class AuthService {
             fiscal_configuration_id: string | null;
             is_employee: boolean;
             is_manager: boolean;
+            is_crm_admin: boolean;
             id: string;
             email: string | null;
             tenant_id: string;
@@ -89,6 +90,7 @@ export declare class AuthService {
             fiscal_configuration_id: string | null;
             is_employee: boolean;
             is_manager: boolean;
+            is_crm_admin: boolean;
             id: string;
             email: string | null;
             tenant_id: string;
@@ -134,6 +136,7 @@ export declare class AuthService {
             fiscal_configuration_id: string | null;
             is_employee: boolean;
             is_manager: boolean;
+            is_crm_admin: boolean;
             id: string;
             email: string | null;
             tenant_id: string;

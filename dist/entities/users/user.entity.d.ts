@@ -22,6 +22,7 @@ export declare class User {
     pos_user_type: PosUserType | null;
     is_employee: boolean;
     is_manager: boolean;
+    is_crm_admin: boolean;
     created_at: Date;
     updated_at: Date;
 }

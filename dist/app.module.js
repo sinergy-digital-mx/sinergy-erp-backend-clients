@@ -14,6 +14,7 @@ const typeorm_options_1 = require("./database/typeorm.options");
 const users_module_1 = require("./api/users/users.module");
 const leads_module_1 = require("./api/leads/leads.module");
 const customers_module_1 = require("./api/customers/customers.module");
+const crm_module_1 = require("./api/crm/crm.module");
 const auth_module_1 = require("./api/auth/auth.module");
 const rbac_module_1 = require("./api/rbac/rbac.module");
 const email_module_1 = require("./api/email/email.module");
@@ -60,6 +61,7 @@ exports.AppModule = AppModule = __decorate([
             users_module_1.UsersModule,
             leads_module_1.LeadsModule,
             customers_module_1.CustomersModule,
+            crm_module_1.CrmModule,
             auth_module_1.AuthModule,
             rbac_module_1.RBACModule,
             email_module_1.EmailModule,

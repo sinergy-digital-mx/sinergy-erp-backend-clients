@@ -35,6 +35,7 @@ let User = class User {
     pos_user_type;
     is_employee;
     is_manager;
+    is_crm_admin;
     created_at;
     updated_at;
 };
@@ -122,6 +123,10 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'tinyint', default: 0 }),
     __metadata("design:type", Boolean)
 ], User.prototype, "is_manager", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'tinyint', default: 0 }),
+    __metadata("design:type", Boolean)
+], User.prototype, "is_crm_admin", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)({ type: 'timestamp' }),
     __metadata("design:type", Date)
