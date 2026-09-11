@@ -82,7 +82,7 @@ __decorate([
     (0, common_1.Get)('activities/authors'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'customers', action: 'Read' }),
     (0, swagger_1.ApiOperation)({
-        summary: 'Usuarios que han creado al menos una actividad (solo admin CRM)',
+        summary: 'Vendedores que han creado al menos una actividad',
     }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Autores con actividades' }),
     __param(0, (0, common_1.Req)()),

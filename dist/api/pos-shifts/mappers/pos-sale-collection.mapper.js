@@ -64,6 +64,8 @@ function mapPosSaleCollection(collection) {
         amount_transfer_mxn: Number(collection.amount_transfer_mxn),
         transfer_reference: collection.transfer_reference,
         amount_card_mxn: Number(collection.amount_card_mxn),
+        amount_check_mxn: Number(collection.amount_check_mxn ?? 0),
+        check_reference: collection.check_reference,
         amount_credit_mxn: Number(collection.amount_credit_mxn ?? 0),
         card_reference: collection.card_reference,
         received_cash_mxn: Number(collection.received_cash_mxn),

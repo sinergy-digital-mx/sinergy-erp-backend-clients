@@ -560,6 +560,10 @@ let SalesOrderService = class SalesOrderService {
             !dto.reference_number?.trim()) {
             throw new common_1.BadRequestException('reference_number es obligatorio para transferencia');
         }
+        if (dto.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CHECK &&
+            !dto.reference_number?.trim()) {
+            throw new common_1.BadRequestException('reference_number es obligatorio para cheque');
+        }
         const existing = await this.paymentRepo.find({
             where: { sales_order_id: salesOrderId, tenant_id: tenantId },
         });

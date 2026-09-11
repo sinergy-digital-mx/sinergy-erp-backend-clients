@@ -24,6 +24,8 @@ class CollectPosSaleDto {
     transfer_reference;
     amount_card_mxn;
     card_reference;
+    amount_check_mxn;
+    check_reference;
     amount_credit_mxn;
     generate_invoice;
     received_cash_mxn;
@@ -107,6 +109,20 @@ __decorate([
     (0, class_validator_1.MaxLength)(120),
     __metadata("design:type", String)
 ], CollectPosSaleDto.prototype, "card_reference", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false, description: 'Monto cubierto con cheque (MXN)' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], CollectPosSaleDto.prototype, "amount_check_mxn", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false, description: 'Número o referencia del cheque' }),
+    (0, class_validator_1.ValidateIf)((dto) => (dto.amount_check_mxn ?? 0) > 0),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(120),
+    __metadata("design:type", String)
+], CollectPosSaleDto.prototype, "check_reference", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
         required: false,

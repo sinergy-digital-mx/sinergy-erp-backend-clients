@@ -129,6 +129,7 @@ export declare class PosShiftsController {
                 collected_cash_usd: number;
                 collected_transfer_mxn: number;
                 collected_card_mxn: number;
+                collected_check_mxn: number;
                 collected_credit_mxn: number;
                 removed_total_mxn: number;
                 removed_total_usd: number;
@@ -235,6 +236,7 @@ export declare class PosShiftsController {
                 collected_cash_usd: number;
                 collected_transfer_mxn: number;
                 collected_card_mxn: number;
+                collected_check_mxn: number;
                 collected_credit_mxn: number;
                 removed_total_mxn: number;
                 removed_total_usd: number;
@@ -339,6 +341,7 @@ export declare class PosShiftsController {
                 collected_cash_usd: number;
                 collected_transfer_mxn: number;
                 collected_card_mxn: number;
+                collected_check_mxn: number;
                 collected_credit_mxn: number;
                 removed_total_mxn: number;
                 removed_total_usd: number;
@@ -442,6 +445,7 @@ export declare class PosShiftsController {
                 collected_cash_usd: number;
                 collected_transfer_mxn: number;
                 collected_card_mxn: number;
+                collected_check_mxn: number;
                 collected_credit_mxn: number;
                 removed_total_mxn: number;
                 removed_total_usd: number;
@@ -575,6 +579,7 @@ export declare class PosShiftsController {
                 collected_cash_usd: number;
                 collected_transfer_mxn: number;
                 collected_card_mxn: number;
+                collected_check_mxn: number;
                 collected_credit_mxn: number;
                 removed_total_mxn: number;
                 removed_total_usd: number;
@@ -636,6 +641,7 @@ export declare class PosShiftsController {
             cash_usd: number;
             transfer_mxn: number;
             card_mxn: number;
+            check_mxn: number;
             credit_mxn: number;
         };
     } | {
@@ -671,6 +677,8 @@ export declare class PosShiftsController {
                 amount_transfer_mxn: number;
                 transfer_reference: string | null;
                 amount_card_mxn: number;
+                amount_check_mxn: number;
+                check_reference: string | null;
                 amount_credit_mxn: number;
                 card_reference: string | null;
                 received_cash_mxn: number;
@@ -729,6 +737,7 @@ export declare class PosShiftsController {
             cash_usd: number;
             transfer_mxn: number;
             card_mxn: number;
+            check_mxn: number;
             credit_mxn: number;
         };
     }>;
@@ -756,6 +765,8 @@ export declare class PosShiftsController {
             amount_transfer_mxn: number;
             transfer_reference: string | null;
             amount_card_mxn: number;
+            amount_check_mxn: number;
+            check_reference: string | null;
             amount_credit_mxn: number;
             card_reference: string | null;
             received_cash_mxn: number;
@@ -828,6 +839,8 @@ export declare class PosShiftsController {
             amount_transfer_mxn: number;
             transfer_reference: string | null;
             amount_card_mxn: number;
+            amount_check_mxn: number;
+            check_reference: string | null;
             amount_credit_mxn: number;
             card_reference: string | null;
             received_cash_mxn: number;

@@ -380,6 +380,7 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
         const cashUsd = Number(collection.amount_cash_usd) || 0;
         const transferMxn = Number(collection.amount_transfer_mxn) || 0;
         const cardMxn = Number(collection.amount_card_mxn) || 0;
+        const checkMxn = Number(collection.amount_check_mxn) || 0;
         const changeMxn = Number(collection.change_cash_mxn) || 0;
         const changeUsd = Number(collection.change_cash_usd) || 0;
         const receivedMxn = Number(collection.received_cash_mxn) || (cashMxn > 0 ? cashMxn + changeMxn : 0);
@@ -392,6 +393,9 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
         else if (collection.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.TRANSFER && transferMxn > 0) {
             lines.push((0, escpos_util_1.compactMoneyLine)('Transferencia:', (0, escpos_util_1.formatMoney)(transferMxn)));
         }
+        else if (collection.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CHECK && checkMxn > 0) {
+            lines.push((0, escpos_util_1.compactMoneyLine)('Cheque:', (0, escpos_util_1.formatMoney)(checkMxn)));
+        }
         else if (collection.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CREDIT) {
             const creditMxn = Number(collection.amount_credit_mxn) || 0;
             if (creditMxn > 0) {
@@ -403,6 +407,8 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
                 lines.push((0, escpos_util_1.compactMoneyLine)('Transferencia:', (0, escpos_util_1.formatMoney)(transferMxn)));
             if (cardMxn > 0)
                 lines.push((0, escpos_util_1.compactMoneyLine)('Tarjeta:', (0, escpos_util_1.formatMoney)(cardMxn)));
+            if (checkMxn > 0)
+                lines.push((0, escpos_util_1.compactMoneyLine)('Cheque:', (0, escpos_util_1.formatMoney)(checkMxn)));
         }
         lines.push((0, escpos_util_1.compactMoneyLine)('Cambio Pesos:', (0, escpos_util_1.formatMoney)(changeMxn)));
         lines.push((0, escpos_util_1.compactMoneyLine)('Cambio Dolares:', (0, escpos_util_1.formatUsd)(changeUsd)));

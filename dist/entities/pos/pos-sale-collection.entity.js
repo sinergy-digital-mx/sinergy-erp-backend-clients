@@ -35,6 +35,8 @@ let PosSaleCollection = class PosSaleCollection {
     amount_transfer_mxn;
     transfer_reference;
     amount_card_mxn;
+    amount_check_mxn;
+    check_reference;
     amount_credit_mxn;
     card_reference;
     received_cash_mxn;
@@ -122,6 +124,14 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'decimal', precision: 12, scale: 2, default: 0 }),
     __metadata("design:type", Number)
 ], PosSaleCollection.prototype, "amount_card_mxn", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'decimal', precision: 12, scale: 2, default: 0 }),
+    __metadata("design:type", Number)
+], PosSaleCollection.prototype, "amount_check_mxn", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 120, nullable: true }),
+    __metadata("design:type", Object)
+], PosSaleCollection.prototype, "check_reference", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'decimal', precision: 12, scale: 2, default: 0 }),
     __metadata("design:type", Number)

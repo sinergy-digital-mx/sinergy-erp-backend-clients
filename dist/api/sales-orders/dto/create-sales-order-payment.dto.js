@@ -47,9 +47,10 @@ __decorate([
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
         example: 'SPEI-123456',
-        description: 'Referencia (obligatoria si payment_method = transfer)',
+        description: 'Referencia (obligatoria si payment_method = transfer o check)',
     }),
-    (0, class_validator_1.ValidateIf)((dto) => dto.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.TRANSFER),
+    (0, class_validator_1.ValidateIf)((dto) => dto.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.TRANSFER ||
+        dto.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CHECK),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MaxLength)(120),
     __metadata("design:type", String)

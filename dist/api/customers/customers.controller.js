@@ -277,7 +277,7 @@ __decorate([
 ], CustomersController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Get)(':id/product-insights'),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'customers', action: 'Read' }),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'customers', action: 'ComprasFrecuentes' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Productos más comprados y sugerencias (misma categoría/subcategoría) para el detalle del cliente',
     }),

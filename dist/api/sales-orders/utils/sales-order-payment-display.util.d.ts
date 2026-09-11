@@ -1,7 +1,7 @@
 import { PosSalePaymentMethod } from '../../../entities/pos/pos-sale-payment-method.enum';
 export declare const SALES_ORDER_PAYMENT_METHOD_LABELS: Record<PosSalePaymentMethod, string>;
 export type SalesOrderPaymentDisplayLine = {
-    method: 'cash' | 'card' | 'transfer' | 'credit';
+    method: 'cash' | 'card' | 'transfer' | 'check' | 'credit';
     label: string;
     amount_mxn: number;
     amount_usd: number;
@@ -18,6 +18,7 @@ export type PaymentDisplayCollectionInput = {
     amount_cash_usd?: number | string | null;
     amount_transfer_mxn?: number | string | null;
     amount_card_mxn?: number | string | null;
+    amount_check_mxn?: number | string | null;
     amount_credit_mxn?: number | string | null;
 };
 export type PaymentDisplayPaymentInput = {

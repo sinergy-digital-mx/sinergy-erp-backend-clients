@@ -131,10 +131,7 @@ let CrmInboxService = class CrmInboxService {
     }
     async authors(tenantId, actorUserId, hasAdminRole) {
         const isCrmAdmin = await this.resolveCrmAdmin(tenantId, actorUserId, hasAdminRole);
-        if (!isCrmAdmin) {
-            return { is_crm_admin: false, authors: [] };
-        }
-        const rows = await this.activityRepo
+        const qb = this.activityRepo
             .createQueryBuilder('activity')
             .innerJoin('activity.user', 'user')
             .select('user.id', 'id')
@@ -143,7 +140,11 @@ let CrmInboxService = class CrmInboxService {
             .addSelect('user.email', 'email')
             .addSelect('COUNT(activity.id)', 'activity_count')
             .where('activity.tenant_id = :tenantId', { tenantId })
-            .andWhere('activity.user_id IS NOT NULL')
+            .andWhere('activity.user_id IS NOT NULL');
+        if (!isCrmAdmin) {
+            qb.andWhere('activity.user_id = :actorUserId', { actorUserId });
+        }
+        const rows = await qb
             .groupBy('user.id')
             .addGroupBy('user.first_name')
             .addGroupBy('user.last_name')
@@ -159,7 +160,7 @@ let CrmInboxService = class CrmInboxService {
             display_name: this.displayUserName(row),
             activity_count: Number(row.activity_count) || 0,
         }));
-        return { is_crm_admin: true, authors };
+        return { is_crm_admin: isCrmAdmin, authors };
     }
     async loadAttention(tenantId, scopeUserId) {
         const now = new Date();

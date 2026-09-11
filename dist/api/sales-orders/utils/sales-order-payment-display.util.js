@@ -7,6 +7,7 @@ exports.SALES_ORDER_PAYMENT_METHOD_LABELS = {
     [pos_sale_payment_method_enum_1.PosSalePaymentMethod.CASH]: 'Efectivo',
     [pos_sale_payment_method_enum_1.PosSalePaymentMethod.CARD]: 'Tarjeta',
     [pos_sale_payment_method_enum_1.PosSalePaymentMethod.TRANSFER]: 'Transferencia',
+    [pos_sale_payment_method_enum_1.PosSalePaymentMethod.CHECK]: 'Cheque',
     [pos_sale_payment_method_enum_1.PosSalePaymentMethod.MIXED]: 'Mixto',
     [pos_sale_payment_method_enum_1.PosSalePaymentMethod.CREDIT]: 'Crédito',
 };
@@ -14,6 +15,7 @@ const LINE_METHODS = [
     pos_sale_payment_method_enum_1.PosSalePaymentMethod.CASH,
     pos_sale_payment_method_enum_1.PosSalePaymentMethod.TRANSFER,
     pos_sale_payment_method_enum_1.PosSalePaymentMethod.CARD,
+    pos_sale_payment_method_enum_1.PosSalePaymentMethod.CHECK,
     pos_sale_payment_method_enum_1.PosSalePaymentMethod.CREDIT,
 ];
 function toNumber(value) {
@@ -63,6 +65,7 @@ function fromCollection(collection) {
         line(pos_sale_payment_method_enum_1.PosSalePaymentMethod.CASH, toNumber(collection.amount_cash_mxn), toNumber(collection.amount_cash_usd)),
         line(pos_sale_payment_method_enum_1.PosSalePaymentMethod.TRANSFER, toNumber(collection.amount_transfer_mxn)),
         line(pos_sale_payment_method_enum_1.PosSalePaymentMethod.CARD, toNumber(collection.amount_card_mxn)),
+        line(pos_sale_payment_method_enum_1.PosSalePaymentMethod.CHECK, toNumber(collection.amount_check_mxn)),
         line(pos_sale_payment_method_enum_1.PosSalePaymentMethod.CREDIT, toNumber(collection.amount_credit_mxn)),
     ].filter((item) => item != null);
     if (lines.length === 0 && method) {

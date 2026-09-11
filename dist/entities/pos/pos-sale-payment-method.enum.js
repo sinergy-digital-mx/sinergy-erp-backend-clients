@@ -6,6 +6,7 @@ var PosSalePaymentMethod;
     PosSalePaymentMethod["CASH"] = "cash";
     PosSalePaymentMethod["CARD"] = "card";
     PosSalePaymentMethod["TRANSFER"] = "transfer";
+    PosSalePaymentMethod["CHECK"] = "check";
     PosSalePaymentMethod["MIXED"] = "mixed";
     PosSalePaymentMethod["CREDIT"] = "credit";
 })(PosSalePaymentMethod || (exports.PosSalePaymentMethod = PosSalePaymentMethod = {}));

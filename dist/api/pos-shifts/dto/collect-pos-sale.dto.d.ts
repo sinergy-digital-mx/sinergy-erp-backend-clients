@@ -9,6 +9,8 @@ export declare class CollectPosSaleDto {
     transfer_reference?: string;
     amount_card_mxn?: number;
     card_reference?: string;
+    amount_check_mxn?: number;
+    check_reference?: string;
     amount_credit_mxn?: number;
     generate_invoice?: boolean;
     received_cash_mxn?: number;
