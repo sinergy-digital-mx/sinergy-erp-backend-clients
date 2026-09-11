@@ -141,7 +141,8 @@ let AuthService = AuthService_1 = class AuthService {
             })),
             permissions: permissionsForJwt,
             permissions_version: user.permissions_version,
-            hasAdminRole: userRoles.some(role => role.name === 'Admin'),
+            hasAdminRole: userRoles.some(role => String(role.name).toLowerCase() === 'admin'),
+            is_crm_admin: Boolean(user.is_crm_admin),
             permissionCount: userPermissions.length,
             iat: Math.floor(Date.now() / 1000),
         };
@@ -195,7 +196,8 @@ let AuthService = AuthService_1 = class AuthService {
             })),
             permissions: permissionsForJwt,
             permissions_version: user.permissions_version,
-            hasAdminRole: userRoles.some(role => role.name === 'Admin'),
+            hasAdminRole: userRoles.some(role => String(role.name).toLowerCase() === 'admin'),
+            is_crm_admin: Boolean(user.is_crm_admin),
             permissionCount: userPermissions.length,
             iat: Math.floor(Date.now() / 1000),
         };

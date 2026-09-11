@@ -6,6 +6,7 @@ export declare class JwtStrategy extends JwtStrategy_base {
     private readonly logger;
     constructor();
     validate(payload: any): Promise<{
+        sub: any;
         id: any;
         user_id: any;
         tenantId: any;
@@ -16,6 +17,7 @@ export declare class JwtStrategy extends JwtStrategy_base {
         permissions: any;
         permissions_version: any;
         hasAdminRole: any;
+        is_crm_admin: boolean;
         permissionCount: any;
     }>;
 }

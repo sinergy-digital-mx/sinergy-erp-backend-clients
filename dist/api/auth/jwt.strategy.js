@@ -24,6 +24,7 @@ let JwtStrategy = JwtStrategy_1 = class JwtStrategy extends (0, passport_1.Passp
     }
     async validate(payload) {
         const user = {
+            sub: payload.sub,
             id: payload.sub,
             user_id: payload.sub,
             tenantId: payload.tenant_id,
@@ -34,6 +35,7 @@ let JwtStrategy = JwtStrategy_1 = class JwtStrategy extends (0, passport_1.Passp
             permissions: payload.permissions || [],
             permissions_version: payload.permissions_version,
             hasAdminRole: payload.hasAdminRole || false,
+            is_crm_admin: Boolean(payload.is_crm_admin),
             permissionCount: payload.permissionCount || 0,
         };
         this.logger.debug(`JWT validation successful for user ${payload.sub} in tenant ${payload.tenant_id} with ${payload.permissions?.length || 0} permissions`);

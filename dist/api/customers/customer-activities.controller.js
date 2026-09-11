@@ -22,6 +22,7 @@ const permission_guard_1 = require("../rbac/guards/permission.guard");
 const require_permissions_decorator_1 = require("../rbac/decorators/require-permissions.decorator");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const tenant_context_service_1 = require("../rbac/services/tenant-context.service");
+const request_user_util_1 = require("../../common/utils/request-user.util");
 let CustomerActivitiesController = class CustomerActivitiesController {
     activitiesService;
     tenantContext;
@@ -34,7 +35,7 @@ let CustomerActivitiesController = class CustomerActivitiesController {
         if (!tenantId) {
             throw new Error('Tenant context is required');
         }
-        return this.activitiesService.create(customerId, createActivityDto, req.user.sub, tenantId);
+        return this.activitiesService.create(customerId, createActivityDto, (0, request_user_util_1.resolveRequestUserId)(req.user), tenantId);
     }
     async findAll(customerId, query, req) {
         const tenantId = this.tenantContext.getCurrentTenantId();
@@ -62,7 +63,7 @@ let CustomerActivitiesController = class CustomerActivitiesController {
         if (!tenantId) {
             throw new Error('Tenant context is required');
         }
-        return this.activitiesService.update(customerId, id, updateActivityDto, req.user.sub, tenantId);
+        return this.activitiesService.update(customerId, id, updateActivityDto, (0, request_user_util_1.resolveRequestUserId)(req.user), tenantId);
     }
 };
 exports.CustomerActivitiesController = CustomerActivitiesController;

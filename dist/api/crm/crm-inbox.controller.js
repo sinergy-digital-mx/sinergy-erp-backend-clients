@@ -19,6 +19,7 @@ const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const require_permissions_decorator_1 = require("../rbac/decorators/require-permissions.decorator");
 const permission_guard_1 = require("../rbac/guards/permission.guard");
 const tenant_context_service_1 = require("../rbac/services/tenant-context.service");
+const request_user_util_1 = require("../../common/utils/request-user.util");
 const query_crm_activity_dto_1 = require("./dto/query-crm-activity.dto");
 const crm_inbox_service_1 = require("./services/crm-inbox.service");
 let CrmInboxController = class CrmInboxController {
@@ -29,13 +30,13 @@ let CrmInboxController = class CrmInboxController {
         this.tenantContext = tenantContext;
     }
     findActivities(query, req) {
-        return this.crmInboxService.list(this.requireTenantId(), req.user.sub, Boolean(req.user.hasAdminRole), query);
+        return this.crmInboxService.list(this.requireTenantId(), (0, request_user_util_1.resolveRequestUserId)(req.user), (0, request_user_util_1.resolveHasAdminRole)(req.user), query);
     }
     getStats(query, req) {
-        return this.crmInboxService.stats(this.requireTenantId(), req.user.sub, Boolean(req.user.hasAdminRole), query);
+        return this.crmInboxService.stats(this.requireTenantId(), (0, request_user_util_1.resolveRequestUserId)(req.user), (0, request_user_util_1.resolveHasAdminRole)(req.user), query);
     }
     getAuthors(req) {
-        return this.crmInboxService.authors(this.requireTenantId(), req.user.sub, Boolean(req.user.hasAdminRole));
+        return this.crmInboxService.authors(this.requireTenantId(), (0, request_user_util_1.resolveRequestUserId)(req.user), (0, request_user_util_1.resolveHasAdminRole)(req.user));
     }
     requireTenantId() {
         const tenantId = this.tenantContext.getCurrentTenantId();
