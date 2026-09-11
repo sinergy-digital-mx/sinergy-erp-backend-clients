@@ -47,7 +47,8 @@ let CustomerActivitiesService = class CustomerActivitiesService {
             activity_date: new Date(),
             follow_up_date: dto.follow_up_date ? new Date(dto.follow_up_date) : undefined,
         });
-        return this.activityRepo.save(activity);
+        const saved = await this.activityRepo.save(activity);
+        return this.findOne(customerId, saved.id, tenantId);
     }
     async findAll(customerId, query, tenantId) {
         const page = query.page || 1;
@@ -92,7 +93,7 @@ let CustomerActivitiesService = class CustomerActivitiesService {
         });
         const totalPages = Math.ceil(total / limit);
         return {
-            activities,
+            activities: activities.map((row) => this.mapActivity(row)),
             total,
             page,
             totalPages,
@@ -110,7 +111,7 @@ let CustomerActivitiesService = class CustomerActivitiesService {
         if (!activity) {
             throw new common_1.NotFoundException(`Activity with ID ${activityId} not found`);
         }
-        return activity;
+        return this.mapActivity(activity);
     }
     async update(customerId, activityId, dto, userId, tenantId) {
         const activity = await this.findOne(customerId, activityId, tenantId);
@@ -137,7 +138,16 @@ let CustomerActivitiesService = class CustomerActivitiesService {
         return this.findOne(customerId, activityId, tenantId);
     }
     async remove(customerId, activityId, userId, tenantId) {
-        const activity = await this.findOne(customerId, activityId, tenantId);
+        const activity = await this.activityRepo.findOne({
+            where: {
+                id: activityId,
+                customer_id: customerId,
+                tenant_id: tenantId,
+            },
+        });
+        if (!activity) {
+            throw new common_1.NotFoundException(`Activity with ID ${activityId} not found`);
+        }
         await this.activityRepo.remove(activity);
     }
     async getActivitySummary(customerId, tenantId) {
@@ -171,6 +181,25 @@ let CustomerActivitiesService = class CustomerActivitiesService {
             activities_by_status,
             last_activity_date,
             next_follow_up,
+        };
+    }
+    mapActivity(row) {
+        return {
+            ...row,
+            user: this.mapUser(row.user),
+        };
+    }
+    mapUser(user) {
+        if (!user) {
+            return null;
+        }
+        const name = [user.first_name, user.last_name].filter(Boolean).join(' ').trim();
+        return {
+            id: user.id,
+            first_name: user.first_name ?? null,
+            last_name: user.last_name ?? null,
+            email: user.email ?? null,
+            display_name: name || user.email || 'Sin nombre',
         };
     }
 };

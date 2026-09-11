@@ -37,7 +37,7 @@ let ModulesController = class ModulesController {
 exports.ModulesController = ModulesController;
 __decorate([
     (0, common_1.Get)(),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Lead', action: 'Read' }),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'User', action: 'Read' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Get enabled modules for current tenant',
         description: 'Returns all modules enabled for the current tenant with their available permissions',

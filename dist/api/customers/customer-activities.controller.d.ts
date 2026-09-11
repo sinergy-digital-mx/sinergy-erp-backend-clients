@@ -7,9 +7,25 @@ export declare class CustomerActivitiesController {
     private readonly activitiesService;
     private tenantContext;
     constructor(activitiesService: CustomerActivitiesService, tenantContext: TenantContextService);
-    create(customerId: number, createActivityDto: CreateCustomerActivityDto, req: any): Promise<import("../../entities/customers/customer-activity.entity").CustomerActivity>;
+    create(customerId: number, createActivityDto: CreateCustomerActivityDto, req: any): Promise<Omit<import("../../entities/customers/customer-activity.entity").CustomerActivity, "user"> & {
+        user: {
+            id: string;
+            first_name: string | null;
+            last_name: string | null;
+            email: string | null;
+            display_name: string;
+        } | null;
+    }>;
     findAll(customerId: number, query: QueryCustomerActivityDto, req: any): Promise<{
-        activities: import("../../entities/customers/customer-activity.entity").CustomerActivity[];
+        activities: (Omit<import("../../entities/customers/customer-activity.entity").CustomerActivity, "user"> & {
+            user: {
+                id: string;
+                first_name: string | null;
+                last_name: string | null;
+                email: string | null;
+                display_name: string;
+            } | null;
+        })[];
         total: number;
         page: number;
         totalPages: number;
@@ -21,6 +37,22 @@ export declare class CustomerActivitiesController {
         last_activity_date: Date | null;
         next_follow_up: Date | null;
     }>;
-    findOne(customerId: number, id: string, req: any): Promise<import("../../entities/customers/customer-activity.entity").CustomerActivity>;
-    update(customerId: number, id: string, updateActivityDto: UpdateCustomerActivityDto, req: any): Promise<import("../../entities/customers/customer-activity.entity").CustomerActivity>;
+    findOne(customerId: number, id: string, req: any): Promise<Omit<import("../../entities/customers/customer-activity.entity").CustomerActivity, "user"> & {
+        user: {
+            id: string;
+            first_name: string | null;
+            last_name: string | null;
+            email: string | null;
+            display_name: string;
+        } | null;
+    }>;
+    update(customerId: number, id: string, updateActivityDto: UpdateCustomerActivityDto, req: any): Promise<Omit<import("../../entities/customers/customer-activity.entity").CustomerActivity, "user"> & {
+        user: {
+            id: string;
+            first_name: string | null;
+            last_name: string | null;
+            email: string | null;
+            display_name: string;
+        } | null;
+    }>;
 }
