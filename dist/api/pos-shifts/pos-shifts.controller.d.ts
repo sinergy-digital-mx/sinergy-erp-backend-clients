@@ -44,7 +44,7 @@ export declare class PosShiftsController {
         requires_daily_shift: boolean;
         pos_user_type: import("../../entities/users/pos-user-type.enum").PosUserType | null;
     }>;
-    getCurrentDailyShift(req: any, billingBranchId?: string): Promise<{
+    getCurrentDailyShift(req: any): Promise<{
         daily_shift: {
             id: string;
             shift_date: string;
@@ -677,8 +677,6 @@ export declare class PosShiftsController {
                 amount_transfer_mxn: number;
                 transfer_reference: string | null;
                 amount_card_mxn: number;
-                amount_check_mxn: number;
-                check_reference: string | null;
                 amount_credit_mxn: number;
                 card_reference: string | null;
                 received_cash_mxn: number;
@@ -765,8 +763,6 @@ export declare class PosShiftsController {
             amount_transfer_mxn: number;
             transfer_reference: string | null;
             amount_card_mxn: number;
-            amount_check_mxn: number;
-            check_reference: string | null;
             amount_credit_mxn: number;
             card_reference: string | null;
             received_cash_mxn: number;
@@ -839,8 +835,6 @@ export declare class PosShiftsController {
             amount_transfer_mxn: number;
             transfer_reference: string | null;
             amount_card_mxn: number;
-            amount_check_mxn: number;
-            check_reference: string | null;
             amount_credit_mxn: number;
             card_reference: string | null;
             received_cash_mxn: number;

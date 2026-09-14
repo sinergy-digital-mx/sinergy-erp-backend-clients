@@ -14,6 +14,7 @@ const customer_entity_1 = require("../../entities/customers/customer.entity");
 const user_entity_1 = require("../../entities/users/user.entity");
 const rbac_module_1 = require("../rbac/rbac.module");
 const crm_inbox_controller_1 = require("./crm-inbox.controller");
+const crm_inbox_export_service_1 = require("./services/crm-inbox-export.service");
 const crm_inbox_service_1 = require("./services/crm-inbox.service");
 let CrmModule = class CrmModule {
 };
@@ -25,7 +26,7 @@ exports.CrmModule = CrmModule = __decorate([
             rbac_module_1.RBACModule,
         ],
         controllers: [crm_inbox_controller_1.CrmInboxController],
-        providers: [crm_inbox_service_1.CrmInboxService],
+        providers: [crm_inbox_service_1.CrmInboxService, crm_inbox_export_service_1.CrmInboxExportService],
         exports: [crm_inbox_service_1.CrmInboxService],
     })
 ], CrmModule);

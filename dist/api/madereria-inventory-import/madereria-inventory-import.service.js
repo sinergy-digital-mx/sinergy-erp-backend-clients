@@ -31,9 +31,6 @@ const vendor_type_enum_1 = require("../../entities/vendor/vendor-type.enum");
 const uom_catalog_entity_1 = require("../../entities/uom-catalog/uom-catalog.entity");
 const inventory_batch_entity_1 = require("../../entities/purchase-orders/inventory-batch.entity");
 const batch_number_generator_service_1 = require("../purchase-orders/services/batch-number-generator.service");
-const inventory_stock_ledger_service_1 = require("../inventory/services/inventory-stock-ledger.service");
-const inventory_stock_ledger_valuation_service_1 = require("../inventory/services/inventory-stock-ledger-valuation.service");
-const inventory_stock_ledger_movement_type_enum_1 = require("../../entities/inventory/inventory-stock-ledger-movement-type.enum");
 const madereria_inventory_import_constants_1 = require("./madereria-inventory-import.constants");
 const excel_inventory_parser_1 = require("./excel-inventory.parser");
 const import_job_store_1 = require("./import-job.store");
@@ -43,17 +40,13 @@ let MadereriaInventoryImportService = MadereriaInventoryImportService_1 = class 
     branchRepository;
     warehouseRepository;
     batchNumberGenerator;
-    stockLedger;
-    stockLedgerValuation;
     logger = new common_1.Logger(MadereriaInventoryImportService_1.name);
-    constructor(dataSource, fiscalRepository, branchRepository, warehouseRepository, batchNumberGenerator, stockLedger, stockLedgerValuation) {
+    constructor(dataSource, fiscalRepository, branchRepository, warehouseRepository, batchNumberGenerator) {
         this.dataSource = dataSource;
         this.fiscalRepository = fiscalRepository;
         this.branchRepository = branchRepository;
         this.warehouseRepository = warehouseRepository;
         this.batchNumberGenerator = batchNumberGenerator;
-        this.stockLedger = stockLedger;
-        this.stockLedgerValuation = stockLedgerValuation;
     }
     assertOrganization(organizationId) {
         if (organizationId !== madereria_inventory_import_constants_1.MADERERIA_ORGANIZATION_ID) {
@@ -278,7 +271,7 @@ let MadereriaInventoryImportService = MadereriaInventoryImportService_1 = class 
         }
         const batchNumber = await this.batchNumberGenerator.generateBatchNumber(ctx.warehouseId, ctx.organizationId, manager);
         const batchRepo = manager.getRepository(inventory_batch_entity_1.InventoryBatch);
-        const savedBatch = await batchRepo.save(batchRepo.create({
+        await batchRepo.save(batchRepo.create({
             tenant_id: ctx.organizationId,
             batch_number: batchNumber,
             source_tag_identifier: 'IMPORTACION',
@@ -289,21 +282,6 @@ let MadereriaInventoryImportService = MadereriaInventoryImportService_1 = class 
             available_quantity: row.quantity,
             created_by: ctx.userId,
         }));
-        await this.stockLedger.append({
-            tenantId: ctx.organizationId,
-            productId: product.id,
-            warehouseId: ctx.warehouseId,
-            uomId: productUom.uom_catalog_id,
-            inventoryBatchId: savedBatch.id,
-            movementType: inventory_stock_ledger_movement_type_enum_1.InventoryStockLedgerMovementType.IMPORT,
-            quantityDelta: row.quantity,
-            ...this.stockLedgerValuation.mapFromImport(row.cost, row.price),
-            occurredAt: savedBatch.created_at ?? new Date(),
-            referenceType: inventory_stock_ledger_service_1.STOCK_LEDGER_REFERENCE.INVENTORY_BATCH,
-            referenceId: savedBatch.id,
-            referenceFolio: savedBatch.batch_number,
-            createdBy: ctx.userId,
-        }, manager);
         result.batches_created += 1;
     }
     async findProduct(manager, organizationId, row) {
@@ -497,8 +475,6 @@ exports.MadereriaInventoryImportService = MadereriaInventoryImportService = Made
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
-        batch_number_generator_service_1.BatchNumberGeneratorService,
-        inventory_stock_ledger_service_1.InventoryStockLedgerService,
-        inventory_stock_ledger_valuation_service_1.InventoryStockLedgerValuationService])
+        batch_number_generator_service_1.BatchNumberGeneratorService])
 ], MadereriaInventoryImportService);
 //# sourceMappingURL=madereria-inventory-import.service.js.map

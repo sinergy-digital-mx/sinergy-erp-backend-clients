@@ -39,7 +39,6 @@ export declare class AuthController {
             fiscal_configuration_id: string | null;
             is_employee: boolean;
             is_manager: boolean;
-            is_crm_admin: boolean;
             id: string;
             email: string | null;
             tenant_id: string;
@@ -48,40 +47,7 @@ export declare class AuthController {
             permissions: any;
             permissions_flat: string[];
             permissions_version: number;
-            last_login_at: Date | null;
-        } | {
-            assigned_warehouses: {
-                id: string;
-                name: string;
-                code: string;
-                billing_branch_id: string;
-                billing_branch: {
-                    id: string;
-                    code: string;
-                    display_name: string;
-                } | null;
-            }[];
-            assigned_branches: never[];
-            primary_billing_branch_id: null;
-            can_switch_branch: boolean;
-            is_pos_user: boolean;
-            pos_user_type: import("../../entities/users/pos-user-type.enum").PosUserType | null;
-            pos_can_sell: boolean;
-            pos_can_collect: boolean;
-            billing_branch_id: string | null;
-            fiscal_configuration_id: string | null;
-            is_employee: boolean;
-            is_manager: boolean;
-            is_crm_admin: boolean;
-            id: string;
-            email: string | null;
-            tenant_id: string;
-            status: string;
-            roles: any[];
-            permissions: any;
-            permissions_flat: string[];
-            permissions_version: number;
-            last_login_at: Date | null;
+            last_login_at: Date;
         };
     }>;
     refresh(req: {
@@ -118,38 +84,6 @@ export declare class AuthController {
             fiscal_configuration_id: string | null;
             is_employee: boolean;
             is_manager: boolean;
-            is_crm_admin: boolean;
-            id: string;
-            email: string | null;
-            tenant_id: string;
-            status: string;
-            roles: string[];
-            permissions_flat: string[];
-            permissions_version: number;
-        } | {
-            assigned_warehouses: {
-                id: string;
-                name: string;
-                code: string;
-                billing_branch_id: string;
-                billing_branch: {
-                    id: string;
-                    code: string;
-                    display_name: string;
-                } | null;
-            }[];
-            assigned_branches: never[];
-            primary_billing_branch_id: null;
-            can_switch_branch: boolean;
-            is_pos_user: boolean;
-            pos_user_type: import("../../entities/users/pos-user-type.enum").PosUserType | null;
-            pos_can_sell: boolean;
-            pos_can_collect: boolean;
-            billing_branch_id: string | null;
-            fiscal_configuration_id: string | null;
-            is_employee: boolean;
-            is_manager: boolean;
-            is_crm_admin: boolean;
             id: string;
             email: string | null;
             tenant_id: string;

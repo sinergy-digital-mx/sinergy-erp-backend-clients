@@ -1,4 +1,3 @@
-import { OnModuleInit } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { User } from '../../entities/users/user.entity';
@@ -6,7 +5,7 @@ import { UserBillingBranch } from '../../entities/users/user-billing-branch.enti
 import { UserWarehouseAssignment } from '../../entities/control-desk/user-warehouse-assignment.entity';
 import { PermissionService } from '../rbac/services/permission.service';
 import { RoleService } from '../rbac/services/role.service';
-export declare class AuthService implements OnModuleInit {
+export declare class AuthService {
     private userRepo;
     private branchAssignmentRepo;
     private warehouseAssignmentRepo;
@@ -15,7 +14,6 @@ export declare class AuthService implements OnModuleInit {
     private roleService;
     private readonly logger;
     constructor(userRepo: Repository<User>, branchAssignmentRepo: Repository<UserBillingBranch>, warehouseAssignmentRepo: Repository<UserWarehouseAssignment>, jwtService: JwtService, permissionService: PermissionService, roleService: RoleService);
-    onModuleInit(): Promise<void>;
     login(email: string, password: string): Promise<{
         access_token: string;
         user: {
@@ -48,7 +46,6 @@ export declare class AuthService implements OnModuleInit {
             fiscal_configuration_id: string | null;
             is_employee: boolean;
             is_manager: boolean;
-            is_crm_admin: boolean;
             id: string;
             email: string | null;
             tenant_id: string;
@@ -57,40 +54,7 @@ export declare class AuthService implements OnModuleInit {
             permissions: any;
             permissions_flat: string[];
             permissions_version: number;
-            last_login_at: Date | null;
-        } | {
-            assigned_warehouses: {
-                id: string;
-                name: string;
-                code: string;
-                billing_branch_id: string;
-                billing_branch: {
-                    id: string;
-                    code: string;
-                    display_name: string;
-                } | null;
-            }[];
-            assigned_branches: never[];
-            primary_billing_branch_id: null;
-            can_switch_branch: boolean;
-            is_pos_user: boolean;
-            pos_user_type: import("../../entities/users/pos-user-type.enum").PosUserType | null;
-            pos_can_sell: boolean;
-            pos_can_collect: boolean;
-            billing_branch_id: string | null;
-            fiscal_configuration_id: string | null;
-            is_employee: boolean;
-            is_manager: boolean;
-            is_crm_admin: boolean;
-            id: string;
-            email: string | null;
-            tenant_id: string;
-            status: string;
-            roles: any[];
-            permissions: any;
-            permissions_flat: string[];
-            permissions_version: number;
-            last_login_at: Date | null;
+            last_login_at: Date;
         };
     }>;
     refreshToken(userId: string, tenantId: string): Promise<{
@@ -125,38 +89,6 @@ export declare class AuthService implements OnModuleInit {
             fiscal_configuration_id: string | null;
             is_employee: boolean;
             is_manager: boolean;
-            is_crm_admin: boolean;
-            id: string;
-            email: string | null;
-            tenant_id: string;
-            status: string;
-            roles: string[];
-            permissions_flat: string[];
-            permissions_version: number;
-        } | {
-            assigned_warehouses: {
-                id: string;
-                name: string;
-                code: string;
-                billing_branch_id: string;
-                billing_branch: {
-                    id: string;
-                    code: string;
-                    display_name: string;
-                } | null;
-            }[];
-            assigned_branches: never[];
-            primary_billing_branch_id: null;
-            can_switch_branch: boolean;
-            is_pos_user: boolean;
-            pos_user_type: import("../../entities/users/pos-user-type.enum").PosUserType | null;
-            pos_can_sell: boolean;
-            pos_can_collect: boolean;
-            billing_branch_id: string | null;
-            fiscal_configuration_id: string | null;
-            is_employee: boolean;
-            is_manager: boolean;
-            is_crm_admin: boolean;
             id: string;
             email: string | null;
             tenant_id: string;
@@ -166,15 +98,9 @@ export declare class AuthService implements OnModuleInit {
             permissions_version: number;
         };
     }>;
-    private findUserForLogin;
-    private ensureUsersCrmAdminColumn;
-    private loadSessionBranchFieldsSafe;
-    private loadAssignedWarehousesSafe;
-    private errorMessage;
     private loadSessionBranchFields;
     private loadAssignedBranches;
     private loadAssignedWarehouses;
-    private toJwtPermissions;
     private mapPosSessionFields;
     refresh(userId: string, tenantId: string): Promise<{
         access_token: string;
@@ -208,38 +134,6 @@ export declare class AuthService implements OnModuleInit {
             fiscal_configuration_id: string | null;
             is_employee: boolean;
             is_manager: boolean;
-            is_crm_admin: boolean;
-            id: string;
-            email: string | null;
-            tenant_id: string;
-            status: string;
-            roles: string[];
-            permissions_flat: string[];
-            permissions_version: number;
-        } | {
-            assigned_warehouses: {
-                id: string;
-                name: string;
-                code: string;
-                billing_branch_id: string;
-                billing_branch: {
-                    id: string;
-                    code: string;
-                    display_name: string;
-                } | null;
-            }[];
-            assigned_branches: never[];
-            primary_billing_branch_id: null;
-            can_switch_branch: boolean;
-            is_pos_user: boolean;
-            pos_user_type: import("../../entities/users/pos-user-type.enum").PosUserType | null;
-            pos_can_sell: boolean;
-            pos_can_collect: boolean;
-            billing_branch_id: string | null;
-            fiscal_configuration_id: string | null;
-            is_employee: boolean;
-            is_manager: boolean;
-            is_crm_admin: boolean;
             id: string;
             email: string | null;
             tenant_id: string;

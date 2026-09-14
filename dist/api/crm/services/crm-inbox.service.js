@@ -53,21 +53,7 @@ let CrmInboxService = class CrmInboxService {
             limit = 1;
         if (limit > 100)
             limit = 100;
-        const qb = this.baseQuery(tenantId, scopeUserId);
-        this.applyListFilters(qb, query);
-        if (!query.attention) {
-            const { dateFrom, dateTo } = this.resolveDateRange(query.period ?? query_crm_activity_dto_1.CrmReportPeriod.MONTH, query.date_from, query.date_to);
-            qb.andWhere('activity.activity_date >= :dateFrom', { dateFrom });
-            qb.andWhere('activity.activity_date <= :dateTo', { dateTo });
-        }
-        const sortBy = ALLOWED_SORT.has(query.sort_by ?? '')
-            ? query.sort_by
-            : query.attention
-                ? 'follow_up_date'
-                : 'activity_date';
-        const sortOrder = query.sort_order === 'ASC' ? 'ASC' : 'DESC';
-        qb.orderBy(`activity.${sortBy}`, sortOrder);
-        qb.addOrderBy('activity.created_at', 'DESC');
+        const qb = this.filteredListQuery(tenantId, scopeUserId, query);
         const total = await qb.clone().getCount();
         const rows = await qb
             .skip((page - 1) * limit)
@@ -84,6 +70,22 @@ let CrmInboxService = class CrmInboxService {
             hasNext: page < totalPages,
             hasPrev: page > 1,
             is_crm_admin: isCrmAdmin,
+        };
+    }
+    async listForExport(tenantId, actorUserId, hasAdminRole, query) {
+        const isCrmAdmin = await this.resolveCrmAdmin(tenantId, actorUserId, hasAdminRole);
+        const scopeUserId = this.resolveScopeUserId(isCrmAdmin, actorUserId, query.user_id);
+        const qb = this.filteredListQuery(tenantId, scopeUserId, query);
+        const rows = await qb.take(20000).getMany();
+        const now = new Date();
+        const period = query.period ?? query_crm_activity_dto_1.CrmReportPeriod.MONTH;
+        const range = this.resolveDateRange(period, query.date_from, query.date_to);
+        return {
+            activities: rows.map((row) => this.mapActivity(row, now)),
+            is_crm_admin: isCrmAdmin,
+            period_label: query.attention
+                ? 'Pendientes (sin recorte de periodo)'
+                : this.periodLabel(period, range.dateFrom, range.dateTo),
         };
     }
     async stats(tenantId, actorUserId, hasAdminRole, query) {
@@ -218,6 +220,24 @@ let CrmInboxService = class CrmInboxService {
         if (scopeUserId) {
             qb.andWhere('activity.user_id = :scopeUserId', { scopeUserId });
         }
+    }
+    filteredListQuery(tenantId, scopeUserId, query) {
+        const qb = this.baseQuery(tenantId, scopeUserId);
+        this.applyListFilters(qb, query);
+        if (!query.attention) {
+            const { dateFrom, dateTo } = this.resolveDateRange(query.period ?? query_crm_activity_dto_1.CrmReportPeriod.MONTH, query.date_from, query.date_to);
+            qb.andWhere('activity.activity_date >= :dateFrom', { dateFrom });
+            qb.andWhere('activity.activity_date <= :dateTo', { dateTo });
+        }
+        const sortBy = ALLOWED_SORT.has(query.sort_by ?? '')
+            ? query.sort_by
+            : query.attention
+                ? 'follow_up_date'
+                : 'activity_date';
+        const sortOrder = query.sort_order === 'ASC' ? 'ASC' : 'DESC';
+        qb.orderBy(`activity.${sortBy}`, sortOrder);
+        qb.addOrderBy('activity.created_at', 'DESC');
+        return qb;
     }
     applyListFilters(qb, query) {
         this.applySearchAndType(qb, query);

@@ -105,6 +105,7 @@ __decorate([
 ], QueryCrmActivityDto.prototype, "sort_by", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => typeof value === 'string' ? value.trim().toUpperCase() : value),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], QueryCrmActivityDto.prototype, "sort_order", void 0);

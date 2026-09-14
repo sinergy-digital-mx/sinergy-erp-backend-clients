@@ -168,7 +168,6 @@ export declare class UsersService {
         is_employee: boolean;
         employee: any;
         is_manager: boolean;
-        is_crm_admin: boolean;
         manager: {
             id: string;
             email: string | null;
@@ -232,7 +231,6 @@ export declare class UsersService {
     private mapWarehouse;
     private mapBillingBranch;
     private validatePosUserType;
-    private assertEmailAvailable;
     private validateBranchAssignment;
     private assertCobranzaConfigChangeAllowed;
     private hasOpenDailyShift;

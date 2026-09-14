@@ -95,8 +95,6 @@ export declare class SalesOrderController {
                     amount_transfer_mxn: number;
                     transfer_reference: string | null;
                     amount_card_mxn: number;
-                    amount_check_mxn: number;
-                    check_reference: string | null;
                     amount_credit_mxn: number;
                     card_reference: string | null;
                     received_cash_mxn: number;
@@ -384,8 +382,6 @@ export declare class SalesOrderController {
                 amount_transfer_mxn: number;
                 transfer_reference: string | null;
                 amount_card_mxn: number;
-                amount_check_mxn: number;
-                check_reference: string | null;
                 amount_credit_mxn: number;
                 card_reference: string | null;
                 received_cash_mxn: number;
@@ -541,8 +537,6 @@ export declare class SalesOrderController {
                     amount_transfer_mxn: number;
                     transfer_reference: string | null;
                     amount_card_mxn: number;
-                    amount_check_mxn: number;
-                    check_reference: string | null;
                     amount_credit_mxn: number;
                     card_reference: string | null;
                     received_cash_mxn: number;
@@ -830,8 +824,6 @@ export declare class SalesOrderController {
                 amount_transfer_mxn: number;
                 transfer_reference: string | null;
                 amount_card_mxn: number;
-                amount_check_mxn: number;
-                check_reference: string | null;
                 amount_credit_mxn: number;
                 card_reference: string | null;
                 received_cash_mxn: number;
@@ -987,8 +979,6 @@ export declare class SalesOrderController {
                     amount_transfer_mxn: number;
                     transfer_reference: string | null;
                     amount_card_mxn: number;
-                    amount_check_mxn: number;
-                    check_reference: string | null;
                     amount_credit_mxn: number;
                     card_reference: string | null;
                     received_cash_mxn: number;
@@ -1276,8 +1266,6 @@ export declare class SalesOrderController {
                 amount_transfer_mxn: number;
                 transfer_reference: string | null;
                 amount_card_mxn: number;
-                amount_check_mxn: number;
-                check_reference: string | null;
                 amount_credit_mxn: number;
                 card_reference: string | null;
                 received_cash_mxn: number;
@@ -1433,8 +1421,6 @@ export declare class SalesOrderController {
                 amount_transfer_mxn: number;
                 transfer_reference: string | null;
                 amount_card_mxn: number;
-                amount_check_mxn: number;
-                check_reference: string | null;
                 amount_credit_mxn: number;
                 card_reference: string | null;
                 received_cash_mxn: number;
@@ -1700,7 +1686,7 @@ export declare class SalesOrderController {
         };
         sales_order: {
             line_items: {
-                item_kind: import("../../../entities/products").ProductItemKind;
+                item_kind: import("../../../entities/products/product-item-kind.enum").ProductItemKind;
                 line_subtotal: number;
                 line_discount_amount: number;
                 line_iva: number;
@@ -1811,8 +1797,6 @@ export declare class SalesOrderController {
             amount_transfer_mxn: number;
             transfer_reference: string | null;
             amount_card_mxn: number;
-            amount_check_mxn: number;
-            check_reference: string | null;
             amount_credit_mxn: number;
             card_reference: string | null;
             received_cash_mxn: number;
@@ -1947,8 +1931,6 @@ export declare class SalesOrderController {
                 amount_transfer_mxn: number;
                 transfer_reference: string | null;
                 amount_card_mxn: number;
-                amount_check_mxn: number;
-                check_reference: string | null;
                 amount_credit_mxn: number;
                 card_reference: string | null;
                 received_cash_mxn: number;
@@ -2214,7 +2196,7 @@ export declare class SalesOrderController {
         };
         sales_order: {
             line_items: {
-                item_kind: import("../../../entities/products").ProductItemKind;
+                item_kind: import("../../../entities/products/product-item-kind.enum").ProductItemKind;
                 line_subtotal: number;
                 line_discount_amount: number;
                 line_iva: number;
@@ -2325,8 +2307,6 @@ export declare class SalesOrderController {
             amount_transfer_mxn: number;
             transfer_reference: string | null;
             amount_card_mxn: number;
-            amount_check_mxn: number;
-            check_reference: string | null;
             amount_credit_mxn: number;
             card_reference: string | null;
             received_cash_mxn: number;
@@ -2848,8 +2828,6 @@ export declare class SalesOrderController {
                     amount_transfer_mxn: number;
                     transfer_reference: string | null;
                     amount_card_mxn: number;
-                    amount_check_mxn: number;
-                    check_reference: string | null;
                     amount_credit_mxn: number;
                     card_reference: string | null;
                     received_cash_mxn: number;
@@ -3137,8 +3115,6 @@ export declare class SalesOrderController {
                 amount_transfer_mxn: number;
                 transfer_reference: string | null;
                 amount_card_mxn: number;
-                amount_check_mxn: number;
-                check_reference: string | null;
                 amount_credit_mxn: number;
                 card_reference: string | null;
                 received_cash_mxn: number;

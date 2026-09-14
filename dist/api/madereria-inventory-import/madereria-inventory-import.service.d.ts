@@ -3,8 +3,6 @@ import { FiscalConfiguration } from '../../entities/billing/fiscal-configuration
 import { BillingBranch } from '../../entities/billing/billing-branch.entity';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { BatchNumberGeneratorService } from '../purchase-orders/services/batch-number-generator.service';
-import { InventoryStockLedgerService } from '../inventory/services/inventory-stock-ledger.service';
-import { InventoryStockLedgerValuationService } from '../inventory/services/inventory-stock-ledger-valuation.service';
 import { ImportInventoryJob, ImportInventoryJobResult } from './import-job.store';
 export type ImportInventoryResult = ImportInventoryJobResult;
 export declare class MadereriaInventoryImportService {
@@ -13,10 +11,8 @@ export declare class MadereriaInventoryImportService {
     private readonly branchRepository;
     private readonly warehouseRepository;
     private readonly batchNumberGenerator;
-    private readonly stockLedger;
-    private readonly stockLedgerValuation;
     private readonly logger;
-    constructor(dataSource: DataSource, fiscalRepository: Repository<FiscalConfiguration>, branchRepository: Repository<BillingBranch>, warehouseRepository: Repository<Warehouse>, batchNumberGenerator: BatchNumberGeneratorService, stockLedger: InventoryStockLedgerService, stockLedgerValuation: InventoryStockLedgerValuationService);
+    constructor(dataSource: DataSource, fiscalRepository: Repository<FiscalConfiguration>, branchRepository: Repository<BillingBranch>, warehouseRepository: Repository<Warehouse>, batchNumberGenerator: BatchNumberGeneratorService);
     assertOrganization(organizationId: string): void;
     startImportJob(params: {
         organizationId: string;

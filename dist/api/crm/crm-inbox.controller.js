@@ -21,12 +21,15 @@ const permission_guard_1 = require("../rbac/guards/permission.guard");
 const tenant_context_service_1 = require("../rbac/services/tenant-context.service");
 const request_user_util_1 = require("../../common/utils/request-user.util");
 const query_crm_activity_dto_1 = require("./dto/query-crm-activity.dto");
+const crm_inbox_export_service_1 = require("./services/crm-inbox-export.service");
 const crm_inbox_service_1 = require("./services/crm-inbox.service");
 let CrmInboxController = class CrmInboxController {
     crmInboxService;
+    crmInboxExportService;
     tenantContext;
-    constructor(crmInboxService, tenantContext) {
+    constructor(crmInboxService, crmInboxExportService, tenantContext) {
         this.crmInboxService = crmInboxService;
+        this.crmInboxExportService = crmInboxExportService;
         this.tenantContext = tenantContext;
     }
     findActivities(query, req) {
@@ -37,6 +40,12 @@ let CrmInboxController = class CrmInboxController {
     }
     getAuthors(req) {
         return this.crmInboxService.authors(this.requireTenantId(), (0, request_user_util_1.resolveRequestUserId)(req.user), (0, request_user_util_1.resolveHasAdminRole)(req.user));
+    }
+    async exportExcel(query, req, res) {
+        const buffer = await this.crmInboxExportService.exportExcel(this.requireTenantId(), (0, request_user_util_1.resolveRequestUserId)(req.user), (0, request_user_util_1.resolveHasAdminRole)(req.user), query);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${this.crmInboxExportService.getFilename()}"`);
+        res.send(buffer);
     }
     requireTenantId() {
         const tenantId = this.tenantContext.getCurrentTenantId();
@@ -91,12 +100,36 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], CrmInboxController.prototype, "getAuthors", null);
+__decorate([
+    (0, common_1.Get)('activities/export/excel'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'customers', action: 'Read' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Descargar Excel de actividades CRM (mismos filtros del inbox)',
+    }),
+    (0, swagger_1.ApiProduces)('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
+    (0, swagger_1.ApiQuery)({ name: 'search', required: false }),
+    (0, swagger_1.ApiQuery)({ name: 'type', required: false }),
+    (0, swagger_1.ApiQuery)({ name: 'status', required: false }),
+    (0, swagger_1.ApiQuery)({ name: 'user_id', required: false }),
+    (0, swagger_1.ApiQuery)({ name: 'period', required: false }),
+    (0, swagger_1.ApiQuery)({ name: 'date_from', required: false }),
+    (0, swagger_1.ApiQuery)({ name: 'date_to', required: false }),
+    (0, swagger_1.ApiQuery)({ name: 'attention', required: false }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Archivo Excel de actividades' }),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Req)()),
+    __param(2, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [query_crm_activity_dto_1.QueryCrmActivityDto, Object, Object]),
+    __metadata("design:returntype", Promise)
+], CrmInboxController.prototype, "exportExcel", null);
 exports.CrmInboxController = CrmInboxController = __decorate([
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     (0, common_1.Controller)('tenant/crm'),
     (0, swagger_1.ApiTags)('CRM'),
     (0, swagger_1.ApiBearerAuth)(),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     __metadata("design:paramtypes", [crm_inbox_service_1.CrmInboxService,
+        crm_inbox_export_service_1.CrmInboxExportService,
         tenant_context_service_1.TenantContextService])
 ], CrmInboxController);
 //# sourceMappingURL=crm-inbox.controller.js.map
