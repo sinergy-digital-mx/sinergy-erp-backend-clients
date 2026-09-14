@@ -163,11 +163,12 @@ let DownpaymentPaymentsService = class DownpaymentPaymentsService {
         });
         const payments = await this.getDownpaymentPayments(tenantId, contractId);
         const partialPayment = payments.find((p) => p.status === 'parcial') ?? null;
-        const downPaymentTarget = contract
-            ? this.getDownPaymentTarget(contract)
-            : null;
+        const savedTarget = contract ? this.getDownPaymentTarget(contract) : null;
+        const scheduledTotal = payments
+            .filter((p) => p.status !== 'cancelado')
+            .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+        const downPaymentTarget = (0, contract_financial_util_1.resolveEffectiveDownPaymentTarget)(savedTarget, scheduledTotal);
         const downPaymentApplied = contract ? Number(contract.down_payment) || 0 : 0;
-        const targetValue = downPaymentTarget ?? 0;
         const totalPaid = payments.reduce((sum, p) => {
             if (p.status === 'pagado')
                 return sum + Number(p.amount || 0);
@@ -190,14 +191,10 @@ let DownpaymentPaymentsService = class DownpaymentPaymentsService {
             partial_count: payments.filter((p) => p.status === 'parcial').length,
             overdue_count: payments.filter((p) => p.is_overdue).length,
             cancelled_count: payments.filter((p) => p.status === 'cancelado').length,
-            down_payment_target: downPaymentTarget != null
-                ? Math.round(downPaymentTarget * 100) / 100
-                : null,
+            down_payment_target: downPaymentTarget,
             down_payment_target_defined: downPaymentTarget != null && downPaymentTarget > 0,
             down_payment_applied: Math.round(downPaymentApplied * 100) / 100,
-            down_payment_remaining: downPaymentTarget != null
-                ? Math.max(0, Math.round((targetValue - downPaymentApplied) * 100) / 100)
-                : null,
+            down_payment_remaining: (0, contract_financial_util_1.computeDownPaymentRemaining)(downPaymentTarget, downPaymentApplied),
             downpayment_financing_complete: downPaymentTarget != null &&
                 downPaymentTarget > 0 &&
                 downPaymentApplied >= downPaymentTarget,

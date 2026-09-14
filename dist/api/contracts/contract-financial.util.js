@@ -1,6 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getDownPaymentTarget = getDownPaymentTarget;
+exports.resolveEffectiveDownPaymentTarget = resolveEffectiveDownPaymentTarget;
+exports.computeDownPaymentRemaining = computeDownPaymentRemaining;
 exports.getDownPaymentApplied = getDownPaymentApplied;
 exports.computeFinancedAmount = computeFinancedAmount;
 exports.computeMonthlyPayment = computeMonthlyPayment;
@@ -9,11 +11,32 @@ exports.computeTotalPaid = computeTotalPaid;
 exports.computeRemainingBalance = computeRemainingBalance;
 exports.resolveContractFinancials = resolveContractFinancials;
 exports.computeFinancingSnapshot = computeFinancingSnapshot;
+function roundMoney(value) {
+    return Math.round(value * 100) / 100;
+}
 function getDownPaymentTarget(contract) {
     if (contract.down_payment_financed) {
         return Number(contract.down_payment_target ?? 0);
     }
     return Number(contract.down_payment ?? 0);
+}
+function resolveEffectiveDownPaymentTarget(savedTarget, scheduledTotal) {
+    const target = Number(savedTarget);
+    if (Number.isFinite(target) && target > 0) {
+        return roundMoney(target);
+    }
+    const scheduled = Number(scheduledTotal);
+    if (Number.isFinite(scheduled) && scheduled > 0) {
+        return roundMoney(scheduled);
+    }
+    return null;
+}
+function computeDownPaymentRemaining(effectiveTarget, applied) {
+    const target = Number(effectiveTarget);
+    const appliedAmount = Number(applied);
+    const safeTarget = Number.isFinite(target) ? target : 0;
+    const safeApplied = Number.isFinite(appliedAmount) ? appliedAmount : 0;
+    return Math.max(0, roundMoney(safeTarget - safeApplied));
 }
 function getDownPaymentApplied(contract) {
     return Number(contract.down_payment ?? 0);
