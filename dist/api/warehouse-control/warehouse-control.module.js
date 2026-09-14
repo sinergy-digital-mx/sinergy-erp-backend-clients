@@ -20,6 +20,7 @@ const control_desk_1 = require("../../entities/control-desk");
 const auth_module_1 = require("../auth/auth.module");
 const rbac_module_1 = require("../rbac/rbac.module");
 const tenant_module_validation_guard_1 = require("../auth/tenant-module-validation.guard");
+const inventory_stock_ledger_module_1 = require("../inventory/inventory-stock-ledger.module");
 const sales_order_fulfillment_service_1 = require("../sales-orders/services/sales-order-fulfillment.service");
 const warehouse_control_controller_1 = require("./warehouse-control.controller");
 const warehouse_control_service_1 = require("./warehouse-control.service");
@@ -47,6 +48,7 @@ exports.WarehouseControlModule = WarehouseControlModule = __decorate([
             ]),
             auth_module_1.AuthModule,
             rbac_module_1.RBACModule,
+            inventory_stock_ledger_module_1.InventoryStockLedgerModule,
         ],
         controllers: [warehouse_control_controller_1.WarehouseControlController],
         providers: [

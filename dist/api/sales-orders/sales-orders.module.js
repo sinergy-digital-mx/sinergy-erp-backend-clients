@@ -14,6 +14,7 @@ const inventory_batch_entity_1 = require("../../entities/purchase-orders/invento
 const auth_module_1 = require("../auth/auth.module");
 const rbac_module_1 = require("../rbac/rbac.module");
 const inventory_module_1 = require("../inventory/inventory.module");
+const inventory_stock_ledger_module_1 = require("../inventory/inventory-stock-ledger.module");
 const pos_shifts_module_1 = require("../pos-shifts/pos-shifts.module");
 const products_module_1 = require("../products/products.module");
 const global_discounts_module_1 = require("../global-discounts/global-discounts.module");
@@ -64,6 +65,7 @@ exports.SalesOrdersModule = SalesOrdersModule = __decorate([
             auth_module_1.AuthModule,
             rbac_module_1.RBACModule,
             inventory_module_1.InventoryModule,
+            inventory_stock_ledger_module_1.InventoryStockLedgerModule,
             products_module_1.ProductsModule,
             global_discounts_module_1.GlobalDiscountsModule,
             electronic_invoicing_module_1.ElectronicInvoicingModule,
