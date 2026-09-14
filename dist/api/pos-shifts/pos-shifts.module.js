@@ -13,6 +13,7 @@ const pos_daily_shift_entity_1 = require("../../entities/pos/pos-daily-shift.ent
 const pos_partial_shift_entity_1 = require("../../entities/pos/pos-partial-shift.entity");
 const pos_partial_shift_denomination_entity_1 = require("../../entities/pos/pos-partial-shift-denomination.entity");
 const user_entity_1 = require("../../entities/users/user.entity");
+const user_billing_branch_entity_1 = require("../../entities/users/user-billing-branch.entity");
 const sales_order_entity_1 = require("../../entities/sales-orders/sales-order.entity");
 const pos_sale_collection_entity_1 = require("../../entities/pos/pos-sale-collection.entity");
 const customer_entity_1 = require("../../entities/customers/customer.entity");
@@ -33,6 +34,7 @@ exports.PosShiftsModule = PosShiftsModule = __decorate([
                 pos_partial_shift_entity_1.PosPartialShift,
                 pos_partial_shift_denomination_entity_1.PosPartialShiftDenomination,
                 user_entity_1.User,
+                user_billing_branch_entity_1.UserBillingBranch,
                 sales_order_entity_1.SalesOrder,
                 customer_entity_1.Customer,
                 pos_sale_collection_entity_1.PosSaleCollection,
