@@ -410,8 +410,13 @@ let SalesOrderService = class SalesOrderService {
                 await this.fulfillmentService.releaseAllocations(allocations, qr.manager);
             }
             if (so.line_items?.length) {
-                await qr.manager.remove(sales_order_detail_entity_1.SalesOrderDetail, so.line_items);
+                const lineIds = so.line_items.map((line) => line.id);
+                await qr.manager.delete(sales_order_batch_allocation_entity_1.SalesOrderBatchAllocation, {
+                    sales_order_detail_id: (0, typeorm_2.In)(lineIds),
+                });
+                await qr.manager.delete(sales_order_detail_entity_1.SalesOrderDetail, { sales_order_id: so.id });
             }
+            so.line_items = [];
             const customerId = dto.customer_id ??
                 (await this.posShiftsService.resolveWalkInCustomerId(tenantId));
             const customer = await qr.manager.findOne(customer_entity_1.Customer, {
@@ -426,7 +431,11 @@ let SalesOrderService = class SalesOrderService {
             const savedDetails = await this.insertSalesOrderLineItems(qr, so.id, dto.line_items, userId, tenantId);
             so.global_discount_id = dto.global_discount_id ?? null;
             so.updated_by = userId;
-            await qr.manager.save(sales_order_entity_1.SalesOrder, so);
+            await qr.manager.update(sales_order_entity_1.SalesOrder, { id: so.id }, {
+                customer_id: customerId,
+                global_discount_id: so.global_discount_id,
+                updated_by: userId,
+            });
             await this.recomputeTotals(qr, so.id, tenantId, userId);
             await this.fulfillOrderLines(qr, so.id, this.allocationScope(so), savedDetails, userId, undefined, true);
             await qr.manager.update(sales_order_entity_1.SalesOrder, { id: so.id }, { general_status: previousStatus, updated_by: userId });
