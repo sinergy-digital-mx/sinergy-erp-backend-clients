@@ -6,6 +6,7 @@ import { QueryDailyShiftDto } from './dto/query-daily-shift.dto';
 import { CloseDailyShiftDto } from './dto/close-daily-shift.dto';
 import { CollectPosSaleDto } from './dto/collect-pos-sale.dto';
 import { QueryCollectedSalesDto } from './dto/query-collected-sales.dto';
+import { ReplacePosSaleCartDto } from './dto/replace-pos-sale-cart.dto';
 export declare class PosShiftsController {
     private readonly posShiftsService;
     constructor(posShiftsService: PosShiftsService);
@@ -631,6 +632,66 @@ export declare class PosShiftsController {
             } | null;
         }[];
     }>;
+    getSalesInProgress(req: any): Promise<{
+        sales_in_progress: {
+            customer_id: number;
+            global_discount_id: string | null;
+            global_discount: {
+                id: string;
+                name: string;
+                discount_type: import("../../entities/global-discounts/global-discount.entity").GlobalDiscountType;
+                value: number;
+                is_active: boolean;
+            } | null;
+            line_items: {
+                id: string;
+                product_id: string;
+                product_name: string;
+                product_sku: string;
+                product_uom_id: string;
+                uom_id: string;
+                uom_name: string;
+                quantity: number;
+                unit_price: number;
+                iva_percentage: number;
+                ieps_percentage: number;
+                discount_percentage: number;
+                product_discount_id: string | null;
+                selected_discount: {
+                    id: string;
+                    name: string;
+                    discount_type: import("../../entities/products").ProductDiscountType;
+                    value: number;
+                    product_uom_id: string | null;
+                } | null;
+            }[];
+            id: string;
+            folio: string;
+            total: number;
+            subtotal: number;
+            created_at: Date;
+            updated_at: Date;
+            general_status: string;
+            payment_status: string;
+            pos_stage: import("../../entities/sales-orders").SalesOrderPosStage | null;
+            notes: string | null;
+            fiscal_configuration_id: string;
+            customer: {
+                id: number;
+                name: string;
+                lastname: string;
+                company_name: string;
+                fiscal_razon_social: string;
+                is_walk_in: boolean;
+            } | null;
+            seller_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+            } | null;
+        }[];
+    }>;
     getCollectedSales(query: QueryCollectedSalesDto, req: any): Promise<{
         daily_shift: null;
         collected_sales: never[];
@@ -810,6 +871,124 @@ export declare class PosShiftsController {
             total: number;
             amount_collected: number;
             amount_on_credit: number;
+        };
+    }>;
+    returnSaleToVentas(salesOrderId: string, req: any): Promise<{
+        message: string;
+        sales_order: {
+            id: string;
+            folio: string;
+            total: number;
+            subtotal: number;
+            created_at: Date;
+            updated_at: Date;
+            general_status: string;
+            payment_status: string;
+            pos_stage: import("../../entities/sales-orders").SalesOrderPosStage | null;
+            notes: string | null;
+            fiscal_configuration_id: string;
+            customer: {
+                id: number;
+                name: string;
+                lastname: string;
+                company_name: string;
+                fiscal_razon_social: string;
+                is_walk_in: boolean;
+            } | null;
+            seller_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+            } | null;
+        };
+    }>;
+    replaceSaleCart(salesOrderId: string, dto: ReplacePosSaleCartDto, req: any): Promise<{
+        customer_id: number;
+        global_discount_id: string | null;
+        global_discount: {
+            id: string;
+            name: string;
+            discount_type: import("../../entities/global-discounts/global-discount.entity").GlobalDiscountType;
+            value: number;
+            is_active: boolean;
+        } | null;
+        line_items: {
+            id: string;
+            product_id: string;
+            product_name: string;
+            product_sku: string;
+            product_uom_id: string;
+            uom_id: string;
+            uom_name: string;
+            quantity: number;
+            unit_price: number;
+            iva_percentage: number;
+            ieps_percentage: number;
+            discount_percentage: number;
+            product_discount_id: string | null;
+            selected_discount: {
+                id: string;
+                name: string;
+                discount_type: import("../../entities/products").ProductDiscountType;
+                value: number;
+                product_uom_id: string | null;
+            } | null;
+        }[];
+        id: string;
+        folio: string;
+        total: number;
+        subtotal: number;
+        created_at: Date;
+        updated_at: Date;
+        general_status: string;
+        payment_status: string;
+        pos_stage: import("../../entities/sales-orders").SalesOrderPosStage | null;
+        notes: string | null;
+        fiscal_configuration_id: string;
+        customer: {
+            id: number;
+            name: string;
+            lastname: string;
+            company_name: string;
+            fiscal_razon_social: string;
+            is_walk_in: boolean;
+        } | null;
+        seller_user: {
+            id: string;
+            first_name: string;
+            last_name: string;
+            pos_user_code: number | null;
+        } | null;
+    }>;
+    sendSaleToCaja(salesOrderId: string, req: any): Promise<{
+        message: string;
+        sales_order: {
+            id: string;
+            folio: string;
+            total: number;
+            subtotal: number;
+            created_at: Date;
+            updated_at: Date;
+            general_status: string;
+            payment_status: string;
+            pos_stage: import("../../entities/sales-orders").SalesOrderPosStage | null;
+            notes: string | null;
+            fiscal_configuration_id: string;
+            customer: {
+                id: number;
+                name: string;
+                lastname: string;
+                company_name: string;
+                fiscal_razon_social: string;
+                is_walk_in: boolean;
+            } | null;
+            seller_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+            } | null;
         };
     }>;
     getSaleCollection(salesOrderId: string, req: any): Promise<{

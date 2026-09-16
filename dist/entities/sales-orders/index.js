@@ -1,10 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SalesOrderInvoiceEmail = exports.SalesOrderInvoiceEmailTemplate = exports.SalesOrderPaymentDocument = exports.SalesOrderPayment = exports.SalesOrderDocumentType = exports.SalesOrderDocument = exports.SalesOrderBatchAllocation = exports.SalesOrderDetail = exports.SalesOrderSaleScope = exports.SalesOrder = void 0;
+exports.SalesOrderInvoiceEmail = exports.SalesOrderInvoiceEmailTemplate = exports.SalesOrderPaymentDocument = exports.SalesOrderPayment = exports.SalesOrderDocumentType = exports.SalesOrderDocument = exports.SalesOrderBatchAllocation = exports.SalesOrderDetail = exports.isPosStageInCaja = exports.SalesOrderPosStage = exports.SalesOrderSaleScope = exports.SalesOrder = void 0;
 var sales_order_entity_1 = require("./sales-order.entity");
 Object.defineProperty(exports, "SalesOrder", { enumerable: true, get: function () { return sales_order_entity_1.SalesOrder; } });
 var sales_order_sale_scope_enum_1 = require("./sales-order-sale-scope.enum");
 Object.defineProperty(exports, "SalesOrderSaleScope", { enumerable: true, get: function () { return sales_order_sale_scope_enum_1.SalesOrderSaleScope; } });
+var sales_order_pos_stage_enum_1 = require("./sales-order-pos-stage.enum");
+Object.defineProperty(exports, "SalesOrderPosStage", { enumerable: true, get: function () { return sales_order_pos_stage_enum_1.SalesOrderPosStage; } });
+Object.defineProperty(exports, "isPosStageInCaja", { enumerable: true, get: function () { return sales_order_pos_stage_enum_1.isPosStageInCaja; } });
 var sales_order_detail_entity_1 = require("./sales-order-detail.entity");
 Object.defineProperty(exports, "SalesOrderDetail", { enumerable: true, get: function () { return sales_order_detail_entity_1.SalesOrderDetail; } });
 var sales_order_batch_allocation_entity_1 = require("./sales-order-batch-allocation.entity");

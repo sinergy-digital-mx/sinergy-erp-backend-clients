@@ -26,6 +26,7 @@ const query_daily_shift_dto_1 = require("./dto/query-daily-shift.dto");
 const close_daily_shift_dto_1 = require("./dto/close-daily-shift.dto");
 const collect_pos_sale_dto_1 = require("./dto/collect-pos-sale.dto");
 const query_collected_sales_dto_1 = require("./dto/query-collected-sales.dto");
+const replace_pos_sale_cart_dto_1 = require("./dto/replace-pos-sale-cart.dto");
 let PosShiftsController = class PosShiftsController {
     posShiftsService;
     constructor(posShiftsService) {
@@ -72,11 +73,24 @@ let PosShiftsController = class PosShiftsController {
         const sales = await this.posShiftsService.getPendingSales(req.user.tenant_id, req.user.id);
         return { pending_sales: sales };
     }
+    async getSalesInProgress(req) {
+        const sales = await this.posShiftsService.getSalesInProgress(req.user.tenant_id, req.user.id);
+        return { sales_in_progress: sales };
+    }
     async getCollectedSales(query, req) {
         return this.posShiftsService.getCollectedSales(req.user.tenant_id, req.user.id, query.daily_shift_id);
     }
     async collectSale(salesOrderId, dto, req) {
         return this.posShiftsService.collectSale(req.user.tenant_id, req.user.id, salesOrderId, dto);
+    }
+    async returnSaleToVentas(salesOrderId, req) {
+        return this.posShiftsService.returnSaleToVentas(req.user.tenant_id, req.user.id, salesOrderId);
+    }
+    async replaceSaleCart(salesOrderId, dto, req) {
+        return this.posShiftsService.replaceSaleCart(req.user.tenant_id, req.user.id, salesOrderId, dto);
+    }
+    async sendSaleToCaja(salesOrderId, req) {
+        return this.posShiftsService.sendSaleToCaja(req.user.tenant_id, req.user.id, salesOrderId);
     }
     async getSaleCollection(salesOrderId, req) {
         return this.posShiftsService.getSaleCollection(req.user.tenant_id, salesOrderId);
@@ -183,6 +197,18 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], PosShiftsController.prototype, "getPendingSales", null);
 __decorate([
+    (0, common_1.Get)('sales-in-progress'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'PosShift', action: 'Read' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Tickets POS reintegrados a ventas',
+        description: 'Solo terminal VENTAS. Órdenes pos_stage=ventas de la sucursal.',
+    }),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], PosShiftsController.prototype, "getSalesInProgress", null);
+__decorate([
     (0, common_1.Get)('collected-sales'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'PosShift', action: 'Read' }),
     (0, swagger_1.ApiOperation)({
@@ -210,6 +236,47 @@ __decorate([
     __metadata("design:paramtypes", [String, collect_pos_sale_dto_1.CollectPosSaleDto, Object]),
     __metadata("design:returntype", Promise)
 ], PosShiftsController.prototype, "collectSale", null);
+__decorate([
+    (0, common_1.Post)('sales/:salesOrderId/return-to-sales'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'pos', action: 'ReturnToSales' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Regresar ticket de caja a ventas',
+        description: 'Solo terminal de caja. El folio sale de pendientes para que Ventas edite productos.',
+    }),
+    __param(0, (0, common_1.Param)('salesOrderId')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], PosShiftsController.prototype, "returnSaleToVentas", null);
+__decorate([
+    (0, common_1.Put)('sales/:salesOrderId/cart'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'PosShift', action: 'Read' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Reemplazar carrito de un ticket en ventas',
+        description: 'Solo terminal VENTAS y pos_stage=ventas. Ajusta inventario.',
+    }),
+    (0, swagger_1.ApiBody)({ type: replace_pos_sale_cart_dto_1.ReplacePosSaleCartDto }),
+    __param(0, (0, common_1.Param)('salesOrderId')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, replace_pos_sale_cart_dto_1.ReplacePosSaleCartDto, Object]),
+    __metadata("design:returntype", Promise)
+], PosShiftsController.prototype, "replaceSaleCart", null);
+__decorate([
+    (0, common_1.Post)('sales/:salesOrderId/send-to-caja'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'PosShift', action: 'Read' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Reenviar ticket editado a caja',
+        description: 'Solo terminal VENTAS. El folio vuelve a pendientes de cobro.',
+    }),
+    __param(0, (0, common_1.Param)('salesOrderId')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], PosShiftsController.prototype, "sendSaleToCaja", null);
 __decorate([
     (0, common_1.Get)('sales/:salesOrderId/collection'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'PosShift', action: 'Read' }),

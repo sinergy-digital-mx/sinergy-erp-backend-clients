@@ -1,6 +1,7 @@
 import { DataSource, Repository } from 'typeorm';
 import { SalesOrder } from '../../../entities/sales-orders/sales-order.entity';
 import { SalesOrderSaleScope } from '../../../entities/sales-orders/sales-order-sale-scope.enum';
+import { SalesOrderPosStage } from '../../../entities/sales-orders/sales-order-pos-stage.enum';
 import { SalesOrderDetail } from '../../../entities/sales-orders/sales-order-detail.entity';
 import { Product } from '../../../entities/products/product.entity';
 import { ProductItemKind } from '../../../entities/products/product-item-kind.enum';
@@ -71,6 +72,11 @@ export declare class SalesOrderService {
     create(dto: CreateSalesOrderDto, tenantId: string, userId: string, options?: {
         fromQuotation?: boolean;
     }): Promise<SalesOrder>;
+    replacePosCart(orderId: string, dto: {
+        line_items: CreateSalesOrderLineItemDto[];
+        customer_id?: number;
+        global_discount_id?: string | null;
+    }, tenantId: string, userId: string): Promise<SalesOrder>;
     findAll(tenantId: string, filters: QuerySalesOrderDto): Promise<{
         data: {
             payment_method: PosSalePaymentMethod | null;
@@ -137,6 +143,7 @@ export declare class SalesOrderService {
             assigned_seller_user_id: string | null;
             pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
             pos_daily_shift_id: string | null;
+            pos_stage: SalesOrderPosStage | null;
             collected_by_user: User;
             collected_by_user_id: string | null;
             created_at: Date;
@@ -479,6 +486,7 @@ export declare class SalesOrderService {
             assigned_seller_user_id: string | null;
             pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
             pos_daily_shift_id: string | null;
+            pos_stage: SalesOrderPosStage | null;
             collected_by_user_id: string | null;
             created_at: Date;
             updated_by: string;
@@ -570,6 +578,7 @@ export declare class SalesOrderService {
             assigned_seller_user_id: string | null;
             pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
             pos_daily_shift_id: string | null;
+            pos_stage: SalesOrderPosStage | null;
             collected_by_user: User;
             collected_by_user_id: string | null;
             created_at: Date;
@@ -1115,6 +1124,7 @@ export declare class SalesOrderService {
             assigned_seller_user_id: string | null;
             pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
             pos_daily_shift_id: string | null;
+            pos_stage: SalesOrderPosStage | null;
             collected_by_user_id: string | null;
             created_at: Date;
             updated_by: string;
@@ -1206,6 +1216,7 @@ export declare class SalesOrderService {
             assigned_seller_user_id: string | null;
             pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
             pos_daily_shift_id: string | null;
+            pos_stage: SalesOrderPosStage | null;
             collected_by_user: User;
             collected_by_user_id: string | null;
             created_at: Date;
@@ -1625,6 +1636,7 @@ export declare class SalesOrderService {
             assigned_seller_user_id: string | null;
             pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
             pos_daily_shift_id: string | null;
+            pos_stage: SalesOrderPosStage | null;
             collected_by_user_id: string | null;
             created_at: Date;
             updated_by: string;
@@ -1716,6 +1728,7 @@ export declare class SalesOrderService {
             assigned_seller_user_id: string | null;
             pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
             pos_daily_shift_id: string | null;
+            pos_stage: SalesOrderPosStage | null;
             collected_by_user: User;
             collected_by_user_id: string | null;
             created_at: Date;
@@ -1810,6 +1823,7 @@ export declare class SalesOrderService {
     fulfill(id: string, dto: FulfillSalesOrderDto, tenantId: string, userId: string): Promise<SalesOrder>;
     cancel(id: string, tenantId: string, userId: string): Promise<SalesOrder>;
     private getCancelBlockedReason;
+    getPosReturnBlockedReason(order: SalesOrder, tenantId: string): Promise<string | null>;
     replace(id: string, dto: CreateSalesOrderDto, tenantId: string, userId: string): Promise<SalesOrder>;
     addLineItem(orderId: string, dto: CreateSalesOrderLineItemDto, tenantId: string, userId: string): Promise<void>;
     updateLineItem(orderId: string, lineItemId: string, dto: UpdateSalesOrderLineItemDto, tenantId: string, userId: string): Promise<void>;

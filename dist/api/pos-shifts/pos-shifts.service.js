@@ -28,6 +28,7 @@ const user_entity_1 = require("../../entities/users/user.entity");
 const user_billing_branch_entity_1 = require("../../entities/users/user-billing-branch.entity");
 const pos_user_type_enum_1 = require("../../entities/users/pos-user-type.enum");
 const sales_order_entity_1 = require("../../entities/sales-orders/sales-order.entity");
+const sales_order_pos_stage_enum_1 = require("../../entities/sales-orders/sales-order-pos-stage.enum");
 const customer_entity_1 = require("../../entities/customers/customer.entity");
 const warehouse_entity_1 = require("../../entities/warehouse/warehouse.entity");
 const sales_order_pos_receipt_service_1 = require("../sales-orders/services/sales-order-pos-receipt.service");
@@ -107,7 +108,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         const terminalUser = await this.requirePosTerminal(tenantId, terminalUserId);
         const shift = await this.getBranchOpenDailyShift(tenantId, terminalUser.billing_branch_id);
         if (!shift) {
-            throw new common_1.BadRequestException('No hay corte global abierto en la sucursal. La terminal de cobranza debe abrir el corte del día.');
+            throw new common_1.BadRequestException('No hay corte global abierto en la sucursal. La terminal de caja debe abrir el corte del día.');
         }
         return shift.id;
     }
@@ -297,7 +298,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 throw new common_1.BadRequestException('No hay un corte global abierto válido para esta sucursal');
             }
             if (!(0, pos_user_type_enum_1.canPosCollect)(shift.terminal_user?.pos_user_type)) {
-                throw new common_1.BadRequestException('El corte global debe pertenecer a una terminal de cobranza');
+                throw new common_1.BadRequestException('El corte global debe pertenecer a una terminal de caja');
             }
         }
         else {
@@ -307,7 +308,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             if (!(0, pos_user_type_enum_1.canPosCollect)(terminalUser.pos_user_type)) {
                 return { shift: null, terminalUser, queued: true };
             }
-            throw new common_1.BadRequestException('No hay corte global abierto en la sucursal. La terminal de cobranza debe abrir el corte del día.');
+            throw new common_1.BadRequestException('No hay corte global abierto en la sucursal. La terminal de caja debe abrir el corte del día.');
         }
         if ((0, unclosed_shift_alert_1.isPreviousDayOpenShift)(shift.shift_date)) {
             if (!(0, pos_user_type_enum_1.canPosCollect)(terminalUser.pos_user_type)) {
@@ -335,7 +336,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
     async assertOpenShiftForSale(tenantId, terminalUserId, sellerUserId, dailyShiftId) {
         const { shift, terminalUser } = await this.resolvePosSaleContext(tenantId, terminalUserId, sellerUserId, dailyShiftId);
         if (!shift) {
-            throw new common_1.BadRequestException('No hay corte global abierto en la sucursal. La terminal de cobranza debe abrir el corte del día.');
+            throw new common_1.BadRequestException('No hay corte global abierto en la sucursal. La terminal de caja debe abrir el corte del día.');
         }
         return { shift, terminalUser };
     }
@@ -364,6 +365,9 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             .andWhere('so.sales_order_type = :type', { type: 'POS' })
             .andWhere('so.general_status = :generalStatus', { generalStatus: 'Surtida' })
             .andWhere('so.payment_status = :paymentStatus', { paymentStatus: 'Pendiente' })
+            .andWhere('(so.pos_stage IS NULL OR so.pos_stage = :posStage)', {
+            posStage: sales_order_pos_stage_enum_1.SalesOrderPosStage.Caja,
+        })
             .andWhere(`NOT EXISTS (
           SELECT 1 FROM pos_sale_collections col
           WHERE col.sales_order_id = so.id
@@ -476,6 +480,9 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         if (order.sales_order_type !== 'POS') {
             throw new common_1.BadRequestException('Solo se pueden cobrar órdenes POS');
         }
+        if (!(0, sales_order_pos_stage_enum_1.isPosStageInCaja)(order.pos_stage)) {
+            throw new common_1.BadRequestException('La orden está en ventas. Debe enviarse a caja antes de cobrar');
+        }
         if (order.general_status !== 'Surtida' || order.payment_status !== 'Pendiente') {
             throw new common_1.BadRequestException('La orden no está pendiente de cobro (debe estar Surtida y Pendiente)');
         }
@@ -486,7 +493,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         const belongsToOpenShift = order.pos_daily_shift_id === shift.id;
         const belongsToBranch = order.warehouse?.billing_branch_id === cobranzaUser.billing_branch_id;
         if (!belongsToOpenShift && !belongsToBranch) {
-            throw new common_1.BadRequestException('La orden no pertenece a la sucursal de esta terminal de cobranza');
+            throw new common_1.BadRequestException('La orden no pertenece a la sucursal de esta terminal de caja');
         }
         const existingCollection = await this.collectionRepo.findOne({
             where: { sales_order_id: order.id },
@@ -618,6 +625,9 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             .andWhere('so.sales_order_type = :type', { type: 'POS' })
             .andWhere('so.general_status = :queued', { queued: 'En cola' })
             .andWhere('so.payment_status = :pending', { pending: 'Pendiente' })
+            .andWhere('(so.pos_stage IS NULL OR so.pos_stage = :posStage)', {
+            posStage: sales_order_pos_stage_enum_1.SalesOrderPosStage.Caja,
+        })
             .andWhere('DATE(so.created_at) = :shiftDate', { shiftDate })
             .andWhere('warehouse.billing_branch_id = :billingBranchId', { billingBranchId })
             .getMany();
@@ -628,6 +638,9 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             .andWhere('so.sales_order_type = :type', { type: 'POS' })
             .andWhere('so.general_status = :surtida', { surtida: 'Surtida' })
             .andWhere('so.payment_status = :pending', { pending: 'Pendiente' })
+            .andWhere('(so.pos_stage IS NULL OR so.pos_stage = :posStage)', {
+            posStage: sales_order_pos_stage_enum_1.SalesOrderPosStage.Caja,
+        })
             .andWhere('warehouse.billing_branch_id = :billingBranchId', { billingBranchId })
             .andWhere('(so.pos_daily_shift_id IS NULL OR so.pos_daily_shift_id != :shiftId)', {
             shiftId,
@@ -921,10 +934,199 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         }
         return { collection: (0, pos_sale_collection_mapper_1.mapPosSaleCollection)(collection) };
     }
+    async returnSaleToVentas(tenantId, terminalUserId, salesOrderId) {
+        const cajaUser = await this.requireCobranzaTerminal(tenantId, terminalUserId);
+        const order = await this.salesOrderRepo.findOne({
+            where: { id: salesOrderId, tenant_id: tenantId },
+            relations: ['warehouse', 'seller_user', 'terminal_user', 'customer'],
+        });
+        if (!order) {
+            throw new common_1.NotFoundException('Orden de venta no encontrada');
+        }
+        await this.assertOrderBelongsToTerminalBranch(order, cajaUser);
+        const blocked = await this.salesOrderService.getPosReturnBlockedReason(order, tenantId);
+        if (blocked) {
+            throw new common_1.BadRequestException(blocked);
+        }
+        order.pos_stage = sales_order_pos_stage_enum_1.SalesOrderPosStage.Ventas;
+        order.updated_by = terminalUserId;
+        await this.salesOrderRepo.save(order);
+        return {
+            message: 'El ticket se regresó a ventas',
+            sales_order: this.mapPosTicketSummary(order),
+        };
+    }
+    async getSalesInProgress(tenantId, terminalUserId) {
+        const terminalUser = await this.requireVentasTerminal(tenantId, terminalUserId);
+        const branchId = terminalUser.billing_branch_id;
+        const orders = await this.salesOrderRepo
+            .createQueryBuilder('so')
+            .leftJoinAndSelect('so.seller_user', 'seller_user')
+            .leftJoinAndSelect('so.terminal_user', 'terminal_user')
+            .leftJoinAndSelect('so.customer', 'customer')
+            .leftJoinAndSelect('so.global_discount', 'global_discount')
+            .leftJoinAndSelect('so.line_items', 'line_items')
+            .leftJoinAndSelect('line_items.product', 'product')
+            .leftJoinAndSelect('line_items.product_uom', 'product_uom')
+            .leftJoinAndSelect('product_uom.uom', 'uom')
+            .leftJoinAndSelect('line_items.product_discount', 'product_discount')
+            .leftJoin('so.warehouse', 'warehouse')
+            .where('so.tenant_id = :tenantId', { tenantId })
+            .andWhere('so.sales_order_type = :type', { type: 'POS' })
+            .andWhere('so.pos_stage = :posStage', { posStage: sales_order_pos_stage_enum_1.SalesOrderPosStage.Ventas })
+            .andWhere('so.payment_status = :paymentStatus', { paymentStatus: 'Pendiente' })
+            .andWhere('so.general_status != :cancelled', { cancelled: 'Cancelada' })
+            .andWhere('(so.billing_branch_id = :branchId OR warehouse.billing_branch_id = :branchId)', { branchId })
+            .orderBy('so.updated_at', 'DESC')
+            .addOrderBy('line_items.created_at', 'ASC')
+            .getMany();
+        return orders.map((order) => this.mapPosTicketForVentas(order));
+    }
+    async replaceSaleCart(tenantId, terminalUserId, salesOrderId, dto) {
+        const terminalUser = await this.requireVentasTerminal(tenantId, terminalUserId);
+        const order = await this.salesOrderRepo.findOne({
+            where: { id: salesOrderId, tenant_id: tenantId },
+            relations: ['warehouse'],
+        });
+        if (!order) {
+            throw new common_1.NotFoundException('Orden de venta no encontrada');
+        }
+        await this.assertOrderBelongsToTerminalBranch(order, terminalUser);
+        if (order.pos_stage !== sales_order_pos_stage_enum_1.SalesOrderPosStage.Ventas) {
+            throw new common_1.BadRequestException('La orden no está en ventas. Caja debe regresarla antes de editar productos.');
+        }
+        const updated = await this.salesOrderService.replacePosCart(salesOrderId, dto, tenantId, terminalUserId);
+        return this.mapPosTicketForVentas(updated);
+    }
+    async sendSaleToCaja(tenantId, terminalUserId, salesOrderId) {
+        const terminalUser = await this.requireVentasTerminal(tenantId, terminalUserId);
+        const order = await this.salesOrderRepo.findOne({
+            where: { id: salesOrderId, tenant_id: tenantId },
+            relations: ['warehouse', 'seller_user', 'terminal_user', 'customer', 'line_items'],
+        });
+        if (!order) {
+            throw new common_1.NotFoundException('Orden de venta no encontrada');
+        }
+        await this.assertOrderBelongsToTerminalBranch(order, terminalUser);
+        if (order.sales_order_type !== 'POS') {
+            throw new common_1.BadRequestException('Solo se pueden enviar a caja órdenes POS');
+        }
+        if (order.pos_stage !== sales_order_pos_stage_enum_1.SalesOrderPosStage.Ventas) {
+            throw new common_1.BadRequestException('La orden no está en ventas');
+        }
+        if (order.payment_status !== 'Pendiente' || order.general_status === 'Cancelada') {
+            throw new common_1.BadRequestException('La orden ya no se puede enviar a caja');
+        }
+        if (!order.line_items?.length) {
+            throw new common_1.BadRequestException('La orden debe tener al menos un producto');
+        }
+        if (!order.seller_user_id) {
+            throw new common_1.BadRequestException('Las ventas POS requieren vendedor');
+        }
+        const { shift, queued } = await this.resolvePosSaleContext(tenantId, terminalUserId, order.seller_user_id);
+        order.pos_stage = sales_order_pos_stage_enum_1.SalesOrderPosStage.Caja;
+        order.general_status = queued ? 'En cola' : 'Surtida';
+        order.pos_daily_shift_id = queued ? null : (shift?.id ?? null);
+        order.updated_by = terminalUserId;
+        await this.salesOrderRepo.save(order);
+        return {
+            message: queued
+                ? 'Venta en cola hasta que caja abra el corte del día'
+                : 'Venta enviada a caja',
+            sales_order: this.mapPosTicketSummary(order),
+        };
+    }
+    assertOrderBelongsToTerminalBranch(order, terminalUser) {
+        const branchId = terminalUser.billing_branch_id;
+        const orderBranch = order.billing_branch_id || order.warehouse?.billing_branch_id || null;
+        if (branchId && orderBranch && orderBranch !== branchId) {
+            throw new common_1.BadRequestException('La orden no pertenece a la sucursal de esta terminal');
+        }
+    }
+    mapPosTicketSummary(order) {
+        return {
+            id: order.id,
+            folio: order.folio,
+            total: Number(order.total),
+            subtotal: Number(order.subtotal),
+            created_at: order.created_at,
+            updated_at: order.updated_at,
+            general_status: order.general_status,
+            payment_status: order.payment_status,
+            pos_stage: order.pos_stage,
+            notes: order.notes,
+            fiscal_configuration_id: order.fiscal_configuration_id,
+            customer: order.customer
+                ? {
+                    id: order.customer.id,
+                    name: order.customer.name,
+                    lastname: order.customer.lastname,
+                    company_name: order.customer.company_name,
+                    fiscal_razon_social: order.customer.fiscal_razon_social,
+                    is_walk_in: (0, pos_sale_collection_mapper_1.isWalkInCustomer)(order.customer),
+                }
+                : null,
+            seller_user: order.seller_user
+                ? {
+                    id: order.seller_user.id,
+                    first_name: order.seller_user.first_name,
+                    last_name: order.seller_user.last_name,
+                    pos_user_code: order.seller_user.pos_user_code,
+                }
+                : null,
+        };
+    }
+    mapPosTicketForVentas(order) {
+        return {
+            ...this.mapPosTicketSummary(order),
+            customer_id: order.customer_id,
+            global_discount_id: order.global_discount_id,
+            global_discount: order.global_discount
+                ? {
+                    id: order.global_discount.id,
+                    name: order.global_discount.name,
+                    discount_type: order.global_discount.discount_type,
+                    value: Number(order.global_discount.value),
+                    is_active: order.global_discount.is_active,
+                }
+                : null,
+            line_items: (order.line_items ?? []).map((line) => ({
+                id: line.id,
+                product_id: line.product_id,
+                product_name: line.product?.name ?? '',
+                product_sku: line.product?.sku ?? '',
+                product_uom_id: line.product_uom_id,
+                uom_id: line.base_uom_id ?? line.product_uom?.uom_catalog_id ?? line.product_uom_id,
+                uom_name: line.product_uom?.uom?.name ?? line.base_uom?.name ?? '',
+                quantity: Number(line.quantity),
+                unit_price: Number(line.unit_price),
+                iva_percentage: Number(line.iva_percentage ?? 0),
+                ieps_percentage: Number(line.ieps_percentage ?? 0),
+                discount_percentage: Number(line.discount_percentage ?? 0),
+                product_discount_id: line.product_discount_id,
+                selected_discount: line.product_discount
+                    ? {
+                        id: line.product_discount.id,
+                        name: line.product_discount.name,
+                        discount_type: line.product_discount.discount_type,
+                        value: Number(line.product_discount.value),
+                        product_uom_id: line.product_discount.product_uom_id ?? null,
+                    }
+                    : null,
+            })),
+        };
+    }
     async requireCobranzaTerminal(tenantId, userId) {
         const user = await this.requirePosTerminal(tenantId, userId);
         if (!(0, pos_user_type_enum_1.canPosCollect)(user.pos_user_type)) {
-            throw new common_1.ForbiddenException('Esta operación solo está disponible en terminales de cobranza');
+            throw new common_1.ForbiddenException('Esta operación solo está disponible en terminales de caja');
+        }
+        return user;
+    }
+    async requireVentasTerminal(tenantId, userId) {
+        const user = await this.requirePosTerminal(tenantId, userId);
+        if (!(0, pos_user_type_enum_1.canPosSell)(user.pos_user_type)) {
+            throw new common_1.ForbiddenException('Esta operación solo está disponible en terminales de ventas');
         }
         return user;
     }

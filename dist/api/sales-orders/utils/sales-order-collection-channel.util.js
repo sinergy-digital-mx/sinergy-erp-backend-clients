@@ -11,9 +11,9 @@ exports.SALES_ORDER_COLLECTION_CHANNEL_VALUES = [
     'mixed',
 ];
 exports.SALES_ORDER_COLLECTION_CHANNEL_LABELS = {
-    pos_cobranza: 'POS cobranza',
+    pos_cobranza: 'POS Caja',
     manual: 'Cobrada manual',
-    mixed: 'POS cobranza + Manual',
+    mixed: 'POS Caja + Manual',
 };
 const POS_COLLECTION_TABLE = 'pos_sale_collections';
 const PAYMENT_TABLE = 'inv_s_sales_order_payments';

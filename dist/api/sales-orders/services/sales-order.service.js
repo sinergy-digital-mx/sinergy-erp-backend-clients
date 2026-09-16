@@ -20,6 +20,7 @@ const typeorm_2 = require("typeorm");
 const uuid_1 = require("uuid");
 const sales_order_entity_1 = require("../../../entities/sales-orders/sales-order.entity");
 const sales_order_sale_scope_enum_1 = require("../../../entities/sales-orders/sales-order-sale-scope.enum");
+const sales_order_pos_stage_enum_1 = require("../../../entities/sales-orders/sales-order-pos-stage.enum");
 const sales_order_detail_entity_1 = require("../../../entities/sales-orders/sales-order-detail.entity");
 const product_entity_1 = require("../../../entities/products/product.entity");
 const product_item_kind_enum_1 = require("../../../entities/products/product-item-kind.enum");
@@ -287,6 +288,7 @@ let SalesOrderService = class SalesOrderService {
                 seller_user_id: sellerUserId,
                 assigned_seller_user_id: assignedSellerUserId,
                 pos_daily_shift_id: isPosSale ? posDailyShiftId : null,
+                pos_stage: isPosSale ? sales_order_pos_stage_enum_1.SalesOrderPosStage.Caja : null,
                 collected_by_user_id: collectedByUserId,
             });
             const savedSO = await qr.manager.save(sales_order_entity_1.SalesOrder, so);
@@ -373,6 +375,74 @@ let SalesOrderService = class SalesOrderService {
         finally {
             await qr.release();
         }
+    }
+    async replacePosCart(orderId, dto, tenantId, userId) {
+        if (!dto.line_items?.length) {
+            throw new common_1.BadRequestException('La orden debe tener al menos un producto');
+        }
+        const qr = this.dataSource.createQueryRunner();
+        await qr.connect();
+        await qr.startTransaction();
+        try {
+            const so = await qr.manager.findOne(sales_order_entity_1.SalesOrder, {
+                where: { id: orderId, tenant_id: tenantId },
+                relations: [
+                    'line_items',
+                    'line_items.batch_allocations',
+                    'warehouse',
+                ],
+            });
+            if (!so) {
+                throw new common_1.NotFoundException('Orden de venta no encontrada');
+            }
+            if (so.sales_order_type !== 'POS') {
+                throw new common_1.BadRequestException('Solo se puede editar el carrito de una orden POS');
+            }
+            if (so.pos_stage !== sales_order_pos_stage_enum_1.SalesOrderPosStage.Ventas) {
+                throw new common_1.BadRequestException('La orden no está en ventas. Caja debe regresarla antes de editar productos.');
+            }
+            if (so.payment_status !== 'Pendiente' || so.general_status === 'Cancelada') {
+                throw new common_1.BadRequestException('La orden ya no se puede editar en ventas');
+            }
+            const previousStatus = so.general_status;
+            const allocations = (so.line_items ?? []).flatMap((line) => line.batch_allocations ?? []);
+            if (allocations.length) {
+                await this.fulfillmentService.releaseAllocations(allocations, qr.manager);
+            }
+            if (so.line_items?.length) {
+                await qr.manager.remove(sales_order_detail_entity_1.SalesOrderDetail, so.line_items);
+            }
+            const customerId = dto.customer_id ??
+                (await this.posShiftsService.resolveWalkInCustomerId(tenantId));
+            const customer = await qr.manager.findOne(customer_entity_1.Customer, {
+                where: { id: customerId, tenant_id: tenantId },
+            });
+            if (!customer) {
+                throw new common_1.BadRequestException('Cliente no válido');
+            }
+            so.customer_id = customerId;
+            const lineKinds = await this.loadProductKinds(qr, dto.line_items.map((item) => item.product_id));
+            this.assertLineItemsMatchSaleScope(dto.line_items, so.sale_scope, lineKinds);
+            const savedDetails = await this.insertSalesOrderLineItems(qr, so.id, dto.line_items, userId, tenantId);
+            so.global_discount_id = dto.global_discount_id ?? null;
+            so.updated_by = userId;
+            await qr.manager.save(sales_order_entity_1.SalesOrder, so);
+            await this.recomputeTotals(qr, so.id, tenantId, userId);
+            await this.fulfillOrderLines(qr, so.id, this.allocationScope(so), savedDetails, userId, undefined, true);
+            await qr.manager.update(sales_order_entity_1.SalesOrder, { id: so.id }, { general_status: previousStatus, updated_by: userId });
+            await qr.commitTransaction();
+        }
+        catch (err) {
+            await qr.rollbackTransaction();
+            throw err;
+        }
+        finally {
+            await qr.release();
+        }
+        this.regenerateDocumentoOriginalPreservingLanguage(orderId, tenantId, userId).catch((err) => {
+            this.logger.error('[PDF] Error regenerating DOCUMENTO_ORIGINAL after POS cart replace:', err);
+        });
+        return this.findOne(orderId, tenantId);
     }
     async findAll(tenantId, filters) {
         const { search, general_status, payment_status, is_credit, sales_order_type, sale_scope, collection_channel, fiscal_configuration_id, billing_branch_id, customer_id, created_from, created_to, page = 1, limit = 20, sort_by = 'created_at', sort_order = 'DESC', } = filters;
@@ -977,6 +1047,38 @@ let SalesOrderService = class SalesOrderService {
         const uuidLabel = first.uuid ? ` (UUID ${first.uuid})` : '';
         return `No se puede cancelar la orden: tiene una factura CFDI vigente${uuidLabel}. Cancela la factura primero.`;
     }
+    async getPosReturnBlockedReason(order, tenantId) {
+        if (order.sales_order_type !== 'POS') {
+            return 'Solo se pueden reintegrar órdenes POS';
+        }
+        if (order.general_status === 'Cancelada') {
+            return 'La orden está cancelada';
+        }
+        if (order.payment_status !== 'Pendiente') {
+            return 'La orden ya fue cobrada';
+        }
+        if (order.pos_stage === sales_order_pos_stage_enum_1.SalesOrderPosStage.Ventas) {
+            return 'La orden ya está en ventas';
+        }
+        if (order.general_status !== 'Surtida' && order.general_status !== 'En cola') {
+            return 'La orden no está pendiente de cobro';
+        }
+        const collection = await this.posCollectionRepo.findOne({
+            where: { sales_order_id: order.id, tenant_id: tenantId },
+        });
+        if (collection) {
+            return 'La orden ya fue cobrada en caja';
+        }
+        const amountPending = await this.getAmountPending(order.id, tenantId);
+        if (amountPending + 0.001 < Number(order.total)) {
+            return 'La orden tiene pagos registrados. No se puede regresar a ventas';
+        }
+        const vigentes = await this.electronicInvoiceService.findVigenteBySource(tenantId, 'sales_orders', order.id);
+        if (vigentes.length) {
+            return 'La orden tiene una factura vigente. No se puede regresar a ventas';
+        }
+        return null;
+    }
     async replace(id, dto, tenantId, userId) {
         const existing = await this.findOne(id, tenantId);
         if (existing.general_status !== 'Creada' &&
@@ -1223,7 +1325,7 @@ let SalesOrderService = class SalesOrderService {
             this.logger.error('[PDF] Error regenerating DOCUMENTO_ORIGINAL after remove line:', err);
         });
     }
-    async fulfillOrderLines(qr, salesOrderId, scope, lineItems, userId, notes) {
+    async fulfillOrderLines(qr, salesOrderId, scope, lineItems, userId, notes, keepGeneralStatus = false) {
         const goodsDetails = await this.filterGoodsDetails(qr, lineItems);
         if (!goodsDetails.length) {
             throw new common_1.BadRequestException('Esta orden no tiene líneas de inventario para surtir');
@@ -1232,7 +1334,7 @@ let SalesOrderService = class SalesOrderService {
             await this.fulfillmentService.allocateFifo(detail, userId, qr.manager, scope);
         }
         await qr.manager.update(sales_order_entity_1.SalesOrder, { id: salesOrderId }, {
-            general_status: 'Surtida',
+            ...(keepGeneralStatus ? {} : { general_status: 'Surtida' }),
             ...(notes !== undefined ? { notes } : {}),
             updated_by: userId,
         });

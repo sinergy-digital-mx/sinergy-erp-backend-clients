@@ -21,6 +21,7 @@ const pos_daily_shift_entity_1 = require("../pos/pos-daily-shift.entity");
 const sales_order_detail_entity_1 = require("./sales-order-detail.entity");
 const global_discount_entity_1 = require("../global-discounts/global-discount.entity");
 const sales_order_sale_scope_enum_1 = require("./sales-order-sale-scope.enum");
+const sales_order_pos_stage_enum_1 = require("./sales-order-pos-stage.enum");
 let SalesOrder = class SalesOrder {
     id;
     tenant;
@@ -67,6 +68,7 @@ let SalesOrder = class SalesOrder {
     assigned_seller_user_id;
     pos_daily_shift;
     pos_daily_shift_id;
+    pos_stage;
     collected_by_user;
     collected_by_user_id;
     created_at;
@@ -287,6 +289,15 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 36, nullable: true }),
     __metadata("design:type", Object)
 ], SalesOrder.prototype, "pos_daily_shift_id", void 0);
+__decorate([
+    (0, typeorm_1.Column)({
+        type: 'enum',
+        enum: sales_order_pos_stage_enum_1.SalesOrderPosStage,
+        nullable: true,
+        default: null,
+    }),
+    __metadata("design:type", Object)
+], SalesOrder.prototype, "pos_stage", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => user_entity_1.User, { onDelete: 'SET NULL', nullable: true }),
     (0, typeorm_1.JoinColumn)({ name: 'collected_by_user_id' }),

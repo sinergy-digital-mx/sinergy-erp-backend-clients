@@ -7,6 +7,7 @@ import { PosSalePaymentMethod } from '../../entities/pos/pos-sale-payment-method
 import { User } from '../../entities/users/user.entity';
 import { UserBillingBranch } from '../../entities/users/user-billing-branch.entity';
 import { SalesOrder } from '../../entities/sales-orders/sales-order.entity';
+import { SalesOrderPosStage } from '../../entities/sales-orders/sales-order-pos-stage.enum';
 import { Customer } from '../../entities/customers/customer.entity';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { OpenDailyShiftDto } from './dto/open-daily-shift.dto';
@@ -14,6 +15,7 @@ import { CreatePartialShiftDto } from './dto/create-partial-shift.dto';
 import { QueryDailyShiftDto } from './dto/query-daily-shift.dto';
 import { CloseDailyShiftDto } from './dto/close-daily-shift.dto';
 import { CollectPosSaleDto } from './dto/collect-pos-sale.dto';
+import { ReplacePosSaleCartDto } from './dto/replace-pos-sale-cart.dto';
 import { SalesOrderPosReceiptService, PosReceiptResult } from '../sales-orders/services/sales-order-pos-receipt.service';
 import { SalesOrderService } from '../sales-orders/services/sales-order.service';
 import { CustomerCreditService } from '../customers/services/customer-credit.service';
@@ -894,7 +896,187 @@ export declare class PosShiftsService {
             created_at: Date;
         };
     }>;
+    returnSaleToVentas(tenantId: string, terminalUserId: string, salesOrderId: string): Promise<{
+        message: string;
+        sales_order: {
+            id: string;
+            folio: string;
+            total: number;
+            subtotal: number;
+            created_at: Date;
+            updated_at: Date;
+            general_status: string;
+            payment_status: string;
+            pos_stage: SalesOrderPosStage | null;
+            notes: string | null;
+            fiscal_configuration_id: string;
+            customer: {
+                id: number;
+                name: string;
+                lastname: string;
+                company_name: string;
+                fiscal_razon_social: string;
+                is_walk_in: boolean;
+            } | null;
+            seller_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+            } | null;
+        };
+    }>;
+    getSalesInProgress(tenantId: string, terminalUserId: string): Promise<{
+        customer_id: number;
+        global_discount_id: string | null;
+        global_discount: {
+            id: string;
+            name: string;
+            discount_type: import("../../entities/global-discounts/global-discount.entity").GlobalDiscountType;
+            value: number;
+            is_active: boolean;
+        } | null;
+        line_items: {
+            id: string;
+            product_id: string;
+            product_name: string;
+            product_sku: string;
+            product_uom_id: string;
+            uom_id: string;
+            uom_name: string;
+            quantity: number;
+            unit_price: number;
+            iva_percentage: number;
+            ieps_percentage: number;
+            discount_percentage: number;
+            product_discount_id: string | null;
+            selected_discount: {
+                id: string;
+                name: string;
+                discount_type: import("../../entities/products").ProductDiscountType;
+                value: number;
+                product_uom_id: string | null;
+            } | null;
+        }[];
+        id: string;
+        folio: string;
+        total: number;
+        subtotal: number;
+        created_at: Date;
+        updated_at: Date;
+        general_status: string;
+        payment_status: string;
+        pos_stage: SalesOrderPosStage | null;
+        notes: string | null;
+        fiscal_configuration_id: string;
+        customer: {
+            id: number;
+            name: string;
+            lastname: string;
+            company_name: string;
+            fiscal_razon_social: string;
+            is_walk_in: boolean;
+        } | null;
+        seller_user: {
+            id: string;
+            first_name: string;
+            last_name: string;
+            pos_user_code: number | null;
+        } | null;
+    }[]>;
+    replaceSaleCart(tenantId: string, terminalUserId: string, salesOrderId: string, dto: ReplacePosSaleCartDto): Promise<{
+        customer_id: number;
+        global_discount_id: string | null;
+        global_discount: {
+            id: string;
+            name: string;
+            discount_type: import("../../entities/global-discounts/global-discount.entity").GlobalDiscountType;
+            value: number;
+            is_active: boolean;
+        } | null;
+        line_items: {
+            id: string;
+            product_id: string;
+            product_name: string;
+            product_sku: string;
+            product_uom_id: string;
+            uom_id: string;
+            uom_name: string;
+            quantity: number;
+            unit_price: number;
+            iva_percentage: number;
+            ieps_percentage: number;
+            discount_percentage: number;
+            product_discount_id: string | null;
+            selected_discount: {
+                id: string;
+                name: string;
+                discount_type: import("../../entities/products").ProductDiscountType;
+                value: number;
+                product_uom_id: string | null;
+            } | null;
+        }[];
+        id: string;
+        folio: string;
+        total: number;
+        subtotal: number;
+        created_at: Date;
+        updated_at: Date;
+        general_status: string;
+        payment_status: string;
+        pos_stage: SalesOrderPosStage | null;
+        notes: string | null;
+        fiscal_configuration_id: string;
+        customer: {
+            id: number;
+            name: string;
+            lastname: string;
+            company_name: string;
+            fiscal_razon_social: string;
+            is_walk_in: boolean;
+        } | null;
+        seller_user: {
+            id: string;
+            first_name: string;
+            last_name: string;
+            pos_user_code: number | null;
+        } | null;
+    }>;
+    sendSaleToCaja(tenantId: string, terminalUserId: string, salesOrderId: string): Promise<{
+        message: string;
+        sales_order: {
+            id: string;
+            folio: string;
+            total: number;
+            subtotal: number;
+            created_at: Date;
+            updated_at: Date;
+            general_status: string;
+            payment_status: string;
+            pos_stage: SalesOrderPosStage | null;
+            notes: string | null;
+            fiscal_configuration_id: string;
+            customer: {
+                id: number;
+                name: string;
+                lastname: string;
+                company_name: string;
+                fiscal_razon_social: string;
+                is_walk_in: boolean;
+            } | null;
+            seller_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+            } | null;
+        };
+    }>;
+    private assertOrderBelongsToTerminalBranch;
+    private mapPosTicketSummary;
+    private mapPosTicketForVentas;
     private requireCobranzaTerminal;
+    private requireVentasTerminal;
     private requirePosTerminal;
     private requireOpenDailyShift;
     private resolveAccessibleBranchId;

@@ -77,7 +77,7 @@ __decorate([
     (0, common_1.Get)('pos-collections'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }),
     (0, swagger_1.ApiOperation)({
-        summary: 'Detalle de órdenes cobradas (terminal de cobranza)',
+        summary: 'Detalle de órdenes cobradas (terminal de caja)',
         description: 'Lista cobros del periodo/sucursal. Filtro customer_type: all | walk_in | invoiced.',
     }),
     __param(0, (0, common_1.Query)()),

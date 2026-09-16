@@ -352,6 +352,7 @@ export declare class SalesOrderController {
                 assigned_seller_user_id: string | null;
                 pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
                 pos_daily_shift_id: string | null;
+                pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
                 collected_by_user_id: string | null;
                 created_at: Date;
                 updated_by: string;
@@ -794,6 +795,7 @@ export declare class SalesOrderController {
                 assigned_seller_user_id: string | null;
                 pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
                 pos_daily_shift_id: string | null;
+                pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
                 collected_by_user_id: string | null;
                 created_at: Date;
                 updated_by: string;
@@ -1236,6 +1238,7 @@ export declare class SalesOrderController {
                 assigned_seller_user_id: string | null;
                 pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
                 pos_daily_shift_id: string | null;
+                pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
                 collected_by_user_id: string | null;
                 created_at: Date;
                 updated_by: string;
@@ -1678,6 +1681,7 @@ export declare class SalesOrderController {
             assigned_seller_user_id: string | null;
             pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
             pos_daily_shift_id: string | null;
+            pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
             collected_by_user_id: string | null;
             created_at: Date;
             updated_by: string;
@@ -1769,6 +1773,7 @@ export declare class SalesOrderController {
             assigned_seller_user_id: string | null;
             pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
             pos_daily_shift_id: string | null;
+            pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
             collected_by_user: import("../../../entities/users/user.entity").User;
             collected_by_user_id: string | null;
             created_at: Date;
@@ -2188,6 +2193,7 @@ export declare class SalesOrderController {
             assigned_seller_user_id: string | null;
             pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
             pos_daily_shift_id: string | null;
+            pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
             collected_by_user_id: string | null;
             created_at: Date;
             updated_by: string;
@@ -2279,6 +2285,7 @@ export declare class SalesOrderController {
             assigned_seller_user_id: string | null;
             pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
             pos_daily_shift_id: string | null;
+            pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
             collected_by_user: import("../../../entities/users/user.entity").User;
             collected_by_user_id: string | null;
             created_at: Date;
@@ -2626,6 +2633,7 @@ export declare class SalesOrderController {
             assigned_seller_user_id: string | null;
             pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
             pos_daily_shift_id: string | null;
+            pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
             collected_by_user: import("../../../entities/users/user.entity").User;
             collected_by_user_id: string | null;
             created_at: Date;
@@ -3085,6 +3093,7 @@ export declare class SalesOrderController {
                 assigned_seller_user_id: string | null;
                 pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
                 pos_daily_shift_id: string | null;
+                pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
                 collected_by_user_id: string | null;
                 created_at: Date;
                 updated_by: string;

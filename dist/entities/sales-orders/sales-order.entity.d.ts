@@ -8,6 +8,7 @@ import { PosDailyShift } from '../pos/pos-daily-shift.entity';
 import { SalesOrderDetail } from './sales-order-detail.entity';
 import { GlobalDiscount } from '../global-discounts/global-discount.entity';
 import { SalesOrderSaleScope } from './sales-order-sale-scope.enum';
+import { SalesOrderPosStage } from './sales-order-pos-stage.enum';
 export declare class SalesOrder {
     id: string;
     tenant: RBACTenant;
@@ -54,6 +55,7 @@ export declare class SalesOrder {
     assigned_seller_user_id: string | null;
     pos_daily_shift: PosDailyShift;
     pos_daily_shift_id: string | null;
+    pos_stage: SalesOrderPosStage | null;
     collected_by_user: User;
     collected_by_user_id: string | null;
     created_at: Date;

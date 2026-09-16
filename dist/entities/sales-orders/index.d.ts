@@ -1,5 +1,6 @@
 export { SalesOrder } from './sales-order.entity';
 export { SalesOrderSaleScope } from './sales-order-sale-scope.enum';
+export { SalesOrderPosStage, isPosStageInCaja, } from './sales-order-pos-stage.enum';
 export { SalesOrderDetail } from './sales-order-detail.entity';
 export { SalesOrderBatchAllocation } from './sales-order-batch-allocation.entity';
 export { SalesOrderDocument } from './sales-order-document.entity';

@@ -1,0 +1,1 @@
+{"version":3,"file":"sales-order-pos-stage.enum.js","sourceRoot":"","sources":["../../../src/entities/sales-orders/sales-order-pos-stage.enum.ts"],"names":[],"mappings":";;;AAKA,4CAIC;AATD,IAAY,kBAGX;AAHD,WAAY,kBAAkB;IAC5B,mCAAa,CAAA;IACb,uCAAiB,CAAA;AACnB,CAAC,EAHW,kBAAkB,kCAAlB,kBAAkB,QAG7B;AAED,SAAgB,gBAAgB,CAC9B,KAAgC;IAEhC,OAAO,KAAK,KAAK,kBAAkB,CAAC,MAAM,CAAC;AAC7C,CAAC"}
