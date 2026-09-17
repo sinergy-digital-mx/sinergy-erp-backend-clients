@@ -22,6 +22,7 @@ import { SalesOrderFolioService } from './sales-order-folio.service';
 import { SalesOrderFulfillmentService } from './sales-order-fulfillment.service';
 import { SalesOrderPdfService } from './sales-order-pdf.service';
 import { SalesOrderDocumentsService } from './sales-order-documents.service';
+import { SalesOrderPosReceiptService } from './sales-order-pos-receipt.service';
 import { PosShiftsService } from '../../pos-shifts/pos-shifts.service';
 import { ProductDiscountService } from '../../products/product-discount.service';
 import { GlobalDiscountService } from '../../global-discounts/global-discount.service';
@@ -44,6 +45,7 @@ export declare class SalesOrderService {
     private readonly globalDiscountService;
     private readonly pdfService;
     private readonly documentsService;
+    private readonly posReceiptService;
     private readonly s3Service;
     private readonly posCollectionRepo;
     private readonly paymentRepo;
@@ -59,7 +61,7 @@ export declare class SalesOrderService {
     private static readonly DOC_TYPE_DOCUMENTO_ORIGINAL;
     private static readonly DOC_TYPE_NAME_ENTREGA;
     private static readonly DOC_TYPE_NAMES_ENTREGA;
-    constructor(soRepo: Repository<SalesOrder>, detailRepo: Repository<SalesOrderDetail>, allocationRepo: Repository<SalesOrderBatchAllocation>, folioService: SalesOrderFolioService, fulfillmentService: SalesOrderFulfillmentService, dataSource: DataSource, posShiftsService: PosShiftsService, productDiscountService: ProductDiscountService, globalDiscountService: GlobalDiscountService, pdfService: SalesOrderPdfService, documentsService: SalesOrderDocumentsService, s3Service: S3Service, posCollectionRepo: Repository<PosSaleCollection>, paymentRepo: Repository<SalesOrderPayment>, paymentDocumentRepo: Repository<SalesOrderPaymentDocument>, userRepo: Repository<User>, customerRepo: Repository<Customer>, billingBranchRepo: Repository<BillingBranch>, warehouseRepo: Repository<Warehouse>, electronicInvoiceService: ElectronicInvoiceService, controlDeskLifecycle: ControlDeskLifecycleService, warehouseControlService: WarehouseControlService);
+    constructor(soRepo: Repository<SalesOrder>, detailRepo: Repository<SalesOrderDetail>, allocationRepo: Repository<SalesOrderBatchAllocation>, folioService: SalesOrderFolioService, fulfillmentService: SalesOrderFulfillmentService, dataSource: DataSource, posShiftsService: PosShiftsService, productDiscountService: ProductDiscountService, globalDiscountService: GlobalDiscountService, pdfService: SalesOrderPdfService, documentsService: SalesOrderDocumentsService, posReceiptService: SalesOrderPosReceiptService, s3Service: S3Service, posCollectionRepo: Repository<PosSaleCollection>, paymentRepo: Repository<SalesOrderPayment>, paymentDocumentRepo: Repository<SalesOrderPaymentDocument>, userRepo: Repository<User>, customerRepo: Repository<Customer>, billingBranchRepo: Repository<BillingBranch>, warehouseRepo: Repository<Warehouse>, electronicInvoiceService: ElectronicInvoiceService, controlDeskLifecycle: ControlDeskLifecycleService, warehouseControlService: WarehouseControlService);
     private deleteDocumentsByType;
     private deleteDocumentsByTypeNames;
     private loadOrderForPdf;
@@ -71,6 +73,7 @@ export declare class SalesOrderService {
     private computeOrderTotal;
     create(dto: CreateSalesOrderDto, tenantId: string, userId: string, options?: {
         fromQuotation?: boolean;
+        quotedGlobalDiscountAmount?: number;
     }): Promise<SalesOrder>;
     replacePosCart(orderId: string, dto: {
         line_items: CreateSalesOrderLineItemDto[];

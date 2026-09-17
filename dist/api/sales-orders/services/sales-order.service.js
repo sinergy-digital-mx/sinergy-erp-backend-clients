@@ -33,10 +33,12 @@ const customer_entity_1 = require("../../../entities/customers/customer.entity")
 const s3_service_1 = require("../../../common/services/s3.service");
 const public_invoice_code_util_1 = require("../../../common/utils/public-invoice-code.util");
 const unit_amount_util_1 = require("../../../common/utils/unit-amount.util");
+const quoted_pricing_util_1 = require("../utils/quoted-pricing.util");
 const sales_order_folio_service_1 = require("./sales-order-folio.service");
 const sales_order_fulfillment_service_1 = require("./sales-order-fulfillment.service");
 const sales_order_pdf_service_1 = require("./sales-order-pdf.service");
 const sales_order_documents_service_1 = require("./sales-order-documents.service");
+const sales_order_pos_receipt_service_1 = require("./sales-order-pos-receipt.service");
 const pos_shifts_service_1 = require("../../pos-shifts/pos-shifts.service");
 const product_discount_service_1 = require("../../products/product-discount.service");
 const global_discount_service_1 = require("../../global-discounts/global-discount.service");
@@ -68,6 +70,7 @@ let SalesOrderService = class SalesOrderService {
     globalDiscountService;
     pdfService;
     documentsService;
+    posReceiptService;
     s3Service;
     posCollectionRepo;
     paymentRepo;
@@ -83,7 +86,7 @@ let SalesOrderService = class SalesOrderService {
     static DOC_TYPE_DOCUMENTO_ORIGINAL = 1;
     static DOC_TYPE_NAME_ENTREGA = 'ENTREGA';
     static DOC_TYPE_NAMES_ENTREGA = ['ENTREGA', 'RECIBO'];
-    constructor(soRepo, detailRepo, allocationRepo, folioService, fulfillmentService, dataSource, posShiftsService, productDiscountService, globalDiscountService, pdfService, documentsService, s3Service, posCollectionRepo, paymentRepo, paymentDocumentRepo, userRepo, customerRepo, billingBranchRepo, warehouseRepo, electronicInvoiceService, controlDeskLifecycle, warehouseControlService) {
+    constructor(soRepo, detailRepo, allocationRepo, folioService, fulfillmentService, dataSource, posShiftsService, productDiscountService, globalDiscountService, pdfService, documentsService, posReceiptService, s3Service, posCollectionRepo, paymentRepo, paymentDocumentRepo, userRepo, customerRepo, billingBranchRepo, warehouseRepo, electronicInvoiceService, controlDeskLifecycle, warehouseControlService) {
         this.soRepo = soRepo;
         this.detailRepo = detailRepo;
         this.allocationRepo = allocationRepo;
@@ -95,6 +98,7 @@ let SalesOrderService = class SalesOrderService {
         this.globalDiscountService = globalDiscountService;
         this.pdfService = pdfService;
         this.documentsService = documentsService;
+        this.posReceiptService = posReceiptService;
         this.s3Service = s3Service;
         this.posCollectionRepo = posCollectionRepo;
         this.paymentRepo = paymentRepo;
@@ -296,8 +300,10 @@ let SalesOrderService = class SalesOrderService {
             let subtotal = 0, iva_total = 0, ieps_total = 0, discount_total = 0;
             for (const item of dto.line_items) {
                 const productUomRow = await this.resolveProductUom(qr, item.product_id, item.product_uom_id);
-                const discountAmounts = await this.resolveLineDiscountAmounts(tenantId, item, productUomRow.id);
-                const line_subtotal = Number(item.quantity) * Number(item.unit_price);
+                const discountAmounts = fromQuotation
+                    ? (0, quoted_pricing_util_1.quotedLineDiscountAmounts)(item)
+                    : await this.resolveLineDiscountAmounts(tenantId, item, productUomRow.id);
+                const line_subtotal = Number(item.quantity) * (0, quoted_pricing_util_1.quotedUnitPrice)(item.unit_price);
                 const line_discount = discountAmounts.line_discount;
                 const taxable_subtotal = Math.max(line_subtotal - line_discount, 0);
                 const iva_pct = Number(item.iva_percentage || 0);
@@ -321,7 +327,7 @@ let SalesOrderService = class SalesOrderService {
                     quantity: item.quantity,
                     quantity_base_uom: qty_base,
                     base_uom_id: baseUomRow.uom_catalog_id,
-                    unit_price: (0, unit_amount_util_1.roundUnitAmount)(item.unit_price),
+                    unit_price: (0, quoted_pricing_util_1.quotedUnitPrice)(item.unit_price),
                     discount_percentage: discountAmounts.discount_percentage,
                     discount_unit: discountAmounts.discount_unit,
                     product_discount_id: discountAmounts.product_discount_id,
@@ -340,7 +346,12 @@ let SalesOrderService = class SalesOrderService {
             }
             savedSO.subtotal = subtotal;
             savedSO.discount_total = discount_total;
-            const globalDiscountAmounts = await this.resolveGlobalDiscountAmounts(tenantId, dto.global_discount_id, subtotal - discount_total);
+            const globalDiscountAmounts = fromQuotation
+                ? {
+                    global_discount_id: dto.global_discount_id ?? null,
+                    global_discount_amount: (0, quoted_pricing_util_1.quotedGlobalDiscountAmount)(options?.quotedGlobalDiscountAmount),
+                }
+                : await this.resolveGlobalDiscountAmounts(tenantId, dto.global_discount_id, subtotal - discount_total);
             savedSO.global_discount_id = globalDiscountAmounts.global_discount_id;
             savedSO.global_discount_amount = globalDiscountAmounts.global_discount_amount;
             savedSO.iva_total = iva_total;
@@ -967,6 +978,12 @@ let SalesOrderService = class SalesOrderService {
         so.notes = dto.notes?.trim() ? dto.notes.trim() : null;
         so.updated_by = userId;
         await this.soRepo.save(so);
+        this.regenerateDocumentoOriginalPreservingLanguage(id, tenantId, userId).catch((err) => {
+            this.logger.error('[PDF] Error regenerando PDF tras actualizar observaciones:', err);
+        });
+        this.posReceiptService.refreshTicketIfExists(tenantId, id, userId).catch((err) => {
+            this.logger.warn(`No se pudo refrescar el ticket tras actualizar observaciones: ${err}`);
+        });
         return this.findOne(id, tenantId);
     }
     async updateSeller(id, sellerUserId, tenantId, userId) {
@@ -1600,13 +1617,13 @@ exports.SalesOrderService = SalesOrderService = SalesOrderService_1 = __decorate
     __param(1, (0, typeorm_1.InjectRepository)(sales_order_detail_entity_1.SalesOrderDetail)),
     __param(2, (0, typeorm_1.InjectRepository)(sales_order_batch_allocation_entity_1.SalesOrderBatchAllocation)),
     __param(6, (0, common_1.Inject)((0, common_1.forwardRef)(() => pos_shifts_service_1.PosShiftsService))),
-    __param(12, (0, typeorm_1.InjectRepository)(pos_sale_collection_entity_1.PosSaleCollection)),
-    __param(13, (0, typeorm_1.InjectRepository)(sales_order_payment_entity_1.SalesOrderPayment)),
-    __param(14, (0, typeorm_1.InjectRepository)(sales_order_payment_document_entity_1.SalesOrderPaymentDocument)),
-    __param(15, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
-    __param(16, (0, typeorm_1.InjectRepository)(customer_entity_1.Customer)),
-    __param(17, (0, typeorm_1.InjectRepository)(billing_branch_entity_1.BillingBranch)),
-    __param(18, (0, typeorm_1.InjectRepository)(warehouse_entity_1.Warehouse)),
+    __param(13, (0, typeorm_1.InjectRepository)(pos_sale_collection_entity_1.PosSaleCollection)),
+    __param(14, (0, typeorm_1.InjectRepository)(sales_order_payment_entity_1.SalesOrderPayment)),
+    __param(15, (0, typeorm_1.InjectRepository)(sales_order_payment_document_entity_1.SalesOrderPaymentDocument)),
+    __param(16, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
+    __param(17, (0, typeorm_1.InjectRepository)(customer_entity_1.Customer)),
+    __param(18, (0, typeorm_1.InjectRepository)(billing_branch_entity_1.BillingBranch)),
+    __param(19, (0, typeorm_1.InjectRepository)(warehouse_entity_1.Warehouse)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
@@ -1618,6 +1635,7 @@ exports.SalesOrderService = SalesOrderService = SalesOrderService_1 = __decorate
         global_discount_service_1.GlobalDiscountService,
         sales_order_pdf_service_1.SalesOrderPdfService,
         sales_order_documents_service_1.SalesOrderDocumentsService,
+        sales_order_pos_receipt_service_1.SalesOrderPosReceiptService,
         s3_service_1.S3Service,
         typeorm_2.Repository,
         typeorm_2.Repository,

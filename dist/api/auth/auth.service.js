@@ -132,6 +132,7 @@ let AuthService = AuthService_1 = class AuthService {
             permissions: permissionsForJwt,
             permissions_version: user.permissions_version,
             hasAdminRole: userRoles.some(role => role.name === 'Admin'),
+            is_crm_admin: Boolean(user.is_crm_admin),
             permissionCount: userPermissions.length,
             iat: Math.floor(Date.now() / 1000),
         };
@@ -179,6 +180,7 @@ let AuthService = AuthService_1 = class AuthService {
             permissions: permissionsForJwt,
             permissions_version: user.permissions_version,
             hasAdminRole: userRoles.some(role => role.name === 'Admin'),
+            is_crm_admin: Boolean(user.is_crm_admin),
             permissionCount: userPermissions.length,
             iat: Math.floor(Date.now() / 1000),
         };
@@ -262,6 +264,7 @@ let AuthService = AuthService_1 = class AuthService {
             fiscal_configuration_id: user.billing_branch?.fiscal_configuration_id ?? null,
             is_employee: Boolean(user.is_employee),
             is_manager: Boolean(user.is_manager),
+            is_crm_admin: Boolean(user.is_crm_admin),
         };
     }
     async refresh(userId, tenantId) {

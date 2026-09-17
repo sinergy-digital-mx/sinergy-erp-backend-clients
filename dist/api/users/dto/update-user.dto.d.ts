@@ -16,6 +16,7 @@ export declare class UpdateUserDto {
     pos_user_type?: PosUserType;
     is_employee?: boolean;
     is_manager?: boolean;
+    is_crm_admin?: boolean;
     employee?: EmployeeProfileDto;
     warehouse_ids?: string[];
 }

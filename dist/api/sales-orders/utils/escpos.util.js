@@ -12,6 +12,7 @@ exports.labelValueLine = labelValueLine;
 exports.leftLabelLines = leftLabelLines;
 exports.twoColumnLine = twoColumnLine;
 exports.wrapLines = wrapLines;
+exports.observationTicketLines = observationTicketLines;
 exports.productLine = productLine;
 const ESC = 0x1b;
 const GS = 0x1d;
@@ -163,6 +164,16 @@ function wrapLines(text, width = exports.ESCPOS_CHARS_PER_LINE) {
     }
     if (current)
         lines.push(current);
+    return lines;
+}
+function observationTicketLines(notes, width = exports.ESCPOS_CHARS_PER_LINE) {
+    const text = notes?.replace(/\s+/g, ' ').trim();
+    if (!text)
+        return [];
+    const lines = ['OBSERVACIONES'];
+    for (const part of wrapLines(text, width)) {
+        lines.push(part);
+    }
     return lines;
 }
 function productLine(description, quantity, unitPrice, lineTotal, width = exports.ESCPOS_CHARS_PER_LINE) {

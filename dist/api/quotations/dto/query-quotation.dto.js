@@ -28,6 +28,7 @@ class QueryQuotationDto {
     fiscal_configuration_id;
     billing_branch_id;
     customer_id;
+    assigned_seller_user_id;
     created_from;
     created_to;
     page = 1;
@@ -67,6 +68,11 @@ __decorate([
     (0, class_validator_1.IsNumber)(),
     __metadata("design:type", Number)
 ], QueryQuotationDto.prototype, "customer_id", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], QueryQuotationDto.prototype, "assigned_seller_user_id", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsDateString)(),

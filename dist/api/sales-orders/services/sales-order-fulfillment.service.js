@@ -158,7 +158,10 @@ let SalesOrderFulfillmentService = SalesOrderFulfillmentService_1 = class SalesO
                 createdBy: alloc.created_by ?? null,
             }, manager);
         }
-        await manager.remove(sales_order_batch_allocation_entity_1.SalesOrderBatchAllocation, allocations);
+        const allocationIds = allocations.map((alloc) => alloc.id).filter(Boolean);
+        if (allocationIds.length) {
+            await manager.delete(sales_order_batch_allocation_entity_1.SalesOrderBatchAllocation, allocationIds);
+        }
     }
     buildInsufficientStockMessage(product, needed, available) {
         const label = this.formatProductLabel(product);

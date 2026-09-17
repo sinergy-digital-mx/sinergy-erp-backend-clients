@@ -39,6 +39,8 @@ const quotation_discount_mapper_1 = require("../mappers/quotation-discount.mappe
 const document_language_enum_1 = require("../../../common/enums/document-language.enum");
 const pos_sale_collection_mapper_1 = require("../../pos-shifts/mappers/pos-sale-collection.mapper");
 const sales_order_service_1 = require("../../sales-orders/services/sales-order.service");
+const quoted_pricing_util_1 = require("../../sales-orders/utils/quoted-pricing.util");
+const quotation_seller_scope_util_1 = require("../utils/quotation-seller-scope.util");
 let QuotationService = class QuotationService {
     static { QuotationService_1 = this; }
     quotationRepo;
@@ -128,8 +130,8 @@ let QuotationService = class QuotationService {
             await qr.release();
         }
     }
-    async replace(id, dto, tenantId, userId) {
-        const existing = await this.findOne(id, tenantId);
+    async replace(id, dto, tenantId, userId, access) {
+        const existing = await this.findOne(id, tenantId, access);
         if (existing.general_status !== 'Creada') {
             throw new common_1.BadRequestException(`No se puede editar una cotización con estado: ${existing.general_status}`);
         }
@@ -181,8 +183,8 @@ let QuotationService = class QuotationService {
             await qr.release();
         }
     }
-    async findAll(tenantId, filters) {
-        const { search, general_status, quotation_type, fiscal_configuration_id, billing_branch_id, customer_id, created_from, created_to, page = 1, limit = 20, sort_by = 'created_at', sort_order = 'DESC', } = filters;
+    async findAll(tenantId, userId, isAdmin, filters) {
+        const { search, general_status, quotation_type, fiscal_configuration_id, billing_branch_id, customer_id, assigned_seller_user_id, created_from, created_to, page = 1, limit = 20, sort_by = 'created_at', sort_order = 'DESC', } = filters;
         const qb = this.quotationRepo
             .createQueryBuilder('qt')
             .leftJoinAndSelect('qt.customer', 'customer')
@@ -190,7 +192,12 @@ let QuotationService = class QuotationService {
             .leftJoinAndSelect('qt.billing_branch', 'billing_branch')
             .leftJoinAndSelect('qt.warehouse', 'warehouse')
             .leftJoinAndSelect('qt.seller_user', 'seller_user')
+            .leftJoinAndSelect('qt.assigned_seller_user', 'assigned_seller_user')
             .where('qt.tenant_id = :tenantId', { tenantId });
+        const scopeUserId = (0, quotation_seller_scope_util_1.resolveQuotationSellerScopeUserId)(isAdmin, userId, assigned_seller_user_id);
+        if (scopeUserId) {
+            qb.andWhere('(qt.seller_user_id = :scopeUserId OR qt.assigned_seller_user_id = :scopeUserId)', { scopeUserId });
+        }
         if (search) {
             qb.andWhere('(qt.folio LIKE :s OR customer.name LIKE :s OR customer.lastname LIKE :s OR CONCAT(customer.name, \' \', COALESCE(customer.lastname, \'\')) LIKE :s)', { s: `%${search}%` });
         }
@@ -245,9 +252,30 @@ let QuotationService = class QuotationService {
             page,
             limit,
             totalPages: Math.ceil(total / limit),
+            is_admin: isAdmin,
         };
     }
-    async findOne(id, tenantId) {
+    async listSellers(tenantId, isAdmin) {
+        if (!isAdmin) {
+            return { is_admin: false, sellers: [] };
+        }
+        const sellers = await this.userRepo.find({
+            where: { tenant_id: tenantId, pos_user_code: (0, typeorm_2.Not)((0, typeorm_2.IsNull)()) },
+            select: ['id', 'first_name', 'last_name', 'email', 'pos_user_code'],
+            order: { first_name: 'ASC', last_name: 'ASC' },
+        });
+        return {
+            is_admin: true,
+            sellers: sellers.map((user) => ({
+                id: user.id,
+                first_name: user.first_name,
+                last_name: user.last_name,
+                email: user.email,
+                pos_user_code: user.pos_user_code,
+            })),
+        };
+    }
+    async findOne(id, tenantId, access) {
         const quotation = await this.quotationRepo.findOne({
             where: { id, tenant_id: tenantId },
             relations: [
@@ -272,10 +300,11 @@ let QuotationService = class QuotationService {
         if (!quotation) {
             throw new common_1.NotFoundException(`Cotización no encontrada: ${id}`);
         }
+        (0, quotation_seller_scope_util_1.assertQuotationSellerAccess)(quotation, access);
         return quotation;
     }
-    async findOneDetail(id, tenantId) {
-        const quotation = await this.findOne(id, tenantId);
+    async findOneDetail(id, tenantId, access) {
+        const quotation = await this.findOne(id, tenantId, access);
         const customerSummary = (0, pos_sale_collection_mapper_1.mapPosCustomer)(quotation.customer);
         const appliedLineDiscounts = (0, quotation_discount_mapper_1.mapAppliedLineDiscountsFromQuotation)(quotation);
         const discountSummary = (0, quotation_discount_mapper_1.mapOrderDiscountSummary)(quotation);
@@ -292,6 +321,7 @@ let QuotationService = class QuotationService {
             can_convert: quotation.general_status === 'Creada',
             can_cancel: quotation.general_status === 'Creada',
             can_edit: quotation.general_status === 'Creada',
+            can_edit_notes: quotation.general_status !== 'Cancelada',
             can_send: quotation.general_status !== 'Cancelada',
             customer_email: quotation.customer?.email?.trim() ||
                 quotation.customer?.additional_email?.trim() ||
@@ -306,18 +336,29 @@ let QuotationService = class QuotationService {
             applied_global_discount: discountSummary.global_discount,
         };
     }
-    async updateNotes(id, dto, tenantId, userId) {
-        const quotation = await this.findOne(id, tenantId);
+    async updateNotes(id, dto, tenantId, userId, access) {
+        const quotation = await this.findOne(id, tenantId, access);
         if (quotation.general_status === 'Cancelada') {
             throw new common_1.BadRequestException('No se pueden editar las notas de una cotización cancelada');
         }
-        quotation.notes = dto.notes === undefined ? quotation.notes : dto.notes;
+        quotation.notes =
+            dto.notes === undefined
+                ? quotation.notes
+                : dto.notes?.trim()
+                    ? dto.notes.trim()
+                    : null;
         quotation.updated_by = userId;
         await this.quotationRepo.save(quotation);
-        return this.findOneDetail(id, tenantId);
+        try {
+            await this.regenerateDocumentoOriginalPreservingLanguage(id, tenantId, userId);
+        }
+        catch (err) {
+            this.logger.error('[PDF] Error regenerando PDF tras actualizar observaciones:', err);
+        }
+        return this.findOneDetail(id, tenantId, access);
     }
-    async cancel(id, tenantId, userId) {
-        const quotation = await this.findOne(id, tenantId);
+    async cancel(id, tenantId, userId, access) {
+        const quotation = await this.findOne(id, tenantId, access);
         if (quotation.general_status === 'Cancelada') {
             throw new common_1.BadRequestException('La cotización ya está cancelada');
         }
@@ -327,10 +368,10 @@ let QuotationService = class QuotationService {
         quotation.general_status = 'Cancelada';
         quotation.updated_by = userId;
         await this.quotationRepo.save(quotation);
-        return this.findOne(id, tenantId);
+        return this.findOne(id, tenantId, access);
     }
-    async convert(id, dto, tenantId, userId) {
-        const quotation = await this.findOne(id, tenantId);
+    async convert(id, dto, tenantId, userId, access) {
+        const quotation = await this.findOne(id, tenantId, access);
         if (quotation.general_status !== 'Creada') {
             throw new common_1.BadRequestException(`Solo se puede convertir una cotización en estado Creada (actual: ${quotation.general_status})`);
         }
@@ -363,21 +404,25 @@ let QuotationService = class QuotationService {
                 product_id: line.product_id,
                 product_uom_id: line.product_uom_id,
                 quantity: Number(line.quantity),
-                unit_price: Number(line.unit_price),
+                unit_price: (0, quoted_pricing_util_1.quotedUnitPrice)(line.unit_price),
                 discount_percentage: Number(line.discount_percentage || 0),
+                discount_unit: Number(line.discount_unit || 0),
                 product_discount_id: line.product_discount_id ?? undefined,
                 iva_percentage: Number(line.iva_percentage || 0),
                 ieps_percentage: Number(line.ieps_percentage || 0),
             })),
         };
-        const salesOrder = await this.salesOrderService.create(createDto, tenantId, userId, { fromQuotation: true });
+        const salesOrder = await this.salesOrderService.create(createDto, tenantId, userId, {
+            fromQuotation: true,
+            quotedGlobalDiscountAmount: Number(quotation.global_discount_amount || 0),
+        });
         await this.salesOrderService.linkConvertedFromQuotation(salesOrder.id, quotation.id, tenantId);
         quotation.general_status = 'Convertida';
         quotation.converted_to_sales_order_id = salesOrder.id;
         quotation.updated_by = userId;
         await this.quotationRepo.save(quotation);
         return {
-            quotation: await this.findOneDetail(id, tenantId),
+            quotation: await this.findOneDetail(id, tenantId, access),
             sales_order: {
                 id: salesOrder.id,
                 folio: salesOrder.folio,
@@ -389,8 +434,8 @@ let QuotationService = class QuotationService {
             },
         };
     }
-    async regenerateDocumentoOriginal(id, tenantId, userId, language, keepPrevious = false) {
-        await this.findOne(id, tenantId);
+    async regenerateDocumentoOriginal(id, tenantId, userId, language, keepPrevious = false, access) {
+        await this.findOne(id, tenantId, access);
         if (!keepPrevious) {
             await this.documentsService.deleteDocumentsByType(id, QuotationService_1.DOC_TYPE_DOCUMENTO_ORIGINAL);
         }
@@ -639,9 +684,12 @@ let QuotationService = class QuotationService {
     mapLocation(qt) {
         const branch = qt.billing_branch ?? qt.warehouse?.billing_branch ?? null;
         const fiscal = qt.fiscal_configuration ?? null;
-        const { warehouse: _warehouse, ...rest } = qt;
+        const { warehouse: _warehouse, seller_user, assigned_seller_user, terminal_user, creator: _creator, ...rest } = qt;
         return {
             ...rest,
+            seller_user: (0, pos_sale_collection_mapper_1.mapPosUser)(seller_user),
+            assigned_seller_user: (0, pos_sale_collection_mapper_1.mapPosUser)(assigned_seller_user),
+            terminal_user: (0, pos_sale_collection_mapper_1.mapPosUser)(terminal_user),
             razon_social: fiscal?.razon_social ?? qt.fiscal_razon_social ?? null,
             sucursal: branch?.code ?? null,
             fiscal_configuration: fiscal

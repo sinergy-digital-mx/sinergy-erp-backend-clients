@@ -88,7 +88,11 @@ let SalesOrderPdfService = class SalesOrderPdfService {
     }
     async buildDocument(salesOrder, language, kind, options) {
         const printer = new pdfmake_1.default(this.fonts);
-        const labels = (0, sales_order_pdf_labels_1.getSalesOrderPdfLabels)(language);
+        const labels = {
+            ...(0, sales_order_pdf_labels_1.getSalesOrderPdfLabels)(language),
+            ...(options?.notesPrefix ? { notesPrefix: options.notesPrefix } : {}),
+            ...(options?.notesEmpty ? { notesEmpty: options.notesEmpty } : {}),
+        };
         const logoImage = await this.getFiscalLogoImage(salesOrder);
         const subtitle = options?.subtitle ??
             (kind === 'original' ? labels.originalDocumentTitle : labels.deliveryDocumentTitle);

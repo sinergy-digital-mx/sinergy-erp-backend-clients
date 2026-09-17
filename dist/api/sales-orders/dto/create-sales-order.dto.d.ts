@@ -4,6 +4,7 @@ export declare class CreateSalesOrderLineItemDto {
     quantity: number;
     unit_price: number;
     discount_percentage?: number;
+    discount_unit?: number;
     product_discount_id?: string;
     iva_percentage?: number;
     ieps_percentage?: number;

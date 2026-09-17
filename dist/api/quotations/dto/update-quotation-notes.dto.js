@@ -20,7 +20,7 @@ __decorate([
     (0, swagger_1.ApiProperty)({
         required: false,
         nullable: true,
-        description: 'Notas de la cotización. Enviar null o cadena vacía para borrar.',
+        description: 'Observaciones de la cotización. Salen en el PDF. Enviar null o cadena vacía para borrar.',
     }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),

@@ -5,6 +5,7 @@ export declare class QueryQuotationDto {
     fiscal_configuration_id?: string;
     billing_branch_id?: string;
     customer_id?: number;
+    assigned_seller_user_id?: string;
     created_from?: string;
     created_to?: string;
     page?: number;

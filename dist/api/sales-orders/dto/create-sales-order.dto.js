@@ -19,6 +19,7 @@ class CreateSalesOrderLineItemDto {
     quantity;
     unit_price;
     discount_percentage = 0;
+    discount_unit;
     product_discount_id;
     iva_percentage = 0;
     ieps_percentage = 0;
@@ -52,6 +53,16 @@ __decorate([
     (0, class_validator_1.Min)(0),
     __metadata("design:type", Number)
 ], CreateSalesOrderLineItemDto.prototype, "discount_percentage", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        description: 'Descuento unitario ya pactado (p. ej. al convertir cotización). No se recalcula con el catálogo.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], CreateSalesOrderLineItemDto.prototype, "discount_unit", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
         required: false,

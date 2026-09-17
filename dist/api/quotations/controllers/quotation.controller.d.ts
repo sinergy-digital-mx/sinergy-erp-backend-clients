@@ -93,6 +93,7 @@ export declare class QuotationController {
             can_convert: boolean;
             can_cancel: boolean;
             can_edit: boolean;
+            can_edit_notes: boolean;
             can_send: boolean;
             customer_email: string | null;
             converted_to_sales_order_id: string | null;
@@ -134,7 +135,6 @@ export declare class QuotationController {
             global_discount_id: string | null;
             global_discount_amount: number;
             total: number;
-            creator: import("../../../entities/users/user.entity").User;
             created_by: string;
             terminal_user_id: string | null;
             seller_user_id: string | null;
@@ -226,6 +226,27 @@ export declare class QuotationController {
     }>;
     findAll(query: QueryQuotationDto, req: any): Promise<{
         data: {
+            seller_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+                pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+            } | null;
+            assigned_seller_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+                pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+            } | null;
+            terminal_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+                pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+            } | null;
             razon_social: string;
             sucursal: string | null;
             fiscal_configuration: {
@@ -264,13 +285,9 @@ export declare class QuotationController {
             global_discount_id: string | null;
             global_discount_amount: number;
             total: number;
-            creator: import("../../../entities/users/user.entity").User;
             created_by: string;
-            terminal_user: import("../../../entities/users/user.entity").User | null;
             terminal_user_id: string | null;
-            seller_user: import("../../../entities/users/user.entity").User | null;
             seller_user_id: string | null;
-            assigned_seller_user: import("../../../entities/users/user.entity").User | null;
             assigned_seller_user_id: string | null;
             converted_to_sales_order_id: string | null;
             created_at: Date;
@@ -282,8 +299,19 @@ export declare class QuotationController {
         page: number;
         limit: number;
         totalPages: number;
+        is_admin: boolean;
     }>;
     getProductsSummary(query: QueryQuotationProductsSummaryDto, req: any): Promise<import("../../inventory/dto/pos-session-inventory-summary-response.dto").PosSessionInventorySummaryResponseDto>;
+    listSellers(req: any): Promise<{
+        is_admin: boolean;
+        sellers: {
+            id: string;
+            first_name: string;
+            last_name: string;
+            email: string | null;
+            pos_user_code: number | null;
+        }[];
+    }>;
     findOne(id: string, req: any): Promise<{
         data: {
             header: {
@@ -366,6 +394,7 @@ export declare class QuotationController {
                 can_convert: boolean;
                 can_cancel: boolean;
                 can_edit: boolean;
+                can_edit_notes: boolean;
                 can_send: boolean;
                 customer_email: string | null;
                 converted_to_sales_order_id: string | null;
@@ -407,7 +436,6 @@ export declare class QuotationController {
                 global_discount_id: string | null;
                 global_discount_amount: number;
                 total: number;
-                creator: import("../../../entities/users/user.entity").User;
                 created_by: string;
                 terminal_user_id: string | null;
                 seller_user_id: string | null;
@@ -563,6 +591,7 @@ export declare class QuotationController {
                 can_convert: boolean;
                 can_cancel: boolean;
                 can_edit: boolean;
+                can_edit_notes: boolean;
                 can_send: boolean;
                 customer_email: string | null;
                 converted_to_sales_order_id: string | null;
@@ -604,7 +633,6 @@ export declare class QuotationController {
                 global_discount_id: string | null;
                 global_discount_amount: number;
                 total: number;
-                creator: import("../../../entities/users/user.entity").User;
                 created_by: string;
                 terminal_user_id: string | null;
                 seller_user_id: string | null;
@@ -727,4 +755,5 @@ export declare class QuotationController {
     }>;
     cancel(id: string, req: any): Promise<import("../../../entities/quotations").Quotation>;
     remove(id: string, req: any): Promise<import("../../../entities/quotations").Quotation>;
+    private sellerAccess;
 }

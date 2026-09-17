@@ -35,8 +35,8 @@ let QuotationEmailService = class QuotationEmailService {
         this.pdfService = pdfService;
         this.mailerConfigurationService = mailerConfigurationService;
     }
-    async list(quotationId, tenantId) {
-        await this.quotationService.findOne(quotationId, tenantId);
+    async list(quotationId, tenantId, access) {
+        await this.quotationService.findOne(quotationId, tenantId, access);
         const rows = await this.emailRepo.find({
             where: { quotation_id: quotationId, tenant_id: tenantId },
             relations: ['sender'],
@@ -44,8 +44,8 @@ let QuotationEmailService = class QuotationEmailService {
         });
         return rows.map((row) => this.mapRow(row));
     }
-    async send(quotationId, dto, tenantId, userId) {
-        const quotation = await this.quotationService.findOne(quotationId, tenantId);
+    async send(quotationId, dto, tenantId, userId, access) {
+        const quotation = await this.quotationService.findOne(quotationId, tenantId, access);
         if (quotation.general_status === 'Cancelada') {
             throw new common_1.BadRequestException('No se puede enviar una cotización cancelada');
         }

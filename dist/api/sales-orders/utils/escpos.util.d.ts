@@ -29,4 +29,5 @@ export declare function labelValueLine(label: string, value: string, width?: num
 export declare function leftLabelLines(label: string, value: string, width?: number): string[];
 export declare function twoColumnLine(left: string, right: string, width?: number): string;
 export declare function wrapLines(text: string, width?: number): string[];
+export declare function observationTicketLines(notes: string | null | undefined, width?: number): string[];
 export declare function productLine(description: string, quantity: string, unitPrice: string, lineTotal: string, width?: number): string;

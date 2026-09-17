@@ -45,6 +45,7 @@ export declare class SalesOrderPosReceiptService {
     getPosTicket(tenantId: string, salesOrderId: string): Promise<PosReceiptResult>;
     reprintPosTicket(tenantId: string, salesOrderId: string): Promise<PosReceiptResult>;
     regeneratePosTicket(tenantId: string, salesOrderId: string, uploadedBy: string): Promise<PosReceiptResult>;
+    refreshTicketIfExists(tenantId: string, salesOrderId: string, uploadedBy: string): Promise<void>;
     private buildReceiptResult;
     private buildReceiptResultFromDocument;
     private findExistingTicket;

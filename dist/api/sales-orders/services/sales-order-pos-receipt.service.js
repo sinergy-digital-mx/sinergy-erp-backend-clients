@@ -109,6 +109,13 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
         this.logger.warn(`[TEMP] Regenerando ticket POS ${salesOrderId} por usuario ${uploadedBy}`);
         return this.generateAndSavePosTicket(tenantId, salesOrderId, uploadedBy);
     }
+    async refreshTicketIfExists(tenantId, salesOrderId, uploadedBy) {
+        const ticketDoc = await this.findExistingTicket(salesOrderId);
+        if (!ticketDoc) {
+            return;
+        }
+        await this.generateAndSavePosTicket(tenantId, salesOrderId, uploadedBy);
+    }
     buildReceiptResult(escposBuffer, plainText, documentId, fileName, downloadUrl, publicInvoiceCode = null, selfInvoiceUrl = null) {
         const escposHex = (0, escpos_util_1.bufferToEscPosHex)(escposBuffer);
         return {
@@ -285,6 +292,13 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
         this.pushFooterLines(lines, 'Cajero(a):', this.formatUserName(collection.collected_by_user));
         this.pushFooterLines(lines, 'Lo atendio:', this.formatUserName(order.seller_user));
         this.pushFooterLines(lines, 'Cliente:', this.formatCustomerName(order));
+        const observationLines = (0, escpos_util_1.observationTicketLines)(order.notes);
+        if (observationLines.length) {
+            lines.push('');
+            for (const observationLine of observationLines) {
+                lines.push(`!N!${observationLine}`);
+            }
+        }
         lines.push('');
         lines.push('!CB!GRACIAS POR SU PREFERENCIA !!!');
         lines.push('!CB!REVISE SU CAMBIO Y SU MERCANCIA');

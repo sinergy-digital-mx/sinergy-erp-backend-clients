@@ -31,6 +31,7 @@ class UpdateUserDto {
     pos_user_type;
     is_employee;
     is_manager;
+    is_crm_admin;
     employee;
     warehouse_ids;
 }
@@ -155,6 +156,15 @@ __decorate([
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], UpdateUserDto.prototype, "is_manager", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        description: 'Administrador del portal CRM: ve actividades de todos los usuarios',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateUserDto.prototype, "is_crm_admin", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
         required: false,

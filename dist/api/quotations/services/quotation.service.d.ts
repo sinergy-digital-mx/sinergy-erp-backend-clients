@@ -17,6 +17,7 @@ import { ProductDiscountService } from '../../products/product-discount.service'
 import { GlobalDiscountService } from '../../global-discounts/global-discount.service';
 import { DocumentLanguage } from '../../../common/enums/document-language.enum';
 import { SalesOrderService } from '../../sales-orders/services/sales-order.service';
+import { QuotationSellerAccess } from '../utils/quotation-seller-scope.util';
 export declare class QuotationService {
     private readonly quotationRepo;
     private readonly userRepo;
@@ -35,9 +36,30 @@ export declare class QuotationService {
     private static readonly DOC_TYPE_DOCUMENTO_ORIGINAL;
     constructor(quotationRepo: Repository<Quotation>, userRepo: Repository<User>, customerRepo: Repository<Customer>, billingBranchRepo: Repository<BillingBranch>, warehouseRepo: Repository<Warehouse>, folioService: QuotationFolioService, dataSource: DataSource, posShiftsService: PosShiftsService, productDiscountService: ProductDiscountService, globalDiscountService: GlobalDiscountService, pdfService: QuotationPdfService, documentsService: QuotationDocumentsService, salesOrderService: SalesOrderService);
     create(dto: CreateQuotationDto, tenantId: string, userId: string): Promise<Quotation>;
-    replace(id: string, dto: CreateQuotationDto, tenantId: string, userId: string): Promise<Quotation>;
-    findAll(tenantId: string, filters: QueryQuotationDto): Promise<{
+    replace(id: string, dto: CreateQuotationDto, tenantId: string, userId: string, access?: QuotationSellerAccess): Promise<Quotation>;
+    findAll(tenantId: string, userId: string, isAdmin: boolean, filters: QueryQuotationDto): Promise<{
         data: {
+            seller_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+                pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+            } | null;
+            assigned_seller_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+                pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+            } | null;
+            terminal_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+                pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+            } | null;
             razon_social: string;
             sucursal: string | null;
             fiscal_configuration: {
@@ -76,13 +98,9 @@ export declare class QuotationService {
             global_discount_id: string | null;
             global_discount_amount: number;
             total: number;
-            creator: User;
             created_by: string;
-            terminal_user: User | null;
             terminal_user_id: string | null;
-            seller_user: User | null;
             seller_user_id: string | null;
-            assigned_seller_user: User | null;
             assigned_seller_user_id: string | null;
             converted_to_sales_order_id: string | null;
             created_at: Date;
@@ -94,9 +112,20 @@ export declare class QuotationService {
         page: number;
         limit: number;
         totalPages: number;
+        is_admin: boolean;
     }>;
-    findOne(id: string, tenantId: string): Promise<Quotation>;
-    findOneDetail(id: string, tenantId: string): Promise<{
+    listSellers(tenantId: string, isAdmin: boolean): Promise<{
+        is_admin: boolean;
+        sellers: {
+            id: string;
+            first_name: string;
+            last_name: string;
+            email: string | null;
+            pos_user_code: number | null;
+        }[];
+    }>;
+    findOne(id: string, tenantId: string, access?: QuotationSellerAccess): Promise<Quotation>;
+    findOneDetail(id: string, tenantId: string, access?: QuotationSellerAccess): Promise<{
         header: {
             customer_display_name: string | null;
             customer_summary: {
@@ -177,6 +206,7 @@ export declare class QuotationService {
             can_convert: boolean;
             can_cancel: boolean;
             can_edit: boolean;
+            can_edit_notes: boolean;
             can_send: boolean;
             customer_email: string | null;
             converted_to_sales_order_id: string | null;
@@ -218,7 +248,6 @@ export declare class QuotationService {
             global_discount_id: string | null;
             global_discount_amount: number;
             total: number;
-            creator: User;
             created_by: string;
             terminal_user_id: string | null;
             seller_user_id: string | null;
@@ -308,7 +337,7 @@ export declare class QuotationService {
             discount_amount: number;
         } | null;
     }>;
-    updateNotes(id: string, dto: UpdateQuotationNotesDto, tenantId: string, userId: string): Promise<{
+    updateNotes(id: string, dto: UpdateQuotationNotesDto, tenantId: string, userId: string, access?: QuotationSellerAccess): Promise<{
         header: {
             customer_display_name: string | null;
             customer_summary: {
@@ -389,6 +418,7 @@ export declare class QuotationService {
             can_convert: boolean;
             can_cancel: boolean;
             can_edit: boolean;
+            can_edit_notes: boolean;
             can_send: boolean;
             customer_email: string | null;
             converted_to_sales_order_id: string | null;
@@ -430,7 +460,6 @@ export declare class QuotationService {
             global_discount_id: string | null;
             global_discount_amount: number;
             total: number;
-            creator: User;
             created_by: string;
             terminal_user_id: string | null;
             seller_user_id: string | null;
@@ -520,8 +549,8 @@ export declare class QuotationService {
             discount_amount: number;
         } | null;
     }>;
-    cancel(id: string, tenantId: string, userId: string): Promise<Quotation>;
-    convert(id: string, dto: ConvertQuotationDto, tenantId: string, userId: string): Promise<{
+    cancel(id: string, tenantId: string, userId: string, access?: QuotationSellerAccess): Promise<Quotation>;
+    convert(id: string, dto: ConvertQuotationDto, tenantId: string, userId: string, access?: QuotationSellerAccess): Promise<{
         quotation: {
             header: {
                 customer_display_name: string | null;
@@ -603,6 +632,7 @@ export declare class QuotationService {
                 can_convert: boolean;
                 can_cancel: boolean;
                 can_edit: boolean;
+                can_edit_notes: boolean;
                 can_send: boolean;
                 customer_email: string | null;
                 converted_to_sales_order_id: string | null;
@@ -644,7 +674,6 @@ export declare class QuotationService {
                 global_discount_id: string | null;
                 global_discount_amount: number;
                 total: number;
-                creator: User;
                 created_by: string;
                 terminal_user_id: string | null;
                 seller_user_id: string | null;
@@ -744,7 +773,7 @@ export declare class QuotationService {
             converted_from_quotation_id: string;
         };
     }>;
-    regenerateDocumentoOriginal(id: string, tenantId: string, userId: string, language: DocumentLanguage, keepPrevious?: boolean): Promise<{
+    regenerateDocumentoOriginal(id: string, tenantId: string, userId: string, language: DocumentLanguage, keepPrevious?: boolean, access?: QuotationSellerAccess): Promise<{
         success: boolean;
         message: string;
         document_language: DocumentLanguage;

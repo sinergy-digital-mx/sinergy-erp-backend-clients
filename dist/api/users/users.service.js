@@ -99,7 +99,7 @@ let UsersService = class UsersService {
         this.validatePosUserType(isPosUser, dto.pos_user_type, dto.is_manager ?? false);
         await this.validatePosFields(tenantId, dto.pos_user_code);
         const hashedPassword = await bcrypt.hash(dto.password, 10);
-        const { is_pos_user, pos_user_code, billing_branch_id: _billing_branch_id, billing_branch_ids: _billing_branch_ids, primary_billing_branch_id: _primary_billing_branch_id, pos_user_type, is_employee, employee, is_manager, warehouse_ids, ...userFields } = dto;
+        const { is_pos_user, pos_user_code, billing_branch_id: _billing_branch_id, billing_branch_ids: _billing_branch_ids, primary_billing_branch_id: _primary_billing_branch_id, pos_user_type, is_employee, employee, is_manager, is_crm_admin, warehouse_ids, ...userFields } = dto;
         const user = await this.userRepo.save({
             ...userFields,
             password: hashedPassword,
@@ -113,6 +113,7 @@ let UsersService = class UsersService {
             billing_branch_id: assignment.active,
             is_employee: false,
             is_manager: is_manager ?? false,
+            is_crm_admin: is_crm_admin ?? false,
         });
         await this.replaceAssignedBranches(user.id, tenantId, assignment);
         if (dto.is_employee) {
@@ -164,7 +165,7 @@ let UsersService = class UsersService {
             await this.validatePosFields(tenantId, nextPosCode, id);
         }
         await this.assertCobranzaConfigChangeAllowed(user, tenantId, nextIsPosUser, nextPosUserType, nextBillingBranchId);
-        const { is_pos_user, pos_user_code, billing_branch_id: _billing_branch_id, billing_branch_ids: _billing_branch_ids, primary_billing_branch_id: _primary_billing_branch_id, pos_user_type, is_employee, employee, is_manager, warehouse_ids, ...userFields } = dto;
+        const { is_pos_user, pos_user_code, billing_branch_id: _billing_branch_id, billing_branch_ids: _billing_branch_ids, primary_billing_branch_id: _primary_billing_branch_id, pos_user_type, is_employee, employee, is_manager, is_crm_admin, warehouse_ids, ...userFields } = dto;
         if (dto.is_pos_user === true) {
             user.is_pos_user = true;
             if (dto.pos_user_type !== undefined) {
@@ -190,6 +191,9 @@ let UsersService = class UsersService {
         }
         if (is_manager !== undefined) {
             user.is_manager = is_manager;
+        }
+        if (is_crm_admin !== undefined) {
+            user.is_crm_admin = is_crm_admin;
         }
         Object.assign(user, userFields);
         await this.userRepo.save(user);
@@ -480,6 +484,7 @@ let UsersService = class UsersService {
             is_employee: Boolean(user.is_employee),
             employee: user.employeeProfile ?? null,
             is_manager: Boolean(user.is_manager),
+            is_crm_admin: Boolean(user.is_crm_admin),
             manager: this.mapManagerSummary(user.managerUser),
             ...(user.managedUsers
                 ? { reports: user.managedUsers }

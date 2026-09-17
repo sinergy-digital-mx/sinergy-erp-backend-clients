@@ -23,6 +23,7 @@ const quotation_documents_service_1 = require("../services/quotation-documents.s
 const quotation_email_service_1 = require("../services/quotation-email.service");
 const regenerate_document_dto_1 = require("../../../common/dto/regenerate-document.dto");
 const dto_1 = require("../dto");
+const request_user_util_1 = require("../../../common/utils/request-user.util");
 let QuotationController = class QuotationController {
     quotationService;
     documentsService;
@@ -38,21 +39,26 @@ let QuotationController = class QuotationController {
         return this.quotationService.create(dto, req.user.tenant_id, req.user.id);
     }
     replace(id, dto, req) {
-        return this.quotationService.replace(id, dto, req.user.tenant_id, req.user.id);
+        return this.quotationService.replace(id, dto, req.user.tenant_id, req.user.id, this.sellerAccess(req));
     }
     updateNotes(id, dto, req) {
-        return this.quotationService.updateNotes(id, dto, req.user.tenant_id, req.user.id);
+        return this.quotationService.updateNotes(id, dto, req.user.tenant_id, req.user.id, this.sellerAccess(req));
     }
     findAll(query, req) {
-        return this.quotationService.findAll(req.user.tenant_id, query);
+        const access = this.sellerAccess(req);
+        return this.quotationService.findAll(req.user.tenant_id, access.userId, access.isAdmin, query);
     }
     getProductsSummary(query, req) {
         return this.productsPicker.getSummary(req.user.tenant_id, query);
     }
+    listSellers(req) {
+        return this.quotationService.listSellers(req.user.tenant_id, (0, request_user_util_1.resolveHasAdminRole)(req.user));
+    }
     async findOne(id, req) {
-        const detail = await this.quotationService.findOneDetail(id, req.user.tenant_id);
+        const access = this.sellerAccess(req);
+        const detail = await this.quotationService.findOneDetail(id, req.user.tenant_id, access);
         const documents = await this.documentsService.getDocuments(id);
-        const emails = await this.emailService.list(id, req.user.tenant_id);
+        const emails = await this.emailService.list(id, req.user.tenant_id, access);
         const lineItems = (detail.line_items ?? []).map((lineItem) => ({
             ...lineItem,
             uom_name: lineItem.product_uom?.uom?.name ?? null,
@@ -71,19 +77,25 @@ let QuotationController = class QuotationController {
         };
     }
     convert(id, dto, req) {
-        return this.quotationService.convert(id, dto ?? {}, req.user.tenant_id, req.user.id);
+        return this.quotationService.convert(id, dto ?? {}, req.user.tenant_id, req.user.id, this.sellerAccess(req));
     }
     regenerateDocumentoOriginal(id, dto, req) {
-        return this.quotationService.regenerateDocumentoOriginal(id, req.user.tenant_id, req.user.id, dto.language, dto.keep_previous === true);
+        return this.quotationService.regenerateDocumentoOriginal(id, req.user.tenant_id, req.user.id, dto.language, dto.keep_previous === true, this.sellerAccess(req));
     }
     sendEmail(id, dto, req) {
-        return this.emailService.send(id, dto ?? {}, req.user.tenant_id, req.user.id);
+        return this.emailService.send(id, dto ?? {}, req.user.tenant_id, req.user.id, this.sellerAccess(req));
     }
     cancel(id, req) {
-        return this.quotationService.cancel(id, req.user.tenant_id, req.user.id);
+        return this.quotationService.cancel(id, req.user.tenant_id, req.user.id, this.sellerAccess(req));
     }
     remove(id, req) {
-        return this.quotationService.cancel(id, req.user.tenant_id, req.user.id);
+        return this.quotationService.cancel(id, req.user.tenant_id, req.user.id, this.sellerAccess(req));
+    }
+    sellerAccess(req) {
+        return {
+            userId: (0, request_user_util_1.resolveRequestUserId)(req.user),
+            isAdmin: (0, request_user_util_1.resolveHasAdminRole)(req.user),
+        };
     }
 };
 exports.QuotationController = QuotationController;
@@ -112,7 +124,10 @@ __decorate([
 ], QuotationController.prototype, "replace", null);
 __decorate([
     (0, common_1.Patch)(':id/notes'),
-    (0, swagger_1.ApiOperation)({ summary: 'Actualizar notas de la cotización' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Actualizar observaciones de la cotización',
+        description: 'Se pinta en el PDF DOCUMENTO_ORIGINAL. Regenera el PDF. Bloqueado si Cancelada.',
+    }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.Req)()),
@@ -122,7 +137,10 @@ __decorate([
 ], QuotationController.prototype, "updateNotes", null);
 __decorate([
     (0, common_1.Get)(),
-    (0, swagger_1.ApiOperation)({ summary: 'Listar cotizaciones' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Listar cotizaciones',
+        description: 'No admin: solo las suyas (vendedor POS o comisionado). Admin: todas, con filtro opcional assigned_seller_user_id.',
+    }),
     __param(0, (0, common_1.Query)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
@@ -140,6 +158,16 @@ __decorate([
     __metadata("design:paramtypes", [dto_1.QueryQuotationProductsSummaryDto, Object]),
     __metadata("design:returntype", void 0)
 ], QuotationController.prototype, "getProductsSummary", null);
+__decorate([
+    (0, common_1.Get)('sellers'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Catálogo de vendedores para el filtro de administrador',
+    }),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], QuotationController.prototype, "listSellers", null);
 __decorate([
     (0, common_1.Get)(':id'),
     (0, swagger_1.ApiOperation)({ summary: 'Detalle de cotización con líneas, descuentos y PDF' }),

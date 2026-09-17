@@ -9,6 +9,8 @@ export declare class SalesOrderPdfService {
         title?: string;
         subtitle?: string;
         hidePayment?: boolean;
+        notesPrefix?: string;
+        notesEmpty?: string;
     }): Promise<Buffer>;
     generateDeliveryPdf(salesOrder: SalesOrder, language?: DocumentLanguage): Promise<Buffer>;
     private buildDocument;

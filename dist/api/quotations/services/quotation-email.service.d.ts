@@ -4,13 +4,14 @@ import { MailerConfigurationService } from '../../mailer-configuration/services/
 import { QuotationService } from './quotation.service';
 import { QuotationPdfService } from './quotation-pdf.service';
 import { SendQuotationEmailDto } from '../dto/send-quotation-email.dto';
+import { QuotationSellerAccess } from '../utils/quotation-seller-scope.util';
 export declare class QuotationEmailService {
     private readonly emailRepo;
     private readonly quotationService;
     private readonly pdfService;
     private readonly mailerConfigurationService;
     constructor(emailRepo: Repository<QuotationEmail>, quotationService: QuotationService, pdfService: QuotationPdfService, mailerConfigurationService: MailerConfigurationService);
-    list(quotationId: string, tenantId: string): Promise<{
+    list(quotationId: string, tenantId: string, access?: QuotationSellerAccess): Promise<{
         id: string;
         to_email: string;
         cc: string[];
@@ -25,7 +26,7 @@ export declare class QuotationEmailService {
             display_name: string | null;
         } | null;
     }[]>;
-    send(quotationId: string, dto: SendQuotationEmailDto, tenantId: string, userId: string): Promise<{
+    send(quotationId: string, dto: SendQuotationEmailDto, tenantId: string, userId: string, access?: QuotationSellerAccess): Promise<{
         id: string;
         to_email: string;
         cc: string[];
