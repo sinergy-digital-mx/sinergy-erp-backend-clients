@@ -38,6 +38,7 @@ let PurchaseOrderBatch = class PurchaseOrderBatch {
     notes;
     pedimento_number;
     vendor_invoice_number;
+    vendor_invoice_numbers;
     customs_date;
     customs_exchange_rate;
     landed_increment_percentage;
@@ -147,6 +148,10 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 60, nullable: true }),
     __metadata("design:type", Object)
 ], PurchaseOrderBatch.prototype, "vendor_invoice_number", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'json', nullable: true }),
+    __metadata("design:type", Object)
+], PurchaseOrderBatch.prototype, "vendor_invoice_numbers", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'date', nullable: true }),
     __metadata("design:type", Object)

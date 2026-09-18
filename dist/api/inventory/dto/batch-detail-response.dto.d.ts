@@ -56,6 +56,7 @@ export declare class BatchDetailResponseDto {
     purchase_order_folio: string | null;
     pedimento_number: string | null;
     vendor_invoice_number: string | null;
+    vendor_invoice_numbers: string[];
     payment_currency: string | null;
     unit_cost: number | null;
     real_unit_cost_usd: number | null;

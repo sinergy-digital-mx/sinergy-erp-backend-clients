@@ -34,6 +34,7 @@ const fiscal_configuration_entity_1 = require("../../entities/billing/fiscal-con
 const billing_branch_entity_1 = require("../../entities/billing/billing-branch.entity");
 const uom_catalog_entity_1 = require("../../entities/uom-catalog/uom-catalog.entity");
 const s3_service_1 = require("../../common/services/s3.service");
+const purchase_order_vendor_invoice_util_1 = require("../purchase-orders/utils/purchase-order-vendor-invoice.util");
 const inventory_location_filter_util_1 = require("./utils/inventory-location-filter.util");
 const inventory_measure_util_1 = require("./utils/inventory-measure.util");
 const product_search_rank_util_1 = require("./utils/product-search-rank.util");
@@ -1208,6 +1209,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
         const totalIn = movements
             .filter((item) => item.direction === 'in')
             .reduce((sum, item) => sum + parseFloat(item.quantity ?? '0'), 0);
+        const vendorInvoiceNumbers = (0, purchase_order_vendor_invoice_util_1.parseStoredVendorInvoiceNumbers)(batch.purchase_order_batch?.vendor_invoice_numbers, batch.purchase_order_batch?.vendor_invoice_number);
         return {
             id: batch.id,
             batch_number: batch.batch_number,
@@ -1224,7 +1226,8 @@ let InventoryService = InventoryService_1 = class InventoryService {
             purchase_order_detail_id: batch.purchase_order_detail_id ?? null,
             purchase_order_folio: batch.purchase_order_batch?.folio ?? null,
             pedimento_number: batch.purchase_order_batch?.pedimento_number ?? null,
-            vendor_invoice_number: batch.purchase_order_batch?.vendor_invoice_number ?? null,
+            vendor_invoice_number: vendorInvoiceNumbers[0] ?? null,
+            vendor_invoice_numbers: vendorInvoiceNumbers,
             payment_currency: batch.purchase_order_batch?.payment_currency ?? null,
             unit_cost: this.unitCostFromPurchaseLine(batch.purchase_order_detail),
             real_unit_cost_usd: this.optionalMoney(batch.purchase_order_detail?.real_unit_cost_usd),

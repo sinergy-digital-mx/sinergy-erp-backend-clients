@@ -90,7 +90,6 @@ export declare class PurchaseOrderService {
     private scheduleDocumentoOriginalRegen;
     private getVendorOrFail;
     private normalizePedimento;
-    private normalizeVendorInvoice;
     private endOfDay;
     private applyListFilters;
     private emptyCurrencyStats;

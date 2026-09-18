@@ -6,6 +6,8 @@ export declare class PurchaseOrderDetailDto {
         vendor_name: string;
         is_international_vendor: boolean;
         pedimento_number: string | null;
+        vendor_invoice_number: string | null;
+        vendor_invoice_numbers: string[];
         warehouse_id: string;
         warehouse_name: string;
         fiscal_configuration_id: string;

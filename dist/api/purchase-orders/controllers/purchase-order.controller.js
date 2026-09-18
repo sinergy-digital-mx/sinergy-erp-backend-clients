@@ -111,6 +111,11 @@ let PurchaseOrderController = class PurchaseOrderController {
         const userId = req.user.id;
         return this.purchaseOrderService.updatePedimento(id, dto, tenantId, userId);
     }
+    async updateVendorInvoice(id, dto, req) {
+        const tenantId = req.user.tenant_id;
+        const userId = req.user.id;
+        return this.purchaseOrderService.updateVendorInvoice(id, dto, tenantId, userId);
+    }
     async updateRealCost(id, dto, req) {
         const tenantId = req.user.tenant_id;
         const userId = req.user.id;
@@ -308,6 +313,15 @@ __decorate([
     __metadata("design:paramtypes", [String, dto_1.UpdatePurchaseOrderPedimentoDto, Object]),
     __metadata("design:returntype", Promise)
 ], PurchaseOrderController.prototype, "updatePedimento", null);
+__decorate([
+    (0, common_1.Patch)(':id/vendor-invoice'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, dto_1.UpdatePurchaseOrderVendorInvoiceDto, Object]),
+    __metadata("design:returntype", Promise)
+], PurchaseOrderController.prototype, "updateVendorInvoice", null);
 __decorate([
     (0, common_1.Put)(':id/real-cost'),
     __param(0, (0, common_1.Param)('id')),

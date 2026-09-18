@@ -14,13 +14,14 @@ const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 class UpdatePurchaseOrderVendorInvoiceDto {
     vendor_invoice_number;
+    vendor_invoice_numbers;
 }
 exports.UpdatePurchaseOrderVendorInvoiceDto = UpdatePurchaseOrderVendorInvoiceDto;
 __decorate([
     (0, swagger_1.ApiProperty)({
         required: false,
         nullable: true,
-        description: 'Número de factura del proveedor. Enviar null o cadena vacía para borrar.',
+        description: 'Número de factura del proveedor (compatibilidad). Enviar null o cadena vacía para borrar si no mandas el arreglo.',
         example: 'A-12345',
     }),
     (0, class_validator_1.IsOptional)(),
@@ -28,4 +29,18 @@ __decorate([
     (0, class_validator_1.MaxLength)(60),
     __metadata("design:type", Object)
 ], UpdatePurchaseOrderVendorInvoiceDto.prototype, "vendor_invoice_number", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        nullable: true,
+        description: 'Facturas de proveedor. Reemplaza la lista completa. [] o null borra todas.',
+        example: ['A-12345', 'B-67890'],
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ArrayMaxSize)(20),
+    (0, class_validator_1.IsString)({ each: true }),
+    (0, class_validator_1.MaxLength)(60, { each: true }),
+    __metadata("design:type", Object)
+], UpdatePurchaseOrderVendorInvoiceDto.prototype, "vendor_invoice_numbers", void 0);
 //# sourceMappingURL=update-purchase-order-vendor-invoice.dto.js.map

@@ -167,6 +167,7 @@ class BatchDetailResponseDto {
     purchase_order_folio;
     pedimento_number;
     vendor_invoice_number;
+    vendor_invoice_numbers;
     payment_currency;
     unit_cost;
     real_unit_cost_usd;
@@ -287,10 +288,17 @@ __decorate([
 __decorate([
     (0, swagger_1.ApiProperty)({
         nullable: true,
-        description: 'Número de factura del proveedor de la OC de origen. Null si no hay OC o la OC no tiene factura.',
+        description: 'Primera factura del proveedor de la OC. Null si no hay OC o la OC no tiene factura.',
     }),
     __metadata("design:type", Object)
 ], BatchDetailResponseDto.prototype, "vendor_invoice_number", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        type: [String],
+        description: 'Facturas del proveedor de la OC. Vacío si no hay OC o no hay facturas.',
+    }),
+    __metadata("design:type", Array)
+], BatchDetailResponseDto.prototype, "vendor_invoice_numbers", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
         nullable: true,

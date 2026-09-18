@@ -20,5 +20,6 @@ export declare class CreatePurchaseOrderDto {
     notes?: string;
     pedimento_number?: string | null;
     vendor_invoice_number?: string | null;
+    vendor_invoice_numbers?: string[] | null;
     line_items: CreateLineItemDto[];
 }

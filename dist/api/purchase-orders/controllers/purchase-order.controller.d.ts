@@ -2,7 +2,7 @@ import { PurchaseOrderService } from '../services/purchase-order.service';
 import { PurchaseOrderDocumentsService } from '../services/purchase-order-documents.service';
 import { PurchaseOrderExportService } from '../services/purchase-order-export.service';
 import { PurchaseOrderMovementsService } from '../services/purchase-order-movements.service';
-import { CreatePurchaseOrderDto, CreateLineItemDto, ReceivePurchaseOrderDto, UpdateLineItemDto, QueryPurchaseOrderDto, CreatePurchaseOrderPaymentDto, RegenerateDocumentDto, UpdatePurchaseOrderNotesDto, UpdatePurchaseOrderPedimentoDto, UpdatePurchaseOrderRealCostDto, QueryPurchaseOrderHeaderExportDto, QueryPurchaseOrderDetailExportDto } from '../dto';
+import { CreatePurchaseOrderDto, CreateLineItemDto, ReceivePurchaseOrderDto, UpdateLineItemDto, QueryPurchaseOrderDto, CreatePurchaseOrderPaymentDto, RegenerateDocumentDto, UpdatePurchaseOrderNotesDto, UpdatePurchaseOrderPedimentoDto, UpdatePurchaseOrderVendorInvoiceDto, UpdatePurchaseOrderRealCostDto, QueryPurchaseOrderHeaderExportDto, QueryPurchaseOrderDetailExportDto } from '../dto';
 export declare class PurchaseOrderController {
     private readonly purchaseOrderService;
     private readonly documentsService;
@@ -67,6 +67,7 @@ export declare class PurchaseOrderController {
     removeLineItem(orderId: string, lineItemId: string, req: any): Promise<import("../../../entities/purchase-orders").PurchaseOrderBatch>;
     updateNotes(id: string, dto: UpdatePurchaseOrderNotesDto, req: any): Promise<import("../../../entities/purchase-orders").PurchaseOrderBatch>;
     updatePedimento(id: string, dto: UpdatePurchaseOrderPedimentoDto, req: any): Promise<import("../../../entities/purchase-orders").PurchaseOrderBatch>;
+    updateVendorInvoice(id: string, dto: UpdatePurchaseOrderVendorInvoiceDto, req: any): Promise<import("../../../entities/purchase-orders").PurchaseOrderBatch>;
     updateRealCost(id: string, dto: UpdatePurchaseOrderRealCostDto, req: any): Promise<any>;
     replacePurchaseOrderPut(id: string, dto: CreatePurchaseOrderDto, req: any): Promise<import("../../../entities/purchase-orders").PurchaseOrderBatch>;
     replacePurchaseOrderPatch(id: string, dto: CreatePurchaseOrderDto, req: any): Promise<import("../../../entities/purchase-orders").PurchaseOrderBatch>;

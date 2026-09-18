@@ -19,6 +19,7 @@ const typeorm_2 = require("typeorm");
 const purchase_order_batch_entity_1 = require("../../../entities/purchase-orders/purchase-order-batch.entity");
 const purchase_order_batch_detail_entity_1 = require("../../../entities/purchase-orders/purchase-order-batch-detail.entity");
 const purchase_order_line_breakdown_util_1 = require("../utils/purchase-order-line-breakdown.util");
+const purchase_order_vendor_invoice_util_1 = require("../utils/purchase-order-vendor-invoice.util");
 const excel_export_util_1 = require("../../../common/utils/excel-export.util");
 let PurchaseOrderExportService = class PurchaseOrderExportService {
     poRepo;
@@ -29,7 +30,7 @@ let PurchaseOrderExportService = class PurchaseOrderExportService {
         { header: 'Proveedor', key: 'vendor_name', width: 28 },
         { header: 'Internacional', key: 'is_international', width: 14 },
         { header: 'Pedimento', key: 'pedimento_number', width: 18 },
-        { header: 'Factura proveedor', key: 'vendor_invoice_number', width: 20 },
+        { header: 'Factura proveedor', key: 'vendor_invoice_number', width: 36 },
         { header: 'Razón social', key: 'razon_social', width: 26 },
         { header: 'Sucursal', key: 'billing_branch_code', width: 22 },
         { header: 'Almacén', key: 'warehouse_name', width: 22 },
@@ -77,7 +78,7 @@ let PurchaseOrderExportService = class PurchaseOrderExportService {
             vendor_name: po.vendor?.name ?? po.vendor?.company_name ?? '',
             is_international: po.vendor?.vendor_type === 'INTERNATIONAL' ? 'Sí' : 'No',
             pedimento_number: po.vendor?.vendor_type === 'INTERNATIONAL' ? (po.pedimento_number ?? '') : '',
-            vendor_invoice_number: po.vendor_invoice_number ?? '',
+            vendor_invoice_number: (0, purchase_order_vendor_invoice_util_1.formatVendorInvoiceNumbers)((0, purchase_order_vendor_invoice_util_1.parseStoredVendorInvoiceNumbers)(po.vendor_invoice_numbers, po.vendor_invoice_number)) ?? '',
             razon_social: po.fiscal_configuration?.razon_social ?? '',
             billing_branch_code: po.warehouse?.billing_branch?.code ?? '',
             warehouse_name: po.warehouse?.name ?? '',
