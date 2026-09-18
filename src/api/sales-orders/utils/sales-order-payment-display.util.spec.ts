@@ -18,6 +18,21 @@ describe('buildSalesOrderPaymentDisplay', () => {
     ]);
   });
 
+  it('labels a check POS collection', () => {
+    const display = buildSalesOrderPaymentDisplay({
+      collection: {
+        payment_method: PosSalePaymentMethod.CHECK,
+        amount_check_mxn: 12904.99,
+      },
+    });
+
+    expect(display.payment_method).toBe('check');
+    expect(display.payment_method_label).toBe('Cheque');
+    expect(display.lines).toEqual([
+      { method: 'check', label: 'Cheque', amount_mxn: 12904.99, amount_usd: 0 },
+    ]);
+  });
+
   it('breaks down mixed cash + card', () => {
     const display = buildSalesOrderPaymentDisplay({
       collection: {

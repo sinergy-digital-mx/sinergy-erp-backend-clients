@@ -32,9 +32,13 @@ export class CreateSalesOrderPaymentDto {
 
   @ApiPropertyOptional({
     example: 'SPEI-123456',
-    description: 'Referencia (obligatoria si payment_method = transfer)',
+    description: 'Referencia (obligatoria si payment_method = transfer o check)',
   })
-  @ValidateIf((dto: CreateSalesOrderPaymentDto) => dto.payment_method === PosSalePaymentMethod.TRANSFER)
+  @ValidateIf(
+    (dto: CreateSalesOrderPaymentDto) =>
+      dto.payment_method === PosSalePaymentMethod.TRANSFER ||
+      dto.payment_method === PosSalePaymentMethod.CHECK,
+  )
   @IsString()
   @MaxLength(120)
   reference_number?: string;

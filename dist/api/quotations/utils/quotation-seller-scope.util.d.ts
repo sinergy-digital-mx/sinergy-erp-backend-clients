@@ -1,8 +1,11 @@
 export type QuotationSellerAccess = {
     userId: string;
-    isAdmin: boolean;
+    canViewAll: boolean;
 };
-export declare function resolveQuotationSellerScopeUserId(isAdmin: boolean, actorUserId: string, requestedSellerUserId?: string): string | null;
+export declare function userCanViewAllQuotations(user: {
+    permissions?: unknown;
+} | null | undefined): boolean;
+export declare function resolveQuotationSellerScopeUserId(canViewAll: boolean, actorUserId: string, requestedSellerUserId?: string): string | null;
 export declare function quotationIsVisibleToSeller(quotation: {
     seller_user_id?: string | null;
     assigned_seller_user_id?: string | null;

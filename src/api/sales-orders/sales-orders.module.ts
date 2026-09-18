@@ -8,11 +8,14 @@ import {
   SalesOrderDocumentType,
   SalesOrderPayment,
   SalesOrderPaymentDocument,
+  SalesOrderInvoiceEmail,
+  SalesOrderInvoiceEmailTemplate,
 } from '../../entities/sales-orders';
 import { InventoryBatch } from '../../entities/purchase-orders/inventory-batch.entity';
 import { AuthModule } from '../auth/auth.module';
 import { RBACModule } from '../rbac/rbac.module';
 import { InventoryModule } from '../inventory/inventory.module';
+import { InventoryStockLedgerModule } from '../inventory/inventory-stock-ledger.module';
 import { PosShiftsModule } from '../pos-shifts/pos-shifts.module';
 import { ProductsModule } from '../products/products.module';
 import { GlobalDiscountsModule } from '../global-discounts/global-discounts.module';
@@ -25,6 +28,7 @@ import { SalesOrderPdfService } from './services/sales-order-pdf.service';
 import { SalesOrderDocumentsService } from './services/sales-order-documents.service';
 import { SalesOrderPosReceiptService } from './services/sales-order-pos-receipt.service';
 import { SalesOrderExportService } from './services/sales-order-export.service';
+import { SalesOrderProductsPickerService } from './services/sales-order-products-picker.service';
 import { PosSaleCollection } from '../../entities/pos/pos-sale-collection.entity';
 import { BillingBranch } from '../../entities/billing/billing-branch.entity';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
@@ -34,6 +38,8 @@ import { ElectronicInvoicingModule } from '../electronic-invoicing/electronic-in
 import { SalesOrderInvoicingService } from './services/sales-order-invoicing.service';
 import { ShippingsModule } from '../shippings/shippings.module';
 import { WarehouseControlModule } from '../warehouse-control/warehouse-control.module';
+import { MailerConfigurationModule } from '../mailer-configuration/mailer-configuration.module';
+import { SalesOrderInvoiceEmailService } from './services/sales-order-invoice-email.service';
 
 @Module({
   imports: [
@@ -45,6 +51,8 @@ import { WarehouseControlModule } from '../warehouse-control/warehouse-control.m
       SalesOrderDocumentType,
       SalesOrderPayment,
       SalesOrderPaymentDocument,
+      SalesOrderInvoiceEmail,
+      SalesOrderInvoiceEmailTemplate,
       InventoryBatch,
       PosSaleCollection,
       BillingBranch,
@@ -55,12 +63,14 @@ import { WarehouseControlModule } from '../warehouse-control/warehouse-control.m
     AuthModule,
     RBACModule,
     InventoryModule,
+    InventoryStockLedgerModule,
     ProductsModule,
     GlobalDiscountsModule,
     ElectronicInvoicingModule,
     forwardRef(() => PosShiftsModule),
     ShippingsModule,
     WarehouseControlModule,
+    MailerConfigurationModule,
   ],
   controllers: [SalesOrderController],
   providers: [
@@ -72,6 +82,8 @@ import { WarehouseControlModule } from '../warehouse-control/warehouse-control.m
     SalesOrderPosReceiptService,
     SalesOrderExportService,
     SalesOrderInvoicingService,
+    SalesOrderProductsPickerService,
+    SalesOrderInvoiceEmailService,
     S3Service,
   ],
   exports: [
@@ -79,6 +91,7 @@ import { WarehouseControlModule } from '../warehouse-control/warehouse-control.m
     SalesOrderPosReceiptService,
     SalesOrderFulfillmentService,
     SalesOrderPdfService,
+    SalesOrderProductsPickerService,
   ],
 })
 export class SalesOrdersModule {}

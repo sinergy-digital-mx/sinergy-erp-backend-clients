@@ -17,7 +17,7 @@ export class ModulesController {
   ) {}
 
   @Get()
-  @RequirePermissions({ entityType: 'Lead', action: 'Read' })
+  @RequirePermissions({ entityType: 'User', action: 'Read' })
   @ApiOperation({
     summary: 'Get enabled modules for current tenant',
     description: 'Returns all modules enabled for the current tenant with their available permissions',

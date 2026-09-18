@@ -8,6 +8,8 @@ import { UnitConversionService } from './unit-conversion.service';
 import { InventoryBatch } from '../../../entities/purchase-orders/inventory-batch.entity';
 import { PurchaseOrderBatch } from '../../../entities/purchase-orders/purchase-order-batch.entity';
 import { ReceivedItemDto } from '../dto/receive-purchase-order.dto';
+import { InventoryStockLedgerService } from '../../inventory/services/inventory-stock-ledger.service';
+import { InventoryStockLedgerValuationService } from '../../inventory/services/inventory-stock-ledger-valuation.service';
 
 /**
  * Property-Based Tests for BatchCreatorService
@@ -52,6 +54,19 @@ describe('BatchCreatorService - Property-Based Tests', () => {
                   useValue: {
                     getBaseUom: jest.fn(),
                     convertToBaseUnit: jest.fn(),
+                  },
+                },
+                {
+                  provide: InventoryStockLedgerService,
+                  useValue: { append: jest.fn().mockResolvedValue(null) },
+                },
+                {
+                  provide: InventoryStockLedgerValuationService,
+                  useValue: {
+                    resolveFromBatchId: jest.fn().mockResolvedValue({
+                      unitCostMxn: null,
+                      unitSalePriceMxn: null,
+                    }),
                   },
                 },
               ],
@@ -185,6 +200,19 @@ describe('BatchCreatorService - Property-Based Tests', () => {
                     convertToBaseUnit: jest.fn(),
                   },
                 },
+                {
+                  provide: InventoryStockLedgerService,
+                  useValue: { append: jest.fn().mockResolvedValue(null) },
+                },
+                {
+                  provide: InventoryStockLedgerValuationService,
+                  useValue: {
+                    resolveFromBatchId: jest.fn().mockResolvedValue({
+                      unitCostMxn: null,
+                      unitSalePriceMxn: null,
+                    }),
+                  },
+                },
               ],
             }).compile();
 
@@ -311,6 +339,19 @@ describe('BatchCreatorService - Property-Based Tests', () => {
                   useValue: {
                     getBaseUom: jest.fn(),
                     convertToBaseUnit: jest.fn(),
+                  },
+                },
+                {
+                  provide: InventoryStockLedgerService,
+                  useValue: { append: jest.fn().mockResolvedValue(null) },
+                },
+                {
+                  provide: InventoryStockLedgerValuationService,
+                  useValue: {
+                    resolveFromBatchId: jest.fn().mockResolvedValue({
+                      unitCostMxn: null,
+                      unitSalePriceMxn: null,
+                    }),
                   },
                 },
               ],
@@ -441,6 +482,19 @@ describe('BatchCreatorService - Property-Based Tests', () => {
                     convertToBaseUnit: jest.fn(),
                   },
                 },
+                {
+                  provide: InventoryStockLedgerService,
+                  useValue: { append: jest.fn().mockResolvedValue(null) },
+                },
+                {
+                  provide: InventoryStockLedgerValuationService,
+                  useValue: {
+                    resolveFromBatchId: jest.fn().mockResolvedValue({
+                      unitCostMxn: null,
+                      unitSalePriceMxn: null,
+                    }),
+                  },
+                },
               ],
             }).compile();
 
@@ -568,6 +622,19 @@ describe('BatchCreatorService - Property-Based Tests', () => {
                   useValue: {
                     getBaseUom: jest.fn(),
                     convertToBaseUnit: jest.fn(),
+                  },
+                },
+                {
+                  provide: InventoryStockLedgerService,
+                  useValue: { append: jest.fn().mockResolvedValue(null) },
+                },
+                {
+                  provide: InventoryStockLedgerValuationService,
+                  useValue: {
+                    resolveFromBatchId: jest.fn().mockResolvedValue({
+                      unitCostMxn: null,
+                      unitSalePriceMxn: null,
+                    }),
                   },
                 },
               ],

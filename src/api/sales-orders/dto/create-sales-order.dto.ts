@@ -41,6 +41,16 @@ export class CreateSalesOrderLineItemDto {
 
   @ApiProperty({
     required: false,
+    description:
+      'Descuento unitario ya pactado (p. ej. al convertir cotización). No se recalcula con el catálogo.',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  discount_unit?: number;
+
+  @ApiProperty({
+    required: false,
     description: 'Descuento de producto seleccionado en POS/venta. Tiene prioridad sobre discount_percentage.',
   })
   @IsOptional()
@@ -147,6 +157,17 @@ export class CreateSalesOrderDto {
   @IsOptional()
   @IsBoolean()
   requires_selection_assembly?: boolean;
+
+  @ApiProperty({
+    required: false,
+    enum: ['inventory', 'services', 'combined'],
+    default: 'inventory',
+    description:
+      'Inventario, servicios o productos y servicios. POS ignora el valor y queda inventory.',
+  })
+  @IsOptional()
+  @IsEnum(['inventory', 'services', 'combined'])
+  sale_scope?: 'inventory' | 'services' | 'combined';
 
   @ApiProperty({
     required: false,

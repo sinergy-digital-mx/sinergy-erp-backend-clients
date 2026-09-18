@@ -79,6 +79,8 @@ POST /api/tenant/purchase-orders
 
 `pedimento_number` es opcional y **solo aplica si el proveedor es internacional** (`vendor.vendor_type === 'INTERNATIONAL'`). Si el proveedor es nacional y se envía pedimento → **400**. Ver `UI_PURCHASE_ORDER_PEDIMENTO.md`.
 
+`vendor_invoice_number` es opcional y aplica a **cualquier** proveedor. Ver `UI_PURCHASE_ORDER_VENDOR_INVOICE.md`.
+
 ---
 
 ## 2. Listado
@@ -96,7 +98,7 @@ El backend **ignora** params que no existen en esta tabla. No copiar nombres de 
 | `search` | string | Folio, proveedor o pedimento | — |
 | `general_status` | enum | `Creada` \| `Recibida` \| `Cancelada` | Todos |
 | `payment_status` | enum | `Pendiente` \| `Pagado` | Todos |
-| `vendor_id` | uuid | Id del proveedor | Todos |
+| `vendor_id` | uuid | Id del proveedor | Todos. El combo es buscador (nombre/RFC) y lista A–Z, igual que al crear OC |
 | `fiscal_configuration_id` | uuid | Razón social | Todas |
 | `billing_branch_id` | uuid | Sucursal | Todas |
 | `warehouse_id` | uuid | Almacén | Todos |
@@ -128,6 +130,20 @@ GET /api/tenant/purchase-orders?payment_status=Pendiente&vendor_id={uuid}
 La respuesta trae `data`, `total` y **`stats`** (montos partidos MXN / USD). Las cards **Por Estado** y **Estado de Pago** usan `stats`, no suman la tabla. Ver `UI_PURCHASE_ORDER_STATS.md`.
 
 Cascada de filtros igual que el modal: cambia razón → reset sucursal y almacén. Cambia sucursal → reset almacén. Catálogos: mismos GET de la sección 1. Filtro sucursal sin razón: `GET /api/tenant/billing/branches`. Filtro almacén sin sucursal: `GET /api/tenant/warehouses?status=active&limit=100`.
+
+### Barra vs modal
+
+No meter todos los filtros en una sola fila. La barra queda así:
+
+| Afuera | Modal (control central, mismos valores) |
+|--------|-----------------------------------------|
+| Búsqueda | Búsqueda |
+| **Razón social** | Razón social |
+| **Sucursal** | Sucursal |
+| **Proveedor** | Proveedor |
+| | Fecha, estado, pago, almacén |
+
+El modal repite los de la barra: si eliges proveedor afuera, sale seleccionado adentro, y al revés. El badge de **Más filtros** cuenta solo los extras (fecha, estado, pago, almacén).
 
 ### Columnas
 
@@ -230,3 +246,18 @@ Mismos filtros del listado (`fiscal_configuration_id`, `billing_branch_id`, `war
 - [ ] Excel reutiliza esos filtros
 - [ ] Cards Por Estado / Estado de Pago: montos MXN y USD por separado (`stats`). Ver `UI_PURCHASE_ORDER_STATS.md`
 - [ ] Detalle: editar/eliminar líneas en Creada, IVA % y badge MXN/USD. Ver `UI_PURCHASE_ORDER_LINE_ITEMS.md`
+- [ ] Fechas GET: ver sección **Fechas GET** abajo
+
+---
+
+## Fechas GET
+
+Mismo contrato en OC, OV, inventario, historiales y POS.
+
+| Valor API | Cómo pintar |
+|-----------|-------------|
+| `YYYY-MM-DD` o medianoche UTC (`T00:00:00Z`) | Día de calendario. No desplazar por zona. |
+| `YYYY-MM-DD HH:mm:ss` sin zona | UTC. Pintar en hora local. |
+| ISO con `Z` u offset | Instante. Pintar en hora local. |
+
+Pollux: `apiDate` / `formatApiDate`. No usar el pipe `date` de Angular ni `new Date(valor)` directo.

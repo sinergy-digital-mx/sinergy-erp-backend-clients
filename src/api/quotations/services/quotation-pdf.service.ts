@@ -22,6 +22,8 @@ export class QuotationPdfService {
           ? 'Original quotation document'
           : 'Documento original de cotización',
         hidePayment: true,
+        notesPrefix: isEn ? 'Observations' : 'Observaciones',
+        notesEmpty: isEn ? 'No observations' : 'Sin observaciones',
       },
     );
   }

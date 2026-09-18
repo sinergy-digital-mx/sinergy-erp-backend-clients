@@ -24,6 +24,7 @@ const quotation_email_service_1 = require("../services/quotation-email.service")
 const regenerate_document_dto_1 = require("../../../common/dto/regenerate-document.dto");
 const dto_1 = require("../dto");
 const request_user_util_1 = require("../../../common/utils/request-user.util");
+const quotation_seller_scope_util_1 = require("../utils/quotation-seller-scope.util");
 let QuotationController = class QuotationController {
     quotationService;
     documentsService;
@@ -46,13 +47,13 @@ let QuotationController = class QuotationController {
     }
     findAll(query, req) {
         const access = this.sellerAccess(req);
-        return this.quotationService.findAll(req.user.tenant_id, access.userId, access.isAdmin, query);
+        return this.quotationService.findAll(req.user.tenant_id, access.userId, access.canViewAll, query);
     }
     getProductsSummary(query, req) {
         return this.productsPicker.getSummary(req.user.tenant_id, query);
     }
     listSellers(req) {
-        return this.quotationService.listSellers(req.user.tenant_id, (0, request_user_util_1.resolveHasAdminRole)(req.user));
+        return this.quotationService.listSellers(req.user.tenant_id, this.sellerAccess(req).canViewAll);
     }
     async findOne(id, req) {
         const access = this.sellerAccess(req);
@@ -94,7 +95,7 @@ let QuotationController = class QuotationController {
     sellerAccess(req) {
         return {
             userId: (0, request_user_util_1.resolveRequestUserId)(req.user),
-            isAdmin: (0, request_user_util_1.resolveHasAdminRole)(req.user),
+            canViewAll: (0, quotation_seller_scope_util_1.userCanViewAllQuotations)(req.user),
         };
     }
 };
@@ -139,7 +140,7 @@ __decorate([
     (0, common_1.Get)(),
     (0, swagger_1.ApiOperation)({
         summary: 'Listar cotizaciones',
-        description: 'No admin: solo las suyas (vendedor POS o comisionado). Admin: todas, con filtro opcional assigned_seller_user_id.',
+        description: 'Sin Quotation:ViewAll: solo las suyas (vendedor POS o comisionado). Con ViewAll: todas, con filtro opcional assigned_seller_user_id.',
     }),
     __param(0, (0, common_1.Query)()),
     __param(1, (0, common_1.Req)()),
@@ -161,7 +162,7 @@ __decorate([
 __decorate([
     (0, common_1.Get)('sellers'),
     (0, swagger_1.ApiOperation)({
-        summary: 'Catálogo de vendedores para el filtro de administrador',
+        summary: 'Catálogo de vendedores para el filtro (requiere Quotation:ViewAll)',
     }),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),

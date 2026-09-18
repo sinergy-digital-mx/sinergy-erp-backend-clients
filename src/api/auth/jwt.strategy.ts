@@ -16,6 +16,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     async validate(payload: any) {
         const user = {
+            sub: payload.sub,
             id: payload.sub,
             user_id: payload.sub, // For backward compatibility
             tenantId: payload.tenant_id,
@@ -26,6 +27,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
             permissions: payload.permissions || [],
             permissions_version: payload.permissions_version,
             hasAdminRole: payload.hasAdminRole || false,
+            is_crm_admin: Boolean(payload.is_crm_admin),
             permissionCount: payload.permissionCount || 0,
         };
 

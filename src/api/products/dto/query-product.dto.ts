@@ -1,6 +1,7 @@
-import { IsOptional, IsString, IsInt, Min, IsUUID, IsBoolean } from 'class-validator';
+import { IsOptional, IsString, IsInt, Min, IsUUID, IsBoolean, IsEnum } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ProductItemKind } from '../../../entities/products/product-item-kind.enum';
 
 export class QueryProductDto {
   @ApiPropertyOptional({ example: 1, description: 'Número de página' })
@@ -55,4 +56,9 @@ export class QueryProductDto {
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   is_active?: boolean;
+
+  @ApiPropertyOptional({ enum: ProductItemKind, description: 'Filtrar por producto o servicio' })
+  @IsOptional()
+  @IsEnum(ProductItemKind)
+  item_kind?: ProductItemKind;
 }

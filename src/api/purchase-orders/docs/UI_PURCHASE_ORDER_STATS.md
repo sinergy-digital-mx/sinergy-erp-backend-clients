@@ -64,9 +64,9 @@ No sumar `data[]`. Eso mezcla monedas y se corta con la paginación.
 
 ## Cómo pintar las dos cards
 
-Siguen siendo **dos cards**. Cada monto (y, si cabe, el conteo) se muestra **en dos renglones**: MXN y USD.
+Siguen siendo **dos cards** a la misma altura. El total vive en el **header** (conteo + chips), no como tercera fila. Abajo dos métricas alineadas. Deuda usa la misma fila que Pagadas, no un banner.
 
-Formato igual que la columna Total de la tabla: `MXN $1,045,914.40` / `USD $500.00`.
+Formato igual que la columna Total de la tabla: `MXN $1,045,914.40` / `USD $500.00`. USD $0 en una fila se oculta.
 
 ### Por Estado
 
@@ -84,7 +84,7 @@ Canceladas: opcional. Si las muestran, misma key `Cancelada`.
 |----|--------|-----------|-----------|
 | Total | `stats.count` | `MXN.amount` | `USD.amount` |
 | Pagadas | suma `Pagado.count` de ambas monedas | `MXN.by_payment.Pagado.amount` | `USD.by_payment.Pagado.amount` |
-| Pendientes | suma `Pendiente.count` | `MXN.by_payment.Pendiente.amount` | `USD.by_payment.Pendiente.amount` |
+| Deuda | suma `Pendiente.count` | `MXN.by_payment.Pendiente.amount` | `USD.by_payment.Pendiente.amount` |
 
 Si `USD.count === 0`, se puede ocultar el renglón USD (solo hay pesos). No volver a un solo `$` mezclado.
 

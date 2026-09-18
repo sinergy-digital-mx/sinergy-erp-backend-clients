@@ -22,6 +22,7 @@ describe('AuthService', () => {
   const mockUserRepo = {
     findOne: jest.fn(),
     save: jest.fn(),
+    query: jest.fn().mockResolvedValue([{ c: 1 }]),
   };
 
   const mockJwtService = {
@@ -172,6 +173,33 @@ describe('AuthService', () => {
         pos_can_sell: true,
         pos_can_collect: true,
       });
+    });
+
+    it('includes is_crm_admin on login', async () => {
+      const mockUser = {
+        id: 'user-crm',
+        email: 'crm@example.com',
+        password: 'hashed-password',
+        permissions_version: 1,
+        last_login_at: null,
+        is_crm_admin: true,
+        tenant: { id: 'tenant-456', name: 'Test Tenant' },
+        status: { code: 'active' },
+      };
+
+      mockUserRepo.findOne.mockResolvedValue(mockUser);
+      mockUserRepo.save.mockResolvedValue(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      mockRoleService.getUserRoles.mockResolvedValue([]);
+      mockPermissionService.getUserPermissions.mockResolvedValue([]);
+      mockJwtService.sign.mockReturnValue('jwt-token');
+
+      const result = await service.login('crm@example.com', 'password123');
+
+      expect(result.user).toMatchObject({ is_crm_admin: true });
+      expect(mockJwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ is_crm_admin: true }),
+      );
     });
 
     it('should return null pos fields for non-POS users on login', async () => {

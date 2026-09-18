@@ -105,6 +105,7 @@ export async function seedModulePermissions(
       Read: `Ver ${moduleName}`,
       Write: `Crear y editar ${moduleName}`,
       Delete: `Eliminar ${moduleName}`,
+      ViewAll: `Ver todas las ${moduleName.toLowerCase()} (no solo las propias)`,
     };
 
     let createdPermissions = 0;

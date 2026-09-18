@@ -4,6 +4,7 @@ import { PosDailyShift } from '../../entities/pos/pos-daily-shift.entity';
 import { PosPartialShift } from '../../entities/pos/pos-partial-shift.entity';
 import { PosPartialShiftDenomination } from '../../entities/pos/pos-partial-shift-denomination.entity';
 import { User } from '../../entities/users/user.entity';
+import { UserBillingBranch } from '../../entities/users/user-billing-branch.entity';
 import { SalesOrder } from '../../entities/sales-orders/sales-order.entity';
 import { PosSaleCollection } from '../../entities/pos/pos-sale-collection.entity';
 import { Customer } from '../../entities/customers/customer.entity';
@@ -21,6 +22,7 @@ import { PosShiftsController } from './pos-shifts.controller';
       PosPartialShift,
       PosPartialShiftDenomination,
       User,
+      UserBillingBranch,
       SalesOrder,
       Customer,
       PosSaleCollection,

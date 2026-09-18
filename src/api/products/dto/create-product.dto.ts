@@ -1,12 +1,14 @@
-import { IsNotEmpty, IsString, IsOptional, IsUUID, Length } from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional, IsUUID, Length, IsEnum, ValidateIf } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ProductItemKind } from '../../../entities/products/product-item-kind.enum';
 
 export class CreateProductDto {
-  @ApiProperty({ example: 'PROD-001', description: 'SKU único del producto' })
+  @ApiProperty({ example: 'PROD-001', description: 'SKU único. En servicio se puede omitir y se genera.' })
+  @ValidateIf((dto: CreateProductDto) => dto.item_kind !== ProductItemKind.Service || !!dto.sku)
   @IsNotEmpty()
   @IsString()
   @Length(1, 255)
-  sku: string;
+  sku?: string;
 
   @ApiPropertyOptional({
     example: 'EXT-ERP-001',
@@ -50,4 +52,23 @@ export class CreateProductDto {
   @IsOptional()
   @IsUUID()
   subcategory_id?: string;
+
+  @ApiPropertyOptional({ enum: ProductItemKind, default: ProductItemKind.Goods })
+  @IsOptional()
+  @IsEnum(ProductItemKind)
+  item_kind?: ProductItemKind;
+
+  @ApiPropertyOptional({
+    example: 'uuid-uom-catalog',
+    description: 'UOM base del catálogo. Si se envía, se crea en la misma transacción.',
+  })
+  @IsOptional()
+  @IsUUID()
+  base_uom_catalog_id?: string;
+
+  /** Alias de `base_uom_catalog_id` (modal de producto). */
+  @ApiPropertyOptional({ example: 'uuid-uom-catalog' })
+  @IsOptional()
+  @IsUUID()
+  base_uom_id?: string;
 }

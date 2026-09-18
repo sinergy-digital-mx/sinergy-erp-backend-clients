@@ -84,6 +84,18 @@ export class CollectPosSaleDto {
   @MaxLength(120)
   card_reference?: string;
 
+  @ApiProperty({ required: false, description: 'Monto cubierto con cheque (MXN)' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  amount_check_mxn?: number;
+
+  @ApiProperty({ required: false, description: 'Número o referencia del cheque' })
+  @ValidateIf((dto: CollectPosSaleDto) => (dto.amount_check_mxn ?? 0) > 0)
+  @IsString()
+  @MaxLength(120)
+  check_reference?: string;
+
   @ApiProperty({
     required: false,
     description: 'Monto cubierto a crédito (MXN). Si payment_method = credit y se omite, se usa el saldo pendiente.',

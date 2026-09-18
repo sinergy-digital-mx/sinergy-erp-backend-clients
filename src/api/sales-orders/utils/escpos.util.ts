@@ -202,6 +202,21 @@ export function wrapLines(text: string, width = ESCPOS_CHARS_PER_LINE): string[]
   return lines;
 }
 
+/** Bloque OBSERVACIONES del ticket. Vacío si no hay notas. */
+export function observationTicketLines(
+  notes: string | null | undefined,
+  width = ESCPOS_CHARS_PER_LINE,
+): string[] {
+  const text = notes?.replace(/\s+/g, ' ').trim();
+  if (!text) return [];
+
+  const lines: string[] = ['OBSERVACIONES'];
+  for (const part of wrapLines(text, width)) {
+    lines.push(part);
+  }
+  return lines;
+}
+
 /** Fila de producto: descripción + cantidad + precio + total. */
 export function productLine(
   description: string,

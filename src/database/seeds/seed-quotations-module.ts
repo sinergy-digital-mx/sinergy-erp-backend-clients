@@ -15,7 +15,16 @@ async function seedQuotationsModule(tenantId?: string) {
       entityCode: 'Quotation',
       description:
         'Cotizaciones de venta. Sin facturación ni reserva de inventario hasta convertir a OV.',
-      actions: ['ViewMenu', 'Create', 'Read', 'Update', 'Delete', 'Convert', 'Send'],
+      actions: [
+        'ViewMenu',
+        'Create',
+        'Read',
+        'Update',
+        'Delete',
+        'Convert',
+        'Send',
+        'ViewAll',
+      ],
       tenantId,
     });
   } finally {

@@ -1,4 +1,5 @@
 export { CreateSalesOrderDto, CreateSalesOrderLineItemDto } from './create-sales-order.dto';
+export { UpdateSalesOrderLineItemDto } from './update-sales-order-line-item.dto';
 export { QuerySalesOrderDto } from './query-sales-order.dto';
 export { QuerySalesOrderProductsSummaryDto } from './query-sales-order-products-summary.dto';
 export { FulfillSalesOrderDto } from './fulfill-sales-order.dto';
@@ -12,3 +13,5 @@ export { CreateSalesOrderPaymentDto } from './create-sales-order-payment.dto';
 export { UpdateSalesOrderSellerDto } from './update-sales-order-seller.dto';
 export { UpdateSalesOrderAssignedSellerDto } from './update-sales-order-assigned-seller.dto';
 export { StampSalesOrderInvoiceDto } from './stamp-sales-order-invoice.dto';
+export { SendSalesOrderInvoiceEmailDto } from './send-sales-order-invoice-email.dto';
+export { UpdateInvoiceEmailTemplateDto } from './update-invoice-email-template.dto';

@@ -25,23 +25,25 @@ Modal **Crear Orden de Venta:** `src/api/sales-orders/docs/UI_SALES_ORDER_CREATE
 |----|-----------|---------|
 | Columna **Razón social** | `razon_social` | `Madereria Zona Norte` |
 | Columna **Sucursal** | `sucursal` o `billing_branch.code` | `SUCURSAL BUENOS AIRES` |
+| Columna **Tipo** | `sale_scope` | `Inventario` · `Servicios` · `Productos y servicios` |
 | Filtro **Razón social** | `fiscal_configuration_id` | uuid o vacío = todas |
 | Filtro **Sucursal** | `billing_branch_id` | uuid o vacío = todas |
+| Filtro **Tipo de orden** | `sale_scope` | `inventory` · `services` · `combined` o vacío = todas |
 
 Fallback de razón social: `fiscal_configuration.razon_social`.
 Si `billing_branch` es `null`, mostrar `—`.
 
 ---
 
-## 2.1 Origen del cobro (POS cobranza vs cobrada manual)
+## 2.1 Origen del cobro (POS Caja vs cobrada manual)
 
 No es lo mismo que `sales_order_type` (cómo se **creó** la OV) ni que `payment_status` (Pagado / Pendiente).
 
 | `collection_channel` | Label | Cuándo |
 |----------------------|-------|--------|
-| `pos_cobranza` | `POS cobranza` | Cobro en **POS Cobranza** (`POST /pos/sales/:id/collect`) |
+| `pos_cobranza` | `POS Caja` | Cobro en **POS Caja** (`POST /pos/sales/:id/collect`) |
 | `manual` | `Cobrada manual` | Pagos registrados en el **detalle de la OV** (`POST /sales-orders/:id/payments`) |
-| `mixed` | `POS cobranza + Manual` | Anticipo en el detalle y el resto en POS Cobranza |
+| `mixed` | `POS Caja + Manual` | Anticipo en el detalle y el resto en POS Caja |
 | `null` | — | Sin cobro todavía (pendiente / crédito sin pagos) |
 
 ### Columna Pago — no agregar columna nueva
@@ -50,7 +52,7 @@ Dentro de **Pago**, debajo o al lado de Pagado/Pendiente:
 
 ```
 ┌─────────┐  ┌──────────────┐
-│ Pagado  │  │ POS cobranza │
+│ Pagado  │  │ POS Caja │
 └─────────┘  └──────────────┘
   Efectivo
 
@@ -60,7 +62,7 @@ Dentro de **Pago**, debajo o al lado de Pagado/Pendiente:
   Transferencia
 
 ┌───────────┐  ┌─────────┐  ┌──────────────┐
-│ Pendiente │  │ Crédito │  │ POS cobranza │
+│ Pendiente │  │ Crédito │  │ POS Caja │
 └───────────┘  └─────────┘  └──────────────┘
 ```
 
@@ -68,7 +70,7 @@ Dentro de **Pago**, debajo o al lado de Pagado/Pendiente:
 |------|---------|----------------|------------|
 | Pagado / Pendiente | `payment_status` | verde / rojo | nunca |
 | Forma de pago | `payment_method_label` | texto, no chip | `null` → `Sin cobro` |
-| Origen cobro | `collection_channel_label` | púrpura = POS cobranza; gris/azul = Cobrada manual; ambos o chip combinado si `mixed` | `collection_channel` es `null` |
+| Origen cobro | `collection_channel_label` | púrpura = POS Caja; gris/azul = Cobrada manual; ambos o chip combinado si `mixed` | `collection_channel` es `null` |
 | Crédito | `is_credit` | púrpura | `is_credit !== true` |
 
 No uses `sales_order_type === 'POS'` para este chip: una OV POS se puede cobrar en el detalle (queda `Cobrada manual`).
@@ -82,9 +84,9 @@ Nuevo combo **Origen cobro**:
 | UI | Query |
 |----|-------|
 | Todos los orígenes | no enviar `collection_channel` |
-| POS cobranza | `collection_channel=pos_cobranza` |
+| POS Caja | `collection_channel=pos_cobranza` |
 | Cobrada manual | `collection_channel=manual` |
-| POS cobranza + Manual | `collection_channel=mixed` |
+| POS Caja + Manual | `collection_channel=mixed` |
 
 ```
 GET /api/tenant/sales-orders?collection_channel=pos_cobranza
@@ -142,7 +144,7 @@ GET /api/tenant/sales-orders?billing_branch_id={uuid}
       "payment_method_label": "Mixto",
       "payment_breakdown_label": "Efectivo + Tarjeta",
       "collection_channel": "pos_cobranza",
-      "collection_channel_label": "POS cobranza",
+      "collection_channel_label": "POS Caja",
       "total": "13.92",
       "created_at": "2026-07-14 23:04:57",
       "customer": {
@@ -193,6 +195,19 @@ GET /api/tenant/sales-orders?billing_branch_id={uuid}
 ---
 
 ## 4. Combos de filtros
+
+### Barra vs modal
+
+No meter todos los filtros en una sola fila. La barra queda así:
+
+| Afuera | Modal (control central, mismos valores) |
+|--------|-----------------------------------------|
+| Búsqueda por folio | Búsqueda |
+| **Razón social** | Razón social |
+| **Sucursal** | Sucursal |
+| | Fecha, estado, tipo (`sale_scope`), pago, origen cobro, crédito |
+
+El modal repite los de la barra: si eliges razón afuera, sale seleccionada adentro, y al revés. Cotizaciones: afuera folio + razón + sucursal; adentro también esos más fecha, estado y tipo POS/Manual. El badge cuenta solo los extras.
 
 ### Razón social
 
@@ -261,7 +276,7 @@ En **FECHAS**, junto a Estado de pago, pintar **cómo se pagó**:
 | UI | Campo |
 |----|--------|
 | Estado de pago | `header.payment_status` (`Pagado` / `Pendiente`) |
-| Origen cobro | `header.collection_channel_label` (`POS cobranza` / `Cobrada manual` / `POS cobranza + Manual`) |
+| Origen cobro | `header.collection_channel_label` (`POS Caja` / `Cobrada manual` / `POS Caja + Manual`) |
 | Forma de pago | `header.payment_method_label` (`Efectivo`, `Tarjeta`, `Transferencia`, `Mixto`, `Crédito`) |
 | Detalle mixto | `header.payment_breakdown_label` (`Efectivo + Tarjeta`) |
 | Montos | `header.payment_display.lines` |
@@ -297,7 +312,7 @@ subtitle: header.fiscal_configuration?.rfc  // opcional
   "razon_social": "Madereria Zona Norte",
   "sucursal": "SUCURSAL BUENOS AIRES",
   "collection_channel": "pos_cobranza",
-  "collection_channel_label": "POS cobranza",
+  "collection_channel_label": "POS Caja",
   "fiscal_configuration_id": "2a89da42-ba73-4247-9bf2-ac1c0d7ba23e",
   "fiscal_configuration": {
     "id": "2a89da42-ba73-4247-9bf2-ac1c0d7ba23e",
@@ -352,7 +367,7 @@ Si `fiscal_configuration_id` / `billing_branch_id` son `null` o `''`, **no** los
 
 Columnas nuevas en el xlsx:
 
-- Cabecera: **Razón social**, **Sucursal**, **Origen cobro** (`POS cobranza` / `Cobrada manual`)
+- Cabecera: **Razón social**, **Sucursal**, **Origen cobro** (`POS Caja` / `Cobrada manual`)
 - Detalle: **Razón social**, **Sucursal**, **Origen cobro** (después de Pago)
 
 Detalle sigue exigiendo `created_from` + `created_to`.
@@ -386,8 +401,23 @@ Este cambio **no** aplica a Punto de Venta.
 - [ ] Detalle: guardar ids `fiscal_configuration_id` y `billing_branch_id`
 - [ ] Detalle: **Vendedor** vs **Comisionado** — `UI_SALES_ORDER_SELLER.md`
 - [ ] Detalle y listado: **Forma de pago** (efectivo / mixto / tarjeta…) — `UI_SALES_ORDER_PAYMENTS.md`
-- [ ] Columna Pago: chip **POS cobranza** / **Cobrada manual** con `collection_channel_label`
+- [ ] Columna Pago: chip **POS Caja** / **Cobrada manual** con `collection_channel_label`
 - [ ] Filtro **Origen cobro** (`collection_channel`). No meterlo en “Todos los pagos”
 - [ ] Excel: columna **Origen cobro** — `UI_SALES_ORDER_EXPORT.md`
 - [ ] Crear OV: ver `UI_SALES_ORDER_CREATE.md`
 - [ ] POS sin cambios
+- [ ] Fechas GET: `created_at` / `collected_at` UTC→local; `delivery_date` / `payment_date` calendario
+
+---
+
+## Fechas GET
+
+Mismo contrato en OC, OV, inventario, historiales y POS.
+
+| Valor API | Cómo pintar |
+|-----------|-------------|
+| `YYYY-MM-DD` o medianoche UTC (`T00:00:00Z`) | Día de calendario. No desplazar por zona. |
+| `YYYY-MM-DD HH:mm:ss` sin zona | UTC. Pintar en hora local. |
+| ISO con `Z` u offset | Instante. Pintar en hora local. |
+
+Pollux: `apiDate` / `formatApiDate`. No usar el pipe `date` de Angular ni `new Date(valor)` directo.

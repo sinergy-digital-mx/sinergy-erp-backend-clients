@@ -388,3 +388,34 @@ describe('UsersService.userStatus', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 });
+
+describe('UsersService.mapUserResponse', () => {
+  it('incluye is_crm_admin', async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        UsersService,
+        { provide: getRepositoryToken(User), useValue: {} },
+        { provide: getRepositoryToken(UserBillingBranch), useValue: {} },
+        { provide: getRepositoryToken(RBACTenant), useValue: {} },
+        { provide: getRepositoryToken(UserStatus), useValue: {} },
+        { provide: getRepositoryToken(BillingBranch), useValue: {} },
+        { provide: getRepositoryToken(PosDailyShift), useValue: {} },
+        { provide: getRepositoryToken(UserManagerReport), useValue: {} },
+        { provide: getRepositoryToken(UserWarehouseAssignment), useValue: {} },
+        { provide: getRepositoryToken(Warehouse), useValue: {} },
+        { provide: EmployeesService, useValue: {} },
+      ],
+    }).compile();
+
+    const service = module.get(UsersService);
+    const mapped = service.mapUserResponse({
+      id: 'u-1',
+      is_crm_admin: 1,
+      is_manager: 0,
+      is_pos_user: 0,
+      is_employee: 0,
+    } as any);
+
+    expect(mapped.is_crm_admin).toBe(true);
+  });
+});

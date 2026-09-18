@@ -11,6 +11,7 @@ import {
 import { RBACTenant } from '../rbac/tenant.entity';
 import { Category } from '../categories/category.entity';
 import { Subcategory } from '../categories/subcategory.entity';
+import { ProductItemKind } from './product-item-kind.enum';
 
 @Entity('products')
 @Index('UQ_products_tenant_sku', ['tenant_id', 'sku'], { unique: true })
@@ -22,6 +23,7 @@ import { Subcategory } from '../categories/subcategory.entity';
 @Index('IDX_products_subcategory_id', ['subcategory_id'])
 @Index('IDX_products_tenant_category', ['tenant_id', 'category_id'])
 @Index('IDX_products_tenant_subcategory', ['tenant_id', 'subcategory_id'])
+@Index('IDX_products_tenant_item_kind', ['tenant_id', 'item_kind'])
 export class Product {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -50,6 +52,9 @@ export class Product {
 
   @Column({ default: true })
   is_active: boolean;
+
+  @Column({ type: 'varchar', length: 16, default: ProductItemKind.Goods })
+  item_kind: ProductItemKind;
 
   @ManyToOne(() => Category, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'category_id' })

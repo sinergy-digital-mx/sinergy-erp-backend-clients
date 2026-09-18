@@ -10,6 +10,7 @@ import { TenantContextService } from './tenant-context.service';
 import { PermissionCacheService } from './permission-cache.service';
 import { PermissionVersionService } from './permission-version.service';
 import { QueryCacheService } from './query-cache.service';
+import { entityCodesMatch } from '../utils/entity-code.util';
 
 /**
  * Cache statistics interface for monitoring
@@ -45,7 +46,7 @@ export class PermissionService {
   /**
    * Check if a user has a specific permission for an entity type and action
    * Uses cache-first approach for optimal performance with graceful degradation
-   * Admin roles automatically have all permissions
+   * Admin tiene todos los permisos de los módulos habilitados en SU organización, no del catálogo global.
    * @param userId - The user ID to check permissions for
    * @param tenantId - The tenant context
    * @param entityType - The entity type (e.g., 'Customer', 'Lead')
@@ -62,26 +63,32 @@ export class PermissionService {
       // Validate tenant context matches current context
       this.validateTenantContext(tenantId, userId);
 
-      // Check if user has an admin role - if so, grant all permissions
-      const hasAdminRole = await this.userHasAdminRole(userId, tenantId);
-      if (hasAdminRole) {
-        this.logger.debug(`User ${userId} has admin role - granting all permissions`);
-        return true;
-      }
-
       // Validate entity type against Entity Registry with graceful degradation
       const isValidEntity = await this.validateEntityTypeWithFallback(entityType);
       if (!isValidEntity) {
         RBACErrorUtils.throwInvalidEntityType(entityType);
       }
 
-      // Cache-first approach with graceful degradation for cache failures
-      let userPermissions = await this.getUserPermissionsWithFallback(userId, tenantId);
+      const userPermissions = await this.getUserPermissionsWithFallback(userId, tenantId);
+      const hasExact = userPermissions?.some(
+        (permission) =>
+          entityCodesMatch(permission?.entity_type, entityType) &&
+          permission?.action?.toLowerCase() === action.toLowerCase(),
+      );
 
-      // Check if the user has the required permission (case-insensitive comparison)
-      return userPermissions?.some(
-        permission => permission?.entity_type?.toLowerCase() === entityType.toLowerCase() && permission?.action?.toLowerCase() === action.toLowerCase()
-      ) || false;
+      if (hasExact) {
+        return true;
+      }
+
+      // Admin: cualquier acción de entidades que ya tiene su organización
+      const isAdmin = await this.userHasAdminRole(userId, tenantId);
+      if (isAdmin) {
+        return userPermissions?.some((permission) =>
+          entityCodesMatch(permission?.entity_type, entityType),
+        ) ?? false;
+      }
+
+      return false;
     } catch (error) {
       this.logger.error(`Error checking permission for user ${userId} in tenant ${tenantId}:`, error);
       
@@ -233,11 +240,7 @@ export class PermissionService {
   }
 
   /**
-   * Check if user has an admin role
-   * Admin roles automatically grant all permissions
-   * @param userId - The user ID
-   * @param tenantId - The tenant ID
-   * @returns Promise<boolean> - True if user has an admin role
+   * Admin de esta organización: rol Admin en este contexto, no acceso global.
    */
   private async userHasAdminRole(userId: string, tenantId: string): Promise<boolean> {
     try {
@@ -972,20 +975,15 @@ export class PermissionService {
   }
 
   /**
-   * Optimized query to get user permissions with minimal database round trips
-   * Uses a single query with proper joins and indexes
-   * @param userId - The user ID
-   * @param tenantId - The tenant ID
-   * @returns Promise<Permission[]> - Array of permissions from database
+   * Permisos del rol en módulos habilitados de esta organización.
+   * No volcar el catálogo global: eso infla el JWT y tumba el login de Admin.
    */
   private async getUserPermissionsOptimized(
     userId: string,
     tenantId: string,
   ): Promise<Permission[]> {
-    // Use a more efficient query that leverages indexes
-    // IMPORTANT: Only return permissions for modules that are enabled for this tenant
     const query = `
-      SELECT DISTINCT p.id, p.action, p.description, p.is_system_permission, p.created_at, p.updated_at, 
+      SELECT DISTINCT p.id, p.action, p.description, p.is_system_permission, p.created_at, p.updated_at,
              p.entity_registry_id, er.code as entity_code, p.module_id
       FROM rbac_permissions p
       INNER JOIN entity_registry er ON p.entity_registry_id = er.id
@@ -998,9 +996,17 @@ export class PermissionService {
       ORDER BY er.code, p.action
     `;
 
-    const rawResults = await this.permissionRepository.query(query, [tenantId, userId, tenantId, tenantId]);
-    
-    // Convert raw results to Permission entities
+    const rawResults = await this.permissionRepository.query(query, [
+      tenantId,
+      userId,
+      tenantId,
+      tenantId,
+    ]);
+
+    return this.mapRawPermissionRows(rawResults);
+  }
+
+  private mapRawPermissionRows(rawResults: any[]): Permission[] {
     return rawResults.map(row => {
       const permission = new Permission();
       permission.id = row.id;
@@ -1011,7 +1017,6 @@ export class PermissionService {
       permission.updated_at = row.updated_at;
       permission.entity_registry_id = row.entity_registry_id;
       permission.module_id = row.module_id;
-      // Set entity_registry so the getter can compute entity_type
       permission.entity_registry = {
         id: row.entity_registry_id,
         code: row.entity_code,
@@ -1446,12 +1451,12 @@ export class PermissionService {
     try {
       // First try case-insensitive search in entity registry
       const entity = await this.entityRegistryRepository.query(`
-        SELECT id FROM entity_registry 
-        WHERE LOWER(code) = LOWER(?)
-        LIMIT 1
-      `, [entityType]);
-      
-      const isValid = entity && entity.length > 0;
+        SELECT code FROM entity_registry
+      `);
+
+      const isValid = (entity ?? []).some((row: { code?: string }) =>
+        entityCodesMatch(row?.code, entityType),
+      );
       if (isValid) {
         this.logger.debug(`Entity type ${entityType} validated from entity_registry`);
       } else {
@@ -1466,11 +1471,13 @@ export class PermissionService {
         const knownEntityTypes = [
           'user', 'customer', 'lead', 'order', 'product', 'invoice', 'report',
           'tenant', 'role', 'permission', 'userrole', 'rolepermission',
-          'activity', 'auditlog', 'activities', 'customers', 'leads'
+          'activity', 'auditlog', 'activities', 'customers', 'leads',
+          'contract', 'contracts',
         ];
-        
-        const isKnownEntity = knownEntityTypes.includes(entityType.toLowerCase());
-        
+        const isKnownEntity = knownEntityTypes.some((known) =>
+          entityCodesMatch(known, entityType),
+        );
+
         if (isKnownEntity) {
           this.logger.debug(`Entity type ${entityType} validated using fallback list`);
         } else {

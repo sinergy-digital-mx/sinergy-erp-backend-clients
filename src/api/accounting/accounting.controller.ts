@@ -49,7 +49,7 @@ export class AccountingController {
   @Get('pos-collections')
   @RequirePermissions({ entityType: 'Accounting', action: 'Read' })
   @ApiOperation({
-    summary: 'Detalle de órdenes cobradas (terminal de cobranza)',
+    summary: 'Detalle de órdenes cobradas (terminal de caja)',
     description:
       'Lista cobros del periodo/sucursal. Filtro customer_type: all | walk_in | invoiced.',
   })

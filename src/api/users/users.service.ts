@@ -77,6 +77,7 @@ export class UsersService {
       is_employee,
       employee,
       is_manager,
+      is_crm_admin,
       warehouse_ids,
       ...userFields
     } = dto;
@@ -94,6 +95,7 @@ export class UsersService {
       billing_branch_id: assignment.active,
       is_employee: false,
       is_manager: is_manager ?? false,
+      is_crm_admin: is_crm_admin ?? false,
     });
 
     await this.replaceAssignedBranches(user.id, tenantId, assignment);
@@ -178,6 +180,7 @@ export class UsersService {
       is_employee,
       employee,
       is_manager,
+      is_crm_admin,
       warehouse_ids,
       ...userFields
     } = dto;
@@ -208,6 +211,10 @@ export class UsersService {
 
     if (is_manager !== undefined) {
       user.is_manager = is_manager;
+    }
+
+    if (is_crm_admin !== undefined) {
+      user.is_crm_admin = is_crm_admin;
     }
 
     Object.assign(user, userFields);
@@ -630,6 +637,7 @@ export class UsersService {
       is_employee: Boolean(user.is_employee),
       employee: (user as any).employeeProfile ?? null,
       is_manager: Boolean(user.is_manager),
+      is_crm_admin: Boolean(user.is_crm_admin),
       manager: this.mapManagerSummary((user as any).managerUser),
       ...((user as any).managedUsers
         ? { reports: (user as any).managedUsers }

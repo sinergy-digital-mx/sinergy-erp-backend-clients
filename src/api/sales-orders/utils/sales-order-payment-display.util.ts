@@ -4,12 +4,13 @@ export const SALES_ORDER_PAYMENT_METHOD_LABELS: Record<PosSalePaymentMethod, str
   [PosSalePaymentMethod.CASH]: 'Efectivo',
   [PosSalePaymentMethod.CARD]: 'Tarjeta',
   [PosSalePaymentMethod.TRANSFER]: 'Transferencia',
+  [PosSalePaymentMethod.CHECK]: 'Cheque',
   [PosSalePaymentMethod.MIXED]: 'Mixto',
   [PosSalePaymentMethod.CREDIT]: 'Crédito',
 };
 
 export type SalesOrderPaymentDisplayLine = {
-  method: 'cash' | 'card' | 'transfer' | 'credit';
+  method: 'cash' | 'card' | 'transfer' | 'check' | 'credit';
   label: string;
   amount_mxn: number;
   amount_usd: number;
@@ -29,6 +30,7 @@ export type PaymentDisplayCollectionInput = {
   amount_cash_usd?: number | string | null;
   amount_transfer_mxn?: number | string | null;
   amount_card_mxn?: number | string | null;
+  amount_check_mxn?: number | string | null;
   amount_credit_mxn?: number | string | null;
 };
 
@@ -42,6 +44,7 @@ const LINE_METHODS = [
   PosSalePaymentMethod.CASH,
   PosSalePaymentMethod.TRANSFER,
   PosSalePaymentMethod.CARD,
+  PosSalePaymentMethod.CHECK,
   PosSalePaymentMethod.CREDIT,
 ] as const;
 
@@ -109,6 +112,7 @@ function fromCollection(collection: PaymentDisplayCollectionInput): SalesOrderPa
     ),
     line(PosSalePaymentMethod.TRANSFER, toNumber(collection.amount_transfer_mxn)),
     line(PosSalePaymentMethod.CARD, toNumber(collection.amount_card_mxn)),
+    line(PosSalePaymentMethod.CHECK, toNumber(collection.amount_check_mxn)),
     line(PosSalePaymentMethod.CREDIT, toNumber(collection.amount_credit_mxn)),
   ].filter((item): item is SalesOrderPaymentDisplayLine => item != null);
 

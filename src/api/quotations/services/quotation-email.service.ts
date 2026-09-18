@@ -7,6 +7,7 @@ import { MailerConfigurationService } from '../../mailer-configuration/services/
 import { QuotationService } from './quotation.service';
 import { QuotationPdfService } from './quotation-pdf.service';
 import { SendQuotationEmailDto } from '../dto/send-quotation-email.dto';
+import { QuotationSellerAccess } from '../utils/quotation-seller-scope.util';
 
 @Injectable()
 export class QuotationEmailService {
@@ -18,8 +19,12 @@ export class QuotationEmailService {
     private readonly mailerConfigurationService: MailerConfigurationService,
   ) {}
 
-  async list(quotationId: string, tenantId: string) {
-    await this.quotationService.findOne(quotationId, tenantId);
+  async list(
+    quotationId: string,
+    tenantId: string,
+    access?: QuotationSellerAccess,
+  ) {
+    await this.quotationService.findOne(quotationId, tenantId, access);
     const rows = await this.emailRepo.find({
       where: { quotation_id: quotationId, tenant_id: tenantId },
       relations: ['sender'],
@@ -33,8 +38,13 @@ export class QuotationEmailService {
     dto: SendQuotationEmailDto,
     tenantId: string,
     userId: string,
+    access?: QuotationSellerAccess,
   ) {
-    const quotation = await this.quotationService.findOne(quotationId, tenantId);
+    const quotation = await this.quotationService.findOne(
+      quotationId,
+      tenantId,
+      access,
+    );
     if (quotation.general_status === 'Cancelada') {
       throw new BadRequestException(
         'No se puede enviar una cotización cancelada',

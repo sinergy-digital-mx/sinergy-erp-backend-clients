@@ -93,6 +93,10 @@ export class PurchaseOrderBatch {
   @Column({ type: 'varchar', length: 30, nullable: true })
   pedimento_number: string | null;
 
+  /** Número de factura del proveedor. Aplica a cualquier tipo de proveedor. */
+  @Column({ type: 'varchar', length: 60, nullable: true })
+  vendor_invoice_number: string | null;
+
   /** Fecha del pedimento / aduana. Independiente del tipo de cambio diario. */
   @Column({ type: 'date', nullable: true })
   customs_date: Date | string | null;

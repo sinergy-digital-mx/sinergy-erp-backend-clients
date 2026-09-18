@@ -17,10 +17,13 @@ import { InventoryLocationTreeResponseDto } from './dto/inventory-location-tree-
 import { InventoryStatsFilterDto } from './dto/inventory-stats-filter.dto';
 import { InventoryStatsResponseDto } from './dto/inventory-stats-response.dto';
 import { InventoryExportService } from './services/inventory-export.service';
+import { InventoryStockFlowService } from './services/inventory-stock-flow.service';
 import {
   QueryInventoryBatchExportDto,
   QueryInventorySummaryExportDto,
 } from './dto/query-inventory-export.dto';
+import { QueryStockFlowDto, StockFlowView } from './dto/query-stock-flow.dto';
+import { StockFlowResponseDto } from './dto/stock-flow-response.dto';
 
 @Controller('tenant/inventory')
 @ApiTags('Inventory')
@@ -30,7 +33,47 @@ export class InventoryController {
   constructor(
     private readonly inventoryService: InventoryService,
     private readonly exportService: InventoryExportService,
+    private readonly stockFlowService: InventoryStockFlowService,
   ) {}
+
+  @Get('stock-flow')
+  @RequirePermissions({ entityType: 'inventory', action: 'StockFlow' })
+  @ApiOperation({
+    summary: 'Reporte de existencia / kardex (TRK-017 + TRK-018)',
+    description:
+      'Resumen (apertura/compras/ventas/cierre) o flujo detallado por rango de fechas. Permiso inventory:StockFlow.',
+  })
+  @ApiResponse({ status: 200, type: StockFlowResponseDto })
+  async getStockFlow(
+    @Query() filters: QueryStockFlowDto,
+    @Req() req: any,
+  ): Promise<StockFlowResponseDto> {
+    return this.stockFlowService.getReport(req.user.tenant_id, filters);
+  }
+
+  @Get('stock-flow/export/excel')
+  @RequirePermissions({ entityType: 'inventory', action: 'StockFlow' })
+  @ApiOperation({ summary: 'Excel del reporte de existencia' })
+  async exportStockFlowExcel(
+    @Query() filters: QueryStockFlowDto,
+    @Req() req: any,
+    @Res() res: any,
+  ) {
+    const buffer = await this.stockFlowService.exportExcel(
+      req.user.tenant_id,
+      filters,
+    );
+    const view = filters.view ?? StockFlowView.SUMMARY;
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${this.stockFlowService.getFilename(view)}"`,
+    );
+    res.send(buffer);
+  }
 
   @Get('export/excel/batches')
   @RequirePermissions({ entityType: 'inventory', action: 'read' })

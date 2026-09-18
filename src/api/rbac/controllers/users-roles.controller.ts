@@ -12,6 +12,7 @@ import {
   HttpStatus,
   Query,
   UnauthorizedException,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -63,10 +64,14 @@ export class UsersRolesController {
     status: 201,
     description: 'User created successfully',
   })
-  async createUser(@Body() dto: CreateUserDto) {
-    const tenantId = this.tenantContextService.getCurrentTenantId();
+  async createUser(@Body() dto: CreateUserDto, @Req() req: any) {
+    const tenantId =
+      this.tenantContextService.getCurrentTenantId() ||
+      req?.user?.tenant_id ||
+      req?.user?.tenantId ||
+      null;
     if (!tenantId) {
-      throw new Error('Tenant context is required');
+      throw new BadRequestException('Contexto de organización requerido');
     }
     const user = await this.usersService.create(dto, tenantId);
 
@@ -468,10 +473,15 @@ export class UsersRolesController {
   async updateUser(
     @Param('userId') userId: string,
     @Body() updateData: UpdateUserDto,
+    @Req() req: any,
   ) {
-    const tenantId = this.tenantContextService.getCurrentTenantId();
+    const tenantId =
+      this.tenantContextService.getCurrentTenantId() ||
+      req?.user?.tenant_id ||
+      req?.user?.tenantId ||
+      null;
     if (!tenantId) {
-      throw new Error('Tenant context is required');
+      throw new BadRequestException('Contexto de organización requerido');
     }
     const user = await this.usersService.update(userId, updateData, tenantId);
 

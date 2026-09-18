@@ -68,6 +68,7 @@ ALMACÉN            Bodega
 
 PEDIMENTO          16 24 3001 0001234  ← ✏️ editar (solo internacional)
                    Sin pedimento       ← vacío + ✏️
+NO. FACTURA DE PROVEEDOR  A-12345      ← ver UI_PURCHASE_ORDER_VENDOR_INVOICE.md
 
 FECHAS
   Fecha esperada   11 de agosto

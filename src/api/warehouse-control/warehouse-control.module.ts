@@ -17,6 +17,7 @@ import {
 import { AuthModule } from '../auth/auth.module';
 import { RBACModule } from '../rbac/rbac.module';
 import { TenantModuleValidationGuard } from '../auth/tenant-module-validation.guard';
+import { InventoryStockLedgerModule } from '../inventory/inventory-stock-ledger.module';
 import { SalesOrderFulfillmentService } from '../sales-orders/services/sales-order-fulfillment.service';
 import { WarehouseControlController } from './warehouse-control.controller';
 import { WarehouseControlService } from './warehouse-control.service';
@@ -41,6 +42,7 @@ import { ControlDeskLifecycleService } from './control-desk-lifecycle.service';
     ]),
     AuthModule,
     RBACModule,
+    InventoryStockLedgerModule,
   ],
   controllers: [WarehouseControlController],
   providers: [

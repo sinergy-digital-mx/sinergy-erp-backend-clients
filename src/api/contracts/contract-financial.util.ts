@@ -10,12 +10,47 @@ type ContractFinancialFields = Pick<
   | 'status'
 >;
 
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 /** Meta de enganche (contrato normal) o base del plan mensual (enganche financiado). */
 export function getDownPaymentTarget(contract: ContractFinancialFields): number {
   if (contract.down_payment_financed) {
     return Number(contract.down_payment_target ?? 0);
   }
   return Number(contract.down_payment ?? 0);
+}
+
+/**
+ * Meta efectiva para cards de enganche: la guardada, o la suma de cuotas si aún no hay meta.
+ * Devuelve null solo cuando no hay meta ni cuotas (la UI muestra “Sin definir”).
+ */
+export function resolveEffectiveDownPaymentTarget(
+  savedTarget: number | null | undefined,
+  scheduledTotal: number,
+): number | null {
+  const target = Number(savedTarget);
+  if (Number.isFinite(target) && target > 0) {
+    return roundMoney(target);
+  }
+  const scheduled = Number(scheduledTotal);
+  if (Number.isFinite(scheduled) && scheduled > 0) {
+    return roundMoney(scheduled);
+  }
+  return null;
+}
+
+/** Saldo contra la meta. Siempre número; 0 si no hay meta. */
+export function computeDownPaymentRemaining(
+  effectiveTarget: number | null | undefined,
+  applied: number,
+): number {
+  const target = Number(effectiveTarget);
+  const appliedAmount = Number(applied);
+  const safeTarget = Number.isFinite(target) ? target : 0;
+  const safeApplied = Number.isFinite(appliedAmount) ? appliedAmount : 0;
+  return Math.max(0, roundMoney(safeTarget - safeApplied));
 }
 
 /** Enganche abonado hasta la fecha (campo down_payment en contratos financiados). */

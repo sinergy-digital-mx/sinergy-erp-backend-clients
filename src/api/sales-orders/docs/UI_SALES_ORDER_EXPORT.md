@@ -65,7 +65,7 @@ Una fila por línea de producto. Columnas: Folio orden, Fecha orden, Estado orde
 
 Estilo: verde más claro en encabezados (`#2E8B57`).
 
-**Origen cobro** (`collection_channel_label`): `POS cobranza`, `Cobrada manual`, `POS cobranza + Manual`, o vacío si aún no hay cobro. No es `sales_order_type` ni Pagado/Pendiente. Ver `UI_SALES_ORDER_LIST.md` § 2.1.
+**Origen cobro** (`collection_channel_label`): `POS Caja`, `Cobrada manual`, `POS Caja + Manual`, o vacío si aún no hay cobro. No es `sales_order_type` ni Pagado/Pendiente. Ver `UI_SALES_ORDER_LIST.md` § 2.1.
 
 ---
 

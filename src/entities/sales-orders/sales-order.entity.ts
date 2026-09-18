@@ -18,6 +18,8 @@ import { User } from '../users/user.entity';
 import { PosDailyShift } from '../pos/pos-daily-shift.entity';
 import { SalesOrderDetail } from './sales-order-detail.entity';
 import { GlobalDiscount } from '../global-discounts/global-discount.entity';
+import { SalesOrderSaleScope } from './sales-order-sale-scope.enum';
+import { SalesOrderPosStage } from './sales-order-pos-stage.enum';
 
 @Entity('inv_s_sales_orders')
 @Index('idx_so_tenant', ['tenant_id'])
@@ -124,6 +126,10 @@ export class SalesOrder {
   @Column({ type: 'varchar', length: 36, nullable: true })
   converted_from_quotation_id: string | null;
 
+  /** Inventario, servicios o ambos. POS siempre inventory. */
+  @Column({ type: 'varchar', length: 16, default: SalesOrderSaleScope.Inventory })
+  sale_scope: SalesOrderSaleScope;
+
   /** Si true, la OV entra en proceso de selección/armado (Control de almacén). */
   @Column({ type: 'boolean', default: false })
   requires_selection_assembly: boolean;
@@ -198,6 +204,15 @@ export class SalesOrder {
 
   @Column({ type: 'varchar', length: 36, nullable: true })
   pos_daily_shift_id: string | null;
+
+  /** Solo POS: `caja` pendiente de cobro; `ventas` reintegrado para editar. MANUAL = null. */
+  @Column({
+    type: 'enum',
+    enum: SalesOrderPosStage,
+    nullable: true,
+    default: null,
+  })
+  pos_stage: SalesOrderPosStage | null;
 
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'collected_by_user_id' })

@@ -1,19 +1,40 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Product } from '../../entities/products/product.entity';
+import { ProductUoM } from '../../entities/products/product-uom.entity';
+import { ProductPrice } from '../../entities/products/product-price.entity';
+import { ProductDiscount } from '../../entities/products/product-discount.entity';
+import { ProductItemKind } from '../../entities/products/product-item-kind.enum';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { QueryProductDto } from './dto/query-product.dto';
 import { PaginatedProductDto } from './dto/paginated-product.dto';
 import { ToggleStatusDto } from './dto/toggle-status.dto';
 import { S3Service } from '../../common/services/s3.service';
+import { UoMCatalogService } from '../uom-catalog/uom-catalog.service';
+import {
+  applyProductSearchFilter,
+  applyProductSearchOrder,
+} from '../inventory/utils/product-search-rank.util';
+import {
+  isProductDiscountApplicable,
+  mapApplicableProductDiscount,
+} from './utils/product-discount.util';
 
 @Injectable()
 export class ProductService {
   constructor(
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    @InjectRepository(ProductUoM)
+    private readonly productUomRepository: Repository<ProductUoM>,
+    @InjectRepository(ProductPrice)
+    private readonly productPriceRepository: Repository<ProductPrice>,
+    @InjectRepository(ProductDiscount)
+    private readonly productDiscountRepository: Repository<ProductDiscount>,
+    private readonly uomCatalogService: UoMCatalogService,
+    private readonly dataSource: DataSource,
     private readonly s3Service: S3Service,
   ) {}
 
@@ -33,18 +54,27 @@ export class ProductService {
       ...(dto.description !== undefined ? { description: dto.description } : {}),
       ...(dto.category_id !== undefined ? { category_id: dto.category_id } : {}),
       ...(dto.subcategory_id !== undefined ? { subcategory_id: dto.subcategory_id } : {}),
+      ...(dto.item_kind !== undefined ? { item_kind: dto.item_kind } : {}),
       ...(satClave !== undefined ? { sat_clave: satClave } : {}),
     };
   }
 
   async create(dto: CreateProductDto, tenantId: string): Promise<Product> {
-    // Verificar que el SKU no exista para este tenant
+    const itemKind = dto.item_kind ?? ProductItemKind.Goods;
+    let sku = dto.sku?.trim() || '';
+    if (!sku) {
+      if (itemKind !== ProductItemKind.Service) {
+        throw new BadRequestException('El SKU es obligatorio');
+      }
+      sku = await this.generateServiceSku(tenantId);
+    }
+
     const existing = await this.productRepository.findOne({
-      where: { tenant_id: tenantId, sku: dto.sku },
+      where: { tenant_id: tenantId, sku },
     });
 
     if (existing) {
-      throw new ConflictException(`Producto con SKU "${dto.sku}" ya existe para este tenant`);
+      throw new ConflictException(`Ya existe un producto con SKU "${sku}"`);
     }
 
     if (dto.external_sku) {
@@ -54,18 +84,59 @@ export class ProductService {
 
       if (existingExternalSku) {
         throw new ConflictException(
-          `Producto con SKU externo "${dto.external_sku}" ya existe para este tenant`,
+          `Ya existe un producto con SKU externo "${dto.external_sku}"`,
         );
       }
     }
 
-    const product = this.productRepository.create({
-      ...this.extractAllowedProductFields(dto),
-      tenant_id: tenantId,
-      is_active: true,
-    });
+    const baseUomCatalogId = dto.base_uom_catalog_id || dto.base_uom_id;
+    if (baseUomCatalogId) {
+      await this.uomCatalogService.findOne(baseUomCatalogId, tenantId);
+    }
 
-    return await this.productRepository.save(product);
+    const qr = this.dataSource.createQueryRunner();
+    await qr.connect();
+    await qr.startTransaction();
+
+    try {
+      const product = qr.manager.create(Product, {
+        ...this.extractAllowedProductFields({ ...dto, sku, item_kind: itemKind }),
+        tenant_id: tenantId,
+        is_active: true,
+        item_kind: itemKind,
+        sku,
+      });
+      const saved = await qr.manager.save(Product, product);
+
+      let createdUom: ProductUoM | null = null;
+      if (baseUomCatalogId) {
+        createdUom = qr.manager.create(ProductUoM, {
+          product_id: saved.id,
+          uom_catalog_id: baseUomCatalogId,
+          factor: 1,
+          is_base: true,
+          parent_uom_id: null,
+        });
+        createdUom = await qr.manager.save(ProductUoM, createdUom);
+      }
+
+      await qr.commitTransaction();
+
+      const response = await this.toResponseWithPhotoUrl(saved);
+      if (!createdUom) {
+        return response;
+      }
+      return {
+        ...response,
+        product_uom_id: createdUom.id,
+        base_product_uom_id: createdUom.id,
+      } as Product;
+    } catch (error) {
+      await qr.rollbackTransaction();
+      throw error;
+    } finally {
+      await qr.release();
+    }
   }
 
   async findAll(query: QueryProductDto, tenantId: string): Promise<PaginatedProductDto> {
@@ -77,7 +148,7 @@ export class ProductService {
     if (limit > 100) limit = 100;
 
     const skip = (page - 1) * limit;
-    const { search, sku, external_sku, name, category_id, subcategory_id, is_active } = query;
+    const { search, sku, external_sku, name, category_id, subcategory_id, is_active, item_kind } = query;
 
     const queryBuilder = this.productRepository
       .createQueryBuilder('product')
@@ -123,6 +194,10 @@ export class ProductService {
       queryBuilder.andWhere('product.is_active = :isActive', { isActive: is_active });
     }
 
+    if (item_kind) {
+      queryBuilder.andWhere('product.item_kind = :itemKind', { itemKind: item_kind });
+    }
+
     const [data, total] = await queryBuilder
       .orderBy('product.name', 'ASC')
       .skip(skip)
@@ -156,7 +231,7 @@ export class ProductService {
       });
 
       if (existing) {
-        throw new ConflictException(`Producto con SKU "${dto.sku}" ya existe para este tenant`);
+        throw new ConflictException(`Ya existe un producto con SKU "${dto.sku}"`);
       }
     }
 
@@ -167,7 +242,7 @@ export class ProductService {
 
       if (existingExternalSku) {
         throw new ConflictException(
-          `Producto con SKU externo "${dto.external_sku}" ya existe para este tenant`,
+          `Ya existe un producto con SKU externo "${dto.external_sku}"`,
         );
       }
     }
@@ -214,6 +289,181 @@ export class ProductService {
     product.photo = s3Key;
     const saved = await this.productRepository.save(product);
     return this.toResponseWithPhotoUrl(saved);
+  }
+
+  async findServiceCatalogSummary(
+    tenantId: string,
+    query: {
+      search?: string;
+      page?: number;
+      limit?: number;
+      billing_branch_id?: string;
+      fiscal_configuration_id?: string;
+    },
+  ) {
+    let page = Number(query.page) || 1;
+    let limit = Number(query.limit) || 40;
+    if (page < 1) page = 1;
+    if (limit < 1) limit = 1;
+    if (limit > 100) limit = 100;
+    const skip = (page - 1) * limit;
+
+    const qb = this.productRepository
+      .createQueryBuilder('product')
+      .where('product.tenant_id = :tenantId', { tenantId })
+      .andWhere('product.is_active = :isActive', { isActive: true })
+      .andWhere('product.item_kind = :itemKind', { itemKind: ProductItemKind.Service });
+
+    applyProductSearchFilter(qb, query.search);
+    const ranked = applyProductSearchOrder(qb, query.search, false);
+    if (!ranked) {
+      qb.orderBy('product.name', 'ASC');
+    }
+
+    const [products, total] = await qb.skip(skip).take(limit).getManyAndCount();
+    const productIds = products.map((product) => product.id);
+    const [baseUoms, prices, discounts] = await Promise.all([
+      this.loadBaseUoms(productIds),
+      this.loadActivePrices(productIds),
+      this.loadActiveDiscounts(productIds),
+    ]);
+
+    const data = products.map((product) => {
+      const baseUom = baseUoms.get(product.id);
+      const productUomId = baseUom?.id ?? '';
+      const uomCatalogId = baseUom?.uom_catalog_id ?? '';
+      const pricingOptions = prices.get(product.id) ?? [];
+      const suggested = pricingOptions[0] ?? null;
+      const applicableDiscounts = (discounts.get(product.id) ?? [])
+        .filter((discount) => productUomId && isProductDiscountApplicable(discount, productUomId))
+        .map(mapApplicableProductDiscount);
+
+      return {
+        product_id: product.id,
+        product_name: product.name,
+        product_sku: product.sku,
+        product_description: product.description ?? null,
+        sat_clave: product.sat_clave ?? null,
+        product_photo: product.photo,
+        item_kind: ProductItemKind.Service,
+        uom_id: uomCatalogId,
+        uom_name: baseUom?.uom?.name ?? '',
+        warehouse_ids: [] as string[],
+        warehouse_names: [] as string[],
+        suggested_unit_price: suggested?.price ?? null,
+        suggested_iva_percentage: suggested?.iva_percentage ?? null,
+        suggested_ieps_percentage: suggested?.ieps_percentage ?? null,
+        pricing_options: pricingOptions,
+        product_uom_id: productUomId,
+        has_applicable_discounts: applicableDiscounts.length > 0,
+        applicable_discounts: applicableDiscounts,
+        total_available_quantity: null,
+        total_initial_quantity: null,
+        total_batches: 0,
+        measure_totals: [],
+        batches: [],
+      };
+    });
+
+    return {
+      billing_branch_id: query.billing_branch_id ?? null,
+      fiscal_configuration_id: query.fiscal_configuration_id ?? null,
+      warehouses: [],
+      applied_warehouse_id: null,
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 0,
+    };
+  }
+
+  private async generateServiceSku(tenantId: string): Promise<string> {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const sku = `SRV-${Date.now().toString(36).toUpperCase()}${attempt}`;
+      const existing = await this.productRepository.findOne({
+        where: { tenant_id: tenantId, sku },
+      });
+      if (!existing) {
+        return sku;
+      }
+    }
+    return `SRV-${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+  }
+
+  private async loadBaseUoms(productIds: string[]): Promise<Map<string, ProductUoM>> {
+    const map = new Map<string, ProductUoM>();
+    if (productIds.length === 0) {
+      return map;
+    }
+    const uoms = await this.productUomRepository
+      .createQueryBuilder('pu')
+      .leftJoinAndSelect('pu.uom', 'uom')
+      .where('pu.product_id IN (:...productIds)', { productIds })
+      .andWhere('pu.is_base = :isBase', { isBase: true })
+      .getMany();
+    for (const row of uoms) {
+      map.set(row.product_id, row);
+    }
+    return map;
+  }
+
+  private async loadActivePrices(productIds: string[]) {
+    const map = new Map<
+      string,
+      Array<{
+        price_list_id: string;
+        price_list_name: string;
+        price: string;
+        iva_percentage: string;
+        ieps_percentage: string;
+        total: string;
+      }>
+    >();
+    if (productIds.length === 0) {
+      return map;
+    }
+    const prices = await this.productPriceRepository
+      .createQueryBuilder('pp')
+      .leftJoinAndSelect('pp.price_list', 'price_list')
+      .where('pp.product_id IN (:...productIds)', { productIds })
+      .andWhere('price_list.is_active = :isActive', { isActive: true })
+      .orderBy('price_list.created_at', 'ASC')
+      .addOrderBy('pp.created_at', 'ASC')
+      .getMany();
+
+    for (const price of prices) {
+      const options = map.get(price.product_id) || [];
+      options.push({
+        price_list_id: price.price_list_id,
+        price_list_name: price.price_list?.name ?? 'N/A',
+        price: Number(price.price ?? 0).toFixed(2),
+        iva_percentage: Number(price.iva_percentage ?? 0).toFixed(2),
+        ieps_percentage: Number(price.ieps_percentage ?? 0).toFixed(2),
+        total: Number(price.total ?? 0).toFixed(2),
+      });
+      map.set(price.product_id, options);
+    }
+    return map;
+  }
+
+  private async loadActiveDiscounts(productIds: string[]): Promise<Map<string, ProductDiscount[]>> {
+    const map = new Map<string, ProductDiscount[]>();
+    if (productIds.length === 0) {
+      return map;
+    }
+    const discounts = await this.productDiscountRepository
+      .createQueryBuilder('discount')
+      .where('discount.product_id IN (:...productIds)', { productIds })
+      .andWhere('discount.is_active = :isActive', { isActive: true })
+      .orderBy('discount.created_at', 'ASC')
+      .getMany();
+    for (const discount of discounts) {
+      const current = map.get(discount.product_id) ?? [];
+      current.push(discount);
+      map.set(discount.product_id, current);
+    }
+    return map;
   }
 
   private async getByIdOrFail(id: string, tenantId: string): Promise<Product> {

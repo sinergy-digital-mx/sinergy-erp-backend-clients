@@ -1,15 +1,15 @@
 # UI — Pagos en órdenes de venta
 
-Registro de pagos (parciales o totales) desde el **detalle de la orden** o desde **POS Cobranza**. Misma idea que pagos en órdenes de compra.
+Registro de pagos (parciales o totales) desde el **detalle de la orden** o desde **POS Caja**. Misma idea que pagos en órdenes de compra.
 
 ---
 
 ## Flujo de negocio
 
 1. En POS Ventas se crea la orden. Si el cliente es autorizado, puede quedar `payment_status = Pendiente`.
-2. La orden aparece en **POS Cobranza** (pendientes de cobro).
+2. La orden aparece en **POS Caja** (pendientes de cobro).
 3. Se puede pagar:
-   - En **Cobranza POS** (`POST /pos/sales/:id/collect`), o
+   - En **POS Caja** (`POST /pos/sales/:id/collect`), o
    - En el **detalle de la orden de venta** (sección Pagos).
 4. Cada pago registra: monto, método (`cash` | `card` | `transfer` | `mixed`), referencia, notas. El crédito POS **no** crea un pago: deja `is_credit: true` y `payment_status: Pendiente`.
 5. Opcional: subir comprobante (PDF/imagen) al pago.
@@ -50,7 +50,7 @@ GET /api/tenant/sales-orders/:id
 
 `payment_status` es **Pagado / Pendiente**. No es cómo se pagó ni **dónde** se cobró.
 
-`collection_channel` es **dónde** se cobró: POS Cobranza vs detalle de la OV.
+`collection_channel` es **dónde** se cobró: POS Caja vs detalle de la OV.
 
 ---
 
@@ -60,7 +60,7 @@ En **FECHAS** del detalle, debajo de Estado de pago, pintar la forma de pago. No
 
 ```
 Estado de pago:  Pagado
-Origen cobro:    POS cobranza
+Origen cobro:    POS Caja
 Forma de pago:   Mixto
                  Efectivo + Tarjeta
   · Efectivo     $500.00
@@ -69,7 +69,7 @@ Forma de pago:   Mixto
 
 | UI | Campo | Ejemplo |
 |----|--------|---------|
-| Origen cobro | `header.collection_channel_label` | `POS cobranza`, `Cobrada manual`, `POS cobranza + Manual` |
+| Origen cobro | `header.collection_channel_label` | `POS Caja`, `Cobrada manual`, `POS Caja + Manual` |
 | Código origen | `header.collection_channel` | `pos_cobranza` \| `manual` \| `mixed` \| `null` |
 | Forma de pago | `header.payment_method_label` | `Efectivo`, `Tarjeta`, `Transferencia`, `Mixto`, `Crédito` |
 | Código | `header.payment_method` | `cash` \| `card` \| `transfer` \| `mixed` \| `credit` \| `null` |
@@ -167,7 +167,7 @@ Respuesta incluye `url` firmada (15 min) para previsualizar/descargar.
 ├─────────────────────────────────────────────────────────┤
 │ Fecha       Método        Monto     Origen           Ref        Acciones │
 │ 03/07/2026  Transferencia $500.00   Cobrada manual   SPEI-99…  📎 🗑     │
-│ 03/07/2026  Efectivo      $1,000.00 POS cobranza     —         📎        │
+│ 03/07/2026  Efectivo      $1,000.00 POS Caja     —         📎        │
 ├─────────────────────────────────────────────────────────┤
 │ [ + Registrar pago ]                                    │
 └─────────────────────────────────────────────────────────┘
@@ -193,7 +193,7 @@ Respuesta incluye `url` firmada (15 min) para previsualizar/descargar.
 | Pago `source = pos_cobranza` | No permitir eliminar (solo lectura) |
 | Pago `source = manual` | Permitir eliminar y recalcular saldo |
 | Chip estatus | `payments_summary.payment_status` |
-| Origen por pago | `source_label` (`POS cobranza` / `Cobrada manual`) |
+| Origen por pago | `source_label` (`POS Caja` / `Cobrada manual`) |
 
 ### Función Pollux
 
@@ -232,7 +232,7 @@ Tras guardar: refrescar detalle (`GET /sales-orders/:id`) o actualizar `payments
 
 ---
 
-## POS Cobranza
+## POS Caja
 
 Sin cambios de contrato mayores:
 
@@ -280,7 +280,7 @@ Por cobrar:      $1,000.00   ← amount_pending
 
 - [ ] Sección **Pagos** en detalle de orden de venta
 - [ ] En FECHAS: **Forma de pago** con `payment_method_label` (no solo Pagado/Pendiente)
-- [ ] En FECHAS y listado: **Origen cobro** con `collection_channel_label` (`POS cobranza` / `Cobrada manual`)
+- [ ] En FECHAS y listado: **Origen cobro** con `collection_channel_label` (`POS Caja` / `Cobrada manual`)
 - [ ] Mixto: mostrar `payment_breakdown_label` y `payment_display.lines`
 - [ ] Listado: columna Pago con `payment_method_label` + chip de origen
 - [ ] Tabla de pagos: columna Origen con `source_label`
@@ -289,5 +289,5 @@ Por cobrar:      $1,000.00   ← amount_pending
 - [ ] Subida opcional de comprobante tras crear pago
 - [ ] Listar documentos con link `url`
 - [ ] Eliminar solo pagos `source === 'manual'`
-- [ ] En POS Cobranza usar `amount_pending` como monto a cobrar
+- [ ] En POS Caja usar `amount_pending` como monto a cobrar
 - [ ] Refrescar estatus de pago en header tras registrar

@@ -31,17 +31,21 @@ Código de módulo RBAC: `quotations` (el guard lee `/tenant/quotations`).
 | Acción UI | Permiso |
 |-----------|---------|
 | Ver listado / detalle / PDF | `quotations:Read` |
+| Ver **todas** las cotizaciones (no solo las propias) | `quotations:ViewAll` |
 | Crear (manual o POS) | `quotations:Create` |
 | Editar (solo `Creada`) | `quotations:Update` |
 | Cancelar | `quotations:Delete` |
 | Convertir a OV | `quotations:Convert` |
 | Enviar por correo | `quotations:Send` |
 
+`ViewAll` se asigna en Roles (no depende del nombre del rol). El rol Admin lo recibe por seed/migración; Gerente / dirección / etc. hay que marcarlo a mano. Tras asignarlo, recargar sesión (sube `permissions_version`).
+
 ```ts
 export const QUOTATION_PERMISSIONS = {
   viewMenu: 'quotations:ViewMenu',
   viewList: 'quotations:Read',
   viewDetail: 'quotations:Read',
+  viewAll: 'quotations:ViewAll',
   create: 'quotations:Create',
   update: 'quotations:Update',
   delete: 'quotations:Delete',
@@ -66,6 +70,15 @@ Rutas Angular sugeridas (clon de sales-orders):
 GET /api/tenant/quotations
 ```
 
+Alcance (servidor, no solo UI). **No** se decide por rol Admin:
+
+| Permiso | Qué ve |
+|---------|--------|
+| `quotations:Read` sin `ViewAll` | Solo cotizaciones donde es **vendedor POS** (`seller_user_id`) o **comisionado** (`assigned_seller_user_id`) |
+| `quotations:ViewAll` | Todas. Puede filtrar por vendedor |
+
+Si no tiene `ViewAll` y manda `assigned_seller_user_id` de otra persona: **403**. Detalle / editar / convertir / correo de una cotización ajena: **404**.
+
 Query:
 
 | Param | Notas |
@@ -76,6 +89,7 @@ Query:
 | `fiscal_configuration_id` | Razón social |
 | `billing_branch_id` | Sucursal |
 | `customer_id` | |
+| `assigned_seller_user_id` | Solo con `ViewAll`. Coincide con vendedor POS **o** comisionado |
 | `created_from` / `created_to` | ISO date |
 | `page` / `limit` | default 20 |
 | `sort_by` | `created_at` \| `folio` \| `total` |
@@ -95,18 +109,42 @@ Respuesta:
       "razon_social": "Madereria Zona Norte",
       "sucursal": "SUCURSAL BUENOS AIRES",
       "customer": { "id": 14177, "name": "..." },
+      "seller_user": { "id": "...", "first_name": "Ana", "pos_user_code": 12 },
+      "assigned_seller_user": { "id": "...", "first_name": "Luis", "pos_user_code": 7 },
       "converted_to_sales_order_id": null
     }
   ],
   "total": 1,
   "page": 1,
   "limit": 20,
-  "totalPages": 1
+  "totalPages": 1,
+  "can_view_all": true
 }
 ```
 
-Columnas: Folio, Fecha, Cliente, Razón social, Sucursal, Tipo (POS/Manual), Estado, Total.  
-Si `converted_to_sales_order_id` tiene valor, chip/link a la OV.
+Catálogo para el combo de vendedor (usuarios con código POS). Requiere `ViewAll`:
+
+```
+GET /api/tenant/quotations/sellers
+```
+
+```json
+{
+  "can_view_all": true,
+  "sellers": [
+    { "id": "uuid", "first_name": "Luis", "last_name": "Pérez", "pos_user_code": 7 }
+  ]
+}
+```
+
+Sin `ViewAll`: `{ "can_view_all": false, "sellers": [] }`. No pintar el combo.
+
+UI:
+
+- Sin `ViewAll`: subtítulo *Tus cotizaciones como vendedor o comisionado*.
+- Con `ViewAll`: en **Más filtros**, combo **Vendedor**. Label `Nombre (código POS)`.
+- Columnas: Folio, Cliente, **Vendedor** (comisionado; si no hay, vendedor POS), Sucursal, Estado, Total, Tipo, Fecha.
+- Si `converted_to_sales_order_id` tiene valor, chip/link a la OV.
 
 **No** pintar columnas de pago, almacén (salvo tipo POS informativo), ni factura.
 
@@ -152,6 +190,10 @@ POST /api/tenant/quotations
 - `unit_price` es el precio de la lista/opción que eligió el usuario. El backend lo guarda; no lo recalcula.
 
 Edición: `PUT /api/tenant/quotations/:id` mismo body. Solo si `header.can_edit === true` (`Creada`).
+
+En Pollux: botón **Editar cotización** en el detalle. Abre el mismo modal de alta con renglones, cantidades, precios, IVA/IEPS, descuentos, cliente, fecha de entrega y observaciones. Al guardar se regenera `DOCUMENTO_ORIGINAL`.
+
+POS: razón social y sucursal quedan fijas. El PUT reenvía `warehouse_id` y `seller_user_id` originales. No se puede editar `Convertida` ni `Cancelada`.
 
 ---
 
@@ -212,6 +254,8 @@ Permiso POS: si el usuario tiene `quotations:Create` (o el módulo quotations ha
 GET /api/tenant/quotations/:id
 ```
 
+Misma visibilidad que el listado: si no tienes `ViewAll` y no eres vendedor/comisionado de esa cotización, **404**.
+
 ```json
 {
   "data": {
@@ -232,6 +276,7 @@ GET /api/tenant/quotations/:id
       "can_convert": true,
       "can_cancel": true,
       "can_edit": true,
+      "can_edit_notes": true,
       "converted_to_sales_order_id": null,
       "discount_summary": {}
     },
@@ -270,10 +315,12 @@ Botones:
 | Regenerar PDF | `quotations:Update` | `POST /:id/regenerate-documento-original` `{ "language": "es" }` |
 | Convertir a venta | `header.can_convert` + `quotations:Convert` | ver §7 |
 | Cancelar | `header.can_cancel` | `POST /:id/cancel` |
-| Editar | `header.can_edit` | navegar a form |
+| Editar | `header.can_edit` + `quotations:Update` | mismo modal de alta, `PUT /quotations/:id` |
 | Ir a OV | `converted_to_sales_order_id` | abrir detalle de esa OV |
 
-Notas: `PATCH /api/tenant/quotations/:id/notes` `{ "notes": "..." }` (no si Cancelada).
+Notas / observaciones: `PATCH /api/tenant/quotations/:id/notes` `{ "notes": "..." }` si `header.can_edit_notes` (no Cancelada). El texto sale en el PDF como **Observaciones**. Al guardar se regenera `DOCUMENTO_ORIGINAL`.
+
+Alta: campo **Observaciones** en el formulario (`notes`). POS: se puede completar después en el detalle.
 
 ---
 
@@ -316,7 +363,9 @@ Comportamiento:
 | POS | `sales_order_type: POS` | Se descuenta FIFO al convertir | Cobranza cobra la OV como cualquier pendiente |
 | MANUAL | `MANUAL` | No se descuenta aún | Flujo normal de OV (`Creada` → surtir) |
 
-Los `line_items` de la OV salen de la cotización: mismo `unit_price`, `product_discount_id`, `iva_percentage`, `ieps_percentage`, `global_discount_id`.
+Los `line_items` de la OV salen de la cotización: mismo `unit_price`, `discount_percentage`, `discount_unit`, `product_discount_id`, `iva_percentage`, `ieps_percentage`, `global_discount_id` y `global_discount_amount`.
+
+**No se vuelven a consultar listas de precios ni se revalidan descuentos vigentes.** Si el catálogo cambió después de cotizar, la OV conserva el unitario y los descuentos pactados.
 
 Tras convertir: toast con folio OV y botón “Ver orden”. Si era POS, *“Pase a cobranza con este folio.”*
 
@@ -326,7 +375,7 @@ Tras convertir: toast con folio OV y botón “Ver orden”. Si era POS, *“Pas
 
 ## 8. PDF
 
-Mismo layout que OV. Título **COTIZACIÓN** / folio `COT-######`. Sin renglón de pago. Sin documento ENTREGA ni ticket.
+Mismo layout que OV. Título **COTIZACIÓN** / folio `COT-######`. Sin renglón de pago. Sin documento ENTREGA ni ticket. Bloque **Observaciones** (`notes`) junto a los totales.
 
 Regenerar:
 
@@ -373,5 +422,8 @@ La OV queda con `converted_from_quotation_id`. En el detalle de OV, si viene ese
 - [ ] POS Ventas: botón **Cotizar** con el mismo payload de precios
 - [ ] Detalle muestra `unit_price` del POS (no el de lista actual)
 - [ ] Convertir a venta + toast con folio OV
-- [ ] PDF vía `documents[].path`
+- [ ] Convertir conserva `unit_price` y descuentos pactados aunque el catálogo haya cambiado
+- [ ] Observaciones en alta, detalle y PDF (`notes`); PATCH `/:id/notes` regenera el documento
+- [ ] Editar cotización `Creada`: renglones, cantidades, precios/impuestos/descuentos, cliente, fecha y observaciones (`PUT /:id`)
+- [ ] Listado prefiltrado por vendedor/comisionado; `quotations:ViewAll` ve todas + filtro Vendedor
 - [ ] No llamar endpoints de invoices / payments / fulfill / ticket sobre cotizaciones

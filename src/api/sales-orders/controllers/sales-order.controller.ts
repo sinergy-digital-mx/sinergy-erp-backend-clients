@@ -12,12 +12,16 @@ import { SalesOrderDocumentsService } from '../services/sales-order-documents.se
 import { SalesOrderPosReceiptService } from '../services/sales-order-pos-receipt.service';
 import { SalesOrderExportService } from '../services/sales-order-export.service';
 import { SalesOrderInvoicingService } from '../services/sales-order-invoicing.service';
+import { SalesOrderInvoiceEmailService } from '../services/sales-order-invoice-email.service';
 import { ShippingsService } from '../../shippings/shippings.service';
 import { CancelElectronicInvoiceDto } from '../../electronic-invoicing/dto/cancel-electronic-invoice.dto';
 import { StampSalesOrderInvoiceDto } from '../dto/stamp-sales-order-invoice.dto';
 import { InventoryService } from '../../inventory/inventory.service';
+import { SalesOrderProductsPickerService } from '../services/sales-order-products-picker.service';
 import {
   CreateSalesOrderDto,
+  CreateSalesOrderLineItemDto,
+  UpdateSalesOrderLineItemDto,
   QuerySalesOrderDto,
   QuerySalesOrderProductsSummaryDto,
   FulfillSalesOrderDto,
@@ -28,6 +32,8 @@ import {
   CreateSalesOrderPaymentDto,
   UpdateSalesOrderSellerDto,
   UpdateSalesOrderAssignedSellerDto,
+  SendSalesOrderInvoiceEmailDto,
+  UpdateInvoiceEmailTemplateDto,
 } from '../dto';
 
 @ApiTags('Sales Orders')
@@ -40,8 +46,10 @@ export class SalesOrderController {
     private readonly documentsService: SalesOrderDocumentsService,
     private readonly posReceiptService: SalesOrderPosReceiptService,
     private readonly inventoryService: InventoryService,
+    private readonly productsPicker: SalesOrderProductsPickerService,
     private readonly exportService: SalesOrderExportService,
     private readonly invoicingService: SalesOrderInvoicingService,
+    private readonly invoiceEmailService: SalesOrderInvoiceEmailService,
     private readonly shippingsService: ShippingsService,
   ) {}
 
@@ -60,6 +68,64 @@ export class SalesOrderController {
   @ApiOperation({ summary: 'Replace/edit a sales order while it is Creada' })
   async replace(@Param('id') id: string, @Body() dto: CreateSalesOrderDto, @Req() req: any) {
     return this.salesOrderService.replace(id, dto, req.user.tenant_id, req.user.id);
+  }
+
+  @Post(':id/line-items')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Agregar una línea a la orden de venta',
+    description:
+      'Solo Creada o En Selección, si el picking de Mesa de Control no empezó. No usar PUT para una sola línea.',
+  })
+  async addLineItem(
+    @Param('id') id: string,
+    @Body() dto: CreateSalesOrderLineItemDto,
+    @Req() req: any,
+  ) {
+    await this.salesOrderService.addLineItem(id, dto, req.user.tenant_id, req.user.id);
+    return this.findOne(id, req);
+  }
+
+  @Patch(':orderId/line-items/:lineItemId')
+  @ApiOperation({
+    summary: 'Editar una línea de la orden de venta',
+    description:
+      'Cantidad, precio, IVA e IEPS. Recalcula totales. Solo Creada o En Selección.',
+  })
+  async updateLineItem(
+    @Param('orderId') orderId: string,
+    @Param('lineItemId') lineItemId: string,
+    @Body() dto: UpdateSalesOrderLineItemDto,
+    @Req() req: any,
+  ) {
+    await this.salesOrderService.updateLineItem(
+      orderId,
+      lineItemId,
+      dto,
+      req.user.tenant_id,
+      req.user.id,
+    );
+    return this.findOne(orderId, req);
+  }
+
+  @Delete(':orderId/line-items/:lineItemId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Eliminar una línea de la orden de venta',
+    description: 'Recalcula totales. La orden debe quedar con al menos un producto.',
+  })
+  async removeLineItem(
+    @Param('orderId') orderId: string,
+    @Param('lineItemId') lineItemId: string,
+    @Req() req: any,
+  ) {
+    await this.salesOrderService.removeLineItem(
+      orderId,
+      lineItemId,
+      req.user.tenant_id,
+      req.user.id,
+    );
+    return this.findOne(orderId, req);
   }
 
   @Patch(':id/notes')
@@ -318,6 +384,40 @@ export class SalesOrderController {
     res.send(xml);
   }
 
+  @Get(':id/invoices/:invoiceId/email-compose')
+  @ApiOperation({ summary: 'Preparar envío por correo de una factura de la orden' })
+  async getInvoiceEmailCompose(
+    @Param('id') id: string,
+    @Param('invoiceId') invoiceId: string,
+    @Req() req: any,
+  ) {
+    return this.invoiceEmailService.getCompose(id, invoiceId, req.user.tenant_id);
+  }
+
+  @Post(':id/invoices/:invoiceId/send-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Enviar factura por correo (PDF y XML)' })
+  async sendInvoiceEmail(
+    @Param('id') id: string,
+    @Param('invoiceId') invoiceId: string,
+    @Body() dto: SendSalesOrderInvoiceEmailDto,
+    @Req() req: any,
+  ) {
+    return this.invoiceEmailService.send(
+      id,
+      invoiceId,
+      dto,
+      req.user.tenant_id,
+      req.user.id,
+    );
+  }
+
+  @Get(':id/invoice-emails')
+  @ApiOperation({ summary: 'Historial de correos de facturas de la orden' })
+  async listInvoiceEmails(@Param('id') id: string, @Req() req: any) {
+    return this.invoiceEmailService.list(id, req.user.tenant_id);
+  }
+
   @Get()
   @ApiOperation({ summary: 'List sales orders with filters and pagination' })
   async findAll(@Query() filters: QuerySalesOrderDto, @Req() req: any) {
@@ -375,16 +475,25 @@ export class SalesOrderController {
     @Query() query: QuerySalesOrderProductsSummaryDto,
     @Req() req: any,
   ) {
-    return this.inventoryService.getBranchInventorySummary(
+    return this.productsPicker.getSummary(req.user.tenant_id, query);
+  }
+
+  @Get('invoice-email-template')
+  @ApiOperation({ summary: 'Obtener plantilla de correo de facturas' })
+  async getInvoiceEmailTemplate(@Req() req: any) {
+    return this.invoiceEmailService.getTemplate(req.user.tenant_id);
+  }
+
+  @Patch('invoice-email-template')
+  @ApiOperation({ summary: 'Actualizar plantilla de correo de facturas' })
+  async updateInvoiceEmailTemplate(
+    @Body() dto: UpdateInvoiceEmailTemplateDto,
+    @Req() req: any,
+  ) {
+    return this.invoiceEmailService.updateTemplate(
       req.user.tenant_id,
-      query.billing_branch_id,
-      {
-        fiscal_configuration_id: query.fiscal_configuration_id,
-        search: query.search,
-        only_available: true,
-        page: query.page ?? 1,
-        limit: query.limit ?? 40,
-      },
+      req.user.id,
+      dto,
     );
   }
 

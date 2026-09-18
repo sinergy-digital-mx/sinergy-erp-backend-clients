@@ -136,7 +136,10 @@ let QuotationService = class QuotationService {
             throw new common_1.BadRequestException(`No se puede editar una cotización con estado: ${existing.general_status}`);
         }
         const isPos = (dto.quotation_type || existing.quotation_type) === 'POS';
-        const location = await this.resolveLocation(tenantId, dto, isPos);
+        const location = await this.resolveLocation(tenantId, {
+            ...dto,
+            warehouse_id: dto.warehouse_id ?? existing.warehouse_id ?? undefined,
+        }, isPos);
         const qr = this.dataSource.createQueryRunner();
         await qr.connect();
         await qr.startTransaction();
@@ -168,7 +171,9 @@ let QuotationService = class QuotationService {
             quotation.updated_by = userId;
             await qr.manager.save(quotation_entity_1.Quotation, quotation);
             await this.insertLineItems(qr, id, dto.line_items, userId, tenantId);
-            await this.recomputeTotals(qr, quotation, tenantId, dto.global_discount_id);
+            await this.recomputeTotals(qr, quotation, tenantId, dto.global_discount_id !== undefined
+                ? dto.global_discount_id
+                : existing.global_discount_id ?? undefined);
             await qr.commitTransaction();
             this.regenerateDocumentoOriginalPreservingLanguage(id, tenantId, userId).catch((err) => {
                 this.logger.error('[PDF] Error regenerando PDF tras editar cotización:', err);
@@ -183,7 +188,7 @@ let QuotationService = class QuotationService {
             await qr.release();
         }
     }
-    async findAll(tenantId, userId, isAdmin, filters) {
+    async findAll(tenantId, userId, canViewAll, filters) {
         const { search, general_status, quotation_type, fiscal_configuration_id, billing_branch_id, customer_id, assigned_seller_user_id, created_from, created_to, page = 1, limit = 20, sort_by = 'created_at', sort_order = 'DESC', } = filters;
         const qb = this.quotationRepo
             .createQueryBuilder('qt')
@@ -194,7 +199,7 @@ let QuotationService = class QuotationService {
             .leftJoinAndSelect('qt.seller_user', 'seller_user')
             .leftJoinAndSelect('qt.assigned_seller_user', 'assigned_seller_user')
             .where('qt.tenant_id = :tenantId', { tenantId });
-        const scopeUserId = (0, quotation_seller_scope_util_1.resolveQuotationSellerScopeUserId)(isAdmin, userId, assigned_seller_user_id);
+        const scopeUserId = (0, quotation_seller_scope_util_1.resolveQuotationSellerScopeUserId)(canViewAll, userId, assigned_seller_user_id);
         if (scopeUserId) {
             qb.andWhere('(qt.seller_user_id = :scopeUserId OR qt.assigned_seller_user_id = :scopeUserId)', { scopeUserId });
         }
@@ -252,12 +257,12 @@ let QuotationService = class QuotationService {
             page,
             limit,
             totalPages: Math.ceil(total / limit),
-            is_admin: isAdmin,
+            can_view_all: canViewAll,
         };
     }
-    async listSellers(tenantId, isAdmin) {
-        if (!isAdmin) {
-            return { is_admin: false, sellers: [] };
+    async listSellers(tenantId, canViewAll) {
+        if (!canViewAll) {
+            return { can_view_all: false, sellers: [] };
         }
         const sellers = await this.userRepo.find({
             where: { tenant_id: tenantId, pos_user_code: (0, typeorm_2.Not)((0, typeorm_2.IsNull)()) },
@@ -265,7 +270,7 @@ let QuotationService = class QuotationService {
             order: { first_name: 'ASC', last_name: 'ASC' },
         });
         return {
-            is_admin: true,
+            can_view_all: true,
             sellers: sellers.map((user) => ({
                 id: user.id,
                 first_name: user.first_name,

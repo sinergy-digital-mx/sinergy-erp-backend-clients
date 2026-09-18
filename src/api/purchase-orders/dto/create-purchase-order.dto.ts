@@ -101,6 +101,12 @@ export class CreatePurchaseOrderDto {
   @MaxLength(30)
   pedimento_number?: string | null;
 
+  /** Número de factura del proveedor. Opcional. */
+  @IsString()
+  @IsOptional()
+  @MaxLength(60)
+  vendor_invoice_number?: string | null;
+
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })

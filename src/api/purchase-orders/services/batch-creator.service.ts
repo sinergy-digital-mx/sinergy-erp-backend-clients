@@ -3,9 +3,15 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { InventoryBatch } from '../../../entities/purchase-orders/inventory-batch.entity';
 import { PurchaseOrderBatch } from '../../../entities/purchase-orders/purchase-order-batch.entity';
+import { InventoryStockLedgerMovementType } from '../../../entities/inventory/inventory-stock-ledger-movement-type.enum';
 import { ReceivedItemDto } from '../dto/receive-purchase-order.dto';
 import { BatchNumberGeneratorService } from './batch-number-generator.service';
 import { normalizeMeasure } from '../../inventory/utils/inventory-measure.util';
+import {
+  InventoryStockLedgerService,
+  STOCK_LEDGER_REFERENCE,
+} from '../../inventory/services/inventory-stock-ledger.service';
+import { InventoryStockLedgerValuationService } from '../../inventory/services/inventory-stock-ledger-valuation.service';
 
 /**
  * Service for creating inventory batch records for received items
@@ -19,6 +25,8 @@ export class BatchCreatorService {
     @InjectRepository(InventoryBatch)
     private readonly inventoryBatchRepository: Repository<InventoryBatch>,
     private readonly batchNumberGeneratorService: BatchNumberGeneratorService,
+    private readonly stockLedger: InventoryStockLedgerService,
+    private readonly stockLedgerValuation: InventoryStockLedgerValuationService,
   ) {}
 
   /**
@@ -84,6 +92,33 @@ export class BatchCreatorService {
       });
 
       const savedBatch = await repo.save(batch);
+
+      const em = manager ?? this.inventoryBatchRepository.manager;
+      const valuation = await this.stockLedgerValuation.resolveFromBatchId(
+        purchaseOrder.tenant_id,
+        savedBatch.id,
+        em,
+      );
+
+      await this.stockLedger.append(
+        {
+          tenantId: purchaseOrder.tenant_id,
+          productId: savedBatch.product_id,
+          warehouseId: savedBatch.warehouse_id,
+          uomId: savedBatch.uom_id,
+          inventoryBatchId: savedBatch.id,
+          movementType: InventoryStockLedgerMovementType.PURCHASE_RECEIPT,
+          quantityDelta: parseFloat(String(convertedQuantity)),
+          unitCostMxn: valuation.unitCostMxn,
+          unitSalePriceMxn: valuation.unitSalePriceMxn,
+          occurredAt: savedBatch.created_at ?? new Date(),
+          referenceType: STOCK_LEDGER_REFERENCE.PURCHASE_ORDER,
+          referenceId: purchaseOrder.id,
+          referenceFolio: purchaseOrder.folio ?? null,
+          createdBy: userId,
+        },
+        manager,
+      );
 
       this.logger.log(
         `Batch created: ${batchNumber} for product ${receivedItem.product_id}`,

@@ -47,6 +47,8 @@ export class SalesOrderPdfService {
       title?: string;
       subtitle?: string;
       hidePayment?: boolean;
+      notesPrefix?: string;
+      notesEmpty?: string;
     },
   ): Promise<Buffer> {
     return this.buildDocument(salesOrder, language, 'original', options);
@@ -67,10 +69,16 @@ export class SalesOrderPdfService {
       title?: string;
       subtitle?: string;
       hidePayment?: boolean;
+      notesPrefix?: string;
+      notesEmpty?: string;
     },
   ): Promise<Buffer> {
     const printer = new PdfPrinter(this.fonts);
-    const labels = getSalesOrderPdfLabels(language);
+    const labels: SalesOrderPdfLabels = {
+      ...getSalesOrderPdfLabels(language),
+      ...(options?.notesPrefix ? { notesPrefix: options.notesPrefix } : {}),
+      ...(options?.notesEmpty ? { notesEmpty: options.notesEmpty } : {}),
+    };
     const logoImage = await this.getFiscalLogoImage(salesOrder);
     const subtitle =
       options?.subtitle ??

@@ -8,7 +8,7 @@ Secciones en el **detalle del cliente** (Pollux): **Productos más comprados** y
 
 ```http
 GET /api/tenant/customers/:id/product-insights
-Permiso: customers:Read
+Permiso: customers:ComprasFrecuentes
 ```
 
 Query opcional:

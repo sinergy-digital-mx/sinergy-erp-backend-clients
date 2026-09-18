@@ -7,6 +7,7 @@ import {
   productLine,
   padLeft,
   padRight,
+  observationTicketLines,
 } from './escpos.util';
 
 describe('escpos.util', () => {
@@ -38,6 +39,14 @@ describe('escpos.util', () => {
   it('pads columns', () => {
     expect(padLeft('1', 5)).toBe('    1');
     expect(padRight('ABC', 6)).toBe('ABC   ');
+  });
+
+  it('arma observaciones del ticket solo si hay texto', () => {
+    expect(observationTicketLines(null)).toEqual([]);
+    expect(observationTicketLines('   ')).toEqual([]);
+    const lines = observationTicketLines('Entregar en mostrador. Cliente pide factura.');
+    expect(lines[0]).toBe('OBSERVACIONES');
+    expect(lines.join(' ')).toContain('Entregar en mostrador.');
   });
 
   it('emits ESC/POS QR function commands', () => {

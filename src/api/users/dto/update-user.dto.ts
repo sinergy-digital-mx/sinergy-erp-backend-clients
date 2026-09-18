@@ -127,6 +127,14 @@ export class UpdateUserDto {
 
   @ApiProperty({
     required: false,
+    description: 'Administrador del portal CRM: ve actividades de todos los usuarios',
+  })
+  @IsOptional()
+  @IsBoolean()
+  is_crm_admin?: boolean;
+
+  @ApiProperty({
+    required: false,
     type: EmployeeProfileDto,
     description: 'Datos de RH/nómina a actualizar. Se aplica un upsert del perfil.',
   })

@@ -66,7 +66,7 @@ Login y refresh traen los mismos campos en `user`.
 
 ## Cambiar sucursal activa (POS)
 
-Si `can_switch_branch === true`, el POS pide sucursal al entrar (si aún no eligió en esta sesión) y muestra un selector para cambiar.
+Si `can_switch_branch === true`, Ventas y Cobranza abren en la **última sucursal activa** (`billing_branch_id`, la del último Cambiar). No vuelven a la principal. El selector solo sale si no hay sucursal activa, o cuando el usuario pulsa Cambiar.
 
 ```http
 PUT /api/tenant/users/me/active-branch
@@ -87,5 +87,5 @@ Efecto: inventario POS y corte de cobranza usan esa sucursal. Si no hay corte ab
 - [ ] POS: mínimo una sucursal
 - [ ] No POS: opción “Todas”
 - [ ] Login trae `assigned_branches` y `can_switch_branch`
-- [ ] POS pide sucursal si hay más de una y aún no hay selección de sesión
+- [ ] POS Ventas/Cobranza reanudan la última sucursal activa; Cambiar solo si el usuario lo pide
 - [ ] Cambiar sucursal recarga inventario y corte

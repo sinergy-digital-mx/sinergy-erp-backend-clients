@@ -126,6 +126,7 @@ export class ProductsExportService {
   private buildColumns(priceLists: PriceList[]): ExcelColumnDef[] {
     const columns: ExcelColumnDef[] = [
       { header: 'Nombre', key: 'name', width: 32 },
+      { header: 'Tipo', key: 'item_kind', width: 12 },
       { header: 'SKU', key: 'sku', width: 16 },
       { header: 'SKU externo', key: 'external_sku', width: 16 },
       { header: 'Categoría', key: 'category', width: 20 },
@@ -159,6 +160,7 @@ export class ProductsExportService {
   ): CatalogRow {
     const row: CatalogRow = {
       name: product.name ?? '',
+      item_kind: product.item_kind === 'service' ? 'Servicio' : 'Producto',
       sku: product.sku ?? '',
       external_sku: product.external_sku ?? '',
       category: product.category?.name ?? '',
@@ -184,7 +186,8 @@ export class ProductsExportService {
     orgId: string,
     query: QueryProductExportDto,
   ): Promise<Product[]> {
-    const { search, sku, external_sku, name, category_id, subcategory_id, is_active } = query;
+    const { search, sku, external_sku, name, category_id, subcategory_id, is_active, item_kind } =
+      query;
     const queryBuilder = this.productRepo
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.category', 'category')
@@ -229,6 +232,10 @@ export class ProductsExportService {
       queryBuilder.andWhere('product.is_active = :isActive', { isActive: is_active });
     }
 
+    if (item_kind) {
+      queryBuilder.andWhere('product.item_kind = :itemKind', { itemKind: item_kind });
+    }
+
     return queryBuilder.orderBy('product.name', 'ASC').getMany();
   }
 
@@ -263,6 +270,8 @@ export class ProductsExportService {
     if (filters.subcategory_id) parts.push('Subcategoría filtrada');
     if (filters.is_active === true) parts.push('Solo activos');
     if (filters.is_active === false) parts.push('Solo inactivos');
+    if (filters.item_kind === 'service') parts.push('Solo servicios');
+    if (filters.item_kind === 'goods') parts.push('Solo productos');
     return parts.join(' | ');
   }
 }

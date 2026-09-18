@@ -13,6 +13,7 @@ import {
   InventoryBatchMovementType,
 } from '../constants/inventory-batch-movements';
 import { InventoryBatchMovementDto } from '../dto/inventory-batch-movement.dto';
+import { parseDbDateTimeAsUtc } from '../../../common/utils/api-datetime.util';
 import { formatUserDisplayName } from '../utils/user-display-name.util';
 
 function formatQty(value: unknown): string {
@@ -349,7 +350,7 @@ export class InventoryBatchMovementsService {
   }): InventoryBatchMovementDto {
     return {
       id: input.id,
-      occurred_at: input.occurred_at,
+      occurred_at: parseDbDateTimeAsUtc(input.occurred_at) ?? new Date(0),
       type: input.type,
       type_label: INVENTORY_BATCH_MOVEMENT_TYPE_LABELS[input.type],
       title: INVENTORY_BATCH_MOVEMENT_TYPE_LABELS[input.type],

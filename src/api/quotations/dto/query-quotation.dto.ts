@@ -45,6 +45,11 @@ export class QueryQuotationDto {
   @IsNumber()
   customer_id?: number;
 
+  /** Solo con Quotation:ViewAll. Coincide con vendedor POS o comisionado. */
+  @IsOptional()
+  @IsUUID()
+  assigned_seller_user_id?: string;
+
   @IsOptional()
   @IsDateString()
   created_from?: string;

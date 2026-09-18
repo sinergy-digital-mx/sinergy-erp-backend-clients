@@ -10,11 +10,16 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, QueryRunner, Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { SalesOrder } from '../../../entities/sales-orders/sales-order.entity';
+import { SalesOrderSaleScope } from '../../../entities/sales-orders/sales-order-sale-scope.enum';
+import { SalesOrderPosStage } from '../../../entities/sales-orders/sales-order-pos-stage.enum';
 import { SalesOrderDetail } from '../../../entities/sales-orders/sales-order-detail.entity';
+import { Product } from '../../../entities/products/product.entity';
+import { ProductItemKind } from '../../../entities/products/product-item-kind.enum';
 import { SalesOrderBatchAllocation } from '../../../entities/sales-orders/sales-order-batch-allocation.entity';
 import { SalesOrderPayment } from '../../../entities/sales-orders/sales-order-payment.entity';
 import { SalesOrderPaymentDocument } from '../../../entities/sales-orders/sales-order-payment-document.entity';
 import { CreateSalesOrderDto, CreateSalesOrderLineItemDto } from '../dto/create-sales-order.dto';
+import { UpdateSalesOrderLineItemDto } from '../dto/update-sales-order-line-item.dto';
 import { QuerySalesOrderDto } from '../dto/query-sales-order.dto';
 import { FulfillSalesOrderDto } from '../dto/fulfill-sales-order.dto';
 import { UpdateSalesOrderNotesDto } from '../dto/update-sales-order-notes.dto';
@@ -25,10 +30,16 @@ import { Customer } from '../../../entities/customers/customer.entity';
 import { S3Service } from '../../../common/services/s3.service';
 import { buildSelfInvoicePortalUrl } from '../../../common/utils/public-invoice-code.util';
 import { roundUnitAmount } from '../../../common/utils/unit-amount.util';
+import {
+  quotedGlobalDiscountAmount,
+  quotedLineDiscountAmounts,
+  quotedUnitPrice,
+} from '../utils/quoted-pricing.util';
 import { SalesOrderFolioService } from './sales-order-folio.service';
 import { SalesOrderFulfillmentService } from './sales-order-fulfillment.service';
 import { SalesOrderPdfService } from './sales-order-pdf.service';
 import { SalesOrderDocumentsService } from './sales-order-documents.service';
+import { SalesOrderPosReceiptService } from './sales-order-pos-receipt.service';
 import { PosShiftsService } from '../../pos-shifts/pos-shifts.service';
 import { ProductDiscountService } from '../../products/product-discount.service';
 import { GlobalDiscountService } from '../../global-discounts/global-discount.service';
@@ -61,6 +72,10 @@ import { ControlDeskLifecycleService } from '../../warehouse-control/control-des
 import { WarehouseControlService } from '../../warehouse-control/warehouse-control.service';
 import { buildSalesOrderPaymentDisplay } from '../utils/sales-order-payment-display.util';
 import {
+  assertItemKindMatchesSaleScope,
+  resolveSaleScope,
+} from '../utils/sale-scope.util';
+import {
   applySalesOrderCollectionChannelFilter,
   collectionChannelSourceLabel,
   mapCollectionChannelByOrderId,
@@ -91,6 +106,7 @@ export class SalesOrderService {
     private readonly globalDiscountService: GlobalDiscountService,
     private readonly pdfService: SalesOrderPdfService,
     private readonly documentsService: SalesOrderDocumentsService,
+    private readonly posReceiptService: SalesOrderPosReceiptService,
     private readonly s3Service: S3Service,
     @InjectRepository(PosSaleCollection)
     private readonly posCollectionRepo: Repository<PosSaleCollection>,
@@ -330,7 +346,7 @@ export class SalesOrderService {
     dto: CreateSalesOrderDto,
     tenantId: string,
     userId: string,
-    options?: { fromQuotation?: boolean },
+    options?: { fromQuotation?: boolean; quotedGlobalDiscountAmount?: number },
   ): Promise<SalesOrder> {
     const isPosSale = dto.sales_order_type === 'POS';
     const fromQuotation = options?.fromQuotation === true;
@@ -396,8 +412,21 @@ export class SalesOrderService {
       const folio = await this.folioService.generateFolio(tenantId);
 
       const salesOrderType = dto.sales_order_type || 'MANUAL';
+      const saleScope = resolveSaleScope(dto.sale_scope, isPosSale);
+      const lineKinds = await this.loadProductKinds(
+        qr,
+        dto.line_items.map((item) => item.product_id),
+      );
+      this.assertLineItemsMatchSaleScope(dto.line_items, saleScope, lineKinds);
+      const hasGoodsLines = [...lineKinds.values()].some(
+        (kind) => kind === ProductItemKind.Goods,
+      );
       const requiresSelectionAssembly =
-        !isPosSale && salesOrderType === 'MANUAL' && !!dto.requires_selection_assembly;
+        !isPosSale &&
+        salesOrderType === 'MANUAL' &&
+        saleScope !== SalesOrderSaleScope.Services &&
+        hasGoodsLines &&
+        !!dto.requires_selection_assembly;
       const initialStatus = requiresSelectionAssembly ? 'En Selección' : 'Creada';
 
       const so = qr.manager.create(SalesOrder, {
@@ -414,6 +443,7 @@ export class SalesOrderService {
         payment_status: paymentStatus,
         general_status: initialStatus,
         notes: dto.notes,
+        sale_scope: saleScope,
         requires_selection_assembly: requiresSelectionAssembly,
         created_by: userId,
         terminal_user_id: isPosSale ? userId : null,
@@ -421,6 +451,7 @@ export class SalesOrderService {
         seller_user_id: sellerUserId,
         assigned_seller_user_id: assignedSellerUserId,
         pos_daily_shift_id: isPosSale ? posDailyShiftId : null,
+        pos_stage: isPosSale ? SalesOrderPosStage.Caja : null,
         collected_by_user_id: collectedByUserId,
       });
 
@@ -436,13 +467,15 @@ export class SalesOrderService {
           item.product_uom_id,
         );
 
-        const discountAmounts = await this.resolveLineDiscountAmounts(
-          tenantId,
-          item,
-          productUomRow.id,
-        );
+        const discountAmounts = fromQuotation
+          ? quotedLineDiscountAmounts(item)
+          : await this.resolveLineDiscountAmounts(
+              tenantId,
+              item,
+              productUomRow.id,
+            );
 
-        const line_subtotal = Number(item.quantity) * Number(item.unit_price);
+        const line_subtotal = Number(item.quantity) * quotedUnitPrice(item.unit_price);
         const line_discount = discountAmounts.line_discount;
         const taxable_subtotal = Math.max(line_subtotal - line_discount, 0);
         const iva_pct = Number(item.iva_percentage || 0);
@@ -473,7 +506,7 @@ export class SalesOrderService {
           quantity: item.quantity,
           quantity_base_uom: qty_base,
           base_uom_id: baseUomRow.uom_catalog_id,
-          unit_price: roundUnitAmount(item.unit_price),
+          unit_price: quotedUnitPrice(item.unit_price),
           discount_percentage: discountAmounts.discount_percentage,
           discount_unit: discountAmounts.discount_unit,
           product_discount_id: discountAmounts.product_discount_id,
@@ -496,11 +529,18 @@ export class SalesOrderService {
       savedSO.subtotal = subtotal;
       savedSO.discount_total = discount_total;
 
-      const globalDiscountAmounts = await this.resolveGlobalDiscountAmounts(
-        tenantId,
-        dto.global_discount_id,
-        subtotal - discount_total,
-      );
+      const globalDiscountAmounts = fromQuotation
+        ? {
+            global_discount_id: dto.global_discount_id ?? null,
+            global_discount_amount: quotedGlobalDiscountAmount(
+              options?.quotedGlobalDiscountAmount,
+            ),
+          }
+        : await this.resolveGlobalDiscountAmounts(
+            tenantId,
+            dto.global_discount_id,
+            subtotal - discount_total,
+          );
       savedSO.global_discount_id = globalDiscountAmounts.global_discount_id;
       savedSO.global_discount_amount = globalDiscountAmounts.global_discount_amount;
 
@@ -553,6 +593,143 @@ export class SalesOrderService {
     }
   }
 
+  /**
+   * Reemplaza el carrito de una OV POS reintegrada a ventas (inventario + totales).
+   * Solo `pos_stage = ventas`.
+   */
+  async replacePosCart(
+    orderId: string,
+    dto: {
+      line_items: CreateSalesOrderLineItemDto[];
+      customer_id?: number;
+      global_discount_id?: string | null;
+    },
+    tenantId: string,
+    userId: string,
+  ): Promise<SalesOrder> {
+    if (!dto.line_items?.length) {
+      throw new BadRequestException('La orden debe tener al menos un producto');
+    }
+
+    const qr = this.dataSource.createQueryRunner();
+    await qr.connect();
+    await qr.startTransaction();
+
+    try {
+      const so = await qr.manager.findOne(SalesOrder, {
+        where: { id: orderId, tenant_id: tenantId },
+        relations: [
+          'line_items',
+          'line_items.batch_allocations',
+          'warehouse',
+        ],
+      });
+      if (!so) {
+        throw new NotFoundException('Orden de venta no encontrada');
+      }
+      if (so.sales_order_type !== 'POS') {
+        throw new BadRequestException('Solo se puede editar el carrito de una orden POS');
+      }
+      if (so.pos_stage !== SalesOrderPosStage.Ventas) {
+        throw new BadRequestException(
+          'La orden no está en ventas. Caja debe regresarla antes de editar productos.',
+        );
+      }
+      if (so.payment_status !== 'Pendiente' || so.general_status === 'Cancelada') {
+        throw new BadRequestException('La orden ya no se puede editar en ventas');
+      }
+
+      const previousStatus = so.general_status;
+      const allocations = (so.line_items ?? []).flatMap(
+        (line) => line.batch_allocations ?? [],
+      );
+      if (allocations.length) {
+        await this.fulfillmentService.releaseAllocations(allocations, qr.manager);
+      }
+
+      // delete() en vez de remove(): TypeORM intenta SET NULL en sales_order_id (NOT NULL).
+      if (so.line_items?.length) {
+        const lineIds = so.line_items.map((line) => line.id);
+        await qr.manager.delete(SalesOrderBatchAllocation, {
+          sales_order_detail_id: In(lineIds),
+        });
+        await qr.manager.delete(SalesOrderDetail, { sales_order_id: so.id });
+      }
+      so.line_items = [];
+
+      const customerId =
+        dto.customer_id ??
+        (await this.posShiftsService.resolveWalkInCustomerId(tenantId));
+      const customer = await qr.manager.findOne(Customer, {
+        where: { id: customerId, tenant_id: tenantId },
+      });
+      if (!customer) {
+        throw new BadRequestException('Cliente no válido');
+      }
+      so.customer_id = customerId;
+
+      const lineKinds = await this.loadProductKinds(
+        qr,
+        dto.line_items.map((item) => item.product_id),
+      );
+      this.assertLineItemsMatchSaleScope(dto.line_items, so.sale_scope, lineKinds);
+
+      const savedDetails = await this.insertSalesOrderLineItems(
+        qr,
+        so.id,
+        dto.line_items,
+        userId,
+        tenantId,
+      );
+
+      so.global_discount_id = dto.global_discount_id ?? null;
+      so.updated_by = userId;
+      await qr.manager.update(
+        SalesOrder,
+        { id: so.id },
+        {
+          customer_id: customerId,
+          global_discount_id: so.global_discount_id,
+          updated_by: userId,
+        },
+      );
+      await this.recomputeTotals(qr, so.id, tenantId, userId);
+
+      await this.fulfillOrderLines(
+        qr,
+        so.id,
+        this.allocationScope(so),
+        savedDetails,
+        userId,
+        undefined,
+        true,
+      );
+      await qr.manager.update(
+        SalesOrder,
+        { id: so.id },
+        { general_status: previousStatus, updated_by: userId },
+      );
+
+      await qr.commitTransaction();
+    } catch (err) {
+      await qr.rollbackTransaction();
+      throw err;
+    } finally {
+      await qr.release();
+    }
+
+    this.regenerateDocumentoOriginalPreservingLanguage(orderId, tenantId, userId).catch(
+      (err) => {
+        this.logger.error(
+          '[PDF] Error regenerating DOCUMENTO_ORIGINAL after POS cart replace:',
+          err,
+        );
+      },
+    );
+
+    return this.findOne(orderId, tenantId);
+  }
+
   async findAll(tenantId: string, filters: QuerySalesOrderDto) {
     const {
       search,
@@ -560,6 +737,7 @@ export class SalesOrderService {
       payment_status,
       is_credit,
       sales_order_type,
+      sale_scope,
       collection_channel,
       fiscal_configuration_id,
       billing_branch_id,
@@ -602,6 +780,7 @@ export class SalesOrderService {
       qb.andWhere('so.is_credit = :is_credit', { is_credit });
     }
     if (sales_order_type) qb.andWhere('so.sales_order_type = :sales_order_type', { sales_order_type });
+    if (sale_scope) qb.andWhere('so.sale_scope = :sale_scope', { sale_scope });
     applySalesOrderCollectionChannelFilter(qb, 'so', collection_channel);
     if (fiscal_configuration_id) {
       qb.andWhere('so.fiscal_configuration_id = :fiscal_configuration_id', {
@@ -707,6 +886,10 @@ export class SalesOrderService {
         so.sales_order_type === 'POS' && !!so.collected_by_user_id,
     });
     const cancelBlockedReason = await this.getCancelBlockedReason(so, tenantId);
+    const controlDesk = await this.warehouseControlService.getSalesOrderSummary(
+      so.id,
+      tenantId,
+    );
     const header = {
       ...this.mapOrderLocation(so),
       public_invoice_code: so.public_invoice_code ?? null,
@@ -735,10 +918,8 @@ export class SalesOrderService {
       discount_summary: discountSummary,
       can_cancel: cancelBlockedReason === null,
       cancel_blocked_reason: cancelBlockedReason,
-      control_desk: await this.warehouseControlService.getSalesOrderSummary(
-        so.id,
-        tenantId,
-      ),
+      can_edit_lines: this.resolveCanEditLines(so.general_status, controlDesk),
+      control_desk: controlDesk,
     };
 
     return {
@@ -795,6 +976,13 @@ export class SalesOrderService {
       !dto.reference_number?.trim()
     ) {
       throw new BadRequestException('reference_number es obligatorio para transferencia');
+    }
+
+    if (
+      dto.payment_method === PosSalePaymentMethod.CHECK &&
+      !dto.reference_number?.trim()
+    ) {
+      throw new BadRequestException('reference_number es obligatorio para cheque');
     }
 
     const existing = await this.paymentRepo.find({
@@ -1258,6 +1446,13 @@ export class SalesOrderService {
     so.updated_by = userId;
     await this.soRepo.save(so);
 
+    this.regenerateDocumentoOriginalPreservingLanguage(id, tenantId, userId).catch((err) => {
+      this.logger.error('[PDF] Error regenerando PDF tras actualizar observaciones:', err);
+    });
+    this.posReceiptService.refreshTicketIfExists(tenantId, id, userId).catch((err) => {
+      this.logger.warn(`No se pudo refrescar el ticket tras actualizar observaciones: ${err}`);
+    });
+
     return this.findOne(id, tenantId);
   }
 
@@ -1427,6 +1622,50 @@ export class SalesOrderService {
     return `No se puede cancelar la orden: tiene una factura CFDI vigente${uuidLabel}. Cancela la factura primero.`;
   }
 
+  async getPosReturnBlockedReason(
+    order: SalesOrder,
+    tenantId: string,
+  ): Promise<string | null> {
+    if (order.sales_order_type !== 'POS') {
+      return 'Solo se pueden reintegrar órdenes POS';
+    }
+    if (order.general_status === 'Cancelada') {
+      return 'La orden está cancelada';
+    }
+    if (order.payment_status !== 'Pendiente') {
+      return 'La orden ya fue cobrada';
+    }
+    if (order.pos_stage === SalesOrderPosStage.Ventas) {
+      return 'La orden ya está en ventas';
+    }
+    if (order.general_status !== 'Surtida' && order.general_status !== 'En cola') {
+      return 'La orden no está pendiente de cobro';
+    }
+
+    const collection = await this.posCollectionRepo.findOne({
+      where: { sales_order_id: order.id, tenant_id: tenantId },
+    });
+    if (collection) {
+      return 'La orden ya fue cobrada en caja';
+    }
+
+    const amountPending = await this.getAmountPending(order.id, tenantId);
+    if (amountPending + 0.001 < Number(order.total)) {
+      return 'La orden tiene pagos registrados. No se puede regresar a ventas';
+    }
+
+    const vigentes = await this.electronicInvoiceService.findVigenteBySource(
+      tenantId,
+      'sales_orders',
+      order.id,
+    );
+    if (vigentes.length) {
+      return 'La orden tiene una factura vigente. No se puede regresar a ventas';
+    }
+
+    return null;
+  }
+
   async replace(
     id: string,
     dto: CreateSalesOrderDto,
@@ -1479,11 +1718,32 @@ export class SalesOrderService {
       if (dto.notes !== undefined) {
         so.notes = dto.notes;
       }
+      const saleScope = resolveSaleScope(
+        dto.sale_scope ?? so.sale_scope,
+        so.sales_order_type === 'POS',
+      );
+      so.sale_scope = saleScope;
+      const lineKinds = await this.loadProductKinds(
+        qr,
+        dto.line_items.map((item) => item.product_id),
+      );
+      this.assertLineItemsMatchSaleScope(dto.line_items, saleScope, lineKinds);
+      const hasGoodsLines = [...lineKinds.values()].some(
+        (kind) => kind === ProductItemKind.Goods,
+      );
       if (dto.requires_selection_assembly !== undefined && so.sales_order_type === 'MANUAL') {
-        so.requires_selection_assembly = !!dto.requires_selection_assembly;
+        so.requires_selection_assembly =
+          saleScope !== SalesOrderSaleScope.Services &&
+          hasGoodsLines &&
+          !!dto.requires_selection_assembly;
         so.general_status = so.requires_selection_assembly
           ? 'En Selección'
           : 'Creada';
+      } else if (saleScope === SalesOrderSaleScope.Services || !hasGoodsLines) {
+        so.requires_selection_assembly = false;
+        if (so.general_status === 'En Selección') {
+          so.general_status = 'Creada';
+        }
       }
       so.updated_by = userId;
 
@@ -1520,6 +1780,205 @@ export class SalesOrderService {
     }
   }
 
+  async addLineItem(
+    orderId: string,
+    dto: CreateSalesOrderLineItemDto,
+    tenantId: string,
+    userId: string,
+  ): Promise<void> {
+    const qr = this.dataSource.createQueryRunner();
+    await qr.connect();
+    await qr.startTransaction();
+    try {
+      const so = await qr.manager.findOne(SalesOrder, {
+        where: { id: orderId, tenant_id: tenantId },
+      });
+      if (!so) {
+        throw new NotFoundException(`Orden de venta no encontrada: ${orderId}`);
+      }
+      await this.assertLineItemsEditable(qr, so, tenantId);
+      const saleScope = resolveSaleScope(so.sale_scope, so.sales_order_type === 'POS');
+      const lineKinds = await this.loadProductKinds(qr, [dto.product_id]);
+      this.assertLineItemsMatchSaleScope([dto], saleScope, lineKinds);
+
+      await this.insertSalesOrderLineItems(qr, so.id, [dto], userId, tenantId);
+      await this.recomputeTotals(qr, so.id, tenantId, userId);
+      const details = await qr.manager.find(SalesOrderDetail, {
+        where: { sales_order_id: so.id },
+      });
+      await this.controlDeskLifecycle.syncJobForSalesOrder(qr.manager, {
+        tenantId,
+        userId,
+        salesOrder: so,
+        details,
+        requiresSelection: !!so.requires_selection_assembly,
+      });
+      await qr.commitTransaction();
+    } catch (err) {
+      await qr.rollbackTransaction();
+      throw err;
+    } finally {
+      await qr.release();
+    }
+
+    this.regenerateDocumentoOriginalPreservingLanguage(orderId, tenantId, userId).catch((err) => {
+      this.logger.error('[PDF] Error regenerating DOCUMENTO_ORIGINAL after add line:', err);
+    });
+  }
+
+  async updateLineItem(
+    orderId: string,
+    lineItemId: string,
+    dto: UpdateSalesOrderLineItemDto,
+    tenantId: string,
+    userId: string,
+  ): Promise<void> {
+    const qr = this.dataSource.createQueryRunner();
+    await qr.connect();
+    await qr.startTransaction();
+    try {
+      const so = await qr.manager.findOne(SalesOrder, {
+        where: { id: orderId, tenant_id: tenantId },
+      });
+      if (!so) {
+        throw new NotFoundException(`Orden de venta no encontrada: ${orderId}`);
+      }
+      await this.assertLineItemsEditable(qr, so, tenantId);
+
+      const line = await qr.manager.findOne(SalesOrderDetail, {
+        where: { id: lineItemId, sales_order_id: orderId },
+      });
+      if (!line) {
+        throw new NotFoundException(`Línea no encontrada: ${lineItemId}`);
+      }
+
+      if (dto.quantity !== undefined) {
+        line.quantity = dto.quantity;
+      }
+      if (dto.unit_price !== undefined) {
+        line.unit_price = roundUnitAmount(dto.unit_price);
+      }
+      if (dto.iva_percentage !== undefined) {
+        line.iva_percentage = dto.iva_percentage;
+      }
+      if (dto.ieps_percentage !== undefined) {
+        line.ieps_percentage = dto.ieps_percentage;
+      }
+
+      const productUomId = dto.product_uom_id || line.product_uom_id;
+      const productUomRow = await this.resolveProductUom(qr, line.product_id, productUomId);
+      line.product_uom_id = productUomRow.id;
+      const factor = productUomRow.factor || 1;
+      line.quantity_base_uom = productUomRow.is_base
+        ? Number(line.quantity)
+        : Number(line.quantity) * factor;
+
+      const discountAmounts = await this.resolveLineDiscountAmounts(
+        tenantId,
+        {
+          product_id: line.product_id,
+          product_uom_id: productUomRow.id,
+          quantity: Number(line.quantity),
+          unit_price: Number(line.unit_price),
+          discount_percentage:
+            dto.discount_percentage !== undefined
+              ? dto.discount_percentage
+              : Number(line.discount_percentage || 0),
+          product_discount_id: line.product_discount_id ?? undefined,
+          iva_percentage: Number(line.iva_percentage || 0),
+          ieps_percentage: Number(line.ieps_percentage || 0),
+        },
+        productUomRow.id,
+      );
+      line.discount_percentage = discountAmounts.discount_percentage;
+      line.discount_unit = discountAmounts.discount_unit;
+      line.product_discount_id = discountAmounts.product_discount_id;
+
+      this.applyPersistedLineTaxes(line);
+      await qr.manager.save(SalesOrderDetail, line);
+      await this.recomputeTotals(qr, so.id, tenantId, userId);
+
+      const details = await qr.manager.find(SalesOrderDetail, {
+        where: { sales_order_id: so.id },
+      });
+      await this.controlDeskLifecycle.syncJobForSalesOrder(qr.manager, {
+        tenantId,
+        userId,
+        salesOrder: so,
+        details,
+        requiresSelection: !!so.requires_selection_assembly,
+      });
+      await qr.commitTransaction();
+    } catch (err) {
+      await qr.rollbackTransaction();
+      throw err;
+    } finally {
+      await qr.release();
+    }
+
+    this.regenerateDocumentoOriginalPreservingLanguage(orderId, tenantId, userId).catch((err) => {
+      this.logger.error('[PDF] Error regenerating DOCUMENTO_ORIGINAL after update line:', err);
+    });
+  }
+
+  async removeLineItem(
+    orderId: string,
+    lineItemId: string,
+    tenantId: string,
+    userId: string,
+  ): Promise<void> {
+    const qr = this.dataSource.createQueryRunner();
+    await qr.connect();
+    await qr.startTransaction();
+    try {
+      const so = await qr.manager.findOne(SalesOrder, {
+        where: { id: orderId, tenant_id: tenantId },
+      });
+      if (!so) {
+        throw new NotFoundException(`Orden de venta no encontrada: ${orderId}`);
+      }
+      await this.assertLineItemsEditable(qr, so, tenantId);
+
+      const line = await qr.manager.findOne(SalesOrderDetail, {
+        where: { id: lineItemId, sales_order_id: orderId },
+      });
+      if (!line) {
+        throw new NotFoundException(`Línea no encontrada: ${lineItemId}`);
+      }
+
+      const remaining = await qr.manager.count(SalesOrderDetail, {
+        where: { sales_order_id: orderId },
+      });
+      if (remaining <= 1) {
+        throw new BadRequestException('La orden debe tener al menos un producto');
+      }
+
+      await qr.manager.delete(SalesOrderDetail, { id: lineItemId, sales_order_id: orderId });
+      await this.recomputeTotals(qr, so.id, tenantId, userId);
+
+      const details = await qr.manager.find(SalesOrderDetail, {
+        where: { sales_order_id: so.id },
+      });
+      await this.controlDeskLifecycle.syncJobForSalesOrder(qr.manager, {
+        tenantId,
+        userId,
+        salesOrder: so,
+        details,
+        requiresSelection: !!so.requires_selection_assembly,
+      });
+      await qr.commitTransaction();
+    } catch (err) {
+      await qr.rollbackTransaction();
+      throw err;
+    } finally {
+      await qr.release();
+    }
+
+    this.regenerateDocumentoOriginalPreservingLanguage(orderId, tenantId, userId).catch((err) => {
+      this.logger.error('[PDF] Error regenerating DOCUMENTO_ORIGINAL after remove line:', err);
+    });
+  }
+
   private async fulfillOrderLines(
     qr: QueryRunner,
     salesOrderId: string,
@@ -1527,16 +1986,70 @@ export class SalesOrderService {
     lineItems: SalesOrderDetail[],
     userId: string,
     notes?: string,
+    keepGeneralStatus = false,
   ): Promise<void> {
-    for (const detail of lineItems) {
+    const goodsDetails = await this.filterGoodsDetails(qr, lineItems);
+    if (!goodsDetails.length) {
+      throw new BadRequestException(
+        'Esta orden no tiene líneas de inventario para surtir',
+      );
+    }
+
+    for (const detail of goodsDetails) {
       await this.fulfillmentService.allocateFifo(detail, userId, qr.manager, scope);
     }
 
     await qr.manager.update(SalesOrder, { id: salesOrderId }, {
-      general_status: 'Surtida',
+      ...(keepGeneralStatus ? {} : { general_status: 'Surtida' }),
       ...(notes !== undefined ? { notes } : {}),
       updated_by: userId,
     });
+  }
+
+  private assertLineItemsMatchSaleScope(
+    lineItems: CreateSalesOrderLineItemDto[],
+    saleScope: SalesOrderSaleScope,
+    kinds: Map<string, ProductItemKind>,
+  ): void {
+    for (const item of lineItems) {
+      const kind = kinds.get(item.product_id);
+      if (!kind) {
+        throw new BadRequestException(`Producto no encontrado: ${item.product_id}`);
+      }
+      assertItemKindMatchesSaleScope(saleScope, kind);
+    }
+  }
+
+  private async loadProductKinds(
+    qr: QueryRunner,
+    productIds: string[],
+  ): Promise<Map<string, ProductItemKind>> {
+    const map = new Map<string, ProductItemKind>();
+    const uniqueIds = [...new Set(productIds.filter(Boolean))];
+    if (!uniqueIds.length) {
+      return map;
+    }
+    const products = await qr.manager.find(Product, {
+      where: { id: In(uniqueIds) },
+      select: ['id', 'item_kind'],
+    });
+    for (const product of products) {
+      map.set(product.id, product.item_kind ?? ProductItemKind.Goods);
+    }
+    return map;
+  }
+
+  private async filterGoodsDetails(
+    qr: QueryRunner,
+    lineItems: SalesOrderDetail[],
+  ): Promise<SalesOrderDetail[]> {
+    const kinds = await this.loadProductKinds(
+      qr,
+      lineItems.map((item) => item.product_id),
+    );
+    return lineItems.filter(
+      (item) => (kinds.get(item.product_id) ?? ProductItemKind.Goods) === ProductItemKind.Goods,
+    );
   }
 
   private async insertSalesOrderLineItems(
@@ -1604,6 +2117,51 @@ export class SalesOrderService {
       saved.push(detail);
     }
     return saved;
+  }
+
+  private resolveCanEditLines(
+    status: string | undefined,
+    controlDesk: { status?: string | null; progress?: { warehouses_done?: number } } | null,
+  ): boolean {
+    if (status !== 'Creada' && status !== 'En Selección') {
+      return false;
+    }
+    if (!controlDesk) {
+      return true;
+    }
+    if (controlDesk.status && controlDesk.status !== 'released') {
+      return false;
+    }
+    return (controlDesk.progress?.warehouses_done ?? 0) <= 0;
+  }
+
+  private async assertLineItemsEditable(
+    qr: QueryRunner,
+    so: SalesOrder,
+    tenantId: string,
+  ): Promise<void> {
+    if (so.general_status !== 'Creada' && so.general_status !== 'En Selección') {
+      throw new BadRequestException(
+        `No se puede actualizar la línea de la orden de venta con estado: ${so.general_status}`,
+      );
+    }
+    const existingJob = await this.controlDeskLifecycle.findActiveJob(
+      qr.manager,
+      tenantId,
+      so.id,
+    );
+    this.controlDeskLifecycle.assertJobEditable(existingJob);
+  }
+
+  private applyPersistedLineTaxes(line: SalesOrderDetail): void {
+    const qty = Number(line.quantity || 0);
+    const lineSubtotal = qty * Number(line.unit_price || 0);
+    const lineDiscount = qty * Number(line.discount_unit || 0);
+    const taxable = Math.max(lineSubtotal - lineDiscount, 0);
+    const lineIva = (taxable * Number(line.iva_percentage || 0)) / 100;
+    const lineIeps = (taxable * Number(line.ieps_percentage || 0)) / 100;
+    line.iva_unit = qty > 0 ? lineIva / qty : 0;
+    line.ieps_unit = qty > 0 ? lineIeps / qty : 0;
   }
 
   private async recomputeTotals(
@@ -1721,7 +2279,12 @@ export class SalesOrderService {
   private allocationScope(so: {
     warehouse_id?: string | null;
     billing_branch_id?: string | null;
+    sales_order_type?: string | null;
   }): { warehouseId?: string | null; billingBranchId?: string | null } {
+    // POS muestra stock agregado de la sucursal; FIFO debe usar los mismos almacenes.
+    if (so.sales_order_type === 'POS' && so.billing_branch_id) {
+      return { billingBranchId: so.billing_branch_id };
+    }
     if (so.warehouse_id) {
       return { warehouseId: so.warehouse_id };
     }

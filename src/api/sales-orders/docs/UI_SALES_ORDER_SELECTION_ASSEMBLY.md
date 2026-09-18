@@ -4,7 +4,9 @@ Checkbox en el modal **Crear Orden de Venta**, tab **Información**, entre fecha
 
 **Necesita proceso de selección y armado** → `requires_selection_assembly: true|false`
 
-Mostrar el checkbox **solo** si `warehouse_control` está enabled. En Divino no: ni checkbox ni menú Mesa de Control.
+Mostrar el checkbox **solo** si `warehouse_control` está enabled **y** `sale_scope` no es `services`. En Divino no: ni checkbox ni menú Mesa de Control.
+
+Si `sale_scope=services` (o la orden no tiene líneas `goods`), el API fuerza `requires_selection_assembly=false` y no crea job de Mesa de Control. En `combined`, el job/FIFO solo usa líneas de producto.
 
 Texto de ayuda: “La orden se surtirá por almacén (picking y armado en Mesa de Control)”.
 

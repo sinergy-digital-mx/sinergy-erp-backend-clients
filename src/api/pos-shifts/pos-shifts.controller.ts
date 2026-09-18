@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Put,
   Body,
   Param,
   Query,
@@ -28,6 +29,7 @@ import { QueryDailyShiftDto } from './dto/query-daily-shift.dto';
 import { CloseDailyShiftDto } from './dto/close-daily-shift.dto';
 import { CollectPosSaleDto } from './dto/collect-pos-sale.dto';
 import { QueryCollectedSalesDto } from './dto/query-collected-sales.dto';
+import { ReplacePosSaleCartDto } from './dto/replace-pos-sale-cart.dto';
 
 @ApiTags('POS - Shifts')
 @Controller('tenant/pos')
@@ -165,6 +167,20 @@ export class PosShiftsController {
     return { pending_sales: sales };
   }
 
+  @Get('sales-in-progress')
+  @RequirePermissions({ entityType: 'PosShift', action: 'Read' })
+  @ApiOperation({
+    summary: 'Tickets POS reintegrados a ventas',
+    description: 'Solo terminal VENTAS. Órdenes pos_stage=ventas de la sucursal.',
+  })
+  async getSalesInProgress(@Req() req: any) {
+    const sales = await this.posShiftsService.getSalesInProgress(
+      req.user.tenant_id,
+      req.user.id,
+    );
+    return { sales_in_progress: sales };
+  }
+
   @Get('collected-sales')
   @RequirePermissions({ entityType: 'PosShift', action: 'Read' })
   @ApiOperation({
@@ -198,6 +214,61 @@ export class PosShiftsController {
       req.user.id,
       salesOrderId,
       dto,
+    );
+  }
+
+  @Post('sales/:salesOrderId/return-to-sales')
+  @RequirePermissions({ entityType: 'pos', action: 'ReturnToSales' })
+  @ApiOperation({
+    summary: 'Regresar ticket de caja a ventas',
+    description:
+      'Solo terminal de caja. El folio sale de pendientes para que Ventas edite productos.',
+  })
+  async returnSaleToVentas(
+    @Param('salesOrderId') salesOrderId: string,
+    @Req() req: any,
+  ) {
+    return this.posShiftsService.returnSaleToVentas(
+      req.user.tenant_id,
+      req.user.id,
+      salesOrderId,
+    );
+  }
+
+  @Put('sales/:salesOrderId/cart')
+  @RequirePermissions({ entityType: 'PosShift', action: 'Read' })
+  @ApiOperation({
+    summary: 'Reemplazar carrito de un ticket en ventas',
+    description: 'Solo terminal VENTAS y pos_stage=ventas. Ajusta inventario.',
+  })
+  @ApiBody({ type: ReplacePosSaleCartDto })
+  async replaceSaleCart(
+    @Param('salesOrderId') salesOrderId: string,
+    @Body() dto: ReplacePosSaleCartDto,
+    @Req() req: any,
+  ) {
+    return this.posShiftsService.replaceSaleCart(
+      req.user.tenant_id,
+      req.user.id,
+      salesOrderId,
+      dto,
+    );
+  }
+
+  @Post('sales/:salesOrderId/send-to-caja')
+  @RequirePermissions({ entityType: 'PosShift', action: 'Read' })
+  @ApiOperation({
+    summary: 'Reenviar ticket editado a caja',
+    description: 'Solo terminal VENTAS. El folio vuelve a pendientes de cobro.',
+  })
+  async sendSaleToCaja(
+    @Param('salesOrderId') salesOrderId: string,
+    @Req() req: any,
+  ) {
+    return this.posShiftsService.sendSaleToCaja(
+      req.user.tenant_id,
+      req.user.id,
+      salesOrderId,
     );
   }
 

@@ -70,7 +70,7 @@ El corte POS debe cerrarse **completo todos los días**. Si la sucursal seleccio
 │  ⚠  Corte del día anterior sin cerrar                           │
 │  Quedó un corte abierto del 2026-08-14 sin cerrar.              │
 │  Es necesario cerrarlo para continuar.                          │
-│                                          [ Ir a POS Cobranza ]  │
+│                                          [ Ir a POS Caja ]  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -83,7 +83,7 @@ El corte POS debe cerrarse **completo todos los días**. Si la sucursal seleccio
 | `unclosed_shift_alert.severity` | `blocking` → estilo warning/error, no info azul |
 | `collection_terminal.open_daily_shift.is_previous_day` | Chip rojo en la card de corte abierto |
 
-**CTA:** `Ir a POS Cobranza` → `/pos/cobranza` (si el usuario tiene acceso POS). Si no, el texto basta: hay que cerrar el corte en la terminal de cobranza.
+**CTA:** `Ir a POS Caja` → `/pos/cobranza` (si el usuario tiene acceso POS). Si no, el texto basta: hay que cerrar el corte en la terminal de caja.
 
 El banner **no** bloquea ver CxP/CxC, pero sí indica que no se puede continuar el día POS hasta cerrar.
 
@@ -619,7 +619,7 @@ GET /api/tenant/accounting/pos-collections
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ Cobranza — POS Cobranza Terminal 1                     ✕   │
+│ Cobranza — POS Caja Terminal 1                     ✕   │
 │ 7 órdenes cobradas en el periodo seleccionado               │
 ├─────────────────────────────────────────────────────────────┤
 │ [ Todas (7) ]  [ Público en General (2) ]  [ Facturadas (5)]│

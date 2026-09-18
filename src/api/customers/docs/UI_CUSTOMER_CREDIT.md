@@ -70,6 +70,8 @@ Track gris claro, fill púrpura. Si `credit_usage_percent >= 90` → fill rojo/n
 
 ### Guardar
 
+Permiso: `customers:Update` (el mismo de editar nombre y ficha). Admin bypasea.
+
 No usar `PUT /customers/:id` para crédito.
 
 ```http
@@ -113,7 +115,7 @@ El switch en ficha de cliente **sí se puede** dejar encendido aunque falten dat
 
 ---
 
-## 3. POS Cobranza — método Crédito
+## 3. POS Caja — método Crédito
 
 Solo si el cliente **registrado** tiene crédito **en la razón social de esa OV**.
 
@@ -186,7 +188,7 @@ Mostrador: no mostrar tab Crédito.
 
 ---
 
-## 4. POS Cobranza — toggle Generar factura
+## 4. POS Caja — toggle Generar factura
 
 En la card del cliente seleccionado (debajo del nombre), **el mismo switch largo y fino**.
 
@@ -242,14 +244,14 @@ Si `invoice.requested === true`: abrir el flujo de timbrado existente (`POST ...
 
 Tab Mixto **no** muestre siempre los 3 montos. Primero chips/checks:
 
-`[ ] Efectivo    [ ] Transferencia    [ ] Tarjeta`
+Botones: `Efectivo` / `Transferencia` / `Tarjeta` / `Cheque`. Mínimo **dos**. Cada tipo activo se muestra en su propia tarjeta (monto + referencia o efectivo/cambio).
 
-Mínimo **dos**. Al marcar, aparece el input de ese tipo (mismos campos que el tab individual: USD/cambio en efectivo, referencia en transferencia).
+Al capturar un monto, el **último** método marcado recibe el resto automáticamente (`total − lo ya capturado`).
 
 | Selección | `payment_method` |
 |-----------|------------------|
-| 1 tipo | No es mixto: usar `cash` / `transfer` / `card` |
-| 2 o 3 tipos | `mixed` |
+| 1 tipo | No es mixto: usar `cash` / `transfer` / `card` / `check` |
+| 2 o más tipos | `mixed` |
 
 ```json
 {
@@ -293,6 +295,27 @@ Mismo chip en listado general de OV y en detalle de la orden (junto al estatus d
 
 Filtro opcional: `GET /api/tenant/sales-orders?is_credit=true`.
 
+### Tab Crédito en el detalle de OV
+
+Tab **Crédito** (junto a Pagos). Solo lectura. Muestra el crédito del cliente **en la razón social de esa OV** (`header.fiscal_configuration_id`), la misma barra del dashboard (utilizado / límite / disponible / %).
+
+```
+GET /api/tenant/customers/:id?fiscal_configuration_id={header.fiscal_configuration_id}
+```
+
+Elegir la fila de `credits[]` con ese `fiscal_configuration_id` (o los campos aplanados).
+
+| Caso | UI |
+|------|----|
+| Mostrador | “El mostrador no tiene crédito.” |
+| Crédito off | “—” y *Este cliente no tiene crédito activo con esta razón social* |
+| Crédito on | Barra igual que ficha de cliente |
+| Esta OV a crédito | Línea *Esta OV: Crédito / …* (`is_credit`) |
+
+Link **Ver ficha de crédito del cliente →** (si `customers:Read`): `/customers/detail/{id}?tab=credit` en otra pestaña.
+
+No editar crédito desde la OV. No mezclar con otras razones sociales.
+
 ---
 
 ## 7. Excel descargable de OV
@@ -330,4 +353,5 @@ Excel de clientes: columna **Crédito por razón social** (no un solo monto glob
 - [ ] Toggle largo/fino **Generar factura** en ficha fiscal y en card de cliente POS
 - [ ] Tras collect con `invoice.requested`, abrir timbrado
 - [ ] Chip **Crédito** en detalle OV, listado OV y tabla de OV del cliente
+- [ ] Tab **Crédito** en detalle OV: barra de la razón social de esa venta (`GET /customers/:id?fiscal_configuration_id=`)
 - [ ] Excel OV muestra columna Crédito

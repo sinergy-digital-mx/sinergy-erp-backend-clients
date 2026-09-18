@@ -13,9 +13,9 @@ export const SALES_ORDER_COLLECTION_CHANNEL_LABELS: Record<
   SalesOrderCollectionChannel,
   string
 > = {
-  pos_cobranza: 'POS cobranza',
+  pos_cobranza: 'POS Caja',
   manual: 'Cobrada manual',
-  mixed: 'POS cobranza + Manual',
+  mixed: 'POS Caja + Manual',
 };
 
 export type SalesOrderCollectionChannelDisplay = {
@@ -34,7 +34,7 @@ function hasSource(
 }
 
 /**
- * Origen del cobro: POS Cobranza vs pagos del detalle de la OV.
+ * Origen del cobro: POS Caja vs pagos del detalle de la OV.
  * `inferredPosCollection` solo aplica si no hay pagos ni registro de cobranza
  * (venta POS marcada Pagado al crear / crédito POS sin fila de pago).
  */

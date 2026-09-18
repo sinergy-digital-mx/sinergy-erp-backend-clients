@@ -299,11 +299,11 @@ export declare class QuotationController {
         page: number;
         limit: number;
         totalPages: number;
-        is_admin: boolean;
+        can_view_all: boolean;
     }>;
     getProductsSummary(query: QueryQuotationProductsSummaryDto, req: any): Promise<import("../../inventory/dto/pos-session-inventory-summary-response.dto").PosSessionInventorySummaryResponseDto>;
     listSellers(req: any): Promise<{
-        is_admin: boolean;
+        can_view_all: boolean;
         sellers: {
             id: string;
             first_name: string;

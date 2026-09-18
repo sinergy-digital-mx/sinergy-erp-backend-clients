@@ -16,8 +16,9 @@ Dos combos en cascada (obligatorios), en este orden. **Quitar el dropdown Almac�
 | 2 | **Sucursal** * | `billing_branch_id` | Sucursales de esa razón |
 | 3 | **Cliente** * | `customer_id` | Búsqueda de clientes |
 | 4 | **Fecha de entrega** * | `expected_delivery_date` | Date |
-| 5 | Checkbox selección/armado | `requires_selection_assembly` | Solo si `warehouse_control` está enabled. **No** en Divino. Ver `UI_SALES_ORDER_SELECTION_ASSEMBLY.md` |
-| 6 | **Notas** | `notes` | Texto opcional |
+| 5 | **Tipo de orden** * | `sale_scope` | `inventory` (Inventario) · `services` (Servicios) · `combined` (Productos y servicios). Default `inventory`. POS ignora el valor. |
+| 6 | Checkbox selección/armado | `requires_selection_assembly` | Solo si `sale_scope` no es `services` y `warehouse_control` está enabled. **No** en Divino. Ver `UI_SALES_ORDER_SELECTION_ASSEMBLY.md` |
+| 7 | **Notas** | `notes` | Texto opcional |
 
 No pintar **Almacén**. No enviar `warehouse_id` en MANUAL.
 
@@ -58,7 +59,7 @@ Tab Productos **deshabilitado** hasta elegir sucursal.
 Stock agregado de **todos** los almacenes de la sucursal. Un producto puede existir en Racks y Bodega: una sola fila, `total_available_quantity` sumado. `warehouse_names` es informativo.
 
 ```
-GET /api/tenant/sales-orders/products-summary?fiscal_configuration_id={razonId}&billing_branch_id={sucursalId}&limit=40
+GET /api/tenant/sales-orders/products-summary?fiscal_configuration_id={razonId}&billing_branch_id={sucursalId}&limit=40&sale_scope={inventory|services|combined}
 ```
 
 Query:
@@ -104,7 +105,13 @@ Al agregar línea: `product_id`, `product_uom_id`, `quantity`, `unit_price`, imp
 
 `unit_price` admite hasta **4 decimales** (p. ej. `2.150`). No redondear a 2 en el cliente ni en el API. Los totales de cabecera siguen a 2 decimales.
 
-Si `total_available_quantity` es 0, no dejar agregar (o avisar). El surtido/corroboración descuenta FIFO entre los almacenes de la sucursal.
+Si `sale_scope=inventory` y `total_available_quantity` es 0, no dejar agregar (o avisar). El surtido/corroboración descuenta FIFO entre los almacenes de la sucursal.
+
+Si `sale_scope=services`, el picker lista el catálogo `item_kind=service` (sin stock). `total_available_quantity` viene `null`. Cada fila trae `product_description` y `sat_clave`. Botón **Nuevo servicio**: `POST /tenant/products` con `item_kind=service`, `description`, `base_uom_catalog_id` y se agrega la línea (nombre, descripción, cantidad, precio, IVA).
+
+Si `sale_scope=combined`, el picker une ambos orígenes. Cada fila trae `item_kind`. Stock solo se valida en `goods`.
+
+Cambiar `sale_scope` vacía las líneas.
 
 ---
 
@@ -121,6 +128,7 @@ POST /api/tenant/sales-orders
   "customer_id": 14177,
   "expected_delivery_date": "2026-09-15",
   "notes": "opcional",
+  "sale_scope": "inventory",
   "requires_selection_assembly": false,
   "line_items": [
     {
@@ -147,7 +155,7 @@ Edición (`PUT /api/tenant/sales-orders/:id`) mismo body, mismos campos de ubica
 
 - Checkbox **Necesita proceso de selección y armado** → `UI_SALES_ORDER_SELECTION_ASSEMBLY.md`
 - Listado / detalle / Excel: razón + sucursal, sin almacén → `UI_SALES_ORDER_LIST.md`
-- POS: `warehouse_id` obligatorio
+- POS: `warehouse_id` obligatorio en el POST (cabecera). El surtido FIFO usa todos los almacenes de la sucursal, igual que el catálogo.
 
 ---
 
@@ -157,6 +165,8 @@ Edición (`PUT /api/tenant/sales-orders/:id`) mismo body, mismos campos de ubica
 - [ ] Combo **Razón social** primero
 - [ ] Combo **Sucursal** filtrado por razón; disabled sin razón
 - [ ] POST manda `fiscal_configuration_id` + `billing_branch_id` (sin `warehouse_id`)
-- [ ] Tab Productos usa `GET /sales-orders/products-summary`
+- [ ] Selector **Tipo de orden**: Inventario / Servicios / Productos y servicios (`sale_scope`)
+- [ ] Tab Productos usa `GET /sales-orders/products-summary` con `sale_scope`
+- [ ] Servicio: descripción + producto + cantidad + IVA en el renglón y en **Nuevo servicio**
 - [ ] Al cambiar razón o sucursal, resetear productos
 - [ ] POS sin cambios

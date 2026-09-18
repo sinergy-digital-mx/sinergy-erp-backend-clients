@@ -15,6 +15,12 @@ import { Warehouse } from '../../../entities/warehouse/warehouse.entity';
 import { BatchNumberGeneratorService } from '../../purchase-orders/services/batch-number-generator.service';
 import { InventoryTransferFolioService } from './inventory-transfer-folio.service';
 import { InventoryService } from '../inventory.service';
+import {
+  InventoryStockLedgerService,
+  STOCK_LEDGER_REFERENCE,
+} from './inventory-stock-ledger.service';
+import { InventoryStockLedgerValuationService } from './inventory-stock-ledger-valuation.service';
+import { InventoryStockLedgerMovementType } from '../../../entities/inventory/inventory-stock-ledger-movement-type.enum';
 import { CreateInventoryTransferDto } from '../dto/create-inventory-transfer.dto';
 import { QueryInventoryTransferDto } from '../dto/query-inventory-transfer.dto';
 import {
@@ -40,6 +46,8 @@ export class InventoryTransferService {
     private readonly folioService: InventoryTransferFolioService,
     private readonly batchNumberGenerator: BatchNumberGeneratorService,
     private readonly inventoryService: InventoryService,
+    private readonly stockLedger: InventoryStockLedgerService,
+    private readonly stockLedgerValuation: InventoryStockLedgerValuationService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -269,6 +277,51 @@ export class InventoryTransferService {
           destination_inventory_batch_id: destinationBatch.id,
         });
         await qr.manager.save(InventoryTransferLine, line);
+
+        const occurredAt = line.created_at ?? new Date();
+        const valuation = await this.stockLedgerValuation.resolveFromBatchId(
+          tenantId,
+          sourceBatch.id,
+          qr.manager,
+        );
+        await this.stockLedger.append(
+          {
+            tenantId,
+            productId: sourceBatch.product_id,
+            warehouseId: sourceBatch.warehouse_id,
+            uomId: sourceBatch.uom_id,
+            inventoryBatchId: sourceBatch.id,
+            movementType: InventoryStockLedgerMovementType.TRANSFER_OUT,
+            quantityDelta: -requested,
+            unitCostMxn: valuation.unitCostMxn,
+            unitSalePriceMxn: valuation.unitSalePriceMxn,
+            occurredAt,
+            referenceType: STOCK_LEDGER_REFERENCE.INVENTORY_TRANSFER,
+            referenceId: transfer.id,
+            referenceFolio: folio,
+            createdBy: userId,
+          },
+          qr.manager,
+        );
+        await this.stockLedger.append(
+          {
+            tenantId,
+            productId: destinationBatch.product_id,
+            warehouseId: destinationBatch.warehouse_id,
+            uomId: destinationBatch.uom_id,
+            inventoryBatchId: destinationBatch.id,
+            movementType: InventoryStockLedgerMovementType.TRANSFER_IN,
+            quantityDelta: requested,
+            unitCostMxn: valuation.unitCostMxn,
+            unitSalePriceMxn: valuation.unitSalePriceMxn,
+            occurredAt,
+            referenceType: STOCK_LEDGER_REFERENCE.INVENTORY_TRANSFER,
+            referenceId: transfer.id,
+            referenceFolio: folio,
+            createdBy: userId,
+          },
+          qr.manager,
+        );
       }
 
       await qr.commitTransaction();

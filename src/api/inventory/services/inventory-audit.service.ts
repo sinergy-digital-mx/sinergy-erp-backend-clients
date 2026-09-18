@@ -31,6 +31,12 @@ import { RejectInventoryAuditDto } from '../dto/reject-inventory-audit.dto';
 import { UpdateInventoryAuditLinesDto } from '../dto/update-inventory-audit-lines.dto';
 import { mapBatchMeasure } from '../utils/inventory-measure.util';
 import { InventoryAuditFolioService } from './inventory-audit-folio.service';
+import {
+  InventoryStockLedgerService,
+  STOCK_LEDGER_REFERENCE,
+} from './inventory-stock-ledger.service';
+import { InventoryStockLedgerValuationService } from './inventory-stock-ledger-valuation.service';
+import { InventoryStockLedgerMovementType } from '../../../entities/inventory/inventory-stock-ledger-movement-type.enum';
 
 const OPEN_STATUSES = [InventoryAuditStatus.DRAFT, InventoryAuditStatus.SUBMITTED];
 const VARIANCE_EPSILON = 0.001;
@@ -49,6 +55,8 @@ export class InventoryAuditService {
     @InjectRepository(Warehouse)
     private readonly warehouseRepo: Repository<Warehouse>,
     private readonly folioService: InventoryAuditFolioService,
+    private readonly stockLedger: InventoryStockLedgerService,
+    private readonly stockLedgerValuation: InventoryStockLedgerValuationService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -333,6 +341,8 @@ export class InventoryAuditService {
         where: { inventory_audit_id: locked.id },
       });
 
+      const authorizedAt = new Date();
+
       for (const line of lines) {
         if (line.counted_quantity === null) {
           throw new BadRequestException('Hay líneas sin cantidad contada');
@@ -357,11 +367,38 @@ export class InventoryAuditService {
         line.quantity_before_post = before;
         line.quantity_after_post = counted;
         await qr.manager.save(InventoryAuditLine, line);
+
+        const delta = this.roundQty(counted - before);
+        const valuation = await this.stockLedgerValuation.resolveFromBatchId(
+          tenantId,
+          batch.id,
+          qr.manager,
+        );
+        await this.stockLedger.append(
+          {
+            tenantId,
+            productId: batch.product_id,
+            warehouseId: batch.warehouse_id,
+            uomId: batch.uom_id,
+            inventoryBatchId: batch.id,
+            movementType: InventoryStockLedgerMovementType.AUDIT_ADJUSTMENT,
+            quantityDelta: delta,
+            unitCostMxn: valuation.unitCostMxn,
+            unitSalePriceMxn: valuation.unitSalePriceMxn,
+            occurredAt: authorizedAt,
+            referenceType: STOCK_LEDGER_REFERENCE.INVENTORY_AUDIT,
+            referenceId: locked.id,
+            referenceFolio: locked.folio,
+            createdBy: userId,
+            notes: line.reason ?? null,
+          },
+          qr.manager,
+        );
       }
 
       locked.status = InventoryAuditStatus.POSTED;
       locked.authorized_by = userId;
-      locked.authorized_at = new Date();
+      locked.authorized_at = authorizedAt;
       if (dto.notes) {
         locked.notes = locked.notes
           ? `${locked.notes}\n\nAutorización: ${dto.notes}`

@@ -79,6 +79,9 @@ export class User {
     @Column({ type: 'tinyint', default: 0 })
     is_manager: boolean;
 
+    @Column({ type: 'tinyint', default: 0 })
+    is_crm_admin: boolean;
+
     @CreateDateColumn({ type: 'timestamp' })
     created_at: Date;
 

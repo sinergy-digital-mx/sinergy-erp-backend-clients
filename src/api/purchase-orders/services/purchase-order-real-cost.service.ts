@@ -85,48 +85,62 @@ export class PurchaseOrderRealCostService {
     if (dto.line_items?.length) {
       const lineById = new Map(purchaseOrder.line_items.map((line) => [line.id, line]));
       for (const item of dto.line_items) {
-        const line = lineById.get(item.line_item_id);
-        if (!line) {
+        if (!lineById.has(item.line_item_id)) {
           throw new BadRequestException(
             `La línea ${item.line_item_id} no pertenece a esta orden`,
           );
         }
-        line.igi_percentage = item.igi_percentage;
       }
     }
 
+    // update() y no save(OC): TypeORM desvincula gastos recién insertados
+    // (SET purchase_order_batch_id = NULL) si la colección en memoria está desfasada.
     const extrasToPersist = extras;
+    await this.purchaseOrderRepo.manager.transaction(async (manager) => {
+      const extraRepo = manager.getRepository(PurchaseOrderLandedCostLine);
+      const poRepo = manager.getRepository(PurchaseOrderBatch);
+      const lineRepo = manager.getRepository(PurchaseOrderBatchDetail);
 
-    await this.extraRepo.delete({ purchase_order_batch_id: id, tenant_id: tenantId });
-    const createdExtras = extrasToPersist.map((extra, index) =>
-      this.extraRepo.create({
-        id: uuidv4(),
-        tenant_id: tenantId,
-        purchase_order_batch_id: id,
-        concept: extra.concept,
-        amount: extra.amount,
-        currency: extra.currency,
-        sort_order: index,
-        created_by: userId,
-        updated_by: userId,
-      }),
-    );
-    if (createdExtras.length) {
-      await this.extraRepo.save(createdExtras);
-    }
+      await extraRepo.delete({ purchase_order_batch_id: id, tenant_id: tenantId });
+      const createdExtras = extrasToPersist.map((extra, index) =>
+        extraRepo.create({
+          id: uuidv4(),
+          tenant_id: tenantId,
+          purchase_order_batch_id: id,
+          concept: extra.concept,
+          amount: extra.amount,
+          currency: extra.currency,
+          sort_order: index,
+          created_by: userId,
+          updated_by: userId,
+        }),
+      );
+      if (createdExtras.length) {
+        await extraRepo.save(createdExtras);
+      }
 
-    purchaseOrder.customs_date = customsDate;
-    purchaseOrder.customs_exchange_rate = exchangeRate;
-    purchaseOrder.updated_by = userId;
-    await this.purchaseOrderRepo.save(purchaseOrder);
+      await poRepo.update(
+        { id, tenant_id: tenantId },
+        {
+          customs_date: customsDate,
+          customs_exchange_rate: exchangeRate,
+          updated_by: userId,
+        },
+      );
 
-    if (dto.line_items?.length) {
-      await this.lineRepo.save(purchaseOrder.line_items);
-    }
+      if (dto.line_items?.length) {
+        for (const item of dto.line_items) {
+          await lineRepo.update(
+            { id: item.line_item_id },
+            { igi_percentage: item.igi_percentage, updated_by: userId },
+          );
+        }
+      }
 
-    await this.recalculateIfEnabled(tenantId, id);
+      await this.recalculateIfEnabled(tenantId, id, manager);
+    });
 
-    const nextExtrasCount = createdExtras.length;
+    const nextExtrasCount = extrasToPersist.length;
     const changes = compactActivityChanges([
       activityChange(
         'customs_exchange_rate',

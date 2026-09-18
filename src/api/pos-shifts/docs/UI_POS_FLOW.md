@@ -12,7 +12,7 @@ Documento de referencia del nuevo modelo POS. Reemplaza **Equipos** (`pos_config
 | Sesión POS | **Corte global** (`pos_daily_shifts`) — varios por sucursal por día, **uno abierto** a la vez |
 | Usuario en sesión | Vendedor identificado por **código numérico** (`pos_user_code`) |
 | Retiro de efectivo | **Corte parcial** con desglose de billetes MXN/USD |
-| Ventas sin corte abierto | Órdenes en **cola** (`En cola`, sin `pos_daily_shift_id`) hasta que Cobranza abra el día |
+| Ventas sin corte abierto | Órdenes en **cola** (`En cola`, sin `pos_daily_shift_id`) hasta que Caja abra el día |
 
 ### Tipos de terminal POS (`pos_user_type`)
 
@@ -20,31 +20,31 @@ Documento de referencia del nuevo modelo POS. Reemplaza **Equipos** (`pos_config
 |------|-----|--------|
 | `VENTAS` | Captura pedidos. No cobra ni maneja corte. | Cualquier usuario POS |
 | `COBRANZA` | Abre/cierra corte, cortes parciales, cobra ventas pendientes. | Cualquier usuario POS |
-| `AMBOS` | Ventas **y** cobranza. Ve ambas opciones en el menú. | **Solo gerentes** (`is_manager: true`) |
+| `AMBOS` | Ventas **y** caja. Ve ambas opciones en el menú. | **Solo gerentes** (`is_manager: true`) |
 
-Un POS normal es **Ventas o Cobranza**, nunca los dos. Si el usuario es gerente y POS, puede ser `AMBOS`.
+Un POS normal es **Ventas o Caja**, nunca los dos. Si el usuario es gerente y POS, puede ser `AMBOS`.
 
 ### Tipos de usuario en el sistema
 
 | Usuario | `is_pos_user` | `pos_user_type` | `pos_user_code` | Sucursal |
 |---------|---------------|-----------------|-----------------|----------|
 | Terminal Ventas | `true` | `VENTAS` | Opcional (si vende) | Obligatoria |
-| Terminal Cobranza | `true` | `COBRANZA` | Opcional | Obligatoria |
+| Terminal Caja | `true` | `COBRANZA` | Opcional | Obligatoria |
 | Gerente POS | `true` | `AMBOS` | Recomendado (para vender) | Obligatoria |
 | Vendedor | `false` | `null` | Opcional (único por organización) | Opcional |
 
-### División Ventas vs Cobranza (regla de oro)
+### División Ventas vs Caja (regla de oro)
 
 | Acción | Terminal VENTAS | Terminal COBRANZA |
 |--------|-----------------|-------------------|
 | Catálogo + carrito | Sí | No (solo cobra pendientes) |
-| Seleccionar cliente | **Opcional** (preselección para cobranza) | **Sí** (al cobrar; puede cambiar o completar) |
+| Seleccionar cliente | **Opcional** (preselección para caja) | **Sí** (al cobrar; puede cambiar o completar) |
 | Método de pago / efectivo / cambio | **No** | **Sí** |
 | Generar factura | **No** | **Sí** (si el cliente tiene datos fiscales) |
 | Crear pre-orden (`POST sales-orders`) | Sí | Solo casos excepcionales |
 | Cobrar (`POST pos/sales/:id/collect`) | **No** | Sí |
 
-La orden POS es una **pre-orden**: productos + vendedor + total. El cliente se puede preseleccionar en ventas; si se omite, queda mostrador. Cobranza puede dejarlo, cambiarlo o asignarlo. Pago y factura solo en cobranza.
+La orden POS es una **pre-orden**: productos + vendedor + total. El cliente se puede preseleccionar en ventas; si se omite, queda mostrador. Caja puede dejarlo, cambiarlo o asignarlo. Pago y factura solo en caja.
 
 ---
 
@@ -62,13 +62,13 @@ Campos habituales (nombre, email, contraseña, etc.). Sin cambios POS aquí.
 **Código POS** (`pos_user_code`, ej. `33456`): **siempre visible**, también si el check POS está marcado. Es el número que se teclea en la pantalla de ventas. Un gerente que vende necesita el suyo.
 
 Si **desmarcado** (vendedor normal):
-- Ocultar selector Ventas/Cobranza.
+- Ocultar selector Ventas/Caja.
 
 Si **marcado** (terminal):
-- Si **no** es gerente: selector **obligatorio** Ventas **o** Cobranza → `pos_user_type` (`VENTAS` / `COBRANZA`). No puede marcar ambos.
-- Si **sí** es gerente (`is_manager`): puede elegir **Ventas y cobranza** → `pos_user_type: "AMBOS"`. En el menú POS verá las dos apps.
+- Si **no** es gerente: selector **obligatorio** Ventas **o** Caja → `pos_user_type` (`VENTAS` / `COBRANZA`). No puede marcar ambos.
+- Si **sí** es gerente (`is_manager`): puede elegir **Ventas y caja** → `pos_user_type: "AMBOS"`. En el menú POS verá las dos apps.
 - Texto de ayuda:
-  > *Las terminales POS requieren sucursal asignada. **Ventas** solo captura pedidos; **Cobranza** maneja el corte del día y el cobro. Un **gerente** puede operar ambos. El código es el que se teclea en POS al vender.*
+  > *Las terminales POS requieren sucursal asignada. **Ventas** solo captura pedidos; **Caja** maneja el corte del día y el cobro. Un **gerente** puede operar ambos. El código es el que se teclea en POS al vender.*
 
 **Bloqueo en edición:** si el usuario es `COBRANZA` y tiene un **corte global abierto**, deshabilitar cambio de tipo POS, check POS y sucursal. El API responde 400 si se intenta cambiar.
 
@@ -98,7 +98,7 @@ Si **marcado** (terminal):
 ```
 
 **Badges en lista de usuarios:**
-- `POS Ventas` / `POS Cobranza`
+- `POS Ventas` / `POS Caja`
 - Código del vendedor si aplica
 - Nombre de sucursal
 
@@ -112,7 +112,7 @@ Si **marcado** (terminal):
 **Reemplazar por tab Cortes:**
 - `GET /api/tenant/pos/daily-shifts?terminal_user_id=&billing_branch_id=&shift_date=&status=`
 - Detalle: `GET /api/tenant/pos/daily-shift/:id`
-- Columnas: fecha, terminal cobranza, sucursal, estado, ventas totales, # parciales, efectivo inicial
+- Columnas: fecha, terminal caja, sucursal, estado, ventas totales, # parciales, efectivo inicial
 
 **Sucursales para dropdowns:**
 - `GET /api/tenant/billing/branches`
@@ -160,7 +160,7 @@ Pollux **no** debe llamar `GET /api/tenant/users/:id` (requiere `User:Read`). Us
 | `is_pos_user` | `false` → no es terminal POS (no entrar a app POS o mostrar error) |
 | `pos_user_type` | `VENTAS` / `COBRANZA` / `AMBOS` |
 | `pos_can_sell` | `true` → mostrar menú / app **Ventas** |
-| `pos_can_collect` | `true` → mostrar menú / app **Cobranza** |
+| `pos_can_collect` | `true` → mostrar menú / app **Caja** |
 | `is_manager` | Si es gerente. `AMBOS` solo es válido con esto en `true` |
 | `billing_branch_id` | Sucursal de la terminal (obligatorio si `is_pos_user`) |
 | `fiscal_configuration_id` | Razón social de esa sucursal. Usar en `POST sales-orders`. **No** sacarla de `GET /warehouses/:id` ni de Ajustes. |
@@ -168,7 +168,7 @@ Pollux **no** debe llamar `GET /api/tenant/users/:id` (requiere `User:Read`). Us
 Si `pos_can_sell && pos_can_collect` (gerente `AMBOS`), mostrar **ambas** opciones en el menú. No rutees a una sola app.
 
 ```
-if (user.pos_can_collect) → item menú Cobranza / /pos/cobranza
+if (user.pos_can_collect) → item menú Caja / /pos/cobranza
 if (user.pos_can_sell)    → item menú Ventas   / /pos/ventas
 ```
 
@@ -180,7 +180,7 @@ Guardar `user` en sesión (localStorage / state). **No** pedir código de vended
 
 ```
 if (!user.is_pos_user) → error o redirigir al ERP
-if (user.pos_can_collect && user.pos_can_sell) → menú con Ventas y Cobranza (no forzar una sola ruta)
+if (user.pos_can_collect && user.pos_can_sell) → menú con Ventas y Caja (no forzar una sola ruta)
 if (user.pos_can_collect) → /pos/cobranza
 if (user.pos_can_sell)    → /pos/ventas
 ```
@@ -194,14 +194,14 @@ if (user.pos_can_sell)    → /pos/ventas
 
 ---
 
-## Parte 3 — Flujo terminal COBRANZA
+## Parte 3 — Flujo terminal Caja (`COBRANZA`)
 
 ```mermaid
 flowchart TD
     A[Login terminal COBRANZA] --> B[GET daily-shift/current]
     B --> C{¿Hay corte abierto?}
     C -->|No| D[Abrir corte del día]
-    C -->|Sí, de hoy| E[Dashboard cobranza]
+    C -->|Sí, de hoy| E[Dashboard caja]
     C -->|Sí, de día anterior| F[Modal bloqueante: cerrar corte anterior]
     F --> G[Cerrar corte]
     G --> D
@@ -213,7 +213,7 @@ flowchart TD
 ```
 
 ### Paso 1 — Login
-Usuario: `POS Cobranza CIMA` (ejemplo). Token en todas las peticiones.
+Usuario: `POS Caja CIMA` (ejemplo). Token en todas las peticiones.
 
 ### Paso 2 — Verificar corte del día
 ```
@@ -306,7 +306,7 @@ Al entrar a `/pos/cobranza`, si `unclosed_shift_alert` viene con datos, mostrar 
 - `POST /pos/daily-shift/open` responde 400: *Hay un corte abierto del YYYY-MM-DD sin cerrar. Ciérralo antes de abrir otro.*
 - Tras `PATCH .../close` exitoso, volver a `GET current`. Si `daily_shift: null`, mostrar **Abrir corte del día**.
 
-**UI Ventas (`/pos/ventas`):** mismo payload. Modal bloqueante: cobranza debe cerrar el corte de ayer. CTA **Entendido**. Las ventas nuevas **no** se ligan a ese corte; van a cola (`queued: true`) hasta que cierren el anterior y abran el de hoy.
+**UI Ventas (`/pos/ventas`):** mismo payload. Modal bloqueante: caja debe cerrar el corte de ayer. CTA **Entendido**. Las ventas nuevas **no** se ligan a ese corte; van a cola (`queued: true`) hasta que cierren el anterior y abran el de hoy.
 
 **Día calendario:** `shift_date` y “hoy” se calculan en `America/Mexico_City`.
 
@@ -339,14 +339,14 @@ Respuesta sugerida:
 }
 ```
 
-**UI Cobranza tras abrir:**
+**UI Caja tras abrir:**
 - Toast o banner: *"Corte abierto. Se asignaron 4 órdenes de cola."*
 - Si `queued_sales_assigned > 0`: *"Tienes 4 órdenes por cobrar"* en el dashboard (badge en la sección de pendientes).
 - Redirigir o destacar la lista `pending-sales` para cobrar de inmediato.
 
 Si no había cola (`queued_sales_assigned: 0`), solo confirmar apertura y mostrar dashboard normal.
 
-### Paso 4 — Dashboard cobranza (pantallas principales)
+### Paso 4 — Dashboard caja (pantallas principales)
 
 | Sección | Endpoint |
 |---------|----------|
@@ -365,6 +365,7 @@ Devuelve órdenes con:
 - `payment_status: Pendiente`
 - `sales_order_type: POS`
 - **`pos_daily_shift_id` = corte abierto** (misma fuente que `sales_summary.total_mxn` del dashboard)
+- `pos_stage` distinto de `ventas` (caja o null). Los tickets reintegrados no aparecen aquí.
 
 Si hay corte abierto, no filtra por almacén: las órdenes ligadas al corte aparecen aunque el `warehouse_id` venga mal del frontend.
 
@@ -392,7 +393,7 @@ Si hay corte abierto, no filtra por almacén: las órdenes ligadas al corte apar
 
 ### Paso 6 — Cobrar venta (solo COBRANZA)
 
-**Ventas no captura pago ni factura.** El cliente de la pre-orden es opcional: si Ventas lo eligió, Cobranza lo ve prellenado y puede dejarlo o cambiarlo. Si no, queda mostrador y Cobranza puede asignarlo. Todo el cobro ocurre aquí.
+**Ventas no captura pago ni factura.** El cliente de la pre-orden es opcional: si Ventas lo eligió, Caja lo ve prellenado y puede dejarlo o cambiarlo. Si no, queda mostrador y Caja puede asignarlo. Todo el cobro ocurre aquí.
 
 ```
 POST /api/tenant/pos/sales/:salesOrderId/collect
@@ -437,6 +438,15 @@ POST /api/tenant/pos/sales/:salesOrderId/collect
 }
 ```
 
+#### Ejemplo — cheque
+```json
+{
+  "payment_method": "check",
+  "amount_check_mxn": 830.50,
+  "check_reference": "CH-45821"
+}
+```
+
 #### Ejemplo — mixto (efectivo + transferencia)
 ```json
 {
@@ -451,7 +461,7 @@ POST /api/tenant/pos/sales/:salesOrderId/collect
 
 | Campo | Regla |
 |-------|--------|
-| `payment_method` | `cash` \| `card` \| `transfer` \| `mixed` \| `credit` |
+| `payment_method` | `cash` \| `card` \| `transfer` \| `check` \| `mixed` \| `credit` |
 | `customer_id` | Opcional. Si no se envía, se mantiene el de la orden (mostrador si Ventas no envió cliente) |
 | `generate_invoice` | Opcional. `true` solo si el cliente tiene RFC + razón social + CP de 5 dígitos |
 | Montos (`amount_*`) | La suma en MXN debe igualar el `total` de la orden |
@@ -463,7 +473,7 @@ POST /api/tenant/pos/sales/:salesOrderId/collect
 1. Valida corte abierto en la sucursal.
 2. Crea registro en `pos_sale_collections` (auditoría de pago).
 3. Marca orden `payment_status: Pagado`, asigna `collected_by_user_id`, `pos_daily_shift_id` y `customer_id` final.
-4. Genera y guarda ticket térmico ESC/POS como documento de la orden (**tipo 9 — TICKET / RECIBO**).
+4. Genera y guarda ticket térmico ESC/POS como documento de la orden (**tipo 9 — TICKET / RECIBO**). Si la OV tiene `notes`, el ticket incluye el bloque **OBSERVACIONES**.
 
 **Respuesta:**
 ```json
@@ -495,7 +505,7 @@ POST /api/tenant/pos/sales/:salesOrderId/collect
 }
 ```
 
-**Importante UI Cobranza:** si el cajero eligió un cliente, **siempre** enviar `customer_id` en el body del collect (número entero). Sin ese campo se conserva el mostrador de la orden.
+**Importante UI Caja:** si el cajero eligió un cliente, **siempre** enviar `customer_id` en el body del collect (número entero). Sin ese campo se conserva el mostrador de la orden.
 
 **Backoffice / detalle de orden de venta** (`GET /api/tenant/sales-orders/:id`):
 - `data.header.customer_display_name` — nombre final del cliente
@@ -503,7 +513,7 @@ POST /api/tenant/pos/sales/:salesOrderId/collect
 
 **Impresión inmediata (Pollux):** tras cobrar, decodificar `receipt.escpos_base64` y enviar bytes RAW a la impresora Bixolon SRP-330III (ESC/POS, 80mm). Alternativa: descargar con `download_url` o reimprimir con `GET /api/tenant/pos/sales/:id/receipt`.
 
-**UI cobranza:** ver **Parte 10** (pantalla de cobro completa).
+**UI caja:** ver **Parte 10** (pantalla de cobro completa).
 
 **Consultar cobro:**
 ```
@@ -552,7 +562,7 @@ Sin query → usa el **corte abierto** de la sucursal de la terminal COBRANZA. C
         "total": 830.50
       },
       "customer": { "id": 1, "name": "Público en General", "is_walk_in": true },
-      "collected_by_user": { "first_name": "POS", "last_name": "Cobranza" }
+      "collected_by_user": { "first_name": "POS", "last_name": "Caja" }
     }
   ],
   "summary": {
@@ -561,12 +571,13 @@ Sin query → usa el **corte abierto** de la sucursal de la terminal COBRANZA. C
     "cash_mxn": 7000,
     "cash_usd": 100,
     "transfer_mxn": 2000,
-    "card_mxn": 850
+    "card_mxn": 850,
+    "check_mxn": 0
   }
 }
 ```
 
-**UI Cobranza:** tab o menú **“Órdenes cobradas”** en el dashboard. Lista con folio, total, método de pago, cliente, hora. Header con resumen (`summary.count`, `summary.total_mxn`). Al tocar un renglón → detalle con `GET pos/sales/:id/collection` si hace falta más info.
+**UI Caja:** tab o menú **“Órdenes cobradas”** en el dashboard. Lista con folio, total, método de pago, cliente, hora. Header con resumen (`summary.count`, `summary.total_mxn`). Al tocar un renglón → detalle con `GET pos/sales/:id/collection` si hace falta más info.
 
 ### Paso 7 — Corte parcial (retiro de efectivo)
 Cuando hay mucho efectivo en caja:
@@ -618,7 +629,7 @@ Cada ítem en `partial_shifts[]` incluye el monto retirado en **`total_mxn`** (a
 PATCH /api/tenant/pos/daily-shift/:id/close
 ```
 
-El corte es de la **sucursal**, no de quien lo abrió. Cualquier terminal de cobranza de esa sucursal puede cerrarlo o registrar parciales.
+El corte es de la **sucursal**, no de quien lo abrió. Cualquier caja con esa sucursal asignada puede cerrarlo (POS o Configuración POS), aunque su sucursal activa sea otra.
 ```
 ```json
 {
@@ -636,7 +647,7 @@ El corte es de la **sucursal**, no de quien lo abrió. Cualquier terminal de cob
 **Qué debe haber en caja (esperado):**
 `efectivo inicial + cobrado en efectivo − retiros de cortes parciales`
 
-Tarjeta, transferencia y crédito **no** quedan en caja.
+Tarjeta, transferencia, cheque y crédito **no** quedan en caja.
 
 **UI cierre:**
 - Mostrar esperado vs contado. Billetes y monedas ($1000 a $1) con contador; los centavos se capturan en un campo libre (ej. `0.56`) y se suman al contado.
@@ -664,8 +675,8 @@ flowchart TD
     G --> H[Crear orden POS]
     H -->|Sin corte| I[En cola — sin pos_daily_shift_id]
     H -->|Con corte| J[Surtida + Pendiente — ligada al corte]
-    I --> K[Cobranza abre corte → auto-asigna cola]
-    K --> L[Pendientes de cobro en Cobranza]
+    I --> K[Caja abre corte → auto-asigna cola]
+    K --> L[Pendientes de cobro en Caja]
     J --> L
 ```
 
@@ -679,8 +690,8 @@ GET /api/tenant/pos/daily-shift/current
 
 - Terminal VENTAS consulta si en **su sucursal** hay corte abierto de una terminal COBRANZA.
 - Si `daily_shift: null` → **no bloquear**. Mostrar banner persistente:
-  > *Sin corte abierto — las ventas quedan en cola hasta que cobranza abra el día.*
-- Si hay corte → banner verde opcional: *Corte activo — las ventas van directo a cobranza.*
+  > *Sin corte abierto — las ventas quedan en cola hasta que caja abra el día.*
+- Si hay corte → banner verde opcional: *Corte activo — las ventas van directo a caja.*
 
 ### Paso 3 — Pantalla código de vendedor
 ```
@@ -747,7 +758,7 @@ Respuesta incluye:
 }
 ```
 
-**UI Pollux:** no reutilizar `warehouse_id` de configuración global ni de otra sucursal. Tras el primer `GET` sin `warehouse_id`, guardar `warehouses[0].id` (o el único almacén) para `POST sales-orders` (`warehouse_id` en líneas).
+**UI Pollux:** no reutilizar `warehouse_id` de configuración global ni de otra sucursal. Tras el primer `GET` sin `warehouse_id`, guardar `warehouses[0].id` (o el único almacén) para `POST sales-orders` (`warehouse_id` en cabecera). El surtido FIFO de POS usa **todos los almacenes de la sucursal**, igual que el stock agregado del catálogo. No filtrar el catálogo por un solo almacén.
 
 Si recibes 400 con lista `warehouses`, actualiza el id en estado local; el uuid que enviaste no pertenece a la sucursal del usuario POS.
 
@@ -755,14 +766,14 @@ Si recibes 400 con lista `warehouses`, actualiza el id en estado local; el uuid 
 
 ### Paso 4b — Cliente opcional y qué **no** va en Ventas
 
-El panel derecho **sí** puede preseleccionar cliente (mismo listado que Cobranza). **No** incluye pago ni factura:
+El panel derecho **sí** puede preseleccionar cliente (mismo listado que Caja). **No** incluye pago ni factura:
 
 | Elemento | Acción UI |
 |----------|-----------|
 | Bloque **CLIENTE** / listado | **Opcional.** Default: Público en General. Si eligen uno, enviarlo en `customer_id`. |
 | Selector de método de pago | **Quitar** |
 | Campos efectivo MXN / USD / transferencia | **Quitar** |
-| Cálculo de cambio / generar factura | **Solo Cobranza** |
+| Cálculo de cambio / generar factura | **Solo Caja** |
 
 ```
 ┌─────────────────────────────┐
@@ -776,17 +787,17 @@ El panel derecho **sí** puede preseleccionar cliente (mismo listado que Cobranz
 ```
 
 Texto bajo el total (según corte):
-- Con corte: *“La venta irá a cobranza pendiente de pago.”*
-- Sin corte: *“Venta en cola hasta que cobranza abra el día.”*
+- Con corte: *“La venta irá a caja pendiente de pago.”*
+- Sin corte: *“Venta en cola hasta que caja abra el día.”*
 
-Tras **Registrar venta**, mostrar modal/toast con **folio** (ej. `OV-000123`) y mensaje: *“Pase a cobranza con este folio.”*
+Tras **Registrar venta**, mostrar modal/toast con **folio** (ej. `OV-000123`) y mensaje: *“Pase a caja con este folio.”*
 
 Botones del carrito (Ventas):
 
 | Botón | Endpoint | Efecto |
 |-------|----------|--------|
 | **Registrar** | `POST /api/tenant/sales-orders` | Venta: descuenta inventario |
-| **Cotizar** | `POST /api/tenant/quotations` | Cotización: **no** descuenta inventario, **no** va a cobranza |
+| **Cotizar** | `POST /api/tenant/quotations` | Cotización: **no** descuenta inventario, **no** va a caja |
 
 El payload de **Cotizar** es el mismo carrito (`unit_price`, impuestos, descuentos). Ver `src/api/quotations/docs/UI_QUOTATIONS.md`.
 
@@ -806,7 +817,7 @@ POST /api/tenant/sales-orders
 }
 ```
 
-**`customer_id` es opcional en POS.** Si Ventas lo envía, Cobranza prellena ese cliente. Si se omite, el backend usa el cliente de mostrador (`Público en General` / razón social `VENTA DE MOSTRADOR`). Cobranza puede cambiarlo o asignarlo al cobrar. **No enviar método de pago ni `generate_invoice` desde Ventas.**
+**`customer_id` es opcional en POS.** Si Ventas lo envía, Caja prellena ese cliente. Si se omite, el backend usa el cliente de mostrador (`Público en General` / razón social `VENTA DE MOSTRADOR`). Caja puede cambiarlo o asignarlo al cobrar. **No enviar método de pago ni `generate_invoice` desde Ventas.**
 
 **No es obligatorio** enviar `pos_daily_shift_id`; el backend lo resuelve si hay corte abierto en la sucursal.
 
@@ -819,19 +830,19 @@ POST /api/tenant/sales-orders
 
 En ambos casos:
 - `terminal_user_id` = usuario logueado (terminal VENTAS)
-- Inventario: descontar al confirmar (`Surtida` o equivalente en cola — ver Parte 5)
+- Inventario: descontar al confirmar (`Surtida` o equivalente en cola — ver Parte 5), FIFO en **todos los almacenes de la sucursal** (mismo alcance que `GET inventory/pos/summary` sin `warehouse_id`)
 
 ### Paso 6 — Confirmación en UI ventas
 
 **Con corte abierto:**
-> *Venta registrada. El cliente debe pasar a **cobranza** para pagar.*
+> *Venta registrada. El cliente debe pasar a **caja** para pagar.*
 
 **Sin corte (cola):**
-> *Venta en cola (folio OV-XXXX). El cliente debe pasar a **cobranza** cuando abran el corte del día.*
+> *Venta en cola (folio OV-XXXX). El cliente debe pasar a **caja** cuando abran el corte del día.*
 
 Opcional: botón “Nueva venta” → vuelve a pedir código o mantiene mismo vendedor según UX.
 
-### Paso 7 (opcional) — COBRANZA creando venta ya pagada
+### Paso 7 (opcional) — Caja creando venta ya pagada
 
 La terminal COBRANZA también puede crear órdenes POS directamente (sin pasar por pendientes) enviando `payment_status: Pagado`:
 
@@ -847,7 +858,7 @@ POST /api/tenant/sales-orders
 }
 ```
 
-El backend asigna `collected_by_user_id` = terminal COBRANZA logueada. Útil si cobranza captura y cobra en el mismo momento.
+El backend asigna `collected_by_user_id` = terminal COBRANZA logueada. Útil si caja captura y cobra en el mismo momento.
 
 ---
 
@@ -880,13 +891,59 @@ stateDiagram-v2
 - `pending-sales` lista solo `Surtida` + `Pendiente` ya ligadas al corte (tras la asignación automática).
 - No se puede **cobrar** una orden en `En cola` (`pos_daily_shift_id` null).
 
+### Escenario POS (`pos_stage`) — reintegrar a ventas
+
+Independiente del `general_status` de almacén. **No** reutilizar `En cola` para “editar en ventas”: al abrir corte esas órdenes volverían a caja.
+
+```mermaid
+flowchart LR
+  ventasCrea[POS Ventas registra] --> enCaja[pos_stage caja]
+  enCaja --> pending[Lista por cobrar]
+  pending --> cobrar[Confirmar cobro]
+  pending --> devolver[Regresar a ventas]
+  devolver --> enVentas[pos_stage ventas]
+  enVentas --> editar[Editar carrito mismo folio]
+  editar --> reenviar[Enviar a caja]
+  reenviar --> enCaja
+```
+
+| `pos_stage` | Quién la ve | Cobrar |
+|-------------|-------------|--------|
+| `caja` (o `null` en filas POS antiguas) | POS Caja (`GET pending-sales`) | Sí |
+| `ventas` | POS Ventas (`GET sales-in-progress`) | No (400) |
+| `null` en MANUAL | N/A | N/A |
+
+Al crear POS: `pos_stage = caja`. MANUAL: `null`. Backfill de POS existentes: `caja`.
+
+**Regresar a ventas** (`POST /pos/sales/:id/return-to-sales`):
+- Solo terminal Caja (`COBRANZA` / `AMBOS`) + permiso `pos:ReturnToSales`
+- Orden POS, `payment_status = Pendiente`, sin `pos_sale_collections`, sin pagos con saldo aplicado, sin CFDI vigente
+- `pos_stage = ventas`. Mismo folio e inventario (sigue surtido)
+- Sale de pendientes. La auto-asignación de corte **ignora** `pos_stage = ventas`
+
+**Editar carrito** (`PUT /pos/sales/:id/cart`):
+- Solo terminal Ventas y `pos_stage = ventas`
+- Mismo `line_items` que el alta POS. Libera FIFO (DELETE de asignaciones, no SET NULL) y vuelve a surtir. Recalcula totales. Se puede cambiar el cliente.
+- Al **Enviar a caja** un ticket jalado otra vez: `PUT cart` + `POST send-to-caja`. El PUT no debe 500 aunque el folio ya tuviera lotes.
+- No habilita `can_edit_lines` en el detalle ERP para `Surtida`
+
+**Reenviar a caja** (`POST /pos/sales/:id/send-to-caja`):
+- `pos_stage = caja`
+- Si hay corte abierto en la sucursal: `Surtida` + `pos_daily_shift_id`
+- Si no: `En cola`
+
+**UI Caja:** en el ticket seleccionado, botón secundario **Regresar a ventas** (junto a Cancelar) con confirmación. Ocultar si no hay `pos:ReturnToSales`. Tras confirmar: toast, el ticket sale de **Por cobrar**. **No redirigir a POS Ventas.** Quien vende recarga Tickets en su terminal.
+
+**UI Ventas:** badge / lista **Tickets en ventas**. Icono recargar en la barra superior. Al abrir un ticket, carga el carrito (productos, cantidades, cliente). CTA **Enviar a caja** (no crea OV nueva). Tras enviar: toast con el mismo folio y carrito vacío.
+
 **Inventario:** al confirmar venta en cola, tratar como surtida (producto ya entregado en piso). Si en el futuro se prefiere reserva blanda, documentar aquí.
 
 Campos de trazabilidad en la orden:
 - `terminal_user_id` — terminal que creó la venta
 - `seller_user_id` — vendedor del código
 - `pos_daily_shift_id` — corte global de la sucursal
-- `collected_by_user_id` — terminal cobranza al cobrar
+- `collected_by_user_id` — terminal caja al cobrar
+- `pos_stage` — `caja` | `ventas` | `null`
 
 ---
 
@@ -905,9 +962,13 @@ Base: `/api/tenant/...` — Header: `Authorization: Bearer <token>`
 | GET | `pos/daily-shift/:id` | Todos | Detalle con parciales |
 | POST | `pos/daily-shift/:id/partial-shifts` | COBRANZA | Corte parcial |
 | PATCH | `pos/daily-shift/:id/close` | COBRANZA | Cerrar corte |
-| GET | `pos/pending-sales` | COBRANZA | Ventas por cobrar |
+| GET | `pos/pending-sales` | COBRANZA | Ventas por cobrar (`pos_stage` caja o null) |
+| GET | `pos/sales-in-progress` | VENTAS | Tickets `pos_stage=ventas` de la sucursal |
 | GET | `pos/collected-sales` | COBRANZA | Ventas cobradas del corte |
 | POST | `pos/sales/:id/collect` | COBRANZA | Cobrar venta (pago + cliente + ticket) |
+| POST | `pos/sales/:id/return-to-sales` | Caja + `pos:ReturnToSales` | Regresar ticket no cobrado a ventas |
+| PUT | `pos/sales/:id/cart` | VENTAS | Reemplazar carrito (inventario FIFO) |
+| POST | `pos/sales/:id/send-to-caja` | VENTAS | Reenviar ticket editado a caja |
 | GET | `pos/sales/:id/receipt` | COBRANZA | Ticket ESC/POS para reimpresión |
 | GET | `pos/sales/:id/collection` | COBRANZA / backoffice | Detalle del cobro |
 
@@ -937,16 +998,18 @@ Base: `/api/tenant/...` — Header: `Authorization: Bearer <token>`
 | Solo terminales de tipo COBRANZA... | VENTAS intenta abrir corte |
 | Hay un corte abierto del YYYY-MM-DD sin cerrar... | Abrir corte nuevo con uno atrasado aún abierto |
 | La orden no está pendiente de cobro | Cobrar orden ya pagada o cancelada |
-| El código X ya está asignado | Código vendedor duplicado en tenant |
+| La orden está en ventas. Debe enviarse a caja antes de cobrar | Cobrar un ticket con `pos_stage = ventas` |
+| La orden ya fue cobrada en caja | Regresar a ventas un ticket ya cobrado |
+| El código X ya está asignado | Código vendedor duplicado en la organización |
 
 ---
 
 ## Parte 8 — Orden de implementación sugerido (UI)
 
-1. **Gestión usuarios** — tabs POS + sucursal + tipo Ventas/Cobranza + código vendedor.
-2. **Login POS** — detectar `pos_user_type` del usuario logueado y rutear a app Ventas o Cobranza.
-3. **App Cobranza** — `GET current` → si `unclosed_shift_alert` modal bloqueante y cerrar → si no hay corte, abrir (toast N asignadas) → dashboard con badge “N por cobrar” → pending-sales → collect.
-4. **App Ventas** — banner según corte → código vendedor → inventario → crear orden (cola o directo).
+1. **Gestión usuarios** — tabs POS + sucursal + tipo Ventas/Caja + código vendedor.
+2. **Login POS** — detectar `pos_user_type` del usuario logueado y rutear a app Ventas o Caja.
+3. **App Caja** — `GET current` → si `unclosed_shift_alert` modal bloqueante y cerrar → si no hay corte, abrir (toast N asignadas) → dashboard con badge “N por cobrar” → pending-sales → collect.
+4. **App Ventas** — banner según corte → código vendedor → inventario → crear orden (cola o directo) o reenviar ticket reintegrado.
 5. **Corte parcial** — modal con tabs MXN/USD.
 6. **Backoffice Cortes** — listado y detalle (reemplaza Equipos/Sesiones).
 7. **Cerrar corte** — fin de día.
@@ -966,6 +1029,8 @@ La migración `1779500000002-seed-pos-shifts-module-permissions` registra la ent
 - `Create` — abrir corte (COBRANZA)
 - `Update` — parciales, cobrar, cerrar corte
 
+La migración `1789900000000-add-pos-stage-and-return-to-sales` agrega `pos_stage` (backfill POS → `caja`) y el permiso `pos:ReturnToSales` (módulo `pos`). Se asigna a Admin y a roles que ya tienen `PosShift:Update`.
+
 Sin `PosShift` en `entity_registry` el API responde `INVALID_ENTITY_TYPE` antes de ejecutar la lógica del endpoint.
 
 Alternativa manual (sin migración en otro entorno):
@@ -976,7 +1041,7 @@ npm run seed:pos-shifts
 
 ---
 
-## Parte 10 — Cobranza: qué hace técnicamente + UI detallada
+## Parte 10 — Caja: qué hace técnicamente + UI detallada
 
 ### Qué hace el backend al cobrar
 
@@ -984,7 +1049,7 @@ No solo cambia un flag. El flujo completo en `POST /api/tenant/pos/sales/:id/col
 
 ```mermaid
 sequenceDiagram
-    participant UI as UI Cobranza
+    participant UI as UI Caja
     participant API as pos-shifts.service
     participant SO as inv_s_sales_orders
     participant COL as pos_sale_collections
@@ -1005,11 +1070,12 @@ sequenceDiagram
 
 | Campo | Descripción |
 |-------|-------------|
-| `payment_method` | `cash` \| `card` \| `transfer` \| `mixed` \| `credit` |
+| `payment_method` | `cash` \| `card` \| `transfer` \| `check` \| `mixed` \| `credit` |
 | `amount_cash_mxn` / `amount_cash_usd` | Monto aplicado en efectivo |
 | `usd_exchange_rate` | TC si hay USD |
 | `amount_transfer_mxn` + `transfer_reference` | Transferencia |
 | `amount_card_mxn` + `card_reference` | Tarjeta |
+| `amount_check_mxn` + `check_reference` | Cheque |
 | `amount_credit_mxn` | Monto a crédito (si `payment_method = credit`) |
 | `received_cash_mxn` / `received_cash_usd` | Lo que entregó el cliente |
 | `change_cash_mxn` / `change_cash_usd` | Cambio calculado |
@@ -1038,11 +1104,11 @@ Si Ventas **no envía** `customer_id`, el backend asigna automáticamente el cli
 
 Debe existir ese cliente en el tenant (seed o alta manual). En `pending-sales`, las órdenes sin cliente real muestran `customer.is_walk_in: true`.
 
-En Cobranza, el cajero **puede dejar** el cliente que vino de Ventas (o mostrador) o buscar/cambiarlo antes de confirmar el cobro.
+En Caja, el cajero **puede dejar** el cliente que vino de Ventas (o mostrador) o buscar/cambiarlo antes de confirmar el cobro.
 
 ---
 
-### Pantalla 1 — Lista de pendientes (Cobranza)
+### Pantalla 1 — Lista de pendientes (Caja)
 
 **Ruta UI sugerida:** `/pos/cobranza/pendientes`
 
@@ -1071,7 +1137,7 @@ En Cobranza, el cajero **puede dejar** el cliente que vino de Ventas (o mostrado
 
 ---
 
-### Pantalla 2 — Cobro de orden (Cobranza)
+### Pantalla 2 — Cobro de orden (Caja)
 
 **Ruta UI sugerida:** `/pos/cobranza/cobrar/:salesOrderId`
 
@@ -1080,7 +1146,7 @@ En Cobranza, el cajero **puede dejar** el cliente que vino de Ventas (o mostrado
 | Campo | Fuente |
 |-------|--------|
 | Folio | `pending_sales[].folio` |
-| Fecha/hora | `created_at` |
+| Fecha/hora | `created_at` (UTC; si viene sin zona, tratar como UTC y pintar local) |
 | Vendedor | `seller_user` + `pos_user_code` |
 | Terminal ventas | `terminal_user` |
 | Líneas | `GET /api/tenant/sales-orders/:id` (detalle) |
@@ -1103,7 +1169,10 @@ En Cobranza, el cajero **puede dejar** el cliente que vino de Ventas (o mostrado
 
 #### Sección C — Método de pago (tabs)
 
-Tab activo determina `payment_method` del payload.
+Grid **3 columnas** de botones con icono + etiqueta (nunca 4 o 5 en una sola fila apretada). Tab activo determina `payment_method` del payload.
+
+Fila 1: Efectivo · Transferencia · Tarjeta  
+Fila 2: Cheque · Mixto · Crédito (Crédito solo si aplica)
 
 **Tab Efectivo** → `payment_method: "cash"`
 
@@ -1136,20 +1205,40 @@ Monto MXN:          [ 830.50 ]
 Referencia:         [ 4242 ]  (opcional)
 ```
 
+**Tab Cheque** → `payment_method: "check"`
+
+```
+Monto MXN:          [ 830.50 ]
+Número de cheque:   [ CH-45821 ]  (obligatorio)
+```
+
+El cheque **no** entra a caja. Se reporta en el resumen del corte (`summary.check_mxn`) igual que transferencia/tarjeta.
+
 **Tab Mixto** → `payment_method: "mixed"`
 
-El cajero **elige** qué tipos usar (checks). Mínimo dos. No mostrar los 3 montos siempre.
+El cajero **elige** qué tipos usar con botones grandes (no checks sueltos). Mínimo dos. Cada tipo activo es **una tarjeta aparte**, numerada **Pago 1**, **Pago 2**.
 
 ```
-[x] Efectivo     [x] Transferencia     [ ] Tarjeta
+Total $1,028.02   Aplicado $1,028.02   Estado Listo
 
-Efectivo MXN:       [ 500    ]
-Transferencia MXN:  [ 330.50 ]  Ref: [ SPEI-789 ]
-─────────────────────────────────
-Suma aplicada:      $830.50  ✓
+[ Efectivo ] [ Transferencia ]
+[ Tarjeta  ] [ Cheque ]
+
++-- Pago 1 · Efectivo ---- [Completar resto] --+
+| Aplica a la venta   Recibió                  |
+| [ 500.00 ]          [ 500.00 ]               |
+| Cambio a entregar $0.00                      |
++----------------------------------------------+
+
++-- Pago 2 · Transferencia --------------------+
+| Monto [ 528.02 ]                             |
+| Ref. SPEI [ ........ ]                       |
++----------------------------------------------+
 ```
 
-Mínimo **dos** formas de pago con monto > 0 entre efectivo / transferencia / tarjeta. Crédito **no** va en mixto.
+**Resto automático:** al escribir un monto, el **último** método marcado recibe la diferencia (`total − suma de los demás`). Si falta saldo, esa tarjeta muestra el botoncito **Completar resto**. Si el cajero edita el último método, ese valor se respeta.
+
+Mínimo **dos** formas de pago con monto > 0 entre efectivo / transferencia / tarjeta / cheque. Crédito **no** va en mixto.
 
 **Tab Crédito** → `payment_method: "credit"` (solo si la OV tiene crédito en **su** razón social: `pending.customer.credit_enabled` o `GET /customers/:id?fiscal_configuration_id={order.fiscal_configuration_id}` → `credit_enabled`)
 
@@ -1160,8 +1249,10 @@ Toggle **Generar factura** (switch largo y fino) en la card del cliente: `genera
 #### Sección D — Acciones
 
 ```
-[ Cancelar ]                    [ Confirmar cobro $830.50 ]
+[ Cancelar ]  [ Regresar a ventas ]           [ Confirmar cobro $830.50 ]
 ```
+
+**Regresar a ventas** → `POST /api/tenant/pos/sales/:id/return-to-sales`. Confirmación: el folio sale de caja; Ventas lo ve en Tickets. **Caja se queda en Caja** (no navegar a `/pos/ventas`). Ocultar si no hay `pos:ReturnToSales`. Ya cobrada → 400.
 
 **Confirmar** → `POST /api/tenant/pos/sales/:id/collect` con body según tab.
 
@@ -1218,12 +1309,13 @@ Validación cliente-side antes de POST:
 1. `Math.abs(paidTotal - orderTotal) <= 0.01`
 2. Si `amount_cash_usd > 0` → `usd_exchange_rate` requerido
 3. Si `amount_transfer_mxn > 0` → `transfer_reference` no vacío
-4. Si `payment_method === 'mixed'` → al menos 2 montos > 0 (efectivo / transferencia / tarjeta)
-5. Si `payment_method === 'credit'` → crédito activo **en la razón social de la OV** (`fiscal_configuration_id`) y `credit_available >= amount_pending`
+4. Si `payment_method === 'mixed'` → al menos 2 montos > 0 (efectivo / transferencia / tarjeta / cheque)
+5. Si `amount_check_mxn > 0` → `check_reference` no vacío
+6. Si `payment_method === 'credit'` → crédito activo **en la razón social de la OV** (`fiscal_configuration_id`) y `credit_available >= amount_pending`
 
 ---
 
-## Parte 11 — Impresión del ticket (solo UI Cobranza)
+## Parte 11 — Impresión del ticket (solo UI Caja)
 
 Instrucciones para Pollux: **cómo imprimir el recibo térmico al confirmar el cobro**.
 
@@ -1372,14 +1464,17 @@ Mismo `printPosReceipt(receipt.escpos_base64)`. En **Órdenes cobradas**, acció
 ### Checklist implementación UI
 
 **Terminal VENTAS**
-- [ ] Selector de cliente opcional (mismo listado que Cobranza)
+- [ ] Selector de cliente opcional (mismo listado que Caja)
 - [ ] Quitar cualquier UI de pago o factura
 - [ ] `POST sales-orders` con `customer_id` solo si se preseleccionó
-- [ ] Mostrar folio + “Pase a cobranza”
+- [ ] Mostrar folio + “Pase a caja”
 - [ ] Banner corte activo / en cola
+- [ ] Lista **Tickets en ventas** (`GET sales-in-progress`)
+- [ ] Cargar carrito y CTA **Enviar a caja** (`PUT cart` + `POST send-to-caja`)
 
-**Terminal COBRANZA**
+**Terminal Caja (`COBRANZA`)**
 - [ ] Lista `pending-sales`
+- [ ] Botón **Regresar a ventas** (oculto sin `pos:ReturnToSales`)
 - [ ] Pantalla cobro con cliente + tabs pago
 - [ ] `POST collect` con validación de montos
 - [ ] Mostrar cambio en efectivo
@@ -1405,5 +1500,5 @@ Sucursal CIMA
 ├── Terminal VENTAS 2                              │
 │   └── Vendedor 123456 → crea OV-002 (Pendiente) ─┤
 │                                                   ▼
-└─────────────────────────────────────── Terminal COBRANZA cobra
+└─────────────────────────────────────── Terminal Caja cobra
 ```

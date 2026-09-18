@@ -9,6 +9,7 @@ import {
   IsPositive,
   IsString,
   IsUUID,
+  MaxLength,
   Min,
   ValidateIf,
   ValidateNested,
@@ -117,6 +118,7 @@ export class CreateQuotationDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(5000)
   notes?: string;
 
   @IsOptional()

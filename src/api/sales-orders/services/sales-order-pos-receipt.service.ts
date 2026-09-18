@@ -28,6 +28,7 @@ import {
   productLine,
   twoColumnLine,
   wrapLines,
+  observationTicketLines,
 } from '../utils/escpos.util';
 
 export const SALES_ORDER_TICKET_RECIBO_NAMES = ['TICKET / RECIBO', 'TICKET_RECIBO'] as const;
@@ -196,6 +197,19 @@ export class SalesOrderPosReceiptService {
       `[TEMP] Regenerando ticket POS ${salesOrderId} por usuario ${uploadedBy}`,
     );
     return this.generateAndSavePosTicket(tenantId, salesOrderId, uploadedBy);
+  }
+
+  /** Regenerar ticket solo si ya existe (p. ej. al actualizar observaciones). */
+  async refreshTicketIfExists(
+    tenantId: string,
+    salesOrderId: string,
+    uploadedBy: string,
+  ): Promise<void> {
+    const ticketDoc = await this.findExistingTicket(salesOrderId);
+    if (!ticketDoc) {
+      return;
+    }
+    await this.generateAndSavePosTicket(tenantId, salesOrderId, uploadedBy);
   }
 
   private buildReceiptResult(
@@ -461,6 +475,13 @@ export class SalesOrderPosReceiptService {
     this.pushFooterLines(lines, 'Cajero(a):', this.formatUserName(collection.collected_by_user));
     this.pushFooterLines(lines, 'Lo atendio:', this.formatUserName(order.seller_user));
     this.pushFooterLines(lines, 'Cliente:', this.formatCustomerName(order));
+    const observationLines = observationTicketLines(order.notes);
+    if (observationLines.length) {
+      lines.push('');
+      for (const observationLine of observationLines) {
+        lines.push(`!N!${observationLine}`);
+      }
+    }
     lines.push('');
     lines.push('!CB!GRACIAS POR SU PREFERENCIA !!!');
     lines.push('!CB!REVISE SU CAMBIO Y SU MERCANCIA');

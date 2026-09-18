@@ -17,6 +17,7 @@ import { UoMCatalog } from '../../entities/uom-catalog/uom-catalog.entity';
 import { Vendor } from '../../entities/vendor/vendor.entity';
 import { TenantModule, Module as ModuleEntity } from '../../entities/rbac';
 import { AuthModule } from '../auth/auth.module';
+import { InventoryStockLedgerModule } from '../inventory/inventory-stock-ledger.module';
 import { S3Service } from '../../common/services/s3.service';
 import { PurchaseOrderController, VendorProductsController, PurchaseOrderDocumentsController, ReceiptController, InventoryBatchController } from './controllers';
 import {
@@ -73,6 +74,7 @@ import {
       ModuleEntity,
     ]),
     AuthModule,
+    InventoryStockLedgerModule,
   ],
   controllers: [PurchaseOrderController, VendorProductsController, PurchaseOrderDocumentsController, ReceiptController, InventoryBatchController],
   providers: [

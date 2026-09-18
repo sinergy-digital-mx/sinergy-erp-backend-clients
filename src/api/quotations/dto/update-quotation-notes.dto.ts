@@ -5,7 +5,7 @@ export class UpdateQuotationNotesDto {
   @ApiProperty({
     required: false,
     nullable: true,
-    description: 'Notas de la cotización. Enviar null o cadena vacía para borrar.',
+    description: 'Observaciones de la cotización. Salen en el PDF. Enviar null o cadena vacía para borrar.',
   })
   @IsOptional()
   @IsString()

@@ -37,7 +37,7 @@ export declare class QuotationService {
     constructor(quotationRepo: Repository<Quotation>, userRepo: Repository<User>, customerRepo: Repository<Customer>, billingBranchRepo: Repository<BillingBranch>, warehouseRepo: Repository<Warehouse>, folioService: QuotationFolioService, dataSource: DataSource, posShiftsService: PosShiftsService, productDiscountService: ProductDiscountService, globalDiscountService: GlobalDiscountService, pdfService: QuotationPdfService, documentsService: QuotationDocumentsService, salesOrderService: SalesOrderService);
     create(dto: CreateQuotationDto, tenantId: string, userId: string): Promise<Quotation>;
     replace(id: string, dto: CreateQuotationDto, tenantId: string, userId: string, access?: QuotationSellerAccess): Promise<Quotation>;
-    findAll(tenantId: string, userId: string, isAdmin: boolean, filters: QueryQuotationDto): Promise<{
+    findAll(tenantId: string, userId: string, canViewAll: boolean, filters: QueryQuotationDto): Promise<{
         data: {
             seller_user: {
                 id: string;
@@ -112,10 +112,10 @@ export declare class QuotationService {
         page: number;
         limit: number;
         totalPages: number;
-        is_admin: boolean;
+        can_view_all: boolean;
     }>;
-    listSellers(tenantId: string, isAdmin: boolean): Promise<{
-        is_admin: boolean;
+    listSellers(tenantId: string, canViewAll: boolean): Promise<{
+        can_view_all: boolean;
         sellers: {
             id: string;
             first_name: string;

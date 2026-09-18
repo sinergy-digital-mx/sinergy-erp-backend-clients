@@ -35,6 +35,8 @@ Botón: **Regenerar PDF Original**.
 
 Ticket POS: `POST /api/tenant/sales-orders/:id/reprint-ticket-recibo` (reimprime el guardado). Regenerar ticket es otro endpoint.
 
+El ticket incluye **OBSERVACIONES** (`header.notes`) al cobrar o al regenerar. `PATCH /:id/notes` reescribe el ticket si ya existe.
+
 ---
 
 ## Checklist Pollux

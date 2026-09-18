@@ -86,6 +86,14 @@ export class ElectronicInvoicePdfService {
     };
   }
 
+  async getPdfBuffer(invoice: ElectronicInvoice): Promise<{ buffer: Buffer; fileName: string }> {
+    if (!invoice.pdf_stamped_s3_key) {
+      throw new BadRequestException('La factura no tiene PDF generado');
+    }
+    const buffer = await this.s3Service.getFileBuffer(invoice.pdf_stamped_s3_key);
+    return { buffer, fileName: this.buildFileName(invoice) };
+  }
+
   /** Vista previa desde xml_unsigned; no persiste en la factura. Solo ambiente demo. */
   async generatePreviewAndUpload(
     invoice: ElectronicInvoice,

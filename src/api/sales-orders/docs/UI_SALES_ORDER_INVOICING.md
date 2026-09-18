@@ -117,7 +117,7 @@ Sugerencia UI:
 - Si `payment_status === 'Pagado'` → default `MetodoPago = PUE`
 - Si `Pendiente` (incluye venta a crédito) → default `PPD` o advertir al usuario
 
-POS Cobranza: si el collect responde `invoice.requested === true`, abrir este wizard / `POST /invoices/stamp` de inmediato. Ver `src/api/customers/docs/UI_CUSTOMER_CREDIT.md`.
+POS Caja: si el collect responde `invoice.requested === true`, abrir este wizard / `POST /invoices/stamp` de inmediato. Ver `src/api/customers/docs/UI_CUSTOMER_CREDIT.md`.
 
 ### 2.4 Conceptos (desde líneas)
 
@@ -127,7 +127,7 @@ Por cada `data.line_items[]`:
 |----------|--------|----------|
 | Clave prod/serv | `line_item.product.sat_clave` | `@ClaveProdServ` |
 | Cantidad | `line_item.quantity` | `@Cantidad` |
-| Clave unidad | UOM del producto (catálogo SAT) | `@ClaveUnidad` |
+| Clave unidad | UOM SAT: `E48` si `item_kind=service` o UOM Servicio; `H87` pieza. No hardcodear `H87` en servicios. | `@ClaveUnidad` |
 | Unidad | `line_item.uom_name` | `@Unidad` |
 | Descripción | `line_item.product.name` | `@Descripcion` |
 | Valor unitario | `line_item.unit_price` | `@ValorUnitario` |
@@ -441,7 +441,16 @@ Cancelar y Sync SAT no envían ambiente: el API reusa el de `metadata.finkok_env
 
 ---
 
-## 10. Docs relacionados
+## 10. Enviar por correo
 
+Cada factura timbrada tiene botón **Enviar correo**. Plantilla e historial viven en el tab **Correo** del detalle OV.
+
+Ver `src/api/sales-orders/docs/UI_SALES_ORDER_INVOICE_EMAIL.md`.
+
+---
+
+## 11. Docs relacionados
+
+- Envío por correo: `src/api/sales-orders/docs/UI_SALES_ORDER_INVOICE_EMAIL.md`
 - Config Finkok por cliente: `src/api/electronic-invoicing/docs/UI_FINKOK_CONFIGURATION.md`
 - Módulo core / sync background: `src/api/electronic-invoicing/docs/UI_ELECTRONIC_INVOICING.md`

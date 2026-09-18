@@ -7,7 +7,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, QueryRunner, Repository } from 'typeorm';
+import { DataSource, IsNull, Not, QueryRunner, Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { Quotation } from '../../../entities/quotations/quotation.entity';
 import { QuotationDetail } from '../../../entities/quotations/quotation-detail.entity';
@@ -18,6 +18,8 @@ import {
 import { QueryQuotationDto } from '../dto/query-quotation.dto';
 import { UpdateQuotationNotesDto } from '../dto/update-quotation-notes.dto';
 import { ConvertQuotationDto } from '../dto/convert-quotation.dto';
+import { ProductItemKind } from '../../../entities/products/product-item-kind.enum';
+import { SalesOrderSaleScope } from '../../../entities/sales-orders/sales-order-sale-scope.enum';
 import { User } from '../../../entities/users/user.entity';
 import { Customer } from '../../../entities/customers/customer.entity';
 import { BillingBranch } from '../../../entities/billing/billing-branch.entity';
@@ -50,6 +52,12 @@ import {
 } from '../../pos-shifts/mappers/pos-sale-collection.mapper';
 import { SalesOrderService } from '../../sales-orders/services/sales-order.service';
 import { CreateSalesOrderDto } from '../../sales-orders/dto/create-sales-order.dto';
+import { quotedUnitPrice } from '../../sales-orders/utils/quoted-pricing.util';
+import {
+  assertQuotationSellerAccess,
+  QuotationSellerAccess,
+  resolveQuotationSellerScopeUserId,
+} from '../utils/quotation-seller-scope.util';
 
 @Injectable()
 export class QuotationService {
@@ -162,8 +170,9 @@ export class QuotationService {
     dto: CreateQuotationDto,
     tenantId: string,
     userId: string,
+    access?: QuotationSellerAccess,
   ): Promise<Quotation> {
-    const existing = await this.findOne(id, tenantId);
+    const existing = await this.findOne(id, tenantId, access);
     if (existing.general_status !== 'Creada') {
       throw new BadRequestException(
         `No se puede editar una cotización con estado: ${existing.general_status}`,
@@ -171,7 +180,14 @@ export class QuotationService {
     }
 
     const isPos = (dto.quotation_type || existing.quotation_type) === 'POS';
-    const location = await this.resolveLocation(tenantId, dto, isPos);
+    const location = await this.resolveLocation(
+      tenantId,
+      {
+        ...dto,
+        warehouse_id: dto.warehouse_id ?? existing.warehouse_id ?? undefined,
+      },
+      isPos,
+    );
 
     const qr = this.dataSource.createQueryRunner();
     await qr.connect();
@@ -207,7 +223,14 @@ export class QuotationService {
 
       await qr.manager.save(Quotation, quotation);
       await this.insertLineItems(qr, id, dto.line_items, userId, tenantId);
-      await this.recomputeTotals(qr, quotation, tenantId, dto.global_discount_id);
+      await this.recomputeTotals(
+        qr,
+        quotation,
+        tenantId,
+        dto.global_discount_id !== undefined
+          ? dto.global_discount_id
+          : existing.global_discount_id ?? undefined,
+      );
       await qr.commitTransaction();
 
       this.regenerateDocumentoOriginalPreservingLanguage(id, tenantId, userId).catch(
@@ -225,7 +248,12 @@ export class QuotationService {
     }
   }
 
-  async findAll(tenantId: string, filters: QueryQuotationDto) {
+  async findAll(
+    tenantId: string,
+    userId: string,
+    canViewAll: boolean,
+    filters: QueryQuotationDto,
+  ) {
     const {
       search,
       general_status,
@@ -233,6 +261,7 @@ export class QuotationService {
       fiscal_configuration_id,
       billing_branch_id,
       customer_id,
+      assigned_seller_user_id,
       created_from,
       created_to,
       page = 1,
@@ -248,7 +277,20 @@ export class QuotationService {
       .leftJoinAndSelect('qt.billing_branch', 'billing_branch')
       .leftJoinAndSelect('qt.warehouse', 'warehouse')
       .leftJoinAndSelect('qt.seller_user', 'seller_user')
+      .leftJoinAndSelect('qt.assigned_seller_user', 'assigned_seller_user')
       .where('qt.tenant_id = :tenantId', { tenantId });
+
+    const scopeUserId = resolveQuotationSellerScopeUserId(
+      canViewAll,
+      userId,
+      assigned_seller_user_id,
+    );
+    if (scopeUserId) {
+      qb.andWhere(
+        '(qt.seller_user_id = :scopeUserId OR qt.assigned_seller_user_id = :scopeUserId)',
+        { scopeUserId },
+      );
+    }
 
     if (search) {
       qb.andWhere(
@@ -313,10 +355,38 @@ export class QuotationService {
       page,
       limit,
       totalPages: Math.ceil(total / limit),
+      can_view_all: canViewAll,
     };
   }
 
-  async findOne(id: string, tenantId: string): Promise<Quotation> {
+  async listSellers(tenantId: string, canViewAll: boolean) {
+    if (!canViewAll) {
+      return { can_view_all: false, sellers: [] };
+    }
+
+    const sellers = await this.userRepo.find({
+      where: { tenant_id: tenantId, pos_user_code: Not(IsNull()) },
+      select: ['id', 'first_name', 'last_name', 'email', 'pos_user_code'],
+      order: { first_name: 'ASC', last_name: 'ASC' },
+    });
+
+    return {
+      can_view_all: true,
+      sellers: sellers.map((user) => ({
+        id: user.id,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        email: user.email,
+        pos_user_code: user.pos_user_code,
+      })),
+    };
+  }
+
+  async findOne(
+    id: string,
+    tenantId: string,
+    access?: QuotationSellerAccess,
+  ): Promise<Quotation> {
     const quotation = await this.quotationRepo.findOne({
       where: { id, tenant_id: tenantId },
       relations: [
@@ -341,11 +411,16 @@ export class QuotationService {
     if (!quotation) {
       throw new NotFoundException(`Cotización no encontrada: ${id}`);
     }
+    assertQuotationSellerAccess(quotation, access);
     return quotation;
   }
 
-  async findOneDetail(id: string, tenantId: string) {
-    const quotation = await this.findOne(id, tenantId);
+  async findOneDetail(
+    id: string,
+    tenantId: string,
+    access?: QuotationSellerAccess,
+  ) {
+    const quotation = await this.findOne(id, tenantId, access);
     const customerSummary = mapPosCustomer(quotation.customer);
     const appliedLineDiscounts = mapAppliedLineDiscountsFromQuotation(quotation);
     const discountSummary = mapOrderDiscountSummary(quotation);
@@ -364,6 +439,7 @@ export class QuotationService {
       can_convert: quotation.general_status === 'Creada',
       can_cancel: quotation.general_status === 'Creada',
       can_edit: quotation.general_status === 'Creada',
+      can_edit_notes: quotation.general_status !== 'Cancelada',
       can_send: quotation.general_status !== 'Cancelada',
       customer_email:
         quotation.customer?.email?.trim() ||
@@ -386,22 +462,40 @@ export class QuotationService {
     dto: UpdateQuotationNotesDto,
     tenantId: string,
     userId: string,
+    access?: QuotationSellerAccess,
   ) {
-    const quotation = await this.findOne(id, tenantId);
+    const quotation = await this.findOne(id, tenantId, access);
     if (quotation.general_status === 'Cancelada') {
       throw new BadRequestException(
         'No se pueden editar las notas de una cotización cancelada',
       );
     }
 
-    quotation.notes = dto.notes === undefined ? quotation.notes : dto.notes;
+    quotation.notes =
+      dto.notes === undefined
+        ? quotation.notes
+        : dto.notes?.trim()
+          ? dto.notes.trim()
+          : null;
     quotation.updated_by = userId;
     await this.quotationRepo.save(quotation);
-    return this.findOneDetail(id, tenantId);
+
+    try {
+      await this.regenerateDocumentoOriginalPreservingLanguage(id, tenantId, userId);
+    } catch (err) {
+      this.logger.error('[PDF] Error regenerando PDF tras actualizar observaciones:', err);
+    }
+
+    return this.findOneDetail(id, tenantId, access);
   }
 
-  async cancel(id: string, tenantId: string, userId: string): Promise<Quotation> {
-    const quotation = await this.findOne(id, tenantId);
+  async cancel(
+    id: string,
+    tenantId: string,
+    userId: string,
+    access?: QuotationSellerAccess,
+  ): Promise<Quotation> {
+    const quotation = await this.findOne(id, tenantId, access);
     if (quotation.general_status === 'Cancelada') {
       throw new BadRequestException('La cotización ya está cancelada');
     }
@@ -414,20 +508,22 @@ export class QuotationService {
     quotation.general_status = 'Cancelada';
     quotation.updated_by = userId;
     await this.quotationRepo.save(quotation);
-    return this.findOne(id, tenantId);
+    return this.findOne(id, tenantId, access);
   }
 
   /**
    * Convierte la cotización a OV reusando unit_price, impuestos y descuentos persistidos.
-   * No consulta listas de precios. POS auto-surtirá inventario; MANUAL queda Creada.
+   * No consulta listas de precios ni revalida descuentos vigentes del catálogo.
+   * POS auto-surtirá inventario; MANUAL queda Creada.
    */
   async convert(
     id: string,
     dto: ConvertQuotationDto,
     tenantId: string,
     userId: string,
+    access?: QuotationSellerAccess,
   ) {
-    const quotation = await this.findOne(id, tenantId);
+    const quotation = await this.findOne(id, tenantId, access);
     if (quotation.general_status !== 'Creada') {
       throw new BadRequestException(
         `Solo se puede convertir una cotización en estado Creada (actual: ${quotation.general_status})`,
@@ -439,6 +535,18 @@ export class QuotationService {
       .filter((part) => part && String(part).trim())
       .join(' | ');
 
+    const lineKinds = (quotation.line_items ?? []).map(
+      (line) => line.product?.item_kind ?? ProductItemKind.Goods,
+    );
+    const hasGoods = lineKinds.some((kind) => kind === ProductItemKind.Goods);
+    const hasServices = lineKinds.some((kind) => kind === ProductItemKind.Service);
+    const saleScope =
+      hasGoods && hasServices
+        ? SalesOrderSaleScope.Combined
+        : hasServices
+          ? SalesOrderSaleScope.Services
+          : SalesOrderSaleScope.Inventory;
+
     const createDto: CreateSalesOrderDto = {
       fiscal_configuration_id: quotation.fiscal_configuration_id,
       billing_branch_id: quotation.billing_branch_id ?? undefined,
@@ -446,6 +554,7 @@ export class QuotationService {
       customer_id: dto.customer_id ?? quotation.customer_id,
       expected_delivery_date: expectedDate,
       sales_order_type: quotation.quotation_type === 'POS' ? 'POS' : 'MANUAL',
+      sale_scope: saleScope,
       seller_user_id: quotation.seller_user_id ?? undefined,
       assigned_seller_user_id: quotation.assigned_seller_user_id ?? undefined,
       fiscal_razon_social: quotation.fiscal_razon_social ?? undefined,
@@ -455,8 +564,9 @@ export class QuotationService {
         product_id: line.product_id,
         product_uom_id: line.product_uom_id,
         quantity: Number(line.quantity),
-        unit_price: Number(line.unit_price),
+        unit_price: quotedUnitPrice(line.unit_price),
         discount_percentage: Number(line.discount_percentage || 0),
+        discount_unit: Number(line.discount_unit || 0),
         product_discount_id: line.product_discount_id ?? undefined,
         iva_percentage: Number(line.iva_percentage || 0),
         ieps_percentage: Number(line.ieps_percentage || 0),
@@ -467,7 +577,10 @@ export class QuotationService {
       createDto,
       tenantId,
       userId,
-      { fromQuotation: true },
+      {
+        fromQuotation: true,
+        quotedGlobalDiscountAmount: Number(quotation.global_discount_amount || 0),
+      },
     );
 
     await this.salesOrderService.linkConvertedFromQuotation(
@@ -482,7 +595,7 @@ export class QuotationService {
     await this.quotationRepo.save(quotation);
 
     return {
-      quotation: await this.findOneDetail(id, tenantId),
+      quotation: await this.findOneDetail(id, tenantId, access),
       sales_order: {
         id: salesOrder.id,
         folio: salesOrder.folio,
@@ -501,8 +614,9 @@ export class QuotationService {
     userId: string,
     language: DocumentLanguage,
     keepPrevious = false,
+    access?: QuotationSellerAccess,
   ) {
-    await this.findOne(id, tenantId);
+    await this.findOne(id, tenantId, access);
     if (!keepPrevious) {
       await this.documentsService.deleteDocumentsByType(
         id,
@@ -882,10 +996,20 @@ export class QuotationService {
   private mapLocation(qt: Quotation) {
     const branch = qt.billing_branch ?? qt.warehouse?.billing_branch ?? null;
     const fiscal = qt.fiscal_configuration ?? null;
-    const { warehouse: _warehouse, ...rest } = qt;
+    const {
+      warehouse: _warehouse,
+      seller_user,
+      assigned_seller_user,
+      terminal_user,
+      creator: _creator,
+      ...rest
+    } = qt;
 
     return {
       ...rest,
+      seller_user: mapPosUser(seller_user),
+      assigned_seller_user: mapPosUser(assigned_seller_user),
+      terminal_user: mapPosUser(terminal_user),
       razon_social: fiscal?.razon_social ?? qt.fiscal_razon_social ?? null,
       sucursal: branch?.code ?? null,
       fiscal_configuration: fiscal

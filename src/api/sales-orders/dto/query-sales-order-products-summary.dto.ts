@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
-import { IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { SalesOrderSaleScope } from '../../../entities/sales-orders/sales-order-sale-scope.enum';
 
 export class QuerySalesOrderProductsSummaryDto {
   @IsUUID()
@@ -23,4 +24,8 @@ export class QuerySalesOrderProductsSummaryDto {
   @IsNumber()
   @Min(1)
   limit?: number = 40;
+
+  @IsOptional()
+  @IsEnum(SalesOrderSaleScope)
+  sale_scope?: SalesOrderSaleScope;
 }

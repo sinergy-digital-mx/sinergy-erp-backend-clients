@@ -56,6 +56,11 @@ export class QuerySalesOrderDto {
   @IsEnum(['POS', 'MANUAL'])
   sales_order_type?: 'POS' | 'MANUAL';
 
+  /** Inventario, servicios o ambos. Omitir = todos. */
+  @IsOptional()
+  @IsEnum(['inventory', 'services', 'combined'])
+  sale_scope?: 'inventory' | 'services' | 'combined';
+
   /** Origen del cobro. Omitir = todos. */
   @IsOptional()
   @IsEnum(['pos_cobranza', 'manual', 'mixed'])

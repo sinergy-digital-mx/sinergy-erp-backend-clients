@@ -6,6 +6,7 @@ import { InventoryTransferLine } from '../../entities/inventory/inventory-transf
 import { InventoryAuditLine } from '../../entities/inventory/inventory-audit-line.entity';
 import { InventoryAuditStatus } from '../../entities/inventory/inventory-audit-status.enum';
 import { Product } from '../../entities/products/product.entity';
+import { ProductItemKind } from '../../entities/products/product-item-kind.enum';
 import { ProductPrice } from '../../entities/products/product-price.entity';
 import { ProductDiscount } from '../../entities/products/product-discount.entity';
 import { ProductUoM } from '../../entities/products/product-uom.entity';
@@ -580,6 +581,7 @@ export class InventoryService {
         product_id: row.product_id,
         product_name: row.product_name ?? '',
         product_sku: row.product_sku ?? '',
+        item_kind: ProductItemKind.Goods,
         product_photo: photoKey ? (photoMap.get(photoKey) ?? null) : null,
         uom_id: row.uom_id,
         uom_name: row.uom_name ?? '',
@@ -619,6 +621,7 @@ export class InventoryService {
       .createQueryBuilder('product')
       .select('product.id', 'id')
       .where('product.tenant_id = :tenantId', { tenantId })
+      .andWhere('product.item_kind = :goodsKind', { goodsKind: ProductItemKind.Goods })
       .andWhere(
         `EXISTS (
           SELECT 1 FROM inv_s_batches stock
@@ -655,6 +658,7 @@ export class InventoryService {
       .innerJoin('batch.product', 'product')
       .leftJoin('batch.uom', 'uom')
       .where('batch.tenant_id = :tenantId', { tenantId })
+      .andWhere('product.item_kind = :goodsKind', { goodsKind: ProductItemKind.Goods })
       .andWhere('batch.warehouse_id IN (:...warehouseIds)', { warehouseIds });
 
     applyProductSearchFilter(qb, filters.search);
@@ -1472,7 +1476,8 @@ export class InventoryService {
       .leftJoin('billing_branch.fiscal_configuration', 'fiscal_configuration')
       .leftJoin('batch.uom', 'uom')
       .leftJoin('batch.measure_uom', 'measure_uom')
-      .where('batch.tenant_id = :tenantId', { tenantId });
+      .where('batch.tenant_id = :tenantId', { tenantId })
+      .andWhere('product.item_kind = :goodsKind', { goodsKind: ProductItemKind.Goods });
 
     applyInventoryLocationFilters(qb, filters);
 
@@ -1750,6 +1755,7 @@ export class InventoryService {
       purchase_order_detail_id: batch.purchase_order_detail_id ?? null,
       purchase_order_folio: batch.purchase_order_batch?.folio ?? null,
       pedimento_number: batch.purchase_order_batch?.pedimento_number ?? null,
+      vendor_invoice_number: batch.purchase_order_batch?.vendor_invoice_number ?? null,
       payment_currency: batch.purchase_order_batch?.payment_currency ?? null,
       unit_cost: this.unitCostFromPurchaseLine(batch.purchase_order_detail),
       real_unit_cost_usd: this.optionalMoney(batch.purchase_order_detail?.real_unit_cost_usd),

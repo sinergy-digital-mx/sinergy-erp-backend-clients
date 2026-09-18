@@ -90,6 +90,12 @@ export class BatchDetailResponseDto {
     description: 'Número de pedimento de la OC de origen. Null si no hay OC o la OC no tiene pedimento.',
   })
   pedimento_number: string | null;
+  @ApiProperty({
+    nullable: true,
+    description:
+      'Número de factura del proveedor de la OC de origen. Null si no hay OC o la OC no tiene factura.',
+  })
+  vendor_invoice_number: string | null;
 
   @ApiProperty({
     nullable: true,

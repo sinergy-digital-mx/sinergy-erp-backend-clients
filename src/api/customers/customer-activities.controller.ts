@@ -19,6 +19,7 @@ import { PermissionGuard } from '../rbac/guards/permission.guard';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantContextService } from '../rbac/services/tenant-context.service';
+import { resolveRequestUserId } from '../../common/utils/request-user.util';
 
 @Controller('tenant/customers/:customerId/activities')
 @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -39,7 +40,12 @@ export class CustomerActivitiesController {
     if (!tenantId) {
       throw new Error('Tenant context is required');
     }
-    return this.activitiesService.create(customerId, createActivityDto, req.user.sub, tenantId);
+    return this.activitiesService.create(
+      customerId,
+      createActivityDto,
+      resolveRequestUserId(req.user),
+      tenantId,
+    );
   }
 
   @Get()
@@ -95,6 +101,12 @@ export class CustomerActivitiesController {
     if (!tenantId) {
       throw new Error('Tenant context is required');
     }
-    return this.activitiesService.update(customerId, id, updateActivityDto, req.user.sub, tenantId);
+    return this.activitiesService.update(
+      customerId,
+      id,
+      updateActivityDto,
+      resolveRequestUserId(req.user),
+      tenantId,
+    );
   }
 }

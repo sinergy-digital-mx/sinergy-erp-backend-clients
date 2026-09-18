@@ -6,6 +6,7 @@ import { typeOrmModuleOptions } from './database/typeorm.options';
 import { UsersModule } from './api/users/users.module';
 import { LeadsModule } from './api/leads/leads.module';
 import { CustomersModule } from './api/customers/customers.module';
+import { CrmModule } from './api/crm/crm.module';
 import { AuthModule } from './api/auth/auth.module';
 import { RBACModule } from './api/rbac/rbac.module';
 import { EmailModule } from './api/email/email.module';
@@ -50,6 +51,7 @@ import { PermissionVersionGuard } from './api/auth/guards/permission-version.gua
     UsersModule,
     LeadsModule,
     CustomersModule,
+    CrmModule,
     AuthModule,
     RBACModule,
     EmailModule,

@@ -60,6 +60,12 @@ Base: `/api/tenant/inventory`
 
 **API:** `GET /api/tenant/inventory/summary?only_available=true`
 
+Al buscar stock origen en el modal (razón + sucursal + almacén ya elegidos) manda los **tres** params. Solo `warehouse_id` responde 400: *Selecciona una sucursal antes de filtrar por almacén*.
+
+```
+GET /api/tenant/inventory/summary?fiscal_configuration_id={uuid}&billing_branch_id={uuid}&warehouse_id={uuid}&only_available=true
+```
+
 Cada fila representa un **producto en un almacén**:
 
 ```json

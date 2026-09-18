@@ -133,6 +133,15 @@ export class CreateUserDto {
 
   @ApiProperty({
     required: false,
+    description: 'Administrador del portal CRM: ve actividades de todos los usuarios',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  is_crm_admin?: boolean;
+
+  @ApiProperty({
+    required: false,
     type: EmployeeProfileDto,
     description: 'Datos de RH/nómina. Requerido cuando is_employee es true.',
   })

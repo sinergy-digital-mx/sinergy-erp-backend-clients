@@ -7,12 +7,15 @@ import { UnitConversionService } from './unit-conversion.service';
 import { InventoryBatch } from '../../../entities/purchase-orders/inventory-batch.entity';
 import { PurchaseOrderBatch } from '../../../entities/purchase-orders/purchase-order-batch.entity';
 import { ReceivedItemDto } from '../dto/receive-purchase-order.dto';
+import { InventoryStockLedgerService } from '../../inventory/services/inventory-stock-ledger.service';
+import { InventoryStockLedgerValuationService } from '../../inventory/services/inventory-stock-ledger-valuation.service';
 
 describe('BatchCreatorService', () => {
   let service: BatchCreatorService;
   let inventoryBatchRepository: Repository<InventoryBatch>;
   let batchNumberGeneratorService: BatchNumberGeneratorService;
   let unitConversionService: UnitConversionService;
+  let stockLedger: { append: jest.Mock };
 
   const mockPurchaseOrder: PurchaseOrderBatch = {
     id: 'po-123',
@@ -63,6 +66,7 @@ describe('BatchCreatorService', () => {
   } as any;
 
   beforeEach(async () => {
+    stockLedger = { append: jest.fn().mockResolvedValue(null) };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         BatchCreatorService,
@@ -86,6 +90,19 @@ describe('BatchCreatorService', () => {
             convertToBaseUnit: jest.fn(),
           },
         },
+        {
+          provide: InventoryStockLedgerService,
+          useValue: stockLedger,
+        },
+        {
+          provide: InventoryStockLedgerValuationService,
+          useValue: {
+            resolveFromBatchId: jest.fn().mockResolvedValue({
+              unitCostMxn: 10,
+              unitSalePriceMxn: 20,
+            }),
+          },
+        },
       ],
     }).compile();
 
@@ -93,6 +110,10 @@ describe('BatchCreatorService', () => {
     inventoryBatchRepository = module.get<Repository<InventoryBatch>>(
       getRepositoryToken(InventoryBatch),
     );
+    // Usado cuando createBatchForReceivedItem no recibe manager
+    (inventoryBatchRepository as any).manager = {
+      query: jest.fn(),
+    };
     batchNumberGeneratorService = module.get<BatchNumberGeneratorService>(
       BatchNumberGeneratorService,
     );

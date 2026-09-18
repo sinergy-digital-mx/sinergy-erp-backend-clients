@@ -52,8 +52,8 @@ if (!fs.existsSync(distMain)) {
 
 run('git add dist');
 
-const status = runOutput('git status --porcelain');
-if (!status) {
+const staged = runOutput('git diff --cached --name-only');
+if (!staged) {
   console.log('No hay cambios de dist para commitear.');
 } else {
   run('git commit -m "Deploy backend build"');

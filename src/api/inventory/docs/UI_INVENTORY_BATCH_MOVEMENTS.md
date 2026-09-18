@@ -78,7 +78,7 @@ Si Órdenes sigue en 0, Pollux no está leyendo `movement_summary.by_type.orders
 | Cantidad | `quantity` + `direction` |
 | Usuario | `actor_name` (si null: `—`) |
 | Autorizó | `authorized_by_name` solo si no es null (auditorías) |
-| Fecha | `occurred_at` |
+| Fecha | `occurred_at` ISO UTC (`…Z`) o naive MySQL (`YYYY-MM-DD HH:mm:ss` = UTC). Pintar en hora local. |
 | Diff | `changes[]` si `length > 0` |
 
 Cantidad:

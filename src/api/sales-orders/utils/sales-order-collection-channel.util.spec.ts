@@ -9,7 +9,7 @@ describe('resolveSalesOrderCollectionChannel', () => {
       resolveSalesOrderCollectionChannel({ hasPosCollection: true }),
     ).toEqual({
       collection_channel: 'pos_cobranza',
-      collection_channel_label: 'POS cobranza',
+      collection_channel_label: 'POS Caja',
     });
   });
 
@@ -20,7 +20,7 @@ describe('resolveSalesOrderCollectionChannel', () => {
       }),
     ).toEqual({
       collection_channel: 'pos_cobranza',
-      collection_channel_label: 'POS cobranza',
+      collection_channel_label: 'POS Caja',
     });
   });
 
@@ -43,7 +43,7 @@ describe('resolveSalesOrderCollectionChannel', () => {
       }),
     ).toEqual({
       collection_channel: 'mixed',
-      collection_channel_label: 'POS cobranza + Manual',
+      collection_channel_label: 'POS Caja + Manual',
     });
   });
 
@@ -54,7 +54,7 @@ describe('resolveSalesOrderCollectionChannel', () => {
       }),
     ).toEqual({
       collection_channel: 'pos_cobranza',
-      collection_channel_label: 'POS cobranza',
+      collection_channel_label: 'POS Caja',
     });
   });
 

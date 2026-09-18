@@ -28,6 +28,9 @@ import { InventoryExportService } from './services/inventory-export.service';
 import { InventoryAuditFolioService } from './services/inventory-audit-folio.service';
 import { InventoryAuditService } from './services/inventory-audit.service';
 import { InventoryBatchMovementsService } from './services/inventory-batch-movements.service';
+import { InventoryStockFlowService } from './services/inventory-stock-flow.service';
+import { InventoryStockLedgerModule } from './inventory-stock-ledger.module';
+import { InventoryStockLedger } from '../../entities/inventory/inventory-stock-ledger.entity';
 import { RBACModule } from '../rbac/rbac.module';
 import { PurchaseOrdersModule } from '../purchase-orders/purchase-orders.module';
 
@@ -50,9 +53,11 @@ import { PurchaseOrdersModule } from '../purchase-orders/purchase-orders.module'
       FiscalConfiguration,
       BillingBranch,
       UoMCatalog,
+      InventoryStockLedger,
     ]),
     RBACModule,
     PurchaseOrdersModule,
+    InventoryStockLedgerModule,
   ],
   providers: [
     InventoryService,
@@ -63,9 +68,15 @@ import { PurchaseOrdersModule } from '../purchase-orders/purchase-orders.module'
     InventoryAuditFolioService,
     InventoryAuditService,
     InventoryBatchMovementsService,
+    InventoryStockFlowService,
     S3Service,
   ],
   controllers: [InventoryController, InventoryTransferController, InventoryAuditController],
-  exports: [InventoryService, InventoryTransferService, InventoryAuditService],
+  exports: [
+    InventoryService,
+    InventoryTransferService,
+    InventoryAuditService,
+    InventoryStockLedgerModule,
+  ],
 })
 export class InventoryModule {}

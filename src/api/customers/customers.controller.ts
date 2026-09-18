@@ -224,7 +224,7 @@ export class CustomersController {
     }
 
     @Get(':id/product-insights')
-    @RequirePermissions({ entityType: 'customers', action: 'Read' })
+    @RequirePermissions({ entityType: 'customers', action: 'ComprasFrecuentes' })
     @ApiOperation({
         summary:
             'Productos más comprados y sugerencias (misma categoría/subcategoría) para el detalle del cliente',

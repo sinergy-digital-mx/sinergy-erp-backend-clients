@@ -29,6 +29,12 @@ export class PosSessionProductInventorySummaryDto {
   @ApiProperty() product_id: string;
   @ApiProperty() product_name: string;
   @ApiProperty() product_sku: string;
+  @ApiProperty({ required: false, nullable: true })
+  product_description?: string | null;
+  @ApiProperty({ required: false, nullable: true })
+  sat_clave?: string | null;
+  @ApiProperty({ required: false, enum: ['goods', 'service'] })
+  item_kind?: 'goods' | 'service';
   @ApiProperty({ nullable: true, description: 'Signed product photo URL (temporary access)' })
   product_photo: string | null;
   @ApiProperty() uom_id: string;
@@ -57,8 +63,8 @@ export class PosSessionProductInventorySummaryDto {
   has_applicable_discounts: boolean;
   @ApiProperty({ type: [PosSessionApplicableDiscountDto] })
   applicable_discounts: PosSessionApplicableDiscountDto[];
-  @ApiProperty() total_available_quantity: string;
-  @ApiProperty() total_initial_quantity: string;
+  @ApiProperty({ nullable: true }) total_available_quantity: string | null;
+  @ApiProperty({ nullable: true }) total_initial_quantity: string | null;
   @ApiProperty() total_batches: number;
   @ApiProperty({ type: [Object] })
   measure_totals: Array<{

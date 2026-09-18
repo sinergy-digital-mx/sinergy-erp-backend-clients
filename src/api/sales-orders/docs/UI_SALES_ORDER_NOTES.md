@@ -67,6 +67,9 @@ Devuelve la orden completa (mismo shape que `GET /tenant/sales-orders/:id` sin w
 | Bloqueado | `general_status === 'Cancelada'` → 400 |
 | Máximo | 5000 caracteres |
 | Trim | Espacios al inicio/fin se recortan |
+| Documentos | Regenera `DOCUMENTO_ORIGINAL` + `ENTREGA`. Si ya hay `TICKET / RECIBO`, lo reescribe con las observaciones |
+
+El ticket térmico (cobro y regenerar) incluye un bloque **OBSERVACIONES** con `notes` si hay texto. Reimprimir un ticket viejo no cambia el buffer; hay que regenerar o volver a guardar notas.
 
 ---
 
@@ -195,3 +198,4 @@ cancelNotesEdit() {
 - [ ] `PATCH /tenant/sales-orders/:id/notes` al guardar
 - [ ] Refrescar `header.notes` en pantalla tras respuesta
 - [ ] Deshabilitar si `general_status === 'Cancelada'`
+- [ ] Tras guardar, el backend regenera el PDF y, si hay ticket POS, lo reescribe con las observaciones
