@@ -1,11 +1,13 @@
 import { DataSource, Repository } from 'typeorm';
 import { Quotation } from '../../../entities/quotations/quotation.entity';
 import { QuotationDetail } from '../../../entities/quotations/quotation-detail.entity';
-import { CreateQuotationDto } from '../dto/create-quotation.dto';
+import { CreateQuotationDto, CreateQuotationLineItemDto } from '../dto/create-quotation.dto';
 import { QueryQuotationDto } from '../dto/query-quotation.dto';
 import { UpdateQuotationNotesDto } from '../dto/update-quotation-notes.dto';
+import { UpdateQuotationLineItemDto } from '../dto/update-quotation-line-item.dto';
 import { ConvertQuotationDto } from '../dto/convert-quotation.dto';
 import { User } from '../../../entities/users/user.entity';
+import { UserBillingBranch } from '../../../entities/users/user-billing-branch.entity';
 import { Customer } from '../../../entities/customers/customer.entity';
 import { BillingBranch } from '../../../entities/billing/billing-branch.entity';
 import { Warehouse } from '../../../entities/warehouse/warehouse.entity';
@@ -21,6 +23,7 @@ import { QuotationSellerAccess } from '../utils/quotation-seller-scope.util';
 export declare class QuotationService {
     private readonly quotationRepo;
     private readonly userRepo;
+    private readonly userBillingBranchRepo;
     private readonly customerRepo;
     private readonly billingBranchRepo;
     private readonly warehouseRepo;
@@ -34,10 +37,10 @@ export declare class QuotationService {
     private readonly salesOrderService;
     private readonly logger;
     private static readonly DOC_TYPE_DOCUMENTO_ORIGINAL;
-    constructor(quotationRepo: Repository<Quotation>, userRepo: Repository<User>, customerRepo: Repository<Customer>, billingBranchRepo: Repository<BillingBranch>, warehouseRepo: Repository<Warehouse>, folioService: QuotationFolioService, dataSource: DataSource, posShiftsService: PosShiftsService, productDiscountService: ProductDiscountService, globalDiscountService: GlobalDiscountService, pdfService: QuotationPdfService, documentsService: QuotationDocumentsService, salesOrderService: SalesOrderService);
+    constructor(quotationRepo: Repository<Quotation>, userRepo: Repository<User>, userBillingBranchRepo: Repository<UserBillingBranch>, customerRepo: Repository<Customer>, billingBranchRepo: Repository<BillingBranch>, warehouseRepo: Repository<Warehouse>, folioService: QuotationFolioService, dataSource: DataSource, posShiftsService: PosShiftsService, productDiscountService: ProductDiscountService, globalDiscountService: GlobalDiscountService, pdfService: QuotationPdfService, documentsService: QuotationDocumentsService, salesOrderService: SalesOrderService);
     create(dto: CreateQuotationDto, tenantId: string, userId: string): Promise<Quotation>;
     replace(id: string, dto: CreateQuotationDto, tenantId: string, userId: string, access?: QuotationSellerAccess): Promise<Quotation>;
-    findAll(tenantId: string, userId: string, canViewAll: boolean, filters: QueryQuotationDto): Promise<{
+    findAll(tenantId: string, userId: string, canViewAll: boolean, canViewAllBranches: boolean, filters: QueryQuotationDto): Promise<{
         data: {
             seller_user: {
                 id: string;
@@ -62,6 +65,8 @@ export declare class QuotationService {
             } | null;
             razon_social: string;
             sucursal: string | null;
+            expires_at: string | null;
+            quotation_expiration_days: number | null;
             fiscal_configuration: {
                 id: string;
                 razon_social: string;
@@ -113,6 +118,7 @@ export declare class QuotationService {
         limit: number;
         totalPages: number;
         can_view_all: boolean;
+        can_view_all_branches: boolean;
     }>;
     listSellers(tenantId: string, canViewAll: boolean): Promise<{
         can_view_all: boolean;
@@ -206,12 +212,15 @@ export declare class QuotationService {
             can_convert: boolean;
             can_cancel: boolean;
             can_edit: boolean;
+            can_edit_lines: boolean;
             can_edit_notes: boolean;
             can_send: boolean;
             customer_email: string | null;
             converted_to_sales_order_id: string | null;
             razon_social: string;
             sucursal: string | null;
+            expires_at: string | null;
+            quotation_expiration_days: number | null;
             fiscal_configuration: {
                 id: string;
                 razon_social: string;
@@ -260,6 +269,9 @@ export declare class QuotationService {
         line_items: {
             line_subtotal: number;
             line_discount_amount: number;
+            line_iva: number;
+            line_ieps: number;
+            line_total: number;
             applied_product_discount: {
                 id: string;
                 name: string | null;
@@ -418,12 +430,15 @@ export declare class QuotationService {
             can_convert: boolean;
             can_cancel: boolean;
             can_edit: boolean;
+            can_edit_lines: boolean;
             can_edit_notes: boolean;
             can_send: boolean;
             customer_email: string | null;
             converted_to_sales_order_id: string | null;
             razon_social: string;
             sucursal: string | null;
+            expires_at: string | null;
+            quotation_expiration_days: number | null;
             fiscal_configuration: {
                 id: string;
                 razon_social: string;
@@ -472,6 +487,9 @@ export declare class QuotationService {
         line_items: {
             line_subtotal: number;
             line_discount_amount: number;
+            line_iva: number;
+            line_ieps: number;
+            line_total: number;
             applied_product_discount: {
                 id: string;
                 name: string | null;
@@ -549,6 +567,10 @@ export declare class QuotationService {
             discount_amount: number;
         } | null;
     }>;
+    private assertLinesEditable;
+    addLineItem(id: string, dto: CreateQuotationLineItemDto, tenantId: string, userId: string, access?: QuotationSellerAccess): Promise<void>;
+    updateLineItem(id: string, lineItemId: string, dto: UpdateQuotationLineItemDto, tenantId: string, userId: string, access?: QuotationSellerAccess): Promise<void>;
+    removeLineItem(id: string, lineItemId: string, tenantId: string, userId: string, access?: QuotationSellerAccess): Promise<void>;
     cancel(id: string, tenantId: string, userId: string, access?: QuotationSellerAccess): Promise<Quotation>;
     convert(id: string, dto: ConvertQuotationDto, tenantId: string, userId: string, access?: QuotationSellerAccess): Promise<{
         quotation: {
@@ -632,12 +654,15 @@ export declare class QuotationService {
                 can_convert: boolean;
                 can_cancel: boolean;
                 can_edit: boolean;
+                can_edit_lines: boolean;
                 can_edit_notes: boolean;
                 can_send: boolean;
                 customer_email: string | null;
                 converted_to_sales_order_id: string | null;
                 razon_social: string;
                 sucursal: string | null;
+                expires_at: string | null;
+                quotation_expiration_days: number | null;
                 fiscal_configuration: {
                     id: string;
                     razon_social: string;
@@ -686,6 +711,9 @@ export declare class QuotationService {
             line_items: {
                 line_subtotal: number;
                 line_discount_amount: number;
+                line_iva: number;
+                line_ieps: number;
+                line_total: number;
                 applied_product_discount: {
                     id: string;
                     name: string | null;
@@ -788,12 +816,15 @@ export declare class QuotationService {
     private generateAndUploadPdf;
     private loadForPdf;
     private insertLineItems;
+    private applyQuotationLineAmounts;
     private recomputeTotals;
     private resolveProductUom;
     private resolveLineDiscountAmounts;
     private resolveGlobalDiscountAmounts;
     private resolveAssignedSellerUserId;
     private resolveLocation;
+    private withAssignedBranches;
+    private loadAssignedBranchIds;
     private mapLocation;
     private toDateString;
 }

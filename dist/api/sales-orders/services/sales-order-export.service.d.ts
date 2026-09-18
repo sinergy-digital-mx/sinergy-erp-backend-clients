@@ -3,15 +3,17 @@ import { SalesOrder } from '../../../entities/sales-orders/sales-order.entity';
 import { SalesOrderDetail } from '../../../entities/sales-orders/sales-order-detail.entity';
 import { SalesOrderPayment } from '../../../entities/sales-orders/sales-order-payment.entity';
 import { PosSaleCollection } from '../../../entities/pos/pos-sale-collection.entity';
+import { ElectronicInvoice } from '../../../entities/electronic-invoicing/electronic-invoice.entity';
 import { QuerySalesOrderDetailExportDto, QuerySalesOrderHeaderExportDto } from '../dto/query-sales-order-export.dto';
 export declare class SalesOrderExportService {
     private readonly soRepo;
     private readonly detailRepo;
     private readonly paymentRepo;
     private readonly posCollectionRepo;
+    private readonly invoiceRepo;
     private readonly headerColumns;
     private readonly detailColumns;
-    constructor(soRepo: Repository<SalesOrder>, detailRepo: Repository<SalesOrderDetail>, paymentRepo: Repository<SalesOrderPayment>, posCollectionRepo: Repository<PosSaleCollection>);
+    constructor(soRepo: Repository<SalesOrder>, detailRepo: Repository<SalesOrderDetail>, paymentRepo: Repository<SalesOrderPayment>, posCollectionRepo: Repository<PosSaleCollection>, invoiceRepo: Repository<ElectronicInvoice>);
     exportHeaders(tenantId: string, filters: QuerySalesOrderHeaderExportDto): Promise<Buffer>;
     exportDetails(tenantId: string, filters: QuerySalesOrderDetailExportDto): Promise<Buffer>;
     getHeadersFilename(): string;
@@ -20,6 +22,7 @@ export declare class SalesOrderExportService {
     private applyOrderFilters;
     private applyDetailFilters;
     private loadCollectionChannels;
+    private loadInvoicesByOrder;
     private formatCustomerName;
     private formatUserName;
     private describeFilters;

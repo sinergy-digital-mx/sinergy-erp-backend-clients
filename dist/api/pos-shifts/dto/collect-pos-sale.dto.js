@@ -9,11 +9,30 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CollectPosSaleDto = void 0;
+exports.CollectPosSaleDto = exports.CollectCardPaymentDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
 const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
 const pos_sale_payment_method_enum_1 = require("../../../entities/pos/pos-sale-payment-method.enum");
+class CollectCardPaymentDto {
+    amount_mxn;
+    reference;
+}
+exports.CollectCardPaymentDto = CollectCardPaymentDto;
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Monto de este cargo de tarjeta (MXN)' }),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0.01),
+    __metadata("design:type", Number)
+], CollectCardPaymentDto.prototype, "amount_mxn", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false, description: 'Referencia o últimos dígitos' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(120),
+    __metadata("design:type", String)
+], CollectCardPaymentDto.prototype, "reference", void 0);
 class CollectPosSaleDto {
     customer_id;
     payment_method;
@@ -24,6 +43,7 @@ class CollectPosSaleDto {
     transfer_reference;
     amount_card_mxn;
     card_reference;
+    card_payments;
     amount_check_mxn;
     check_reference;
     amount_credit_mxn;
@@ -109,6 +129,19 @@ __decorate([
     (0, class_validator_1.MaxLength)(120),
     __metadata("design:type", String)
 ], CollectPosSaleDto.prototype, "card_reference", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        type: [CollectCardPaymentDto],
+        description: 'Cargos de tarjeta en mixto (2 o más tarjetas). La suma debe coincidir con amount_card_mxn si se envía.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ArrayMaxSize)(8),
+    (0, class_validator_1.ValidateNested)({ each: true }),
+    (0, class_transformer_1.Type)(() => CollectCardPaymentDto),
+    __metadata("design:type", Array)
+], CollectPosSaleDto.prototype, "card_payments", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ required: false, description: 'Monto cubierto con cheque (MXN)' }),
     (0, class_validator_1.IsOptional)(),

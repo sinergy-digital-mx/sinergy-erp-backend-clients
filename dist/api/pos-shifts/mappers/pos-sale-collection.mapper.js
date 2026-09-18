@@ -5,6 +5,7 @@ exports.formatCustomerDisplayName = formatCustomerDisplayName;
 exports.mapPosCustomer = mapPosCustomer;
 exports.mapPosUser = mapPosUser;
 exports.mapPosSaleCollection = mapPosSaleCollection;
+const pos_card_payments_util_1 = require("../utils/pos-card-payments.util");
 const WALK_IN_FISCAL_NAME = 'VENTA DE MOSTRADOR';
 const WALK_IN_DISPLAY_NAME = 'Público en General';
 function isWalkInCustomer(customer) {
@@ -65,7 +66,10 @@ function mapPosSaleCollection(collection) {
         transfer_reference: collection.transfer_reference,
         amount_card_mxn: Number(collection.amount_card_mxn),
         amount_credit_mxn: Number(collection.amount_credit_mxn ?? 0),
+        amount_check_mxn: Number(collection.amount_check_mxn ?? 0),
+        check_reference: collection.check_reference ?? null,
         card_reference: collection.card_reference,
+        card_payments: (0, pos_card_payments_util_1.cardPaymentsForResponse)(collection.card_payments, Number(collection.amount_card_mxn), collection.card_reference),
         received_cash_mxn: Number(collection.received_cash_mxn),
         received_cash_usd: Number(collection.received_cash_usd),
         change_cash_mxn: Number(collection.change_cash_mxn),

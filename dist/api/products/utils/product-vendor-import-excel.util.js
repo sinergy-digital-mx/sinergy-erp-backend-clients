@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PRICE_TEMPLATE_HEADERS = exports.COST_TEMPLATE_HEADERS = void 0;
+exports.CATALOG_TEMPLATE_HEADERS = exports.PRICE_TEMPLATE_HEADERS = exports.COST_TEMPLATE_HEADERS = void 0;
 exports.vendorImportFilename = vendorImportFilename;
 exports.parseMoney = parseMoney;
 exports.buildVendorImportTemplate = buildVendorImportTemplate;
@@ -65,6 +65,23 @@ exports.PRICE_TEMPLATE_HEADERS = {
     _product_uom_id: '_product_uom_id',
     _price_list_id: '_price_list_id',
 };
+exports.CATALOG_TEMPLATE_HEADERS = {
+    sku: 'SKU',
+    name: 'Nombre',
+    uom: 'UOM',
+    currency: 'Moneda',
+    price_list: 'Lista de precios',
+    is_active: 'Activo',
+    current_cost: 'Costo actual',
+    new_cost: 'Nuevo costo',
+    current_price: 'Precio actual',
+    new_price: 'Nuevo precio',
+    _cost_id: '_cost_id',
+    _price_id: '_price_id',
+    _product_id: '_product_id',
+    _product_uom_id: '_product_uom_id',
+    _price_list_id: '_price_list_id',
+};
 const HEADER_ALIASES = {
     SKU: 'sku',
     CODIGO: 'sku',
@@ -77,14 +94,19 @@ const HEADER_ALIASES = {
     UNIDADES: 'uom',
     MONEDA: 'currency',
     ACTIVO: 'is_active',
-    'COSTO ACTUAL': 'current_value',
-    'COSTO ACTUAL DEL PROVEEDOR': 'current_value',
-    'PRECIO ACTUAL': 'current_value',
-    'NUEVO COSTO': 'new_value',
-    'NUEVO PRECIO': 'new_value',
+    'COSTO ACTUAL': 'current_cost',
+    'COSTO ACTUAL DEL PROVEEDOR': 'current_cost',
+    'PRECIO ACTUAL': 'current_price',
+    'NUEVO COSTO': 'new_cost',
+    'NUEVO PRECIO': 'new_price',
+    'NEW_COST': 'new_cost',
+    'NEW_PRICE': 'new_price',
+    'NEW_VALUE': 'new_value',
     'LISTA DE PRECIOS': 'price_list',
     LISTA: 'price_list',
     _ID: 'id',
+    _COST_ID: 'cost_id',
+    _PRICE_ID: 'price_id',
     _PRODUCT_ID: 'product_id',
     _PRODUCT_UOM_ID: 'product_uom_id',
     _PRICE_LIST_ID: 'price_list_id',
@@ -112,6 +134,9 @@ function vendorImportFilename(kind, vendorName, extra) {
     const date = new Date().toISOString().slice(0, 10);
     const vendor = slugFilename(vendorName);
     const suffix = extra ? `-${slugFilename(extra)}` : '';
+    if (kind === 'catalog') {
+        return `costos-precios-proveedor-${vendor}${suffix}-${date}.xlsx`;
+    }
     return kind === 'cost'
         ? `costos-proveedor-${vendor}${suffix}-${date}.xlsx`
         : `precios-proveedor-${vendor}${suffix}-${date}.xlsx`;
@@ -172,14 +197,40 @@ function priceColumns() {
         { header: exports.PRICE_TEMPLATE_HEADERS._price_list_id, key: '_price_list_id', width: 8, hidden: true },
     ];
 }
+function catalogColumns() {
+    return [
+        { header: exports.CATALOG_TEMPLATE_HEADERS.sku, key: 'sku', width: 16 },
+        { header: exports.CATALOG_TEMPLATE_HEADERS.name, key: 'name', width: 36 },
+        { header: exports.CATALOG_TEMPLATE_HEADERS.uom, key: 'uom', width: 12 },
+        { header: exports.CATALOG_TEMPLATE_HEADERS.currency, key: 'currency', width: 10 },
+        { header: exports.CATALOG_TEMPLATE_HEADERS.price_list, key: 'price_list', width: 18 },
+        { header: exports.CATALOG_TEMPLATE_HEADERS.is_active, key: 'is_active', width: 10 },
+        { header: exports.CATALOG_TEMPLATE_HEADERS.current_cost, key: 'current_cost', width: 14, type: 'unit_cost' },
+        { header: exports.CATALOG_TEMPLATE_HEADERS.new_cost, key: 'new_cost', width: 14, type: 'unit_cost', editable: true },
+        { header: exports.CATALOG_TEMPLATE_HEADERS.current_price, key: 'current_price', width: 14, type: 'currency' },
+        { header: exports.CATALOG_TEMPLATE_HEADERS.new_price, key: 'new_price', width: 14, type: 'currency', editable: true },
+        { header: exports.CATALOG_TEMPLATE_HEADERS._cost_id, key: '_cost_id', width: 8, hidden: true },
+        { header: exports.CATALOG_TEMPLATE_HEADERS._price_id, key: '_price_id', width: 8, hidden: true },
+        { header: exports.CATALOG_TEMPLATE_HEADERS._product_id, key: '_product_id', width: 8, hidden: true },
+        { header: exports.CATALOG_TEMPLATE_HEADERS._product_uom_id, key: '_product_uom_id', width: 8, hidden: true },
+        { header: exports.CATALOG_TEMPLATE_HEADERS._price_list_id, key: '_price_list_id', width: 8, hidden: true },
+    ];
+}
+function columnsFor(kind) {
+    if (kind === 'catalog')
+        return catalogColumns();
+    return kind === 'cost' ? costColumns() : priceColumns();
+}
 function addInstructionsSheet(workbook, kind, contextLines) {
     const sheet = workbook.addWorksheet('Instrucciones', {
         views: [{ showGridLines: false }],
     });
     sheet.getColumn(1).width = 100;
-    const title = kind === 'cost'
-        ? 'Importación de costos por proveedor'
-        : 'Importación de precios por proveedor';
+    const title = kind === 'catalog'
+        ? 'Importación de costos y precios por proveedor'
+        : kind === 'cost'
+            ? 'Importación de costos por proveedor'
+            : 'Importación de precios por proveedor';
     const titleRow = sheet.addRow([title]);
     titleRow.height = 28;
     titleRow.getCell(1).font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
@@ -189,20 +240,26 @@ function addInstructionsSheet(workbook, kind, contextLines) {
         fgColor: { argb: TITLE_COLOR },
     };
     titleRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
+    const fillHint = kind === 'catalog'
+        ? '2. Llena "Nuevo costo" y/o "Nuevo precio". Vacío = no toca esa columna.'
+        : kind === 'cost'
+            ? '2. Llena solo "Nuevo costo". Si lo dejas vacío, esa fila no se actualiza.'
+            : '2. Llena solo "Nuevo precio". Si lo dejas vacío, esa fila no se actualiza.';
+    const decimalHint = kind === 'price'
+        ? '5. El precio se guarda con 2 decimales.'
+        : kind === 'cost'
+            ? '5. El costo admite hasta 4 decimales (ej. 2.2150).'
+            : '5. El costo admite hasta 4 decimales. El precio, 2.';
     const steps = [
         '',
         ...contextLines,
         '',
         'Cómo usarlo',
         '1. No cambies SKU, nombre, UOM ni las columnas ocultas.',
-        kind === 'cost'
-            ? '2. Llena solo "Nuevo costo". Si lo dejas vacío, esa fila no se actualiza.'
-            : '2. Llena solo "Nuevo precio". Si lo dejas vacío, esa fila no se actualiza.',
+        fillHint,
         '3. Guarda el archivo y súbelo en el mismo modal.',
         '4. Esto actualiza el catálogo actual. No modifica órdenes de compra ni de venta ya creadas.',
-        kind === 'cost'
-            ? '5. El costo admite hasta 4 decimales (ej. 2.2150).'
-            : '5. El precio se guarda con 2 decimales.',
+        decimalHint,
     ];
     for (const line of steps) {
         const row = sheet.addRow([line]);
@@ -215,12 +272,12 @@ function addInstructionsSheet(workbook, kind, contextLines) {
     }
 }
 async function buildVendorImportTemplate(options) {
-    const columns = options.kind === 'cost' ? costColumns() : priceColumns();
+    const columns = columnsFor(options.kind);
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'Sinergy ERP';
     workbook.created = new Date();
     addInstructionsSheet(workbook, options.kind, options.contextLines);
-    const sheetName = options.kind === 'cost' ? 'Costos' : 'Precios';
+    const sheetName = options.kind === 'catalog' ? 'Catálogo' : options.kind === 'cost' ? 'Costos' : 'Precios';
     const worksheet = workbook.addWorksheet(sheetName, {
         views: [{ state: 'frozen', ySplit: 3 }],
     });
@@ -273,7 +330,7 @@ async function buildVendorImportTemplate(options) {
                 cell.alignment = { horizontal: 'right', vertical: 'middle' };
             }
             else if (colDef?.editable) {
-                cell.numFmt = options.kind === 'cost' ? '$#,##0.00##' : '$#,##0.00';
+                cell.numFmt = colDef.type === 'unit_cost' ? '$#,##0.00##' : '$#,##0.00';
                 cell.alignment = { horizontal: 'right', vertical: 'middle' };
             }
             else {
@@ -303,8 +360,9 @@ function parseVendorImportExcel(buffer, kind) {
 }
 function parseVendorImportWorkbookSync(buffer, kind) {
     const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: false });
-    const preferred = kind === 'cost' ? 'Costos' : 'Precios';
+    const preferred = kind === 'catalog' ? 'Catálogo' : kind === 'cost' ? 'Costos' : 'Precios';
     const sheetName = workbook.SheetNames.find((name) => name === preferred) ??
+        workbook.SheetNames.find((name) => name === 'Catálogo') ??
         workbook.SheetNames.find((name) => name !== 'Instrucciones') ??
         workbook.SheetNames[0];
     if (!sheetName) {
@@ -326,16 +384,17 @@ function parseVendorImportWorkbookSync(buffer, kind) {
             if (alias)
                 mapped[alias] = col;
         });
-        if (mapped.sku !== undefined && mapped.new_value !== undefined) {
+        if (mapped.sku !== undefined &&
+            (mapped.new_cost !== undefined ||
+                mapped.new_price !== undefined ||
+                mapped.new_value !== undefined)) {
             headerIndex = i;
             Object.assign(columnIndex, mapped);
             break;
         }
     }
     if (headerIndex < 0) {
-        throw new Error(kind === 'cost'
-            ? 'No se encontró la fila de encabezados. Se espera SKU y Nuevo costo.'
-            : 'No se encontró la fila de encabezados. Se espera SKU y Nuevo precio.');
+        throw new Error('No se encontró la fila de encabezados. Se espera SKU y Nuevo costo / Nuevo precio.');
     }
     const rows = [];
     for (let i = headerIndex + 1; i < raw.length; i++) {
@@ -343,12 +402,21 @@ function parseVendorImportWorkbookSync(buffer, kind) {
         const sku = cleanText(row[columnIndex.sku]);
         if (!sku)
             continue;
+        const newCost = columnIndex.new_cost !== undefined ? parseMoney(row[columnIndex.new_cost]) : null;
+        const newPrice = columnIndex.new_price !== undefined ? parseMoney(row[columnIndex.new_price]) : null;
+        const legacyValue = columnIndex.new_value !== undefined ? parseMoney(row[columnIndex.new_value]) : null;
+        const resolvedCost = newCost ?? (kind === 'price' ? null : kind === 'cost' ? legacyValue : newCost);
+        const resolvedPrice = newPrice ?? (kind === 'cost' ? null : kind === 'price' ? legacyValue : newPrice);
         rows.push({
             row_number: i + 1,
             sku,
             uom: cleanText(row[columnIndex.uom]) ?? '',
-            new_value: columnIndex.new_value !== undefined ? parseMoney(row[columnIndex.new_value]) : null,
+            new_cost: resolvedCost,
+            new_price: resolvedPrice,
+            new_value: resolvedCost ?? resolvedPrice,
             id: columnIndex.id !== undefined ? cleanText(row[columnIndex.id]) : null,
+            cost_id: columnIndex.cost_id !== undefined ? cleanText(row[columnIndex.cost_id]) : null,
+            price_id: columnIndex.price_id !== undefined ? cleanText(row[columnIndex.price_id]) : null,
             product_id: columnIndex.product_id !== undefined ? cleanText(row[columnIndex.product_id]) : null,
             product_uom_id: columnIndex.product_uom_id !== undefined
                 ? cleanText(row[columnIndex.product_uom_id])

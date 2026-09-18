@@ -35,27 +35,26 @@ let ProductVendorImportService = class ProductVendorImportService {
         this.vendorRepo = vendorRepo;
     }
     async previewCosts(orgId, vendorId) {
-        const vendor = await this.requireVendor(orgId, vendorId);
-        const costs = await this.loadVendorCosts(orgId, vendorId);
-        return {
-            vendor_id: vendor.id,
-            vendor_name: vendor.name,
-            product_count: new Set(costs.map((c) => c.product_id)).size,
-            row_count: costs.length,
-        };
+        return this.previewCatalog(orgId, vendorId);
     }
     async previewPrices(orgId, vendorId, priceListId) {
+        return this.previewCatalog(orgId, vendorId, priceListId);
+    }
+    async previewCatalog(orgId, vendorId, priceListId) {
         const vendor = await this.requireVendor(orgId, vendorId);
-        const priceList = await this.requirePriceList(orgId, priceListId);
         const costs = await this.loadVendorCosts(orgId, vendorId);
-        return {
+        const preview = {
             vendor_id: vendor.id,
             vendor_name: vendor.name,
-            price_list_id: priceList.id,
-            price_list_name: priceList.name,
             product_count: new Set(costs.map((c) => c.product_id)).size,
             row_count: costs.length,
         };
+        if (priceListId) {
+            const priceList = await this.requirePriceList(orgId, priceListId);
+            preview.price_list_id = priceList.id;
+            preview.price_list_name = priceList.name;
+        }
+        return preview;
     }
     async exportCostTemplate(orgId, vendorId) {
         const vendor = await this.requireVendor(orgId, vendorId);
@@ -144,6 +143,62 @@ let ProductVendorImportService = class ProductVendorImportService {
             filename: (0, product_vendor_import_excel_util_1.vendorImportFilename)('price', vendor.name, priceList.name),
         };
     }
+    async exportCatalogTemplate(orgId, vendorId, priceListId) {
+        const vendor = await this.requireVendor(orgId, vendorId);
+        const priceList = await this.requirePriceList(orgId, priceListId);
+        const costs = await this.loadVendorCosts(orgId, vendorId);
+        if (!costs.length) {
+            throw new common_1.BadRequestException('Este proveedor no tiene productos con costo. Agrégalos en el catálogo primero.');
+        }
+        const prices = await this.productPriceRepo.find({
+            where: {
+                product_uom_id: (0, typeorm_2.In)(costs.map((c) => c.product_uom_id)),
+                price_list_id: priceListId,
+            },
+        });
+        const priceByUom = new Map(prices.map((p) => [p.product_uom_id, p]));
+        const rows = costs.map((cost) => {
+            const price = priceByUom.get(cost.product_uom_id);
+            return {
+                sku: cost.product?.sku ?? '',
+                name: cost.product?.name ?? '',
+                uom: cost.product_uom?.uom?.name ?? '',
+                currency: cost.currency ?? 'MXN',
+                price_list: priceList.name,
+                is_active: cost.product?.is_active ? 'Sí' : 'No',
+                current_cost: this.toNumber(cost.cost),
+                new_cost: null,
+                current_price: price ? this.toNumber(price.price) : null,
+                new_price: null,
+                _cost_id: cost.id,
+                _price_id: price?.id ?? '',
+                _product_id: cost.product_id,
+                _product_uom_id: cost.product_uom_id,
+                _price_list_id: priceList.id,
+            };
+        });
+        const buffer = await (0, product_vendor_import_excel_util_1.buildVendorImportTemplate)({
+            kind: 'catalog',
+            title: `Costos y precios — ${vendor.name}`,
+            subtitle: [
+                `Lista: ${priceList.name}`,
+                `Generado: ${(0, excel_export_util_1.formatExportDateTime)(new Date())}`,
+                `${rows.length} renglones`,
+                'Llena Nuevo costo y/o Nuevo precio. Vacío = no cambia esa columna.',
+                'No afecta OC / OV ya creadas.',
+            ].join('  •  '),
+            contextLines: [
+                `Proveedor: ${vendor.name}`,
+                `Lista de precios: ${priceList.name}`,
+                `Renglones: ${rows.length} (un renglón por producto + UOM)`,
+            ],
+            rows,
+        });
+        return {
+            buffer,
+            filename: (0, product_vendor_import_excel_util_1.vendorImportFilename)('catalog', vendor.name, priceList.name),
+        };
+    }
     async importCosts(orgId, vendorId, file) {
         this.assertExcelFile(file);
         await this.requireVendor(orgId, vendorId);
@@ -153,11 +208,12 @@ let ProductVendorImportService = class ProductVendorImportService {
         const bySkuUom = new Map(costs.map((c) => [this.skuUomKey(c.product?.sku ?? '', c.product_uom?.uom?.name ?? ''), c]));
         const result = this.emptyResult();
         for (const row of parsed) {
-            if (row.new_value === null) {
+            const nextCostValue = row.new_cost ?? row.new_value;
+            if (nextCostValue === null) {
                 result.skipped += 1;
                 continue;
             }
-            const amountError = this.validateAmount(row.new_value, 'costo');
+            const amountError = this.validateAmount(nextCostValue, 'costo');
             if (amountError) {
                 result.errors.push({ row: row.row_number, sku: row.sku, message: amountError });
                 continue;
@@ -171,7 +227,7 @@ let ProductVendorImportService = class ProductVendorImportService {
                 });
                 continue;
             }
-            const nextCost = this.roundUnitCost(row.new_value);
+            const nextCost = this.roundUnitCost(nextCostValue);
             if (nextCost === this.roundUnitCost(this.toNumber(match.cost))) {
                 result.skipped += 1;
                 continue;
@@ -181,6 +237,7 @@ let ProductVendorImportService = class ProductVendorImportService {
             Object.assign(match, totals);
             await this.vendorCostRepo.save(match);
             result.updated += 1;
+            result.costs_updated += 1;
         }
         return result;
     }
@@ -204,11 +261,12 @@ let ProductVendorImportService = class ProductVendorImportService {
         const costByProductUom = new Map(costs.map((c) => [c.product_uom_id, c]));
         const result = this.emptyResult();
         for (const row of parsed) {
-            if (row.new_value === null) {
+            const nextPriceValue = row.new_price ?? row.new_value;
+            if (nextPriceValue === null) {
                 result.skipped += 1;
                 continue;
             }
-            const amountError = this.validateAmount(row.new_value, 'precio');
+            const amountError = this.validateAmount(nextPriceValue, 'precio');
             if (amountError) {
                 result.errors.push({ row: row.row_number, sku: row.sku, message: amountError });
                 continue;
@@ -222,7 +280,7 @@ let ProductVendorImportService = class ProductVendorImportService {
                 });
                 continue;
             }
-            const nextPrice = this.roundPrice(row.new_value);
+            const nextPrice = this.roundPrice(nextPriceValue);
             const existing = (row.id ? priceById.get(row.id) : undefined) ?? priceByUom.get(cost.product_uom_id);
             if (existing) {
                 if (existing.price_list_id !== priceListId || existing.product_id !== cost.product_id) {
@@ -242,6 +300,7 @@ let ProductVendorImportService = class ProductVendorImportService {
                 Object.assign(existing, totals);
                 await this.productPriceRepo.save(existing);
                 result.updated += 1;
+                result.prices_updated += 1;
                 continue;
             }
             const totals = this.calculateTotals(nextPrice, this.toNumber(cost.iva_percentage), this.toNumber(cost.ieps_percentage));
@@ -258,7 +317,121 @@ let ProductVendorImportService = class ProductVendorImportService {
             priceById.set(saved.id, saved);
             priceByUom.set(saved.product_uom_id, saved);
             result.created += 1;
+            result.prices_created += 1;
         }
+        return result;
+    }
+    async importCatalog(orgId, vendorId, priceListId, file) {
+        this.assertExcelFile(file);
+        await this.requireVendor(orgId, vendorId);
+        await this.requirePriceList(orgId, priceListId);
+        const costs = await this.loadVendorCosts(orgId, vendorId);
+        const parsed = this.parseFile(file.buffer, 'catalog');
+        const byCostId = new Map(costs.map((c) => [c.id, c]));
+        const bySkuUom = new Map(costs.map((c) => [this.skuUomKey(c.product?.sku ?? '', c.product_uom?.uom?.name ?? ''), c]));
+        const costByProductUom = new Map(costs.map((c) => [c.product_uom_id, c]));
+        const prices = costs.length
+            ? await this.productPriceRepo.find({
+                where: {
+                    product_uom_id: (0, typeorm_2.In)(costs.map((c) => c.product_uom_id)),
+                    price_list_id: priceListId,
+                },
+            })
+            : [];
+        const priceById = new Map(prices.map((p) => [p.id, p]));
+        const priceByUom = new Map(prices.map((p) => [p.product_uom_id, p]));
+        const result = this.emptyResult();
+        for (const row of parsed) {
+            const nextCostValue = row.new_cost;
+            const nextPriceValue = row.new_price;
+            if (nextCostValue === null && nextPriceValue === null) {
+                result.skipped += 1;
+                continue;
+            }
+            const cost = this.matchCost(row, byCostId, bySkuUom) ??
+                this.matchCostForPrice(row, bySkuUom, costByProductUom);
+            if (!cost) {
+                result.errors.push({
+                    row: row.row_number,
+                    sku: row.sku,
+                    message: 'El SKU no pertenece a este proveedor o la UOM no coincide.',
+                });
+                continue;
+            }
+            let changed = false;
+            let rowHasError = false;
+            if (nextCostValue !== null) {
+                const amountError = this.validateAmount(nextCostValue, 'costo');
+                if (amountError) {
+                    result.errors.push({ row: row.row_number, sku: row.sku, message: amountError });
+                    rowHasError = true;
+                }
+                else {
+                    const nextCost = this.roundUnitCost(nextCostValue);
+                    if (nextCost !== this.roundUnitCost(this.toNumber(cost.cost))) {
+                        const totals = this.calculateTotals(nextCost, this.toNumber(cost.iva_percentage), this.toNumber(cost.ieps_percentage));
+                        cost.cost = nextCost;
+                        Object.assign(cost, totals);
+                        await this.vendorCostRepo.save(cost);
+                        result.costs_updated += 1;
+                        changed = true;
+                    }
+                }
+            }
+            if (nextPriceValue !== null) {
+                const amountError = this.validateAmount(nextPriceValue, 'precio');
+                if (amountError) {
+                    result.errors.push({ row: row.row_number, sku: row.sku, message: amountError });
+                    rowHasError = true;
+                }
+                else {
+                    const nextPrice = this.roundPrice(nextPriceValue);
+                    const existing = (row.price_id ? priceById.get(row.price_id) : undefined) ??
+                        (row.id ? priceById.get(row.id) : undefined) ??
+                        priceByUom.get(cost.product_uom_id);
+                    if (existing) {
+                        if (existing.price_list_id !== priceListId || existing.product_id !== cost.product_id) {
+                            result.errors.push({
+                                row: row.row_number,
+                                sku: row.sku,
+                                message: 'El renglón no corresponde a esta lista de precios.',
+                            });
+                            rowHasError = true;
+                        }
+                        else if (nextPrice !== this.roundPrice(this.toNumber(existing.price))) {
+                            const totals = this.calculateTotals(nextPrice, this.toNumber(existing.iva_percentage), this.toNumber(existing.ieps_percentage));
+                            existing.price = nextPrice;
+                            Object.assign(existing, totals);
+                            await this.productPriceRepo.save(existing);
+                            result.prices_updated += 1;
+                            changed = true;
+                        }
+                    }
+                    else {
+                        const totals = this.calculateTotals(nextPrice, this.toNumber(cost.iva_percentage), this.toNumber(cost.ieps_percentage));
+                        const created = this.productPriceRepo.create({
+                            product_id: cost.product_id,
+                            price_list_id: priceListId,
+                            product_uom_id: cost.product_uom_id,
+                            price: nextPrice,
+                            iva_percentage: this.toNumber(cost.iva_percentage),
+                            ieps_percentage: this.toNumber(cost.ieps_percentage),
+                            ...totals,
+                        });
+                        const saved = await this.productPriceRepo.save(created);
+                        priceById.set(saved.id, saved);
+                        priceByUom.set(saved.product_uom_id, saved);
+                        result.prices_created += 1;
+                        changed = true;
+                    }
+                }
+            }
+            if (!changed && !rowHasError) {
+                result.skipped += 1;
+            }
+        }
+        result.updated = result.costs_updated + result.prices_updated;
+        result.created = result.prices_created;
         return result;
     }
     async requireVendor(orgId, vendorId) {
@@ -318,6 +491,8 @@ let ProductVendorImportService = class ProductVendorImportService {
         }
     }
     matchCost(row, byId, bySkuUom) {
+        if (row.cost_id && byId.has(row.cost_id))
+            return byId.get(row.cost_id);
         if (row.id && byId.has(row.id))
             return byId.get(row.id);
         return bySkuUom.get(this.skuUomKey(row.sku, row.uom));
@@ -358,7 +533,15 @@ let ProductVendorImportService = class ProductVendorImportService {
         return Number.isFinite(n) ? n : 0;
     }
     emptyResult() {
-        return { updated: 0, created: 0, skipped: 0, errors: [] };
+        return {
+            updated: 0,
+            created: 0,
+            skipped: 0,
+            costs_updated: 0,
+            prices_updated: 0,
+            prices_created: 0,
+            errors: [],
+        };
     }
 };
 exports.ProductVendorImportService = ProductVendorImportService;

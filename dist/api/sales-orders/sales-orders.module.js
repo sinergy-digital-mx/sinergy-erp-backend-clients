@@ -33,6 +33,7 @@ const billing_branch_entity_1 = require("../../entities/billing/billing-branch.e
 const warehouse_entity_1 = require("../../entities/warehouse/warehouse.entity");
 const user_entity_1 = require("../../entities/users/user.entity");
 const customer_entity_1 = require("../../entities/customers/customer.entity");
+const electronic_invoicing_1 = require("../../entities/electronic-invoicing");
 const electronic_invoicing_module_1 = require("../electronic-invoicing/electronic-invoicing.module");
 const sales_order_invoicing_service_1 = require("./services/sales-order-invoicing.service");
 const shippings_module_1 = require("../shippings/shippings.module");
@@ -61,6 +62,7 @@ exports.SalesOrdersModule = SalesOrdersModule = __decorate([
                 warehouse_entity_1.Warehouse,
                 user_entity_1.User,
                 customer_entity_1.Customer,
+                electronic_invoicing_1.ElectronicInvoice,
             ]),
             auth_module_1.AuthModule,
             rbac_module_1.RBACModule,

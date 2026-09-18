@@ -20,6 +20,9 @@ export interface VendorImportResult {
     updated: number;
     created: number;
     skipped: number;
+    costs_updated: number;
+    prices_updated: number;
+    prices_created: number;
     errors: VendorImportError[];
 }
 export declare class ProductVendorImportService {
@@ -30,6 +33,7 @@ export declare class ProductVendorImportService {
     constructor(vendorCostRepo: Repository<ProductVendorCost>, productPriceRepo: Repository<ProductPrice>, priceListRepo: Repository<PriceList>, vendorRepo: Repository<Vendor>);
     previewCosts(orgId: string, vendorId: string): Promise<VendorImportPreview>;
     previewPrices(orgId: string, vendorId: string, priceListId: string): Promise<VendorImportPreview>;
+    previewCatalog(orgId: string, vendorId: string, priceListId?: string): Promise<VendorImportPreview>;
     exportCostTemplate(orgId: string, vendorId: string): Promise<{
         buffer: Buffer;
         filename: string;
@@ -38,8 +42,13 @@ export declare class ProductVendorImportService {
         buffer: Buffer;
         filename: string;
     }>;
+    exportCatalogTemplate(orgId: string, vendorId: string, priceListId: string): Promise<{
+        buffer: Buffer;
+        filename: string;
+    }>;
     importCosts(orgId: string, vendorId: string, file: Express.Multer.File): Promise<VendorImportResult>;
     importPrices(orgId: string, vendorId: string, priceListId: string, file: Express.Multer.File): Promise<VendorImportResult>;
+    importCatalog(orgId: string, vendorId: string, priceListId: string, file: Express.Multer.File): Promise<VendorImportResult>;
     private requireVendor;
     private requirePriceList;
     private loadVendorCosts;

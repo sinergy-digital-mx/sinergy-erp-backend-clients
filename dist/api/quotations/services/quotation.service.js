@@ -23,6 +23,7 @@ const quotation_detail_entity_1 = require("../../../entities/quotations/quotatio
 const product_item_kind_enum_1 = require("../../../entities/products/product-item-kind.enum");
 const sales_order_sale_scope_enum_1 = require("../../../entities/sales-orders/sales-order-sale-scope.enum");
 const user_entity_1 = require("../../../entities/users/user.entity");
+const user_billing_branch_entity_1 = require("../../../entities/users/user-billing-branch.entity");
 const customer_entity_1 = require("../../../entities/customers/customer.entity");
 const billing_branch_entity_1 = require("../../../entities/billing/billing-branch.entity");
 const warehouse_entity_1 = require("../../../entities/warehouse/warehouse.entity");
@@ -36,6 +37,7 @@ const global_discount_service_1 = require("../../global-discounts/global-discoun
 const product_discount_util_1 = require("../../products/utils/product-discount.util");
 const global_discount_util_1 = require("../../global-discounts/utils/global-discount.util");
 const quotation_discount_mapper_1 = require("../mappers/quotation-discount.mapper");
+const quotation_expiration_util_1 = require("../utils/quotation-expiration.util");
 const document_language_enum_1 = require("../../../common/enums/document-language.enum");
 const pos_sale_collection_mapper_1 = require("../../pos-shifts/mappers/pos-sale-collection.mapper");
 const sales_order_service_1 = require("../../sales-orders/services/sales-order.service");
@@ -45,6 +47,7 @@ let QuotationService = class QuotationService {
     static { QuotationService_1 = this; }
     quotationRepo;
     userRepo;
+    userBillingBranchRepo;
     customerRepo;
     billingBranchRepo;
     warehouseRepo;
@@ -58,9 +61,10 @@ let QuotationService = class QuotationService {
     salesOrderService;
     logger = new common_1.Logger(QuotationService_1.name);
     static DOC_TYPE_DOCUMENTO_ORIGINAL = 1;
-    constructor(quotationRepo, userRepo, customerRepo, billingBranchRepo, warehouseRepo, folioService, dataSource, posShiftsService, productDiscountService, globalDiscountService, pdfService, documentsService, salesOrderService) {
+    constructor(quotationRepo, userRepo, userBillingBranchRepo, customerRepo, billingBranchRepo, warehouseRepo, folioService, dataSource, posShiftsService, productDiscountService, globalDiscountService, pdfService, documentsService, salesOrderService) {
         this.quotationRepo = quotationRepo;
         this.userRepo = userRepo;
+        this.userBillingBranchRepo = userBillingBranchRepo;
         this.customerRepo = customerRepo;
         this.billingBranchRepo = billingBranchRepo;
         this.warehouseRepo = warehouseRepo;
@@ -188,7 +192,7 @@ let QuotationService = class QuotationService {
             await qr.release();
         }
     }
-    async findAll(tenantId, userId, canViewAll, filters) {
+    async findAll(tenantId, userId, canViewAll, canViewAllBranches, filters) {
         const { search, general_status, quotation_type, fiscal_configuration_id, billing_branch_id, customer_id, assigned_seller_user_id, created_from, created_to, page = 1, limit = 20, sort_by = 'created_at', sort_order = 'DESC', } = filters;
         const qb = this.quotationRepo
             .createQueryBuilder('qt')
@@ -202,6 +206,24 @@ let QuotationService = class QuotationService {
         const scopeUserId = (0, quotation_seller_scope_util_1.resolveQuotationSellerScopeUserId)(canViewAll, userId, assigned_seller_user_id);
         if (scopeUserId) {
             qb.andWhere('(qt.seller_user_id = :scopeUserId OR qt.assigned_seller_user_id = :scopeUserId)', { scopeUserId });
+        }
+        const assignedBranchIds = canViewAllBranches
+            ? []
+            : await this.loadAssignedBranchIds(tenantId, userId);
+        const scopeBranchIds = (0, quotation_seller_scope_util_1.resolveQuotationBranchScopeIds)(canViewAllBranches, assignedBranchIds, billing_branch_id);
+        if (scopeBranchIds) {
+            if (scopeBranchIds.length === 0) {
+                return {
+                    data: [],
+                    total: 0,
+                    page,
+                    limit,
+                    totalPages: 0,
+                    can_view_all: canViewAll,
+                    can_view_all_branches: canViewAllBranches,
+                };
+            }
+            qb.andWhere('(qt.billing_branch_id IN (:...scopeBranchIds) OR (qt.billing_branch_id IS NULL AND warehouse.billing_branch_id IN (:...scopeBranchIds)))', { scopeBranchIds });
         }
         if (search) {
             qb.andWhere('(qt.folio LIKE :s OR customer.name LIKE :s OR customer.lastname LIKE :s OR CONCAT(customer.name, \' \', COALESCE(customer.lastname, \'\')) LIKE :s)', { s: `%${search}%` });
@@ -225,9 +247,6 @@ let QuotationService = class QuotationService {
             qb.andWhere('qt.fiscal_configuration_id = :fiscal_configuration_id', {
                 fiscal_configuration_id,
             });
-        }
-        if (billing_branch_id) {
-            qb.andWhere('(qt.billing_branch_id = :billing_branch_id OR (qt.billing_branch_id IS NULL AND warehouse.billing_branch_id = :billing_branch_id))', { billing_branch_id });
         }
         if (customer_id) {
             qb.andWhere('qt.customer_id = :customer_id', { customer_id });
@@ -258,6 +277,7 @@ let QuotationService = class QuotationService {
             limit,
             totalPages: Math.ceil(total / limit),
             can_view_all: canViewAll,
+            can_view_all_branches: canViewAllBranches,
         };
     }
     async listSellers(tenantId, canViewAll) {
@@ -305,7 +325,9 @@ let QuotationService = class QuotationService {
         if (!quotation) {
             throw new common_1.NotFoundException(`Cotización no encontrada: ${id}`);
         }
-        (0, quotation_seller_scope_util_1.assertQuotationSellerAccess)(quotation, access);
+        const scopedAccess = await this.withAssignedBranches(tenantId, access);
+        (0, quotation_seller_scope_util_1.assertQuotationSellerAccess)(quotation, scopedAccess);
+        (0, quotation_seller_scope_util_1.assertQuotationBranchAccess)(quotation, scopedAccess);
         return quotation;
     }
     async findOneDetail(id, tenantId, access) {
@@ -326,6 +348,7 @@ let QuotationService = class QuotationService {
             can_convert: quotation.general_status === 'Creada',
             can_cancel: quotation.general_status === 'Creada',
             can_edit: quotation.general_status === 'Creada',
+            can_edit_lines: quotation.general_status === 'Creada',
             can_edit_notes: quotation.general_status !== 'Cancelada',
             can_send: quotation.general_status !== 'Cancelada',
             customer_email: quotation.customer?.email?.trim() ||
@@ -361,6 +384,154 @@ let QuotationService = class QuotationService {
             this.logger.error('[PDF] Error regenerando PDF tras actualizar observaciones:', err);
         }
         return this.findOneDetail(id, tenantId, access);
+    }
+    assertLinesEditable(quotation) {
+        if (quotation.general_status !== 'Creada') {
+            throw new common_1.BadRequestException(`No se puede actualizar la línea de la cotización con estado: ${quotation.general_status}`);
+        }
+    }
+    async addLineItem(id, dto, tenantId, userId, access) {
+        const existing = await this.findOne(id, tenantId, access);
+        this.assertLinesEditable(existing);
+        const qr = this.dataSource.createQueryRunner();
+        await qr.connect();
+        await qr.startTransaction();
+        try {
+            const quotation = await qr.manager.findOne(quotation_entity_1.Quotation, {
+                where: { id, tenant_id: tenantId },
+            });
+            if (!quotation) {
+                throw new common_1.NotFoundException(`Cotización no encontrada: ${id}`);
+            }
+            await this.insertLineItems(qr, id, [dto], userId, tenantId);
+            quotation.updated_by = userId;
+            await this.recomputeTotals(qr, quotation, tenantId, quotation.global_discount_id ?? undefined);
+            await qr.commitTransaction();
+        }
+        catch (err) {
+            await qr.rollbackTransaction();
+            throw err;
+        }
+        finally {
+            await qr.release();
+        }
+        this.regenerateDocumentoOriginalPreservingLanguage(id, tenantId, userId).catch((err) => {
+            this.logger.error('[PDF] Error regenerando PDF tras agregar línea:', err);
+        });
+    }
+    async updateLineItem(id, lineItemId, dto, tenantId, userId, access) {
+        const existing = await this.findOne(id, tenantId, access);
+        this.assertLinesEditable(existing);
+        const qr = this.dataSource.createQueryRunner();
+        await qr.connect();
+        await qr.startTransaction();
+        try {
+            const quotation = await qr.manager.findOne(quotation_entity_1.Quotation, {
+                where: { id, tenant_id: tenantId },
+            });
+            if (!quotation) {
+                throw new common_1.NotFoundException(`Cotización no encontrada: ${id}`);
+            }
+            const line = await qr.manager.findOne(quotation_detail_entity_1.QuotationDetail, {
+                where: { id: lineItemId, quotation_id: id },
+            });
+            if (!line) {
+                throw new common_1.NotFoundException(`Línea no encontrada: ${lineItemId}`);
+            }
+            if (dto.quantity !== undefined) {
+                line.quantity = dto.quantity;
+            }
+            if (dto.unit_price !== undefined) {
+                line.unit_price = (0, unit_amount_util_1.roundUnitAmount)(dto.unit_price);
+            }
+            if (dto.iva_percentage !== undefined) {
+                line.iva_percentage = dto.iva_percentage;
+            }
+            if (dto.ieps_percentage !== undefined) {
+                line.ieps_percentage = dto.ieps_percentage;
+            }
+            const productUomId = dto.product_uom_id || line.product_uom_id;
+            const productUomRow = await this.resolveProductUom(qr, line.product_id, productUomId);
+            line.product_uom_id = productUomRow.id;
+            const factor = productUomRow.factor || 1;
+            line.quantity_base_uom = productUomRow.is_base
+                ? Number(line.quantity)
+                : Number(line.quantity) * factor;
+            const discountAmounts = await this.resolveLineDiscountAmounts(tenantId, {
+                product_id: line.product_id,
+                product_uom_id: productUomRow.id,
+                quantity: Number(line.quantity),
+                unit_price: Number(line.unit_price),
+                discount_percentage: dto.discount_percentage !== undefined
+                    ? dto.discount_percentage
+                    : Number(line.discount_percentage || 0),
+                product_discount_id: line.product_discount_id ?? undefined,
+                iva_percentage: Number(line.iva_percentage || 0),
+                ieps_percentage: Number(line.ieps_percentage || 0),
+            }, productUomRow.id);
+            line.discount_percentage = discountAmounts.discount_percentage;
+            line.discount_unit = discountAmounts.discount_unit;
+            line.product_discount_id = discountAmounts.product_discount_id;
+            this.applyQuotationLineAmounts(line);
+            quotation.updated_by = userId;
+            await qr.manager.save(quotation_detail_entity_1.QuotationDetail, line);
+            await this.recomputeTotals(qr, quotation, tenantId, quotation.global_discount_id ?? undefined);
+            await qr.commitTransaction();
+        }
+        catch (err) {
+            await qr.rollbackTransaction();
+            throw err;
+        }
+        finally {
+            await qr.release();
+        }
+        this.regenerateDocumentoOriginalPreservingLanguage(id, tenantId, userId).catch((err) => {
+            this.logger.error('[PDF] Error regenerando PDF tras editar línea:', err);
+        });
+    }
+    async removeLineItem(id, lineItemId, tenantId, userId, access) {
+        const existing = await this.findOne(id, tenantId, access);
+        this.assertLinesEditable(existing);
+        const qr = this.dataSource.createQueryRunner();
+        await qr.connect();
+        await qr.startTransaction();
+        try {
+            const quotation = await qr.manager.findOne(quotation_entity_1.Quotation, {
+                where: { id, tenant_id: tenantId },
+            });
+            if (!quotation) {
+                throw new common_1.NotFoundException(`Cotización no encontrada: ${id}`);
+            }
+            const line = await qr.manager.findOne(quotation_detail_entity_1.QuotationDetail, {
+                where: { id: lineItemId, quotation_id: id },
+            });
+            if (!line) {
+                throw new common_1.NotFoundException(`Línea no encontrada: ${lineItemId}`);
+            }
+            const remaining = await qr.manager.count(quotation_detail_entity_1.QuotationDetail, {
+                where: { quotation_id: id },
+            });
+            if (remaining <= 1) {
+                throw new common_1.BadRequestException('La cotización debe tener al menos un producto');
+            }
+            await qr.manager.delete(quotation_detail_entity_1.QuotationDetail, {
+                id: lineItemId,
+                quotation_id: id,
+            });
+            quotation.updated_by = userId;
+            await this.recomputeTotals(qr, quotation, tenantId, quotation.global_discount_id ?? undefined);
+            await qr.commitTransaction();
+        }
+        catch (err) {
+            await qr.rollbackTransaction();
+            throw err;
+        }
+        finally {
+            await qr.release();
+        }
+        this.regenerateDocumentoOriginalPreservingLanguage(id, tenantId, userId).catch((err) => {
+            this.logger.error('[PDF] Error regenerando PDF tras eliminar línea:', err);
+        });
     }
     async cancel(id, tenantId, userId, access) {
         const quotation = await this.findOne(id, tenantId, access);
@@ -532,6 +703,16 @@ let QuotationService = class QuotationService {
         }
         return saved;
     }
+    applyQuotationLineAmounts(detail) {
+        const qty = Number(detail.quantity);
+        const lineSubtotal = qty * Number(detail.unit_price);
+        const lineDiscount = qty * Number(detail.discount_unit || 0);
+        const taxable = Math.max(lineSubtotal - lineDiscount, 0);
+        const lineIva = (taxable * Number(detail.iva_percentage || 0)) / 100;
+        const lineIeps = (taxable * Number(detail.ieps_percentage || 0)) / 100;
+        detail.iva_unit = qty > 0 ? lineIva / qty : 0;
+        detail.ieps_unit = qty > 0 ? lineIeps / qty : 0;
+    }
     async recomputeTotals(qr, quotation, tenantId, globalDiscountId) {
         const details = await qr.manager.find(quotation_detail_entity_1.QuotationDetail, {
             where: { quotation_id: quotation.id },
@@ -686,6 +867,21 @@ let QuotationService = class QuotationService {
             warehouseId,
         };
     }
+    async withAssignedBranches(tenantId, access) {
+        if (!access || access.canViewAllBranches || access.assignedBranchIds) {
+            return access;
+        }
+        return {
+            ...access,
+            assignedBranchIds: await this.loadAssignedBranchIds(tenantId, access.userId),
+        };
+    }
+    async loadAssignedBranchIds(tenantId, userId) {
+        const rows = await this.userBillingBranchRepo.find({
+            where: { tenant_id: tenantId, user_id: userId },
+        });
+        return [...new Set(rows.map((row) => row.billing_branch_id).filter(Boolean))];
+    }
     mapLocation(qt) {
         const branch = qt.billing_branch ?? qt.warehouse?.billing_branch ?? null;
         const fiscal = qt.fiscal_configuration ?? null;
@@ -697,6 +893,8 @@ let QuotationService = class QuotationService {
             terminal_user: (0, pos_sale_collection_mapper_1.mapPosUser)(terminal_user),
             razon_social: fiscal?.razon_social ?? qt.fiscal_razon_social ?? null,
             sucursal: branch?.code ?? null,
+            expires_at: (0, quotation_expiration_util_1.resolveQuotationExpiresAt)(qt.created_at, fiscal?.quotation_expiration_days),
+            quotation_expiration_days: fiscal?.quotation_expiration_days ?? null,
             fiscal_configuration: fiscal
                 ? {
                     id: fiscal.id,
@@ -734,12 +932,14 @@ exports.QuotationService = QuotationService = QuotationService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(quotation_entity_1.Quotation)),
     __param(1, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
-    __param(2, (0, typeorm_1.InjectRepository)(customer_entity_1.Customer)),
-    __param(3, (0, typeorm_1.InjectRepository)(billing_branch_entity_1.BillingBranch)),
-    __param(4, (0, typeorm_1.InjectRepository)(warehouse_entity_1.Warehouse)),
-    __param(7, (0, common_1.Inject)((0, common_1.forwardRef)(() => pos_shifts_service_1.PosShiftsService))),
-    __param(12, (0, common_1.Inject)((0, common_1.forwardRef)(() => sales_order_service_1.SalesOrderService))),
+    __param(2, (0, typeorm_1.InjectRepository)(user_billing_branch_entity_1.UserBillingBranch)),
+    __param(3, (0, typeorm_1.InjectRepository)(customer_entity_1.Customer)),
+    __param(4, (0, typeorm_1.InjectRepository)(billing_branch_entity_1.BillingBranch)),
+    __param(5, (0, typeorm_1.InjectRepository)(warehouse_entity_1.Warehouse)),
+    __param(8, (0, common_1.Inject)((0, common_1.forwardRef)(() => pos_shifts_service_1.PosShiftsService))),
+    __param(13, (0, common_1.Inject)((0, common_1.forwardRef)(() => sales_order_service_1.SalesOrderService))),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,

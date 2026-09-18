@@ -4,6 +4,9 @@ import { QueryVendorPriceImportDto } from './dto/query-vendor-price-import.dto';
 export declare class ProductVendorImportController {
     private readonly importService;
     constructor(importService: ProductVendorImportService);
+    previewCatalog(query: QueryVendorPriceImportDto, req: any): Promise<import("./services/product-vendor-import.service").VendorImportPreview>;
+    exportCatalogTemplate(query: QueryVendorPriceImportDto, req: any, res: any): Promise<void>;
+    importCatalog(file: Express.Multer.File, dto: QueryVendorPriceImportDto, req: any): Promise<import("./services/product-vendor-import.service").VendorImportResult>;
     previewCosts(query: QueryVendorCostImportDto, req: any): Promise<import("./services/product-vendor-import.service").VendorImportPreview>;
     exportCostTemplate(query: QueryVendorCostImportDto, req: any, res: any): Promise<void>;
     importCosts(file: Express.Multer.File, dto: QueryVendorCostImportDto, req: any): Promise<import("./services/product-vendor-import.service").VendorImportResult>;

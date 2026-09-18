@@ -5,14 +5,20 @@ import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { QueryVendorDto } from './dto/query-vendor.dto';
 import { QueryVendorExportDto } from './dto/query-vendor-export.dto';
 import { PaginatedVendorDto } from './dto/paginated-vendor.dto';
+import { CheckVendorDuplicatesDto } from './dto/check-vendor-duplicates.dto';
+import { DeleteVendorResultDto } from './dto/vendor-view.dto';
 export declare class VendorController {
     private readonly service;
     private readonly exportService;
     constructor(service: VendorService, exportService: VendorsExportService);
     create(dto: CreateVendorDto, req: any): Promise<import("../../entities/vendor/vendor.entity").Vendor>;
+    findDuplicates(dto: CheckVendorDuplicatesDto, req: any): Promise<{
+        found: boolean;
+        matches: import("./utils/vendor-profile.util").VendorSimilarMatch[];
+    }>;
     findAll(query: QueryVendorDto, req: any): Promise<PaginatedVendorDto>;
     exportExcel(query: QueryVendorExportDto, req: any, res: any): Promise<void>;
-    findOne(id: string, req: any): Promise<import("../../entities/vendor/vendor.entity").Vendor>;
+    findOne(id: string, req: any): Promise<import("./dto/vendor-view.dto").VendorView>;
     update(id: string, dto: UpdateVendorDto, req: any): Promise<import("../../entities/vendor/vendor.entity").Vendor>;
-    remove(id: string, req: any): Promise<void>;
+    remove(id: string, req: any): Promise<DeleteVendorResultDto>;
 }

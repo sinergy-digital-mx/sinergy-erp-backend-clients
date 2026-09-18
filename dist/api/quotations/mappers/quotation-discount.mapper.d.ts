@@ -5,6 +5,9 @@ import { GlobalDiscountType } from '../../../entities/global-discounts/global-di
 export declare function mapLineItemWithDiscount(item: QuotationDetail): {
     line_subtotal: number;
     line_discount_amount: number;
+    line_iva: number;
+    line_ieps: number;
+    line_total: number;
     applied_product_discount: {
         id: string;
         name: string | null;

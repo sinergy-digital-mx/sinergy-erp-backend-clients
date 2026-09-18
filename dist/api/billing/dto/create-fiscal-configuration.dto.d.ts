@@ -9,4 +9,5 @@ export declare class CreateFiscalConfigurationDto {
     private_key?: string;
     logo?: string;
     status?: string;
+    quotation_expiration_days?: number | null;
 }

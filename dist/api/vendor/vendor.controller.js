@@ -21,6 +21,8 @@ const create_vendor_dto_1 = require("./dto/create-vendor.dto");
 const update_vendor_dto_1 = require("./dto/update-vendor.dto");
 const query_vendor_dto_1 = require("./dto/query-vendor.dto");
 const query_vendor_export_dto_1 = require("./dto/query-vendor-export.dto");
+const check_vendor_duplicates_dto_1 = require("./dto/check-vendor-duplicates.dto");
+const vendor_view_dto_1 = require("./dto/vendor-view.dto");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const permission_guard_1 = require("../rbac/guards/permission.guard");
 const require_permissions_decorator_1 = require("../rbac/decorators/require-permissions.decorator");
@@ -33,6 +35,9 @@ let VendorController = class VendorController {
     }
     create(dto, req) {
         return this.service.create(dto, req.user.tenantId);
+    }
+    findDuplicates(dto, req) {
+        return this.service.findDuplicates(dto, req.user.tenantId);
     }
     findAll(query, req) {
         return this.service.findAll(req.user.tenantId, query);
@@ -70,6 +75,19 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], VendorController.prototype, "create", null);
 __decorate([
+    (0, common_1.Post)('duplicates'),
+    (0, common_1.HttpCode)(200),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'vendors', action: 'Create' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Detectar proveedores parecidos antes de crear' }),
+    (0, swagger_1.ApiBody)({ type: check_vendor_duplicates_dto_1.CheckVendorDuplicatesDto }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Coincidencias de nombre, RFC o datos bancarios' }),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [check_vendor_duplicates_dto_1.CheckVendorDuplicatesDto, Object]),
+    __metadata("design:returntype", void 0)
+], VendorController.prototype, "findDuplicates", null);
+__decorate([
     (0, common_1.Get)(),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'vendors', action: 'Read' }),
     (0, swagger_1.ApiOperation)({ summary: 'Get paginated vendors with search and filters' }),
@@ -80,6 +98,7 @@ __decorate([
     (0, swagger_1.ApiQuery)({ name: 'state', required: false, type: String }),
     (0, swagger_1.ApiQuery)({ name: 'country', required: false, type: String }),
     (0, swagger_1.ApiQuery)({ name: 'vendor_type', required: false, enum: ['NATIONAL', 'INTERNATIONAL'] }),
+    (0, swagger_1.ApiQuery)({ name: 'similar_only', required: false, type: Boolean }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'List of vendors retrieved successfully' }),
     (0, swagger_1.ApiResponse)({ status: 401, description: 'Unauthorized' }),
     (0, swagger_1.ApiResponse)({ status: 403, description: 'Forbidden' }),
@@ -138,9 +157,11 @@ __decorate([
     (0, common_1.Delete)(':id'),
     (0, common_1.HttpCode)(200),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'vendors', action: 'Delete' }),
-    (0, swagger_1.ApiOperation)({ summary: 'Delete a vendor by ID' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Eliminar proveedor. Si hay compras y un parecido, reasigna las OC y borra el duplicado.',
+    }),
     (0, swagger_1.ApiParam)({ name: 'id', type: 'string' }),
-    (0, swagger_1.ApiResponse)({ status: 200, description: 'Vendor deleted successfully' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Eliminado, consolidado o desactivado', type: vendor_view_dto_1.DeleteVendorResultDto }),
     (0, swagger_1.ApiResponse)({ status: 401, description: 'Unauthorized' }),
     (0, swagger_1.ApiResponse)({ status: 403, description: 'Forbidden' }),
     (0, swagger_1.ApiResponse)({ status: 404, description: 'Not found' }),
@@ -148,7 +169,7 @@ __decorate([
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], VendorController.prototype, "remove", null);
 exports.VendorController = VendorController = __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),

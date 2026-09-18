@@ -21,6 +21,7 @@ class QueryVendorDto {
     state;
     country;
     vendor_type;
+    similar_only;
 }
 exports.QueryVendorDto = QueryVendorDto;
 __decorate([
@@ -61,4 +62,10 @@ __decorate([
     (0, class_validator_1.IsEnum)(vendor_type_enum_1.VendorType),
     __metadata("design:type", String)
 ], QueryVendorDto.prototype, "vendor_type", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => value === true || value === 'true' || value === '1'),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], QueryVendorDto.prototype, "similar_only", void 0);
 //# sourceMappingURL=query-vendor.dto.js.map

@@ -27,6 +27,19 @@ let ProductVendorImportController = class ProductVendorImportController {
     constructor(importService) {
         this.importService = importService;
     }
+    previewCatalog(query, req) {
+        return this.importService.previewCatalog(req.user.tenant_id, query.vendor_id, query.price_list_id);
+    }
+    async exportCatalogTemplate(query, req, res) {
+        const { buffer, filename } = await this.importService.exportCatalogTemplate(req.user.tenant_id, query.vendor_id, query.price_list_id);
+        this.sendExcel(res, buffer, filename);
+    }
+    importCatalog(file, dto, req) {
+        if (!file) {
+            throw new common_1.BadRequestException('Adjunta el archivo Excel descargado');
+        }
+        return this.importService.importCatalog(req.user.tenant_id, dto.vendor_id, dto.price_list_id, file);
+    }
     previewCosts(query, req) {
         return this.importService.previewCosts(req.user.tenant_id, query.vendor_id);
     }
@@ -60,6 +73,52 @@ let ProductVendorImportController = class ProductVendorImportController {
     }
 };
 exports.ProductVendorImportController = ProductVendorImportController;
+__decorate([
+    (0, common_1.Get)('vendor-catalog/preview'),
+    (0, require_permissions_decorator_1.RequirePermission)('Product', 'Update'),
+    (0, swagger_1.ApiOperation)({ summary: 'Conteo de productos del proveedor para importar costos y precios' }),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [query_vendor_price_import_dto_1.QueryVendorPriceImportDto, Object]),
+    __metadata("design:returntype", void 0)
+], ProductVendorImportController.prototype, "previewCatalog", null);
+__decorate([
+    (0, common_1.Get)('vendor-catalog/template'),
+    (0, require_permissions_decorator_1.RequirePermission)('Product', 'Update'),
+    (0, swagger_1.ApiOperation)({ summary: 'Descargar template Excel de costos y precios por proveedor' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Archivo Excel generado' }),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Request)()),
+    __param(2, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [query_vendor_price_import_dto_1.QueryVendorPriceImportDto, Object, Object]),
+    __metadata("design:returntype", Promise)
+], ProductVendorImportController.prototype, "exportCatalogTemplate", null);
+__decorate([
+    (0, common_1.Post)('vendor-catalog'),
+    (0, require_permissions_decorator_1.RequirePermission)('Product', 'Update'),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', { limits: { fileSize: 5 * 1024 * 1024 } })),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
+    (0, swagger_1.ApiOperation)({ summary: 'Importar costos y precios por proveedor desde un solo Excel' }),
+    (0, swagger_1.ApiBody)({
+        schema: {
+            type: 'object',
+            required: ['file', 'vendor_id', 'price_list_id'],
+            properties: {
+                file: { type: 'string', format: 'binary' },
+                vendor_id: { type: 'string', format: 'uuid' },
+                price_list_id: { type: 'string', format: 'uuid' },
+            },
+        },
+    }),
+    __param(0, (0, common_1.UploadedFile)()),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, query_vendor_price_import_dto_1.QueryVendorPriceImportDto, Object]),
+    __metadata("design:returntype", void 0)
+], ProductVendorImportController.prototype, "importCatalog", null);
 __decorate([
     (0, common_1.Get)('vendor-costs/preview'),
     (0, require_permissions_decorator_1.RequirePermission)('Product', 'Update'),

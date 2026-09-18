@@ -24,6 +24,7 @@ class UpdateFiscalConfigurationDto {
     private_key;
     logo;
     status;
+    quotation_expiration_days;
 }
 exports.UpdateFiscalConfigurationDto = UpdateFiscalConfigurationDto;
 __decorate([
@@ -96,4 +97,32 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], UpdateFiscalConfigurationDto.prototype, "status", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Días de vigencia de cotizaciones. Vacío = no se cancelan solas. El proceso diario cancela las Creada al cumplir esos días.',
+        example: 15,
+        minimum: 1,
+        maximum: 3650,
+        nullable: true,
+    }),
+    (0, class_transformer_1.Transform)(({ value }) => {
+        if (value === undefined) {
+            return undefined;
+        }
+        if (value === null || value === '') {
+            return null;
+        }
+        const days = Number(value);
+        if (!Number.isFinite(days) || days <= 0) {
+            return null;
+        }
+        return Math.trunc(days);
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.ValidateIf)((_, value) => value !== null && value !== undefined),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(1),
+    (0, class_validator_1.Max)(3650),
+    __metadata("design:type", Object)
+], UpdateFiscalConfigurationDto.prototype, "quotation_expiration_days", void 0);
 //# sourceMappingURL=update-fiscal-configuration.dto.js.map

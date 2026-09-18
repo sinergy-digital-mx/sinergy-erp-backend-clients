@@ -20,6 +20,9 @@ export type PaymentDisplayCollectionInput = {
     amount_card_mxn?: number | string | null;
     amount_check_mxn?: number | string | null;
     amount_credit_mxn?: number | string | null;
+    card_payments?: Array<{
+        amount_mxn?: number | string | null;
+    }> | null;
 };
 export type PaymentDisplayPaymentInput = {
     payment_method: PosSalePaymentMethod | string;

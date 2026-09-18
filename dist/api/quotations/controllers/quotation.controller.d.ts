@@ -3,7 +3,7 @@ import { QuotationService } from '../services/quotation.service';
 import { QuotationDocumentsService } from '../services/quotation-documents.service';
 import { QuotationEmailService } from '../services/quotation-email.service';
 import { RegenerateDocumentDto } from '../../../common/dto/regenerate-document.dto';
-import { CreateQuotationDto, QueryQuotationDto, ConvertQuotationDto, UpdateQuotationNotesDto, QueryQuotationProductsSummaryDto, SendQuotationEmailDto } from '../dto';
+import { CreateQuotationDto, QueryQuotationDto, ConvertQuotationDto, UpdateQuotationNotesDto, QueryQuotationProductsSummaryDto, SendQuotationEmailDto, CreateQuotationLineItemDto, UpdateQuotationLineItemDto } from '../dto';
 export declare class QuotationController {
     private readonly quotationService;
     private readonly documentsService;
@@ -93,12 +93,15 @@ export declare class QuotationController {
             can_convert: boolean;
             can_cancel: boolean;
             can_edit: boolean;
+            can_edit_lines: boolean;
             can_edit_notes: boolean;
             can_send: boolean;
             customer_email: string | null;
             converted_to_sales_order_id: string | null;
             razon_social: string;
             sucursal: string | null;
+            expires_at: string | null;
+            quotation_expiration_days: number | null;
             fiscal_configuration: {
                 id: string;
                 razon_social: string;
@@ -147,6 +150,9 @@ export declare class QuotationController {
         line_items: {
             line_subtotal: number;
             line_discount_amount: number;
+            line_iva: number;
+            line_ieps: number;
+            line_total: number;
             applied_product_discount: {
                 id: string;
                 name: string | null;
@@ -224,6 +230,606 @@ export declare class QuotationController {
             discount_amount: number;
         } | null;
     }>;
+    addLineItem(id: string, dto: CreateQuotationLineItemDto, req: any): Promise<{
+        data: {
+            header: {
+                customer_display_name: string | null;
+                customer_summary: {
+                    id: number;
+                    name: string;
+                    lastname: string;
+                    company_name: string;
+                    fiscal_razon_social: string;
+                    display_name: string | null;
+                    is_walk_in: boolean;
+                } | null;
+                seller_user: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    pos_user_code: number | null;
+                    pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                } | null;
+                assigned_seller_user: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    pos_user_code: number | null;
+                    pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                } | null;
+                terminal_user: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    pos_user_code: number | null;
+                    pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                } | null;
+                applied_line_discounts: {
+                    line_item_id: string;
+                    product_id: string;
+                    product_name: string;
+                    product_sku: string | null;
+                    product_discount_id: string;
+                    discount_name: string;
+                    discount_type: import("../../../entities/products").ProductDiscountType;
+                    discount_value: number;
+                    quantity: number;
+                    discount_unit: number;
+                    discount_amount: number;
+                }[];
+                applied_global_discount: {
+                    global_discount_id: string;
+                    discount_name: string;
+                    discount_type: import("../../../entities/global-discounts/global-discount.entity").GlobalDiscountType;
+                    discount_value: number;
+                    discount_amount: number;
+                } | null;
+                discount_summary: {
+                    line_discount_total: number;
+                    global_discount_amount: number;
+                    discount_total: number;
+                    line_items: {
+                        line_item_id: string;
+                        product_id: string;
+                        product_name: string;
+                        product_sku: string | null;
+                        product_discount_id: string;
+                        discount_name: string;
+                        discount_type: import("../../../entities/products").ProductDiscountType;
+                        discount_value: number;
+                        quantity: number;
+                        discount_unit: number;
+                        discount_amount: number;
+                    }[];
+                    global_discount: {
+                        global_discount_id: string;
+                        discount_name: string;
+                        discount_type: import("../../../entities/global-discounts/global-discount.entity").GlobalDiscountType;
+                        discount_value: number;
+                        discount_amount: number;
+                    } | null;
+                };
+                can_convert: boolean;
+                can_cancel: boolean;
+                can_edit: boolean;
+                can_edit_lines: boolean;
+                can_edit_notes: boolean;
+                can_send: boolean;
+                customer_email: string | null;
+                converted_to_sales_order_id: string | null;
+                razon_social: string;
+                sucursal: string | null;
+                expires_at: string | null;
+                quotation_expiration_days: number | null;
+                fiscal_configuration: {
+                    id: string;
+                    razon_social: string;
+                    rfc: string;
+                } | null;
+                billing_branch_id: string | null;
+                billing_branch: {
+                    id: string;
+                    code: string;
+                    address: string;
+                    city: string;
+                    state: string;
+                    country: string;
+                    postal_code: string;
+                } | null;
+                id: string;
+                tenant: import("../../rbac").RBACTenant;
+                tenant_id: string;
+                folio: string;
+                fiscal_configuration_id: string;
+                warehouse_id: string | null;
+                customer: import("../../../entities/customers/customer.entity").Customer;
+                customer_id: number;
+                expected_delivery_date: Date;
+                quotation_type: string;
+                fiscal_razon_social: string | null;
+                general_status: string;
+                notes: string | null;
+                subtotal: number;
+                iva_total: number;
+                ieps_total: number;
+                discount_total: number;
+                global_discount: import("../../../entities/global-discounts/global-discount.entity").GlobalDiscount | null;
+                global_discount_id: string | null;
+                global_discount_amount: number;
+                total: number;
+                created_by: string;
+                terminal_user_id: string | null;
+                seller_user_id: string | null;
+                assigned_seller_user_id: string | null;
+                created_at: Date;
+                updated_by: string;
+                updated_at: Date;
+                line_items: import("../../../entities/quotations").QuotationDetail[];
+            };
+            line_items: any[];
+            documents: any[];
+            emails: {
+                id: string;
+                to_email: string;
+                cc: string[];
+                bcc: string[];
+                subject: string;
+                message: string | null;
+                sent_at: Date;
+                sent_by: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    display_name: string | null;
+                } | null;
+            }[];
+            discount_summary: {
+                line_discount_total: number;
+                global_discount_amount: number;
+                discount_total: number;
+                line_items: {
+                    line_item_id: string;
+                    product_id: string;
+                    product_name: string;
+                    product_sku: string | null;
+                    product_discount_id: string;
+                    discount_name: string;
+                    discount_type: import("../../../entities/products").ProductDiscountType;
+                    discount_value: number;
+                    quantity: number;
+                    discount_unit: number;
+                    discount_amount: number;
+                }[];
+                global_discount: {
+                    global_discount_id: string;
+                    discount_name: string;
+                    discount_type: import("../../../entities/global-discounts/global-discount.entity").GlobalDiscountType;
+                    discount_value: number;
+                    discount_amount: number;
+                } | null;
+            };
+            applied_line_discounts: {
+                line_item_id: string;
+                product_id: string;
+                product_name: string;
+                product_sku: string | null;
+                product_discount_id: string;
+                discount_name: string;
+                discount_type: import("../../../entities/products").ProductDiscountType;
+                discount_value: number;
+                quantity: number;
+                discount_unit: number;
+                discount_amount: number;
+            }[];
+            applied_global_discount: {
+                global_discount_id: string;
+                discount_name: string;
+                discount_type: import("../../../entities/global-discounts/global-discount.entity").GlobalDiscountType;
+                discount_value: number;
+                discount_amount: number;
+            } | null;
+        };
+    }>;
+    updateLineItem(id: string, lineItemId: string, dto: UpdateQuotationLineItemDto, req: any): Promise<{
+        data: {
+            header: {
+                customer_display_name: string | null;
+                customer_summary: {
+                    id: number;
+                    name: string;
+                    lastname: string;
+                    company_name: string;
+                    fiscal_razon_social: string;
+                    display_name: string | null;
+                    is_walk_in: boolean;
+                } | null;
+                seller_user: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    pos_user_code: number | null;
+                    pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                } | null;
+                assigned_seller_user: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    pos_user_code: number | null;
+                    pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                } | null;
+                terminal_user: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    pos_user_code: number | null;
+                    pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                } | null;
+                applied_line_discounts: {
+                    line_item_id: string;
+                    product_id: string;
+                    product_name: string;
+                    product_sku: string | null;
+                    product_discount_id: string;
+                    discount_name: string;
+                    discount_type: import("../../../entities/products").ProductDiscountType;
+                    discount_value: number;
+                    quantity: number;
+                    discount_unit: number;
+                    discount_amount: number;
+                }[];
+                applied_global_discount: {
+                    global_discount_id: string;
+                    discount_name: string;
+                    discount_type: import("../../../entities/global-discounts/global-discount.entity").GlobalDiscountType;
+                    discount_value: number;
+                    discount_amount: number;
+                } | null;
+                discount_summary: {
+                    line_discount_total: number;
+                    global_discount_amount: number;
+                    discount_total: number;
+                    line_items: {
+                        line_item_id: string;
+                        product_id: string;
+                        product_name: string;
+                        product_sku: string | null;
+                        product_discount_id: string;
+                        discount_name: string;
+                        discount_type: import("../../../entities/products").ProductDiscountType;
+                        discount_value: number;
+                        quantity: number;
+                        discount_unit: number;
+                        discount_amount: number;
+                    }[];
+                    global_discount: {
+                        global_discount_id: string;
+                        discount_name: string;
+                        discount_type: import("../../../entities/global-discounts/global-discount.entity").GlobalDiscountType;
+                        discount_value: number;
+                        discount_amount: number;
+                    } | null;
+                };
+                can_convert: boolean;
+                can_cancel: boolean;
+                can_edit: boolean;
+                can_edit_lines: boolean;
+                can_edit_notes: boolean;
+                can_send: boolean;
+                customer_email: string | null;
+                converted_to_sales_order_id: string | null;
+                razon_social: string;
+                sucursal: string | null;
+                expires_at: string | null;
+                quotation_expiration_days: number | null;
+                fiscal_configuration: {
+                    id: string;
+                    razon_social: string;
+                    rfc: string;
+                } | null;
+                billing_branch_id: string | null;
+                billing_branch: {
+                    id: string;
+                    code: string;
+                    address: string;
+                    city: string;
+                    state: string;
+                    country: string;
+                    postal_code: string;
+                } | null;
+                id: string;
+                tenant: import("../../rbac").RBACTenant;
+                tenant_id: string;
+                folio: string;
+                fiscal_configuration_id: string;
+                warehouse_id: string | null;
+                customer: import("../../../entities/customers/customer.entity").Customer;
+                customer_id: number;
+                expected_delivery_date: Date;
+                quotation_type: string;
+                fiscal_razon_social: string | null;
+                general_status: string;
+                notes: string | null;
+                subtotal: number;
+                iva_total: number;
+                ieps_total: number;
+                discount_total: number;
+                global_discount: import("../../../entities/global-discounts/global-discount.entity").GlobalDiscount | null;
+                global_discount_id: string | null;
+                global_discount_amount: number;
+                total: number;
+                created_by: string;
+                terminal_user_id: string | null;
+                seller_user_id: string | null;
+                assigned_seller_user_id: string | null;
+                created_at: Date;
+                updated_by: string;
+                updated_at: Date;
+                line_items: import("../../../entities/quotations").QuotationDetail[];
+            };
+            line_items: any[];
+            documents: any[];
+            emails: {
+                id: string;
+                to_email: string;
+                cc: string[];
+                bcc: string[];
+                subject: string;
+                message: string | null;
+                sent_at: Date;
+                sent_by: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    display_name: string | null;
+                } | null;
+            }[];
+            discount_summary: {
+                line_discount_total: number;
+                global_discount_amount: number;
+                discount_total: number;
+                line_items: {
+                    line_item_id: string;
+                    product_id: string;
+                    product_name: string;
+                    product_sku: string | null;
+                    product_discount_id: string;
+                    discount_name: string;
+                    discount_type: import("../../../entities/products").ProductDiscountType;
+                    discount_value: number;
+                    quantity: number;
+                    discount_unit: number;
+                    discount_amount: number;
+                }[];
+                global_discount: {
+                    global_discount_id: string;
+                    discount_name: string;
+                    discount_type: import("../../../entities/global-discounts/global-discount.entity").GlobalDiscountType;
+                    discount_value: number;
+                    discount_amount: number;
+                } | null;
+            };
+            applied_line_discounts: {
+                line_item_id: string;
+                product_id: string;
+                product_name: string;
+                product_sku: string | null;
+                product_discount_id: string;
+                discount_name: string;
+                discount_type: import("../../../entities/products").ProductDiscountType;
+                discount_value: number;
+                quantity: number;
+                discount_unit: number;
+                discount_amount: number;
+            }[];
+            applied_global_discount: {
+                global_discount_id: string;
+                discount_name: string;
+                discount_type: import("../../../entities/global-discounts/global-discount.entity").GlobalDiscountType;
+                discount_value: number;
+                discount_amount: number;
+            } | null;
+        };
+    }>;
+    removeLineItem(id: string, lineItemId: string, req: any): Promise<{
+        data: {
+            header: {
+                customer_display_name: string | null;
+                customer_summary: {
+                    id: number;
+                    name: string;
+                    lastname: string;
+                    company_name: string;
+                    fiscal_razon_social: string;
+                    display_name: string | null;
+                    is_walk_in: boolean;
+                } | null;
+                seller_user: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    pos_user_code: number | null;
+                    pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                } | null;
+                assigned_seller_user: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    pos_user_code: number | null;
+                    pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                } | null;
+                terminal_user: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    pos_user_code: number | null;
+                    pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+                } | null;
+                applied_line_discounts: {
+                    line_item_id: string;
+                    product_id: string;
+                    product_name: string;
+                    product_sku: string | null;
+                    product_discount_id: string;
+                    discount_name: string;
+                    discount_type: import("../../../entities/products").ProductDiscountType;
+                    discount_value: number;
+                    quantity: number;
+                    discount_unit: number;
+                    discount_amount: number;
+                }[];
+                applied_global_discount: {
+                    global_discount_id: string;
+                    discount_name: string;
+                    discount_type: import("../../../entities/global-discounts/global-discount.entity").GlobalDiscountType;
+                    discount_value: number;
+                    discount_amount: number;
+                } | null;
+                discount_summary: {
+                    line_discount_total: number;
+                    global_discount_amount: number;
+                    discount_total: number;
+                    line_items: {
+                        line_item_id: string;
+                        product_id: string;
+                        product_name: string;
+                        product_sku: string | null;
+                        product_discount_id: string;
+                        discount_name: string;
+                        discount_type: import("../../../entities/products").ProductDiscountType;
+                        discount_value: number;
+                        quantity: number;
+                        discount_unit: number;
+                        discount_amount: number;
+                    }[];
+                    global_discount: {
+                        global_discount_id: string;
+                        discount_name: string;
+                        discount_type: import("../../../entities/global-discounts/global-discount.entity").GlobalDiscountType;
+                        discount_value: number;
+                        discount_amount: number;
+                    } | null;
+                };
+                can_convert: boolean;
+                can_cancel: boolean;
+                can_edit: boolean;
+                can_edit_lines: boolean;
+                can_edit_notes: boolean;
+                can_send: boolean;
+                customer_email: string | null;
+                converted_to_sales_order_id: string | null;
+                razon_social: string;
+                sucursal: string | null;
+                expires_at: string | null;
+                quotation_expiration_days: number | null;
+                fiscal_configuration: {
+                    id: string;
+                    razon_social: string;
+                    rfc: string;
+                } | null;
+                billing_branch_id: string | null;
+                billing_branch: {
+                    id: string;
+                    code: string;
+                    address: string;
+                    city: string;
+                    state: string;
+                    country: string;
+                    postal_code: string;
+                } | null;
+                id: string;
+                tenant: import("../../rbac").RBACTenant;
+                tenant_id: string;
+                folio: string;
+                fiscal_configuration_id: string;
+                warehouse_id: string | null;
+                customer: import("../../../entities/customers/customer.entity").Customer;
+                customer_id: number;
+                expected_delivery_date: Date;
+                quotation_type: string;
+                fiscal_razon_social: string | null;
+                general_status: string;
+                notes: string | null;
+                subtotal: number;
+                iva_total: number;
+                ieps_total: number;
+                discount_total: number;
+                global_discount: import("../../../entities/global-discounts/global-discount.entity").GlobalDiscount | null;
+                global_discount_id: string | null;
+                global_discount_amount: number;
+                total: number;
+                created_by: string;
+                terminal_user_id: string | null;
+                seller_user_id: string | null;
+                assigned_seller_user_id: string | null;
+                created_at: Date;
+                updated_by: string;
+                updated_at: Date;
+                line_items: import("../../../entities/quotations").QuotationDetail[];
+            };
+            line_items: any[];
+            documents: any[];
+            emails: {
+                id: string;
+                to_email: string;
+                cc: string[];
+                bcc: string[];
+                subject: string;
+                message: string | null;
+                sent_at: Date;
+                sent_by: {
+                    id: string;
+                    first_name: string;
+                    last_name: string;
+                    display_name: string | null;
+                } | null;
+            }[];
+            discount_summary: {
+                line_discount_total: number;
+                global_discount_amount: number;
+                discount_total: number;
+                line_items: {
+                    line_item_id: string;
+                    product_id: string;
+                    product_name: string;
+                    product_sku: string | null;
+                    product_discount_id: string;
+                    discount_name: string;
+                    discount_type: import("../../../entities/products").ProductDiscountType;
+                    discount_value: number;
+                    quantity: number;
+                    discount_unit: number;
+                    discount_amount: number;
+                }[];
+                global_discount: {
+                    global_discount_id: string;
+                    discount_name: string;
+                    discount_type: import("../../../entities/global-discounts/global-discount.entity").GlobalDiscountType;
+                    discount_value: number;
+                    discount_amount: number;
+                } | null;
+            };
+            applied_line_discounts: {
+                line_item_id: string;
+                product_id: string;
+                product_name: string;
+                product_sku: string | null;
+                product_discount_id: string;
+                discount_name: string;
+                discount_type: import("../../../entities/products").ProductDiscountType;
+                discount_value: number;
+                quantity: number;
+                discount_unit: number;
+                discount_amount: number;
+            }[];
+            applied_global_discount: {
+                global_discount_id: string;
+                discount_name: string;
+                discount_type: import("../../../entities/global-discounts/global-discount.entity").GlobalDiscountType;
+                discount_value: number;
+                discount_amount: number;
+            } | null;
+        };
+    }>;
     findAll(query: QueryQuotationDto, req: any): Promise<{
         data: {
             seller_user: {
@@ -249,6 +855,8 @@ export declare class QuotationController {
             } | null;
             razon_social: string;
             sucursal: string | null;
+            expires_at: string | null;
+            quotation_expiration_days: number | null;
             fiscal_configuration: {
                 id: string;
                 razon_social: string;
@@ -300,6 +908,7 @@ export declare class QuotationController {
         limit: number;
         totalPages: number;
         can_view_all: boolean;
+        can_view_all_branches: boolean;
     }>;
     getProductsSummary(query: QueryQuotationProductsSummaryDto, req: any): Promise<import("../../inventory/dto/pos-session-inventory-summary-response.dto").PosSessionInventorySummaryResponseDto>;
     listSellers(req: any): Promise<{
@@ -394,12 +1003,15 @@ export declare class QuotationController {
                 can_convert: boolean;
                 can_cancel: boolean;
                 can_edit: boolean;
+                can_edit_lines: boolean;
                 can_edit_notes: boolean;
                 can_send: boolean;
                 customer_email: string | null;
                 converted_to_sales_order_id: string | null;
                 razon_social: string;
                 sucursal: string | null;
+                expires_at: string | null;
+                quotation_expiration_days: number | null;
                 fiscal_configuration: {
                     id: string;
                     razon_social: string;
@@ -591,12 +1203,15 @@ export declare class QuotationController {
                 can_convert: boolean;
                 can_cancel: boolean;
                 can_edit: boolean;
+                can_edit_lines: boolean;
                 can_edit_notes: boolean;
                 can_send: boolean;
                 customer_email: string | null;
                 converted_to_sales_order_id: string | null;
                 razon_social: string;
                 sucursal: string | null;
+                expires_at: string | null;
+                quotation_expiration_days: number | null;
                 fiscal_configuration: {
                     id: string;
                     razon_social: string;
@@ -645,6 +1260,9 @@ export declare class QuotationController {
             line_items: {
                 line_subtotal: number;
                 line_discount_amount: number;
+                line_iva: number;
+                line_ieps: number;
+                line_total: number;
                 applied_product_discount: {
                     id: string;
                     name: string | null;

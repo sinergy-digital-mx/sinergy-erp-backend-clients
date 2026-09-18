@@ -28,6 +28,7 @@ const billing_branch_entity_1 = require("../../../entities/billing/billing-branc
 const sales_order_documents_service_1 = require("./sales-order-documents.service");
 const sales_order_document_type_entity_1 = require("../../../entities/sales-orders/sales-order-document-type.entity");
 const escpos_util_1 = require("../utils/escpos.util");
+const pos_card_payments_util_1 = require("../../pos-shifts/utils/pos-card-payments.util");
 exports.SALES_ORDER_TICKET_RECIBO_NAMES = ['TICKET / RECIBO', 'TICKET_RECIBO'];
 let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrderPosReceiptService {
     salesOrderRepo;
@@ -415,8 +416,15 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
         else if (collection.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.MIXED) {
             if (transferMxn > 0)
                 lines.push((0, escpos_util_1.compactMoneyLine)('Transferencia:', (0, escpos_util_1.formatMoney)(transferMxn)));
-            if (cardMxn > 0)
+            const cardPayments = (0, pos_card_payments_util_1.cardPaymentsForResponse)(collection.card_payments, cardMxn, collection.card_reference);
+            if (cardPayments.length > 1) {
+                cardPayments.forEach((payment, index) => {
+                    lines.push((0, escpos_util_1.compactMoneyLine)(`Tarjeta ${index + 1}:`, (0, escpos_util_1.formatMoney)(payment.amount_mxn)));
+                });
+            }
+            else if (cardMxn > 0) {
                 lines.push((0, escpos_util_1.compactMoneyLine)('Tarjeta:', (0, escpos_util_1.formatMoney)(cardMxn)));
+            }
         }
         lines.push((0, escpos_util_1.compactMoneyLine)('Cambio Pesos:', (0, escpos_util_1.formatMoney)(changeMxn)));
         lines.push((0, escpos_util_1.compactMoneyLine)('Cambio Dolares:', (0, escpos_util_1.formatUsd)(changeUsd)));

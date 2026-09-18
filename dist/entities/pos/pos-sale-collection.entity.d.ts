@@ -26,6 +26,10 @@ export declare class PosSaleCollection {
     check_reference: string | null;
     amount_credit_mxn: number;
     card_reference: string | null;
+    card_payments: Array<{
+        amount_mxn: number;
+        reference: string | null;
+    }> | null;
     received_cash_mxn: number;
     received_cash_usd: number;
     change_cash_mxn: number;

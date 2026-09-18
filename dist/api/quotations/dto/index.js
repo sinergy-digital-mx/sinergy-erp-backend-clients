@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SendQuotationEmailDto = exports.QueryQuotationProductsSummaryDto = exports.UpdateQuotationNotesDto = exports.ConvertQuotationDto = exports.QueryQuotationDto = exports.CreateQuotationLineItemDto = exports.CreateQuotationDto = void 0;
+exports.UpdateQuotationLineItemDto = exports.SendQuotationEmailDto = exports.QueryQuotationProductsSummaryDto = exports.UpdateQuotationNotesDto = exports.ConvertQuotationDto = exports.QueryQuotationDto = exports.CreateQuotationLineItemDto = exports.CreateQuotationDto = void 0;
 var create_quotation_dto_1 = require("./create-quotation.dto");
 Object.defineProperty(exports, "CreateQuotationDto", { enumerable: true, get: function () { return create_quotation_dto_1.CreateQuotationDto; } });
 Object.defineProperty(exports, "CreateQuotationLineItemDto", { enumerable: true, get: function () { return create_quotation_dto_1.CreateQuotationLineItemDto; } });
@@ -14,4 +14,6 @@ var query_quotation_products_summary_dto_1 = require("./query-quotation-products
 Object.defineProperty(exports, "QueryQuotationProductsSummaryDto", { enumerable: true, get: function () { return query_quotation_products_summary_dto_1.QueryQuotationProductsSummaryDto; } });
 var send_quotation_email_dto_1 = require("./send-quotation-email.dto");
 Object.defineProperty(exports, "SendQuotationEmailDto", { enumerable: true, get: function () { return send_quotation_email_dto_1.SendQuotationEmailDto; } });
+var update_quotation_line_item_dto_1 = require("./update-quotation-line-item.dto");
+Object.defineProperty(exports, "UpdateQuotationLineItemDto", { enumerable: true, get: function () { return update_quotation_line_item_dto_1.UpdateQuotationLineItemDto; } });
 //# sourceMappingURL=index.js.map

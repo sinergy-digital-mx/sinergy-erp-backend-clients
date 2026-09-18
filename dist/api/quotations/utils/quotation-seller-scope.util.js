@@ -1,9 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.userCanViewAllQuotations = userCanViewAllQuotations;
+exports.userCanViewAllQuotationBranches = userCanViewAllQuotationBranches;
 exports.resolveQuotationSellerScopeUserId = resolveQuotationSellerScopeUserId;
 exports.quotationIsVisibleToSeller = quotationIsVisibleToSeller;
 exports.assertQuotationSellerAccess = assertQuotationSellerAccess;
+exports.quotationBillingBranchId = quotationBillingBranchId;
+exports.resolveQuotationBranchScopeIds = resolveQuotationBranchScopeIds;
+exports.quotationIsVisibleToBranches = quotationIsVisibleToBranches;
+exports.assertQuotationBranchAccess = assertQuotationBranchAccess;
 const common_1 = require("@nestjs/common");
 const entity_code_util_1 = require("../../rbac/utils/entity-code.util");
 function listJwtPermissionStrings(user) {
@@ -32,7 +37,7 @@ function listJwtPermissionStrings(user) {
     }
     return flat;
 }
-function userCanViewAllQuotations(user) {
+function jwtHasQuotationAction(user, actionNormalized) {
     return listJwtPermissionStrings(user).some((raw) => {
         const colon = raw.indexOf(':');
         if (colon <= 0) {
@@ -40,8 +45,14 @@ function userCanViewAllQuotations(user) {
         }
         const entity = raw.slice(0, colon);
         const action = raw.slice(colon + 1).replace(/[_-]/g, '').toLowerCase();
-        return (0, entity_code_util_1.entityCodesMatch)(entity, 'Quotation') && action === 'viewall';
+        return (0, entity_code_util_1.entityCodesMatch)(entity, 'Quotation') && action === actionNormalized;
     });
+}
+function userCanViewAllQuotations(user) {
+    return jwtHasQuotationAction(user, 'viewall');
+}
+function userCanViewAllQuotationBranches(user) {
+    return jwtHasQuotationAction(user, 'viewallbranches');
 }
 function resolveQuotationSellerScopeUserId(canViewAll, actorUserId, requestedSellerUserId) {
     if (!canViewAll) {
@@ -62,6 +73,35 @@ function assertQuotationSellerAccess(quotation, access) {
         return;
     }
     if (quotationIsVisibleToSeller(quotation, access.userId)) {
+        return;
+    }
+    throw new common_1.NotFoundException(`Cotización no encontrada: ${quotation.id}`);
+}
+function quotationBillingBranchId(quotation) {
+    return quotation.billing_branch_id ?? quotation.warehouse?.billing_branch_id ?? null;
+}
+function resolveQuotationBranchScopeIds(canViewAllBranches, assignedBranchIds, requestedBranchId) {
+    const requested = requestedBranchId?.trim();
+    if (canViewAllBranches) {
+        return requested ? [requested] : null;
+    }
+    if (requested) {
+        if (!assignedBranchIds.includes(requested)) {
+            throw new common_1.ForbiddenException('No puedes filtrar cotizaciones de otras sucursales');
+        }
+        return [requested];
+    }
+    return assignedBranchIds;
+}
+function quotationIsVisibleToBranches(quotation, assignedBranchIds) {
+    const branchId = quotationBillingBranchId(quotation);
+    return Boolean(branchId && assignedBranchIds.includes(branchId));
+}
+function assertQuotationBranchAccess(quotation, access) {
+    if (!access || access.canViewAllBranches) {
+        return;
+    }
+    if (quotationIsVisibleToBranches(quotation, access.assignedBranchIds ?? [])) {
         return;
     }
     throw new common_1.NotFoundException(`Cotización no encontrada: ${quotation.id}`);

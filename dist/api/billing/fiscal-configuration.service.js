@@ -99,6 +99,9 @@ let FiscalConfigurationService = class FiscalConfigurationService {
             patch.logo = dto.logo;
         if (dto.status !== undefined)
             patch.status = dto.status;
+        if (dto.quotation_expiration_days !== undefined) {
+            patch.quotation_expiration_days = dto.quotation_expiration_days;
+        }
         if (Object.keys(patch).length) {
             await this.repo.update({ id, tenant_id: tenantId }, patch);
         }

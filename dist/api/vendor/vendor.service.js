@@ -18,6 +18,28 @@ const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const vendor_entity_1 = require("../../entities/vendor/vendor.entity");
 const vendor_type_enum_1 = require("../../entities/vendor/vendor-type.enum");
+const vendor_profile_util_1 = require("./utils/vendor-profile.util");
+const COPY_IF_EMPTY = [
+    'company_name',
+    'street',
+    'city',
+    'state',
+    'zip_code',
+    'country',
+    'razon_social',
+    'rfc',
+    'tax_id',
+    'legal_name',
+    'persona_type',
+    'bank_name',
+    'bank_account_holder',
+    'bank_account_number',
+    'bank_clabe',
+    'bank_swift_bic',
+    'bank_iban',
+    'bank_currency',
+    'vendor_code',
+];
 let VendorService = class VendorService {
     repo;
     constructor(repo) {
@@ -67,11 +89,29 @@ let VendorService = class VendorService {
             });
         }
         queryBuilder.orderBy('vendor.created_at', 'DESC');
+        const catalog = await this.loadCatalog(tenantId);
+        if (query?.similar_only) {
+            const rows = await queryBuilder.getMany();
+            const similar = rows
+                .map((vendor) => this.toVendorView(vendor, catalog))
+                .filter((vendor) => vendor.looks_similar);
+            const total = similar.length;
+            const totalPages = Math.ceil(total / limit) || 0;
+            return {
+                data: similar.slice(skip, skip + limit),
+                total,
+                page,
+                limit,
+                totalPages,
+                hasNext: page < totalPages,
+                hasPrev: page > 1,
+            };
+        }
         const total = await queryBuilder.getCount();
         const data = await queryBuilder.skip(skip).take(limit).getMany();
         const totalPages = Math.ceil(total / limit);
         return {
-            data,
+            data: data.map((vendor) => this.toVendorView(vendor, catalog)),
             total,
             page,
             limit,
@@ -81,6 +121,51 @@ let VendorService = class VendorService {
         };
     }
     async findOne(id, tenantId) {
+        const vendor = await this.findEntity(id, tenantId);
+        const catalog = await this.loadCatalog(tenantId);
+        return this.toVendorView(vendor, catalog);
+    }
+    async findDuplicates(dto, tenantId) {
+        const catalog = await this.loadCatalog(tenantId);
+        const matches = (0, vendor_profile_util_1.findSimilarVendors)(dto, catalog);
+        return { found: matches.length > 0, matches };
+    }
+    async update(id, dto, tenantId) {
+        const vendor = await this.findEntity(id, tenantId);
+        const vendorType = dto.vendor_type ?? vendor.vendor_type ?? vendor_type_enum_1.VendorType.NATIONAL;
+        this.assertTypeSwitchValid(vendor, vendorType, dto);
+        const payload = this.buildPayload(dto, vendorType, vendor);
+        Object.assign(vendor, payload);
+        return this.saveVendor(vendor);
+    }
+    async remove(id, tenantId) {
+        const vendor = await this.findEntity(id, tenantId);
+        const catalog = await this.loadCatalog(tenantId);
+        const matches = (0, vendor_profile_util_1.findSimilarVendors)(vendor, catalog);
+        const purchaseCount = await this.countPurchaseOrders(vendor.id);
+        const target = await this.resolveMergeTarget(vendor, matches, catalog);
+        if (target) {
+            return this.mergeAndDelete(vendor, target, purchaseCount);
+        }
+        if (purchaseCount > 0) {
+            vendor.status = 'inactive';
+            await this.saveVendor(vendor);
+            return {
+                action: 'deactivated',
+                vendor_id: vendor.id,
+                purchase_orders_reassigned: 0,
+                message: 'No se eliminó: tiene compras y no hay otro proveedor parecido. Se desactivó para conservar el historial.',
+            };
+        }
+        await this.repo.remove(vendor);
+        return {
+            action: 'deleted',
+            vendor_id: id,
+            purchase_orders_reassigned: 0,
+            message: 'Proveedor eliminado',
+        };
+    }
+    async findEntity(id, tenantId) {
         const vendor = await this.repo.findOne({
             where: { id, tenant_id: tenantId },
         });
@@ -89,17 +174,142 @@ let VendorService = class VendorService {
         }
         return vendor;
     }
-    async update(id, dto, tenantId) {
-        const vendor = await this.findOne(id, tenantId);
-        const vendorType = dto.vendor_type ?? vendor.vendor_type ?? vendor_type_enum_1.VendorType.NATIONAL;
-        this.assertTypeSwitchValid(vendor, vendorType, dto);
-        const payload = this.buildPayload(dto, vendorType, vendor);
-        Object.assign(vendor, payload);
-        return this.saveVendor(vendor);
+    async loadCatalog(tenantId) {
+        if (typeof this.repo.find !== 'function') {
+            return [];
+        }
+        return this.repo.find({ where: { tenant_id: tenantId } });
     }
-    async remove(id, tenantId) {
-        const vendor = await this.findOne(id, tenantId);
-        await this.repo.remove(vendor);
+    toVendorView(vendor, catalog) {
+        const similar_vendors = (0, vendor_profile_util_1.findSimilarVendors)(vendor, catalog);
+        return Object.assign(vendor, {
+            profile_completeness: (0, vendor_profile_util_1.computeVendorCompleteness)(vendor),
+            looks_similar: similar_vendors.length > 0,
+            similar_vendors,
+        });
+    }
+    async resolveMergeTarget(vendor, matches, catalog) {
+        if (!matches.length) {
+            return null;
+        }
+        const purchaseCounts = await this.countPurchaseOrdersByVendor(matches.map((item) => item.id));
+        const completeness = new Map(catalog.map((item) => [item.id, (0, vendor_profile_util_1.computeVendorCompleteness)(item)]));
+        return (0, vendor_profile_util_1.pickBestSimilarVendor)(matches, catalog, purchaseCounts, completeness);
+    }
+    async mergeAndDelete(source, target, purchaseCount) {
+        await this.repo.manager.transaction(async (manager) => {
+            await this.fillTargetGaps(manager, source, target);
+            await this.reassignVendorReferences(manager, source.id, target.id);
+            await manager.delete(vendor_entity_1.Vendor, { id: source.id, tenant_id: source.tenant_id });
+        });
+        const message = purchaseCount > 0
+            ? `Proveedor eliminado. Las compras se conservaron en ${target.name}.`
+            : `Proveedor eliminado. Los datos se consolidaron en ${target.name}.`;
+        return {
+            action: 'merged',
+            vendor_id: source.id,
+            merged_into: { id: target.id, name: target.name },
+            purchase_orders_reassigned: purchaseCount,
+            message,
+        };
+    }
+    async fillTargetGaps(manager, source, target) {
+        const patch = {};
+        for (const field of COPY_IF_EMPTY) {
+            const current = target[field];
+            const incoming = source[field];
+            const currentEmpty = current === null || current === undefined || String(current).trim() === '';
+            const incomingFilled = incoming !== null && incoming !== undefined && String(incoming).trim() !== '';
+            if (currentEmpty && incomingFilled) {
+                patch[field] = incoming;
+            }
+        }
+        if ((target.credit_days === null || target.credit_days === undefined) && source.credit_days) {
+            patch.credit_days = source.credit_days;
+        }
+        if ((target.credit_limit === null ||
+            target.credit_limit === undefined ||
+            String(target.credit_limit).trim() === '' ||
+            Number(target.credit_limit) === 0) &&
+            source.credit_limit &&
+            Number(source.credit_limit) > 0) {
+            patch.credit_limit = source.credit_limit;
+        }
+        if (Object.keys(patch).length === 0) {
+            return;
+        }
+        await manager.update(vendor_entity_1.Vendor, { id: target.id, tenant_id: target.tenant_id }, patch);
+    }
+    async reassignVendorReferences(manager, sourceId, targetId) {
+        if (await this.tableExists(manager, 'inv_s_purchase_order_batch')) {
+            await manager.query('UPDATE inv_s_purchase_order_batch SET vendor_id = ? WHERE vendor_id = ?', [targetId, sourceId]);
+        }
+        if (await this.tableExists(manager, 'purchase_orders')) {
+            await manager.query('UPDATE purchase_orders SET vendor_id = ? WHERE vendor_id = ?', [
+                targetId,
+                sourceId,
+            ]);
+        }
+        if (await this.tableExists(manager, 'product_vendor_costs')) {
+            await manager.query(`DELETE pvc FROM product_vendor_costs pvc
+         INNER JOIN product_vendor_costs keep
+           ON keep.product_id = pvc.product_id
+          AND keep.product_uom_id = pvc.product_uom_id
+          AND keep.vendor_id = ?
+         WHERE pvc.vendor_id = ?`, [targetId, sourceId]);
+            await manager.query('UPDATE product_vendor_costs SET vendor_id = ? WHERE vendor_id = ?', [
+                targetId,
+                sourceId,
+            ]);
+        }
+        if (await this.tableExists(manager, 'vendor_product_prices')) {
+            await manager.query(`DELETE src FROM vendor_product_prices src
+         INNER JOIN vendor_product_prices keep
+           ON keep.product_id = src.product_id
+          AND keep.uom_id = src.uom_id
+          AND keep.vendor_id = ?
+         WHERE src.vendor_id = ?`, [targetId, sourceId]);
+            await manager.query('UPDATE vendor_product_prices SET vendor_id = ? WHERE vendor_id = ?', [
+                targetId,
+                sourceId,
+            ]);
+        }
+    }
+    async countPurchaseOrders(vendorId) {
+        const counts = await this.countPurchaseOrdersByVendor([vendorId]);
+        return counts.get(vendorId) ?? 0;
+    }
+    async countPurchaseOrdersByVendor(vendorIds) {
+        const counts = new Map();
+        if (!vendorIds.length || typeof this.repo.manager?.query !== 'function') {
+            return counts;
+        }
+        try {
+            const placeholders = vendorIds.map(() => '?').join(', ');
+            const rows = (await this.repo.manager.query(`SELECT vendor_id, COUNT(*) AS cnt
+         FROM inv_s_purchase_order_batch
+         WHERE vendor_id IN (${placeholders})
+         GROUP BY vendor_id`, vendorIds));
+            for (const row of rows ?? []) {
+                counts.set(row.vendor_id, Number(row.cnt) || 0);
+            }
+        }
+        catch {
+            return counts;
+        }
+        return counts;
+    }
+    async tableExists(manager, tableName) {
+        try {
+            const rows = (await manager.query(`SELECT 1 AS ok
+         FROM information_schema.tables
+         WHERE table_schema = DATABASE() AND table_name = ?
+         LIMIT 1`, [tableName]));
+            return Array.isArray(rows) && rows.length > 0;
+        }
+        catch {
+            return false;
+        }
     }
     assertTypeSwitchValid(existing, nextType, dto) {
         if (existing.vendor_type === nextType)

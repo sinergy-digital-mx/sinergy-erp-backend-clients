@@ -22,6 +22,7 @@ const s3_service_1 = require("../../common/services/s3.service");
 const billing_branch_entity_1 = require("../../entities/billing/billing-branch.entity");
 const warehouse_entity_1 = require("../../entities/warehouse/warehouse.entity");
 const user_entity_1 = require("../../entities/users/user.entity");
+const user_billing_branch_entity_1 = require("../../entities/users/user-billing-branch.entity");
 const customer_entity_1 = require("../../entities/customers/customer.entity");
 const quotation_controller_1 = require("./controllers/quotation.controller");
 const quotation_service_1 = require("./services/quotation.service");
@@ -29,6 +30,7 @@ const quotation_folio_service_1 = require("./services/quotation-folio.service");
 const quotation_pdf_service_1 = require("./services/quotation-pdf.service");
 const quotation_documents_service_1 = require("./services/quotation-documents.service");
 const quotation_email_service_1 = require("./services/quotation-email.service");
+const quotation_expiration_service_1 = require("./services/quotation-expiration.service");
 let QuotationsModule = class QuotationsModule {
 };
 exports.QuotationsModule = QuotationsModule;
@@ -44,6 +46,7 @@ exports.QuotationsModule = QuotationsModule = __decorate([
                 billing_branch_entity_1.BillingBranch,
                 warehouse_entity_1.Warehouse,
                 user_entity_1.User,
+                user_billing_branch_entity_1.UserBillingBranch,
                 customer_entity_1.Customer,
             ]),
             auth_module_1.AuthModule,
@@ -62,6 +65,7 @@ exports.QuotationsModule = QuotationsModule = __decorate([
             quotation_pdf_service_1.QuotationPdfService,
             quotation_documents_service_1.QuotationDocumentsService,
             quotation_email_service_1.QuotationEmailService,
+            quotation_expiration_service_1.QuotationExpirationService,
             s3_service_1.S3Service,
         ],
         exports: [quotation_service_1.QuotationService],

@@ -42,7 +42,10 @@ export declare function mapPosSaleCollection(collection: PosSaleCollection): {
     transfer_reference: string | null;
     amount_card_mxn: number;
     amount_credit_mxn: number;
+    amount_check_mxn: number;
+    check_reference: string | null;
     card_reference: string | null;
+    card_payments: import("../utils/pos-card-payments.util").PosCardPayment[];
     received_cash_mxn: number;
     received_cash_usd: number;
     change_cash_mxn: number;

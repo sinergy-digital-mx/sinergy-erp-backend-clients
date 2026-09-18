@@ -35,6 +35,7 @@ let FiscalConfiguration = class FiscalConfiguration {
     finkok_stamps_counter;
     finkok_stamps_credit;
     last_finkok_sync_at;
+    quotation_expiration_days;
     branches;
     created_at;
     updated_at;
@@ -158,6 +159,10 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'timestamp', nullable: true }),
     __metadata("design:type", Object)
 ], FiscalConfiguration.prototype, "last_finkok_sync_at", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', nullable: true }),
+    __metadata("design:type", Object)
+], FiscalConfiguration.prototype, "quotation_expiration_days", void 0);
 __decorate([
     (0, typeorm_1.OneToMany)(() => billing_branch_entity_1.BillingBranch, (branch) => branch.fiscal_configuration),
     __metadata("design:type", Array)

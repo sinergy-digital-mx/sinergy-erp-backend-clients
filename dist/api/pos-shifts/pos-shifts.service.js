@@ -35,6 +35,7 @@ const sales_order_pos_receipt_service_1 = require("../sales-orders/services/sale
 const sales_order_service_1 = require("../sales-orders/services/sales-order.service");
 const pos_sale_collection_mapper_1 = require("./mappers/pos-sale-collection.mapper");
 const cash_drawer_1 = require("./utils/cash-drawer");
+const pos_card_payments_util_1 = require("./utils/pos-card-payments.util");
 const unclosed_shift_alert_1 = require("./utils/unclosed-shift-alert");
 const customer_credit_service_1 = require("../customers/services/customer-credit.service");
 const fiscal_invoice_readiness_util_1 = require("../customers/utils/fiscal-invoice-readiness.util");
@@ -542,6 +543,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             check_reference: payment.checkReference ?? null,
             amount_credit_mxn: payment.amountCreditMxn,
             card_reference: payment.cardReference ?? null,
+            card_payments: payment.cardPayments.length > 1 ? payment.cardPayments : null,
             received_cash_mxn: payment.receivedCashMxn,
             received_cash_usd: payment.receivedCashUsd,
             change_cash_mxn: payment.changeCashMxn,
@@ -703,7 +705,17 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         const amountCashMxn = Number(dto.amount_cash_mxn ?? 0);
         const amountCashUsd = Number(dto.amount_cash_usd ?? 0);
         const amountTransferMxn = Number(dto.amount_transfer_mxn ?? 0);
-        const amountCardMxn = Number(dto.amount_card_mxn ?? 0);
+        const cardPayments = (0, pos_card_payments_util_1.normalizeCardPayments)({
+            card_payments: dto.card_payments,
+            amount_card_mxn: dto.amount_card_mxn,
+            card_reference: dto.card_reference,
+        });
+        const amountCardMxn = (0, pos_card_payments_util_1.sumCardPayments)(cardPayments);
+        if (dto.amount_card_mxn != null &&
+            cardPayments.length > 0 &&
+            Math.abs(amountCardMxn - Number(dto.amount_card_mxn)) > 0.01) {
+            throw new common_1.BadRequestException('amount_card_mxn debe coincidir con la suma de card_payments');
+        }
         const amountCheckMxn = Number(dto.amount_check_mxn ?? 0);
         const amountCreditMxn = dto.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CREDIT
             ? Number(dto.amount_credit_mxn ?? orderTotal)
@@ -734,6 +746,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             amountCardMxn,
             amountCheckMxn,
             amountCreditMxn,
+            cardPaymentCount: cardPayments.length,
         });
         const receivedCashMxn = Number(dto.received_cash_mxn ?? amountCashMxn);
         const receivedCashUsd = Number(dto.received_cash_usd ?? amountCashUsd);
@@ -755,7 +768,8 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             amountCheckMxn,
             checkReference: dto.check_reference?.trim() ?? null,
             amountCreditMxn,
-            cardReference: dto.card_reference?.trim() ?? null,
+            cardReference: (0, pos_card_payments_util_1.firstCardReference)(cardPayments) ?? dto.card_reference?.trim() ?? null,
+            cardPayments,
             receivedCashMxn,
             receivedCashUsd,
             changeCashMxn,
@@ -763,14 +777,11 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         };
     }
     assertPaymentMethodShape(method, amounts) {
-        const { amountCashMxn, amountCashUsd, amountTransferMxn, amountCardMxn, amountCheckMxn, amountCreditMxn, } = amounts;
+        const { amountCashMxn, amountCashUsd, amountTransferMxn, amountCardMxn, amountCheckMxn, amountCreditMxn, cardPaymentCount, } = amounts;
         const cashTotal = amountCashMxn + amountCashUsd;
-        const nonZeroMethods = [
-            cashTotal > 0,
-            amountTransferMxn > 0,
-            amountCardMxn > 0,
-            amountCheckMxn > 0,
-        ].filter(Boolean).length;
+        const cardParts = cardPaymentCount > 0 ? cardPaymentCount : amountCardMxn > 0 ? 1 : 0;
+        const mixedParts = [cashTotal > 0, amountTransferMxn > 0, amountCheckMxn > 0].filter(Boolean).length +
+            cardParts;
         switch (method) {
             case pos_sale_payment_method_enum_1.PosSalePaymentMethod.CASH:
                 if (cashTotal <= 0 ||
@@ -791,6 +802,9 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 }
                 break;
             case pos_sale_payment_method_enum_1.PosSalePaymentMethod.CARD:
+                if (cardParts > 1) {
+                    throw new common_1.BadRequestException('Varias tarjetas se cobran en mixto. Envía payment_method mixed con card_payments');
+                }
                 if (amountCardMxn <= 0 ||
                     cashTotal > 0 ||
                     amountTransferMxn > 0 ||
@@ -809,8 +823,8 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 }
                 break;
             case pos_sale_payment_method_enum_1.PosSalePaymentMethod.MIXED:
-                if (nonZeroMethods < 2 || amountCreditMxn > 0) {
-                    throw new common_1.BadRequestException('payment_method mixed requiere al menos dos formas de pago entre efectivo, transferencia, tarjeta y cheque');
+                if (mixedParts < 2 || amountCreditMxn > 0) {
+                    throw new common_1.BadRequestException('payment_method mixed requiere al menos dos formas de pago (efectivo, transferencia, cheque o dos o más tarjetas)');
                 }
                 break;
             case pos_sale_payment_method_enum_1.PosSalePaymentMethod.CREDIT:

@@ -20,13 +20,16 @@ const sales_order_entity_1 = require("../../../entities/sales-orders/sales-order
 const sales_order_detail_entity_1 = require("../../../entities/sales-orders/sales-order-detail.entity");
 const sales_order_payment_entity_1 = require("../../../entities/sales-orders/sales-order-payment.entity");
 const pos_sale_collection_entity_1 = require("../../../entities/pos/pos-sale-collection.entity");
+const electronic_invoice_entity_1 = require("../../../entities/electronic-invoicing/electronic-invoice.entity");
 const excel_export_util_1 = require("../../../common/utils/excel-export.util");
 const sales_order_collection_channel_util_1 = require("../utils/sales-order-collection-channel.util");
+const sales_order_invoice_export_util_1 = require("../utils/sales-order-invoice-export.util");
 let SalesOrderExportService = class SalesOrderExportService {
     soRepo;
     detailRepo;
     paymentRepo;
     posCollectionRepo;
+    invoiceRepo;
     headerColumns = [
         { header: 'Folio', key: 'folio', width: 14 },
         { header: 'Fecha creación', key: 'created_at', width: 18, type: 'date' },
@@ -47,6 +50,7 @@ let SalesOrderExportService = class SalesOrderExportService {
         { header: 'Vendedor', key: 'seller_name', width: 22 },
         { header: 'Comisionado', key: 'assigned_seller_name', width: 24 },
         { header: 'Notas', key: 'notes', width: 30 },
+        ...sales_order_invoice_export_util_1.SALES_ORDER_INVOICE_EXPORT_COLUMNS,
     ];
     detailColumns = [
         { header: 'Folio orden', key: 'folio', width: 14 },
@@ -69,16 +73,21 @@ let SalesOrderExportService = class SalesOrderExportService {
         { header: 'IVA %', key: 'iva_percentage', width: 10, type: 'percent' },
         { header: 'Subtotal línea', key: 'line_subtotal', width: 14, type: 'currency' },
         { header: 'Total línea', key: 'line_total', width: 14, type: 'currency' },
+        ...sales_order_invoice_export_util_1.SALES_ORDER_INVOICE_EXPORT_COLUMNS,
     ];
-    constructor(soRepo, detailRepo, paymentRepo, posCollectionRepo) {
+    constructor(soRepo, detailRepo, paymentRepo, posCollectionRepo, invoiceRepo) {
         this.soRepo = soRepo;
         this.detailRepo = detailRepo;
         this.paymentRepo = paymentRepo;
         this.posCollectionRepo = posCollectionRepo;
+        this.invoiceRepo = invoiceRepo;
     }
     async exportHeaders(tenantId, filters) {
         const orders = await this.fetchOrders(tenantId, filters);
-        const channelByOrder = await this.loadCollectionChannels(tenantId, orders);
+        const [channelByOrder, invoiceByOrder] = await Promise.all([
+            this.loadCollectionChannels(tenantId, orders),
+            this.loadInvoicesByOrder(tenantId, orders.map((so) => so.id)),
+        ]);
         const rows = orders.map((so) => ({
             folio: so.folio,
             created_at: (0, excel_export_util_1.formatExportDateTime)(so.created_at),
@@ -99,6 +108,7 @@ let SalesOrderExportService = class SalesOrderExportService {
             seller_name: this.formatUserName(so.seller_user),
             assigned_seller_name: this.formatUserName(so.assigned_seller_user),
             notes: so.notes ?? '',
+            ...(0, sales_order_invoice_export_util_1.mapInvoiceExportRow)(invoiceByOrder.get(so.id) ?? [], excel_export_util_1.formatExportDateTime),
         }));
         return (0, excel_export_util_1.buildStyledExcelBuffer)({
             sheetName: 'Cabeceras',
@@ -144,9 +154,17 @@ let SalesOrderExportService = class SalesOrderExportService {
             .addOrderBy('d.created_at', 'ASC')
             .getMany();
         const filtered = this.applyDetailFilters(details, filters);
-        const channelByOrder = await this.loadCollectionChannels(tenantId, filtered
-            .map((d) => d.sales_order)
-            .filter((so) => !!so));
+        const orderIds = [
+            ...new Set(filtered
+                .map((d) => d.sales_order?.id)
+                .filter((id) => !!id)),
+        ];
+        const [channelByOrder, invoiceByOrder] = await Promise.all([
+            this.loadCollectionChannels(tenantId, filtered
+                .map((d) => d.sales_order)
+                .filter((so) => !!so)),
+            this.loadInvoicesByOrder(tenantId, orderIds),
+        ]);
         const rows = filtered.map((d) => {
             const qty = (0, excel_export_util_1.num)(d.quantity);
             const unitPrice = (0, excel_export_util_1.num)(d.unit_price);
@@ -180,6 +198,9 @@ let SalesOrderExportService = class SalesOrderExportService {
                 iva_percentage: (0, excel_export_util_1.num)(d.iva_percentage),
                 line_subtotal: lineSubtotal,
                 line_total: lineTotal,
+                ...(d.sales_order
+                    ? (0, sales_order_invoice_export_util_1.mapInvoiceExportRow)(invoiceByOrder.get(d.sales_order.id) ?? [], excel_export_util_1.formatExportDateTime)
+                    : (0, sales_order_invoice_export_util_1.emptyInvoiceExportRow)()),
             };
         });
         return (0, excel_export_util_1.buildStyledExcelBuffer)({
@@ -339,6 +360,45 @@ let SalesOrderExportService = class SalesOrderExportService {
         ]);
         return (0, sales_order_collection_channel_util_1.mapCollectionChannelByOrderId)(uniqueOrders, collections, payments);
     }
+    async loadInvoicesByOrder(tenantId, orderIds) {
+        if (orderIds.length === 0) {
+            return new Map();
+        }
+        const invoices = await this.invoiceRepo.find({
+            where: {
+                tenant_id: tenantId,
+                source_module: 'sales_orders',
+                source_id: (0, typeorm_2.In)(orderIds),
+            },
+            select: [
+                'id',
+                'source_id',
+                'uuid',
+                'series',
+                'folio',
+                'tipo_comprobante',
+                'rfc_emisor',
+                'rfc_receptor',
+                'receptor_nombre',
+                'subtotal',
+                'total',
+                'currency',
+                'stamped_at',
+                'stamp_status',
+                'stamp_error_message',
+                'cancel_motivo',
+                'cancel_replacement_uuid',
+                'sat_status',
+                'sat_es_cancelable',
+                'sat_estatus_cancelacion',
+                'sat_codigo_estatus',
+                'sat_last_sync_at',
+                'metadata',
+                'created_at',
+            ],
+        });
+        return (0, sales_order_invoice_export_util_1.groupInvoicesByOrderId)(invoices);
+    }
     formatCustomerName(so) {
         const c = so.customer;
         if (!c)
@@ -393,7 +453,9 @@ exports.SalesOrderExportService = SalesOrderExportService = __decorate([
     __param(1, (0, typeorm_1.InjectRepository)(sales_order_detail_entity_1.SalesOrderDetail)),
     __param(2, (0, typeorm_1.InjectRepository)(sales_order_payment_entity_1.SalesOrderPayment)),
     __param(3, (0, typeorm_1.InjectRepository)(pos_sale_collection_entity_1.PosSaleCollection)),
+    __param(4, (0, typeorm_1.InjectRepository)(electronic_invoice_entity_1.ElectronicInvoice)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository])

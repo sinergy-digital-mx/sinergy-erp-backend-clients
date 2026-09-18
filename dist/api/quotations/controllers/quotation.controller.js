@@ -45,9 +45,21 @@ let QuotationController = class QuotationController {
     updateNotes(id, dto, req) {
         return this.quotationService.updateNotes(id, dto, req.user.tenant_id, req.user.id, this.sellerAccess(req));
     }
+    async addLineItem(id, dto, req) {
+        await this.quotationService.addLineItem(id, dto, req.user.tenant_id, req.user.id, this.sellerAccess(req));
+        return this.findOne(id, req);
+    }
+    async updateLineItem(id, lineItemId, dto, req) {
+        await this.quotationService.updateLineItem(id, lineItemId, dto, req.user.tenant_id, req.user.id, this.sellerAccess(req));
+        return this.findOne(id, req);
+    }
+    async removeLineItem(id, lineItemId, req) {
+        await this.quotationService.removeLineItem(id, lineItemId, req.user.tenant_id, req.user.id, this.sellerAccess(req));
+        return this.findOne(id, req);
+    }
     findAll(query, req) {
         const access = this.sellerAccess(req);
-        return this.quotationService.findAll(req.user.tenant_id, access.userId, access.canViewAll, query);
+        return this.quotationService.findAll(req.user.tenant_id, access.userId, access.canViewAll, access.canViewAllBranches, query);
     }
     getProductsSummary(query, req) {
         return this.productsPicker.getSummary(req.user.tenant_id, query);
@@ -96,6 +108,7 @@ let QuotationController = class QuotationController {
         return {
             userId: (0, request_user_util_1.resolveRequestUserId)(req.user),
             canViewAll: (0, quotation_seller_scope_util_1.userCanViewAllQuotations)(req.user),
+            canViewAllBranches: (0, quotation_seller_scope_util_1.userCanViewAllQuotationBranches)(req.user),
         };
     }
 };
@@ -137,10 +150,52 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], QuotationController.prototype, "updateNotes", null);
 __decorate([
+    (0, common_1.Post)(':id/line-items'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Agregar una línea a la cotización',
+        description: 'Solo Creada. No usar PUT para una sola línea. Recalcula totales y regenera el PDF.',
+    }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, dto_1.CreateQuotationLineItemDto, Object]),
+    __metadata("design:returntype", Promise)
+], QuotationController.prototype, "addLineItem", null);
+__decorate([
+    (0, common_1.Patch)(':id/line-items/:lineItemId'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Editar una línea de la cotización',
+        description: 'Cantidad, precio, IVA e IEPS. Recalcula totales. Solo Creada.',
+    }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Param)('lineItemId')),
+    __param(2, (0, common_1.Body)()),
+    __param(3, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, dto_1.UpdateQuotationLineItemDto, Object]),
+    __metadata("design:returntype", Promise)
+], QuotationController.prototype, "updateLineItem", null);
+__decorate([
+    (0, common_1.Delete)(':id/line-items/:lineItemId'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Eliminar una línea de la cotización',
+        description: 'Recalcula totales. Debe quedar al menos un producto.',
+    }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Param)('lineItemId')),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object]),
+    __metadata("design:returntype", Promise)
+], QuotationController.prototype, "removeLineItem", null);
+__decorate([
     (0, common_1.Get)(),
     (0, swagger_1.ApiOperation)({
         summary: 'Listar cotizaciones',
-        description: 'Sin Quotation:ViewAll: solo las suyas (vendedor POS o comisionado). Con ViewAll: todas, con filtro opcional assigned_seller_user_id.',
+        description: 'Sin ViewAll: solo las suyas (vendedor o comisionado). Sin ViewAllBranches: solo sucursales asignadas.',
     }),
     __param(0, (0, common_1.Query)()),
     __param(1, (0, common_1.Req)()),

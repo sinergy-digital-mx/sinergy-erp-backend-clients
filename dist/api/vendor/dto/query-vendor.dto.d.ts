@@ -7,4 +7,5 @@ export declare class QueryVendorDto {
     state?: string;
     country?: string;
     vendor_type?: VendorType;
+    similar_only?: boolean;
 }
