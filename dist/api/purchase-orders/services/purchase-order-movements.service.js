@@ -25,6 +25,7 @@ const inventory_audit_line_entity_1 = require("../../../entities/inventory/inven
 const inventory_audit_status_enum_1 = require("../../../entities/inventory/inventory-audit-status.enum");
 const sales_order_batch_allocation_entity_1 = require("../../../entities/sales-orders/sales-order-batch-allocation.entity");
 const user_entity_1 = require("../../../entities/users/user.entity");
+const api_datetime_util_1 = require("../../../common/utils/api-datetime.util");
 const user_display_name_util_1 = require("../utils/user-display-name.util");
 const purchase_order_activity_service_1 = require("./purchase-order-activity.service");
 const purchase_order_movements_1 = require("../constants/purchase-order-movements");
@@ -291,7 +292,7 @@ let PurchaseOrderMovementsService = class PurchaseOrderMovementsService {
         const type = activity.type;
         return {
             id: `activity:${activity.id}`,
-            occurred_at: activity.occurred_at,
+            occurred_at: (0, api_datetime_util_1.parseDbDateTimeAsUtc)(activity.occurred_at) ?? new Date(0),
             type,
             type_label: purchase_order_movements_1.PURCHASE_ORDER_MOVEMENT_TYPE_LABELS[type] ?? activity.title,
             title: activity.title,
@@ -305,7 +306,7 @@ let PurchaseOrderMovementsService = class PurchaseOrderMovementsService {
     movement(input) {
         return {
             id: input.id,
-            occurred_at: input.occurred_at,
+            occurred_at: (0, api_datetime_util_1.parseDbDateTimeAsUtc)(input.occurred_at) ?? new Date(0),
             type: input.type,
             type_label: purchase_order_movements_1.PURCHASE_ORDER_MOVEMENT_TYPE_LABELS[input.type],
             title: purchase_order_movements_1.PURCHASE_ORDER_MOVEMENT_TYPE_LABELS[input.type],

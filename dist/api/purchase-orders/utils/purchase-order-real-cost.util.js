@@ -5,6 +5,7 @@ exports.realCostLineQuantity = realCostLineQuantity;
 exports.parseCustomsExchangeRate = parseCustomsExchangeRate;
 exports.extrasNeedExchangeRate = extrasNeedExchangeRate;
 exports.assertExchangeRateIfNeeded = assertExchangeRateIfNeeded;
+exports.derivePersistedLandedCashTotals = derivePersistedLandedCashTotals;
 exports.computePurchaseOrderRealCost = computePurchaseOrderRealCost;
 exports.isRealCostEnabled = isRealCostEnabled;
 const common_1 = require("@nestjs/common");
@@ -50,6 +51,33 @@ function convertAmount(amount, from, to, exchangeRate) {
     }
     return from === 'USD' ? amount * exchangeRate : amount / exchangeRate;
 }
+function sumConvertedExtras(extras, to, exchangeRate) {
+    return extras.reduce((sum, extra) => {
+        const amount = Math.max(parseRealCostNumber(extra.amount), 0);
+        const converted = convertAmount(amount, extra.currency, to, exchangeRate);
+        return converted == null ? sum : sum + converted;
+    }, 0);
+}
+function derivePersistedLandedCashTotals(input) {
+    const merchandiseMxn = (0, purchase_order_line_breakdown_util_1.roundPoMoney)(parseRealCostNumber(input.merchandise_mxn));
+    const extrasMxn = (0, purchase_order_line_breakdown_util_1.roundPoMoney)(parseRealCostNumber(input.extras_mxn));
+    const totalMxn = (0, purchase_order_line_breakdown_util_1.roundPoMoney)(merchandiseMxn + extrasMxn);
+    const rate = input.customs_exchange_rate == null || input.customs_exchange_rate === ''
+        ? null
+        : parseRealCostNumber(input.customs_exchange_rate, 0);
+    if (rate == null || rate <= 0) {
+        return {
+            extras_usd: null,
+            total_usd: null,
+            total_mxn: totalMxn,
+        };
+    }
+    return {
+        extras_usd: (0, purchase_order_line_breakdown_util_1.roundPoMoney)(extrasMxn / rate),
+        total_usd: (0, purchase_order_line_breakdown_util_1.roundPoMoney)(totalMxn / rate),
+        total_mxn: totalMxn,
+    };
+}
 function computePurchaseOrderRealCost(input) {
     const paymentCurrency = input.payment_currency;
     const exchangeRate = parseCustomsExchangeRate(input.customs_exchange_rate);
@@ -65,11 +93,9 @@ function computePurchaseOrderRealCost(input) {
     const merchandiseAmount = preparedLines.reduce((sum, line) => sum + line.quantity * line.vendorUnitCost, 0);
     const extrasAmount = extras.reduce((sum, extra) => sum + Math.max(parseRealCostNumber(extra.amount), 0), 0);
     const merchandiseMxn = convertAmount(merchandiseAmount, paymentCurrency, 'MXN', exchangeRate);
-    const extrasMxn = extras.reduce((sum, extra) => {
-        const amount = Math.max(parseRealCostNumber(extra.amount), 0);
-        const converted = convertAmount(amount, extra.currency, 'MXN', exchangeRate);
-        return converted == null ? sum : sum + converted;
-    }, 0);
+    const extrasMxn = sumConvertedExtras(extras, 'MXN', exchangeRate);
+    const extrasUsd = sumConvertedExtras(extras, 'USD', exchangeRate);
+    const merchandiseUsd = convertAmount(merchandiseAmount, paymentCurrency, 'USD', exchangeRate);
     const extrasForRatio = merchandiseMxn != null && (hasExtras || exchangeRate != null)
         ? extrasMxn
         : extras
@@ -92,15 +118,30 @@ function computePurchaseOrderRealCost(input) {
             real_unit_cost_mxn: hasRealCost && realMxn != null ? (0, purchase_order_line_breakdown_util_1.roundPoUnitCost)(realMxn) : null,
         };
     });
+    const extrasMxnResult = hasRealCost && (merchandiseMxn != null || extras.every((extra) => extra.currency === 'MXN'))
+        ? (0, purchase_order_line_breakdown_util_1.roundPoMoney)(extrasMxn)
+        : null;
+    const extrasUsdResult = extrasMxnResult != null && exchangeRate != null
+        ? (0, purchase_order_line_breakdown_util_1.roundPoMoney)(extrasMxnResult / exchangeRate)
+        : hasRealCost && extras.every((extra) => extra.currency === 'USD')
+            ? (0, purchase_order_line_breakdown_util_1.roundPoMoney)(extrasUsd)
+            : null;
+    const merchandiseMxnResult = merchandiseMxn == null ? null : (0, purchase_order_line_breakdown_util_1.roundPoMoney)(merchandiseMxn);
+    const merchandiseUsdResult = merchandiseUsd == null ? null : (0, purchase_order_line_breakdown_util_1.roundPoMoney)(merchandiseUsd);
     return {
         has_real_cost: hasRealCost,
         increment_ratio: incrementRatio,
         increment_percentage: incrementPercentage,
         merchandise_amount: (0, purchase_order_line_breakdown_util_1.roundPoMoney)(merchandiseAmount),
-        merchandise_mxn: merchandiseMxn == null ? null : (0, purchase_order_line_breakdown_util_1.roundPoMoney)(merchandiseMxn),
+        merchandise_mxn: merchandiseMxnResult,
         extras_amount: (0, purchase_order_line_breakdown_util_1.roundPoMoney)(extrasAmount),
-        extras_mxn: hasRealCost && (merchandiseMxn != null || extras.every((e) => e.currency === 'MXN'))
-            ? (0, purchase_order_line_breakdown_util_1.roundPoMoney)(extrasMxn)
+        extras_mxn: extrasMxnResult,
+        extras_usd: extrasUsdResult,
+        total_usd: merchandiseUsdResult != null && extrasUsdResult != null
+            ? (0, purchase_order_line_breakdown_util_1.roundPoMoney)(merchandiseUsdResult + extrasUsdResult)
+            : null,
+        total_mxn: merchandiseMxnResult != null && extrasMxnResult != null
+            ? (0, purchase_order_line_breakdown_util_1.roundPoMoney)(merchandiseMxnResult + extrasMxnResult)
             : null,
         lines,
     };

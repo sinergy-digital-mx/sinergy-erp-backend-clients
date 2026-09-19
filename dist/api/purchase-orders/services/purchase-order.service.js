@@ -463,6 +463,11 @@ let PurchaseOrderService = class PurchaseOrderService {
         const hasRealCost = (0, purchase_order_real_cost_util_1.isRealCostEnabled)(po.customs_exchange_rate, extraCosts.length) ||
             (0, purchase_order_real_cost_util_1.parseRealCostNumber)(po.landed_extras_mxn) > 0;
         const vendorInvoiceNumbers = (0, purchase_order_vendor_invoice_util_1.parseStoredVendorInvoiceNumbers)(po.vendor_invoice_numbers, po.vendor_invoice_number);
+        const landedCash = (0, purchase_order_real_cost_util_1.derivePersistedLandedCashTotals)({
+            merchandise_mxn: po.landed_merchandise_mxn,
+            extras_mxn: po.landed_extras_mxn,
+            customs_exchange_rate: po.customs_exchange_rate,
+        });
         return {
             ...po,
             can_edit_lines: po.general_status === 'Creada',
@@ -480,6 +485,9 @@ let PurchaseOrderService = class PurchaseOrderService {
             landed_increment_percentage: (0, purchase_order_real_cost_util_1.parseRealCostNumber)(po.landed_increment_percentage),
             landed_merchandise_mxn: (0, purchase_order_real_cost_util_1.parseRealCostNumber)(po.landed_merchandise_mxn),
             landed_extras_mxn: (0, purchase_order_real_cost_util_1.parseRealCostNumber)(po.landed_extras_mxn),
+            landed_extras_usd: landedCash.extras_usd,
+            landed_total_usd: landedCash.total_usd,
+            landed_total_mxn: landedCash.total_mxn,
             razon_social: fiscal?.razon_social ?? null,
             sucursal: branch?.code ?? null,
             billing_branch_id: po.warehouse?.billing_branch_id ?? branch?.id ?? null,
