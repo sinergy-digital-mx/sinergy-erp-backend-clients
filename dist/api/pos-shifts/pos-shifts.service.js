@@ -36,6 +36,7 @@ const sales_order_service_1 = require("../sales-orders/services/sales-order.serv
 const pos_sale_collection_mapper_1 = require("./mappers/pos-sale-collection.mapper");
 const cash_drawer_1 = require("./utils/cash-drawer");
 const pos_card_payments_util_1 = require("./utils/pos-card-payments.util");
+const pos_cash_payment_util_1 = require("./utils/pos-cash-payment.util");
 const unclosed_shift_alert_1 = require("./utils/unclosed-shift-alert");
 const customer_credit_service_1 = require("../customers/services/customer-credit.service");
 const fiscal_invoice_readiness_util_1 = require("../customers/utils/fiscal-invoice-readiness.util");
@@ -720,8 +721,13 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         const amountCreditMxn = dto.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CREDIT
             ? Number(dto.amount_credit_mxn ?? orderTotal)
             : Number(dto.amount_credit_mxn ?? 0);
-        const usdExchangeRate = amountCashUsd > 0 ? Number(dto.usd_exchange_rate ?? 0) : null;
-        if (amountCashUsd > 0 && (!usdExchangeRate || usdExchangeRate <= 0)) {
+        const receivedCashMxn = Number(dto.received_cash_mxn ?? amountCashMxn);
+        const receivedCashUsd = Number(dto.received_cash_usd ?? amountCashUsd);
+        const usdExchangeRate = amountCashUsd > 0 || receivedCashUsd > 0
+            ? Number(dto.usd_exchange_rate ?? 0)
+            : null;
+        if ((amountCashUsd > 0 || receivedCashUsd > 0) &&
+            (!usdExchangeRate || usdExchangeRate <= 0)) {
             throw new common_1.BadRequestException('usd_exchange_rate es obligatorio cuando se cobra en USD');
         }
         if (amountTransferMxn > 0 && !dto.transfer_reference?.trim()) {
@@ -730,14 +736,22 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         if (amountCheckMxn > 0 && !dto.check_reference?.trim()) {
             throw new common_1.BadRequestException('check_reference es obligatorio para pagos con cheque');
         }
-        const paidMxn = amountCashMxn +
-            amountCashUsd * (usdExchangeRate ?? 0) +
-            amountTransferMxn +
-            amountCardMxn +
-            amountCheckMxn +
-            amountCreditMxn;
-        if (Math.abs(paidMxn - orderTotal) > 0.01) {
-            throw new common_1.BadRequestException(`El monto cubierto (${paidMxn.toFixed(2)}) debe coincidir con el total de la orden (${orderTotal.toFixed(2)})`);
+        if (dto.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CASH) {
+            const receivedEq = (0, pos_cash_payment_util_1.cashReceivedEquivalentMxn)(receivedCashMxn, receivedCashUsd, usdExchangeRate ?? 0);
+            if (!(0, pos_cash_payment_util_1.cashCoversOrder)(orderTotal, receivedCashMxn, receivedCashUsd, usdExchangeRate ?? 0)) {
+                throw new common_1.BadRequestException(`El efectivo recibido (${receivedEq.toFixed(2)}) no cubre el total de la orden (${orderTotal.toFixed(2)})`);
+            }
+        }
+        else {
+            const paidMxn = amountCashMxn +
+                amountCashUsd * (usdExchangeRate ?? 0) +
+                amountTransferMxn +
+                amountCardMxn +
+                amountCheckMxn +
+                amountCreditMxn;
+            if (Math.abs(paidMxn - orderTotal) > 0.01) {
+                throw new common_1.BadRequestException(`El monto cubierto (${paidMxn.toFixed(2)}) debe coincidir con el total de la orden (${orderTotal.toFixed(2)})`);
+            }
         }
         this.assertPaymentMethodShape(dto.payment_method, {
             amountCashMxn,
@@ -748,10 +762,12 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             amountCreditMxn,
             cardPaymentCount: cardPayments.length,
         });
-        const receivedCashMxn = Number(dto.received_cash_mxn ?? amountCashMxn);
-        const receivedCashUsd = Number(dto.received_cash_usd ?? amountCashUsd);
-        const changeCashMxn = Math.max(0, receivedCashMxn - amountCashMxn);
-        const changeCashUsd = Math.max(0, receivedCashUsd - amountCashUsd);
+        const changeCashMxn = dto.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CASH
+            ? (0, pos_cash_payment_util_1.cashChangeDueMxn)(orderTotal, receivedCashMxn, receivedCashUsd, usdExchangeRate ?? 0)
+            : Math.max(0, (0, cash_drawer_1.roundPosMoney)(receivedCashMxn - amountCashMxn));
+        const changeCashUsd = dto.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CASH
+            ? 0
+            : Math.max(0, (0, cash_drawer_1.roundPosMoney)(receivedCashUsd - amountCashUsd));
         if (receivedCashMxn + 0.0001 < amountCashMxn) {
             throw new common_1.BadRequestException('received_cash_mxn es menor al monto en efectivo MXN');
         }
@@ -1219,8 +1235,16 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
     async getShiftCashTotals(dailyShiftId) {
         const result = await this.collectionRepo
             .createQueryBuilder('collection')
-            .select('COALESCE(SUM(collection.amount_cash_mxn), 0)', 'cash_mxn')
-            .addSelect('COALESCE(SUM(collection.amount_cash_usd), 0)', 'cash_usd')
+            .select(`COALESCE(SUM(CASE
+          WHEN collection.received_cash_mxn = 0 AND collection.change_cash_mxn = 0
+          THEN collection.amount_cash_mxn
+          ELSE collection.received_cash_mxn - collection.change_cash_mxn
+        END), 0)`, 'cash_mxn')
+            .addSelect(`COALESCE(SUM(CASE
+          WHEN collection.received_cash_usd = 0 AND collection.change_cash_usd = 0
+          THEN collection.amount_cash_usd
+          ELSE collection.received_cash_usd - collection.change_cash_usd
+        END), 0)`, 'cash_usd')
             .addSelect('COALESCE(SUM(collection.amount_transfer_mxn), 0)', 'transfer_mxn')
             .addSelect('COALESCE(SUM(collection.amount_card_mxn), 0)', 'card_mxn')
             .addSelect('COALESCE(SUM(collection.amount_check_mxn), 0)', 'check_mxn')

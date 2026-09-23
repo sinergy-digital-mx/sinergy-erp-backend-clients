@@ -76,6 +76,7 @@ __decorate([
 ], CreateCustomerDto.prototype, "lastname", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ description: 'Customer email', example: 'john@example.com', required: false }),
+    (0, class_transformer_1.Transform)(({ value }) => (value === '' || value === null ? undefined : value)),
     (0, class_validator_1.IsEmail)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
@@ -180,6 +181,7 @@ __decorate([
 ], CreateCustomerDto.prototype, "fiscal_razon_social", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ description: 'Tipo de persona fiscal', example: 'moral', enum: ['fisica', 'moral', 'otro'], required: false }),
+    (0, class_transformer_1.Transform)(({ value }) => (value === '' || value === null ? undefined : value)),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsIn)(['fisica', 'moral', 'otro']),
     (0, class_validator_1.IsOptional)(),
@@ -235,7 +237,13 @@ __decorate([
 ], CreateCustomerDto.prototype, "fiscal_municipio", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ description: 'Pais catalogo SAT c_Pais', example: 'MEX', required: false }),
-    (0, class_transformer_1.Transform)(({ value }) => typeof value === 'string' && value.trim() !== '' ? value.trim().toUpperCase() : value),
+    (0, class_transformer_1.Transform)(({ value }) => {
+        if (typeof value === 'string') {
+            const trimmed = value.trim();
+            return trimmed === '' ? undefined : trimmed.toUpperCase();
+        }
+        return value === null ? undefined : value;
+    }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.Matches)(/^[A-Z]{3}$/, { message: 'El pais fiscal debe ser clave SAT de 3 letras (ej. MEX)' }),
@@ -255,6 +263,7 @@ __decorate([
 ], CreateCustomerDto.prototype, "fiscal_state", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ description: 'Codigo postal fiscal (DomicilioFiscalReceptor CFDI 4.0)', example: '22040', required: false }),
+    (0, class_transformer_1.Transform)(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value)),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.Matches)(/^\d{5}$/, { message: 'El codigo postal fiscal debe tener 5 digitos' }),

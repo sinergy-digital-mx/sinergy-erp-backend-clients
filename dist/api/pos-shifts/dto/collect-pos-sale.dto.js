@@ -27,7 +27,7 @@ __decorate([
     __metadata("design:type", Number)
 ], CollectCardPaymentDto.prototype, "amount_mxn", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ required: false, description: 'Referencia o últimos dígitos' }),
+    (0, swagger_1.ApiProperty)({ required: false, description: 'Número de voucher del ticket de la terminal' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MaxLength)(120),
@@ -123,7 +123,7 @@ __decorate([
     __metadata("design:type", Number)
 ], CollectPosSaleDto.prototype, "amount_card_mxn", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ required: false, description: 'Referencia o últimos dígitos de tarjeta' }),
+    (0, swagger_1.ApiProperty)({ required: false, description: 'Número de voucher del ticket de la terminal' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MaxLength)(120),
