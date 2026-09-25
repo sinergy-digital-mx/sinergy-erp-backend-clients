@@ -32,6 +32,7 @@ export declare enum PosCollectionCustomerType {
 }
 export declare class QueryPosCollectionsDto extends QueryAccountingBaseDto {
     customer_type?: PosCollectionCustomerType;
+    search?: string;
     page?: number;
     limit?: number;
 }

@@ -20,17 +20,20 @@ const purchase_order_service_1 = require("../services/purchase-order.service");
 const purchase_order_documents_service_1 = require("../services/purchase-order-documents.service");
 const purchase_order_export_service_1 = require("../services/purchase-order-export.service");
 const purchase_order_movements_service_1 = require("../services/purchase-order-movements.service");
+const purchase_order_locations_service_1 = require("../services/purchase-order-locations.service");
 const dto_1 = require("../dto");
 let PurchaseOrderController = class PurchaseOrderController {
     purchaseOrderService;
     documentsService;
     exportService;
     movementsService;
-    constructor(purchaseOrderService, documentsService, exportService, movementsService) {
+    locationsService;
+    constructor(purchaseOrderService, documentsService, exportService, movementsService, locationsService) {
         this.purchaseOrderService = purchaseOrderService;
         this.documentsService = documentsService;
         this.exportService = exportService;
         this.movementsService = movementsService;
+        this.locationsService = locationsService;
     }
     async create(dto, req) {
         const tenantId = req.user.tenant_id;
@@ -52,6 +55,9 @@ let PurchaseOrderController = class PurchaseOrderController {
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename="${this.exportService.getDetailsFilename(filters.created_from, filters.created_to)}"`);
         res.send(buffer);
+    }
+    async getLocations(req) {
+        return this.locationsService.getLocationTree(req.user.tenant_id);
     }
     async receive(id, dto, req) {
         const tenantId = req.user.tenant_id;
@@ -202,6 +208,13 @@ __decorate([
     __metadata("design:paramtypes", [dto_1.QueryPurchaseOrderDetailExportDto, Object, Object]),
     __metadata("design:returntype", Promise)
 ], PurchaseOrderController.prototype, "exportDetailsExcel", null);
+__decorate([
+    (0, common_1.Get)('locations'),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], PurchaseOrderController.prototype, "getLocations", null);
 __decorate([
     (0, common_1.Post)(':id/receive'),
     __param(0, (0, common_1.Param)('id')),
@@ -371,6 +384,7 @@ exports.PurchaseOrderController = PurchaseOrderController = __decorate([
     __metadata("design:paramtypes", [purchase_order_service_1.PurchaseOrderService,
         purchase_order_documents_service_1.PurchaseOrderDocumentsService,
         purchase_order_export_service_1.PurchaseOrderExportService,
-        purchase_order_movements_service_1.PurchaseOrderMovementsService])
+        purchase_order_movements_service_1.PurchaseOrderMovementsService,
+        purchase_order_locations_service_1.PurchaseOrderLocationsService])
 ], PurchaseOrderController);
 //# sourceMappingURL=purchase-order.controller.js.map

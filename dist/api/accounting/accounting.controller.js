@@ -34,6 +34,20 @@ let AccountingController = class AccountingController {
     getPosCollections(query, req) {
         return this.accountingService.getPosCollections(req.user.tenant_id, query);
     }
+    async exportPosCollectionsExcel(query, req, res) {
+        const { buffer, filename } = await this.accountingService.exportPosCollectionsExcel(req.user.tenant_id, query);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(buffer);
+    }
+    getPosDailyShifts(query, req) {
+        return this.accountingService.getPosDailyShifts(req.user.tenant_id, query);
+    }
+    async getPosDailyShiftDetail(id, req) {
+        return {
+            daily_shift: await this.accountingService.getPosDailyShiftDetail(req.user.tenant_id, id),
+        };
+    }
     getAccountsPayable(query, req) {
         return this.accountingService.getAccountsPayable(req.user.tenant_id, query);
     }
@@ -86,6 +100,44 @@ __decorate([
     __metadata("design:paramtypes", [query_accounting_base_dto_1.QueryPosCollectionsDto, Object]),
     __metadata("design:returntype", void 0)
 ], AccountingController.prototype, "getPosCollections", null);
+__decorate([
+    (0, common_1.Get)('pos-collections/export/excel'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Descargar Excel de órdenes cobradas en POS',
+        description: 'Mismos filtros que pos-collections, sin paginación.',
+    }),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Req)()),
+    __param(2, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [query_accounting_base_dto_1.QueryPosCollectionsDto, Object, Object]),
+    __metadata("design:returntype", Promise)
+], AccountingController.prototype, "exportPosCollectionsExcel", null);
+__decorate([
+    (0, common_1.Get)('pos-daily-shifts'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Cortes globales y parciales de la sucursal',
+        description: 'Lista cortes del periodo para consultar en Cobranza / Contabilidad.',
+    }),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [query_accounting_base_dto_1.QueryAccountingBaseDto, Object]),
+    __metadata("design:returntype", void 0)
+], AccountingController.prototype, "getPosDailyShifts", null);
+__decorate([
+    (0, common_1.Get)('pos-daily-shifts/:id'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }),
+    (0, swagger_1.ApiParam)({ name: 'id', description: 'UUID del corte global' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Detalle de un corte global (consulta)' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], AccountingController.prototype, "getPosDailyShiftDetail", null);
 __decorate([
     (0, common_1.Get)('accounts-payable'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }),

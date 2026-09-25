@@ -24,9 +24,12 @@ const electronic_invoice_entity_1 = require("../../entities/electronic-invoicing
 const purchase_order_batch_entity_1 = require("../../entities/purchase-orders/purchase-order-batch.entity");
 const user_entity_1 = require("../../entities/users/user.entity");
 const pos_user_type_enum_1 = require("../../entities/users/pos-user-type.enum");
+const pos_shifts_service_1 = require("../pos-shifts/pos-shifts.service");
 const query_accounting_base_dto_1 = require("./dto/query-accounting-base.dto");
 const pos_sale_collection_mapper_1 = require("../pos-shifts/mappers/pos-sale-collection.mapper");
 const unclosed_shift_alert_1 = require("../pos-shifts/utils/unclosed-shift-alert");
+const sales_order_payment_display_util_1 = require("../sales-orders/utils/sales-order-payment-display.util");
+const excel_export_util_1 = require("../../common/utils/excel-export.util");
 const WALK_IN_FISCAL_NAME = 'VENTA DE MOSTRADOR';
 const WALK_IN_DISPLAY_NAME = 'Público en General';
 let AccountingService = class AccountingService {
@@ -36,13 +39,15 @@ let AccountingService = class AccountingService {
     electronicInvoiceRepo;
     purchaseOrderRepo;
     userRepo;
-    constructor(salesOrderRepo, collectionRepo, dailyShiftRepo, electronicInvoiceRepo, purchaseOrderRepo, userRepo) {
+    posShiftsService;
+    constructor(salesOrderRepo, collectionRepo, dailyShiftRepo, electronicInvoiceRepo, purchaseOrderRepo, userRepo, posShiftsService) {
         this.salesOrderRepo = salesOrderRepo;
         this.collectionRepo = collectionRepo;
         this.dailyShiftRepo = dailyShiftRepo;
         this.electronicInvoiceRepo = electronicInvoiceRepo;
         this.purchaseOrderRepo = purchaseOrderRepo;
         this.userRepo = userRepo;
+        this.posShiftsService = posShiftsService;
     }
     async getPosSummary(tenantId, filters) {
         const { dateFrom, dateTo } = this.resolveDateRange(filters.period ?? query_accounting_base_dto_1.AccountingReportPeriod.MONTH, filters.date_from, filters.date_to);
@@ -244,36 +249,14 @@ let AccountingService = class AccountingService {
                 pos_user_type: (0, typeorm_2.In)(pos_user_type_enum_1.POS_COLLECT_TYPES),
             },
         });
-        const qb = this.collectionRepo
-            .createQueryBuilder('collection')
-            .innerJoinAndSelect('collection.sales_order', 'so')
-            .innerJoinAndSelect('collection.customer', 'customer')
-            .leftJoinAndSelect('so.seller_user', 'seller_user')
-            .leftJoinAndSelect('collection.collected_by_user', 'collected_by_user')
-            .innerJoin('so.warehouse', 'warehouse')
-            .where('collection.tenant_id = :tenantId', { tenantId })
-            .andWhere('warehouse.billing_branch_id = :branchId', {
-            branchId: filters.billing_branch_id,
-        })
-            .andWhere('collection.created_at >= :dateFrom', { dateFrom })
-            .andWhere('collection.created_at <= :dateTo', { dateTo });
-        if (customerType === query_accounting_base_dto_1.PosCollectionCustomerType.WALK_IN) {
-            qb.andWhere(this.walkInCustomerSql('customer'), {
-                walkInFiscal: WALK_IN_FISCAL_NAME,
-                walkInName: WALK_IN_DISPLAY_NAME,
-            }).andWhere(`NOT ${this.stampedInvoiceExistsSql('so')}`);
-        }
-        else if (customerType === query_accounting_base_dto_1.PosCollectionCustomerType.INVOICED) {
-            qb.andWhere(this.stampedInvoiceExistsSql('so'));
-        }
+        const qb = this.buildPosCollectionsQuery(tenantId, filters, dateFrom, dateTo, customerType);
         qb.orderBy('collection.created_at', 'DESC')
             .skip((page - 1) * limit)
             .take(limit);
         const [collections, total] = await qb.getManyAndCount();
-        const orderIds = collections
+        const stampedOrderIds = await this.getStampedInvoiceOrderIds(tenantId, collections
             .map((collection) => collection.sales_order_id)
-            .filter((id) => Boolean(id));
-        const stampedOrderIds = await this.getStampedInvoiceOrderIds(tenantId, orderIds);
+            .filter((id) => Boolean(id)));
         return {
             terminal_user_id: cobranzaTerminal?.id ?? null,
             terminal_name: cobranzaTerminal
@@ -285,50 +268,164 @@ let AccountingService = class AccountingService {
                 date_from: dateFrom.toISOString(),
                 date_to: dateTo.toISOString(),
                 customer_type: customerType,
+                search: filters.search?.trim() || null,
             },
-            data: collections.map((collection) => {
-                const order = collection.sales_order;
-                const customer = collection.customer;
-                const customerFields = this.buildCustomerFields(customer);
-                const hasStampedInvoice = order
-                    ? stampedOrderIds.has(order.id)
-                    : false;
-                return {
-                    id: order?.id ?? collection.sales_order_id,
-                    collection_id: collection.id,
-                    folio: order?.folio ?? null,
-                    total: Number(collection.order_total_mxn),
-                    payment_status: order?.payment_status ?? null,
-                    general_status: order?.general_status ?? null,
-                    created_at: order?.created_at ?? null,
-                    collected_at: collection.created_at,
-                    payment_method: collection.payment_method,
-                    has_stamped_invoice: hasStampedInvoice,
-                    ...customerFields,
-                    is_walk_in: customer ? (0, pos_sale_collection_mapper_1.isWalkInCustomer)(customer) : false,
-                    seller_user: order?.seller_user
-                        ? {
-                            id: order.seller_user.id,
-                            first_name: order.seller_user.first_name,
-                            last_name: order.seller_user.last_name,
-                            pos_user_code: order.seller_user.pos_user_code ?? null,
-                        }
-                        : null,
-                    collected_by_user: collection.collected_by_user
-                        ? {
-                            id: collection.collected_by_user.id,
-                            first_name: collection.collected_by_user.first_name,
-                            last_name: collection.collected_by_user.last_name,
-                            pos_user_code: collection.collected_by_user.pos_user_code ?? null,
-                        }
-                        : null,
-                };
-            }),
+            data: collections.map((collection) => this.mapPosCollectionRow(collection, stampedOrderIds)),
             total,
             page,
             limit,
             totalPages: Math.ceil(total / limit),
         };
+    }
+    async exportPosCollectionsExcel(tenantId, filters) {
+        const { dateFrom, dateTo } = this.resolveDateRange(filters.period ?? query_accounting_base_dto_1.AccountingReportPeriod.MONTH, filters.date_from, filters.date_to);
+        const customerType = filters.customer_type ?? query_accounting_base_dto_1.PosCollectionCustomerType.ALL;
+        const qb = this.buildPosCollectionsQuery(tenantId, filters, dateFrom, dateTo, customerType);
+        qb.orderBy('collection.created_at', 'DESC');
+        const collections = await qb.getMany();
+        const stampedOrderIds = await this.getStampedInvoiceOrderIds(tenantId, collections
+            .map((collection) => collection.sales_order_id)
+            .filter((id) => Boolean(id)));
+        const rows = collections.map((collection) => {
+            const mapped = this.mapPosCollectionRow(collection, stampedOrderIds);
+            const customerName = mapped.walk_in_name ||
+                mapped.customer_display_name ||
+                [mapped.customer_company_name, mapped.customer_person_name]
+                    .filter(Boolean)
+                    .join(' · ') ||
+                'Público en General';
+            return {
+                folio: mapped.folio ?? '',
+                created_at: (0, excel_export_util_1.formatExportDateTime)(mapped.created_at),
+                collected_at: (0, excel_export_util_1.formatExportDateTime)(mapped.collected_at),
+                customer: customerName,
+                walk_in_rfc: mapped.walk_in_rfc ?? '',
+                customer_type: mapped.has_stamped_invoice
+                    ? 'Facturada'
+                    : mapped.is_walk_in
+                        ? 'Público en General'
+                        : 'Cliente',
+                seller: this.formatPosUserLabel(mapped.seller_user),
+                cashier: this.formatPosUserLabel(mapped.collected_by_user),
+                payment_method: mapped.payment_method_label ?? mapped.payment_method ?? '',
+                total: (0, excel_export_util_1.num)(mapped.total),
+                payment_status: mapped.payment_status ?? '',
+            };
+        });
+        const customerTypeLabel = customerType === query_accounting_base_dto_1.PosCollectionCustomerType.WALK_IN
+            ? 'Público en General'
+            : customerType === query_accounting_base_dto_1.PosCollectionCustomerType.INVOICED
+                ? 'Facturadas'
+                : 'Todas';
+        const buffer = await (0, excel_export_util_1.buildStyledExcelBuffer)({
+            sheetName: 'Cobranza POS',
+            title: 'Cobranza POS — órdenes cobradas',
+            subtitle: (0, excel_export_util_1.buildExportSubtitle)([
+                `Periodo: ${filters.period ?? query_accounting_base_dto_1.AccountingReportPeriod.MONTH}`,
+                `${(0, excel_export_util_1.formatExportDateTime)(dateFrom)} – ${(0, excel_export_util_1.formatExportDateTime)(dateTo)}`,
+                `Tipo: ${customerTypeLabel}`,
+                filters.search?.trim() ? `Búsqueda: ${filters.search.trim()}` : '',
+                `${rows.length} órdenes`,
+            ]),
+            columns: [
+                { header: 'Folio', key: 'folio', width: 16 },
+                { header: 'Fecha venta', key: 'created_at', width: 18, type: 'date' },
+                { header: 'Fecha cobro', key: 'collected_at', width: 18, type: 'date' },
+                { header: 'Cliente', key: 'customer', width: 28 },
+                { header: 'RFC ticket', key: 'walk_in_rfc', width: 16 },
+                { header: 'Tipo', key: 'customer_type', width: 18 },
+                { header: 'Vendedor', key: 'seller', width: 22 },
+                { header: 'Cajero', key: 'cashier', width: 22 },
+                { header: 'Método de pago', key: 'payment_method', width: 16 },
+                { header: 'Total', key: 'total', width: 14, type: 'currency' },
+                { header: 'Estatus pago', key: 'payment_status', width: 14 },
+            ],
+            rows,
+        });
+        const day = new Date().toISOString().slice(0, 10);
+        return { buffer, filename: `cobranza-pos-${day}.xlsx` };
+    }
+    async getPosDailyShifts(tenantId, filters) {
+        const { dateFrom, dateTo } = this.resolveDateRange(filters.period ?? query_accounting_base_dto_1.AccountingReportPeriod.MONTH, filters.date_from, filters.date_to);
+        const shifts = await this.dailyShiftRepo
+            .createQueryBuilder('shift')
+            .leftJoinAndSelect('shift.terminal_user', 'terminal_user')
+            .leftJoinAndSelect('shift.billing_branch', 'billing_branch')
+            .leftJoinAndSelect('shift.partial_shifts', 'partial')
+            .leftJoinAndSelect('partial.performed_by_user', 'performed_by')
+            .where('shift.tenant_id = :tenantId', { tenantId })
+            .andWhere('shift.billing_branch_id = :branchId', {
+            branchId: filters.billing_branch_id,
+        })
+            .andWhere('shift.created_at >= :dateFrom', { dateFrom })
+            .andWhere('shift.created_at <= :dateTo', { dateTo })
+            .orderBy('shift.shift_date', 'DESC')
+            .addOrderBy('shift.created_at', 'DESC')
+            .addOrderBy('partial.partial_number', 'ASC')
+            .getMany();
+        const data = shifts.map((shift) => {
+            const partials = shift.partial_shifts ?? [];
+            const removedTotalMxn = partials.reduce((sum, partial) => sum + Number(partial.removed_total_mxn || 0), 0);
+            return {
+                id: shift.id,
+                shift_date: shift.shift_date,
+                status: shift.status,
+                is_previous_day: shift.status === pos_daily_shift_status_enum_1.PosDailyShiftStatus.OPEN &&
+                    (0, unclosed_shift_alert_1.isPreviousDayOpenShift)(shift.shift_date),
+                opening_cash_mxn: Number(shift.opening_cash_mxn),
+                opening_cash_usd: Number(shift.opening_cash_usd),
+                terminal_user: shift.terminal_user
+                    ? {
+                        id: shift.terminal_user.id,
+                        first_name: shift.terminal_user.first_name,
+                        last_name: shift.terminal_user.last_name,
+                        pos_user_type: shift.terminal_user.pos_user_type,
+                    }
+                    : null,
+                terminal_name: shift.terminal_user
+                    ? this.buildUserName(shift.terminal_user.first_name, shift.terminal_user.last_name)
+                    : null,
+                billing_branch: shift.billing_branch
+                    ? {
+                        id: shift.billing_branch.id,
+                        code: shift.billing_branch.code,
+                        display_name: [shift.billing_branch.code, shift.billing_branch.city]
+                            .filter(Boolean)
+                            .join(' — '),
+                    }
+                    : null,
+                partial_shifts_count: partials.length,
+                removed_total_mxn: Number(removedTotalMxn.toFixed(2)),
+                partial_shifts: partials.map((partial) => ({
+                    id: partial.id,
+                    partial_number: partial.partial_number,
+                    removed_total_mxn: Number(partial.removed_total_mxn || 0),
+                    removed_total_usd: Number(partial.removed_total_usd || 0),
+                    created_at: partial.created_at,
+                    notes: partial.notes,
+                    performed_by_user: partial.performed_by_user
+                        ? {
+                            id: partial.performed_by_user.id,
+                            first_name: partial.performed_by_user.first_name,
+                            last_name: partial.performed_by_user.last_name,
+                        }
+                        : null,
+                })),
+            };
+        });
+        return {
+            filters_applied: {
+                billing_branch_id: filters.billing_branch_id,
+                period: filters.period ?? query_accounting_base_dto_1.AccountingReportPeriod.MONTH,
+                date_from: dateFrom.toISOString(),
+                date_to: dateTo.toISOString(),
+            },
+            data,
+            total: data.length,
+        };
+    }
+    getPosDailyShiftDetail(tenantId, dailyShiftId) {
+        return this.posShiftsService.findDailyShiftById(dailyShiftId, tenantId);
     }
     async getAccountsPayable(tenantId, filters) {
         const page = filters.page ?? 1;
@@ -652,6 +749,89 @@ let AccountingService = class AccountingService {
             }
         }
     }
+    buildPosCollectionsQuery(tenantId, filters, dateFrom, dateTo, customerType) {
+        const qb = this.collectionRepo
+            .createQueryBuilder('collection')
+            .innerJoinAndSelect('collection.sales_order', 'so')
+            .innerJoinAndSelect('collection.customer', 'customer')
+            .leftJoinAndSelect('so.seller_user', 'seller_user')
+            .leftJoinAndSelect('collection.collected_by_user', 'collected_by_user')
+            .innerJoin('so.warehouse', 'warehouse')
+            .where('collection.tenant_id = :tenantId', { tenantId })
+            .andWhere('warehouse.billing_branch_id = :branchId', {
+            branchId: filters.billing_branch_id,
+        })
+            .andWhere('collection.created_at >= :dateFrom', { dateFrom })
+            .andWhere('collection.created_at <= :dateTo', { dateTo });
+        if (customerType === query_accounting_base_dto_1.PosCollectionCustomerType.WALK_IN) {
+            qb.andWhere(this.walkInCustomerSql('customer'), {
+                walkInFiscal: WALK_IN_FISCAL_NAME,
+                walkInName: WALK_IN_DISPLAY_NAME,
+            }).andWhere(`NOT ${this.stampedInvoiceExistsSql('so')}`);
+        }
+        else if (customerType === query_accounting_base_dto_1.PosCollectionCustomerType.INVOICED) {
+            qb.andWhere(this.stampedInvoiceExistsSql('so'));
+        }
+        const search = filters.search?.trim();
+        if (search) {
+            qb.andWhere(`(so.folio ILIKE :search
+          OR customer.name ILIKE :search
+          OR customer.lastname ILIKE :search
+          OR customer.company_name ILIKE :search
+          OR so.walk_in_name ILIKE :search
+          OR so.walk_in_rfc ILIKE :search)`, { search: `%${search}%` });
+        }
+        return qb;
+    }
+    mapPosCollectionRow(collection, stampedOrderIds) {
+        const order = collection.sales_order;
+        const customer = collection.customer;
+        const customerFields = this.buildCustomerFields(customer);
+        const hasStampedInvoice = order ? stampedOrderIds.has(order.id) : false;
+        const paymentMethod = collection.payment_method;
+        const paymentMethodLabel = paymentMethod && paymentMethod in sales_order_payment_display_util_1.SALES_ORDER_PAYMENT_METHOD_LABELS
+            ? sales_order_payment_display_util_1.SALES_ORDER_PAYMENT_METHOD_LABELS[paymentMethod]
+            : paymentMethod ?? null;
+        return {
+            id: order?.id ?? collection.sales_order_id,
+            collection_id: collection.id,
+            folio: order?.folio ?? null,
+            total: Number(collection.order_total_mxn),
+            payment_status: order?.payment_status ?? null,
+            general_status: order?.general_status ?? null,
+            created_at: order?.created_at ?? null,
+            collected_at: collection.created_at,
+            payment_method: paymentMethod,
+            payment_method_label: paymentMethodLabel,
+            has_stamped_invoice: hasStampedInvoice,
+            walk_in_name: order?.walk_in_name ?? null,
+            walk_in_rfc: order?.walk_in_rfc ?? null,
+            ...customerFields,
+            is_walk_in: customer ? (0, pos_sale_collection_mapper_1.isWalkInCustomer)(customer) : false,
+            seller_user: order?.seller_user
+                ? {
+                    id: order.seller_user.id,
+                    first_name: order.seller_user.first_name,
+                    last_name: order.seller_user.last_name,
+                    pos_user_code: order.seller_user.pos_user_code ?? null,
+                }
+                : null,
+            collected_by_user: collection.collected_by_user
+                ? {
+                    id: collection.collected_by_user.id,
+                    first_name: collection.collected_by_user.first_name,
+                    last_name: collection.collected_by_user.last_name,
+                    pos_user_code: collection.collected_by_user.pos_user_code ?? null,
+                }
+                : null,
+        };
+    }
+    formatPosUserLabel(user) {
+        if (!user)
+            return '';
+        const name = this.buildUserName(user.first_name, user.last_name);
+        return user.pos_user_code ? `${name} (${user.pos_user_code})` : name;
+    }
     startOfDay(date) {
         const value = new Date(date);
         value.setHours(0, 0, 0, 0);
@@ -693,6 +873,7 @@ exports.AccountingService = AccountingService = __decorate([
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
-        typeorm_2.Repository])
+        typeorm_2.Repository,
+        pos_shifts_service_1.PosShiftsService])
 ], AccountingService);
 //# sourceMappingURL=accounting.service.js.map

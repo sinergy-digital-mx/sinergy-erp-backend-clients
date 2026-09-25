@@ -799,8 +799,11 @@ export declare class QuotationService {
             sales_order_type: string;
             total: number;
             converted_from_quotation_id: string;
+            sent_to_pos_caja: boolean;
+            pos_daily_shift_id: string | null;
         };
     }>;
+    private resolveConvertPosWarehouse;
     regenerateDocumentoOriginal(id: string, tenantId: string, userId: string, language: DocumentLanguage, keepPrevious?: boolean, access?: QuotationSellerAccess): Promise<{
         success: boolean;
         message: string;

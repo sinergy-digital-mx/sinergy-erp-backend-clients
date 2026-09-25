@@ -114,6 +114,7 @@ var PosCollectionCustomerType;
 })(PosCollectionCustomerType || (exports.PosCollectionCustomerType = PosCollectionCustomerType = {}));
 class QueryPosCollectionsDto extends QueryAccountingBaseDto {
     customer_type = PosCollectionCustomerType.ALL;
+    search;
     page = 1;
     limit = 20;
 }
@@ -123,6 +124,12 @@ __decorate([
     (0, class_validator_1.IsEnum)(PosCollectionCustomerType),
     __metadata("design:type", String)
 ], QueryPosCollectionsDto.prototype, "customer_type", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(120),
+    __metadata("design:type", String)
+], QueryPosCollectionsDto.prototype, "search", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_transformer_1.Type)(() => Number),

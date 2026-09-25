@@ -608,6 +608,8 @@ export declare class PosShiftsController {
             subtotal: number;
             created_at: Date;
             notes: string | null;
+            walk_in_name: string | null;
+            walk_in_rfc: string | null;
             fiscal_configuration_id: string;
             customer: {
                 id: number;
@@ -675,6 +677,8 @@ export declare class PosShiftsController {
             payment_status: string;
             pos_stage: import("../../entities/sales-orders").SalesOrderPosStage | null;
             notes: string | null;
+            walk_in_name: string | null;
+            walk_in_rfc: string | null;
             fiscal_configuration_id: string;
             customer: {
                 id: number;
@@ -765,6 +769,8 @@ export declare class PosShiftsController {
                 total: number;
                 subtotal: number;
                 created_at: Date;
+                walk_in_name: string | null;
+                walk_in_rfc: string | null;
                 seller_user: {
                     id: string;
                     first_name: string;
@@ -892,6 +898,8 @@ export declare class PosShiftsController {
             payment_status: string;
             pos_stage: import("../../entities/sales-orders").SalesOrderPosStage | null;
             notes: string | null;
+            walk_in_name: string | null;
+            walk_in_rfc: string | null;
             fiscal_configuration_id: string;
             customer: {
                 id: number;
@@ -951,6 +959,8 @@ export declare class PosShiftsController {
         payment_status: string;
         pos_stage: import("../../entities/sales-orders").SalesOrderPosStage | null;
         notes: string | null;
+        walk_in_name: string | null;
+        walk_in_rfc: string | null;
         fiscal_configuration_id: string;
         customer: {
             id: number;
@@ -980,6 +990,8 @@ export declare class PosShiftsController {
             payment_status: string;
             pos_stage: import("../../entities/sales-orders").SalesOrderPosStage | null;
             notes: string | null;
+            walk_in_name: string | null;
+            walk_in_rfc: string | null;
             fiscal_configuration_id: string;
             customer: {
                 id: number;

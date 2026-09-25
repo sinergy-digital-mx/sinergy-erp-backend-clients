@@ -51,6 +51,8 @@ class CollectPosSaleDto {
     received_cash_mxn;
     received_cash_usd;
     notes;
+    walk_in_name;
+    walk_in_rfc;
 }
 exports.CollectPosSaleDto = CollectPosSaleDto;
 __decorate([
@@ -201,4 +203,28 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CollectPosSaleDto.prototype, "notes", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        description: 'Nombre para el ticket si se cobra como Público en general. Vacío lo borra.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(120),
+    __metadata("design:type", String)
+], CollectPosSaleDto.prototype, "walk_in_name", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        description: 'RFC para el ticket si se cobra como Público en general. Vacío lo borra.',
+    }),
+    (0, class_transformer_1.Transform)(({ value }) => typeof value === 'string' ? value.trim().toUpperCase().replace(/[\s-]/g, '') : value),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.ValidateIf)((_, value) => typeof value === 'string' && value.length > 0),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Matches)(/^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/, {
+        message: 'El RFC debe tener 12 o 13 caracteres',
+    }),
+    __metadata("design:type", String)
+], CollectPosSaleDto.prototype, "walk_in_rfc", void 0);
 //# sourceMappingURL=collect-pos-sale.dto.js.map

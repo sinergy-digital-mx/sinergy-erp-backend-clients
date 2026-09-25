@@ -1348,6 +1348,8 @@ export declare class QuotationController {
             sales_order_type: string;
             total: number;
             converted_from_quotation_id: string;
+            sent_to_pos_caja: boolean;
+            pos_daily_shift_id: string | null;
         };
     }>;
     regenerateDocumentoOriginal(id: string, dto: RegenerateDocumentDto, req: any): Promise<{

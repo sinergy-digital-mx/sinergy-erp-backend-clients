@@ -62,6 +62,7 @@ export declare class SalesOrderService {
     private static readonly DOC_TYPE_NAME_ENTREGA;
     private static readonly DOC_TYPE_NAMES_ENTREGA;
     constructor(soRepo: Repository<SalesOrder>, detailRepo: Repository<SalesOrderDetail>, allocationRepo: Repository<SalesOrderBatchAllocation>, folioService: SalesOrderFolioService, fulfillmentService: SalesOrderFulfillmentService, dataSource: DataSource, posShiftsService: PosShiftsService, productDiscountService: ProductDiscountService, globalDiscountService: GlobalDiscountService, pdfService: SalesOrderPdfService, documentsService: SalesOrderDocumentsService, posReceiptService: SalesOrderPosReceiptService, s3Service: S3Service, posCollectionRepo: Repository<PosSaleCollection>, paymentRepo: Repository<SalesOrderPayment>, paymentDocumentRepo: Repository<SalesOrderPaymentDocument>, userRepo: Repository<User>, customerRepo: Repository<Customer>, billingBranchRepo: Repository<BillingBranch>, warehouseRepo: Repository<Warehouse>, electronicInvoiceService: ElectronicInvoiceService, controlDeskLifecycle: ControlDeskLifecycleService, warehouseControlService: WarehouseControlService);
+    private resolveWalkInTicketFields;
     private deleteDocumentsByType;
     private deleteDocumentsByTypeNames;
     private loadOrderForPdf;
@@ -79,6 +80,8 @@ export declare class SalesOrderService {
         line_items: CreateSalesOrderLineItemDto[];
         customer_id?: number;
         global_discount_id?: string | null;
+        walk_in_name?: string | null;
+        walk_in_rfc?: string | null;
     }, tenantId: string, userId: string): Promise<SalesOrder>;
     findAll(tenantId: string, filters: QuerySalesOrderDto): Promise<{
         data: {
@@ -122,6 +125,8 @@ export declare class SalesOrderService {
             invoice_requested: boolean;
             general_status: string;
             notes: string | null;
+            walk_in_name: string | null;
+            walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
             sale_scope: SalesOrderSaleScope;
             requires_selection_assembly: boolean;
@@ -471,6 +476,8 @@ export declare class SalesOrderService {
             invoice_requested: boolean;
             general_status: string;
             notes: string | null;
+            walk_in_name: string | null;
+            walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
             sale_scope: SalesOrderSaleScope;
             requires_selection_assembly: boolean;
@@ -560,6 +567,8 @@ export declare class SalesOrderService {
             invoice_requested: boolean;
             general_status: string;
             notes: string | null;
+            walk_in_name: string | null;
+            walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
             sale_scope: SalesOrderSaleScope;
             requires_selection_assembly: boolean;
@@ -1115,6 +1124,8 @@ export declare class SalesOrderService {
             invoice_requested: boolean;
             general_status: string;
             notes: string | null;
+            walk_in_name: string | null;
+            walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
             sale_scope: SalesOrderSaleScope;
             requires_selection_assembly: boolean;
@@ -1204,6 +1215,8 @@ export declare class SalesOrderService {
             invoice_requested: boolean;
             general_status: string;
             notes: string | null;
+            walk_in_name: string | null;
+            walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
             sale_scope: SalesOrderSaleScope;
             requires_selection_assembly: boolean;
@@ -1633,6 +1646,8 @@ export declare class SalesOrderService {
             invoice_requested: boolean;
             general_status: string;
             notes: string | null;
+            walk_in_name: string | null;
+            walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
             sale_scope: SalesOrderSaleScope;
             requires_selection_assembly: boolean;
@@ -1722,6 +1737,8 @@ export declare class SalesOrderService {
             invoice_requested: boolean;
             general_status: string;
             notes: string | null;
+            walk_in_name: string | null;
+            walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
             sale_scope: SalesOrderSaleScope;
             requires_selection_assembly: boolean;

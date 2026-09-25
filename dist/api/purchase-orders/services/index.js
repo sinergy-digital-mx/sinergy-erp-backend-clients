@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PurchaseOrderRealCostService = exports.PurchaseOrderMovementsService = exports.PurchaseOrderActivityService = exports.PurchaseOrderLotsService = exports.PurchaseOrderExportService = exports.InventoryBatchService = exports.TenantValidatorService = exports.POStatusUpdaterService = exports.TotalCalculatorService = exports.BatchCreatorService = exports.LineItemUpdaterService = exports.ReceiptValidatorService = exports.ReceiptService = exports.PurchaseOrderPdfService = exports.PurchaseOrderDocumentsService = exports.FolioGeneratorService = exports.PurchaseOrderService = exports.VendorProductsService = exports.BatchNumberGeneratorService = exports.UnitConversionService = void 0;
+exports.PurchaseOrderLocationsService = exports.PurchaseOrderRealCostService = exports.PurchaseOrderMovementsService = exports.PurchaseOrderActivityService = exports.PurchaseOrderLotsService = exports.PurchaseOrderExportService = exports.InventoryBatchService = exports.TenantValidatorService = exports.POStatusUpdaterService = exports.TotalCalculatorService = exports.BatchCreatorService = exports.LineItemUpdaterService = exports.ReceiptValidatorService = exports.ReceiptService = exports.PurchaseOrderPdfService = exports.PurchaseOrderDocumentsService = exports.FolioGeneratorService = exports.PurchaseOrderService = exports.VendorProductsService = exports.BatchNumberGeneratorService = exports.UnitConversionService = void 0;
 var unit_conversion_service_1 = require("./unit-conversion.service");
 Object.defineProperty(exports, "UnitConversionService", { enumerable: true, get: function () { return unit_conversion_service_1.UnitConversionService; } });
 var batch_number_generator_service_1 = require("./batch-number-generator.service");
@@ -41,4 +41,6 @@ var purchase_order_movements_service_1 = require("./purchase-order-movements.ser
 Object.defineProperty(exports, "PurchaseOrderMovementsService", { enumerable: true, get: function () { return purchase_order_movements_service_1.PurchaseOrderMovementsService; } });
 var purchase_order_real_cost_service_1 = require("./purchase-order-real-cost.service");
 Object.defineProperty(exports, "PurchaseOrderRealCostService", { enumerable: true, get: function () { return purchase_order_real_cost_service_1.PurchaseOrderRealCostService; } });
+var purchase_order_locations_service_1 = require("./purchase-order-locations.service");
+Object.defineProperty(exports, "PurchaseOrderLocationsService", { enumerable: true, get: function () { return purchase_order_locations_service_1.PurchaseOrderLocationsService; } });
 //# sourceMappingURL=index.js.map

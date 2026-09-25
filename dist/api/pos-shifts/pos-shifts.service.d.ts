@@ -176,6 +176,10 @@ export declare class PosShiftsService {
         unclosed_shift_alert: import("./utils/unclosed-shift-alert").UnclosedShiftAlert | null;
     }>;
     resolveOpenDailyShiftId(tenantId: string, terminalUserId: string): Promise<string>;
+    resolveBranchCajaShift(tenantId: string, billingBranchId: string): Promise<{
+        shift: PosDailyShift | null;
+        queued: boolean;
+    }>;
     getBranchOpenDailyShift(tenantId: string, billingBranchId: string): Promise<PosDailyShift | null>;
     private buildOpenShiftConflictMessage;
     openDailyShift(tenantId: string, terminalUserId: string, dto: OpenDailyShiftDto): Promise<{
@@ -638,6 +642,8 @@ export declare class PosShiftsService {
         subtotal: number;
         created_at: Date;
         notes: string | null;
+        walk_in_name: string | null;
+        walk_in_rfc: string | null;
         fiscal_configuration_id: string;
         customer: {
             id: number;
@@ -734,6 +740,8 @@ export declare class PosShiftsService {
                 total: number;
                 subtotal: number;
                 created_at: Date;
+                walk_in_name: string | null;
+                walk_in_rfc: string | null;
                 seller_user: {
                     id: string;
                     first_name: string;
@@ -918,6 +926,8 @@ export declare class PosShiftsService {
             payment_status: string;
             pos_stage: SalesOrderPosStage | null;
             notes: string | null;
+            walk_in_name: string | null;
+            walk_in_rfc: string | null;
             fiscal_configuration_id: string;
             customer: {
                 id: number;
@@ -977,6 +987,8 @@ export declare class PosShiftsService {
         payment_status: string;
         pos_stage: SalesOrderPosStage | null;
         notes: string | null;
+        walk_in_name: string | null;
+        walk_in_rfc: string | null;
         fiscal_configuration_id: string;
         customer: {
             id: number;
@@ -1035,6 +1047,8 @@ export declare class PosShiftsService {
         payment_status: string;
         pos_stage: SalesOrderPosStage | null;
         notes: string | null;
+        walk_in_name: string | null;
+        walk_in_rfc: string | null;
         fiscal_configuration_id: string;
         customer: {
             id: number;
@@ -1064,6 +1078,8 @@ export declare class PosShiftsService {
             payment_status: string;
             pos_stage: SalesOrderPosStage | null;
             notes: string | null;
+            walk_in_name: string | null;
+            walk_in_rfc: string | null;
             fiscal_configuration_id: string;
             customer: {
                 id: number;

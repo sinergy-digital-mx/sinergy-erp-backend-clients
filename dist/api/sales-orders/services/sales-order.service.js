@@ -49,6 +49,7 @@ const pos_user_type_enum_1 = require("../../../entities/users/pos-user-type.enum
 const document_language_enum_1 = require("../../../common/enums/document-language.enum");
 const pos_sale_collection_entity_1 = require("../../../entities/pos/pos-sale-collection.entity");
 const pos_sale_collection_mapper_1 = require("../../pos-shifts/mappers/pos-sale-collection.mapper");
+const walk_in_ticket_util_1 = require("../../pos-shifts/utils/walk-in-ticket.util");
 const electronic_invoice_service_1 = require("../../electronic-invoicing/services/electronic-invoice.service");
 const billing_branch_entity_1 = require("../../../entities/billing/billing-branch.entity");
 const warehouse_entity_1 = require("../../../entities/warehouse/warehouse.entity");
@@ -110,6 +111,18 @@ let SalesOrderService = class SalesOrderService {
         this.electronicInvoiceService = electronicInvoiceService;
         this.controlDeskLifecycle = controlDeskLifecycle;
         this.warehouseControlService = warehouseControlService;
+    }
+    async resolveWalkInTicketFields(tenantId, customerId, dto) {
+        const customer = await this.customerRepo.findOne({
+            where: { id: customerId, tenant_id: tenantId },
+        });
+        if (!customer || !(0, pos_sale_collection_mapper_1.isWalkInCustomer)(customer)) {
+            return { walk_in_name: null, walk_in_rfc: null };
+        }
+        return {
+            walk_in_name: (0, walk_in_ticket_util_1.normalizeWalkInName)(dto.walk_in_name),
+            walk_in_rfc: (0, walk_in_ticket_util_1.normalizeWalkInRfc)(dto.walk_in_rfc),
+        };
     }
     async deleteDocumentsByType(salesOrderId, documentTypeId) {
         const existingDocs = await this.documentsService.getDocuments(salesOrderId);
@@ -254,6 +267,9 @@ let SalesOrderService = class SalesOrderService {
         }
         if (isPosSale && fromQuotation) {
             paymentStatus = 'Pendiente';
+            const caja = await this.posShiftsService.resolveBranchCajaShift(tenantId, location.billingBranchId);
+            posQueued = caja.queued;
+            posDailyShiftId = caja.shift?.id ?? null;
         }
         const qr = this.dataSource.createQueryRunner();
         await qr.connect();
@@ -285,6 +301,7 @@ let SalesOrderService = class SalesOrderService {
                 payment_status: paymentStatus,
                 general_status: initialStatus,
                 notes: dto.notes,
+                ...(await this.resolveWalkInTicketFields(tenantId, customerId, dto)),
                 sale_scope: saleScope,
                 requires_selection_assembly: requiresSelectionAssembly,
                 created_by: userId,
@@ -442,10 +459,17 @@ let SalesOrderService = class SalesOrderService {
             const savedDetails = await this.insertSalesOrderLineItems(qr, so.id, dto.line_items, userId, tenantId);
             so.global_discount_id = dto.global_discount_id ?? null;
             so.updated_by = userId;
+            const walkInTicket = (0, pos_sale_collection_mapper_1.isWalkInCustomer)(customer)
+                ? {
+                    walk_in_name: (0, walk_in_ticket_util_1.normalizeWalkInName)(dto.walk_in_name),
+                    walk_in_rfc: (0, walk_in_ticket_util_1.normalizeWalkInRfc)(dto.walk_in_rfc),
+                }
+                : { walk_in_name: null, walk_in_rfc: null };
             await qr.manager.update(sales_order_entity_1.SalesOrder, { id: so.id }, {
                 customer_id: customerId,
                 global_discount_id: so.global_discount_id,
                 updated_by: userId,
+                ...walkInTicket,
             });
             await this.recomputeTotals(qr, so.id, tenantId, userId);
             await this.fulfillOrderLines(qr, so.id, this.allocationScope(so), savedDetails, userId, undefined, true);

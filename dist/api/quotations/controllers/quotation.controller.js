@@ -238,7 +238,7 @@ __decorate([
     (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
     (0, swagger_1.ApiOperation)({
         summary: 'Convertir cotización a orden de venta',
-        description: 'Crea una OV con los mismos unit_price, impuestos y descuentos. POS descuenta inventario; MANUAL queda Creada.',
+        description: 'Crea una OV con los mismos unit_price, impuestos y descuentos. send_to_pos_caja envía a caja POS de la sucursal de la cotización.',
     }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),

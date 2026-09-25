@@ -293,6 +293,9 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
         this.pushFooterLines(lines, 'Cajero(a):', this.formatUserName(collection.collected_by_user));
         this.pushFooterLines(lines, 'Lo atendio:', this.formatUserName(order.seller_user));
         this.pushFooterLines(lines, 'Cliente:', this.formatCustomerName(order));
+        if (order.walk_in_rfc) {
+            this.pushFooterLines(lines, 'RFC:', order.walk_in_rfc);
+        }
         const observationLines = (0, escpos_util_1.observationTicketLines)(order.notes);
         if (observationLines.length) {
             lines.push('');
@@ -446,6 +449,10 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
         return phone || '';
     }
     formatCustomerName(order) {
+        const walkInName = order.walk_in_name?.trim();
+        if (walkInName) {
+            return walkInName.toUpperCase();
+        }
         const customer = order.customer;
         if (!customer)
             return 'MOSTRADOR';

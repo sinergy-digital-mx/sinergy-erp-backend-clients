@@ -22,6 +22,8 @@ export declare class CreateSalesOrderDto {
     fiscal_razon_social?: string;
     payment_status?: string;
     notes?: string;
+    walk_in_name?: string;
+    walk_in_rfc?: string;
     requires_selection_assembly?: boolean;
     sale_scope?: 'inventory' | 'services' | 'combined';
     global_discount_id?: string;

@@ -47,6 +47,8 @@ let WarehouseService = class WarehouseService {
         const skip = (page - 1) * limit;
         const queryBuilder = this.repo
             .createQueryBuilder('warehouse')
+            .leftJoinAndSelect('warehouse.billing_branch', 'billing_branch')
+            .leftJoinAndSelect('billing_branch.fiscal_configuration', 'fiscal_configuration')
             .where('warehouse.tenant_id = :tenantId', { tenantId });
         if (query?.search) {
             queryBuilder.andWhere('(LOWER(warehouse.name) LIKE LOWER(:search) OR LOWER(warehouse.code) LIKE LOWER(:search))', { search: `%${query.search}%` });
@@ -85,6 +87,7 @@ let WarehouseService = class WarehouseService {
     async findOne(id, tenantId) {
         const warehouse = await this.repo.findOne({
             where: { id, tenant_id: tenantId },
+            relations: ['billing_branch', 'billing_branch.fiscal_configuration'],
         });
         if (!warehouse) {
             throw new common_1.NotFoundException(`Almacén con ID ${id} no encontrado`);

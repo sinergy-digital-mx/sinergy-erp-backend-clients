@@ -12,10 +12,12 @@ const typeorm_1 = require("@nestjs/typeorm");
 const sales_order_entity_1 = require("../../entities/sales-orders/sales-order.entity");
 const pos_sale_collection_entity_1 = require("../../entities/pos/pos-sale-collection.entity");
 const pos_daily_shift_entity_1 = require("../../entities/pos/pos-daily-shift.entity");
+const pos_partial_shift_entity_1 = require("../../entities/pos/pos-partial-shift.entity");
 const electronic_invoice_entity_1 = require("../../entities/electronic-invoicing/electronic-invoice.entity");
 const purchase_order_batch_entity_1 = require("../../entities/purchase-orders/purchase-order-batch.entity");
 const user_entity_1 = require("../../entities/users/user.entity");
 const rbac_module_1 = require("../rbac/rbac.module");
+const pos_shifts_module_1 = require("../pos-shifts/pos-shifts.module");
 const accounting_controller_1 = require("./accounting.controller");
 const accounting_service_1 = require("./accounting.service");
 let AccountingModule = class AccountingModule {
@@ -28,11 +30,13 @@ exports.AccountingModule = AccountingModule = __decorate([
                 sales_order_entity_1.SalesOrder,
                 pos_sale_collection_entity_1.PosSaleCollection,
                 pos_daily_shift_entity_1.PosDailyShift,
+                pos_partial_shift_entity_1.PosPartialShift,
                 electronic_invoice_entity_1.ElectronicInvoice,
                 purchase_order_batch_entity_1.PurchaseOrderBatch,
                 user_entity_1.User,
             ]),
             rbac_module_1.RBACModule,
+            pos_shifts_module_1.PosShiftsModule,
         ],
         controllers: [accounting_controller_1.AccountingController],
         providers: [accounting_service_1.AccountingService],

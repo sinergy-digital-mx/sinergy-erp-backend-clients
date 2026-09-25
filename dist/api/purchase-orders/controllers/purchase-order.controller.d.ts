@@ -2,13 +2,15 @@ import { PurchaseOrderService } from '../services/purchase-order.service';
 import { PurchaseOrderDocumentsService } from '../services/purchase-order-documents.service';
 import { PurchaseOrderExportService } from '../services/purchase-order-export.service';
 import { PurchaseOrderMovementsService } from '../services/purchase-order-movements.service';
+import { PurchaseOrderLocationsService } from '../services/purchase-order-locations.service';
 import { CreatePurchaseOrderDto, CreateLineItemDto, ReceivePurchaseOrderDto, UpdateLineItemDto, QueryPurchaseOrderDto, CreatePurchaseOrderPaymentDto, RegenerateDocumentDto, UpdatePurchaseOrderNotesDto, UpdatePurchaseOrderPedimentoDto, UpdatePurchaseOrderVendorInvoiceDto, UpdatePurchaseOrderRealCostDto, QueryPurchaseOrderHeaderExportDto, QueryPurchaseOrderDetailExportDto } from '../dto';
 export declare class PurchaseOrderController {
     private readonly purchaseOrderService;
     private readonly documentsService;
     private readonly exportService;
     private readonly movementsService;
-    constructor(purchaseOrderService: PurchaseOrderService, documentsService: PurchaseOrderDocumentsService, exportService: PurchaseOrderExportService, movementsService: PurchaseOrderMovementsService);
+    private readonly locationsService;
+    constructor(purchaseOrderService: PurchaseOrderService, documentsService: PurchaseOrderDocumentsService, exportService: PurchaseOrderExportService, movementsService: PurchaseOrderMovementsService, locationsService: PurchaseOrderLocationsService);
     create(dto: CreatePurchaseOrderDto, req: any): Promise<import("../../../entities/purchase-orders").PurchaseOrderBatch>;
     findAll(filters: QueryPurchaseOrderDto, req: any): Promise<{
         data: import("../../../entities/purchase-orders").PurchaseOrderBatch[];
@@ -17,6 +19,7 @@ export declare class PurchaseOrderController {
     }>;
     exportHeadersExcel(filters: QueryPurchaseOrderHeaderExportDto, req: any, res: any): Promise<void>;
     exportDetailsExcel(filters: QueryPurchaseOrderDetailExportDto, req: any, res: any): Promise<void>;
+    getLocations(req: any): Promise<import("../utils/purchase-order-location.util").PurchaseOrderLocationTree>;
     receive(id: string, dto: ReceivePurchaseOrderDto, req: any): Promise<import("../../../entities/purchase-orders").PurchaseOrderBatch>;
     addLineItem(id: string, dto: CreateLineItemDto, req: any): Promise<import("../../../entities/purchase-orders").PurchaseOrderBatch>;
     getPayments(id: string, req: any): Promise<{

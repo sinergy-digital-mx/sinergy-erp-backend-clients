@@ -334,6 +334,8 @@ export declare class SalesOrderController {
                 invoice_requested: boolean;
                 general_status: string;
                 notes: string | null;
+                walk_in_name: string | null;
+                walk_in_rfc: string | null;
                 converted_from_quotation_id: string | null;
                 sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
                 requires_selection_assembly: boolean;
@@ -783,6 +785,8 @@ export declare class SalesOrderController {
                 invoice_requested: boolean;
                 general_status: string;
                 notes: string | null;
+                walk_in_name: string | null;
+                walk_in_rfc: string | null;
                 converted_from_quotation_id: string | null;
                 sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
                 requires_selection_assembly: boolean;
@@ -1232,6 +1236,8 @@ export declare class SalesOrderController {
                 invoice_requested: boolean;
                 general_status: string;
                 notes: string | null;
+                walk_in_name: string | null;
+                walk_in_rfc: string | null;
                 converted_from_quotation_id: string | null;
                 sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
                 requires_selection_assembly: boolean;
@@ -1681,6 +1687,8 @@ export declare class SalesOrderController {
             invoice_requested: boolean;
             general_status: string;
             notes: string | null;
+            walk_in_name: string | null;
+            walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
             sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
             requires_selection_assembly: boolean;
@@ -1770,6 +1778,8 @@ export declare class SalesOrderController {
             invoice_requested: boolean;
             general_status: string;
             notes: string | null;
+            walk_in_name: string | null;
+            walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
             sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
             requires_selection_assembly: boolean;
@@ -2199,6 +2209,8 @@ export declare class SalesOrderController {
             invoice_requested: boolean;
             general_status: string;
             notes: string | null;
+            walk_in_name: string | null;
+            walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
             sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
             requires_selection_assembly: boolean;
@@ -2288,6 +2300,8 @@ export declare class SalesOrderController {
             invoice_requested: boolean;
             general_status: string;
             notes: string | null;
+            walk_in_name: string | null;
+            walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
             sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
             requires_selection_assembly: boolean;
@@ -2639,6 +2653,8 @@ export declare class SalesOrderController {
             invoice_requested: boolean;
             general_status: string;
             notes: string | null;
+            walk_in_name: string | null;
+            walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
             sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
             requires_selection_assembly: boolean;
@@ -3105,6 +3121,8 @@ export declare class SalesOrderController {
                 invoice_requested: boolean;
                 general_status: string;
                 notes: string | null;
+                walk_in_name: string | null;
+                walk_in_rfc: string | null;
                 converted_from_quotation_id: string | null;
                 sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
                 requires_selection_assembly: boolean;

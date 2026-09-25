@@ -37,6 +37,7 @@ const pos_sale_collection_mapper_1 = require("./mappers/pos-sale-collection.mapp
 const cash_drawer_1 = require("./utils/cash-drawer");
 const pos_card_payments_util_1 = require("./utils/pos-card-payments.util");
 const pos_cash_payment_util_1 = require("./utils/pos-cash-payment.util");
+const walk_in_ticket_util_1 = require("./utils/walk-in-ticket.util");
 const unclosed_shift_alert_1 = require("./utils/unclosed-shift-alert");
 const customer_credit_service_1 = require("../customers/services/customer-credit.service");
 const fiscal_invoice_readiness_util_1 = require("../customers/utils/fiscal-invoice-readiness.util");
@@ -113,6 +114,13 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             throw new common_1.BadRequestException('No hay corte global abierto en la sucursal. La terminal de caja debe abrir el corte del día.');
         }
         return shift.id;
+    }
+    async resolveBranchCajaShift(tenantId, billingBranchId) {
+        const shift = await this.getBranchOpenDailyShift(tenantId, billingBranchId);
+        if (!shift || (0, unclosed_shift_alert_1.isPreviousDayOpenShift)(shift.shift_date)) {
+            return { shift: null, queued: true };
+        }
+        return { shift, queued: false };
     }
     async getBranchOpenDailyShift(tenantId, billingBranchId) {
         return this.dailyShiftRepo
@@ -396,6 +404,8 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             subtotal: Number(order.subtotal),
             created_at: order.created_at,
             notes: order.notes,
+            walk_in_name: order.walk_in_name,
+            walk_in_rfc: order.walk_in_rfc,
             fiscal_configuration_id: order.fiscal_configuration_id,
             customer: order.customer
                 ? {
@@ -575,6 +585,16 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             collected_by_user_id: cobranzaUserId,
             customer_id: customerId,
             pos_daily_shift_id: shift.id,
+            walk_in_name: (0, pos_sale_collection_mapper_1.isWalkInCustomer)(customer)
+                ? dto.walk_in_name !== undefined
+                    ? (0, walk_in_ticket_util_1.normalizeWalkInName)(dto.walk_in_name)
+                    : order.walk_in_name
+                : null,
+            walk_in_rfc: (0, pos_sale_collection_mapper_1.isWalkInCustomer)(customer)
+                ? dto.walk_in_rfc !== undefined
+                    ? (0, walk_in_ticket_util_1.normalizeWalkInRfc)(dto.walk_in_rfc)
+                    : order.walk_in_rfc
+                : null,
         });
         collection.customer = customer;
         collection.collected_by_user = cobranzaUser;
@@ -884,6 +904,8 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                     total: Number(order.total),
                     subtotal: Number(order.subtotal),
                     created_at: order.created_at,
+                    walk_in_name: order.walk_in_name,
+                    walk_in_rfc: order.walk_in_rfc,
                     seller_user: order.seller_user
                         ? {
                             id: order.seller_user.id,
@@ -1085,6 +1107,8 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             payment_status: order.payment_status,
             pos_stage: order.pos_stage,
             notes: order.notes,
+            walk_in_name: order.walk_in_name,
+            walk_in_rfc: order.walk_in_rfc,
             fiscal_configuration_id: order.fiscal_configuration_id,
             customer: order.customer
                 ? {

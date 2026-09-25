@@ -18,6 +18,8 @@ class ReplacePosSaleCartDto {
     line_items;
     customer_id;
     global_discount_id;
+    walk_in_name;
+    walk_in_rfc;
 }
 exports.ReplacePosSaleCartDto = ReplacePosSaleCartDto;
 __decorate([
@@ -46,4 +48,22 @@ __decorate([
     (0, class_validator_1.IsUUID)(),
     __metadata("design:type", String)
 ], ReplacePosSaleCartDto.prototype, "global_discount_id", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false, description: 'Nombre para el ticket (mostrador)' }),
+    (0, class_transformer_1.Transform)(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value)),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(120),
+    __metadata("design:type", String)
+], ReplacePosSaleCartDto.prototype, "walk_in_name", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false, description: 'RFC para el ticket (mostrador)' }),
+    (0, class_transformer_1.Transform)(({ value }) => typeof value === 'string' ? value.trim().toUpperCase().replace(/[\s-]/g, '') || undefined : value),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Matches)(/^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/, {
+        message: 'El RFC debe tener 12 o 13 caracteres',
+    }),
+    __metadata("design:type", String)
+], ReplacePosSaleCartDto.prototype, "walk_in_rfc", void 0);
 //# sourceMappingURL=replace-pos-sale-cart.dto.js.map

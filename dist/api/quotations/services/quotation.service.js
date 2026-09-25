@@ -32,6 +32,7 @@ const quotation_folio_service_1 = require("./quotation-folio.service");
 const quotation_pdf_service_1 = require("./quotation-pdf.service");
 const quotation_documents_service_1 = require("./quotation-documents.service");
 const pos_shifts_service_1 = require("../../pos-shifts/pos-shifts.service");
+const quotation_convert_util_1 = require("../utils/quotation-convert.util");
 const product_discount_service_1 = require("../../products/product-discount.service");
 const global_discount_service_1 = require("../../global-discounts/global-discount.service");
 const product_discount_util_1 = require("../../products/utils/product-discount.util");
@@ -563,15 +564,24 @@ let QuotationService = class QuotationService {
             : hasServices
                 ? sales_order_sale_scope_enum_1.SalesOrderSaleScope.Services
                 : sales_order_sale_scope_enum_1.SalesOrderSaleScope.Inventory;
+        const salesOrderType = (0, quotation_convert_util_1.resolveConvertSalesOrderType)(quotation.quotation_type, dto.send_to_pos_caja);
+        const branchId = quotation.billing_branch_id ?? quotation.warehouse?.billing_branch_id ?? null;
+        if (salesOrderType === 'POS' && !branchId) {
+            throw new common_1.BadRequestException('La cotización no tiene sucursal para enviar a caja POS');
+        }
+        const warehouseId = salesOrderType === 'POS'
+            ? await this.resolveConvertPosWarehouse(tenantId, quotation, branchId)
+            : quotation.warehouse_id ?? undefined;
+        const sellerUserId = quotation.seller_user_id ?? quotation.assigned_seller_user_id ?? userId;
         const createDto = {
             fiscal_configuration_id: quotation.fiscal_configuration_id,
-            billing_branch_id: quotation.billing_branch_id ?? undefined,
-            warehouse_id: quotation.warehouse_id ?? undefined,
+            billing_branch_id: branchId ?? undefined,
+            warehouse_id: warehouseId,
             customer_id: dto.customer_id ?? quotation.customer_id,
             expected_delivery_date: expectedDate,
-            sales_order_type: quotation.quotation_type === 'POS' ? 'POS' : 'MANUAL',
+            sales_order_type: salesOrderType,
             sale_scope: saleScope,
-            seller_user_id: quotation.seller_user_id ?? undefined,
+            seller_user_id: salesOrderType === 'POS' ? sellerUserId : quotation.seller_user_id ?? undefined,
             assigned_seller_user_id: quotation.assigned_seller_user_id ?? undefined,
             fiscal_razon_social: quotation.fiscal_razon_social ?? undefined,
             notes,
@@ -607,8 +617,32 @@ let QuotationService = class QuotationService {
                 sales_order_type: salesOrder.sales_order_type,
                 total: salesOrder.total,
                 converted_from_quotation_id: quotation.id,
+                sent_to_pos_caja: salesOrderType === 'POS',
+                pos_daily_shift_id: salesOrder.pos_daily_shift_id ?? null,
             },
         };
+    }
+    async resolveConvertPosWarehouse(tenantId, quotation, branchId) {
+        if (quotation.warehouse_id) {
+            const owned = await this.warehouseRepo.findOne({
+                where: { id: quotation.warehouse_id, tenant_id: tenantId },
+            });
+            if (owned?.billing_branch_id === branchId) {
+                return owned.id;
+            }
+        }
+        const warehouse = await this.warehouseRepo.findOne({
+            where: {
+                tenant_id: tenantId,
+                billing_branch_id: branchId,
+                status: 'active',
+            },
+            order: { name: 'ASC' },
+        });
+        if (!warehouse) {
+            throw new common_1.BadRequestException('La sucursal de la cotización no tiene almacén activo para caja POS');
+        }
+        return warehouse.id;
     }
     async regenerateDocumentoOriginal(id, tenantId, userId, language, keepPrevious = false, access) {
         await this.findOne(id, tenantId, access);
