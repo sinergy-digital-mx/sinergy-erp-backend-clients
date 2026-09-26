@@ -1,17 +1,24 @@
 import { S3Service } from '../../../common/services/s3.service';
 import { DocumentLanguage } from '../../../common/enums/document-language.enum';
 import { SalesOrder } from '../../../entities/sales-orders/sales-order.entity';
+export interface SalesOrderPdfSelfInvoice {
+    code: string;
+    url: string;
+    soldAt: Date | string;
+}
+interface SalesOrderPdfOptions {
+    title?: string;
+    subtitle?: string;
+    hidePayment?: boolean;
+    notesPrefix?: string;
+    notesEmpty?: string;
+    selfInvoice?: SalesOrderPdfSelfInvoice;
+}
 export declare class SalesOrderPdfService {
     private readonly s3Service;
     private fonts;
     constructor(s3Service: S3Service);
-    generatePdf(salesOrder: SalesOrder, language?: DocumentLanguage, options?: {
-        title?: string;
-        subtitle?: string;
-        hidePayment?: boolean;
-        notesPrefix?: string;
-        notesEmpty?: string;
-    }): Promise<Buffer>;
+    generatePdf(salesOrder: SalesOrder, language?: DocumentLanguage, options?: SalesOrderPdfOptions): Promise<Buffer>;
     generateDeliveryPdf(salesOrder: SalesOrder, language?: DocumentLanguage): Promise<Buffer>;
     private buildDocument;
     uploadPdfToS3(salesOrder: Pick<SalesOrder, 'id' | 'folio' | 'tenant_id'>, pdfBuffer: Buffer, documentType?: string, entityFolder?: string): Promise<{
@@ -37,6 +44,8 @@ export declare class SalesOrderPdfService {
     private formatCustomerName;
     private formatCurrency;
     private formatUnitCurrency;
+    private buildSelfInvoiceSection;
     private getFiscalLogoImage;
     private renderPdf;
 }
+export {};

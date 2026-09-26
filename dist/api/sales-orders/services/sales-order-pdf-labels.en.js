@@ -44,5 +44,8 @@ exports.SALES_ORDER_PDF_LABELS_EN = {
     paymentPending: 'Pending',
     paymentPaid: 'Paid',
     dateLocale: 'en-US',
+    invoiceYourPurchase: 'INVOICE YOUR PURCHASE',
+    invoiceScanOrOpen: 'Scan the QR or open:',
+    publicFolio: 'Public folio',
 };
 //# sourceMappingURL=sales-order-pdf-labels.en.js.map

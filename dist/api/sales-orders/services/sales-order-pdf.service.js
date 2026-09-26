@@ -49,8 +49,10 @@ exports.SalesOrderPdfService = void 0;
 const common_1 = require("@nestjs/common");
 const pdfmake_1 = __importDefault(require("pdfmake"));
 const path = __importStar(require("path"));
+const QRCode = __importStar(require("qrcode"));
 const s3_service_1 = require("../../../common/services/s3.service");
 const document_language_enum_1 = require("../../../common/enums/document-language.enum");
+const invoice_month_deadline_util_1 = require("../utils/invoice-month-deadline.util");
 const sales_order_pdf_labels_1 = require("./sales-order-pdf-labels");
 const COLORS = {
     primary: '#1E3A5F',
@@ -108,6 +110,9 @@ let SalesOrderPdfService = class SalesOrderPdfService {
                 this.buildPartyCards(salesOrder, labels),
                 this.buildProductsSection(salesOrder, labels),
                 this.buildNotesAndTotals(salesOrder, labels),
+                ...(options?.selfInvoice
+                    ? [await this.buildSelfInvoiceSection(options.selfInvoice, labels, language)]
+                    : []),
             ],
             footer: (currentPage, pageCount) => ({
                 columns: [
@@ -559,6 +564,67 @@ let SalesOrderPdfService = class SalesOrderPdfService {
     formatUnitCurrency(amount) {
         return ('$' +
             amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 }));
+    }
+    async buildSelfInvoiceSection(block, labels, language) {
+        const qr = await QRCode.toDataURL(block.url, {
+            errorCorrectionLevel: 'M',
+            margin: 1,
+            width: 220,
+        });
+        const deadline = (0, invoice_month_deadline_util_1.invoiceMonthDeadlineLabel)(block.soldAt, language === document_language_enum_1.DocumentLanguage.EN ? 'en' : 'es');
+        return {
+            margin: [0, 16, 0, 0],
+            table: {
+                widths: ['*'],
+                body: [
+                    [
+                        {
+                            fillColor: COLORS.light,
+                            margin: [12, 12, 12, 12],
+                            columns: [
+                                { image: qr, width: 84, height: 84 },
+                                {
+                                    width: '*',
+                                    margin: [14, 4, 0, 0],
+                                    stack: [
+                                        {
+                                            text: labels.invoiceYourPurchase,
+                                            bold: true,
+                                            fontSize: 11,
+                                            color: COLORS.primary,
+                                            margin: [0, 0, 0, 4],
+                                        },
+                                        { text: deadline, fontSize: 9, margin: [0, 0, 0, 8] },
+                                        {
+                                            text: labels.invoiceScanOrOpen,
+                                            fontSize: 8,
+                                            color: COLORS.muted,
+                                            margin: [0, 0, 0, 2],
+                                        },
+                                        {
+                                            text: block.url,
+                                            link: block.url,
+                                            fontSize: 8,
+                                            color: COLORS.info,
+                                            margin: [0, 0, 0, 6],
+                                        },
+                                        {
+                                            text: `${labels.publicFolio}: ${block.code}`,
+                                            bold: true,
+                                            fontSize: 9,
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                    ],
+                ],
+            },
+            layout: {
+                hLineWidth: () => 0,
+                vLineWidth: () => 0,
+            },
+        };
     }
     async getFiscalLogoImage(salesOrder) {
         const logoKey = salesOrder.fiscal_configuration?.logo;

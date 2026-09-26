@@ -70,6 +70,7 @@ export declare class SalesOrderService {
     private deleteDocumentsByType;
     private deleteDocumentsByTypeNames;
     private loadOrderForPdf;
+    private resolveSelfInvoiceForPdf;
     private generateAndUploadPdf;
     private generateAndUploadDeliveryPdf;
     private resolveProductUom;
@@ -1903,6 +1904,7 @@ export declare class SalesOrderService {
     addLineItem(orderId: string, dto: CreateSalesOrderLineItemDto, tenantId: string, userId: string): Promise<void>;
     updateLineItem(orderId: string, lineItemId: string, dto: UpdateSalesOrderLineItemDto, tenantId: string, userId: string): Promise<void>;
     removeLineItem(orderId: string, lineItemId: string, tenantId: string, userId: string): Promise<void>;
+    private holdManualInventoryIfNeeded;
     private fulfillOrderLines;
     private assertLineItemsMatchSaleScope;
     private loadProductKinds;

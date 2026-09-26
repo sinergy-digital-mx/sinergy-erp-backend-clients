@@ -44,5 +44,8 @@ exports.SALES_ORDER_PDF_LABELS_ES = {
     paymentPending: 'Pendiente',
     paymentPaid: 'Pagado',
     dateLocale: 'es-MX',
+    invoiceYourPurchase: 'FACTURA TU COMPRA',
+    invoiceScanOrOpen: 'Escanea el QR o entra a:',
+    publicFolio: 'Folio público',
 };
 //# sourceMappingURL=sales-order-pdf-labels.es.js.map

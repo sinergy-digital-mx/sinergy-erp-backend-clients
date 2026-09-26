@@ -165,6 +165,20 @@ let SalesOrderService = class SalesOrderService {
             .leftJoinAndSelect('so.global_discount', 'global_discount')
             .getOne();
     }
+    async resolveSelfInvoiceForPdf(order) {
+        try {
+            const assigned = await this.posReceiptService.assignPublicInvoiceCode(order);
+            return {
+                code: assigned.code,
+                url: assigned.url,
+                soldAt: order.created_at ?? new Date(),
+            };
+        }
+        catch (error) {
+            this.logger.warn(`[PDF] Sin folio público para ${order.folio}: ${error}`);
+            return undefined;
+        }
+    }
     async generateAndUploadPdf(salesOrderId, tenantId, userId, language = document_language_enum_1.DocumentLanguage.ES) {
         try {
             const fullOrder = await this.loadOrderForPdf(salesOrderId, tenantId);
@@ -172,7 +186,9 @@ let SalesOrderService = class SalesOrderService {
                 this.logger.error(`[PDF] Failed to load sales order: ${salesOrderId}`);
                 return;
             }
-            const pdfBuffer = await this.pdfService.generatePdf(fullOrder, language);
+            const pdfBuffer = await this.pdfService.generatePdf(fullOrder, language, {
+                selfInvoice: await this.resolveSelfInvoiceForPdf(fullOrder),
+            });
             const uploadResult = await this.pdfService.uploadPdfToS3(fullOrder, pdfBuffer, 'DOCUMENTO_ORIGINAL');
             await this.documentsService.uploadDocument(salesOrderId, SalesOrderService_1.DOC_TYPE_DOCUMENTO_ORIGINAL, `DOCUMENTO_ORIGINAL_${fullOrder.folio}_es.pdf`, uploadResult.s3Key, pdfBuffer.length, 'application/pdf', userId, language);
             await this.generateAndUploadDeliveryPdf(fullOrder, salesOrderId, userId, language);
@@ -400,6 +416,9 @@ let SalesOrderService = class SalesOrderService {
                 savedSO.general_status = posQueued ? 'En cola' : 'Surtida';
                 await qr.manager.save(sales_order_entity_1.SalesOrder, savedSO);
                 this.logger.log(`POS sales order ${folio} auto-fulfilled by user ${userId}`);
+            }
+            else {
+                await this.holdManualInventoryIfNeeded(qr, savedSO, savedDetails, userId);
             }
             await qr.commitTransaction();
             if (!isPosSale && paymentStatus === 'Pendiente' && !fromQuotation) {
@@ -1082,7 +1101,17 @@ let SalesOrderService = class SalesOrderService {
         await qr.connect();
         await qr.startTransaction();
         try {
-            await this.fulfillOrderLines(qr, id, this.allocationScope(so), so.line_items, userId, dto.notes ?? so.notes ?? undefined);
+            const existingAllocations = (so.line_items ?? []).flatMap((line) => line.batch_allocations ?? []);
+            if (existingAllocations.length) {
+                await qr.manager.update(sales_order_entity_1.SalesOrder, { id }, {
+                    general_status: 'Surtida',
+                    ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
+                    updated_by: userId,
+                });
+            }
+            else {
+                await this.fulfillOrderLines(qr, id, this.allocationScope(so), so.line_items, userId, dto.notes ?? so.notes ?? undefined);
+            }
             await qr.commitTransaction();
             this.logger.log(`Sales order ${so.folio} fulfilled by user ${userId}`);
             return this.findOne(id, tenantId);
@@ -1233,6 +1262,14 @@ let SalesOrderService = class SalesOrderService {
         try {
             const existingJob = await this.controlDeskLifecycle.findActiveJob(qr.manager, tenantId, id);
             this.controlDeskLifecycle.assertJobEditable(existingJob);
+            const existingAllocations = await qr.manager
+                .createQueryBuilder(sales_order_batch_allocation_entity_1.SalesOrderBatchAllocation, 'alloc')
+                .innerJoin('alloc.sales_order_detail', 'detail')
+                .where('detail.sales_order_id = :id', { id })
+                .getMany();
+            if (existingAllocations.length) {
+                await this.fulfillmentService.releaseAllocations(existingAllocations, qr.manager);
+            }
             await qr.manager.delete(sales_order_detail_entity_1.SalesOrderDetail, { sales_order_id: id });
             const so = await qr.manager.findOne(sales_order_entity_1.SalesOrder, { where: { id, tenant_id: tenantId } });
             if (!so) {
@@ -1284,6 +1321,7 @@ let SalesOrderService = class SalesOrderService {
                 details: savedDetails,
                 requiresSelection: !!so.requires_selection_assembly,
             });
+            await this.holdManualInventoryIfNeeded(qr, so, savedDetails, userId);
             await qr.commitTransaction();
             this.regenerateDocumentoOriginalPreservingLanguage(id, tenantId, userId).catch((err) => {
                 this.logger.error('[PDF] Error regenerating DOCUMENTO_ORIGINAL after sales order replace:', err);
@@ -1313,7 +1351,8 @@ let SalesOrderService = class SalesOrderService {
             const saleScope = (0, sale_scope_util_1.resolveSaleScope)(so.sale_scope, so.sales_order_type === 'POS');
             const lineKinds = await this.loadProductKinds(qr, [dto.product_id]);
             this.assertLineItemsMatchSaleScope([dto], saleScope, lineKinds);
-            await this.insertSalesOrderLineItems(qr, so.id, [dto], userId, tenantId);
+            const added = await this.insertSalesOrderLineItems(qr, so.id, [dto], userId, tenantId);
+            await this.holdManualInventoryIfNeeded(qr, so, added, userId);
             await this.recomputeTotals(qr, so.id, tenantId, userId);
             const details = await qr.manager.find(sales_order_detail_entity_1.SalesOrderDetail, {
                 where: { sales_order_id: so.id },
@@ -1352,9 +1391,15 @@ let SalesOrderService = class SalesOrderService {
             await this.assertLineItemsEditable(qr, so, tenantId);
             const line = await qr.manager.findOne(sales_order_detail_entity_1.SalesOrderDetail, {
                 where: { id: lineItemId, sales_order_id: orderId },
+                relations: ['batch_allocations'],
             });
             if (!line) {
                 throw new common_1.NotFoundException(`Línea no encontrada: ${lineItemId}`);
+            }
+            const quantityChanged = dto.quantity !== undefined || dto.product_uom_id !== undefined;
+            if (quantityChanged && line.batch_allocations?.length) {
+                await this.fulfillmentService.releaseAllocations(line.batch_allocations, qr.manager);
+                line.batch_allocations = [];
             }
             if (dto.quantity !== undefined) {
                 line.quantity = dto.quantity;
@@ -1392,6 +1437,9 @@ let SalesOrderService = class SalesOrderService {
             line.product_discount_id = discountAmounts.product_discount_id;
             this.applyPersistedLineTaxes(line);
             await qr.manager.save(sales_order_detail_entity_1.SalesOrderDetail, line);
+            if (quantityChanged) {
+                await this.holdManualInventoryIfNeeded(qr, so, [line], userId);
+            }
             await this.recomputeTotals(qr, so.id, tenantId, userId);
             const details = await qr.manager.find(sales_order_detail_entity_1.SalesOrderDetail, {
                 where: { sales_order_id: so.id },
@@ -1430,6 +1478,7 @@ let SalesOrderService = class SalesOrderService {
             await this.assertLineItemsEditable(qr, so, tenantId);
             const line = await qr.manager.findOne(sales_order_detail_entity_1.SalesOrderDetail, {
                 where: { id: lineItemId, sales_order_id: orderId },
+                relations: ['batch_allocations'],
             });
             if (!line) {
                 throw new common_1.NotFoundException(`Línea no encontrada: ${lineItemId}`);
@@ -1439,6 +1488,9 @@ let SalesOrderService = class SalesOrderService {
             });
             if (remaining <= 1) {
                 throw new common_1.BadRequestException('La orden debe tener al menos un producto');
+            }
+            if (line.batch_allocations?.length) {
+                await this.fulfillmentService.releaseAllocations(line.batch_allocations, qr.manager);
             }
             await qr.manager.delete(sales_order_detail_entity_1.SalesOrderDetail, { id: lineItemId, sales_order_id: orderId });
             await this.recomputeTotals(qr, so.id, tenantId, userId);
@@ -1464,6 +1516,16 @@ let SalesOrderService = class SalesOrderService {
         this.regenerateDocumentoOriginalPreservingLanguage(orderId, tenantId, userId).catch((err) => {
             this.logger.error('[PDF] Error regenerating DOCUMENTO_ORIGINAL after remove line:', err);
         });
+    }
+    async holdManualInventoryIfNeeded(qr, so, details, userId) {
+        if (so.sales_order_type === 'POS' || so.requires_selection_assembly) {
+            return;
+        }
+        const goods = await this.filterGoodsDetails(qr, details);
+        if (!goods.length) {
+            return;
+        }
+        await this.fulfillOrderLines(qr, so.id, { billingBranchId: so.billing_branch_id }, goods, userId, undefined, true);
     }
     async fulfillOrderLines(qr, salesOrderId, scope, lineItems, userId, notes, keepGeneralStatus = false) {
         const goodsDetails = await this.filterGoodsDetails(qr, lineItems);
@@ -1626,7 +1688,9 @@ let SalesOrderService = class SalesOrderService {
         if (!fullOrder) {
             throw new common_1.NotFoundException(`Sales order not found: ${id}`);
         }
-        const pdfBuffer = await this.pdfService.generatePdf(fullOrder, language);
+        const pdfBuffer = await this.pdfService.generatePdf(fullOrder, language, {
+            selfInvoice: await this.resolveSelfInvoiceForPdf(fullOrder),
+        });
         const uploadResult = await this.pdfService.uploadPdfToS3(fullOrder, pdfBuffer, 'DOCUMENTO_ORIGINAL');
         await this.documentsService.uploadDocument(id, SalesOrderService_1.DOC_TYPE_DOCUMENTO_ORIGINAL, `DOCUMENTO_ORIGINAL_${salesOrder.folio}_${language}.pdf`, uploadResult.s3Key, pdfBuffer.length, 'application/pdf', userId, language);
         await this.generateAndUploadDeliveryPdf(fullOrder, id, userId, language);

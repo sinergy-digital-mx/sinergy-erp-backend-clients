@@ -42,6 +42,9 @@ export interface SalesOrderPdfLabels {
     paymentPending: string;
     paymentPaid: string;
     dateLocale: string;
+    invoiceYourPurchase: string;
+    invoiceScanOrOpen: string;
+    publicFolio: string;
 }
 export declare function getSalesOrderPdfLabels(language?: DocumentLanguage): SalesOrderPdfLabels;
 export declare function translateGeneralStatus(status: string | null | undefined, labels: SalesOrderPdfLabels): string;

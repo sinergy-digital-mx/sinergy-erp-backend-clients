@@ -64,6 +64,10 @@ export declare class SalesOrderPosReceiptService {
     private formatUserName;
     private formatDateTime;
     private formatQuantity;
+    assignPublicInvoiceCode(order: SalesOrder): Promise<{
+        code: string;
+        url: string;
+    }>;
     private ensurePublicInvoiceCode;
     private buildPortalUrl;
     private isUniqueViolation;

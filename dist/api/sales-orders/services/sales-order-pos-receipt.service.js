@@ -487,6 +487,14 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
     formatQuantity(value) {
         return Number.isInteger(value) ? String(value) : value.toFixed(3).replace(/\.?0+$/, '');
     }
+    async assignPublicInvoiceCode(order) {
+        const branch = order.billing_branch ?? order.warehouse?.billing_branch ?? null;
+        const code = await this.ensurePublicInvoiceCode(order, branch);
+        return {
+            code,
+            url: this.buildPortalUrl(code, order.customer?.email),
+        };
+    }
     async ensurePublicInvoiceCode(order, billingBranch) {
         if (order.public_invoice_code) {
             return order.public_invoice_code;

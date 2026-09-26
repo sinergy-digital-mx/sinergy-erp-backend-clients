@@ -268,7 +268,7 @@ __decorate([
     (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
     (0, swagger_1.ApiOperation)({
         summary: 'Create a new sales order',
-        description: 'Orders with sales_order_type POS are automatically fulfilled (inventory deducted via FIFO) in the same transaction.',
+        description: 'POS descuenta inventario al crear. Una orden manual sin selección/armado también aparta lotes FIFO en la misma transacción y queda Creada.',
     }),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
