@@ -22,6 +22,8 @@ const advance_cfdi_service_1 = require("../../electronic-invoicing/services/adva
 const electronic_invoice_service_1 = require("../../electronic-invoicing/services/electronic-invoice.service");
 const advance_cfdi_util_1 = require("../../electronic-invoicing/utils/advance-cfdi.util");
 const pos_shifts_service_1 = require("../../pos-shifts/pos-shifts.service");
+const advance_shift_payment_service_1 = require("../../pos-shifts/services/advance-shift-payment.service");
+const advance_payment_method_util_1 = require("../../pos-shifts/utils/advance-payment-method.util");
 const pos_sale_collection_mapper_1 = require("../../pos-shifts/mappers/pos-sale-collection.mapper");
 const PUBLIC_RFC = 'XAXX010101000';
 const PUBLIC_NAME = 'PUBLICO EN GENERAL';
@@ -31,12 +33,14 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
     advanceCfdi;
     electronicInvoiceService;
     posShiftsService;
-    constructor(quotationRepo, salesOrderRepo, advanceCfdi, electronicInvoiceService, posShiftsService) {
+    advancePayments;
+    constructor(quotationRepo, salesOrderRepo, advanceCfdi, electronicInvoiceService, posShiftsService, advancePayments) {
         this.quotationRepo = quotationRepo;
         this.salesOrderRepo = salesOrderRepo;
         this.advanceCfdi = advanceCfdi;
         this.electronicInvoiceService = electronicInvoiceService;
         this.posShiftsService = posShiftsService;
+        this.advancePayments = advancePayments;
     }
     async collectionPreview(id, tenantId) {
         const quotation = await this.requireQuotation(id, tenantId);
@@ -59,6 +63,9 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
         const enabled = Boolean(quotation.fiscal_configuration?.advance_invoicing_enabled);
         const advance = await this.advanceCfdi.findVigenteAdvance(quotation.tenant_id, 'quotations', quotation.id);
         const summary = await this.advanceCfdi.summarize(quotation.tenant_id, advance);
+        const payment = summary
+            ? await this.advancePayments.describeQuotationPayment(quotation.tenant_id, quotation.id)
+            : null;
         const blocks = !!summary && quotation.general_status === 'Creada';
         return {
             enabled,
@@ -69,6 +76,7 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
                 !!quotation.customer?.fiscal_rfc,
             blocksCancel: blocks,
             blocksEdit: blocks,
+            payment,
         };
     }
     async list(id, tenantId) {
@@ -83,6 +91,21 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
         if (quotation.general_status !== 'Creada') {
             throw new common_1.BadRequestException('Solo se factura anticipo de una cotización en estado Creada');
         }
+        const branch = quotation.billing_branch ?? quotation.warehouse?.billing_branch ?? null;
+        const branchId = quotation.billing_branch_id ?? branch?.id ?? null;
+        if (!branchId) {
+            throw new common_1.BadRequestException('La cotización no tiene sucursal');
+        }
+        const formaPago = dto.forma_pago ?? '01';
+        const paymentMethod = (0, advance_payment_method_util_1.paymentMethodFromFormaPago)(formaPago);
+        if (!paymentMethod) {
+            throw new common_1.BadRequestException('La forma de pago del anticipo debe ser efectivo (01), cheque (02), transferencia (03) o tarjeta (04 o 28)');
+        }
+        const caja = await this.posShiftsService.resolveBranchCajaShift(tenantId, branchId);
+        if (!caja.shift) {
+            const sucursal = branch?.code ?? 'la sucursal';
+            throw new common_1.BadRequestException(`No hay corte abierto en ${sucursal}. Abre el corte para registrar el dinero del anticipo.`);
+        }
         const parties = this.parties(quotation);
         const saved = await this.advanceCfdi.stampAdvance(tenantId, userId, {
             sourceModule: 'quotations',
@@ -96,7 +119,17 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
             series: quotation.fiscal_configuration?.prefix,
             emisor: parties.emisor,
             receptor: parties.receptor,
-        }, dto);
+        }, { ...dto, forma_pago: formaPago });
+        await this.advancePayments.record({
+            tenantId,
+            userId,
+            shiftId: caja.shift.id,
+            invoiceId: saved.id,
+            amountMxn: Number(saved.total),
+            paymentMethod,
+            documentFolio: quotation.folio,
+            quotationId: quotation.id,
+        });
         return saved;
     }
     async cancel(id, invoiceId, tenantId, userId, dto) {
@@ -106,7 +139,10 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
             throw new common_1.NotFoundException('La factura no pertenece a esta cotización');
         }
         await this.advanceCfdi.assertAdvanceCancellable(tenantId, invoice);
-        return this.electronicInvoiceService.cancel(invoiceId, tenantId, userId, dto);
+        await this.advancePayments.assertVoidable(tenantId, invoiceId);
+        const cancelled = await this.electronicInvoiceService.cancel(invoiceId, tenantId, userId, dto);
+        await this.advancePayments.voidByInvoice(tenantId, userId, invoiceId);
+        return cancelled;
     }
     async assertQuotationCancellable(quotation) {
         const advance = await this.advanceCfdi.findVigenteAdvance(quotation.tenant_id, 'quotations', quotation.id);
@@ -115,11 +151,12 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
             throw new common_1.BadRequestException(`No se puede cancelar la cotización: tiene una factura de anticipo vigente${uuid}. Cancela la factura primero.`);
         }
     }
-    async attachToSalesOrder(tenantId, quotationId, salesOrderId) {
+    async attachToSalesOrder(tenantId, userId, quotationId, salesOrderId) {
         const advance = await this.advanceCfdi.findVigenteAdvance(tenantId, 'quotations', quotationId);
         if (!advance)
-            return;
+            return null;
         await this.salesOrderRepo.update({ id: salesOrderId, tenant_id: tenantId }, { advance_invoice_id: advance.id });
+        return this.advancePayments.attachQuotationPaymentToOrder(tenantId, userId, quotationId, salesOrderId);
     }
     async requireQuotation(id, tenantId) {
         const quotation = await this.quotationRepo.findOne({
@@ -178,6 +215,7 @@ exports.QuotationAdvanceInvoiceService = QuotationAdvanceInvoiceService = __deco
         typeorm_2.Repository,
         advance_cfdi_service_1.AdvanceCfdiService,
         electronic_invoice_service_1.ElectronicInvoiceService,
-        pos_shifts_service_1.PosShiftsService])
+        pos_shifts_service_1.PosShiftsService,
+        advance_shift_payment_service_1.AdvanceShiftPaymentService])
 ], QuotationAdvanceInvoiceService);
 //# sourceMappingURL=quotation-advance-invoice.service.js.map

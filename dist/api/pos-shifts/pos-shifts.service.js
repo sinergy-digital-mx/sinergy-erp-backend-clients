@@ -40,6 +40,7 @@ const pos_cash_payment_util_1 = require("./utils/pos-cash-payment.util");
 const walk_in_ticket_util_1 = require("./utils/walk-in-ticket.util");
 const unclosed_shift_alert_1 = require("./utils/unclosed-shift-alert");
 const customer_credit_service_1 = require("../customers/services/customer-credit.service");
+const advance_shift_payment_service_1 = require("./services/advance-shift-payment.service");
 const fiscal_invoice_readiness_util_1 = require("../customers/utils/fiscal-invoice-readiness.util");
 const WALK_IN_FISCAL_NAME = 'VENTA DE MOSTRADOR';
 const WALK_IN_DISPLAY_NAME = 'Público en General';
@@ -55,8 +56,9 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
     posReceiptService;
     salesOrderService;
     customerCreditService;
+    advanceShiftPayments;
     logger = new common_1.Logger(PosShiftsService_1.name);
-    constructor(dailyShiftRepo, partialShiftRepo, userRepo, branchAssignmentRepo, salesOrderRepo, customerRepo, warehouseRepo, collectionRepo, posReceiptService, salesOrderService, customerCreditService) {
+    constructor(dailyShiftRepo, partialShiftRepo, userRepo, branchAssignmentRepo, salesOrderRepo, customerRepo, warehouseRepo, collectionRepo, posReceiptService, salesOrderService, customerCreditService, advanceShiftPayments) {
         this.dailyShiftRepo = dailyShiftRepo;
         this.partialShiftRepo = partialShiftRepo;
         this.userRepo = userRepo;
@@ -68,6 +70,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         this.posReceiptService = posReceiptService;
         this.salesOrderService = salesOrderService;
         this.customerCreditService = customerCreditService;
+        this.advanceShiftPayments = advanceShiftPayments;
     }
     async validateSellerCode(tenantId, terminalUserId, code) {
         const terminalUser = await this.requirePosTerminal(tenantId, terminalUserId);
@@ -1303,12 +1306,13 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             .addSelect('COALESCE(SUM(collection.amount_credit_mxn), 0)', 'credit_mxn')
             .where('collection.pos_daily_shift_id = :dailyShiftId', { dailyShiftId })
             .getRawOne();
+        const advances = await this.advanceShiftPayments.sumActiveByShift(dailyShiftId);
         return {
-            cash_mxn: Number(result?.cash_mxn ?? 0),
+            cash_mxn: Number(result?.cash_mxn ?? 0) + advances.cash_mxn,
             cash_usd: Number(result?.cash_usd ?? 0),
-            transfer_mxn: Number(result?.transfer_mxn ?? 0),
-            card_mxn: Number(result?.card_mxn ?? 0),
-            check_mxn: Number(result?.check_mxn ?? 0),
+            transfer_mxn: Number(result?.transfer_mxn ?? 0) + advances.transfer_mxn,
+            card_mxn: Number(result?.card_mxn ?? 0) + advances.card_mxn,
+            check_mxn: Number(result?.check_mxn ?? 0) + advances.check_mxn,
             credit_mxn: Number(result?.credit_mxn ?? 0),
         };
     }
@@ -1492,6 +1496,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                     : Number(shift.cash_difference_usd),
                 closing_denominations: shift.closing_denominations ?? null,
             },
+            advance_payments: await this.advanceShiftPayments.listActive(shift.id),
         };
     }
     mapPartialShift(partial) {
@@ -1553,6 +1558,7 @@ exports.PosShiftsService = PosShiftsService = PosShiftsService_1 = __decorate([
         typeorm_2.Repository,
         sales_order_pos_receipt_service_1.SalesOrderPosReceiptService,
         sales_order_service_1.SalesOrderService,
-        customer_credit_service_1.CustomerCreditService])
+        customer_credit_service_1.CustomerCreditService,
+        advance_shift_payment_service_1.AdvanceShiftPaymentService])
 ], PosShiftsService);
 //# sourceMappingURL=pos-shifts.service.js.map

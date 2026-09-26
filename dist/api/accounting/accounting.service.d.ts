@@ -278,6 +278,13 @@ export declare class AccountingService {
                 amount: number;
             }[] | null;
         };
+        advance_payments: {
+            id: string;
+            folio: string;
+            payment_method: PosSalePaymentMethod;
+            payment_method_label: string;
+            amount_mxn: number;
+        }[];
     }>;
     getAccountsPayable(tenantId: string, filters: QueryAccountsPayableDto): Promise<{
         summary: {

@@ -7,12 +7,16 @@ import { CancelElectronicInvoiceDto } from '../../electronic-invoicing/dto/cance
 import { StampSalesOrderInvoiceDto } from '../dto/stamp-sales-order-invoice.dto';
 import { StampAdvanceInvoiceDto } from '../../electronic-invoicing/dto/stamp-advance-invoice.dto';
 import { ApplyAdvanceInvoiceDto } from '../../electronic-invoicing/dto/apply-advance-invoice.dto';
+import { PosShiftsService } from '../../pos-shifts/pos-shifts.service';
+import { AdvanceShiftPaymentService } from '../../pos-shifts/services/advance-shift-payment.service';
 export declare class SalesOrderInvoicingService {
     private readonly salesOrderRepo;
     private readonly customerRepo;
     private readonly electronicInvoiceService;
     private readonly advanceCfdi;
-    constructor(salesOrderRepo: Repository<SalesOrder>, customerRepo: Repository<Customer>, electronicInvoiceService: ElectronicInvoiceService, advanceCfdi: AdvanceCfdiService);
+    private readonly posShiftsService;
+    private readonly advancePayments;
+    constructor(salesOrderRepo: Repository<SalesOrder>, customerRepo: Repository<Customer>, electronicInvoiceService: ElectronicInvoiceService, advanceCfdi: AdvanceCfdiService, posShiftsService: PosShiftsService, advancePayments: AdvanceShiftPaymentService);
     listInvoices(salesOrderId: string, tenantId: string): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice[]>;
     stampInvoice(salesOrderId: string, tenantId: string, userId: string, dto: StampSalesOrderInvoiceDto): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     cancelInvoice(salesOrderId: string, invoiceId: string, tenantId: string, userId: string, dto: CancelElectronicInvoiceDto): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;

@@ -147,6 +147,13 @@ export declare class PosShiftsController {
                     amount: number;
                 }[] | null;
             };
+            advance_payments: {
+                id: string;
+                folio: string;
+                payment_method: import("../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
+                payment_method_label: string;
+                amount_mxn: number;
+            }[];
         } | null;
         requires_previous_close: boolean;
         unclosed_shift_alert: import("./utils/unclosed-shift-alert").UnclosedShiftAlert | null;
@@ -254,6 +261,13 @@ export declare class PosShiftsController {
                     amount: number;
                 }[] | null;
             };
+            advance_payments: {
+                id: string;
+                folio: string;
+                payment_method: import("../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
+                payment_method_label: string;
+                amount_mxn: number;
+            }[];
         };
         queued_sales_assigned: number;
     }>;
@@ -359,6 +373,13 @@ export declare class PosShiftsController {
                     amount: number;
                 }[] | null;
             };
+            advance_payments: {
+                id: string;
+                folio: string;
+                payment_method: import("../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
+                payment_method_label: string;
+                amount_mxn: number;
+            }[];
         }[];
     }>;
     findDailyShiftById(id: string, req: any): Promise<{
@@ -463,6 +484,13 @@ export declare class PosShiftsController {
                     amount: number;
                 }[] | null;
             };
+            advance_payments: {
+                id: string;
+                folio: string;
+                payment_method: import("../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
+                payment_method_label: string;
+                amount_mxn: number;
+            }[];
         };
     }>;
     createPartialShift(id: string, dto: CreatePartialShiftDto, req: any): Promise<{
@@ -597,6 +625,13 @@ export declare class PosShiftsController {
                     amount: number;
                 }[] | null;
             };
+            advance_payments: {
+                id: string;
+                folio: string;
+                payment_method: import("../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
+                payment_method_label: string;
+                amount_mxn: number;
+            }[];
         };
     }>;
     getPendingSales(req: any): Promise<{

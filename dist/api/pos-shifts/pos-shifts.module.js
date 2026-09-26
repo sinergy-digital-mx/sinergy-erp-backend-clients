@@ -16,6 +16,9 @@ const user_entity_1 = require("../../entities/users/user.entity");
 const user_billing_branch_entity_1 = require("../../entities/users/user-billing-branch.entity");
 const sales_order_entity_1 = require("../../entities/sales-orders/sales-order.entity");
 const pos_sale_collection_entity_1 = require("../../entities/pos/pos-sale-collection.entity");
+const advance_shift_payment_entity_1 = require("../../entities/pos/advance-shift-payment.entity");
+const sales_order_payment_entity_1 = require("../../entities/sales-orders/sales-order-payment.entity");
+const advance_shift_payment_service_1 = require("./services/advance-shift-payment.service");
 const customer_entity_1 = require("../../entities/customers/customer.entity");
 const warehouse_entity_1 = require("../../entities/warehouse/warehouse.entity");
 const rbac_module_1 = require("../rbac/rbac.module");
@@ -38,6 +41,8 @@ exports.PosShiftsModule = PosShiftsModule = __decorate([
                 sales_order_entity_1.SalesOrder,
                 customer_entity_1.Customer,
                 pos_sale_collection_entity_1.PosSaleCollection,
+                advance_shift_payment_entity_1.AdvanceShiftPayment,
+                sales_order_payment_entity_1.SalesOrderPayment,
                 warehouse_entity_1.Warehouse,
             ]),
             rbac_module_1.RBACModule,
@@ -45,8 +50,8 @@ exports.PosShiftsModule = PosShiftsModule = __decorate([
             customers_module_1.CustomersModule,
         ],
         controllers: [pos_shifts_controller_1.PosShiftsController],
-        providers: [pos_shifts_service_1.PosShiftsService],
-        exports: [pos_shifts_service_1.PosShiftsService],
+        providers: [pos_shifts_service_1.PosShiftsService, advance_shift_payment_service_1.AdvanceShiftPaymentService],
+        exports: [pos_shifts_service_1.PosShiftsService, advance_shift_payment_service_1.AdvanceShiftPaymentService],
     })
 ], PosShiftsModule);
 //# sourceMappingURL=pos-shifts.module.js.map

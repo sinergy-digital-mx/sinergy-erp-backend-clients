@@ -264,6 +264,13 @@ export declare class AccountingController {
                     amount: number;
                 }[] | null;
             };
+            advance_payments: {
+                id: string;
+                folio: string;
+                payment_method: import("../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
+                payment_method_label: string;
+                amount_mxn: number;
+            }[];
         };
     }>;
     getAccountsPayable(query: QueryAccountsPayableDto, req: any): Promise<{

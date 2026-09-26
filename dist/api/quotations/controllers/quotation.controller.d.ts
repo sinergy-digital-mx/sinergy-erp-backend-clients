@@ -104,6 +104,12 @@ export declare class QuotationController {
             advance_invoicing_enabled: boolean;
             can_stamp_advance: boolean;
             advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
+            advance_payment: {
+                amount_mxn: number;
+                payment_method: import("../../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
+                payment_method_label: string;
+                shift_date: string;
+            } | null;
             customer_email: string | null;
             converted_to_sales_order_id: string | null;
             razon_social: string;
@@ -327,6 +333,12 @@ export declare class QuotationController {
                 advance_invoicing_enabled: boolean;
                 can_stamp_advance: boolean;
                 advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
+                advance_payment: {
+                    amount_mxn: number;
+                    payment_method: import("../../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
+                    payment_method_label: string;
+                    shift_date: string;
+                } | null;
                 customer_email: string | null;
                 converted_to_sales_order_id: string | null;
                 razon_social: string;
@@ -531,6 +543,12 @@ export declare class QuotationController {
                 advance_invoicing_enabled: boolean;
                 can_stamp_advance: boolean;
                 advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
+                advance_payment: {
+                    amount_mxn: number;
+                    payment_method: import("../../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
+                    payment_method_label: string;
+                    shift_date: string;
+                } | null;
                 customer_email: string | null;
                 converted_to_sales_order_id: string | null;
                 razon_social: string;
@@ -735,6 +753,12 @@ export declare class QuotationController {
                 advance_invoicing_enabled: boolean;
                 can_stamp_advance: boolean;
                 advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
+                advance_payment: {
+                    amount_mxn: number;
+                    payment_method: import("../../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
+                    payment_method_label: string;
+                    shift_date: string;
+                } | null;
                 customer_email: string | null;
                 converted_to_sales_order_id: string | null;
                 razon_social: string;
@@ -1030,6 +1054,12 @@ export declare class QuotationController {
                 advance_invoicing_enabled: boolean;
                 can_stamp_advance: boolean;
                 advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
+                advance_payment: {
+                    amount_mxn: number;
+                    payment_method: import("../../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
+                    payment_method_label: string;
+                    shift_date: string;
+                } | null;
                 customer_email: string | null;
                 converted_to_sales_order_id: string | null;
                 razon_social: string;
@@ -1234,6 +1264,12 @@ export declare class QuotationController {
                 advance_invoicing_enabled: boolean;
                 can_stamp_advance: boolean;
                 advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
+                advance_payment: {
+                    amount_mxn: number;
+                    payment_method: import("../../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
+                    payment_method_label: string;
+                    shift_date: string;
+                } | null;
                 customer_email: string | null;
                 converted_to_sales_order_id: string | null;
                 razon_social: string;

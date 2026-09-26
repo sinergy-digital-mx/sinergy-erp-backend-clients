@@ -754,8 +754,10 @@ let SalesOrderService = class SalesOrderService {
         if (!payment) {
             throw new common_1.NotFoundException(`Pago no encontrado: ${paymentId}`);
         }
-        if (payment.source === 'pos_cobranza') {
-            throw new common_1.BadRequestException('No se puede eliminar un pago registrado desde cobranza POS');
+        if (payment.source === 'pos_cobranza' || payment.source === 'advance') {
+            throw new common_1.BadRequestException(payment.source === 'advance'
+                ? 'El anticipo se reversa cancelando la factura, mientras el corte siga abierto'
+                : 'No se puede eliminar un pago registrado desde cobranza POS');
         }
         for (const doc of payment.documents ?? []) {
             try {

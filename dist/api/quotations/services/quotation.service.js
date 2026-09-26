@@ -362,6 +362,7 @@ let QuotationService = class QuotationService {
             advance_invoicing_enabled: advance.enabled,
             can_stamp_advance: advance.canStamp,
             advance_invoice: advance.summary,
+            advance_payment: advance.payment,
             customer_email: quotation.customer?.email?.trim() ||
                 quotation.customer?.additional_email?.trim() ||
                 null,
@@ -614,7 +615,10 @@ let QuotationService = class QuotationService {
             quotedGlobalDiscountAmount: Number(quotation.global_discount_amount || 0),
         });
         await this.salesOrderService.linkConvertedFromQuotation(salesOrder.id, quotation.id, tenantId);
-        await this.advanceInvoices.attachToSalesOrder(tenantId, quotation.id, salesOrder.id);
+        const linked = await this.advanceInvoices.attachToSalesOrder(tenantId, userId, quotation.id, salesOrder.id);
+        if (linked?.payment_status) {
+            salesOrder.payment_status = linked.payment_status;
+        }
         quotation.general_status = 'Convertida';
         quotation.converted_to_sales_order_id = salesOrder.id;
         quotation.updated_by = userId;

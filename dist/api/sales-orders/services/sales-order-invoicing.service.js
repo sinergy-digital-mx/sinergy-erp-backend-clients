@@ -21,16 +21,23 @@ const customer_entity_1 = require("../../../entities/customers/customer.entity")
 const electronic_invoice_service_1 = require("../../electronic-invoicing/services/electronic-invoice.service");
 const advance_cfdi_service_1 = require("../../electronic-invoicing/services/advance-cfdi.service");
 const advance_cfdi_util_1 = require("../../electronic-invoicing/utils/advance-cfdi.util");
+const pos_shifts_service_1 = require("../../pos-shifts/pos-shifts.service");
+const advance_shift_payment_service_1 = require("../../pos-shifts/services/advance-shift-payment.service");
+const advance_payment_method_util_1 = require("../../pos-shifts/utils/advance-payment-method.util");
 let SalesOrderInvoicingService = class SalesOrderInvoicingService {
     salesOrderRepo;
     customerRepo;
     electronicInvoiceService;
     advanceCfdi;
-    constructor(salesOrderRepo, customerRepo, electronicInvoiceService, advanceCfdi) {
+    posShiftsService;
+    advancePayments;
+    constructor(salesOrderRepo, customerRepo, electronicInvoiceService, advanceCfdi, posShiftsService, advancePayments) {
         this.salesOrderRepo = salesOrderRepo;
         this.customerRepo = customerRepo;
         this.electronicInvoiceService = electronicInvoiceService;
         this.advanceCfdi = advanceCfdi;
+        this.posShiftsService = posShiftsService;
+        this.advancePayments = advancePayments;
     }
     async listInvoices(salesOrderId, tenantId) {
         await this.getSalesOrderOrFail(salesOrderId, tenantId);
@@ -84,7 +91,10 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
             throw new common_1.NotFoundException('La factura no pertenece a esta orden de venta');
         }
         await this.advanceCfdi.assertAdvanceCancellable(tenantId, invoice);
-        return this.electronicInvoiceService.cancel(invoiceId, tenantId, userId, dto);
+        await this.advancePayments.assertVoidable(tenantId, invoiceId);
+        const cancelled = await this.electronicInvoiceService.cancel(invoiceId, tenantId, userId, dto);
+        await this.advancePayments.voidByInvoice(tenantId, userId, invoiceId);
+        return cancelled;
     }
     async syncInvoiceSat(salesOrderId, invoiceId, tenantId, userId) {
         await this.getSalesOrderOrFail(salesOrderId, tenantId);
@@ -143,6 +153,21 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
         if (order.advance_invoice_id) {
             throw new common_1.BadRequestException('La orden ya tiene un anticipo ligado');
         }
+        const branch = order.billing_branch ?? order.warehouse?.billing_branch ?? null;
+        const branchId = order.billing_branch_id ?? branch?.id ?? null;
+        if (!branchId) {
+            throw new common_1.BadRequestException('La orden no tiene sucursal');
+        }
+        const formaPago = dto.forma_pago ?? '01';
+        const paymentMethod = (0, advance_payment_method_util_1.paymentMethodFromFormaPago)(formaPago);
+        if (!paymentMethod) {
+            throw new common_1.BadRequestException('La forma de pago del anticipo debe ser efectivo (01), cheque (02), transferencia (03) o tarjeta (04 o 28)');
+        }
+        const caja = await this.posShiftsService.resolveBranchCajaShift(tenantId, branchId);
+        if (!caja.shift) {
+            const sucursal = branch?.code ?? 'la sucursal';
+            throw new common_1.BadRequestException(`No hay corte abierto en ${sucursal}. Abre el corte para registrar el dinero del anticipo.`);
+        }
         const parties = this.parties(order);
         const invoice = await this.advanceCfdi.stampAdvance(tenantId, userId, {
             sourceModule: 'sales_orders',
@@ -156,8 +181,18 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
             series: order.fiscal_configuration?.prefix,
             emisor: parties.emisor,
             receptor: parties.receptor,
-        }, dto);
+        }, { ...dto, forma_pago: formaPago });
         await this.salesOrderRepo.update({ id: order.id, tenant_id: tenantId }, { advance_invoice_id: invoice.id });
+        await this.advancePayments.record({
+            tenantId,
+            userId,
+            shiftId: caja.shift.id,
+            invoiceId: invoice.id,
+            amountMxn: Number(invoice.total),
+            paymentMethod,
+            documentFolio: order.folio,
+            salesOrderId: order.id,
+        });
         return invoice;
     }
     async applyAdvance(salesOrderId, tenantId, userId, dto) {
@@ -264,6 +299,8 @@ exports.SalesOrderInvoicingService = SalesOrderInvoicingService = __decorate([
     __metadata("design:paramtypes", [typeorm_2.Repository,
         typeorm_2.Repository,
         electronic_invoice_service_1.ElectronicInvoiceService,
-        advance_cfdi_service_1.AdvanceCfdiService])
+        advance_cfdi_service_1.AdvanceCfdiService,
+        pos_shifts_service_1.PosShiftsService,
+        advance_shift_payment_service_1.AdvanceShiftPaymentService])
 ], SalesOrderInvoicingService);
 //# sourceMappingURL=sales-order-invoicing.service.js.map

@@ -19,6 +19,7 @@ import { ReplacePosSaleCartDto } from './dto/replace-pos-sale-cart.dto';
 import { SalesOrderPosReceiptService, PosReceiptResult } from '../sales-orders/services/sales-order-pos-receipt.service';
 import { SalesOrderService } from '../sales-orders/services/sales-order.service';
 import { CustomerCreditService } from '../customers/services/customer-credit.service';
+import { AdvanceShiftPaymentService } from './services/advance-shift-payment.service';
 export declare class PosShiftsService {
     private readonly dailyShiftRepo;
     private readonly partialShiftRepo;
@@ -31,8 +32,9 @@ export declare class PosShiftsService {
     private readonly posReceiptService;
     private readonly salesOrderService;
     private readonly customerCreditService;
+    private readonly advanceShiftPayments;
     private readonly logger;
-    constructor(dailyShiftRepo: Repository<PosDailyShift>, partialShiftRepo: Repository<PosPartialShift>, userRepo: Repository<User>, branchAssignmentRepo: Repository<UserBillingBranch>, salesOrderRepo: Repository<SalesOrder>, customerRepo: Repository<Customer>, warehouseRepo: Repository<Warehouse>, collectionRepo: Repository<PosSaleCollection>, posReceiptService: SalesOrderPosReceiptService, salesOrderService: SalesOrderService, customerCreditService: CustomerCreditService);
+    constructor(dailyShiftRepo: Repository<PosDailyShift>, partialShiftRepo: Repository<PosPartialShift>, userRepo: Repository<User>, branchAssignmentRepo: Repository<UserBillingBranch>, salesOrderRepo: Repository<SalesOrder>, customerRepo: Repository<Customer>, warehouseRepo: Repository<Warehouse>, collectionRepo: Repository<PosSaleCollection>, posReceiptService: SalesOrderPosReceiptService, salesOrderService: SalesOrderService, customerCreditService: CustomerCreditService, advanceShiftPayments: AdvanceShiftPaymentService);
     validateSellerCode(tenantId: string, terminalUserId: string, code: number): Promise<{
         seller: {
             id: string;
@@ -171,6 +173,13 @@ export declare class PosShiftsService {
                     amount: number;
                 }[] | null;
             };
+            advance_payments: {
+                id: string;
+                folio: string;
+                payment_method: PosSalePaymentMethod;
+                payment_method_label: string;
+                amount_mxn: number;
+            }[];
         } | null;
         requires_previous_close: boolean;
         unclosed_shift_alert: import("./utils/unclosed-shift-alert").UnclosedShiftAlert | null;
@@ -284,6 +293,13 @@ export declare class PosShiftsService {
                     amount: number;
                 }[] | null;
             };
+            advance_payments: {
+                id: string;
+                folio: string;
+                payment_method: PosSalePaymentMethod;
+                payment_method_label: string;
+                amount_mxn: number;
+            }[];
         };
         queued_sales_assigned: number;
     }>;
@@ -388,6 +404,13 @@ export declare class PosShiftsService {
                 amount: number;
             }[] | null;
         };
+        advance_payments: {
+            id: string;
+            folio: string;
+            payment_method: PosSalePaymentMethod;
+            payment_method_label: string;
+            amount_mxn: number;
+        }[];
     }>;
     findDailyShifts(tenantId: string, query: QueryDailyShiftDto): Promise<{
         id: string;
@@ -490,6 +513,13 @@ export declare class PosShiftsService {
                 amount: number;
             }[] | null;
         };
+        advance_payments: {
+            id: string;
+            folio: string;
+            payment_method: PosSalePaymentMethod;
+            payment_method_label: string;
+            amount_mxn: number;
+        }[];
     }[]>;
     createPartialShift(tenantId: string, terminalUserId: string, dailyShiftId: string, dto: CreatePartialShiftDto): Promise<{
         id: string;
@@ -618,6 +648,13 @@ export declare class PosShiftsService {
                 amount: number;
             }[] | null;
         };
+        advance_payments: {
+            id: string;
+            folio: string;
+            payment_method: PosSalePaymentMethod;
+            payment_method_label: string;
+            amount_mxn: number;
+        }[];
     }>;
     resolvePosSaleContext(tenantId: string, terminalUserId: string, sellerUserId: string, dailyShiftId?: string): Promise<{
         shift: null;
