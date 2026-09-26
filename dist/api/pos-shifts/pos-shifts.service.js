@@ -369,6 +369,9 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         const terminalUser = await this.requireCobranzaTerminal(tenantId, terminalUserId);
         const branchId = terminalUser.billing_branch_id;
         const openShift = await this.getBranchOpenDailyShift(tenantId, branchId);
+        if (openShift) {
+            await this.assignQueuedSalesToShift(tenantId, branchId, openShift.id);
+        }
         const qb = this.salesOrderRepo
             .createQueryBuilder('so')
             .leftJoinAndSelect('so.seller_user', 'seller_user')
@@ -667,7 +670,6 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         };
     }
     async assignQueuedSalesToShift(tenantId, billingBranchId, shiftId) {
-        const shiftDate = (0, unclosed_shift_alert_1.getTodayDateString)();
         const queued = await this.salesOrderRepo
             .createQueryBuilder('so')
             .innerJoin('so.warehouse', 'warehouse')
@@ -678,8 +680,11 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             .andWhere('(so.pos_stage IS NULL OR so.pos_stage = :posStage)', {
             posStage: sales_order_pos_stage_enum_1.SalesOrderPosStage.Caja,
         })
-            .andWhere('DATE(so.created_at) = :shiftDate', { shiftDate })
             .andWhere('warehouse.billing_branch_id = :billingBranchId', { billingBranchId })
+            .andWhere(`NOT EXISTS (
+          SELECT 1 FROM pos_sale_collections col
+          WHERE col.sales_order_id = so.id
+        )`)
             .getMany();
         const leftoverUnpaid = await this.salesOrderRepo
             .createQueryBuilder('so')
