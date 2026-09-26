@@ -3,13 +3,20 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.daysLeftInMonth = daysLeftInMonth;
 exports.invoiceMonthDeadlineLine = invoiceMonthDeadlineLine;
 const TICKET_TIME_ZONE = 'America/Tijuana';
+function coerceTicketDate(value) {
+    if (value instanceof Date) {
+        return Number.isNaN(value.getTime()) ? new Date() : value;
+    }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+}
 function daysLeftInMonth(date, timeZone = TICKET_TIME_ZONE) {
     const parts = new Intl.DateTimeFormat('en-US', {
         timeZone,
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
-    }).formatToParts(date);
+    }).formatToParts(coerceTicketDate(date));
     const year = Number(parts.find((part) => part.type === 'year')?.value);
     const month = Number(parts.find((part) => part.type === 'month')?.value);
     const day = Number(parts.find((part) => part.type === 'day')?.value);

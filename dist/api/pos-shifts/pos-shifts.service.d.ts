@@ -902,7 +902,7 @@ export declare class PosShiftsService {
     private assertCustomerCanUseCredit;
     private mapCollectedSaleRow;
     private buildCollectedSalesSummary;
-    getSaleReceipt(tenantId: string, salesOrderId: string): Promise<{
+    getSaleReceipt(tenantId: string, salesOrderId: string, userId: string): Promise<{
         receipt: PosReceiptResult;
     }>;
     getSaleReceiptRaw(tenantId: string, salesOrderId: string, res: any): Promise<void>;

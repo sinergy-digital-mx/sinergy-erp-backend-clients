@@ -996,10 +996,21 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         }
         return summary;
     }
-    async getSaleReceipt(tenantId, salesOrderId) {
-        return {
-            receipt: await this.posReceiptService.getPosTicket(tenantId, salesOrderId),
-        };
+    async getSaleReceipt(tenantId, salesOrderId, userId) {
+        try {
+            return {
+                receipt: await this.posReceiptService.getPosTicket(tenantId, salesOrderId),
+            };
+        }
+        catch (error) {
+            if (!(error instanceof common_1.NotFoundException) ||
+                error.message !== 'Ticket de recibo no generado para esta orden') {
+                throw error;
+            }
+            return {
+                receipt: await this.posReceiptService.generateAndSavePosTicket(tenantId, salesOrderId, userId),
+            };
+        }
     }
     async getSaleReceiptRaw(tenantId, salesOrderId, res) {
         const { buffer, fileName } = await this.posReceiptService.getPosTicketRawBuffer(tenantId, salesOrderId);

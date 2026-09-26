@@ -96,7 +96,7 @@ let PosShiftsController = class PosShiftsController {
         return this.posShiftsService.getSaleCollection(req.user.tenant_id, salesOrderId);
     }
     async getSaleReceipt(salesOrderId, req) {
-        return this.posShiftsService.getSaleReceipt(req.user.tenant_id, salesOrderId);
+        return this.posShiftsService.getSaleReceipt(req.user.tenant_id, salesOrderId, req.user.id);
     }
     async getSaleReceiptRaw(salesOrderId, req, res) {
         return this.posShiftsService.getSaleReceiptRaw(req.user.tenant_id, salesOrderId, res);
@@ -292,7 +292,7 @@ __decorate([
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'PosShift', action: 'Read' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Ticket térmico ESC/POS de venta cobrada',
-        description: 'Devuelve el ticket ya guardado al cobrar. No genera tickets nuevos (404 si no existe).',
+        description: 'Devuelve el ticket guardado al cobrar. Si la venta ya está cobrada y el archivo no existe, lo genera.',
     }),
     __param(0, (0, common_1.Param)('salesOrderId')),
     __param(1, (0, common_1.Req)()),
