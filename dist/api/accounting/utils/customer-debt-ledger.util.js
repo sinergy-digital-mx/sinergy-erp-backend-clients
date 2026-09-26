@@ -12,6 +12,7 @@ exports.debtPaymentMethodLabel = debtPaymentMethodLabel;
 exports.debtMovementLabel = debtMovementLabel;
 exports.debtMovementDescription = debtMovementDescription;
 exports.formatDebtDay = formatDebtDay;
+exports.formatDebtDateTime = formatDebtDateTime;
 exports.applyDebtLedgerBalances = applyDebtLedgerBalances;
 exports.chargeSourceKey = chargeSourceKey;
 exports.paymentSourceKey = paymentSourceKey;
@@ -126,8 +127,35 @@ function formatDebtDay(value) {
     const [year, month, day] = value.slice(0, 10).split('-');
     if (!year || !month || !day)
         return value;
-    return `${day}/${month}/${year}`;
+    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    const label = months[Number(month) - 1];
+    if (!label)
+        return `${day}/${month}/${year}`;
+    return `${Number(day)} ${label} ${year}`;
 }
+function formatDebtDateTime(value) {
+    if (!value)
+        return '';
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime()))
+        return '';
+    const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: MEXICO_TIME_ZONE,
+        day: 'numeric',
+        month: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+    }).formatToParts(date);
+    const pick = (type) => parts.find((part) => part.type === type)?.value ?? '';
+    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    const month = months[Number(pick('month')) - 1] ?? pick('month');
+    const minute = pick('minute').padStart(2, '0');
+    const dayPeriod = pick('dayPeriod').toLowerCase().replace(/\./g, '').replace('am', 'a.m.').replace('pm', 'p.m.');
+    return `${Number(pick('day'))} ${month} ${pick('year')}, ${Number(pick('hour'))}:${minute} ${dayPeriod}`;
+}
+const MEXICO_TIME_ZONE = 'America/Tijuana';
 function applyDebtLedgerBalances(drafts) {
     const groups = new Map();
     for (const draft of drafts) {

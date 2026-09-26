@@ -40,6 +40,7 @@ export declare function debtMovementDescription(input: {
     referenceNumber?: string | null;
 }): string;
 export declare function formatDebtDay(value: string): string;
+export declare function formatDebtDateTime(value: Date | string | null | undefined): string;
 export declare function applyDebtLedgerBalances<T extends DebtLedgerBalanceDraft>(drafts: T[]): Array<DebtLedgerBalancedDraft<T>>;
 export declare function chargeSourceKey(salesOrderId: string): string;
 export declare function paymentSourceKey(paymentId: string): string;

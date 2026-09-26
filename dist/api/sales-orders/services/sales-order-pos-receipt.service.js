@@ -29,6 +29,7 @@ const sales_order_documents_service_1 = require("./sales-order-documents.service
 const sales_order_document_type_entity_1 = require("../../../entities/sales-orders/sales-order-document-type.entity");
 const escpos_util_1 = require("../utils/escpos.util");
 const pos_card_payments_util_1 = require("../../pos-shifts/utils/pos-card-payments.util");
+const invoice_month_deadline_util_1 = require("../utils/invoice-month-deadline.util");
 exports.SALES_ORDER_TICKET_RECIBO_NAMES = ['TICKET / RECIBO', 'TICKET_RECIBO'];
 let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrderPosReceiptService {
     salesOrderRepo;
@@ -309,6 +310,7 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
         lines.push('!CB!NO HAY CAMBIOS NI DEVOLUCIONES');
         lines.push('');
         lines.push('!CB!FACTURA TU COMPRA');
+        lines.push(`!CB!${(0, invoice_month_deadline_util_1.invoiceMonthDeadlineLine)(soldAt)}`);
         lines.push('!C!Escanea el QR o entra a:');
         for (const part of (0, escpos_util_1.wrapLines)(selfInvoiceUrl, escpos_util_1.ESCPOS_CHARS_PER_LINE)) {
             lines.push(`!S!${part}`);

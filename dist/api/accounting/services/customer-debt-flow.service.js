@@ -75,7 +75,7 @@ let CustomerDebtFlowService = class CustomerDebtFlowService {
                 titleColor: 'FF312E81',
                 columns: ledgerColumns(),
                 rows: report.ledger.map((row) => ({
-                    occurred_at: (0, excel_export_util_1.formatExportDateTime)(row.occurred_at),
+                    occurred_at: (0, customer_debt_ledger_util_1.formatDebtDateTime)(row.occurred_at),
                     customer_name: row.customer_name,
                     customer_rfc: row.customer_rfc ?? '',
                     billing_branch_name: row.billing_branch_name ?? '',
