@@ -45,7 +45,7 @@ let JwtAuthGuard = JwtAuthGuard_1 = class JwtAuthGuard extends (0, passport_1.Au
         try {
             const dbVersion = await this.permissionVersionService.getUserVersion(user.id);
             this.logger.debug(`Permission version check for user ${user.id}: JWT=${user.permissions_version}, DB=${dbVersion}`);
-            if (user.permissions_version < dbVersion) {
+            if (Number(user.permissions_version) < Number(dbVersion)) {
                 this.logger.warn(`Permission version mismatch for user ${user.id}: JWT version ${user.permissions_version} < DB version ${dbVersion}`);
                 throw new common_1.UnauthorizedException({
                     statusCode: 401,

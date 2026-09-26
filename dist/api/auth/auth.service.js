@@ -94,7 +94,7 @@ let AuthService = AuthService_1 = class AuthService {
             throw new common_1.UnauthorizedException('Tu cuenta no está activa');
         }
         user.last_login_at = new Date();
-        await this.userRepo.save(user);
+        await this.userRepo.update({ id: user.id }, { last_login_at: user.last_login_at });
         let userRoles = [];
         let userPermissions = [];
         let permissionsByModule = {};

@@ -25,6 +25,7 @@ class CreateFiscalConfigurationDto {
     logo;
     status;
     quotation_expiration_days;
+    advance_invoicing_enabled;
 }
 exports.CreateFiscalConfigurationDto = CreateFiscalConfigurationDto;
 __decorate([
@@ -125,4 +126,13 @@ __decorate([
     (0, class_validator_1.Max)(3650),
     __metadata("design:type", Object)
 ], CreateFiscalConfigurationDto.prototype, "quotation_expiration_days", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Permite factura de anticipo en cotizaciones y órdenes de esta razón social.',
+    }),
+    (0, class_transformer_1.Transform)(({ value }) => value === true || value === 'true' || value === 1 || value === '1'),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], CreateFiscalConfigurationDto.prototype, "advance_invoicing_enabled", void 0);
 //# sourceMappingURL=create-fiscal-configuration.dto.js.map

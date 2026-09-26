@@ -12,6 +12,7 @@ export declare class InventoryTransferPdfService {
     private buildTitleBar;
     private buildMetaCards;
     private buildRouteSection;
+    private totalLabel;
     private buildProductSection;
     private buildLinesSection;
     private buildNotes;

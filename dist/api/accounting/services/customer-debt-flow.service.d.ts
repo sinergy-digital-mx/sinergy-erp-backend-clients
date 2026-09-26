@@ -1,0 +1,93 @@
+import { DataSource } from 'typeorm';
+import { CustomerDebtLedgerMovementType } from '../../../entities/accounting/customer-debt-ledger-movement-type.enum';
+import { DebtFlowPeriod, DebtFlowView, QueryDebtFlowDto } from '../dto/query-debt-flow.dto';
+type FlowOptions = {
+    allRows?: boolean;
+};
+export type DebtAgingRow = {
+    customer_id: number;
+    customer_name: string;
+    customer_rfc: string | null;
+    billing_branch_name: string | null;
+    open_order_count: number;
+    current: number;
+    d1_30: number;
+    d31_60: number;
+    d61_90: number;
+    d91_plus: number;
+    total: number;
+    credit_days: number | null;
+    credit_limit: number | null;
+};
+export type DebtAgingTotals = {
+    customer_count: number;
+    open_order_count: number;
+    current: number;
+    d1_30: number;
+    d31_60: number;
+    d61_90: number;
+    d91_plus: number;
+    total: number;
+};
+export type DebtLedgerRow = {
+    id: string;
+    occurred_at: string;
+    movement_type: CustomerDebtLedgerMovementType | 'opening';
+    title: string;
+    description: string;
+    customer_id: number;
+    customer_name: string;
+    customer_rfc: string | null;
+    billing_branch_name: string | null;
+    sales_order_id: string | null;
+    folio: string | null;
+    payment_method: string | null;
+    payment_method_label: string | null;
+    reference_number: string | null;
+    charge_amount: number | null;
+    payment_amount: number | null;
+    order_balance_after: number | null;
+    balance_after: number | null;
+    due_date: string | null;
+    is_opening: boolean;
+};
+export type DebtFlowResponse = {
+    filters_applied: {
+        fiscal_configuration_id: string;
+        billing_branch_id: string | null;
+        customer_id: number | null;
+        search: string | null;
+        view: DebtFlowView;
+        period: DebtFlowPeriod;
+        date_from: string;
+        date_to: string;
+        period_label: string;
+    };
+    aging: DebtAgingRow[];
+    aging_totals: DebtAgingTotals;
+    ledger: DebtLedgerRow[];
+    page: number;
+    limit: number;
+    total: number;
+    total_pages: number;
+};
+export declare class CustomerDebtFlowService {
+    private readonly dataSource;
+    constructor(dataSource: DataSource);
+    getReport(tenantId: string, filters: QueryDebtFlowDto, options?: FlowOptions): Promise<DebtFlowResponse>;
+    exportExcel(tenantId: string, filters: QueryDebtFlowDto): Promise<Buffer>;
+    getFilename(view?: DebtFlowView): string;
+    private buildAging;
+    private buildLedger;
+    private toOpeningRow;
+    private toMovementRow;
+    private latestOrders;
+    private movementsInRange;
+    private baseWhere;
+    private attachCredit;
+    private filtersApplied;
+    private resolveDateRange;
+    private formatSqlDateTime;
+    private formatSqlDate;
+}
+export {};

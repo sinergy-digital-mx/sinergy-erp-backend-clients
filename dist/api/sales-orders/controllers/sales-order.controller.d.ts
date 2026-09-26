@@ -7,6 +7,8 @@ import { SalesOrderInvoiceEmailService } from '../services/sales-order-invoice-e
 import { ShippingsService } from '../../shippings/shippings.service';
 import { CancelElectronicInvoiceDto } from '../../electronic-invoicing/dto/cancel-electronic-invoice.dto';
 import { StampSalesOrderInvoiceDto } from '../dto/stamp-sales-order-invoice.dto';
+import { StampAdvanceInvoiceDto } from '../../electronic-invoicing/dto/stamp-advance-invoice.dto';
+import { ApplyAdvanceInvoiceDto } from '../../electronic-invoicing/dto/apply-advance-invoice.dto';
 import { InventoryService } from '../../inventory/inventory.service';
 import { SalesOrderProductsPickerService } from '../services/sales-order-products-picker.service';
 import { CreateSalesOrderDto, CreateSalesOrderLineItemDto, UpdateSalesOrderLineItemDto, QuerySalesOrderDto, QuerySalesOrderProductsSummaryDto, FulfillSalesOrderDto, RegenerateDocumentDto, UpdateSalesOrderNotesDto, QuerySalesOrderHeaderExportDto, QuerySalesOrderDetailExportDto, CreateSalesOrderPaymentDto, UpdateSalesOrderSellerDto, UpdateSalesOrderAssignedSellerDto, SendSalesOrderInvoiceEmailDto, UpdateInvoiceEmailTemplateDto } from '../dto';
@@ -167,6 +169,14 @@ export declare class SalesOrderController {
                 };
                 can_cancel: boolean;
                 cancel_blocked_reason: string | null;
+                can_send_to_collection: boolean;
+                can_withdraw_from_collection: boolean;
+                collection_send_blocked_reason: string | null;
+                collection_withdraw_blocked_reason: string | null;
+                advance_invoicing_enabled: boolean;
+                can_stamp_advance: boolean;
+                can_apply_advance: boolean;
+                advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
                 can_edit_lines: boolean;
                 control_desk: {
                     id: string;
@@ -337,6 +347,7 @@ export declare class SalesOrderController {
                 walk_in_name: string | null;
                 walk_in_rfc: string | null;
                 converted_from_quotation_id: string | null;
+                advance_invoice_id: string | null;
                 sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
                 requires_selection_assembly: boolean;
                 corroborator: import("../../../entities/users/user.entity").User | null;
@@ -618,6 +629,14 @@ export declare class SalesOrderController {
                 };
                 can_cancel: boolean;
                 cancel_blocked_reason: string | null;
+                can_send_to_collection: boolean;
+                can_withdraw_from_collection: boolean;
+                collection_send_blocked_reason: string | null;
+                collection_withdraw_blocked_reason: string | null;
+                advance_invoicing_enabled: boolean;
+                can_stamp_advance: boolean;
+                can_apply_advance: boolean;
+                advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
                 can_edit_lines: boolean;
                 control_desk: {
                     id: string;
@@ -788,6 +807,7 @@ export declare class SalesOrderController {
                 walk_in_name: string | null;
                 walk_in_rfc: string | null;
                 converted_from_quotation_id: string | null;
+                advance_invoice_id: string | null;
                 sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
                 requires_selection_assembly: boolean;
                 corroborator: import("../../../entities/users/user.entity").User | null;
@@ -1069,6 +1089,14 @@ export declare class SalesOrderController {
                 };
                 can_cancel: boolean;
                 cancel_blocked_reason: string | null;
+                can_send_to_collection: boolean;
+                can_withdraw_from_collection: boolean;
+                collection_send_blocked_reason: string | null;
+                collection_withdraw_blocked_reason: string | null;
+                advance_invoicing_enabled: boolean;
+                can_stamp_advance: boolean;
+                can_apply_advance: boolean;
+                advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
                 can_edit_lines: boolean;
                 control_desk: {
                     id: string;
@@ -1239,6 +1267,7 @@ export declare class SalesOrderController {
                 walk_in_name: string | null;
                 walk_in_rfc: string | null;
                 converted_from_quotation_id: string | null;
+                advance_invoice_id: string | null;
                 sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
                 requires_selection_assembly: boolean;
                 corroborator: import("../../../entities/users/user.entity").User | null;
@@ -1520,6 +1549,14 @@ export declare class SalesOrderController {
             };
             can_cancel: boolean;
             cancel_blocked_reason: string | null;
+            can_send_to_collection: boolean;
+            can_withdraw_from_collection: boolean;
+            collection_send_blocked_reason: string | null;
+            collection_withdraw_blocked_reason: string | null;
+            advance_invoicing_enabled: boolean;
+            can_stamp_advance: boolean;
+            can_apply_advance: boolean;
+            advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
             can_edit_lines: boolean;
             control_desk: {
                 id: string;
@@ -1690,6 +1727,7 @@ export declare class SalesOrderController {
             walk_in_name: string | null;
             walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
+            advance_invoice_id: string | null;
             sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
             requires_selection_assembly: boolean;
             corroborator: import("../../../entities/users/user.entity").User | null;
@@ -1781,6 +1819,7 @@ export declare class SalesOrderController {
             walk_in_name: string | null;
             walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
+            advance_invoice_id: string | null;
             sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
             requires_selection_assembly: boolean;
             corroborator: import("../../../entities/users/user.entity").User | null;
@@ -2042,6 +2081,14 @@ export declare class SalesOrderController {
             };
             can_cancel: boolean;
             cancel_blocked_reason: string | null;
+            can_send_to_collection: boolean;
+            can_withdraw_from_collection: boolean;
+            collection_send_blocked_reason: string | null;
+            collection_withdraw_blocked_reason: string | null;
+            advance_invoicing_enabled: boolean;
+            can_stamp_advance: boolean;
+            can_apply_advance: boolean;
+            advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
             can_edit_lines: boolean;
             control_desk: {
                 id: string;
@@ -2212,6 +2259,7 @@ export declare class SalesOrderController {
             walk_in_name: string | null;
             walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
+            advance_invoice_id: string | null;
             sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
             requires_selection_assembly: boolean;
             corroborator: import("../../../entities/users/user.entity").User | null;
@@ -2303,6 +2351,7 @@ export declare class SalesOrderController {
             walk_in_name: string | null;
             walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
+            advance_invoice_id: string | null;
             sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
             requires_selection_assembly: boolean;
             corroborator: import("../../../entities/users/user.entity").User | null;
@@ -2530,6 +2579,11 @@ export declare class SalesOrderController {
     }>;
     getInvoices(id: string, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice[]>;
     stampInvoice(id: string, dto: StampSalesOrderInvoiceDto, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
+    stampAdvance(id: string, dto: StampAdvanceInvoiceDto, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
+    applyAdvance(id: string, dto: ApplyAdvanceInvoiceDto, req: any): Promise<{
+        merchandise: import("../../../entities/electronic-invoicing").ElectronicInvoice;
+        application: import("../../../entities/electronic-invoicing").ElectronicInvoice;
+    }>;
     cancelInvoice(id: string, invoiceId: string, dto: CancelElectronicInvoiceDto, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     syncInvoiceSat(id: string, invoiceId: string, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     getInvoicePdf(id: string, invoiceId: string, regenerate: string | undefined, preview: string | undefined, req: any): Promise<import("../../electronic-invoicing/services/electronic-invoice-pdf.service").ElectronicInvoicePdfUploadResult>;
@@ -2656,6 +2710,7 @@ export declare class SalesOrderController {
             walk_in_name: string | null;
             walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
+            advance_invoice_id: string | null;
             sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
             requires_selection_assembly: boolean;
             corroborator: import("../../../entities/users/user.entity").User | null;
@@ -2954,6 +3009,14 @@ export declare class SalesOrderController {
                 };
                 can_cancel: boolean;
                 cancel_blocked_reason: string | null;
+                can_send_to_collection: boolean;
+                can_withdraw_from_collection: boolean;
+                collection_send_blocked_reason: string | null;
+                collection_withdraw_blocked_reason: string | null;
+                advance_invoicing_enabled: boolean;
+                can_stamp_advance: boolean;
+                can_apply_advance: boolean;
+                advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
                 can_edit_lines: boolean;
                 control_desk: {
                     id: string;
@@ -3124,6 +3187,7 @@ export declare class SalesOrderController {
                 walk_in_name: string | null;
                 walk_in_rfc: string | null;
                 converted_from_quotation_id: string | null;
+                advance_invoice_id: string | null;
                 sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
                 requires_selection_assembly: boolean;
                 corroborator: import("../../../entities/users/user.entity").User | null;
@@ -3263,5 +3327,7 @@ export declare class SalesOrderController {
     }>;
     fulfill(id: string, dto: FulfillSalesOrderDto, req: any): Promise<import("../../../entities/sales-orders").SalesOrder>;
     cancelPost(id: string, req: any): Promise<import("../../../entities/sales-orders").SalesOrder>;
+    sendToCollection(id: string, req: any): Promise<import("../../../entities/sales-orders").SalesOrder>;
+    withdrawFromCollection(id: string, req: any): Promise<import("../../../entities/sales-orders").SalesOrder>;
     cancel(id: string, req: any): Promise<import("../../../entities/sales-orders").SalesOrder>;
 }

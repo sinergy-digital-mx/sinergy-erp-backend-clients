@@ -96,6 +96,8 @@ let ElectronicInvoiceService = ElectronicInvoiceService_1 = class ElectronicInvo
             stamp_status: 'stamped',
             stamp_error_message: null,
             sat_sync_enabled: 1,
+            invoice_role: dto.invoice_role ?? 'standard',
+            related_advance_invoice_id: dto.related_advance_invoice_id ?? null,
             metadata: {
                 ...(dto.metadata ?? {}),
                 finkok_environment: credentials.environment,

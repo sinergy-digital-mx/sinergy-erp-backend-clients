@@ -1,11 +1,28 @@
 export declare class InventoryTransferLineResponseDto {
     id: string;
+    product_id: string;
+    product_name: string;
+    product_sku: string;
+    uom_id: string;
+    uom_name: string;
     source_inventory_batch_id: string;
+    source_batch_id: string;
     source_batch_number: string;
     destination_inventory_batch_id: string;
+    destination_batch_id: string;
     destination_batch_number: string;
     quantity: string;
+    measure_label: string | null;
     created_at: Date;
+}
+export declare class InventoryTransferProductSummaryDto {
+    product_id: string;
+    product_name: string;
+    product_sku: string;
+    uom_id: string;
+    uom_name: string;
+    quantity: string;
+    lines_count: number;
 }
 export declare class InventoryTransferWarehouseSummaryDto {
     id: string;
@@ -27,11 +44,13 @@ export declare class InventoryTransferUserSummaryDto {
 export declare class InventoryTransferResponseDto {
     id: string;
     folio: string;
-    product_id: string;
+    product_id: string | null;
     product_name: string;
     product_sku: string;
-    uom_id: string;
+    uom_id: string | null;
     uom_name: string;
+    products: InventoryTransferProductSummaryDto[];
+    products_count: number;
     source_warehouse: InventoryTransferWarehouseSummaryDto;
     destination_warehouse: InventoryTransferWarehouseSummaryDto;
     total_quantity: string;

@@ -22,6 +22,7 @@ export declare class FiscalConfiguration {
     finkok_stamps_credit: number | null;
     last_finkok_sync_at: Date | null;
     quotation_expiration_days: number | null;
+    advance_invoicing_enabled: boolean;
     branches: BillingBranch[];
     created_at: Date;
     updated_at: Date;

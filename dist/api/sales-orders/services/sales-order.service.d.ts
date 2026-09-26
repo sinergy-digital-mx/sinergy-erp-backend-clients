@@ -17,6 +17,7 @@ import { CreateSalesOrderPaymentDto } from '../dto/create-sales-order-payment.dt
 import { PosSalePaymentMethod } from '../../../entities/pos/pos-sale-payment-method.enum';
 import { User } from '../../../entities/users/user.entity';
 import { Customer } from '../../../entities/customers/customer.entity';
+import { CustomerDebtLedgerService } from '../../accounting/services/customer-debt-ledger.service';
 import { S3Service } from '../../../common/services/s3.service';
 import { SalesOrderFolioService } from './sales-order-folio.service';
 import { SalesOrderFulfillmentService } from './sales-order-fulfillment.service';
@@ -29,6 +30,7 @@ import { GlobalDiscountService } from '../../global-discounts/global-discount.se
 import { DocumentLanguage } from '../../../common/enums/document-language.enum';
 import { PosSaleCollection } from '../../../entities/pos/pos-sale-collection.entity';
 import { ElectronicInvoiceService } from '../../electronic-invoicing/services/electronic-invoice.service';
+import { AdvanceCfdiService } from '../../electronic-invoicing/services/advance-cfdi.service';
 import { BillingBranch } from '../../../entities/billing/billing-branch.entity';
 import { Warehouse } from '../../../entities/warehouse/warehouse.entity';
 import { ControlDeskLifecycleService } from '../../warehouse-control/control-desk-lifecycle.service';
@@ -55,13 +57,15 @@ export declare class SalesOrderService {
     private readonly billingBranchRepo;
     private readonly warehouseRepo;
     private readonly electronicInvoiceService;
+    private readonly advanceCfdi;
     private readonly controlDeskLifecycle;
     private readonly warehouseControlService;
+    private readonly debtLedger;
     private readonly logger;
     private static readonly DOC_TYPE_DOCUMENTO_ORIGINAL;
     private static readonly DOC_TYPE_NAME_ENTREGA;
     private static readonly DOC_TYPE_NAMES_ENTREGA;
-    constructor(soRepo: Repository<SalesOrder>, detailRepo: Repository<SalesOrderDetail>, allocationRepo: Repository<SalesOrderBatchAllocation>, folioService: SalesOrderFolioService, fulfillmentService: SalesOrderFulfillmentService, dataSource: DataSource, posShiftsService: PosShiftsService, productDiscountService: ProductDiscountService, globalDiscountService: GlobalDiscountService, pdfService: SalesOrderPdfService, documentsService: SalesOrderDocumentsService, posReceiptService: SalesOrderPosReceiptService, s3Service: S3Service, posCollectionRepo: Repository<PosSaleCollection>, paymentRepo: Repository<SalesOrderPayment>, paymentDocumentRepo: Repository<SalesOrderPaymentDocument>, userRepo: Repository<User>, customerRepo: Repository<Customer>, billingBranchRepo: Repository<BillingBranch>, warehouseRepo: Repository<Warehouse>, electronicInvoiceService: ElectronicInvoiceService, controlDeskLifecycle: ControlDeskLifecycleService, warehouseControlService: WarehouseControlService);
+    constructor(soRepo: Repository<SalesOrder>, detailRepo: Repository<SalesOrderDetail>, allocationRepo: Repository<SalesOrderBatchAllocation>, folioService: SalesOrderFolioService, fulfillmentService: SalesOrderFulfillmentService, dataSource: DataSource, posShiftsService: PosShiftsService, productDiscountService: ProductDiscountService, globalDiscountService: GlobalDiscountService, pdfService: SalesOrderPdfService, documentsService: SalesOrderDocumentsService, posReceiptService: SalesOrderPosReceiptService, s3Service: S3Service, posCollectionRepo: Repository<PosSaleCollection>, paymentRepo: Repository<SalesOrderPayment>, paymentDocumentRepo: Repository<SalesOrderPaymentDocument>, userRepo: Repository<User>, customerRepo: Repository<Customer>, billingBranchRepo: Repository<BillingBranch>, warehouseRepo: Repository<Warehouse>, electronicInvoiceService: ElectronicInvoiceService, advanceCfdi: AdvanceCfdiService, controlDeskLifecycle: ControlDeskLifecycleService, warehouseControlService: WarehouseControlService, debtLedger: CustomerDebtLedgerService);
     private resolveWalkInTicketFields;
     private deleteDocumentsByType;
     private deleteDocumentsByTypeNames;
@@ -128,6 +132,7 @@ export declare class SalesOrderService {
             walk_in_name: string | null;
             walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
+            advance_invoice_id: string | null;
             sale_scope: SalesOrderSaleScope;
             requires_selection_assembly: boolean;
             corroborator: User | null;
@@ -309,6 +314,14 @@ export declare class SalesOrderService {
             };
             can_cancel: boolean;
             cancel_blocked_reason: string | null;
+            can_send_to_collection: boolean;
+            can_withdraw_from_collection: boolean;
+            collection_send_blocked_reason: string | null;
+            collection_withdraw_blocked_reason: string | null;
+            advance_invoicing_enabled: boolean;
+            can_stamp_advance: boolean;
+            can_apply_advance: boolean;
+            advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
             can_edit_lines: boolean;
             control_desk: {
                 id: string;
@@ -479,6 +492,7 @@ export declare class SalesOrderService {
             walk_in_name: string | null;
             walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
+            advance_invoice_id: string | null;
             sale_scope: SalesOrderSaleScope;
             requires_selection_assembly: boolean;
             corroborator: User | null;
@@ -570,6 +584,7 @@ export declare class SalesOrderService {
             walk_in_name: string | null;
             walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
+            advance_invoice_id: string | null;
             sale_scope: SalesOrderSaleScope;
             requires_selection_assembly: boolean;
             corroborator: User | null;
@@ -957,6 +972,14 @@ export declare class SalesOrderService {
             };
             can_cancel: boolean;
             cancel_blocked_reason: string | null;
+            can_send_to_collection: boolean;
+            can_withdraw_from_collection: boolean;
+            collection_send_blocked_reason: string | null;
+            collection_withdraw_blocked_reason: string | null;
+            advance_invoicing_enabled: boolean;
+            can_stamp_advance: boolean;
+            can_apply_advance: boolean;
+            advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
             can_edit_lines: boolean;
             control_desk: {
                 id: string;
@@ -1127,6 +1150,7 @@ export declare class SalesOrderService {
             walk_in_name: string | null;
             walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
+            advance_invoice_id: string | null;
             sale_scope: SalesOrderSaleScope;
             requires_selection_assembly: boolean;
             corroborator: User | null;
@@ -1218,6 +1242,7 @@ export declare class SalesOrderService {
             walk_in_name: string | null;
             walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
+            advance_invoice_id: string | null;
             sale_scope: SalesOrderSaleScope;
             requires_selection_assembly: boolean;
             corroborator: User | null;
@@ -1479,6 +1504,14 @@ export declare class SalesOrderService {
             };
             can_cancel: boolean;
             cancel_blocked_reason: string | null;
+            can_send_to_collection: boolean;
+            can_withdraw_from_collection: boolean;
+            collection_send_blocked_reason: string | null;
+            collection_withdraw_blocked_reason: string | null;
+            advance_invoicing_enabled: boolean;
+            can_stamp_advance: boolean;
+            can_apply_advance: boolean;
+            advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
             can_edit_lines: boolean;
             control_desk: {
                 id: string;
@@ -1649,6 +1682,7 @@ export declare class SalesOrderService {
             walk_in_name: string | null;
             walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
+            advance_invoice_id: string | null;
             sale_scope: SalesOrderSaleScope;
             requires_selection_assembly: boolean;
             corroborator: User | null;
@@ -1740,6 +1774,7 @@ export declare class SalesOrderService {
             walk_in_name: string | null;
             walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
+            advance_invoice_id: string | null;
             sale_scope: SalesOrderSaleScope;
             requires_selection_assembly: boolean;
             corroborator: User | null;
@@ -1860,6 +1895,8 @@ export declare class SalesOrderService {
     }>;
     fulfill(id: string, dto: FulfillSalesOrderDto, tenantId: string, userId: string): Promise<SalesOrder>;
     cancel(id: string, tenantId: string, userId: string): Promise<SalesOrder>;
+    captureCreditCharge(salesOrderId: string, tenantId: string, userId: string): Promise<void>;
+    private captureDebtQuietly;
     private getCancelBlockedReason;
     getPosReturnBlockedReason(order: SalesOrder, tenantId: string): Promise<string | null>;
     replace(id: string, dto: CreateSalesOrderDto, tenantId: string, userId: string): Promise<SalesOrder>;
@@ -1886,6 +1923,10 @@ export declare class SalesOrderService {
         message: string;
         document_language: DocumentLanguage;
     }>;
+    private collectionActions;
+    private describeAdvance;
+    sendToCollection(id: string, tenantId: string, userId: string): Promise<SalesOrder>;
+    withdrawFromCollection(id: string, tenantId: string, userId: string): Promise<SalesOrder>;
     private allocationScope;
     private resolveSalesOrderLocation;
 }

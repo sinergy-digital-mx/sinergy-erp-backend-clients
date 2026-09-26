@@ -28,6 +28,8 @@ class StampElectronicInvoiceDto {
     certificate_serial;
     environment;
     metadata;
+    invoice_role;
+    related_advance_invoice_id;
 }
 exports.StampElectronicInvoiceDto = StampElectronicInvoiceDto;
 __decorate([
@@ -35,7 +37,7 @@ __decorate([
     __metadata("design:type", String)
 ], StampElectronicInvoiceDto.prototype, "fiscal_configuration_id", void 0);
 __decorate([
-    (0, class_validator_1.IsEnum)(['sales_orders']),
+    (0, class_validator_1.IsEnum)(['sales_orders', 'quotations']),
     __metadata("design:type", String)
 ], StampElectronicInvoiceDto.prototype, "source_module", void 0);
 __decorate([
@@ -106,4 +108,14 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", Object)
 ], StampElectronicInvoiceDto.prototype, "metadata", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['standard', 'advance', 'merchandise', 'advance_application']),
+    __metadata("design:type", String)
+], StampElectronicInvoiceDto.prototype, "invoice_role", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], StampElectronicInvoiceDto.prototype, "related_advance_invoice_id", void 0);
 //# sourceMappingURL=stamp-electronic-invoice.dto.js.map

@@ -20,6 +20,7 @@ const rbac_module_1 = require("../rbac/rbac.module");
 const pos_shifts_module_1 = require("../pos-shifts/pos-shifts.module");
 const accounting_controller_1 = require("./accounting.controller");
 const accounting_service_1 = require("./accounting.service");
+const customer_debt_ledger_module_1 = require("./customer-debt-ledger.module");
 let AccountingModule = class AccountingModule {
 };
 exports.AccountingModule = AccountingModule;
@@ -37,6 +38,7 @@ exports.AccountingModule = AccountingModule = __decorate([
             ]),
             rbac_module_1.RBACModule,
             pos_shifts_module_1.PosShiftsModule,
+            customer_debt_ledger_module_1.CustomerDebtLedgerModule,
         ],
         controllers: [accounting_controller_1.AccountingController],
         providers: [accounting_service_1.AccountingService],

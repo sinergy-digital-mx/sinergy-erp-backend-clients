@@ -3,8 +3,8 @@ export declare class CreateInventoryTransferLineDto {
     quantity: number;
 }
 export declare class CreateInventoryTransferDto {
-    product_id: string;
-    uom_id: string;
+    product_id?: string;
+    uom_id?: string;
     source_warehouse_id: string;
     destination_warehouse_id: string;
     notes?: string;

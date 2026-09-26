@@ -10,4 +10,5 @@ export declare class CreateFiscalConfigurationDto {
     logo?: string;
     status?: string;
     quotation_expiration_days?: number | null;
+    advance_invoicing_enabled?: boolean;
 }

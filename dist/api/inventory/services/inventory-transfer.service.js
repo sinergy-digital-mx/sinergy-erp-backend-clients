@@ -52,7 +52,7 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
         this.stockLedgerValuation = stockLedgerValuation;
         this.dataSource = dataSource;
     }
-    async getTransferContext(tenantId, productId, warehouseId) {
+    async getTransferContext(tenantId, productId, warehouseId, uomId) {
         const warehouse = await this.warehouseRepo.findOne({
             where: { id: warehouseId, tenant_id: tenantId },
             relations: ['billing_branch', 'billing_branch.fiscal_configuration'],
@@ -60,7 +60,7 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
         if (!warehouse) {
             throw new common_1.NotFoundException('Almacén de origen no encontrado');
         }
-        const batches = await this.batchRepo
+        const batchesQuery = this.batchRepo
             .createQueryBuilder('batch')
             .leftJoinAndSelect('batch.product', 'product')
             .leftJoinAndSelect('batch.uom', 'uom')
@@ -69,9 +69,11 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
             .where('batch.tenant_id = :tenantId', { tenantId })
             .andWhere('batch.product_id = :productId', { productId })
             .andWhere('batch.warehouse_id = :warehouseId', { warehouseId })
-            .andWhere('batch.available_quantity > 0')
-            .orderBy('batch.created_at', 'ASC')
-            .getMany();
+            .andWhere('batch.available_quantity > 0');
+        if (uomId) {
+            batchesQuery.andWhere('batch.uom_id = :uomId', { uomId });
+        }
+        const batches = await batchesQuery.orderBy('batch.created_at', 'ASC').getMany();
         if (batches.length === 0) {
             throw new common_1.NotFoundException('No hay lotes con stock disponible para este producto en el almacén seleccionado');
         }
@@ -152,22 +154,9 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
             if (destinationWarehouse.status !== 'active') {
                 throw new common_1.BadRequestException('El almacén de destino no está activo');
             }
-            const folio = await this.folioService.generateFolio(tenantId);
-            const transfer = qr.manager.create(inventory_transfer_entity_1.InventoryTransfer, {
-                id: (0, uuid_1.v4)(),
-                tenant_id: tenantId,
-                folio,
-                product_id: dto.product_id,
-                uom_id: dto.uom_id,
-                source_warehouse_id: dto.source_warehouse_id,
-                destination_warehouse_id: dto.destination_warehouse_id,
-                total_quantity: parseFloat(totalRequested.toFixed(3)),
-                status: inventory_transfer_status_enum_1.InventoryTransferStatus.COMPLETED,
-                notes: dto.notes ?? null,
-                created_by: userId,
-            });
-            await qr.manager.save(inventory_transfer_entity_1.InventoryTransfer, transfer);
-            for (const lineDto of dto.lines) {
+            const lockedBatches = new Map();
+            const orderedLines = [...dto.lines].sort((a, b) => a.inventory_batch_id.localeCompare(b.inventory_batch_id));
+            for (const lineDto of orderedLines) {
                 const sourceBatch = await qr.manager
                     .createQueryBuilder(inventory_batch_entity_1.InventoryBatch, 'batch')
                     .where('batch.id = :id', { id: lineDto.inventory_batch_id })
@@ -180,11 +169,37 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
                 if (sourceBatch.warehouse_id !== dto.source_warehouse_id) {
                     throw new common_1.BadRequestException(`El lote ${sourceBatch.batch_number} no pertenece al almacén de origen`);
                 }
-                if (sourceBatch.product_id !== dto.product_id) {
+                if (dto.product_id && sourceBatch.product_id !== dto.product_id) {
                     throw new common_1.BadRequestException(`El lote ${sourceBatch.batch_number} no corresponde al producto seleccionado`);
                 }
-                if (sourceBatch.uom_id !== dto.uom_id) {
+                if (dto.uom_id && sourceBatch.uom_id !== dto.uom_id) {
                     throw new common_1.BadRequestException(`El lote ${sourceBatch.batch_number} no corresponde a la unidad de medida seleccionada`);
+                }
+                lockedBatches.set(sourceBatch.id, sourceBatch);
+            }
+            const productIds = new Set([...lockedBatches.values()].map((batch) => batch.product_id));
+            const uomIds = new Set([...lockedBatches.values()].map((batch) => batch.uom_id));
+            const headerProductId = productIds.size === 1 ? [...productIds][0] : null;
+            const headerUomId = productIds.size === 1 && uomIds.size === 1 ? [...uomIds][0] : null;
+            const folio = await this.folioService.generateFolio(tenantId);
+            const transfer = qr.manager.create(inventory_transfer_entity_1.InventoryTransfer, {
+                id: (0, uuid_1.v4)(),
+                tenant_id: tenantId,
+                folio,
+                product_id: headerProductId,
+                uom_id: headerUomId,
+                source_warehouse_id: dto.source_warehouse_id,
+                destination_warehouse_id: dto.destination_warehouse_id,
+                total_quantity: parseFloat(totalRequested.toFixed(3)),
+                status: inventory_transfer_status_enum_1.InventoryTransferStatus.COMPLETED,
+                notes: dto.notes ?? null,
+                created_by: userId,
+            });
+            await qr.manager.save(inventory_transfer_entity_1.InventoryTransfer, transfer);
+            for (const lineDto of dto.lines) {
+                const sourceBatch = lockedBatches.get(lineDto.inventory_batch_id);
+                if (!sourceBatch) {
+                    throw new common_1.NotFoundException(`Lote no encontrado: ${lineDto.inventory_batch_id}`);
                 }
                 const available = parseFloat(sourceBatch.available_quantity.toString());
                 const requested = parseFloat(lineDto.quantity.toFixed(3));
@@ -286,13 +301,20 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
             .leftJoinAndSelect('transfer.created_by_user', 'created_by_user')
             .leftJoinAndSelect('transfer.lines', 'lines')
             .leftJoinAndSelect('lines.source_inventory_batch', 'source_batch')
+            .leftJoinAndSelect('source_batch.product', 'line_product')
+            .leftJoinAndSelect('source_batch.uom', 'line_uom')
+            .leftJoinAndSelect('source_batch.measure_uom', 'line_measure_uom')
             .leftJoinAndSelect('lines.destination_inventory_batch', 'dest_batch')
             .where('transfer.tenant_id = :tenantId', { tenantId });
         if (filters.search) {
-            query.andWhere('(LOWER(transfer.folio) LIKE LOWER(:search) OR LOWER(product.name) LIKE LOWER(:search) OR LOWER(product.sku) LIKE LOWER(:search))', { search: `%${filters.search}%` });
+            query.andWhere(`(LOWER(transfer.folio) LIKE LOWER(:search)
+          OR LOWER(COALESCE(product.name, '')) LIKE LOWER(:search)
+          OR LOWER(COALESCE(product.sku, '')) LIKE LOWER(:search)
+          OR LOWER(COALESCE(line_product.name, '')) LIKE LOWER(:search)
+          OR LOWER(COALESCE(line_product.sku, '')) LIKE LOWER(:search))`, { search: `%${filters.search}%` });
         }
         if (filters.product_id) {
-            query.andWhere('transfer.product_id = :productId', { productId: filters.product_id });
+            query.andWhere('(transfer.product_id = :productId OR source_batch.product_id = :productId)', { productId: filters.product_id });
         }
         if (filters.source_warehouse_id) {
             query.andWhere('transfer.source_warehouse_id = :sourceWarehouseId', {
@@ -364,6 +386,9 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
             .leftJoinAndSelect('transfer.created_by_user', 'created_by_user')
             .leftJoinAndSelect('transfer.lines', 'lines')
             .leftJoinAndSelect('lines.source_inventory_batch', 'source_batch')
+            .leftJoinAndSelect('source_batch.product', 'line_product')
+            .leftJoinAndSelect('source_batch.uom', 'line_uom')
+            .leftJoinAndSelect('source_batch.measure_uom', 'line_measure_uom')
             .leftJoinAndSelect('lines.destination_inventory_batch', 'dest_batch')
             .where('transfer.id = :id AND transfer.tenant_id = :tenantId', { id, tenantId })
             .getOne();
@@ -373,14 +398,18 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
         return this.mapToResponseDto(transfer);
     }
     mapToResponseDto(transfer) {
+        const products = this.buildProductSummaries(transfer);
+        const single = products.length === 1 ? products[0] : null;
         return {
             id: transfer.id,
             folio: transfer.folio,
-            product_id: transfer.product_id,
-            product_name: transfer.product?.name ?? '',
-            product_sku: transfer.product?.sku ?? '',
-            uom_id: transfer.uom_id,
-            uom_name: transfer.uom?.name ?? '',
+            product_id: transfer.product_id ?? single?.product_id ?? null,
+            product_name: single?.product_name ?? transfer.product?.name ?? '',
+            product_sku: single?.product_sku ?? transfer.product?.sku ?? '',
+            uom_id: transfer.uom_id ?? single?.uom_id ?? null,
+            uom_name: single?.uom_name ?? transfer.uom?.name ?? '',
+            products,
+            products_count: products.length,
             source_warehouse: this.mapWarehouseSummary(transfer.source_warehouse, transfer.source_warehouse_id),
             destination_warehouse: this.mapWarehouseSummary(transfer.destination_warehouse, transfer.destination_warehouse_id),
             total_quantity: parseFloat(transfer.total_quantity?.toString() ?? '0').toFixed(3),
@@ -395,16 +424,80 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
                 email: transfer.created_by_user?.email ?? '',
             },
             created_at: transfer.created_at,
-            lines: (transfer.lines ?? []).map((line) => ({
-                id: line.id,
-                source_inventory_batch_id: line.source_inventory_batch_id,
-                source_batch_number: line.source_inventory_batch?.batch_number ?? '',
-                destination_inventory_batch_id: line.destination_inventory_batch_id,
-                destination_batch_number: line.destination_inventory_batch?.batch_number ?? '',
-                quantity: parseFloat(line.quantity?.toString() ?? '0').toFixed(3),
-                created_at: line.created_at,
-            })),
+            lines: (transfer.lines ?? []).map((line) => this.mapLine(line, transfer)),
         };
+    }
+    mapLine(line, transfer) {
+        const batch = line.source_inventory_batch;
+        const measure = batch
+            ? (0, inventory_measure_util_1.mapBatchMeasure)(batch)
+            : { measure_label: null };
+        return {
+            id: line.id,
+            product_id: batch?.product_id ?? transfer.product_id ?? '',
+            product_name: batch?.product?.name ?? transfer.product?.name ?? '',
+            product_sku: batch?.product?.sku ?? transfer.product?.sku ?? '',
+            uom_id: batch?.uom_id ?? transfer.uom_id ?? '',
+            uom_name: batch?.uom?.name ?? transfer.uom?.name ?? '',
+            source_inventory_batch_id: line.source_inventory_batch_id,
+            source_batch_id: line.source_inventory_batch_id,
+            source_batch_number: batch?.batch_number ?? '',
+            destination_inventory_batch_id: line.destination_inventory_batch_id,
+            destination_batch_id: line.destination_inventory_batch_id,
+            destination_batch_number: line.destination_inventory_batch?.batch_number ?? '',
+            quantity: parseFloat(line.quantity?.toString() ?? '0').toFixed(3),
+            measure_label: measure.measure_label ?? null,
+            created_at: line.created_at,
+        };
+    }
+    buildProductSummaries(transfer) {
+        const groups = new Map();
+        for (const line of transfer.lines ?? []) {
+            const batch = line.source_inventory_batch;
+            const productId = batch?.product_id ?? transfer.product_id ?? '';
+            const uomId = batch?.uom_id ?? transfer.uom_id ?? '';
+            const key = `${productId}:${uomId}`;
+            const quantity = parseFloat(line.quantity?.toString() ?? '0');
+            const current = groups.get(key);
+            if (current) {
+                current.quantityNumber += quantity;
+                current.lines_count += 1;
+                current.quantity = current.quantityNumber.toFixed(3);
+                continue;
+            }
+            groups.set(key, {
+                product_id: productId,
+                product_name: batch?.product?.name ?? transfer.product?.name ?? '',
+                product_sku: batch?.product?.sku ?? transfer.product?.sku ?? '',
+                uom_id: uomId,
+                uom_name: batch?.uom?.name ?? transfer.uom?.name ?? '',
+                quantity: quantity.toFixed(3),
+                quantityNumber: quantity,
+                lines_count: 1,
+            });
+        }
+        if (groups.size === 0 && transfer.product_id) {
+            return [
+                {
+                    product_id: transfer.product_id,
+                    product_name: transfer.product?.name ?? '',
+                    product_sku: transfer.product?.sku ?? '',
+                    uom_id: transfer.uom_id ?? '',
+                    uom_name: transfer.uom?.name ?? '',
+                    quantity: parseFloat(transfer.total_quantity?.toString() ?? '0').toFixed(3),
+                    lines_count: 0,
+                },
+            ];
+        }
+        return [...groups.values()].map((group) => ({
+            product_id: group.product_id,
+            product_name: group.product_name,
+            product_sku: group.product_sku,
+            uom_id: group.uom_id,
+            uom_name: group.uom_name,
+            quantity: group.quantity,
+            lines_count: group.lines_count,
+        }));
     }
     filterDestinationTree(fiscals, sourceWarehouseId) {
         return fiscals

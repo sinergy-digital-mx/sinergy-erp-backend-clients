@@ -603,6 +603,7 @@ export declare class PosShiftsController {
         pending_sales: {
             id: string;
             folio: string;
+            quotation_folio: string | null;
             total: number;
             amount_pending: number;
             subtotal: number;

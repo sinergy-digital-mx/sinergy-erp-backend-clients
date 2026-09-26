@@ -17,6 +17,7 @@ const products_module_1 = require("../products/products.module");
 const global_discounts_module_1 = require("../global-discounts/global-discounts.module");
 const pos_shifts_module_1 = require("../pos-shifts/pos-shifts.module");
 const sales_orders_module_1 = require("../sales-orders/sales-orders.module");
+const electronic_invoicing_module_1 = require("../electronic-invoicing/electronic-invoicing.module");
 const mailer_configuration_module_1 = require("../mailer-configuration/mailer-configuration.module");
 const s3_service_1 = require("../../common/services/s3.service");
 const billing_branch_entity_1 = require("../../entities/billing/billing-branch.entity");
@@ -24,6 +25,7 @@ const warehouse_entity_1 = require("../../entities/warehouse/warehouse.entity");
 const user_entity_1 = require("../../entities/users/user.entity");
 const user_billing_branch_entity_1 = require("../../entities/users/user-billing-branch.entity");
 const customer_entity_1 = require("../../entities/customers/customer.entity");
+const sales_order_entity_1 = require("../../entities/sales-orders/sales-order.entity");
 const quotation_controller_1 = require("./controllers/quotation.controller");
 const quotation_service_1 = require("./services/quotation.service");
 const quotation_folio_service_1 = require("./services/quotation-folio.service");
@@ -31,6 +33,7 @@ const quotation_pdf_service_1 = require("./services/quotation-pdf.service");
 const quotation_documents_service_1 = require("./services/quotation-documents.service");
 const quotation_email_service_1 = require("./services/quotation-email.service");
 const quotation_expiration_service_1 = require("./services/quotation-expiration.service");
+const quotation_advance_invoice_service_1 = require("./services/quotation-advance-invoice.service");
 let QuotationsModule = class QuotationsModule {
 };
 exports.QuotationsModule = QuotationsModule;
@@ -48,6 +51,7 @@ exports.QuotationsModule = QuotationsModule = __decorate([
                 user_entity_1.User,
                 user_billing_branch_entity_1.UserBillingBranch,
                 customer_entity_1.Customer,
+                sales_order_entity_1.SalesOrder,
             ]),
             auth_module_1.AuthModule,
             rbac_module_1.RBACModule,
@@ -56,6 +60,7 @@ exports.QuotationsModule = QuotationsModule = __decorate([
             global_discounts_module_1.GlobalDiscountsModule,
             (0, common_1.forwardRef)(() => pos_shifts_module_1.PosShiftsModule),
             (0, common_1.forwardRef)(() => sales_orders_module_1.SalesOrdersModule),
+            electronic_invoicing_module_1.ElectronicInvoicingModule,
             mailer_configuration_module_1.MailerConfigurationModule,
         ],
         controllers: [quotation_controller_1.QuotationController],
@@ -66,6 +71,7 @@ exports.QuotationsModule = QuotationsModule = __decorate([
             quotation_documents_service_1.QuotationDocumentsService,
             quotation_email_service_1.QuotationEmailService,
             quotation_expiration_service_1.QuotationExpirationService,
+            quotation_advance_invoice_service_1.QuotationAdvanceInvoiceService,
             s3_service_1.S3Service,
         ],
         exports: [quotation_service_1.QuotationService],

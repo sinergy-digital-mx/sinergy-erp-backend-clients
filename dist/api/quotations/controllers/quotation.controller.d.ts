@@ -2,14 +2,18 @@ import { SalesOrderProductsPickerService } from '../../sales-orders/services/sal
 import { QuotationService } from '../services/quotation.service';
 import { QuotationDocumentsService } from '../services/quotation-documents.service';
 import { QuotationEmailService } from '../services/quotation-email.service';
+import { QuotationAdvanceInvoiceService } from '../services/quotation-advance-invoice.service';
 import { RegenerateDocumentDto } from '../../../common/dto/regenerate-document.dto';
 import { CreateQuotationDto, QueryQuotationDto, ConvertQuotationDto, UpdateQuotationNotesDto, QueryQuotationProductsSummaryDto, SendQuotationEmailDto, CreateQuotationLineItemDto, UpdateQuotationLineItemDto } from '../dto';
+import { StampAdvanceInvoiceDto } from '../../electronic-invoicing/dto/stamp-advance-invoice.dto';
+import { CancelElectronicInvoiceDto } from '../../electronic-invoicing/dto/cancel-electronic-invoice.dto';
 export declare class QuotationController {
     private readonly quotationService;
     private readonly documentsService;
     private readonly emailService;
     private readonly productsPicker;
-    constructor(quotationService: QuotationService, documentsService: QuotationDocumentsService, emailService: QuotationEmailService, productsPicker: SalesOrderProductsPickerService);
+    private readonly advanceInvoices;
+    constructor(quotationService: QuotationService, documentsService: QuotationDocumentsService, emailService: QuotationEmailService, productsPicker: SalesOrderProductsPickerService, advanceInvoices: QuotationAdvanceInvoiceService);
     create(dto: CreateQuotationDto, req: any): Promise<import("../../../entities/quotations").Quotation>;
     replace(id: string, dto: CreateQuotationDto, req: any): Promise<import("../../../entities/quotations").Quotation>;
     updateNotes(id: string, dto: UpdateQuotationNotesDto, req: any): Promise<{
@@ -92,10 +96,14 @@ export declare class QuotationController {
             };
             can_convert: boolean;
             can_cancel: boolean;
+            cancel_blocked_reason: string | null;
             can_edit: boolean;
             can_edit_lines: boolean;
             can_edit_notes: boolean;
             can_send: boolean;
+            advance_invoicing_enabled: boolean;
+            can_stamp_advance: boolean;
+            advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
             customer_email: string | null;
             converted_to_sales_order_id: string | null;
             razon_social: string;
@@ -311,10 +319,14 @@ export declare class QuotationController {
                 };
                 can_convert: boolean;
                 can_cancel: boolean;
+                cancel_blocked_reason: string | null;
                 can_edit: boolean;
                 can_edit_lines: boolean;
                 can_edit_notes: boolean;
                 can_send: boolean;
+                advance_invoicing_enabled: boolean;
+                can_stamp_advance: boolean;
+                advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
                 customer_email: string | null;
                 converted_to_sales_order_id: string | null;
                 razon_social: string;
@@ -511,10 +523,14 @@ export declare class QuotationController {
                 };
                 can_convert: boolean;
                 can_cancel: boolean;
+                cancel_blocked_reason: string | null;
                 can_edit: boolean;
                 can_edit_lines: boolean;
                 can_edit_notes: boolean;
                 can_send: boolean;
+                advance_invoicing_enabled: boolean;
+                can_stamp_advance: boolean;
+                advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
                 customer_email: string | null;
                 converted_to_sales_order_id: string | null;
                 razon_social: string;
@@ -711,10 +727,14 @@ export declare class QuotationController {
                 };
                 can_convert: boolean;
                 can_cancel: boolean;
+                cancel_blocked_reason: string | null;
                 can_edit: boolean;
                 can_edit_lines: boolean;
                 can_edit_notes: boolean;
                 can_send: boolean;
+                advance_invoicing_enabled: boolean;
+                can_stamp_advance: boolean;
+                advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
                 customer_email: string | null;
                 converted_to_sales_order_id: string | null;
                 razon_social: string;
@@ -1002,10 +1022,14 @@ export declare class QuotationController {
                 };
                 can_convert: boolean;
                 can_cancel: boolean;
+                cancel_blocked_reason: string | null;
                 can_edit: boolean;
                 can_edit_lines: boolean;
                 can_edit_notes: boolean;
                 can_send: boolean;
+                advance_invoicing_enabled: boolean;
+                can_stamp_advance: boolean;
+                advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
                 customer_email: string | null;
                 converted_to_sales_order_id: string | null;
                 razon_social: string;
@@ -1202,10 +1226,14 @@ export declare class QuotationController {
                 };
                 can_convert: boolean;
                 can_cancel: boolean;
+                cancel_blocked_reason: string | null;
                 can_edit: boolean;
                 can_edit_lines: boolean;
                 can_edit_notes: boolean;
                 can_send: boolean;
+                advance_invoicing_enabled: boolean;
+                can_stamp_advance: boolean;
+                advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
                 customer_email: string | null;
                 converted_to_sales_order_id: string | null;
                 razon_social: string;
@@ -1352,6 +1380,17 @@ export declare class QuotationController {
             pos_daily_shift_id: string | null;
         };
     }>;
+    collectionPreview(id: string, req: any): Promise<{
+        billing_branch_id: string;
+        sucursal: string | null;
+        open_shift: {
+            id: string;
+            shift_date: string;
+        } | null;
+    }>;
+    listInvoices(id: string, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice[]>;
+    stampAdvance(id: string, dto: StampAdvanceInvoiceDto, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
+    cancelAdvance(id: string, invoiceId: string, dto: CancelElectronicInvoiceDto, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     regenerateDocumentoOriginal(id: string, dto: RegenerateDocumentDto, req: any): Promise<{
         success: boolean;
         message: string;

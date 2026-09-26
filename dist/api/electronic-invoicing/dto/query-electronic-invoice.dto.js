@@ -20,7 +20,7 @@ class QueryElectronicInvoiceDto {
 exports.QueryElectronicInvoiceDto = QueryElectronicInvoiceDto;
 __decorate([
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsEnum)(['sales_orders']),
+    (0, class_validator_1.IsEnum)(['sales_orders', 'quotations']),
     __metadata("design:type", String)
 ], QueryElectronicInvoiceDto.prototype, "source_module", void 0);
 __decorate([

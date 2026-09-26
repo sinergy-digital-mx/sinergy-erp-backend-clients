@@ -19,6 +19,7 @@ const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const uuid_1 = require("uuid");
 const sales_order_entity_1 = require("../../../entities/sales-orders/sales-order.entity");
+const quotation_entity_1 = require("../../../entities/quotations/quotation.entity");
 const sales_order_sale_scope_enum_1 = require("../../../entities/sales-orders/sales-order-sale-scope.enum");
 const sales_order_pos_stage_enum_1 = require("../../../entities/sales-orders/sales-order-pos-stage.enum");
 const sales_order_detail_entity_1 = require("../../../entities/sales-orders/sales-order-detail.entity");
@@ -30,6 +31,7 @@ const sales_order_payment_document_entity_1 = require("../../../entities/sales-o
 const pos_sale_payment_method_enum_1 = require("../../../entities/pos/pos-sale-payment-method.enum");
 const user_entity_1 = require("../../../entities/users/user.entity");
 const customer_entity_1 = require("../../../entities/customers/customer.entity");
+const customer_debt_ledger_service_1 = require("../../accounting/services/customer-debt-ledger.service");
 const s3_service_1 = require("../../../common/services/s3.service");
 const public_invoice_code_util_1 = require("../../../common/utils/public-invoice-code.util");
 const unit_amount_util_1 = require("../../../common/utils/unit-amount.util");
@@ -51,6 +53,8 @@ const pos_sale_collection_entity_1 = require("../../../entities/pos/pos-sale-col
 const pos_sale_collection_mapper_1 = require("../../pos-shifts/mappers/pos-sale-collection.mapper");
 const walk_in_ticket_util_1 = require("../../pos-shifts/utils/walk-in-ticket.util");
 const electronic_invoice_service_1 = require("../../electronic-invoicing/services/electronic-invoice.service");
+const advance_cfdi_service_1 = require("../../electronic-invoicing/services/advance-cfdi.service");
+const quotation_collection_util_1 = require("../utils/quotation-collection.util");
 const billing_branch_entity_1 = require("../../../entities/billing/billing-branch.entity");
 const warehouse_entity_1 = require("../../../entities/warehouse/warehouse.entity");
 const control_desk_lifecycle_service_1 = require("../../warehouse-control/control-desk-lifecycle.service");
@@ -81,13 +85,15 @@ let SalesOrderService = class SalesOrderService {
     billingBranchRepo;
     warehouseRepo;
     electronicInvoiceService;
+    advanceCfdi;
     controlDeskLifecycle;
     warehouseControlService;
+    debtLedger;
     logger = new common_1.Logger(SalesOrderService_1.name);
     static DOC_TYPE_DOCUMENTO_ORIGINAL = 1;
     static DOC_TYPE_NAME_ENTREGA = 'ENTREGA';
     static DOC_TYPE_NAMES_ENTREGA = ['ENTREGA', 'RECIBO'];
-    constructor(soRepo, detailRepo, allocationRepo, folioService, fulfillmentService, dataSource, posShiftsService, productDiscountService, globalDiscountService, pdfService, documentsService, posReceiptService, s3Service, posCollectionRepo, paymentRepo, paymentDocumentRepo, userRepo, customerRepo, billingBranchRepo, warehouseRepo, electronicInvoiceService, controlDeskLifecycle, warehouseControlService) {
+    constructor(soRepo, detailRepo, allocationRepo, folioService, fulfillmentService, dataSource, posShiftsService, productDiscountService, globalDiscountService, pdfService, documentsService, posReceiptService, s3Service, posCollectionRepo, paymentRepo, paymentDocumentRepo, userRepo, customerRepo, billingBranchRepo, warehouseRepo, electronicInvoiceService, advanceCfdi, controlDeskLifecycle, warehouseControlService, debtLedger) {
         this.soRepo = soRepo;
         this.detailRepo = detailRepo;
         this.allocationRepo = allocationRepo;
@@ -109,8 +115,10 @@ let SalesOrderService = class SalesOrderService {
         this.billingBranchRepo = billingBranchRepo;
         this.warehouseRepo = warehouseRepo;
         this.electronicInvoiceService = electronicInvoiceService;
+        this.advanceCfdi = advanceCfdi;
         this.controlDeskLifecycle = controlDeskLifecycle;
         this.warehouseControlService = warehouseControlService;
+        this.debtLedger = debtLedger;
     }
     async resolveWalkInTicketFields(tenantId, customerId, dto) {
         const customer = await this.customerRepo.findOne({
@@ -268,8 +276,11 @@ let SalesOrderService = class SalesOrderService {
         if (isPosSale && fromQuotation) {
             paymentStatus = 'Pendiente';
             const caja = await this.posShiftsService.resolveBranchCajaShift(tenantId, location.billingBranchId);
-            posQueued = caja.queued;
-            posDailyShiftId = caja.shift?.id ?? null;
+            if (!caja.shift || caja.queued) {
+                throw new common_1.BadRequestException('No hay corte abierto en la sucursal. Crea la orden sin cobro y envíala a cobranza cuando abran el corte.');
+            }
+            posQueued = false;
+            posDailyShiftId = caja.shift.id;
         }
         const qr = this.dataSource.createQueryRunner();
         await qr.connect();
@@ -391,6 +402,13 @@ let SalesOrderService = class SalesOrderService {
                 this.logger.log(`POS sales order ${folio} auto-fulfilled by user ${userId}`);
             }
             await qr.commitTransaction();
+            if (!isPosSale && paymentStatus === 'Pendiente' && !fromQuotation) {
+                await this.captureDebtQuietly(this.debtLedger.captureCharge({
+                    tenantId,
+                    salesOrderId: savedSO.id,
+                    userId,
+                }), `cargo ${folio}`);
+            }
             this.generateAndUploadPdf(savedSO.id, tenantId, userId).catch((err) => {
                 this.logger.error('[PDF] Error in async PDF generation:', err);
             });
@@ -607,6 +625,8 @@ let SalesOrderService = class SalesOrderService {
             inferredPosCollection: so.sales_order_type === 'POS' && !!so.collected_by_user_id,
         });
         const cancelBlockedReason = await this.getCancelBlockedReason(so, tenantId);
+        const collectionActions = await this.collectionActions(so, tenantId);
+        const advance = await this.describeAdvance(so, tenantId);
         const controlDesk = await this.warehouseControlService.getSalesOrderSummary(so.id, tenantId);
         const header = {
             ...this.mapOrderLocation(so),
@@ -636,7 +656,15 @@ let SalesOrderService = class SalesOrderService {
             discount_summary: discountSummary,
             can_cancel: cancelBlockedReason === null,
             cancel_blocked_reason: cancelBlockedReason,
-            can_edit_lines: this.resolveCanEditLines(so.general_status, controlDesk),
+            can_send_to_collection: collectionActions.canSend,
+            can_withdraw_from_collection: collectionActions.canWithdraw,
+            collection_send_blocked_reason: collectionActions.sendBlockedReason,
+            collection_withdraw_blocked_reason: collectionActions.withdrawBlockedReason,
+            advance_invoicing_enabled: Boolean(so.fiscal_configuration?.advance_invoicing_enabled),
+            can_stamp_advance: advance.canStamp,
+            can_apply_advance: advance.canApply,
+            advance_invoice: advance.summary,
+            can_edit_lines: this.resolveCanEditLines(so.general_status, controlDesk) && !advance.summary,
             control_desk: controlDesk,
         };
         return {
@@ -699,6 +727,13 @@ let SalesOrderService = class SalesOrderService {
             created_by: userId,
         });
         await this.paymentRepo.save(payment);
+        await this.captureDebtQuietly(this.debtLedger.capturePayment({
+            tenantId,
+            salesOrderId,
+            paymentId: payment.id,
+            userId,
+            source,
+        }), `abono ${payment.id}`);
         const updatedPayments = [...existing, payment];
         const summary = this.buildPaymentSummary(order, updatedPayments);
         order.payment_status = summary.payment_status;
@@ -729,6 +764,11 @@ let SalesOrderService = class SalesOrderService {
             catch {
             }
         }
+        await this.captureDebtQuietly(this.debtLedger.capturePaymentReversal({
+            tenantId,
+            paymentId,
+            userId,
+        }), `reversa ${paymentId}`);
         await this.paymentRepo.remove(payment);
         const paymentData = await this.getPaymentsForOrder(order);
         order.payment_status = paymentData.summary.payment_status;
@@ -1073,8 +1113,25 @@ let SalesOrderService = class SalesOrderService {
                 general_status: 'Cancelada',
                 updated_by: userId,
             });
+            if (so.converted_from_quotation_id) {
+                await qr.manager.update(quotation_entity_1.Quotation, {
+                    id: so.converted_from_quotation_id,
+                    tenant_id: tenantId,
+                    converted_to_sales_order_id: id,
+                    general_status: 'Convertida',
+                }, {
+                    general_status: 'Creada',
+                    converted_to_sales_order_id: null,
+                    updated_by: userId,
+                });
+            }
             await qr.commitTransaction();
             this.logger.log(`Sales order ${so.folio} cancelled by user ${userId}`);
+            await this.captureDebtQuietly(this.debtLedger.captureChargeReversal({
+                tenantId,
+                salesOrderId: id,
+                userId,
+            }), `cancelación ${so.folio}`);
             return this.findOne(id, tenantId);
         }
         catch (err) {
@@ -1085,9 +1142,40 @@ let SalesOrderService = class SalesOrderService {
             await qr.release();
         }
     }
+    async captureCreditCharge(salesOrderId, tenantId, userId) {
+        await this.captureDebtQuietly(this.debtLedger.captureCharge({
+            tenantId,
+            salesOrderId,
+            userId,
+        }), `crédito ${salesOrderId}`);
+    }
+    async captureDebtQuietly(action, context) {
+        try {
+            await action;
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            this.logger.error(`Flujo de deuda no capturado (${context}): ${message}`);
+        }
+    }
     async getCancelBlockedReason(so, tenantId) {
         if (so.general_status === 'Cancelada') {
             return 'La orden ya está cancelada';
+        }
+        if (so.converted_from_quotation_id) {
+            if (so.payment_status === 'Pagado') {
+                return 'La orden ya fue cobrada. No se puede cancelar ni regresar la cotización.';
+            }
+            const collection = await this.posCollectionRepo.findOne({
+                where: { sales_order_id: so.id, tenant_id: tenantId },
+            });
+            if (collection) {
+                return 'La orden ya fue cobrada en caja. No se puede cancelar ni regresar la cotización.';
+            }
+            const payments = await this.paymentRepo.count({ where: { sales_order_id: so.id } });
+            if (payments > 0) {
+                return 'La orden tiene pagos. Elimínalos antes de cancelar para regresar la cotización.';
+            }
         }
         const vigentes = await this.electronicInvoiceService.findVigenteBySource(tenantId, 'sales_orders', so.id);
         if (!vigentes.length) {
@@ -1551,6 +1639,133 @@ let SalesOrderService = class SalesOrderService {
         const language = await this.documentsService.getLastDocumentLanguage(id, SalesOrderService_1.DOC_TYPE_DOCUMENTO_ORIGINAL);
         return this.regenerateDocumentoOriginal(id, tenantId, userId, language);
     }
+    async collectionActions(so, tenantId) {
+        const branchId = so.billing_branch_id;
+        let hasOpenShift = false;
+        let onOpenShift = false;
+        if (branchId) {
+            const caja = await this.posShiftsService.resolveBranchCajaShift(tenantId, branchId);
+            hasOpenShift = !!caja.shift && !caja.queued;
+            onOpenShift =
+                hasOpenShift &&
+                    so.pos_daily_shift_id === caja.shift?.id &&
+                    so.general_status === 'Surtida';
+        }
+        const hasCollection = !!(await this.posCollectionRepo.findOne({
+            where: { sales_order_id: so.id, tenant_id: tenantId },
+        }));
+        const hasPayments = (await this.paymentRepo.count({ where: { sales_order_id: so.id } })) > 0;
+        const vigentes = await this.electronicInvoiceService.findVigenteBySource(tenantId, 'sales_orders', so.id);
+        return (0, quotation_collection_util_1.resolveCollectionActions)({
+            fromQuotation: !!so.converted_from_quotation_id,
+            generalStatus: so.general_status,
+            paymentStatus: so.payment_status,
+            salesOrderType: so.sales_order_type,
+            onOpenShift,
+            hasCollection,
+            hasPayments,
+            hasVigenteInvoice: vigentes.length > 0,
+            hasOpenShift,
+        });
+    }
+    async describeAdvance(so, tenantId) {
+        const enabled = Boolean(so.fiscal_configuration?.advance_invoicing_enabled);
+        let invoice = so.advance_invoice_id
+            ? await this.electronicInvoiceService.findOne(so.advance_invoice_id, tenantId).catch(() => null)
+            : null;
+        if (!invoice) {
+            invoice = await this.advanceCfdi.findVigenteAdvance(tenantId, 'sales_orders', so.id);
+        }
+        const summary = await this.advanceCfdi.summarize(tenantId, invoice);
+        const vigente = !!summary && summary.sat_status !== 'Cancelado' && summary.stamp_status !== 'cancelled';
+        return {
+            summary: vigente ? summary : null,
+            canStamp: enabled && so.general_status !== 'Cancelada' && !vigente && !!so.customer?.fiscal_rfc,
+            canApply: enabled && so.general_status !== 'Cancelada' && !!summary && !summary.applied && vigente,
+        };
+    }
+    async sendToCollection(id, tenantId, userId) {
+        const so = await this.findOne(id, tenantId);
+        const actions = await this.collectionActions(so, tenantId);
+        if (!actions.canSend) {
+            throw new common_1.BadRequestException(actions.sendBlockedReason || 'No se puede enviar a cobranza');
+        }
+        const branchId = so.billing_branch_id;
+        if (!branchId) {
+            throw new common_1.BadRequestException('La orden no tiene sucursal');
+        }
+        const caja = await this.posShiftsService.resolveBranchCajaShift(tenantId, branchId);
+        if (!caja.shift || caja.queued) {
+            throw new common_1.BadRequestException('No hay corte abierto en la sucursal');
+        }
+        const qr = this.dataSource.createQueryRunner();
+        await qr.connect();
+        await qr.startTransaction();
+        try {
+            const allocations = (so.line_items ?? []).flatMap((line) => line.batch_allocations ?? []);
+            if (!allocations.length) {
+                try {
+                    await this.fulfillOrderLines(qr, so.id, { billingBranchId: branchId }, so.line_items ?? [], userId, undefined, true);
+                }
+                catch (error) {
+                    const message = error instanceof Error ? error.message : '';
+                    if (!message.includes('no tiene líneas de inventario')) {
+                        throw error;
+                    }
+                }
+            }
+            await qr.manager.update(sales_order_entity_1.SalesOrder, { id: so.id }, {
+                sales_order_type: 'POS',
+                pos_stage: sales_order_pos_stage_enum_1.SalesOrderPosStage.Caja,
+                pos_daily_shift_id: caja.shift.id,
+                general_status: 'Surtida',
+                payment_status: 'Pendiente',
+                updated_by: userId,
+            });
+            await qr.commitTransaction();
+            return this.findOne(id, tenantId);
+        }
+        catch (error) {
+            await qr.rollbackTransaction();
+            throw error;
+        }
+        finally {
+            await qr.release();
+        }
+    }
+    async withdrawFromCollection(id, tenantId, userId) {
+        const so = await this.findOne(id, tenantId);
+        const actions = await this.collectionActions(so, tenantId);
+        if (!actions.canWithdraw) {
+            throw new common_1.BadRequestException(actions.withdrawBlockedReason || 'No se puede quitar de cobranza');
+        }
+        const qr = this.dataSource.createQueryRunner();
+        await qr.connect();
+        await qr.startTransaction();
+        try {
+            const allocations = (so.line_items ?? []).flatMap((line) => line.batch_allocations ?? []);
+            if (allocations.length) {
+                await this.fulfillmentService.releaseAllocations(allocations, qr.manager);
+            }
+            await qr.manager.update(sales_order_entity_1.SalesOrder, { id: so.id }, {
+                sales_order_type: 'MANUAL',
+                pos_stage: null,
+                pos_daily_shift_id: null,
+                general_status: 'Creada',
+                payment_status: 'Pendiente',
+                updated_by: userId,
+            });
+            await qr.commitTransaction();
+            return this.findOne(id, tenantId);
+        }
+        catch (error) {
+            await qr.rollbackTransaction();
+            throw error;
+        }
+        finally {
+            await qr.release();
+        }
+    }
     allocationScope(so) {
         if (so.sales_order_type === 'POS' && so.billing_branch_id) {
             return { billingBranchId: so.billing_branch_id };
@@ -1669,7 +1884,9 @@ exports.SalesOrderService = SalesOrderService = SalesOrderService_1 = __decorate
         typeorm_2.Repository,
         typeorm_2.Repository,
         electronic_invoice_service_1.ElectronicInvoiceService,
+        advance_cfdi_service_1.AdvanceCfdiService,
         control_desk_lifecycle_service_1.ControlDeskLifecycleService,
-        warehouse_control_service_1.WarehouseControlService])
+        warehouse_control_service_1.WarehouseControlService,
+        customer_debt_ledger_service_1.CustomerDebtLedgerService])
 ], SalesOrderService);
 //# sourceMappingURL=sales-order.service.js.map

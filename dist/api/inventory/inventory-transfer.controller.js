@@ -33,7 +33,7 @@ let InventoryTransferController = class InventoryTransferController {
         this.transferPdfService = transferPdfService;
     }
     getContext(query, req) {
-        return this.transferService.getTransferContext(req.user.tenant_id, query.product_id, query.warehouse_id);
+        return this.transferService.getTransferContext(req.user.tenant_id, query.product_id, query.warehouse_id, query.uom_id);
     }
     findAll(filters, req) {
         return this.transferService.findAll(req.user.tenant_id, filters);
@@ -113,7 +113,7 @@ __decorate([
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Inventory', action: 'Transfer' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Crear transferencia de inventario',
-        description: 'Toma cantidad de uno o más lotes en almacén origen y crea lotes destino. Requiere Inventory:Transfer (no Write genérico).',
+        description: 'Mueve uno o varios productos del almacén origen al destino en un solo folio. Cada línea toma cantidad de un lote. Requiere Inventory:Transfer.',
     }),
     (0, swagger_1.ApiResponse)({ status: 201, type: inventory_transfer_response_dto_1.InventoryTransferResponseDto }),
     __param(0, (0, common_1.Body)()),

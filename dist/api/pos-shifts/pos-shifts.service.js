@@ -389,6 +389,24 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             qb.innerJoin('so.warehouse', 'warehouse').andWhere('warehouse.billing_branch_id = :branchId', { branchId });
         }
         const orders = await qb.orderBy('so.created_at', 'ASC').getMany();
+        const quotationIds = [
+            ...new Set(orders
+                .map((order) => order.converted_from_quotation_id)
+                .filter((value) => !!value)),
+        ];
+        const quotationFolio = new Map();
+        if (quotationIds.length) {
+            const rows = await this.salesOrderRepo.manager
+                .createQueryBuilder()
+                .select('q.id', 'id')
+                .addSelect('q.folio', 'folio')
+                .from('inv_s_quotations', 'q')
+                .where('q.id IN (:...ids)', { ids: quotationIds })
+                .getRawMany();
+            for (const row of rows) {
+                quotationFolio.set(row.id, row.folio);
+            }
+        }
         const pendingByOrder = await this.salesOrderService.getAmountPendingMap(orders, tenantId);
         const creditEnabledByFiscal = await this.customerCreditService.getEnabledByFiscalMap(tenantId, orders
             .filter((order) => order.customer_id && order.fiscal_configuration_id)
@@ -399,6 +417,9 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         return orders.map((order) => ({
             id: order.id,
             folio: order.folio,
+            quotation_folio: order.converted_from_quotation_id
+                ? quotationFolio.get(order.converted_from_quotation_id) ?? null
+                : null,
             total: Number(order.total),
             amount_pending: pendingByOrder.get(order.id) ?? Number(order.total),
             subtotal: Number(order.subtotal),
@@ -596,6 +617,9 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                     : order.walk_in_rfc
                 : null,
         });
+        if (isCredit) {
+            await this.salesOrderService.captureCreditCharge(order.id, tenantId, cobranzaUserId);
+        }
         collection.customer = customer;
         collection.collected_by_user = cobranzaUser;
         let receipt = null;
@@ -756,11 +780,20 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         if (amountCheckMxn > 0 && !dto.check_reference?.trim()) {
             throw new common_1.BadRequestException('check_reference es obligatorio para pagos con cheque');
         }
+        let appliedCashMxn = amountCashMxn;
+        let appliedCashUsd = amountCashUsd;
+        let changeCashMxn = Math.max(0, (0, cash_drawer_1.roundPosMoney)(receivedCashMxn - amountCashMxn));
+        let changeCashUsd = Math.max(0, (0, cash_drawer_1.roundPosMoney)(receivedCashUsd - amountCashUsd));
         if (dto.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CASH) {
-            const receivedEq = (0, pos_cash_payment_util_1.cashReceivedEquivalentMxn)(receivedCashMxn, receivedCashUsd, usdExchangeRate ?? 0);
-            if (!(0, pos_cash_payment_util_1.cashCoversOrder)(orderTotal, receivedCashMxn, receivedCashUsd, usdExchangeRate ?? 0)) {
+            const split = (0, pos_cash_payment_util_1.splitCashPayment)(orderTotal, receivedCashMxn, receivedCashUsd, usdExchangeRate ?? 0);
+            if (!split.covers) {
+                const receivedEq = (0, pos_cash_payment_util_1.cashReceivedEquivalentMxn)(receivedCashMxn, receivedCashUsd, usdExchangeRate ?? 0);
                 throw new common_1.BadRequestException(`El efectivo recibido (${receivedEq.toFixed(2)}) no cubre el total de la orden (${orderTotal.toFixed(2)})`);
             }
+            appliedCashMxn = split.amountCashMxn;
+            appliedCashUsd = split.amountCashUsd;
+            changeCashMxn = split.changeCashMxn;
+            changeCashUsd = split.changeCashUsd;
         }
         else {
             const paidMxn = amountCashMxn +
@@ -769,34 +802,29 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 amountCardMxn +
                 amountCheckMxn +
                 amountCreditMxn;
-            if (Math.abs(paidMxn - orderTotal) > 0.01) {
+            const tolerance = amountCashUsd > 0 ? (0, pos_cash_payment_util_1.usdCentToleranceMxn)(usdExchangeRate ?? 0) : 0.01;
+            if (Math.abs(paidMxn - orderTotal) > tolerance + 0.001) {
                 throw new common_1.BadRequestException(`El monto cubierto (${paidMxn.toFixed(2)}) debe coincidir con el total de la orden (${orderTotal.toFixed(2)})`);
             }
         }
         this.assertPaymentMethodShape(dto.payment_method, {
-            amountCashMxn,
-            amountCashUsd,
+            amountCashMxn: appliedCashMxn,
+            amountCashUsd: appliedCashUsd,
             amountTransferMxn,
             amountCardMxn,
             amountCheckMxn,
             amountCreditMxn,
             cardPaymentCount: cardPayments.length,
         });
-        const changeCashMxn = dto.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CASH
-            ? (0, pos_cash_payment_util_1.cashChangeDueMxn)(orderTotal, receivedCashMxn, receivedCashUsd, usdExchangeRate ?? 0)
-            : Math.max(0, (0, cash_drawer_1.roundPosMoney)(receivedCashMxn - amountCashMxn));
-        const changeCashUsd = dto.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CASH
-            ? 0
-            : Math.max(0, (0, cash_drawer_1.roundPosMoney)(receivedCashUsd - amountCashUsd));
-        if (receivedCashMxn + 0.0001 < amountCashMxn) {
+        if (receivedCashMxn + 0.0001 < appliedCashMxn) {
             throw new common_1.BadRequestException('received_cash_mxn es menor al monto en efectivo MXN');
         }
-        if (receivedCashUsd + 0.0001 < amountCashUsd) {
+        if (receivedCashUsd + 0.0001 < appliedCashUsd) {
             throw new common_1.BadRequestException('received_cash_usd es menor al monto en efectivo USD');
         }
         return {
-            amountCashMxn,
-            amountCashUsd,
+            amountCashMxn: appliedCashMxn,
+            amountCashUsd: appliedCashUsd,
             usdExchangeRate,
             amountTransferMxn,
             transferReference: dto.transfer_reference?.trim() ?? null,

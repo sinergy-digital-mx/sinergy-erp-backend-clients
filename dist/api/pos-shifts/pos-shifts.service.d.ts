@@ -637,6 +637,7 @@ export declare class PosShiftsService {
     getPendingSales(tenantId: string, terminalUserId: string): Promise<{
         id: string;
         folio: string;
+        quotation_folio: string | null;
         total: number;
         amount_pending: number;
         subtotal: number;

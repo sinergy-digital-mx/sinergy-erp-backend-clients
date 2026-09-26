@@ -21,8 +21,11 @@ const sales_order_products_picker_service_1 = require("../../sales-orders/servic
 const quotation_service_1 = require("../services/quotation.service");
 const quotation_documents_service_1 = require("../services/quotation-documents.service");
 const quotation_email_service_1 = require("../services/quotation-email.service");
+const quotation_advance_invoice_service_1 = require("../services/quotation-advance-invoice.service");
 const regenerate_document_dto_1 = require("../../../common/dto/regenerate-document.dto");
 const dto_1 = require("../dto");
+const stamp_advance_invoice_dto_1 = require("../../electronic-invoicing/dto/stamp-advance-invoice.dto");
+const cancel_electronic_invoice_dto_1 = require("../../electronic-invoicing/dto/cancel-electronic-invoice.dto");
 const request_user_util_1 = require("../../../common/utils/request-user.util");
 const quotation_seller_scope_util_1 = require("../utils/quotation-seller-scope.util");
 let QuotationController = class QuotationController {
@@ -30,11 +33,13 @@ let QuotationController = class QuotationController {
     documentsService;
     emailService;
     productsPicker;
-    constructor(quotationService, documentsService, emailService, productsPicker) {
+    advanceInvoices;
+    constructor(quotationService, documentsService, emailService, productsPicker, advanceInvoices) {
         this.quotationService = quotationService;
         this.documentsService = documentsService;
         this.emailService = emailService;
         this.productsPicker = productsPicker;
+        this.advanceInvoices = advanceInvoices;
     }
     create(dto, req) {
         return this.quotationService.create(dto, req.user.tenant_id, req.user.id);
@@ -90,7 +95,19 @@ let QuotationController = class QuotationController {
         };
     }
     convert(id, dto, req) {
-        return this.quotationService.convert(id, dto ?? {}, req.user.tenant_id, req.user.id, this.sellerAccess(req));
+        return this.quotationService.convert(id, dto ?? {}, req.user.tenant_id, (0, request_user_util_1.resolveRequestUserId)(req), this.sellerAccess(req));
+    }
+    collectionPreview(id, req) {
+        return this.advanceInvoices.collectionPreview(id, req.user.tenant_id);
+    }
+    listInvoices(id, req) {
+        return this.advanceInvoices.list(id, req.user.tenant_id);
+    }
+    stampAdvance(id, dto, req) {
+        return this.advanceInvoices.stamp(id, req.user.tenant_id, req.user.id, dto);
+    }
+    cancelAdvance(id, invoiceId, dto, req) {
+        return this.advanceInvoices.cancel(id, invoiceId, req.user.tenant_id, req.user.id, dto);
     }
     regenerateDocumentoOriginal(id, dto, req) {
         return this.quotationService.regenerateDocumentoOriginal(id, req.user.tenant_id, req.user.id, dto.language, dto.keep_previous === true, this.sellerAccess(req));
@@ -248,6 +265,49 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], QuotationController.prototype, "convert", null);
 __decorate([
+    (0, common_1.Get)(':id/collection-preview'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Corte abierto de la sucursal para cobrar al convertir',
+    }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], QuotationController.prototype, "collectionPreview", null);
+__decorate([
+    (0, common_1.Get)(':id/invoices'),
+    (0, swagger_1.ApiOperation)({ summary: 'Facturas de anticipo de la cotización' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], QuotationController.prototype, "listInvoices", null);
+__decorate([
+    (0, common_1.Post)(':id/invoices/stamp-advance'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
+    (0, swagger_1.ApiOperation)({ summary: 'Timbrar CFDI de anticipo de la cotización' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, stamp_advance_invoice_dto_1.StampAdvanceInvoiceDto, Object]),
+    __metadata("design:returntype", void 0)
+], QuotationController.prototype, "stampAdvance", null);
+__decorate([
+    (0, common_1.Post)(':id/invoices/:invoiceId/cancel'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({ summary: 'Cancelar CFDI de anticipo de la cotización' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Param)('invoiceId')),
+    __param(2, (0, common_1.Body)()),
+    __param(3, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, cancel_electronic_invoice_dto_1.CancelElectronicInvoiceDto, Object]),
+    __metadata("design:returntype", void 0)
+], QuotationController.prototype, "cancelAdvance", null);
+__decorate([
     (0, common_1.Post)(':id/regenerate-documento-original'),
     (0, swagger_1.ApiOperation)({ summary: 'Regenerar PDF DOCUMENTO_ORIGINAL' }),
     __param(0, (0, common_1.Param)('id')),
@@ -297,6 +357,7 @@ exports.QuotationController = QuotationController = __decorate([
     __metadata("design:paramtypes", [quotation_service_1.QuotationService,
         quotation_documents_service_1.QuotationDocumentsService,
         quotation_email_service_1.QuotationEmailService,
-        sales_order_products_picker_service_1.SalesOrderProductsPickerService])
+        sales_order_products_picker_service_1.SalesOrderProductsPickerService,
+        quotation_advance_invoice_service_1.QuotationAdvanceInvoiceService])
 ], QuotationController);
 //# sourceMappingURL=quotation.controller.js.map

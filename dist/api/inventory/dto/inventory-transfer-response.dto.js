@@ -9,15 +9,23 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.InventoryTransferListResponseDto = exports.InventoryTransferResponseDto = exports.InventoryTransferUserSummaryDto = exports.InventoryTransferWarehouseSummaryDto = exports.InventoryTransferLineResponseDto = void 0;
+exports.InventoryTransferListResponseDto = exports.InventoryTransferResponseDto = exports.InventoryTransferUserSummaryDto = exports.InventoryTransferWarehouseSummaryDto = exports.InventoryTransferProductSummaryDto = exports.InventoryTransferLineResponseDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
 class InventoryTransferLineResponseDto {
     id;
+    product_id;
+    product_name;
+    product_sku;
+    uom_id;
+    uom_name;
     source_inventory_batch_id;
+    source_batch_id;
     source_batch_number;
     destination_inventory_batch_id;
+    destination_batch_id;
     destination_batch_number;
     quantity;
+    measure_label;
     created_at;
 }
 exports.InventoryTransferLineResponseDto = InventoryTransferLineResponseDto;
@@ -28,7 +36,31 @@ __decorate([
 __decorate([
     (0, swagger_1.ApiProperty)(),
     __metadata("design:type", String)
+], InventoryTransferLineResponseDto.prototype, "product_id", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", String)
+], InventoryTransferLineResponseDto.prototype, "product_name", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", String)
+], InventoryTransferLineResponseDto.prototype, "product_sku", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", String)
+], InventoryTransferLineResponseDto.prototype, "uom_id", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", String)
+], InventoryTransferLineResponseDto.prototype, "uom_name", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", String)
 ], InventoryTransferLineResponseDto.prototype, "source_inventory_batch_id", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", String)
+], InventoryTransferLineResponseDto.prototype, "source_batch_id", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)(),
     __metadata("design:type", String)
@@ -40,15 +72,61 @@ __decorate([
 __decorate([
     (0, swagger_1.ApiProperty)(),
     __metadata("design:type", String)
+], InventoryTransferLineResponseDto.prototype, "destination_batch_id", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", String)
 ], InventoryTransferLineResponseDto.prototype, "destination_batch_number", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)(),
     __metadata("design:type", String)
 ], InventoryTransferLineResponseDto.prototype, "quantity", void 0);
 __decorate([
+    (0, swagger_1.ApiProperty)({ nullable: true }),
+    __metadata("design:type", Object)
+], InventoryTransferLineResponseDto.prototype, "measure_label", void 0);
+__decorate([
     (0, swagger_1.ApiProperty)(),
     __metadata("design:type", Date)
 ], InventoryTransferLineResponseDto.prototype, "created_at", void 0);
+class InventoryTransferProductSummaryDto {
+    product_id;
+    product_name;
+    product_sku;
+    uom_id;
+    uom_name;
+    quantity;
+    lines_count;
+}
+exports.InventoryTransferProductSummaryDto = InventoryTransferProductSummaryDto;
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", String)
+], InventoryTransferProductSummaryDto.prototype, "product_id", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", String)
+], InventoryTransferProductSummaryDto.prototype, "product_name", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", String)
+], InventoryTransferProductSummaryDto.prototype, "product_sku", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", String)
+], InventoryTransferProductSummaryDto.prototype, "uom_id", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", String)
+], InventoryTransferProductSummaryDto.prototype, "uom_name", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", String)
+], InventoryTransferProductSummaryDto.prototype, "quantity", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", Number)
+], InventoryTransferProductSummaryDto.prototype, "lines_count", void 0);
 class InventoryTransferWarehouseSummaryDto {
     id;
     name;
@@ -128,6 +206,8 @@ class InventoryTransferResponseDto {
     product_sku;
     uom_id;
     uom_name;
+    products;
+    products_count;
     source_warehouse;
     destination_warehouse;
     total_quantity;
@@ -147,8 +227,8 @@ __decorate([
     __metadata("design:type", String)
 ], InventoryTransferResponseDto.prototype, "folio", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)(),
-    __metadata("design:type", String)
+    (0, swagger_1.ApiProperty)({ nullable: true, description: 'Presente solo si todas las líneas son del mismo producto' }),
+    __metadata("design:type", Object)
 ], InventoryTransferResponseDto.prototype, "product_id", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)(),
@@ -159,13 +239,21 @@ __decorate([
     __metadata("design:type", String)
 ], InventoryTransferResponseDto.prototype, "product_sku", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)(),
-    __metadata("design:type", String)
+    (0, swagger_1.ApiProperty)({ nullable: true }),
+    __metadata("design:type", Object)
 ], InventoryTransferResponseDto.prototype, "uom_id", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)(),
     __metadata("design:type", String)
 ], InventoryTransferResponseDto.prototype, "uom_name", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ type: [InventoryTransferProductSummaryDto] }),
+    __metadata("design:type", Array)
+], InventoryTransferResponseDto.prototype, "products", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", Number)
+], InventoryTransferResponseDto.prototype, "products_count", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ type: InventoryTransferWarehouseSummaryDto }),
     __metadata("design:type", InventoryTransferWarehouseSummaryDto)

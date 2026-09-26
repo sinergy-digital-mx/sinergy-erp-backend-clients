@@ -40,6 +40,7 @@ const shippings_module_1 = require("../shippings/shippings.module");
 const warehouse_control_module_1 = require("../warehouse-control/warehouse-control.module");
 const mailer_configuration_module_1 = require("../mailer-configuration/mailer-configuration.module");
 const sales_order_invoice_email_service_1 = require("./services/sales-order-invoice-email.service");
+const customer_debt_ledger_module_1 = require("../accounting/customer-debt-ledger.module");
 let SalesOrdersModule = class SalesOrdersModule {
 };
 exports.SalesOrdersModule = SalesOrdersModule;
@@ -75,6 +76,7 @@ exports.SalesOrdersModule = SalesOrdersModule = __decorate([
             shippings_module_1.ShippingsModule,
             warehouse_control_module_1.WarehouseControlModule,
             mailer_configuration_module_1.MailerConfigurationModule,
+            customer_debt_ledger_module_1.CustomerDebtLedgerModule,
         ],
         controllers: [sales_order_controller_1.SalesOrderController],
         providers: [

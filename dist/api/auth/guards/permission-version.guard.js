@@ -42,7 +42,7 @@ let PermissionVersionGuard = PermissionVersionGuard_1 = class PermissionVersionG
             }
             const dbVersion = await this.permissionVersionService.getUserVersion(user.id);
             this.logger.debug(`Permission version check for user ${user.id}: JWT=${jwtVersion}, DB=${dbVersion}`);
-            if (jwtVersion < dbVersion) {
+            if (Number(jwtVersion) < Number(dbVersion)) {
                 this.logger.warn(`Permission version mismatch for user ${user.id}: JWT version ${jwtVersion} < DB version ${dbVersion}`);
                 throw new common_1.UnauthorizedException({
                     statusCode: 401,

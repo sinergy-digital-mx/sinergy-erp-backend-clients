@@ -2,13 +2,17 @@ import { Repository } from 'typeorm';
 import { SalesOrder } from '../../../entities/sales-orders/sales-order.entity';
 import { Customer } from '../../../entities/customers/customer.entity';
 import { ElectronicInvoiceService } from '../../electronic-invoicing/services/electronic-invoice.service';
+import { AdvanceCfdiService } from '../../electronic-invoicing/services/advance-cfdi.service';
 import { CancelElectronicInvoiceDto } from '../../electronic-invoicing/dto/cancel-electronic-invoice.dto';
 import { StampSalesOrderInvoiceDto } from '../dto/stamp-sales-order-invoice.dto';
+import { StampAdvanceInvoiceDto } from '../../electronic-invoicing/dto/stamp-advance-invoice.dto';
+import { ApplyAdvanceInvoiceDto } from '../../electronic-invoicing/dto/apply-advance-invoice.dto';
 export declare class SalesOrderInvoicingService {
     private readonly salesOrderRepo;
     private readonly customerRepo;
     private readonly electronicInvoiceService;
-    constructor(salesOrderRepo: Repository<SalesOrder>, customerRepo: Repository<Customer>, electronicInvoiceService: ElectronicInvoiceService);
+    private readonly advanceCfdi;
+    constructor(salesOrderRepo: Repository<SalesOrder>, customerRepo: Repository<Customer>, electronicInvoiceService: ElectronicInvoiceService, advanceCfdi: AdvanceCfdiService);
     listInvoices(salesOrderId: string, tenantId: string): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice[]>;
     stampInvoice(salesOrderId: string, tenantId: string, userId: string, dto: StampSalesOrderInvoiceDto): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     cancelInvoice(salesOrderId: string, invoiceId: string, tenantId: string, userId: string, dto: CancelElectronicInvoiceDto): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
@@ -21,4 +25,11 @@ export declare class SalesOrderInvoicingService {
     private buildXmlPlaceholder;
     private getSalesOrderOrFail;
     private getSalesOrderWithRelations;
+    stampAdvance(salesOrderId: string, tenantId: string, userId: string, dto: StampAdvanceInvoiceDto): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
+    applyAdvance(salesOrderId: string, tenantId: string, userId: string, dto: ApplyAdvanceInvoiceDto): Promise<{
+        merchandise: import("../../../entities/electronic-invoicing").ElectronicInvoice;
+        application: import("../../../entities/electronic-invoicing").ElectronicInvoice;
+    }>;
+    private parties;
+    private getAdvanceOrder;
 }

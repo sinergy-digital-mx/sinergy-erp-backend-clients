@@ -31,6 +31,7 @@ const unit_amount_util_1 = require("../../../common/utils/unit-amount.util");
 const quotation_folio_service_1 = require("./quotation-folio.service");
 const quotation_pdf_service_1 = require("./quotation-pdf.service");
 const quotation_documents_service_1 = require("./quotation-documents.service");
+const quotation_advance_invoice_service_1 = require("./quotation-advance-invoice.service");
 const pos_shifts_service_1 = require("../../pos-shifts/pos-shifts.service");
 const quotation_convert_util_1 = require("../utils/quotation-convert.util");
 const product_discount_service_1 = require("../../products/product-discount.service");
@@ -60,9 +61,10 @@ let QuotationService = class QuotationService {
     pdfService;
     documentsService;
     salesOrderService;
+    advanceInvoices;
     logger = new common_1.Logger(QuotationService_1.name);
     static DOC_TYPE_DOCUMENTO_ORIGINAL = 1;
-    constructor(quotationRepo, userRepo, userBillingBranchRepo, customerRepo, billingBranchRepo, warehouseRepo, folioService, dataSource, posShiftsService, productDiscountService, globalDiscountService, pdfService, documentsService, salesOrderService) {
+    constructor(quotationRepo, userRepo, userBillingBranchRepo, customerRepo, billingBranchRepo, warehouseRepo, folioService, dataSource, posShiftsService, productDiscountService, globalDiscountService, pdfService, documentsService, salesOrderService, advanceInvoices) {
         this.quotationRepo = quotationRepo;
         this.userRepo = userRepo;
         this.userBillingBranchRepo = userBillingBranchRepo;
@@ -77,6 +79,7 @@ let QuotationService = class QuotationService {
         this.pdfService = pdfService;
         this.documentsService = documentsService;
         this.salesOrderService = salesOrderService;
+        this.advanceInvoices = advanceInvoices;
     }
     async create(dto, tenantId, userId) {
         const isPos = dto.quotation_type === 'POS';
@@ -333,6 +336,7 @@ let QuotationService = class QuotationService {
     }
     async findOneDetail(id, tenantId, access) {
         const quotation = await this.findOne(id, tenantId, access);
+        const advance = await this.advanceInvoices.describe(quotation);
         const customerSummary = (0, pos_sale_collection_mapper_1.mapPosCustomer)(quotation.customer);
         const appliedLineDiscounts = (0, quotation_discount_mapper_1.mapAppliedLineDiscountsFromQuotation)(quotation);
         const discountSummary = (0, quotation_discount_mapper_1.mapOrderDiscountSummary)(quotation);
@@ -347,11 +351,17 @@ let QuotationService = class QuotationService {
             applied_global_discount: discountSummary.global_discount,
             discount_summary: discountSummary,
             can_convert: quotation.general_status === 'Creada',
-            can_cancel: quotation.general_status === 'Creada',
+            can_cancel: quotation.general_status === 'Creada' && !advance.blocksCancel,
+            cancel_blocked_reason: advance.blocksCancel
+                ? 'Tiene una factura de anticipo vigente. Cancélala antes de cancelar la cotización.'
+                : null,
             can_edit: quotation.general_status === 'Creada',
-            can_edit_lines: quotation.general_status === 'Creada',
+            can_edit_lines: quotation.general_status === 'Creada' && !advance.blocksEdit,
             can_edit_notes: quotation.general_status !== 'Cancelada',
             can_send: quotation.general_status !== 'Cancelada',
+            advance_invoicing_enabled: advance.enabled,
+            can_stamp_advance: advance.canStamp,
+            advance_invoice: advance.summary,
             customer_email: quotation.customer?.email?.trim() ||
                 quotation.customer?.additional_email?.trim() ||
                 null,
@@ -542,6 +552,7 @@ let QuotationService = class QuotationService {
         if (quotation.general_status === 'Convertida') {
             throw new common_1.BadRequestException('No se puede cancelar una cotización convertida. Cancela la orden de venta.');
         }
+        await this.advanceInvoices.assertQuotationCancellable(quotation);
         quotation.general_status = 'Cancelada';
         quotation.updated_by = userId;
         await this.quotationRepo.save(quotation);
@@ -603,6 +614,7 @@ let QuotationService = class QuotationService {
             quotedGlobalDiscountAmount: Number(quotation.global_discount_amount || 0),
         });
         await this.salesOrderService.linkConvertedFromQuotation(salesOrder.id, quotation.id, tenantId);
+        await this.advanceInvoices.attachToSalesOrder(tenantId, quotation.id, salesOrder.id);
         quotation.general_status = 'Convertida';
         quotation.converted_to_sales_order_id = salesOrder.id;
         quotation.updated_by = userId;
@@ -985,6 +997,7 @@ exports.QuotationService = QuotationService = QuotationService_1 = __decorate([
         global_discount_service_1.GlobalDiscountService,
         quotation_pdf_service_1.QuotationPdfService,
         quotation_documents_service_1.QuotationDocumentsService,
-        sales_order_service_1.SalesOrderService])
+        sales_order_service_1.SalesOrderService,
+        quotation_advance_invoice_service_1.QuotationAdvanceInvoiceService])
 ], QuotationService);
 //# sourceMappingURL=quotation.service.js.map

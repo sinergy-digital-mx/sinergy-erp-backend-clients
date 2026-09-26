@@ -23,11 +23,13 @@ export declare class InventoryTransferService {
     private readonly dataSource;
     private readonly logger;
     constructor(transferRepo: Repository<InventoryTransfer>, batchRepo: Repository<InventoryBatch>, warehouseRepo: Repository<Warehouse>, folioService: InventoryTransferFolioService, batchNumberGenerator: BatchNumberGeneratorService, inventoryService: InventoryService, stockLedger: InventoryStockLedgerService, stockLedgerValuation: InventoryStockLedgerValuationService, dataSource: DataSource);
-    getTransferContext(tenantId: string, productId: string, warehouseId: string): Promise<TransferContextResponseDto>;
+    getTransferContext(tenantId: string, productId: string, warehouseId: string, uomId?: string): Promise<TransferContextResponseDto>;
     create(dto: CreateInventoryTransferDto, tenantId: string, userId: string): Promise<InventoryTransferResponseDto>;
     findAll(tenantId: string, filters: QueryInventoryTransferDto): Promise<InventoryTransferListResponseDto>;
     findById(id: string, tenantId: string): Promise<InventoryTransferResponseDto>;
     private mapToResponseDto;
+    private mapLine;
+    private buildProductSummaries;
     private filterDestinationTree;
     private mapWarehouseSummary;
 }

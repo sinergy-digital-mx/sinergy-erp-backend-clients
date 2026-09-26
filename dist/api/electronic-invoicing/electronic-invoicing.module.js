@@ -25,6 +25,7 @@ const electronic_invoice_service_1 = require("./services/electronic-invoice.serv
 const electronic_invoice_pdf_service_1 = require("./services/electronic-invoice-pdf.service");
 const electronic_invoice_sat_sync_service_1 = require("./services/electronic-invoice-sat-sync.service");
 const fiscal_configuration_finkok_service_1 = require("./services/fiscal-configuration-finkok.service");
+const advance_cfdi_service_1 = require("./services/advance-cfdi.service");
 let ElectronicInvoicingModule = class ElectronicInvoicingModule {
 };
 exports.ElectronicInvoicingModule = ElectronicInvoicingModule;
@@ -54,6 +55,7 @@ exports.ElectronicInvoicingModule = ElectronicInvoicingModule = __decorate([
             electronic_invoice_pdf_service_1.ElectronicInvoicePdfService,
             electronic_invoice_sat_sync_service_1.ElectronicInvoiceSatSyncService,
             fiscal_configuration_finkok_service_1.FiscalConfigurationFinkokService,
+            advance_cfdi_service_1.AdvanceCfdiService,
             s3_service_1.S3Service,
         ],
         exports: [
@@ -62,6 +64,7 @@ exports.ElectronicInvoicingModule = ElectronicInvoicingModule = __decorate([
             finkok_provider_configuration_service_1.FinkokProviderConfigurationService,
             fiscal_configuration_finkok_service_1.FiscalConfigurationFinkokService,
             electronic_invoice_sat_sync_service_1.ElectronicInvoiceSatSyncService,
+            advance_cfdi_service_1.AdvanceCfdiService,
         ],
     })
 ], ElectronicInvoicingModule);

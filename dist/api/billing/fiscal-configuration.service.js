@@ -102,6 +102,9 @@ let FiscalConfigurationService = class FiscalConfigurationService {
         if (dto.quotation_expiration_days !== undefined) {
             patch.quotation_expiration_days = dto.quotation_expiration_days;
         }
+        if (dto.advance_invoicing_enabled !== undefined) {
+            patch.advance_invoicing_enabled = dto.advance_invoicing_enabled;
+        }
         if (Object.keys(patch).length) {
             await this.repo.update({ id, tenant_id: tenantId }, patch);
         }

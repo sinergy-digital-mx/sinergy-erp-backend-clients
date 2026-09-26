@@ -10,10 +10,10 @@ export declare class InventoryTransfer {
     tenant: RBACTenant;
     tenant_id: string;
     folio: string;
-    product: Product;
-    product_id: string;
-    uom: UoMCatalog;
-    uom_id: string;
+    product: Product | null;
+    product_id: string | null;
+    uom: UoMCatalog | null;
+    uom_id: string | null;
     source_warehouse: Warehouse;
     source_warehouse_id: string;
     destination_warehouse: Warehouse;

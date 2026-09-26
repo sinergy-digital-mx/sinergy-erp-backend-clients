@@ -1,8 +1,11 @@
 import { AccountingService } from './accounting.service';
+import { CustomerDebtFlowService } from './services/customer-debt-flow.service';
+import { QueryDebtFlowDto } from './dto/query-debt-flow.dto';
 import { QueryAccountingBaseDto, QueryAccountsPayableDto, QueryAccountsReceivableDto, QueryPosCollectionsDto, QueryPosTerminalSalesDto } from './dto/query-accounting-base.dto';
 export declare class AccountingController {
     private readonly accountingService;
-    constructor(accountingService: AccountingService);
+    private readonly debtFlowService;
+    constructor(accountingService: AccountingService, debtFlowService: CustomerDebtFlowService);
     getPosSummary(query: QueryAccountingBaseDto, req: any): Promise<{
         filters_applied: {
             billing_branch_id: string;
@@ -345,4 +348,6 @@ export declare class AccountingController {
             } | null;
         }[];
     }>;
+    getDebtFlow(query: QueryDebtFlowDto, req: any): Promise<import("./services/customer-debt-flow.service").DebtFlowResponse>;
+    exportDebtFlowExcel(query: QueryDebtFlowDto, req: any, res: any): Promise<void>;
 }

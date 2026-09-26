@@ -47,6 +47,7 @@ let SalesOrder = class SalesOrder {
     walk_in_name;
     walk_in_rfc;
     converted_from_quotation_id;
+    advance_invoice_id;
     sale_scope;
     requires_selection_assembly;
     corroborator;
@@ -200,6 +201,10 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 36, nullable: true }),
     __metadata("design:type", Object)
 ], SalesOrder.prototype, "converted_from_quotation_id", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 36, nullable: true }),
+    __metadata("design:type", Object)
+], SalesOrder.prototype, "advance_invoice_id", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 16, default: sales_order_sale_scope_enum_1.SalesOrderSaleScope.Inventory }),
     __metadata("design:type", String)

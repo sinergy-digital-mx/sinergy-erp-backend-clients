@@ -19,11 +19,15 @@ const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const permission_guard_1 = require("../rbac/guards/permission.guard");
 const require_permissions_decorator_1 = require("../rbac/decorators/require-permissions.decorator");
 const accounting_service_1 = require("./accounting.service");
+const customer_debt_flow_service_1 = require("./services/customer-debt-flow.service");
+const query_debt_flow_dto_1 = require("./dto/query-debt-flow.dto");
 const query_accounting_base_dto_1 = require("./dto/query-accounting-base.dto");
 let AccountingController = class AccountingController {
     accountingService;
-    constructor(accountingService) {
+    debtFlowService;
+    constructor(accountingService, debtFlowService) {
         this.accountingService = accountingService;
+        this.debtFlowService = debtFlowService;
     }
     getPosSummary(query, req) {
         return this.accountingService.getPosSummary(req.user.tenant_id, query);
@@ -59,6 +63,16 @@ let AccountingController = class AccountingController {
     }
     getAccountsReceivableDetail(razonSocial, billingBranchId, req) {
         return this.accountingService.getAccountsReceivableDetail(req.user.tenant_id, razonSocial, billingBranchId);
+    }
+    getDebtFlow(query, req) {
+        return this.debtFlowService.getReport(req.user.tenant_id, query);
+    }
+    async exportDebtFlowExcel(query, req, res) {
+        const buffer = await this.debtFlowService.exportExcel(req.user.tenant_id, query);
+        const filename = this.debtFlowService.getFilename(query.view ?? query_debt_flow_dto_1.DebtFlowView.AGING);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(buffer);
     }
 };
 exports.AccountingController = AccountingController;
@@ -184,11 +198,36 @@ __decorate([
     __metadata("design:paramtypes", [String, Object, Object]),
     __metadata("design:returntype", void 0)
 ], AccountingController.prototype, "getAccountsReceivableDetail", null);
+__decorate([
+    (0, common_1.Get)('debt-flow'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Antigüedad de saldos o flujo de deuda del cliente',
+        description: 'view=aging corta los saldos abiertos al fin del periodo. view=ledger lista cargos, abonos y el saldo de cada OV. El histórico queda congelado al capturarse.',
+    }),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [query_debt_flow_dto_1.QueryDebtFlowDto, Object]),
+    __metadata("design:returntype", void 0)
+], AccountingController.prototype, "getDebtFlow", null);
+__decorate([
+    (0, common_1.Get)('debt-flow/export/excel'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Excel de antigüedad de saldos o flujo de deuda' }),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Req)()),
+    __param(2, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [query_debt_flow_dto_1.QueryDebtFlowDto, Object, Object]),
+    __metadata("design:returntype", Promise)
+], AccountingController.prototype, "exportDebtFlowExcel", null);
 exports.AccountingController = AccountingController = __decorate([
     (0, swagger_1.ApiTags)('Accounting'),
     (0, common_1.Controller)('tenant/accounting'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     (0, swagger_1.ApiBearerAuth)(),
-    __metadata("design:paramtypes", [accounting_service_1.AccountingService])
+    __metadata("design:paramtypes", [accounting_service_1.AccountingService,
+        customer_debt_flow_service_1.CustomerDebtFlowService])
 ], AccountingController);
 //# sourceMappingURL=accounting.controller.js.map

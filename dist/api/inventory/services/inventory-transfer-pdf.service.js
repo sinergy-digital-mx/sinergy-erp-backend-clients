@@ -202,7 +202,7 @@ let InventoryTransferPdfService = class InventoryTransferPdfService {
                     [
                         this.metaCell('REALIZADO POR', userName),
                         this.metaCell('CORREO', transfer.created_by_user?.email || '—'),
-                        this.metaCell('CANTIDAD TOTAL', `${this.formatQty(transfer.total_quantity)} ${transfer.uom_name || ''}`.trim()),
+                        this.metaCell('CANTIDAD TOTAL', this.totalLabel(transfer)),
                     ],
                 ],
             },
@@ -338,7 +338,79 @@ let InventoryTransferPdfService = class InventoryTransferPdfService {
             margin: [0, 0, 0, 14],
         };
     }
+    totalLabel(transfer) {
+        const products = transfer.products ?? [];
+        if (products.length > 1) {
+            const uoms = new Set(products.map((product) => product.uom_id).filter(Boolean));
+            if (uoms.size === 1) {
+                return `${this.formatQty(transfer.total_quantity)} ${products[0].uom_name || ''} · ${products.length} productos`.trim();
+            }
+            return `${products.length} productos`;
+        }
+        return `${this.formatQty(transfer.total_quantity)} ${transfer.uom_name || ''}`.trim();
+    }
     buildProductSection(transfer) {
+        const products = transfer.products?.length
+            ? transfer.products
+            : [
+                {
+                    product_id: transfer.product_id ?? '',
+                    product_name: transfer.product_name,
+                    product_sku: transfer.product_sku,
+                    uom_id: transfer.uom_id ?? '',
+                    uom_name: transfer.uom_name,
+                    quantity: transfer.total_quantity,
+                    lines_count: transfer.lines?.length ?? 0,
+                },
+            ];
+        if (products.length > 1) {
+            const header = ['PRODUCTO', 'SKU', 'UOM', 'CANTIDAD'].map((text) => ({
+                text,
+                fillColor: COLORS.primary,
+                color: COLORS.white,
+                bold: true,
+                fontSize: 8,
+                margin: [4, 5, 4, 5],
+            }));
+            const rows = products.map((product) => [
+                { text: product.product_name || '—', fontSize: 8, margin: [4, 5, 4, 5] },
+                { text: product.product_sku || '—', fontSize: 8, margin: [4, 5, 4, 5] },
+                { text: product.uom_name || '—', fontSize: 8, margin: [4, 5, 4, 5] },
+                {
+                    text: this.formatQty(product.quantity),
+                    fontSize: 8,
+                    bold: true,
+                    alignment: 'right',
+                    margin: [4, 5, 4, 5],
+                },
+            ]);
+            return {
+                stack: [
+                    {
+                        text: 'PRODUCTOS',
+                        fontSize: 8,
+                        bold: true,
+                        color: COLORS.muted,
+                        margin: [0, 0, 0, 6],
+                    },
+                    {
+                        table: {
+                            headerRows: 1,
+                            widths: ['*', 90, 70, 70],
+                            body: [header, ...rows],
+                        },
+                        layout: {
+                            hLineWidth: (i, node) => i === 0 || i === 1 || i === node.table.body.length ? 0.6 : 0.4,
+                            vLineWidth: () => 0,
+                            hLineColor: () => COLORS.line,
+                            fillColor: (rowIndex) => rowIndex === 0 ? COLORS.primary : rowIndex % 2 === 0 ? COLORS.light : null,
+                        },
+                    },
+                ],
+                margin: [0, 0, 0, 14],
+            };
+        }
+        const product = products[0];
         return {
             stack: [
                 {
@@ -356,12 +428,12 @@ let InventoryTransferPdfService = class InventoryTransferPdfService {
                                 {
                                     stack: [
                                         {
-                                            text: transfer.product_name || '—',
+                                            text: product.product_name || '—',
                                             fontSize: 11,
                                             bold: true,
                                         },
                                         {
-                                            text: `SKU: ${transfer.product_sku || '—'}`,
+                                            text: `SKU: ${product.product_sku || '—'}`,
                                             fontSize: 8,
                                             color: COLORS.muted,
                                             margin: [0, 3, 0, 0],
@@ -374,7 +446,7 @@ let InventoryTransferPdfService = class InventoryTransferPdfService {
                                     stack: [
                                         { text: 'UOM', fontSize: 7, color: COLORS.muted },
                                         {
-                                            text: transfer.uom_name || '—',
+                                            text: product.uom_name || '—',
                                             fontSize: 10,
                                             bold: true,
                                             margin: [0, 3, 0, 0],
@@ -413,11 +485,13 @@ let InventoryTransferPdfService = class InventoryTransferPdfService {
         };
     }
     buildLinesSection(transfer) {
+        const multi = (transfer.products_count ?? transfer.products?.length ?? 0) > 1;
         const header = [
-            { text: '#', style: 'th', alignment: 'center' },
-            { text: 'LOTE ORIGEN', style: 'th' },
-            { text: 'CANTIDAD', style: 'th', alignment: 'right' },
-            { text: 'LOTE DESTINO', style: 'th' },
+            { text: '#', alignment: 'center' },
+            ...(multi ? [{ text: 'PRODUCTO' }] : []),
+            { text: 'LOTE ORIGEN' },
+            { text: 'CANTIDAD', alignment: 'right' },
+            { text: 'LOTE DESTINO' },
         ].map((cell) => ({
             ...cell,
             fillColor: COLORS.primary,
@@ -426,43 +500,30 @@ let InventoryTransferPdfService = class InventoryTransferPdfService {
             fontSize: 8,
             margin: [4, 5, 4, 5],
         }));
+        const cell = (text, extra = {}) => ({
+            text,
+            fontSize: 8,
+            margin: [4, 5, 4, 5],
+            ...extra,
+        });
         const rows = (transfer.lines ?? []).map((line, index) => [
-            {
-                text: String(index + 1),
-                alignment: 'center',
-                fontSize: 8,
-                margin: [4, 5, 4, 5],
-            },
-            {
-                text: line.source_batch_number || '—',
-                fontSize: 8,
-                margin: [4, 5, 4, 5],
-            },
-            {
-                text: `${this.formatQty(line.quantity)} ${transfer.uom_name || ''}`.trim(),
-                alignment: 'right',
-                fontSize: 8,
-                bold: true,
-                margin: [4, 5, 4, 5],
-            },
-            {
-                text: line.destination_batch_number || '—',
-                fontSize: 8,
-                margin: [4, 5, 4, 5],
-            },
+            cell(String(index + 1), { alignment: 'center' }),
+            ...(multi ? [cell(line.product_name || '—')] : []),
+            cell(line.source_batch_number || '—'),
+            cell(`${this.formatQty(line.quantity)} ${line.uom_name || transfer.uom_name || ''}`.trim(), { alignment: 'right', bold: true }),
+            cell(line.destination_batch_number || '—'),
         ]);
+        const columnCount = multi ? 5 : 4;
         if (rows.length === 0) {
             rows.push([
                 {
                     text: 'Sin líneas registradas',
-                    colSpan: 4,
+                    colSpan: columnCount,
                     alignment: 'center',
                     color: COLORS.muted,
                     margin: [4, 8, 4, 8],
                 },
-                {},
-                {},
-                {},
+                ...Array.from({ length: columnCount - 1 }, () => ({})),
             ]);
         }
         return {
@@ -477,7 +538,7 @@ let InventoryTransferPdfService = class InventoryTransferPdfService {
                 {
                     table: {
                         headerRows: 1,
-                        widths: [28, '*', 90, '*'],
+                        widths: multi ? [24, '*', '*', 78, '*'] : [28, '*', 90, '*'],
                         body: [header, ...rows],
                     },
                     layout: {

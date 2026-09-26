@@ -40,15 +40,19 @@ class CreateInventoryTransferDto {
 }
 exports.CreateInventoryTransferDto = CreateInventoryTransferDto;
 __decorate([
-    (0, swagger_1.ApiProperty)(),
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Si se envía, todas las líneas deben ser de este producto. Si se omite, cada línea puede ser de un producto distinto.',
+    }),
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsUUID)(),
-    (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], CreateInventoryTransferDto.prototype, "product_id", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)(),
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Si se envía, todas las líneas deben usar esta unidad. Si se omite, cada línea conserva la unidad de su lote.',
+    }),
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsUUID)(),
-    (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], CreateInventoryTransferDto.prototype, "uom_id", void 0);
 __decorate([

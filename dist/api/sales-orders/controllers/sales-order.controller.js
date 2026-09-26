@@ -27,6 +27,8 @@ const sales_order_invoice_email_service_1 = require("../services/sales-order-inv
 const shippings_service_1 = require("../../shippings/shippings.service");
 const cancel_electronic_invoice_dto_1 = require("../../electronic-invoicing/dto/cancel-electronic-invoice.dto");
 const stamp_sales_order_invoice_dto_1 = require("../dto/stamp-sales-order-invoice.dto");
+const stamp_advance_invoice_dto_1 = require("../../electronic-invoicing/dto/stamp-advance-invoice.dto");
+const apply_advance_invoice_dto_1 = require("../../electronic-invoicing/dto/apply-advance-invoice.dto");
 const inventory_service_1 = require("../../inventory/inventory.service");
 const sales_order_products_picker_service_1 = require("../services/sales-order-products-picker.service");
 const dto_1 = require("../dto");
@@ -118,6 +120,12 @@ let SalesOrderController = class SalesOrderController {
     }
     async stampInvoice(id, dto, req) {
         return this.invoicingService.stampInvoice(id, req.user.tenant_id, req.user.id, dto);
+    }
+    async stampAdvance(id, dto, req) {
+        return this.invoicingService.stampAdvance(id, req.user.tenant_id, req.user.id, dto);
+    }
+    async applyAdvance(id, dto, req) {
+        return this.invoicingService.applyAdvance(id, req.user.tenant_id, req.user.id, dto);
     }
     async cancelInvoice(id, invoiceId, dto, req) {
         return this.invoicingService.cancelInvoice(id, invoiceId, req.user.tenant_id, req.user.id, dto);
@@ -243,6 +251,12 @@ let SalesOrderController = class SalesOrderController {
     }
     async cancelPost(id, req) {
         return this.salesOrderService.cancel(id, req.user.tenant_id, req.user.id);
+    }
+    async sendToCollection(id, req) {
+        return this.salesOrderService.sendToCollection(id, req.user.tenant_id, req.user.id);
+    }
+    async withdrawFromCollection(id, req) {
+        return this.salesOrderService.withdrawFromCollection(id, req.user.tenant_id, req.user.id);
     }
     async cancel(id, req) {
         return this.salesOrderService.cancel(id, req.user.tenant_id, req.user.id);
@@ -445,6 +459,30 @@ __decorate([
     __metadata("design:paramtypes", [String, stamp_sales_order_invoice_dto_1.StampSalesOrderInvoiceDto, Object]),
     __metadata("design:returntype", Promise)
 ], SalesOrderController.prototype, "stampInvoice", null);
+__decorate([
+    (0, common_1.Post)(':id/invoices/stamp-advance'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
+    (0, swagger_1.ApiOperation)({ summary: 'Timbrar CFDI de anticipo de la orden' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, stamp_advance_invoice_dto_1.StampAdvanceInvoiceDto, Object]),
+    __metadata("design:returntype", Promise)
+], SalesOrderController.prototype, "stampAdvance", null);
+__decorate([
+    (0, common_1.Post)(':id/invoices/apply-advance'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Facturar la mercancía y aplicar el anticipo con nota de crédito',
+    }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, apply_advance_invoice_dto_1.ApplyAdvanceInvoiceDto, Object]),
+    __metadata("design:returntype", Promise)
+], SalesOrderController.prototype, "applyAdvance", null);
 __decorate([
     (0, common_1.Post)(':id/invoices/:invoiceId/cancel'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
@@ -685,6 +723,30 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], SalesOrderController.prototype, "cancelPost", null);
+__decorate([
+    (0, common_1.Post)(':id/send-to-collection'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Enviar a cobranza del corte abierto la orden que vino de una cotización',
+    }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], SalesOrderController.prototype, "sendToCollection", null);
+__decorate([
+    (0, common_1.Post)(':id/withdraw-from-collection'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Quitar de cobranza una orden de cotización que aún no se cobra',
+    }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], SalesOrderController.prototype, "withdrawFromCollection", null);
 __decorate([
     (0, common_1.Delete)(':id'),
     (0, swagger_1.ApiOperation)({

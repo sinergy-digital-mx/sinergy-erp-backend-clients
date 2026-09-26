@@ -34,6 +34,7 @@ export declare class SalesOrder {
     walk_in_name: string | null;
     walk_in_rfc: string | null;
     converted_from_quotation_id: string | null;
+    advance_invoice_id: string | null;
     sale_scope: SalesOrderSaleScope;
     requires_selection_assembly: boolean;
     corroborator: User | null;

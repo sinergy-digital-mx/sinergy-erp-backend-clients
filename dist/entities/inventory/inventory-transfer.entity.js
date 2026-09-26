@@ -58,22 +58,22 @@ __decorate([
     __metadata("design:type", String)
 ], InventoryTransfer.prototype, "folio", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => product_entity_1.Product, { onDelete: 'RESTRICT', nullable: false }),
+    (0, typeorm_1.ManyToOne)(() => product_entity_1.Product, { onDelete: 'RESTRICT', nullable: true }),
     (0, typeorm_1.JoinColumn)({ name: 'product_id' }),
-    __metadata("design:type", product_entity_1.Product)
+    __metadata("design:type", Object)
 ], InventoryTransfer.prototype, "product", void 0);
 __decorate([
-    (0, typeorm_1.Column)(),
-    __metadata("design:type", String)
+    (0, typeorm_1.Column)({ type: 'varchar', length: '36', nullable: true }),
+    __metadata("design:type", Object)
 ], InventoryTransfer.prototype, "product_id", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => uom_catalog_entity_1.UoMCatalog, { onDelete: 'RESTRICT', nullable: false }),
+    (0, typeorm_1.ManyToOne)(() => uom_catalog_entity_1.UoMCatalog, { onDelete: 'RESTRICT', nullable: true }),
     (0, typeorm_1.JoinColumn)({ name: 'uom_id' }),
-    __metadata("design:type", uom_catalog_entity_1.UoMCatalog)
+    __metadata("design:type", Object)
 ], InventoryTransfer.prototype, "uom", void 0);
 __decorate([
-    (0, typeorm_1.Column)(),
-    __metadata("design:type", String)
+    (0, typeorm_1.Column)({ type: 'varchar', length: '36', nullable: true }),
+    __metadata("design:type", Object)
 ], InventoryTransfer.prototype, "uom_id", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => warehouse_entity_1.Warehouse, { onDelete: 'RESTRICT', nullable: false }),
