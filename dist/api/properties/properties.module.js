@@ -13,6 +13,7 @@ const property_entity_1 = require("../../entities/properties/property.entity");
 const property_group_entity_1 = require("../../entities/properties/property-group.entity");
 const measurement_unit_entity_1 = require("../../entities/properties/measurement-unit.entity");
 const properties_service_1 = require("./properties.service");
+const property_import_service_1 = require("./property-import.service");
 const property_groups_service_1 = require("./property-groups.service");
 const properties_controller_1 = require("./properties.controller");
 const property_groups_controller_1 = require("./property-groups.controller");
@@ -28,7 +29,7 @@ exports.PropertiesModule = PropertiesModule = __decorate([
             rbac_module_1.RBACModule,
             customers_module_1.CustomersModule,
         ],
-        providers: [properties_service_1.PropertiesService, property_groups_service_1.PropertyGroupsService],
+        providers: [properties_service_1.PropertiesService, property_groups_service_1.PropertyGroupsService, property_import_service_1.PropertyImportService],
         controllers: [properties_controller_1.PropertiesController, property_groups_controller_1.PropertyGroupsController],
         exports: [properties_service_1.PropertiesService, property_groups_service_1.PropertyGroupsService],
     })

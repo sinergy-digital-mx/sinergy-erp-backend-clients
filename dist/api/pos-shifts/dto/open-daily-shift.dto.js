@@ -16,6 +16,7 @@ class OpenDailyShiftDto {
     opening_cash_mxn;
     opening_cash_usd;
     notes;
+    billing_branch_id;
 }
 exports.OpenDailyShiftDto = OpenDailyShiftDto;
 __decorate([
@@ -37,4 +38,13 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], OpenDailyShiftDto.prototype, "notes", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        description: 'Sucursal seleccionada en POS. El corte se abre en esa sucursal.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], OpenDailyShiftDto.prototype, "billing_branch_id", void 0);
 //# sourceMappingURL=open-daily-shift.dto.js.map

@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.resolveCreateDownPaymentTarget = resolveCreateDownPaymentTarget;
 exports.getDownPaymentTarget = getDownPaymentTarget;
 exports.resolveEffectiveDownPaymentTarget = resolveEffectiveDownPaymentTarget;
 exports.computeDownPaymentRemaining = computeDownPaymentRemaining;
@@ -13,6 +14,20 @@ exports.resolveContractFinancials = resolveContractFinancials;
 exports.computeFinancingSnapshot = computeFinancingSnapshot;
 function roundMoney(value) {
     return Math.round(value * 100) / 100;
+}
+function resolveCreateDownPaymentTarget(params) {
+    if (!params.financed) {
+        return null;
+    }
+    const explicit = Number(params.downPaymentTarget);
+    if (params.downPaymentTarget != null && Number.isFinite(explicit) && explicit > 0) {
+        return roundMoney(explicit);
+    }
+    const fromDownPayment = Number(params.downPayment);
+    if (Number.isFinite(fromDownPayment) && fromDownPayment > 0) {
+        return roundMoney(fromDownPayment);
+    }
+    return null;
 }
 function getDownPaymentTarget(contract) {
     if (contract.down_payment_financed) {

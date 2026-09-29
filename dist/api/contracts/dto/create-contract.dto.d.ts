@@ -9,6 +9,7 @@ export declare class CreateContractDto {
     contract_date: Date;
     total_price: number;
     down_payment: number;
+    down_payment_target?: number;
     down_payment_financed?: boolean;
     down_payment_months?: number;
     down_payment_first_payment_date?: Date;

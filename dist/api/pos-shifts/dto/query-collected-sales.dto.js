@@ -14,6 +14,7 @@ const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 class QueryCollectedSalesDto {
     daily_shift_id;
+    billing_branch_id;
 }
 exports.QueryCollectedSalesDto = QueryCollectedSalesDto;
 __decorate([
@@ -25,4 +26,13 @@ __decorate([
     (0, class_validator_1.IsUUID)(),
     __metadata("design:type", String)
 ], QueryCollectedSalesDto.prototype, "daily_shift_id", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        description: 'Sucursal seleccionada en POS, si no se envía daily_shift_id.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], QueryCollectedSalesDto.prototype, "billing_branch_id", void 0);
 //# sourceMappingURL=query-collected-sales.dto.js.map

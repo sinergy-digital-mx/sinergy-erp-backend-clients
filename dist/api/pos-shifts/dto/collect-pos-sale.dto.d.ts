@@ -4,6 +4,7 @@ export declare class CollectCardPaymentDto {
     reference?: string;
 }
 export declare class CollectPosSaleDto {
+    billing_branch_id?: string;
     customer_id?: number;
     payment_method: PosSalePaymentMethod;
     amount_cash_mxn?: number;

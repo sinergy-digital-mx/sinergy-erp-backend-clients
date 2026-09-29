@@ -10,6 +10,7 @@ exports.DivinoReservationFormatsModule = void 0;
 const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const divino_reservation_format_entity_1 = require("../../entities/divino-reservation-formats/divino-reservation-format.entity");
+const fiscal_configuration_entity_1 = require("../../entities/billing/fiscal-configuration.entity");
 const property_entity_1 = require("../../entities/properties/property.entity");
 const user_entity_1 = require("../../entities/users/user.entity");
 const rbac_module_1 = require("../rbac/rbac.module");
@@ -24,7 +25,7 @@ exports.DivinoReservationFormatsModule = DivinoReservationFormatsModule;
 exports.DivinoReservationFormatsModule = DivinoReservationFormatsModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            typeorm_1.TypeOrmModule.forFeature([divino_reservation_format_entity_1.DivinoReservationFormat, property_entity_1.Property, user_entity_1.User]),
+            typeorm_1.TypeOrmModule.forFeature([divino_reservation_format_entity_1.DivinoReservationFormat, property_entity_1.Property, user_entity_1.User, fiscal_configuration_entity_1.FiscalConfiguration]),
             rbac_module_1.RBACModule,
             mailer_configuration_module_1.MailerConfigurationModule,
         ],

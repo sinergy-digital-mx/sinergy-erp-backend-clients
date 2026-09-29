@@ -50,7 +50,8 @@ let AccountingService = class AccountingService {
         this.posShiftsService = posShiftsService;
     }
     async getPosSummary(tenantId, filters) {
-        const { dateFrom, dateTo } = this.resolveDateRange(filters.period ?? query_accounting_base_dto_1.AccountingReportPeriod.MONTH, filters.date_from, filters.date_to);
+        const period = filters.period ?? query_accounting_base_dto_1.AccountingReportPeriod.MONTH;
+        const { from: shiftFrom, to: shiftTo } = (0, unclosed_shift_alert_1.resolvePosCalendarRange)(period, filters.date_from, filters.date_to);
         const terminalRows = await this.salesOrderRepo
             .createQueryBuilder('so')
             .innerJoin('so.terminal_user', 'terminal_user')
@@ -69,8 +70,8 @@ let AccountingService = class AccountingService {
             .andWhere('terminal_user.pos_user_type IN (:...sellTypes)', {
             sellTypes: pos_user_type_enum_1.POS_SELL_TYPES,
         })
-            .andWhere('so.created_at >= :dateFrom', { dateFrom })
-            .andWhere('so.created_at <= :dateTo', { dateTo })
+            .andWhere('DATE(so.created_at) >= :shiftFrom', { shiftFrom })
+            .andWhere('DATE(so.created_at) <= :shiftTo', { shiftTo })
             .groupBy('terminal_user.id')
             .addGroupBy('terminal_user.first_name')
             .addGroupBy('terminal_user.last_name')
@@ -81,6 +82,7 @@ let AccountingService = class AccountingService {
         const collectionRows = await this.collectionRepo
             .createQueryBuilder('collection')
             .innerJoin('collection.sales_order', 'so')
+            .innerJoin('collection.pos_daily_shift', 'shift')
             .innerJoin('so.warehouse', 'warehouse')
             .innerJoin('collection.customer', 'customer')
             .select('COUNT(collection.id)', 'orders_collected')
@@ -91,8 +93,8 @@ let AccountingService = class AccountingService {
             .andWhere('warehouse.billing_branch_id = :branchId', {
             branchId: filters.billing_branch_id,
         })
-            .andWhere('collection.created_at >= :dateFrom', { dateFrom })
-            .andWhere('collection.created_at <= :dateTo', { dateTo })
+            .andWhere('shift.shift_date >= :shiftFrom', { shiftFrom })
+            .andWhere('shift.shift_date <= :shiftTo', { shiftTo })
             .setParameters({
             walkInFiscal: WALK_IN_FISCAL_NAME,
             walkInName: WALK_IN_DISPLAY_NAME,
@@ -107,8 +109,8 @@ let AccountingService = class AccountingService {
             .andWhere('shift.billing_branch_id = :branchId', {
             branchId: filters.billing_branch_id,
         })
-            .andWhere('shift.created_at >= :dateFrom', { dateFrom })
-            .andWhere('shift.created_at <= :dateTo', { dateTo })
+            .andWhere('shift.shift_date >= :shiftFrom', { shiftFrom })
+            .andWhere('shift.shift_date <= :shiftTo', { shiftTo })
             .getRawOne();
         const openDailyShift = await this.dailyShiftRepo.findOne({
             where: {
@@ -143,9 +145,9 @@ let AccountingService = class AccountingService {
         return {
             filters_applied: {
                 billing_branch_id: filters.billing_branch_id,
-                period: filters.period ?? query_accounting_base_dto_1.AccountingReportPeriod.MONTH,
-                date_from: dateFrom.toISOString(),
-                date_to: dateTo.toISOString(),
+                period,
+                date_from: shiftFrom,
+                date_to: shiftTo,
             },
             unclosed_shift_alert: unclosedShiftAlert,
             sales_terminals: salesTerminals,
@@ -163,7 +165,7 @@ let AccountingService = class AccountingService {
                 open_daily_shift: openDailyShift
                     ? {
                         id: openDailyShift.id,
-                        shift_date: openDailyShift.shift_date,
+                        shift_date: (0, unclosed_shift_alert_1.toDateOnlyString)(openDailyShift.shift_date),
                         status: openDailyShift.status,
                         is_previous_day: (0, unclosed_shift_alert_1.isPreviousDayOpenShift)(openDailyShift.shift_date),
                         partial_shifts_count: openDailyShift.partial_shifts?.length ?? 0,
@@ -179,7 +181,8 @@ let AccountingService = class AccountingService {
         if (!terminalUser) {
             throw new common_1.NotFoundException('Terminal POS no encontrada');
         }
-        const { dateFrom, dateTo } = this.resolveDateRange(filters.period ?? query_accounting_base_dto_1.AccountingReportPeriod.MONTH, filters.date_from, filters.date_to);
+        const period = filters.period ?? query_accounting_base_dto_1.AccountingReportPeriod.MONTH;
+        const { from: shiftFrom, to: shiftTo } = (0, unclosed_shift_alert_1.resolvePosCalendarRange)(period, filters.date_from, filters.date_to);
         const page = filters.page ?? 1;
         const limit = filters.limit ?? 20;
         const qb = this.salesOrderRepo
@@ -194,8 +197,8 @@ let AccountingService = class AccountingService {
         })
             .andWhere('so.sales_order_type = :posType', { posType: 'POS' })
             .andWhere('so.general_status != :cancelled', { cancelled: 'Cancelada' })
-            .andWhere('so.created_at >= :dateFrom', { dateFrom })
-            .andWhere('so.created_at <= :dateTo', { dateTo })
+            .andWhere('DATE(so.created_at) >= :shiftFrom', { shiftFrom })
+            .andWhere('DATE(so.created_at) <= :shiftTo', { shiftTo })
             .orderBy('so.created_at', 'DESC')
             .skip((page - 1) * limit)
             .take(limit);
@@ -205,9 +208,9 @@ let AccountingService = class AccountingService {
             terminal_name: this.buildUserName(terminalUser.first_name, terminalUser.last_name),
             filters_applied: {
                 billing_branch_id: filters.billing_branch_id,
-                period: filters.period ?? query_accounting_base_dto_1.AccountingReportPeriod.MONTH,
-                date_from: dateFrom.toISOString(),
-                date_to: dateTo.toISOString(),
+                period,
+                date_from: shiftFrom,
+                date_to: shiftTo,
             },
             data: orders.map((order) => {
                 const customerFields = this.buildCustomerFields(order.customer);
@@ -237,7 +240,8 @@ let AccountingService = class AccountingService {
         };
     }
     async getPosCollections(tenantId, filters) {
-        const { dateFrom, dateTo } = this.resolveDateRange(filters.period ?? query_accounting_base_dto_1.AccountingReportPeriod.MONTH, filters.date_from, filters.date_to);
+        const period = filters.period ?? query_accounting_base_dto_1.AccountingReportPeriod.MONTH;
+        const { from: shiftFrom, to: shiftTo } = (0, unclosed_shift_alert_1.resolvePosCalendarRange)(period, filters.date_from, filters.date_to);
         const page = filters.page ?? 1;
         const limit = filters.limit ?? 20;
         const customerType = filters.customer_type ?? query_accounting_base_dto_1.PosCollectionCustomerType.ALL;
@@ -249,7 +253,7 @@ let AccountingService = class AccountingService {
                 pos_user_type: (0, typeorm_2.In)(pos_user_type_enum_1.POS_COLLECT_TYPES),
             },
         });
-        const qb = this.buildPosCollectionsQuery(tenantId, filters, dateFrom, dateTo, customerType);
+        const qb = this.buildPosCollectionsQuery(tenantId, filters, shiftFrom, shiftTo, customerType);
         qb.orderBy('collection.created_at', 'DESC')
             .skip((page - 1) * limit)
             .take(limit);
@@ -264,9 +268,9 @@ let AccountingService = class AccountingService {
                 : null,
             filters_applied: {
                 billing_branch_id: filters.billing_branch_id,
-                period: filters.period ?? query_accounting_base_dto_1.AccountingReportPeriod.MONTH,
-                date_from: dateFrom.toISOString(),
-                date_to: dateTo.toISOString(),
+                period,
+                date_from: shiftFrom,
+                date_to: shiftTo,
                 customer_type: customerType,
                 search: filters.search?.trim() || null,
             },
@@ -278,9 +282,10 @@ let AccountingService = class AccountingService {
         };
     }
     async exportPosCollectionsExcel(tenantId, filters) {
-        const { dateFrom, dateTo } = this.resolveDateRange(filters.period ?? query_accounting_base_dto_1.AccountingReportPeriod.MONTH, filters.date_from, filters.date_to);
+        const period = filters.period ?? query_accounting_base_dto_1.AccountingReportPeriod.MONTH;
+        const { from: shiftFrom, to: shiftTo } = (0, unclosed_shift_alert_1.resolvePosCalendarRange)(period, filters.date_from, filters.date_to);
         const customerType = filters.customer_type ?? query_accounting_base_dto_1.PosCollectionCustomerType.ALL;
-        const qb = this.buildPosCollectionsQuery(tenantId, filters, dateFrom, dateTo, customerType);
+        const qb = this.buildPosCollectionsQuery(tenantId, filters, shiftFrom, shiftTo, customerType);
         qb.orderBy('collection.created_at', 'DESC');
         const collections = await qb.getMany();
         const stampedOrderIds = await this.getStampedInvoiceOrderIds(tenantId, collections
@@ -322,7 +327,7 @@ let AccountingService = class AccountingService {
             title: 'Cobranza POS — órdenes cobradas',
             subtitle: (0, excel_export_util_1.buildExportSubtitle)([
                 `Periodo: ${filters.period ?? query_accounting_base_dto_1.AccountingReportPeriod.MONTH}`,
-                `${(0, excel_export_util_1.formatExportDateTime)(dateFrom)} – ${(0, excel_export_util_1.formatExportDateTime)(dateTo)}`,
+                `${shiftFrom} – ${shiftTo}`,
                 `Tipo: ${customerTypeLabel}`,
                 filters.search?.trim() ? `Búsqueda: ${filters.search.trim()}` : '',
                 `${rows.length} órdenes`,
@@ -346,7 +351,8 @@ let AccountingService = class AccountingService {
         return { buffer, filename: `cobranza-pos-${day}.xlsx` };
     }
     async getPosDailyShifts(tenantId, filters) {
-        const { dateFrom, dateTo } = this.resolveDateRange(filters.period ?? query_accounting_base_dto_1.AccountingReportPeriod.MONTH, filters.date_from, filters.date_to);
+        const period = filters.period ?? query_accounting_base_dto_1.AccountingReportPeriod.MONTH;
+        const { from: shiftFrom, to: shiftTo } = (0, unclosed_shift_alert_1.resolvePosCalendarRange)(period, filters.date_from, filters.date_to);
         const shifts = await this.dailyShiftRepo
             .createQueryBuilder('shift')
             .leftJoinAndSelect('shift.terminal_user', 'terminal_user')
@@ -357,8 +363,8 @@ let AccountingService = class AccountingService {
             .andWhere('shift.billing_branch_id = :branchId', {
             branchId: filters.billing_branch_id,
         })
-            .andWhere('shift.created_at >= :dateFrom', { dateFrom })
-            .andWhere('shift.created_at <= :dateTo', { dateTo })
+            .andWhere('shift.shift_date >= :shiftFrom', { shiftFrom })
+            .andWhere('shift.shift_date <= :shiftTo', { shiftTo })
             .orderBy('shift.shift_date', 'DESC')
             .addOrderBy('shift.created_at', 'DESC')
             .addOrderBy('partial.partial_number', 'ASC')
@@ -368,7 +374,7 @@ let AccountingService = class AccountingService {
             const removedTotalMxn = partials.reduce((sum, partial) => sum + Number(partial.removed_total_mxn || 0), 0);
             return {
                 id: shift.id,
-                shift_date: shift.shift_date,
+                shift_date: (0, unclosed_shift_alert_1.toDateOnlyString)(shift.shift_date),
                 status: shift.status,
                 is_previous_day: shift.status === pos_daily_shift_status_enum_1.PosDailyShiftStatus.OPEN &&
                     (0, unclosed_shift_alert_1.isPreviousDayOpenShift)(shift.shift_date),
@@ -416,9 +422,9 @@ let AccountingService = class AccountingService {
         return {
             filters_applied: {
                 billing_branch_id: filters.billing_branch_id,
-                period: filters.period ?? query_accounting_base_dto_1.AccountingReportPeriod.MONTH,
-                date_from: dateFrom.toISOString(),
-                date_to: dateTo.toISOString(),
+                period,
+                date_from: shiftFrom,
+                date_to: shiftTo,
             },
             data,
             total: data.length,
@@ -713,46 +719,11 @@ let AccountingService = class AccountingService {
             amount_pending: Number(amountPending.toFixed(2)),
         };
     }
-    resolveDateRange(period, dateFrom, dateTo) {
-        const now = new Date();
-        switch (period) {
-            case query_accounting_base_dto_1.AccountingReportPeriod.TODAY:
-                return {
-                    dateFrom: this.startOfDay(now),
-                    dateTo: this.endOfDay(now),
-                };
-            case query_accounting_base_dto_1.AccountingReportPeriod.WEEK: {
-                const start = new Date(now);
-                const day = start.getDay();
-                const diff = day === 0 ? 6 : day - 1;
-                start.setDate(start.getDate() - diff);
-                return {
-                    dateFrom: this.startOfDay(start),
-                    dateTo: this.endOfDay(now),
-                };
-            }
-            case query_accounting_base_dto_1.AccountingReportPeriod.MONTH: {
-                const start = new Date(now.getFullYear(), now.getMonth(), 1);
-                return {
-                    dateFrom: this.startOfDay(start),
-                    dateTo: this.endOfDay(now),
-                };
-            }
-            case query_accounting_base_dto_1.AccountingReportPeriod.RANGE:
-            default: {
-                const from = dateFrom ? new Date(dateFrom) : this.startOfDay(now);
-                const to = dateTo ? new Date(dateTo) : this.endOfDay(now);
-                return {
-                    dateFrom: this.startOfDay(from),
-                    dateTo: this.endOfDay(to),
-                };
-            }
-        }
-    }
-    buildPosCollectionsQuery(tenantId, filters, dateFrom, dateTo, customerType) {
+    buildPosCollectionsQuery(tenantId, filters, shiftFrom, shiftTo, customerType) {
         const qb = this.collectionRepo
             .createQueryBuilder('collection')
             .innerJoinAndSelect('collection.sales_order', 'so')
+            .innerJoinAndSelect('collection.pos_daily_shift', 'shift')
             .innerJoinAndSelect('collection.customer', 'customer')
             .leftJoinAndSelect('so.seller_user', 'seller_user')
             .leftJoinAndSelect('collection.collected_by_user', 'collected_by_user')
@@ -761,8 +732,8 @@ let AccountingService = class AccountingService {
             .andWhere('warehouse.billing_branch_id = :branchId', {
             branchId: filters.billing_branch_id,
         })
-            .andWhere('collection.created_at >= :dateFrom', { dateFrom })
-            .andWhere('collection.created_at <= :dateTo', { dateTo });
+            .andWhere('shift.shift_date >= :shiftFrom', { shiftFrom })
+            .andWhere('shift.shift_date <= :shiftTo', { shiftTo });
         if (customerType === query_accounting_base_dto_1.PosCollectionCustomerType.WALK_IN) {
             qb.andWhere(this.walkInCustomerSql('customer'), {
                 walkInFiscal: WALK_IN_FISCAL_NAME,
@@ -831,16 +802,6 @@ let AccountingService = class AccountingService {
             return '';
         const name = this.buildUserName(user.first_name, user.last_name);
         return user.pos_user_code ? `${name} (${user.pos_user_code})` : name;
-    }
-    startOfDay(date) {
-        const value = new Date(date);
-        value.setHours(0, 0, 0, 0);
-        return value;
-    }
-    endOfDay(date) {
-        const value = new Date(date);
-        value.setHours(23, 59, 59, 999);
-        return value;
     }
     buildUserName(firstName, lastName) {
         return [firstName, lastName].filter(Boolean).join(' ').trim() || 'Sin nombre';

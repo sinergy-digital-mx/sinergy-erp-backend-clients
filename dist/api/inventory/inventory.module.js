@@ -21,6 +21,7 @@ const product_discount_entity_1 = require("../../entities/products/product-disco
 const product_uom_entity_1 = require("../../entities/products/product-uom.entity");
 const product_vendor_cost_entity_1 = require("../../entities/products/product-vendor-cost.entity");
 const user_entity_1 = require("../../entities/users/user.entity");
+const user_billing_branch_entity_1 = require("../../entities/users/user-billing-branch.entity");
 const warehouse_entity_1 = require("../../entities/warehouse/warehouse.entity");
 const fiscal_configuration_entity_1 = require("../../entities/billing/fiscal-configuration.entity");
 const billing_branch_entity_1 = require("../../entities/billing/billing-branch.entity");
@@ -61,6 +62,7 @@ exports.InventoryModule = InventoryModule = __decorate([
                 product_uom_entity_1.ProductUoM,
                 product_vendor_cost_entity_1.ProductVendorCost,
                 user_entity_1.User,
+                user_billing_branch_entity_1.UserBillingBranch,
                 warehouse_entity_1.Warehouse,
                 fiscal_configuration_entity_1.FiscalConfiguration,
                 billing_branch_entity_1.BillingBranch,

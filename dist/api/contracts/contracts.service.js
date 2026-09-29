@@ -33,7 +33,11 @@ let ContractsService = class ContractsService {
         const financed = !!dto.down_payment_financed;
         const downPaymentConfig = this.buildDownPaymentConfig(dto);
         const downPaymentApplied = financed ? 0 : Number(dto.down_payment);
-        const downPaymentTarget = financed && Number(dto.down_payment) > 0 ? Number(dto.down_payment) : null;
+        const downPaymentTarget = (0, contract_financial_util_1.resolveCreateDownPaymentTarget)({
+            financed,
+            downPayment: dto.down_payment,
+            downPaymentTarget: dto.down_payment_target,
+        });
         const engancheForFinancing = financed
             ? Number(downPaymentTarget ?? 0)
             : downPaymentApplied;

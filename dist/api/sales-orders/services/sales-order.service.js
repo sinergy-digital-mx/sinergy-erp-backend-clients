@@ -278,8 +278,8 @@ let SalesOrderService = class SalesOrderService {
         const sellerUserId = isPosSale ? dto.seller_user_id : (dto.seller_user_id ?? userId);
         const assignedSellerUserId = await this.resolveAssignedSellerUserId(tenantId, customerId, sellerUserId, dto.assigned_seller_user_id);
         if (isPosSale && !fromQuotation) {
-            await this.posShiftsService.assertPosWarehouseForTerminal(tenantId, userId, location.warehouseId);
-            const { shift, terminalUser, queued } = await this.posShiftsService.resolvePosSaleContext(tenantId, userId, sellerUserId, dto.pos_daily_shift_id);
+            await this.posShiftsService.assertPosWarehouseForTerminal(tenantId, userId, location.warehouseId, location.billingBranchId ?? undefined);
+            const { shift, terminalUser, queued } = await this.posShiftsService.resolvePosSaleContext(tenantId, userId, sellerUserId, dto.pos_daily_shift_id, location.billingBranchId ?? undefined);
             posQueued = queued;
             posDailyShiftId = shift?.id ?? null;
             if (!(0, pos_user_type_enum_1.canPosCollect)(terminalUser.pos_user_type)) {

@@ -16,6 +16,7 @@ class QueryDivinoDashboardDto {
     scope = 'period';
     year;
     month;
+    group_id;
 }
 exports.QueryDivinoDashboardDto = QueryDivinoDashboardDto;
 __decorate([
@@ -40,6 +41,11 @@ __decorate([
     (0, class_transformer_1.Type)(() => Number),
     __metadata("design:type", Number)
 ], QueryDivinoDashboardDto.prototype, "month", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], QueryDivinoDashboardDto.prototype, "group_id", void 0);
 class QueryRevenueSeriesDto extends QueryDivinoDashboardDto {
     period = 'monthly';
 }

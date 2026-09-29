@@ -35,7 +35,7 @@ export declare class PosShiftsService {
     private readonly advanceShiftPayments;
     private readonly logger;
     constructor(dailyShiftRepo: Repository<PosDailyShift>, partialShiftRepo: Repository<PosPartialShift>, userRepo: Repository<User>, branchAssignmentRepo: Repository<UserBillingBranch>, salesOrderRepo: Repository<SalesOrder>, customerRepo: Repository<Customer>, warehouseRepo: Repository<Warehouse>, collectionRepo: Repository<PosSaleCollection>, posReceiptService: SalesOrderPosReceiptService, salesOrderService: SalesOrderService, customerCreditService: CustomerCreditService, advanceShiftPayments: AdvanceShiftPaymentService);
-    validateSellerCode(tenantId: string, terminalUserId: string, code: number): Promise<{
+    validateSellerCode(tenantId: string, terminalUserId: string, code: number, billingBranchId?: string): Promise<{
         seller: {
             id: string;
             first_name: string;
@@ -184,7 +184,7 @@ export declare class PosShiftsService {
         requires_previous_close: boolean;
         unclosed_shift_alert: import("./utils/unclosed-shift-alert").UnclosedShiftAlert | null;
     }>;
-    resolveOpenDailyShiftId(tenantId: string, terminalUserId: string): Promise<string>;
+    resolveOpenDailyShiftId(tenantId: string, terminalUserId: string, billingBranchId?: string): Promise<string>;
     resolveBranchCajaShift(tenantId: string, billingBranchId: string): Promise<{
         shift: PosDailyShift | null;
         queued: boolean;
@@ -656,7 +656,7 @@ export declare class PosShiftsService {
             amount_mxn: number;
         }[];
     }>;
-    resolvePosSaleContext(tenantId: string, terminalUserId: string, sellerUserId: string, dailyShiftId?: string): Promise<{
+    resolvePosSaleContext(tenantId: string, terminalUserId: string, sellerUserId: string, dailyShiftId?: string, billingBranchId?: string): Promise<{
         shift: null;
         terminalUser: User;
         queued: boolean;
@@ -665,13 +665,13 @@ export declare class PosShiftsService {
         terminalUser: User;
         queued: boolean;
     }>;
-    assertPosWarehouseForTerminal(tenantId: string, terminalUserId: string, warehouseId: string): Promise<void>;
+    assertPosWarehouseForTerminal(tenantId: string, terminalUserId: string, warehouseId: string, billingBranchId?: string): Promise<void>;
     assertOpenShiftForSale(tenantId: string, terminalUserId: string, sellerUserId: string, dailyShiftId?: string): Promise<{
         shift: PosDailyShift;
         terminalUser: User;
     }>;
     resolveWalkInCustomerId(tenantId: string): Promise<number>;
-    getPendingSales(tenantId: string, terminalUserId: string): Promise<{
+    getPendingSales(tenantId: string, terminalUserId: string, billingBranchId?: string): Promise<{
         id: string;
         folio: string;
         quotation_folio: string | null;
@@ -705,7 +705,7 @@ export declare class PosShiftsService {
             pos_user_type: import("../../entities/users/pos-user-type.enum").PosUserType | null;
         } | null;
     }[]>;
-    getCollectedSales(tenantId: string, terminalUserId: string, dailyShiftId?: string): Promise<{
+    getCollectedSales(tenantId: string, terminalUserId: string, dailyShiftId?: string, billingBranchId?: string): Promise<{
         daily_shift: null;
         collected_sales: never[];
         summary: {
@@ -983,7 +983,7 @@ export declare class PosShiftsService {
             } | null;
         };
     }>;
-    getSalesInProgress(tenantId: string, terminalUserId: string): Promise<{
+    getSalesInProgress(tenantId: string, terminalUserId: string, billingBranchId?: string): Promise<{
         customer_id: number;
         global_discount_id: string | null;
         global_discount: {

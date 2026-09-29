@@ -9,27 +9,20 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ValidateSellerCodeDto = void 0;
+exports.QueryPosBranchDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
-class ValidateSellerCodeDto {
-    code;
+class QueryPosBranchDto {
     billing_branch_id;
 }
-exports.ValidateSellerCodeDto = ValidateSellerCodeDto;
-__decorate([
-    (0, swagger_1.ApiProperty)({ example: 33456 }),
-    (0, class_validator_1.IsInt)(),
-    (0, class_validator_1.Min)(1),
-    __metadata("design:type", Number)
-], ValidateSellerCodeDto.prototype, "code", void 0);
+exports.QueryPosBranchDto = QueryPosBranchDto;
 __decorate([
     (0, swagger_1.ApiProperty)({
         required: false,
-        description: 'Sucursal seleccionada en POS.',
+        description: 'Sucursal seleccionada en POS. Si se omite, se usa la sucursal activa del usuario.',
     }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsUUID)(),
     __metadata("design:type", String)
-], ValidateSellerCodeDto.prototype, "billing_branch_id", void 0);
-//# sourceMappingURL=validate-seller-code.dto.js.map
+], QueryPosBranchDto.prototype, "billing_branch_id", void 0);
+//# sourceMappingURL=query-pos-branch.dto.js.map

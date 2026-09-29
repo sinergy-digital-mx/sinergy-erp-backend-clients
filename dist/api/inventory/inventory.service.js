@@ -29,6 +29,7 @@ const product_uom_entity_1 = require("../../entities/products/product-uom.entity
 const product_vendor_cost_entity_1 = require("../../entities/products/product-vendor-cost.entity");
 const product_discount_util_1 = require("../products/utils/product-discount.util");
 const user_entity_1 = require("../../entities/users/user.entity");
+const user_billing_branch_entity_1 = require("../../entities/users/user-billing-branch.entity");
 const warehouse_entity_1 = require("../../entities/warehouse/warehouse.entity");
 const fiscal_configuration_entity_1 = require("../../entities/billing/fiscal-configuration.entity");
 const billing_branch_entity_1 = require("../../entities/billing/billing-branch.entity");
@@ -63,6 +64,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
     productUomRepo;
     productVendorCostRepo;
     userRepo;
+    branchAssignmentRepo;
     warehouseRepo;
     fiscalConfigRepo;
     billingBranchRepo;
@@ -71,7 +73,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
     batchMovementsService;
     logger = new common_1.Logger(InventoryService_1.name);
     signedPhotoCache = new Map();
-    constructor(inventoryBatchRepo, productRepo, transferLineRepo, auditLineRepo, productPriceRepo, productDiscountRepo, productUomRepo, productVendorCostRepo, userRepo, warehouseRepo, fiscalConfigRepo, billingBranchRepo, uomCatalogRepo, s3Service, batchMovementsService) {
+    constructor(inventoryBatchRepo, productRepo, transferLineRepo, auditLineRepo, productPriceRepo, productDiscountRepo, productUomRepo, productVendorCostRepo, userRepo, branchAssignmentRepo, warehouseRepo, fiscalConfigRepo, billingBranchRepo, uomCatalogRepo, s3Service, batchMovementsService) {
         this.inventoryBatchRepo = inventoryBatchRepo;
         this.productRepo = productRepo;
         this.transferLineRepo = transferLineRepo;
@@ -81,6 +83,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
         this.productUomRepo = productUomRepo;
         this.productVendorCostRepo = productVendorCostRepo;
         this.userRepo = userRepo;
+        this.branchAssignmentRepo = branchAssignmentRepo;
         this.warehouseRepo = warehouseRepo;
         this.fiscalConfigRepo = fiscalConfigRepo;
         this.billingBranchRepo = billingBranchRepo;
@@ -310,12 +313,28 @@ let InventoryService = InventoryService_1 = class InventoryService {
         if (!terminalUser.billing_branch_id) {
             throw new common_1.BadRequestException('El usuario POS no tiene una sucursal asignada');
         }
-        return this.getBranchInventorySummary(tenantId, terminalUser.billing_branch_id, filters, {
-            fiscalConfigurationId: terminalUser.billing_branch?.fiscal_configuration_id ?? null,
+        const branchId = await this.resolvePosInventoryBranchId(terminalUser, tenantId, filters.billing_branch_id);
+        return this.getBranchInventorySummary(tenantId, branchId, filters, {
             emptyWarehousesMessage: 'No se encontraron almacenes para la sucursal de la terminal',
             warehouseMismatchMessage: 'El almacén seleccionado no pertenece a la sucursal de esta terminal POS. Omita warehouse_id o use un almacén de la lista.',
             pageMax: 40,
         });
+    }
+    async resolvePosInventoryBranchId(user, tenantId, requestedBranchId) {
+        const requested = requestedBranchId?.trim();
+        if (!requested || requested === user.billing_branch_id) {
+            return user.billing_branch_id;
+        }
+        const rows = await this.branchAssignmentRepo.find({
+            where: { tenant_id: tenantId, user_id: user.id },
+        });
+        const allowed = rows.length === 0
+            ? user.billing_branch_id == null
+            : rows.some((row) => row.billing_branch_id === requested);
+        if (!allowed) {
+            throw new common_1.BadRequestException('La sucursal no está asignada a este usuario');
+        }
+        return requested;
     }
     async getBranchInventorySummary(tenantId, billingBranchId, filters, options) {
         const branch = await this.billingBranchRepo.findOne({
@@ -1310,11 +1329,13 @@ exports.InventoryService = InventoryService = InventoryService_1 = __decorate([
     __param(6, (0, typeorm_1.InjectRepository)(product_uom_entity_1.ProductUoM)),
     __param(7, (0, typeorm_1.InjectRepository)(product_vendor_cost_entity_1.ProductVendorCost)),
     __param(8, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
-    __param(9, (0, typeorm_1.InjectRepository)(warehouse_entity_1.Warehouse)),
-    __param(10, (0, typeorm_1.InjectRepository)(fiscal_configuration_entity_1.FiscalConfiguration)),
-    __param(11, (0, typeorm_1.InjectRepository)(billing_branch_entity_1.BillingBranch)),
-    __param(12, (0, typeorm_1.InjectRepository)(uom_catalog_entity_1.UoMCatalog)),
+    __param(9, (0, typeorm_1.InjectRepository)(user_billing_branch_entity_1.UserBillingBranch)),
+    __param(10, (0, typeorm_1.InjectRepository)(warehouse_entity_1.Warehouse)),
+    __param(11, (0, typeorm_1.InjectRepository)(fiscal_configuration_entity_1.FiscalConfiguration)),
+    __param(12, (0, typeorm_1.InjectRepository)(billing_branch_entity_1.BillingBranch)),
+    __param(13, (0, typeorm_1.InjectRepository)(uom_catalog_entity_1.UoMCatalog)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,

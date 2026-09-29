@@ -21,6 +21,7 @@ const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const axios_1 = __importDefault(require("axios"));
 const divino_reservation_format_entity_1 = require("../../entities/divino-reservation-formats/divino-reservation-format.entity");
+const fiscal_configuration_entity_1 = require("../../entities/billing/fiscal-configuration.entity");
 const property_entity_1 = require("../../entities/properties/property.entity");
 const user_entity_1 = require("../../entities/users/user.entity");
 const divino_reservation_format_pdf_service_1 = require("./divino-reservation-format-pdf.service");
@@ -30,28 +31,33 @@ let DivinoReservationFormatService = class DivinoReservationFormatService {
     repo;
     propertyRepo;
     userRepo;
+    fiscalRepo;
     pdfService;
     mailerConfigurationService;
-    constructor(repo, propertyRepo, userRepo, pdfService, mailerConfigurationService) {
+    constructor(repo, propertyRepo, userRepo, fiscalRepo, pdfService, mailerConfigurationService) {
         this.repo = repo;
         this.propertyRepo = propertyRepo;
         this.userRepo = userRepo;
+        this.fiscalRepo = fiscalRepo;
         this.pdfService = pdfService;
         this.mailerConfigurationService = mailerConfigurationService;
     }
     async create(tenantId, dto, userId) {
         const property = await this.getPropertyOrFail(tenantId, dto.property_id);
         const creatorName = await this.resolveUserName(tenantId, userId);
+        const fiscal = await this.resolveFiscalConfiguration(tenantId, dto.fiscal_configuration_id);
+        const payableTo = dto.payable_to?.trim() || fiscal?.razon_social || divino_reservation_formats_constants_1.DIVINO_RESERVATION_BRAND.defaultPayableTo;
         const entity = this.repo.create({
             ...dto,
             tenant_id: tenantId,
+            fiscal_configuration_id: fiscal?.id ?? null,
             folio: await this.generateFolio(tenantId),
             block: dto.block ?? property.block ?? null,
             lot_number: dto.lot_number ?? property.lot_number ?? null,
             surface: dto.surface ?? property.total_area ?? null,
             purchase_price: dto.purchase_price ?? property.total_price ?? null,
             currency: dto.currency ?? property.currency ?? 'USD',
-            payable_to: dto.payable_to ?? divino_reservation_formats_constants_1.DIVINO_RESERVATION_BRAND.defaultPayableTo,
+            payable_to: payableTo,
             status: 'draft',
             created_by: userId,
             created_by_name: creatorName,
@@ -107,6 +113,21 @@ let DivinoReservationFormatService = class DivinoReservationFormatService {
             hasNext: page < totalPages,
             hasPrev: page > 1,
         };
+    }
+    async resolveFiscalConfiguration(organizationId, fiscalConfigurationId) {
+        if (fiscalConfigurationId) {
+            const selected = await this.fiscalRepo.findOne({
+                where: { id: fiscalConfigurationId, tenant_id: organizationId },
+            });
+            if (!selected) {
+                throw new common_1.BadRequestException('La razón social no existe.');
+            }
+            return selected;
+        }
+        return this.fiscalRepo.findOne({
+            where: { tenant_id: organizationId, status: 'active' },
+            order: { created_at: 'ASC' },
+        });
     }
     async findOne(tenantId, id) {
         const format = await this.repo.findOne({
@@ -237,7 +258,9 @@ exports.DivinoReservationFormatService = DivinoReservationFormatService = __deco
     __param(0, (0, typeorm_1.InjectRepository)(divino_reservation_format_entity_1.DivinoReservationFormat)),
     __param(1, (0, typeorm_1.InjectRepository)(property_entity_1.Property)),
     __param(2, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
+    __param(3, (0, typeorm_1.InjectRepository)(fiscal_configuration_entity_1.FiscalConfiguration)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
         divino_reservation_format_pdf_service_1.DivinoReservationFormatPdfService,

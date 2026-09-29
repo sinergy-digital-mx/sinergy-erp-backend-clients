@@ -258,10 +258,15 @@ let DivinoDashboardService = class DivinoDashboardService {
         const dateClause = this.isAllTime(query)
             ? ''
             : 'AND c.contract_date >= ? AND c.contract_date <= ?';
+        const groupId = await this.resolveProjectGroupId(tenantId, query.group_id);
+        const groupClause = groupId ? 'AND p.group_id = ?' : '';
         const params = [tenantId];
         if (!this.isAllTime(query)) {
             const { dateFrom, dateTo } = this.resolveRange(query.year, query.month);
             params.push(dateFrom, dateTo);
+        }
+        if (groupId) {
+            params.push(groupId);
         }
         return this.contractRepo.manager.query(`
       SELECT
@@ -290,6 +295,7 @@ let DivinoDashboardService = class DivinoDashboardService {
       WHERE c.tenant_id = ?
         AND c.status IN ('activo', 'completado')
         ${dateClause}
+        ${groupClause}
       ORDER BY c.contract_date DESC
       `, params);
     }
@@ -344,14 +350,27 @@ let DivinoDashboardService = class DivinoDashboardService {
             dateTo: `${year}-12-31`,
         };
     }
+    async resolveProjectGroupId(organizationId, groupId) {
+        const id = groupId?.trim();
+        if (!id) {
+            return null;
+        }
+        const rows = await this.contractRepo.manager.query(`SELECT id FROM customer_groups WHERE id = ? AND tenant_id = ? LIMIT 1`, [id, organizationId]);
+        if (!rows.length) {
+            throw new common_1.BadRequestException('El proyecto no existe.');
+        }
+        return id;
+    }
     filtersMeta(query) {
         const scope = query.scope ?? 'period';
+        const group_id = query.group_id?.trim() || null;
         if (scope === 'all_time') {
             return {
                 scope: 'all_time',
                 year: null,
                 month: null,
                 mode: 'all_time',
+                group_id,
             };
         }
         return {
@@ -359,6 +378,7 @@ let DivinoDashboardService = class DivinoDashboardService {
             year: query.year ?? null,
             month: query.month ?? null,
             mode: query.month ? 'month' : 'year',
+            group_id,
         };
     }
     round(value) {

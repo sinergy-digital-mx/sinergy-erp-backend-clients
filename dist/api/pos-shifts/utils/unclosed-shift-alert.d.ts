@@ -10,6 +10,10 @@ export type UnclosedShiftAlert = {
 };
 export declare function getTodayDateString(now?: Date): string;
 export declare function toDateOnlyString(value: string | Date): string;
+export declare function resolvePosCalendarRange(period: 'today' | 'week' | 'month' | 'range', dateFrom?: string, dateTo?: string, now?: Date): {
+    from: string;
+    to: string;
+};
 export declare function isPreviousDayOpenShift(shiftDate: string | Date, today?: string): boolean;
 export declare function buildUnclosedShiftAlert(shift: {
     id: string;

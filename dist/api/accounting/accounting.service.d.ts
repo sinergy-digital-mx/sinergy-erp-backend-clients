@@ -372,12 +372,9 @@ export declare class AccountingService {
     private stampedInvoiceExistsSql;
     private getStampedInvoiceOrderIds;
     private buildPurchaseOrderPaymentSummary;
-    private resolveDateRange;
     private buildPosCollectionsQuery;
     private mapPosCollectionRow;
     private formatPosUserLabel;
-    private startOfDay;
-    private endOfDay;
     private buildUserName;
     private buildCustomerFields;
 }

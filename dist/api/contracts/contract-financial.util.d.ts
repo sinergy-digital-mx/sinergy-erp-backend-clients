@@ -1,5 +1,10 @@
 import { Contract } from '../../entities/contracts/contract.entity';
 type ContractFinancialFields = Pick<Contract, 'down_payment' | 'down_payment_target' | 'down_payment_financed' | 'total_price' | 'payment_months' | 'status'>;
+export declare function resolveCreateDownPaymentTarget(params: {
+    financed: boolean;
+    downPayment?: number | null;
+    downPaymentTarget?: number | null;
+}): number | null;
 export declare function getDownPaymentTarget(contract: ContractFinancialFields): number;
 export declare function resolveEffectiveDownPaymentTarget(savedTarget: number | null | undefined, scheduledTotal: number): number | null;
 export declare function computeDownPaymentRemaining(effectiveTarget: number | null | undefined, applied: number): number;

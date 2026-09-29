@@ -8,6 +8,7 @@ import { ProductDiscount } from '../../entities/products/product-discount.entity
 import { ProductUoM } from '../../entities/products/product-uom.entity';
 import { ProductVendorCost } from '../../entities/products/product-vendor-cost.entity';
 import { User } from '../../entities/users/user.entity';
+import { UserBillingBranch } from '../../entities/users/user-billing-branch.entity';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { FiscalConfiguration } from '../../entities/billing/fiscal-configuration.entity';
 import { BillingBranch } from '../../entities/billing/billing-branch.entity';
@@ -36,6 +37,7 @@ export declare class InventoryService {
     private readonly productUomRepo;
     private readonly productVendorCostRepo;
     private readonly userRepo;
+    private readonly branchAssignmentRepo;
     private readonly warehouseRepo;
     private readonly fiscalConfigRepo;
     private readonly billingBranchRepo;
@@ -44,7 +46,7 @@ export declare class InventoryService {
     private readonly batchMovementsService;
     private readonly logger;
     private readonly signedPhotoCache;
-    constructor(inventoryBatchRepo: Repository<InventoryBatch>, productRepo: Repository<Product>, transferLineRepo: Repository<InventoryTransferLine>, auditLineRepo: Repository<InventoryAuditLine>, productPriceRepo: Repository<ProductPrice>, productDiscountRepo: Repository<ProductDiscount>, productUomRepo: Repository<ProductUoM>, productVendorCostRepo: Repository<ProductVendorCost>, userRepo: Repository<User>, warehouseRepo: Repository<Warehouse>, fiscalConfigRepo: Repository<FiscalConfiguration>, billingBranchRepo: Repository<BillingBranch>, uomCatalogRepo: Repository<UoMCatalog>, s3Service: S3Service, batchMovementsService: InventoryBatchMovementsService);
+    constructor(inventoryBatchRepo: Repository<InventoryBatch>, productRepo: Repository<Product>, transferLineRepo: Repository<InventoryTransferLine>, auditLineRepo: Repository<InventoryAuditLine>, productPriceRepo: Repository<ProductPrice>, productDiscountRepo: Repository<ProductDiscount>, productUomRepo: Repository<ProductUoM>, productVendorCostRepo: Repository<ProductVendorCost>, userRepo: Repository<User>, branchAssignmentRepo: Repository<UserBillingBranch>, warehouseRepo: Repository<Warehouse>, fiscalConfigRepo: Repository<FiscalConfiguration>, billingBranchRepo: Repository<BillingBranch>, uomCatalogRepo: Repository<UoMCatalog>, s3Service: S3Service, batchMovementsService: InventoryBatchMovementsService);
     private getSignedPhotoUrl;
     getLocationTree(tenantId: string): Promise<InventoryLocationTreeResponseDto>;
     getStats(tenantId: string, filters: InventoryStatsFilterDto): Promise<InventoryStatsResponseDto>;
@@ -56,6 +58,7 @@ export declare class InventoryService {
     private mapLocationFields;
     private assertLocationHierarchy;
     getPosTerminalInventorySummary(tenantId: string, terminalUserId: string, filters: InventorySummaryFilterDto): Promise<PosSessionInventorySummaryResponseDto>;
+    private resolvePosInventoryBranchId;
     getBranchInventorySummary(tenantId: string, billingBranchId: string, filters: InventorySummaryFilterDto, options?: {
         fiscalConfigurationId?: string | null;
         emptyWarehousesMessage?: string;

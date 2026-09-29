@@ -3,6 +3,7 @@ import { ValidateSellerCodeDto } from './dto/validate-seller-code.dto';
 import { OpenDailyShiftDto } from './dto/open-daily-shift.dto';
 import { CreatePartialShiftDto } from './dto/create-partial-shift.dto';
 import { QueryDailyShiftDto } from './dto/query-daily-shift.dto';
+import { QueryPosBranchDto } from './dto/query-pos-branch.dto';
 import { CloseDailyShiftDto } from './dto/close-daily-shift.dto';
 import { CollectPosSaleDto } from './dto/collect-pos-sale.dto';
 import { QueryCollectedSalesDto } from './dto/query-collected-sales.dto';
@@ -45,7 +46,7 @@ export declare class PosShiftsController {
         requires_daily_shift: boolean;
         pos_user_type: import("../../entities/users/pos-user-type.enum").PosUserType | null;
     }>;
-    getCurrentDailyShift(req: any): Promise<{
+    getCurrentDailyShift(query: QueryPosBranchDto, req: any): Promise<{
         daily_shift: {
             id: string;
             shift_date: string;
@@ -634,7 +635,7 @@ export declare class PosShiftsController {
             }[];
         };
     }>;
-    getPendingSales(req: any): Promise<{
+    getPendingSales(query: QueryPosBranchDto, req: any): Promise<{
         pending_sales: {
             id: string;
             folio: string;
@@ -670,7 +671,7 @@ export declare class PosShiftsController {
             } | null;
         }[];
     }>;
-    getSalesInProgress(req: any): Promise<{
+    getSalesInProgress(query: QueryPosBranchDto, req: any): Promise<{
         sales_in_progress: {
             customer_id: number;
             global_discount_id: string | null;

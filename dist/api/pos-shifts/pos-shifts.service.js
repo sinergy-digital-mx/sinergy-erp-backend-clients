@@ -72,9 +72,10 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         this.customerCreditService = customerCreditService;
         this.advanceShiftPayments = advanceShiftPayments;
     }
-    async validateSellerCode(tenantId, terminalUserId, code) {
+    async validateSellerCode(tenantId, terminalUserId, code, billingBranchId) {
         const terminalUser = await this.requirePosTerminal(tenantId, terminalUserId);
-        const dailyShift = await this.getBranchOpenDailyShift(tenantId, terminalUser.billing_branch_id);
+        const branchId = await this.resolveAccessibleBranchId(terminalUser, billingBranchId);
+        const dailyShift = await this.getBranchOpenDailyShift(tenantId, branchId);
         const seller = await this.userRepo.findOne({
             where: {
                 tenant_id: tenantId,
@@ -110,9 +111,10 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             unclosed_shift_alert: unclosedShiftAlert,
         };
     }
-    async resolveOpenDailyShiftId(tenantId, terminalUserId) {
+    async resolveOpenDailyShiftId(tenantId, terminalUserId, billingBranchId) {
         const terminalUser = await this.requirePosTerminal(tenantId, terminalUserId);
-        const shift = await this.getBranchOpenDailyShift(tenantId, terminalUser.billing_branch_id);
+        const branchId = await this.resolveAccessibleBranchId(terminalUser, billingBranchId);
+        const shift = await this.getBranchOpenDailyShift(tenantId, branchId);
         if (!shift) {
             throw new common_1.BadRequestException('No hay corte global abierto en la sucursal. La terminal de caja debe abrir el corte del día.');
         }
@@ -151,7 +153,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
     async openDailyShift(tenantId, terminalUserId, dto) {
         const terminalUser = await this.requireCobranzaTerminal(tenantId, terminalUserId);
         const shiftDate = (0, unclosed_shift_alert_1.getTodayDateString)();
-        const billingBranchId = terminalUser.billing_branch_id;
+        const billingBranchId = await this.resolveAccessibleBranchId(terminalUser, dto.billing_branch_id);
         const openShift = await this.getBranchOpenDailyShift(tenantId, billingBranchId);
         if (openShift) {
             throw new common_1.BadRequestException(this.buildOpenShiftConflictMessage(openShift, shiftDate));
@@ -167,7 +169,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             notes: dto.notes ?? null,
         });
         const saved = await this.dailyShiftRepo.save(shift);
-        const queuedSalesAssigned = await this.assignQueuedSalesToShift(tenantId, terminalUser.billing_branch_id, saved.id);
+        const queuedSalesAssigned = await this.assignQueuedSalesToShift(tenantId, billingBranchId, saved.id);
         const detail = await this.findDailyShiftById(saved.id, tenantId);
         return { shift: detail, queued_sales_assigned: queuedSalesAssigned };
     }
@@ -293,7 +295,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         await this.dailyShiftRepo.save(shift);
         return this.findDailyShiftById(shift.id, tenantId);
     }
-    async resolvePosSaleContext(tenantId, terminalUserId, sellerUserId, dailyShiftId) {
+    async resolvePosSaleContext(tenantId, terminalUserId, sellerUserId, dailyShiftId, billingBranchId) {
         const terminalUser = await this.requirePosTerminal(tenantId, terminalUserId);
         await this.requireSellerUser(tenantId, sellerUserId);
         let shift = null;
@@ -302,7 +304,6 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 where: {
                     id: dailyShiftId,
                     tenant_id: tenantId,
-                    billing_branch_id: terminalUser.billing_branch_id,
                     status: pos_daily_shift_status_enum_1.PosDailyShiftStatus.OPEN,
                 },
                 relations: ['terminal_user'],
@@ -310,12 +311,17 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             if (!shift) {
                 throw new common_1.BadRequestException('No hay un corte global abierto válido para esta sucursal');
             }
+            const canAccessShift = await this.userCanAccessBranch(terminalUser, shift.billing_branch_id);
+            if (!canAccessShift) {
+                throw new common_1.BadRequestException('Este corte no pertenece a una sucursal asignada a tu usuario');
+            }
             if (!(0, pos_user_type_enum_1.canPosCollect)(shift.terminal_user?.pos_user_type)) {
                 throw new common_1.BadRequestException('El corte global debe pertenecer a una terminal de caja');
             }
         }
         else {
-            shift = await this.getBranchOpenDailyShift(tenantId, terminalUser.billing_branch_id);
+            const branchId = await this.resolveAccessibleBranchId(terminalUser, billingBranchId);
+            shift = await this.getBranchOpenDailyShift(tenantId, branchId);
         }
         if (!shift) {
             if (!(0, pos_user_type_enum_1.canPosCollect)(terminalUser.pos_user_type)) {
@@ -331,19 +337,17 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         }
         return { shift, terminalUser, queued: false };
     }
-    async assertPosWarehouseForTerminal(tenantId, terminalUserId, warehouseId) {
+    async assertPosWarehouseForTerminal(tenantId, terminalUserId, warehouseId, billingBranchId) {
         const terminalUser = await this.requirePosTerminal(tenantId, terminalUserId);
-        if (!terminalUser.billing_branch_id) {
-            throw new common_1.BadRequestException('El usuario POS no tiene una sucursal asignada');
-        }
+        const branchId = await this.resolveAccessibleBranchId(terminalUser, billingBranchId);
         const warehouse = await this.warehouseRepo.findOne({
             where: { id: warehouseId, tenant_id: tenantId },
         });
         if (!warehouse) {
             throw new common_1.BadRequestException('Almacén no encontrado');
         }
-        if (warehouse.billing_branch_id !== terminalUser.billing_branch_id) {
-            throw new common_1.BadRequestException(`El almacén "${warehouse.name}" no pertenece a la sucursal de esta terminal POS`);
+        if (warehouse.billing_branch_id !== branchId) {
+            throw new common_1.BadRequestException(`El almacén "${warehouse.name}" no pertenece a la sucursal seleccionada`);
         }
     }
     async assertOpenShiftForSale(tenantId, terminalUserId, sellerUserId, dailyShiftId) {
@@ -365,9 +369,9 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         }
         return walkIn.id;
     }
-    async getPendingSales(tenantId, terminalUserId) {
+    async getPendingSales(tenantId, terminalUserId, billingBranchId) {
         const terminalUser = await this.requireCobranzaTerminal(tenantId, terminalUserId);
-        const branchId = terminalUser.billing_branch_id;
+        const branchId = await this.resolveAccessibleBranchId(terminalUser, billingBranchId);
         const openShift = await this.getBranchOpenDailyShift(tenantId, branchId);
         if (openShift) {
             await this.assignQueuedSalesToShift(tenantId, branchId, openShift.id);
@@ -464,7 +468,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 : null,
         }));
     }
-    async getCollectedSales(tenantId, terminalUserId, dailyShiftId) {
+    async getCollectedSales(tenantId, terminalUserId, dailyShiftId, billingBranchId) {
         const terminalUser = await this.requireCobranzaTerminal(tenantId, terminalUserId);
         let shift;
         if (dailyShiftId) {
@@ -472,15 +476,19 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 where: {
                     id: dailyShiftId,
                     tenant_id: tenantId,
-                    billing_branch_id: terminalUser.billing_branch_id,
                 },
             });
             if (!shift) {
                 throw new common_1.NotFoundException('Corte global no encontrado en esta sucursal');
             }
+            const canAccessShift = await this.userCanAccessBranch(terminalUser, shift.billing_branch_id);
+            if (!canAccessShift) {
+                throw new common_1.NotFoundException('Corte global no encontrado en esta sucursal');
+            }
         }
         else {
-            shift = await this.getBranchOpenDailyShift(tenantId, terminalUser.billing_branch_id);
+            const branchId = await this.resolveAccessibleBranchId(terminalUser, billingBranchId);
+            shift = await this.getBranchOpenDailyShift(tenantId, branchId);
         }
         if (!shift) {
             return {
@@ -525,12 +533,14 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         if (order.general_status !== 'Surtida' || order.payment_status !== 'Pendiente') {
             throw new common_1.BadRequestException('La orden no está pendiente de cobro (debe estar Surtida y Pendiente)');
         }
-        const shift = await this.getBranchOpenDailyShift(tenantId, cobranzaUser.billing_branch_id);
+        const branchId = await this.resolveAccessibleBranchId(cobranzaUser, dto.billing_branch_id);
+        const shift = await this.getBranchOpenDailyShift(tenantId, branchId);
         if (!shift) {
             throw new common_1.BadRequestException('Debe haber un corte global abierto para cobrar ventas');
         }
         const belongsToOpenShift = order.pos_daily_shift_id === shift.id;
-        const belongsToBranch = order.warehouse?.billing_branch_id === cobranzaUser.billing_branch_id;
+        const orderBranchId = order.billing_branch_id || order.warehouse?.billing_branch_id;
+        const belongsToBranch = orderBranchId === branchId;
         if (!belongsToOpenShift && !belongsToBranch) {
             throw new common_1.BadRequestException('La orden no pertenece a la sucursal de esta terminal de caja');
         }
@@ -597,7 +607,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         if (!isCredit) {
             await this.salesOrderService.createPayment(order.id, {
                 amount: amountPending,
-                payment_date: new Date().toISOString().slice(0, 10),
+                payment_date: (0, unclosed_shift_alert_1.getTodayDateString)(),
                 payment_method: dto.payment_method,
                 currency: 'MXN',
                 reference_number: referenceNumber ?? undefined,
@@ -670,6 +680,13 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         };
     }
     async assignQueuedSalesToShift(tenantId, billingBranchId, shiftId) {
+        const shift = await this.dailyShiftRepo.findOne({
+            where: { id: shiftId, tenant_id: tenantId },
+        });
+        if (!shift) {
+            return 0;
+        }
+        const shiftDate = (0, unclosed_shift_alert_1.toDateOnlyString)(shift.shift_date);
         const queued = await this.salesOrderRepo
             .createQueryBuilder('so')
             .innerJoin('so.warehouse', 'warehouse')
@@ -681,6 +698,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             posStage: sales_order_pos_stage_enum_1.SalesOrderPosStage.Caja,
         })
             .andWhere('warehouse.billing_branch_id = :billingBranchId', { billingBranchId })
+            .andWhere('DATE(so.created_at) = :shiftDate', { shiftDate })
             .andWhere(`NOT EXISTS (
           SELECT 1 FROM pos_sale_collections col
           WHERE col.sales_order_id = so.id
@@ -697,9 +715,8 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             posStage: sales_order_pos_stage_enum_1.SalesOrderPosStage.Caja,
         })
             .andWhere('warehouse.billing_branch_id = :billingBranchId', { billingBranchId })
-            .andWhere('(so.pos_daily_shift_id IS NULL OR so.pos_daily_shift_id != :shiftId)', {
-            shiftId,
-        })
+            .andWhere('so.pos_daily_shift_id IS NULL')
+            .andWhere('DATE(so.created_at) = :shiftDate', { shiftDate })
             .andWhere(`NOT EXISTS (
           SELECT 1 FROM pos_sale_collections col
           WHERE col.sales_order_id = so.id
@@ -1055,9 +1072,9 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             sales_order: this.mapPosTicketSummary(order),
         };
     }
-    async getSalesInProgress(tenantId, terminalUserId) {
+    async getSalesInProgress(tenantId, terminalUserId, billingBranchId) {
         const terminalUser = await this.requireVentasTerminal(tenantId, terminalUserId);
-        const branchId = terminalUser.billing_branch_id;
+        const branchId = await this.resolveAccessibleBranchId(terminalUser, billingBranchId);
         const orders = await this.salesOrderRepo
             .createQueryBuilder('so')
             .leftJoinAndSelect('so.seller_user', 'seller_user')
@@ -1122,7 +1139,8 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         if (!order.seller_user_id) {
             throw new common_1.BadRequestException('Las ventas POS requieren vendedor');
         }
-        const { shift, queued } = await this.resolvePosSaleContext(tenantId, terminalUserId, order.seller_user_id);
+        const orderBranchId = order.billing_branch_id || order.warehouse?.billing_branch_id || undefined;
+        const { shift, queued } = await this.resolvePosSaleContext(tenantId, terminalUserId, order.seller_user_id, undefined, orderBranchId);
         order.pos_stage = sales_order_pos_stage_enum_1.SalesOrderPosStage.Caja;
         order.general_status = queued ? 'En cola' : 'Surtida';
         order.pos_daily_shift_id = queued ? null : (shift?.id ?? null);
@@ -1135,11 +1153,14 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             sales_order: this.mapPosTicketSummary(order),
         };
     }
-    assertOrderBelongsToTerminalBranch(order, terminalUser) {
-        const branchId = terminalUser.billing_branch_id;
+    async assertOrderBelongsToTerminalBranch(order, terminalUser) {
         const orderBranch = order.billing_branch_id || order.warehouse?.billing_branch_id || null;
-        if (branchId && orderBranch && orderBranch !== branchId) {
-            throw new common_1.BadRequestException('La orden no pertenece a la sucursal de esta terminal');
+        if (!orderBranch) {
+            return;
+        }
+        const canAccess = await this.userCanAccessBranch(terminalUser, orderBranch);
+        if (!canAccess) {
+            throw new common_1.BadRequestException('La orden no pertenece a una sucursal asignada a esta terminal');
         }
     }
     mapPosTicketSummary(order) {
@@ -1415,7 +1436,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
     mapDailyShiftSummary(shift) {
         return {
             id: shift.id,
-            shift_date: shift.shift_date,
+            shift_date: (0, unclosed_shift_alert_1.toDateOnlyString)(shift.shift_date),
             status: shift.status,
             opening_cash_mxn: Number(shift.opening_cash_mxn),
             opening_cash_usd: Number(shift.opening_cash_usd),
@@ -1442,7 +1463,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         const closingUsd = shift.closing_cash_usd == null ? null : Number(shift.closing_cash_usd);
         return {
             id: shift.id,
-            shift_date: shift.shift_date,
+            shift_date: (0, unclosed_shift_alert_1.toDateOnlyString)(shift.shift_date),
             status: shift.status,
             is_previous_day: shift.status === pos_daily_shift_status_enum_1.PosDailyShiftStatus.OPEN &&
                 (0, unclosed_shift_alert_1.isPreviousDayOpenShift)(shift.shift_date),

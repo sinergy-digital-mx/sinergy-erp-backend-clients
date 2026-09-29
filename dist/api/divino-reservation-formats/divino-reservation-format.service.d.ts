@@ -1,5 +1,6 @@
 import { Repository } from 'typeorm';
 import { DivinoReservationFormat } from '../../entities/divino-reservation-formats/divino-reservation-format.entity';
+import { FiscalConfiguration } from '../../entities/billing/fiscal-configuration.entity';
 import { Property } from '../../entities/properties/property.entity';
 import { User } from '../../entities/users/user.entity';
 import { CreateDivinoReservationFormatDto } from './dto/create-divino-reservation-format.dto';
@@ -21,11 +22,13 @@ export declare class DivinoReservationFormatService {
     private repo;
     private propertyRepo;
     private userRepo;
+    private fiscalRepo;
     private pdfService;
     private mailerConfigurationService;
-    constructor(repo: Repository<DivinoReservationFormat>, propertyRepo: Repository<Property>, userRepo: Repository<User>, pdfService: DivinoReservationFormatPdfService, mailerConfigurationService: MailerConfigurationService);
+    constructor(repo: Repository<DivinoReservationFormat>, propertyRepo: Repository<Property>, userRepo: Repository<User>, fiscalRepo: Repository<FiscalConfiguration>, pdfService: DivinoReservationFormatPdfService, mailerConfigurationService: MailerConfigurationService);
     create(tenantId: string, dto: CreateDivinoReservationFormatDto, userId: string | null): Promise<DivinoReservationFormat>;
     findAll(tenantId: string, query?: QueryDivinoReservationFormatDto): Promise<PaginatedDivinoReservationFormatDto>;
+    private resolveFiscalConfiguration;
     findOne(tenantId: string, id: string): Promise<DivinoReservationFormat>;
     update(tenantId: string, id: string, dto: UpdateDivinoReservationFormatDto): Promise<DivinoReservationFormat>;
     remove(tenantId: string, id: string): Promise<void>;

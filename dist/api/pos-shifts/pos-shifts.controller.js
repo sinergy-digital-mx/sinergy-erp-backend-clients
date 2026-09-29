@@ -23,6 +23,7 @@ const validate_seller_code_dto_1 = require("./dto/validate-seller-code.dto");
 const open_daily_shift_dto_1 = require("./dto/open-daily-shift.dto");
 const create_partial_shift_dto_1 = require("./dto/create-partial-shift.dto");
 const query_daily_shift_dto_1 = require("./dto/query-daily-shift.dto");
+const query_pos_branch_dto_1 = require("./dto/query-pos-branch.dto");
 const close_daily_shift_dto_1 = require("./dto/close-daily-shift.dto");
 const collect_pos_sale_dto_1 = require("./dto/collect-pos-sale.dto");
 const query_collected_sales_dto_1 = require("./dto/query-collected-sales.dto");
@@ -33,10 +34,10 @@ let PosShiftsController = class PosShiftsController {
         this.posShiftsService = posShiftsService;
     }
     async validateSellerCode(dto, req) {
-        return this.posShiftsService.validateSellerCode(req.user.tenant_id, req.user.id, dto.code);
+        return this.posShiftsService.validateSellerCode(req.user.tenant_id, req.user.id, dto.code, dto.billing_branch_id);
     }
-    async getCurrentDailyShift(req) {
-        return this.posShiftsService.getCurrentDailyShiftResponse(req.user.tenant_id, req.user.id);
+    async getCurrentDailyShift(query, req) {
+        return this.posShiftsService.getCurrentDailyShiftResponse(req.user.tenant_id, req.user.id, query.billing_branch_id);
     }
     async openDailyShift(dto, req) {
         const { shift, queued_sales_assigned } = await this.posShiftsService.openDailyShift(req.user.tenant_id, req.user.id, dto);
@@ -69,16 +70,16 @@ let PosShiftsController = class PosShiftsController {
             daily_shift: shift,
         };
     }
-    async getPendingSales(req) {
-        const sales = await this.posShiftsService.getPendingSales(req.user.tenant_id, req.user.id);
+    async getPendingSales(query, req) {
+        const sales = await this.posShiftsService.getPendingSales(req.user.tenant_id, req.user.id, query.billing_branch_id);
         return { pending_sales: sales };
     }
-    async getSalesInProgress(req) {
-        const sales = await this.posShiftsService.getSalesInProgress(req.user.tenant_id, req.user.id);
+    async getSalesInProgress(query, req) {
+        const sales = await this.posShiftsService.getSalesInProgress(req.user.tenant_id, req.user.id, query.billing_branch_id);
         return { sales_in_progress: sales };
     }
     async getCollectedSales(query, req) {
-        return this.posShiftsService.getCollectedSales(req.user.tenant_id, req.user.id, query.daily_shift_id);
+        return this.posShiftsService.getCollectedSales(req.user.tenant_id, req.user.id, query.daily_shift_id, query.billing_branch_id);
     }
     async collectSale(salesOrderId, dto, req) {
         return this.posShiftsService.collectSale(req.user.tenant_id, req.user.id, salesOrderId, dto);
@@ -124,9 +125,10 @@ __decorate([
         summary: 'Obtener corte global abierto de la sucursal',
         description: 'Si el corte abierto es de un día anterior, incluye unclosed_shift_alert para forzar el cierre antes de continuar.',
     }),
-    __param(0, (0, common_1.Req)()),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [query_pos_branch_dto_1.QueryPosBranchDto, Object]),
     __metadata("design:returntype", Promise)
 ], PosShiftsController.prototype, "getCurrentDailyShift", null);
 __decorate([
@@ -191,9 +193,10 @@ __decorate([
         summary: 'Ventas pendientes de cobro',
         description: 'Solo terminal COBRANZA. Órdenes Surtida + Pendiente de la sucursal.',
     }),
-    __param(0, (0, common_1.Req)()),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [query_pos_branch_dto_1.QueryPosBranchDto, Object]),
     __metadata("design:returntype", Promise)
 ], PosShiftsController.prototype, "getPendingSales", null);
 __decorate([
@@ -203,9 +206,10 @@ __decorate([
         summary: 'Tickets POS reintegrados a ventas',
         description: 'Solo terminal VENTAS. Órdenes pos_stage=ventas de la sucursal.',
     }),
-    __param(0, (0, common_1.Req)()),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [query_pos_branch_dto_1.QueryPosBranchDto, Object]),
     __metadata("design:returntype", Promise)
 ], PosShiftsController.prototype, "getSalesInProgress", null);
 __decorate([

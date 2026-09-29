@@ -34,6 +34,7 @@ __decorate([
     __metadata("design:type", String)
 ], CollectCardPaymentDto.prototype, "reference", void 0);
 class CollectPosSaleDto {
+    billing_branch_id;
     customer_id;
     payment_method;
     amount_cash_mxn;
@@ -55,6 +56,15 @@ class CollectPosSaleDto {
     walk_in_rfc;
 }
 exports.CollectPosSaleDto = CollectPosSaleDto;
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        description: 'Sucursal seleccionada en POS. El cobro entra al corte abierto de esa sucursal.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], CollectPosSaleDto.prototype, "billing_branch_id", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
         required: false,

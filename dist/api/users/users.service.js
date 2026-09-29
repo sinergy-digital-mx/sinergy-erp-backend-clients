@@ -57,6 +57,7 @@ const user_billing_branch_entity_1 = require("../../entities/users/user-billing-
 const billing_branch_entity_1 = require("../../entities/billing/billing-branch.entity");
 const pos_user_type_enum_1 = require("../../entities/users/pos-user-type.enum");
 const pos_daily_shift_entity_1 = require("../../entities/pos/pos-daily-shift.entity");
+const unclosed_shift_alert_1 = require("../pos-shifts/utils/unclosed-shift-alert");
 const pos_daily_shift_status_enum_1 = require("../../entities/pos/pos-daily-shift-status.enum");
 const employees_service_1 = require("../employees/employees.service");
 const user_manager_report_entity_1 = require("../../entities/users/user-manager-report.entity");
@@ -336,11 +337,9 @@ let UsersService = class UsersService {
         if (!user) {
             return user;
         }
-        if (user.is_employee) {
-            const employee = await this.employeesService.findEntityByUser(tenantId, id);
-            if (employee) {
-                user.employeeProfile = await this.employeesService.mapEmployee(employee, { withRequests: false });
-            }
+        const employee = await this.employeesService.findEntityByUser(tenantId, id);
+        if (employee) {
+            user.employeeProfile = await this.employeesService.mapEmployee(employee, { withRequests: false });
         }
         const assignment = await this.managerReportRepo.findOne({
             where: { tenant_id: tenantId, report_user_id: id },
@@ -481,7 +480,7 @@ let UsersService = class UsersService {
             pos_user_code: user.pos_user_code,
             pos_can_sell: Boolean(user.is_pos_user) && (0, pos_user_type_enum_1.canPosSell)(user.pos_user_type),
             pos_can_collect: Boolean(user.is_pos_user) && (0, pos_user_type_enum_1.canPosCollect)(user.pos_user_type),
-            is_employee: Boolean(user.is_employee),
+            is_employee: Boolean(user.is_employee) || Boolean(user.employeeProfile),
             employee: user.employeeProfile ?? null,
             is_manager: Boolean(user.is_manager),
             is_crm_admin: Boolean(user.is_crm_admin),
@@ -673,7 +672,7 @@ let UsersService = class UsersService {
         }
     }
     async hasOpenDailyShift(terminalUserId, tenantId) {
-        const shiftDate = new Date().toISOString().slice(0, 10);
+        const shiftDate = (0, unclosed_shift_alert_1.getTodayDateString)();
         const count = await this.dailyShiftRepo.count({
             where: {
                 tenant_id: tenantId,

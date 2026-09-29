@@ -23,6 +23,7 @@ class CreateContractDto {
     contract_date;
     total_price;
     down_payment;
+    down_payment_target;
     down_payment_financed;
     down_payment_months;
     down_payment_first_payment_date;
@@ -81,6 +82,12 @@ __decorate([
     (0, class_validator_1.IsNumber)(),
     __metadata("design:type", Number)
 ], CreateContractDto.prototype, "down_payment", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], CreateContractDto.prototype, "down_payment_target", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsBoolean)(),

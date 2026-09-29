@@ -35,11 +35,13 @@ export declare class DivinoDashboardController {
             year: null;
             month: null;
             mode: "all_time";
+            group_id: string | null;
         } | {
             scope: "period";
             year: number | null;
             month: number | null;
             mode: "year" | "month";
+            group_id: string | null;
         };
         rows: {
             revenue: number;
@@ -56,11 +58,13 @@ export declare class DivinoDashboardController {
             year: null;
             month: null;
             mode: "all_time";
+            group_id: string | null;
         } | {
             scope: "period";
             year: number | null;
             month: number | null;
             mode: "year" | "month";
+            group_id: string | null;
         };
         rows: {
             revenue: number;
@@ -75,11 +79,13 @@ export declare class DivinoDashboardController {
             year: null;
             month: null;
             mode: "all_time";
+            group_id: string | null;
         } | {
             scope: "period";
             year: number | null;
             month: number | null;
             mode: "year" | "month";
+            group_id: string | null;
         };
         period: "monthly" | "quarterly" | "semiannual" | "annual";
         year: number | null;

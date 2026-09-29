@@ -14,19 +14,23 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PropertiesController = void 0;
 const common_1 = require("@nestjs/common");
+const platform_express_1 = require("@nestjs/platform-express");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const permission_guard_1 = require("../rbac/guards/permission.guard");
 const require_permissions_decorator_1 = require("../rbac/decorators/require-permissions.decorator");
 const tenant_context_service_1 = require("../rbac/services/tenant-context.service");
 const properties_service_1 = require("./properties.service");
+const property_import_service_1 = require("./property-import.service");
 const create_property_dto_1 = require("./dto/create-property.dto");
 const update_property_dto_1 = require("./dto/update-property.dto");
 const query_properties_dto_1 = require("./dto/query-properties.dto");
 let PropertiesController = class PropertiesController {
     propertiesService;
+    propertyImportService;
     tenantContext;
-    constructor(propertiesService, tenantContext) {
+    constructor(propertiesService, propertyImportService, tenantContext) {
         this.propertiesService = propertiesService;
+        this.propertyImportService = propertyImportService;
         this.tenantContext = tenantContext;
     }
     async create(req, dto) {
@@ -52,6 +56,17 @@ let PropertiesController = class PropertiesController {
             throw new Error('Tenant context is required');
         }
         return this.propertiesService.getListStats(tenantId, this.toPropertyFilters(query));
+    }
+    async downloadImportTemplate(res) {
+        const organizationId = this.requireOrganizationId();
+        const { buffer, filename } = await this.propertyImportService.exportTemplate(organizationId);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(buffer);
+    }
+    async importProperties(file) {
+        const organizationId = this.requireOrganizationId();
+        return this.propertyImportService.importWorkbook(organizationId, file);
     }
     async findAll(req, query) {
         const tenantId = this.tenantContext.getCurrentTenantId();
@@ -83,6 +98,13 @@ let PropertiesController = class PropertiesController {
         }
         await this.propertiesService.remove(tenantId, id);
         return { success: true };
+    }
+    requireOrganizationId() {
+        const organizationId = this.tenantContext.getCurrentTenantId();
+        if (!organizationId) {
+            throw new common_1.BadRequestException('No se pudo identificar la organización.');
+        }
+        return organizationId;
     }
     toPropertyFilters(query) {
         return {
@@ -128,6 +150,23 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], PropertiesController.prototype, "getListStats", null);
 __decorate([
+    (0, common_1.Get)('import/template'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Property', action: 'Create' }),
+    __param(0, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], PropertiesController.prototype, "downloadImportTemplate", null);
+__decorate([
+    (0, common_1.Post)('import'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Property', action: 'Create' }),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', { limits: { fileSize: 5 * 1024 * 1024 } })),
+    __param(0, (0, common_1.UploadedFile)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], PropertiesController.prototype, "importProperties", null);
+__decorate([
     (0, common_1.Get)(),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Property', action: 'Read' }),
     __param(0, (0, common_1.Req)()),
@@ -168,6 +207,7 @@ exports.PropertiesController = PropertiesController = __decorate([
     (0, common_1.Controller)('tenant/properties'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     __metadata("design:paramtypes", [properties_service_1.PropertiesService,
+        property_import_service_1.PropertyImportService,
         tenant_context_service_1.TenantContextService])
 ], PropertiesController);
 //# sourceMappingURL=properties.controller.js.map

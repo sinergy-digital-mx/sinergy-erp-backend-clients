@@ -83,8 +83,8 @@ let DivinoReservationFormatPdfService = class DivinoReservationFormatPdfService 
     }
     async generate(format) {
         const logoImage = await this.getLogoImage(format);
-        const razonSocial = format.payable_to ||
-            format.fiscal_configuration?.razon_social ||
+        const razonSocial = format.fiscal_configuration?.razon_social ||
+            format.payable_to ||
             divino_reservation_formats_constants_1.DIVINO_RESERVATION_BRAND.defaultPayableTo;
         const docDefinition = {
             pageSize: 'LETTER',

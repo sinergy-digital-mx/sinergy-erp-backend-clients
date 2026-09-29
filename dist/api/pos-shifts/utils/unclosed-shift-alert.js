@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getTodayDateString = getTodayDateString;
 exports.toDateOnlyString = toDateOnlyString;
+exports.resolvePosCalendarRange = resolvePosCalendarRange;
 exports.isPreviousDayOpenShift = isPreviousDayOpenShift;
 exports.buildUnclosedShiftAlert = buildUnclosedShiftAlert;
 const POS_CALENDAR_TIMEZONE = 'America/Mexico_City';
@@ -14,10 +15,32 @@ function getTodayDateString(now = new Date()) {
     }).format(now);
 }
 function toDateOnlyString(value) {
-    if (value instanceof Date) {
-        return value.toISOString().slice(0, 10);
+    const raw = value instanceof Date ? value.toISOString() : String(value);
+    const match = /^(\d{4}-\d{2}-\d{2})/.exec(raw.trim());
+    return match ? match[1] : raw.slice(0, 10);
+}
+function resolvePosCalendarRange(period, dateFrom, dateTo, now = new Date()) {
+    const today = getTodayDateString(now);
+    if (period === 'today') {
+        return { from: today, to: today };
     }
-    return String(value).slice(0, 10);
+    if (period === 'range') {
+        return {
+            from: String(dateFrom || today).slice(0, 10),
+            to: String(dateTo || today).slice(0, 10),
+        };
+    }
+    if (period === 'week') {
+        const [year, month, day] = today.split('-').map(Number);
+        const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+        const daysFromMonday = weekday === 0 ? 6 : weekday - 1;
+        return { from: addUtcDays(today, -daysFromMonday), to: today };
+    }
+    return { from: `${today.slice(0, 8)}01`, to: today };
+}
+function addUtcDays(isoDate, days) {
+    const [year, month, day] = isoDate.split('-').map(Number);
+    return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
 }
 function isPreviousDayOpenShift(shiftDate, today = getTodayDateString()) {
     return toDateOnlyString(shiftDate) < today;
