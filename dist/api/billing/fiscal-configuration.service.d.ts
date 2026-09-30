@@ -15,6 +15,15 @@ export declare class FiscalConfigurationService {
     update(id: string, dto: UpdateFiscalConfigurationDto, tenantId: string): Promise<FiscalConfiguration>;
     remove(id: string, tenantId: string): Promise<void>;
     uploadLogo(id: string, tenantId: string, file: Express.Multer.File): Promise<FiscalConfiguration>;
+    getSystemLogoMeta(tenantId: string): Promise<{
+        enabled: boolean;
+        cache_key: string | null;
+    }>;
+    getSystemLogoFile(tenantId: string): Promise<{
+        buffer: Buffer;
+        contentType: string;
+    }>;
+    private findSystemLogo;
     private getByIdOrFail;
     private persistPrefix;
     private attachPrefixes;

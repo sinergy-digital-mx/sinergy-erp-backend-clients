@@ -25,6 +25,7 @@ let FiscalConfiguration = class FiscalConfiguration {
     digital_seal_password;
     private_key;
     logo;
+    use_as_system_logo;
     status;
     created_by;
     certificate_serial_number;
@@ -112,6 +113,10 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], FiscalConfiguration.prototype, "logo", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'tinyint', width: 1, default: 0 }),
+    __metadata("design:type", Boolean)
+], FiscalConfiguration.prototype, "use_as_system_logo", void 0);
 __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',

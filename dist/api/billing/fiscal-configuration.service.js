@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.FiscalConfigurationService = void 0;
 const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
+const crypto_1 = require("crypto");
 const typeorm_2 = require("typeorm");
 const fiscal_configuration_entity_1 = require("../../entities/billing/fiscal-configuration.entity");
 const s3_service_1 = require("../../common/services/s3.service");
@@ -79,7 +80,7 @@ let FiscalConfigurationService = class FiscalConfigurationService {
         return this.toResponseWithLogoUrl(config);
     }
     async update(id, dto, tenantId) {
-        await this.getByIdOrFail(id, tenantId);
+        const current = await this.getByIdOrFail(id, tenantId);
         const patch = {};
         if (dto.razon_social !== undefined)
             patch.razon_social = dto.razon_social;
@@ -105,6 +106,15 @@ let FiscalConfigurationService = class FiscalConfigurationService {
         if (dto.advance_invoicing_enabled !== undefined) {
             patch.advance_invoicing_enabled = dto.advance_invoicing_enabled;
         }
+        if (dto.use_as_system_logo !== undefined) {
+            if (dto.use_as_system_logo && !current.logo) {
+                throw new common_1.BadRequestException('Sube un logo antes de usarlo como logo del sistema.');
+            }
+            if (dto.use_as_system_logo) {
+                await this.repo.update({ tenant_id: tenantId }, { use_as_system_logo: false });
+            }
+            patch.use_as_system_logo = dto.use_as_system_logo;
+        }
         if (Object.keys(patch).length) {
             await this.repo.update({ id, tenant_id: tenantId }, patch);
         }
@@ -126,6 +136,34 @@ let FiscalConfigurationService = class FiscalConfigurationService {
         config.logo = s3Key;
         const saved = await this.repo.save(config);
         return this.toResponseWithLogoUrl(saved);
+    }
+    async getSystemLogoMeta(tenantId) {
+        const config = await this.findSystemLogo(tenantId);
+        if (!config?.logo) {
+            return { enabled: false, cache_key: null };
+        }
+        return {
+            enabled: true,
+            cache_key: (0, crypto_1.createHash)('sha256').update(config.logo).digest('hex').slice(0, 24),
+        };
+    }
+    async getSystemLogoFile(tenantId) {
+        const config = await this.findSystemLogo(tenantId);
+        if (!config?.logo) {
+            throw new common_1.NotFoundException('No hay logo del sistema');
+        }
+        return this.s3Service.getFile(config.logo);
+    }
+    async findSystemLogo(tenantId) {
+        return this.repo
+            .createQueryBuilder('config')
+            .where('config.tenant_id = :tenantId', { tenantId })
+            .andWhere('config.use_as_system_logo = 1')
+            .andWhere('config.status = :status', { status: 'active' })
+            .andWhere('config.logo IS NOT NULL')
+            .andWhere("config.logo <> ''")
+            .orderBy('config.updated_at', 'DESC')
+            .getOne();
     }
     async getByIdOrFail(id, tenantId) {
         if (!id || id === 'undefined' || id === 'null') {

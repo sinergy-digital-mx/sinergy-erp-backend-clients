@@ -8,6 +8,7 @@ export declare class UpdateFiscalConfigurationDto {
     digital_seal_password?: string;
     private_key?: string;
     logo?: string;
+    use_as_system_logo?: boolean;
     status?: string;
     quotation_expiration_days?: number | null;
     advance_invoicing_enabled?: boolean;

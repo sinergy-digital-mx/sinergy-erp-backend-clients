@@ -38,6 +38,16 @@ let FiscalConfigurationController = class FiscalConfigurationController {
     findAll(query, req) {
         return this.service.findAll(req.user.tenantId, query);
     }
+    getSystemLogo(req) {
+        return this.service.getSystemLogoMeta(req.user.tenantId);
+    }
+    async getSystemLogoFile(req) {
+        const file = await this.service.getSystemLogoFile(req.user.tenantId);
+        return new common_1.StreamableFile(file.buffer, {
+            type: file.contentType,
+            disposition: 'inline; filename="system-logo"',
+        });
+    }
     getFinkokStatus(id, environment, req) {
         return this.finkokService.getFinkokStatus(id, req.user.tenantId, environment);
     }
@@ -93,6 +103,25 @@ __decorate([
     __metadata("design:paramtypes", [query_fiscal_configuration_dto_1.QueryFiscalConfigurationDto, Object]),
     __metadata("design:returntype", Promise)
 ], FiscalConfigurationController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Get)('system-logo'),
+    (0, swagger_1.ApiOperation)({ summary: 'Metadatos del logo que reemplaza la marca del menú' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Indica si hay logo y la clave de caché del archivo' }),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], FiscalConfigurationController.prototype, "getSystemLogo", null);
+__decorate([
+    (0, common_1.Get)('system-logo/file'),
+    (0, swagger_1.ApiOperation)({ summary: 'Archivo del logo del sistema' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Imagen del logo' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'No hay logo del sistema' }),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], FiscalConfigurationController.prototype, "getSystemLogoFile", null);
 __decorate([
     (0, common_1.Get)(':id/finkok-status'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'FiscalConfiguration', action: 'Read' }),

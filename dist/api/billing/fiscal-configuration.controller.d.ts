@@ -1,3 +1,4 @@
+import { StreamableFile } from '@nestjs/common';
 import { FiscalConfigurationService } from './fiscal-configuration.service';
 import { FiscalConfigurationFinkokService } from '../electronic-invoicing/services/fiscal-configuration-finkok.service';
 import { RegisterFiscalConfigurationFinkokDto } from '../electronic-invoicing/dto/register-fiscal-configuration-finkok.dto';
@@ -12,6 +13,11 @@ export declare class FiscalConfigurationController {
     constructor(service: FiscalConfigurationService, finkokService: FiscalConfigurationFinkokService);
     create(dto: CreateFiscalConfigurationDto, req: any): Promise<import("../../entities/billing").FiscalConfiguration>;
     findAll(query: QueryFiscalConfigurationDto, req: any): Promise<PaginatedFiscalConfigurationDto>;
+    getSystemLogo(req: any): Promise<{
+        enabled: boolean;
+        cache_key: string | null;
+    }>;
+    getSystemLogoFile(req: any): Promise<StreamableFile>;
     getFinkokStatus(id: string, environment: FinkokEnvironment | undefined, req: {
         user: {
             tenantId: string;

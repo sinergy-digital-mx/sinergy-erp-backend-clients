@@ -11,6 +11,7 @@ export declare class FiscalConfiguration {
     digital_seal_password: string;
     private_key: string;
     logo: string;
+    use_as_system_logo: boolean;
     status: string;
     created_by: string | null;
     certificate_serial_number: string | null;

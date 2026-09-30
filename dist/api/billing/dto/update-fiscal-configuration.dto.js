@@ -23,6 +23,7 @@ class UpdateFiscalConfigurationDto {
     digital_seal_password;
     private_key;
     logo;
+    use_as_system_logo;
     status;
     quotation_expiration_days;
     advance_invoicing_enabled;
@@ -93,6 +94,19 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], UpdateFiscalConfigurationDto.prototype, "logo", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Usa el logo de esta razón social como marca del menú. Solo una puede estar activa.',
+    }),
+    (0, class_transformer_1.Transform)(({ value }) => {
+        if (value === undefined)
+            return undefined;
+        return value === true || value === 'true' || value === 1 || value === '1';
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateFiscalConfigurationDto.prototype, "use_as_system_logo", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),

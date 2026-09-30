@@ -7,5 +7,10 @@ export declare class S3Service {
     private toSafePathSegment;
     getSignedUrl(s3Key: string, expiresIn?: number): Promise<string>;
     getFileBuffer(s3Key: string): Promise<Buffer>;
+    getFile(s3Key: string): Promise<{
+        buffer: Buffer;
+        contentType: string;
+    }>;
+    private resolveImageContentType;
     deleteFile(s3Key: string): Promise<void>;
 }

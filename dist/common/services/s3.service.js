@@ -81,6 +81,10 @@ let S3Service = class S3Service {
         }
     }
     async getFileBuffer(s3Key) {
+        const file = await this.getFile(s3Key);
+        return file.buffer;
+    }
+    async getFile(s3Key) {
         const command = new client_s3_1.GetObjectCommand({
             Bucket: this.bucketName,
             Key: s3Key,
@@ -94,7 +98,24 @@ let S3Service = class S3Service {
         for await (const chunk of body) {
             chunks.push(chunk);
         }
-        return Buffer.concat(chunks);
+        return {
+            buffer: Buffer.concat(chunks),
+            contentType: this.resolveImageContentType(response.ContentType, s3Key),
+        };
+    }
+    resolveImageContentType(header, s3Key) {
+        const normalized = (header || '').split(';')[0].trim().toLowerCase();
+        if (normalized.startsWith('image/')) {
+            return normalized;
+        }
+        const ext = s3Key.split('.').pop()?.toLowerCase();
+        if (ext === 'jpg' || ext === 'jpeg')
+            return 'image/jpeg';
+        if (ext === 'webp')
+            return 'image/webp';
+        if (ext === 'gif')
+            return 'image/gif';
+        return 'image/png';
     }
     async deleteFile(s3Key) {
         try {
