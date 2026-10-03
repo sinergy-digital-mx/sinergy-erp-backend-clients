@@ -10,7 +10,9 @@ export declare class FiscalConfigurationService {
     private readonly s3Service;
     constructor(repo: Repository<FiscalConfiguration>, s3Service: S3Service);
     create(dto: CreateFiscalConfigurationDto, tenantId: string, userId?: string): Promise<FiscalConfiguration>;
-    findAll(tenantId: string, query?: QueryFiscalConfigurationDto): Promise<PaginatedFiscalConfigurationDto>;
+    findAll(tenantId: string, query?: QueryFiscalConfigurationDto, options?: {
+        includeSecrets?: boolean;
+    }): Promise<PaginatedFiscalConfigurationDto>;
     findOne(id: string, tenantId: string): Promise<FiscalConfiguration>;
     update(id: string, dto: UpdateFiscalConfigurationDto, tenantId: string): Promise<FiscalConfiguration>;
     remove(id: string, tenantId: string): Promise<void>;
@@ -27,5 +29,6 @@ export declare class FiscalConfigurationService {
     private getByIdOrFail;
     private persistPrefix;
     private attachPrefixes;
+    private withoutSealSecrets;
     private toResponseWithLogoUrl;
 }

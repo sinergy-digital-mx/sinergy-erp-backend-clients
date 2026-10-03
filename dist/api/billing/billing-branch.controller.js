@@ -18,6 +18,7 @@ const swagger_1 = require("@nestjs/swagger");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const permission_guard_1 = require("../rbac/guards/permission.guard");
 const require_permissions_decorator_1 = require("../rbac/decorators/require-permissions.decorator");
+const fiscal_configuration_controller_1 = require("./fiscal-configuration.controller");
 const tenant_context_service_1 = require("../rbac/services/tenant-context.service");
 const billing_branch_service_1 = require("./billing-branch.service");
 const create_billing_branch_dto_1 = require("./dto/create-billing-branch.dto");
@@ -76,7 +77,7 @@ __decorate([
 ], BillingBranchController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'FiscalConfiguration', action: 'Read' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)(...fiscal_configuration_controller_1.FISCAL_LOOKUP_PERMISSIONS),
     (0, swagger_1.ApiOperation)({ summary: 'Get all branches for a fiscal configuration' }),
     (0, swagger_1.ApiParam)({ name: 'fiscalConfigId', description: 'Fiscal Configuration ID' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'List of branches' }),
@@ -151,7 +152,7 @@ let BillingBranchAllController = class BillingBranchAllController {
 exports.BillingBranchAllController = BillingBranchAllController;
 __decorate([
     (0, common_1.Get)(),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'FiscalConfiguration', action: 'Read' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)(...fiscal_configuration_controller_1.FISCAL_LOOKUP_PERMISSIONS),
     (0, swagger_1.ApiOperation)({ summary: 'Get all branches for the current tenant' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'List of all branches' }),
     __metadata("design:type", Function),

@@ -7,10 +7,14 @@ import { CreateFiscalConfigurationDto } from './dto/create-fiscal-configuration.
 import { UpdateFiscalConfigurationDto } from './dto/update-fiscal-configuration.dto';
 import { QueryFiscalConfigurationDto } from './dto/query-fiscal-configuration.dto';
 import { PaginatedFiscalConfigurationDto } from './dto/paginated-fiscal-configuration.dto';
+import { PermissionService } from '../rbac/services/permission.service';
+import { RequiredPermission } from '../rbac/decorators/require-permissions.decorator';
+export declare const FISCAL_LOOKUP_PERMISSIONS: RequiredPermission[];
 export declare class FiscalConfigurationController {
     private readonly service;
     private readonly finkokService;
-    constructor(service: FiscalConfigurationService, finkokService: FiscalConfigurationFinkokService);
+    private readonly permissionService;
+    constructor(service: FiscalConfigurationService, finkokService: FiscalConfigurationFinkokService, permissionService: PermissionService);
     create(dto: CreateFiscalConfigurationDto, req: any): Promise<import("../../entities/billing").FiscalConfiguration>;
     findAll(query: QueryFiscalConfigurationDto, req: any): Promise<PaginatedFiscalConfigurationDto>;
     getSystemLogo(req: any): Promise<{

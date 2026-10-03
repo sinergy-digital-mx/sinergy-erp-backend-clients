@@ -40,7 +40,7 @@ let FiscalConfigurationService = class FiscalConfigurationService {
         await this.persistPrefix(created.id, tenantId, (0, document_prefix_util_1.normalizeDocumentPrefix)(dto.prefix));
         return this.findOne(created.id, tenantId);
     }
-    async findAll(tenantId, query) {
+    async findAll(tenantId, query, options) {
         let page = Number(query?.page) || 1;
         let limit = Number(query?.limit) || 20;
         if (page < 1)
@@ -63,7 +63,12 @@ let FiscalConfigurationService = class FiscalConfigurationService {
         const total = await queryBuilder.getCount();
         const data = await queryBuilder.skip(skip).take(limit).getMany();
         const withPrefix = await this.attachPrefixes(data);
-        const dataWithLogoUrls = await Promise.all(withPrefix.map((config) => this.toResponseWithLogoUrl(config)));
+        const dataWithLogoUrls = await Promise.all(withPrefix.map(async (config) => {
+            const response = await this.toResponseWithLogoUrl(config);
+            return options?.includeSecrets === false
+                ? this.withoutSealSecrets(response)
+                : response;
+        }));
         const totalPages = Math.ceil(total / limit);
         return {
             data: dataWithLogoUrls,
@@ -193,6 +198,10 @@ let FiscalConfigurationService = class FiscalConfigurationService {
             config.prefix = prefixById.get(config.id) ?? null;
             return config;
         });
+    }
+    withoutSealSecrets(config) {
+        const { digital_seal: _digitalSeal, digital_seal_password: _digitalSealPassword, private_key: _privateKey, ...safe } = config;
+        return safe;
     }
     async toResponseWithLogoUrl(config) {
         const prefix = config.prefix ?? null;

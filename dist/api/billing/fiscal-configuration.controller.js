@@ -12,7 +12,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.FiscalConfigurationController = void 0;
+exports.FiscalConfigurationController = exports.FISCAL_LOOKUP_PERMISSIONS = void 0;
 const common_1 = require("@nestjs/common");
 const platform_express_1 = require("@nestjs/platform-express");
 const swagger_1 = require("@nestjs/swagger");
@@ -24,19 +24,28 @@ const update_fiscal_configuration_dto_1 = require("./dto/update-fiscal-configura
 const query_fiscal_configuration_dto_1 = require("./dto/query-fiscal-configuration.dto");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const permission_guard_1 = require("../rbac/guards/permission.guard");
+const permission_service_1 = require("../rbac/services/permission.service");
 const require_permissions_decorator_1 = require("../rbac/decorators/require-permissions.decorator");
+exports.FISCAL_LOOKUP_PERMISSIONS = [
+    { entityType: 'FiscalConfiguration', action: 'Read' },
+    { entityType: 'Quotation', action: 'Read' },
+    { entityType: 'sales_orders', action: 'Read' },
+];
 let FiscalConfigurationController = class FiscalConfigurationController {
     service;
     finkokService;
-    constructor(service, finkokService) {
+    permissionService;
+    constructor(service, finkokService, permissionService) {
         this.service = service;
         this.finkokService = finkokService;
+        this.permissionService = permissionService;
     }
     create(dto, req) {
         return this.service.create(dto, req.user.tenantId, req.user.id);
     }
-    findAll(query, req) {
-        return this.service.findAll(req.user.tenantId, query);
+    async findAll(query, req) {
+        const includeSecrets = await this.permissionService.hasPermission(req.user.id, req.user.tenantId, 'FiscalConfiguration', 'Read');
+        return this.service.findAll(req.user.tenantId, query, { includeSecrets });
     }
     getSystemLogo(req) {
         return this.service.getSystemLogoMeta(req.user.tenantId);
@@ -88,7 +97,7 @@ __decorate([
 ], FiscalConfigurationController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'FiscalConfiguration', action: 'Read' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)(...exports.FISCAL_LOOKUP_PERMISSIONS),
     (0, swagger_1.ApiOperation)({ summary: 'Get paginated fiscal configurations with search and filters' }),
     (0, swagger_1.ApiQuery)({ name: 'page', required: false, type: Number }),
     (0, swagger_1.ApiQuery)({ name: 'limit', required: false, type: Number }),
@@ -217,6 +226,7 @@ exports.FiscalConfigurationController = FiscalConfigurationController = __decora
     (0, swagger_1.ApiTags)('Fiscal Configurations'),
     (0, swagger_1.ApiBearerAuth)(),
     __metadata("design:paramtypes", [fiscal_configuration_service_1.FiscalConfigurationService,
-        fiscal_configuration_finkok_service_1.FiscalConfigurationFinkokService])
+        fiscal_configuration_finkok_service_1.FiscalConfigurationFinkokService,
+        permission_service_1.PermissionService])
 ], FiscalConfigurationController);
 //# sourceMappingURL=fiscal-configuration.controller.js.map
