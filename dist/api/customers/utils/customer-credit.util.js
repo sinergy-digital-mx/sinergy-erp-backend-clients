@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.parseOptionalBoolean = parseOptionalBoolean;
 exports.parseOptionalNumber = parseOptionalNumber;
 exports.extractCreditPatchFromBody = extractCreditPatchFromBody;
+exports.creditChargeUsesExceedWaiver = creditChargeUsesExceedWaiver;
 exports.buildCreditSnapshot = buildCreditSnapshot;
 function parseOptionalBoolean(value) {
     if (value === undefined || value === null || value === '') {
@@ -33,11 +34,16 @@ function extractCreditPatchFromBody(body) {
     if (enabled === undefined && days === undefined && amount === undefined) {
         return null;
     }
+    const allowExceed = parseOptionalBoolean(body.allow_credit_exceed ?? nested.allow_credit_exceed);
     return {
         credit_enabled: enabled ?? Number(amount ?? 0) > 0,
+        allow_credit_exceed: allowExceed ?? false,
         credit_days: days ?? null,
         credit_amount: amount ?? null,
     };
+}
+function creditChargeUsesExceedWaiver(amount, creditAvailable, allowCreditExceed) {
+    return allowCreditExceed && amount - creditAvailable > 0.01;
 }
 function buildCreditSnapshot(params) {
     const creditAmount = Math.max(0, Number(params.creditAmount ?? 0));
@@ -46,6 +52,7 @@ function buildCreditSnapshot(params) {
     const creditUsagePercent = creditAmount > 0 ? Number(((creditUsed / creditAmount) * 100).toFixed(2)) : 0;
     return {
         credit_enabled: Boolean(params.creditEnabled),
+        allow_credit_exceed: Boolean(params.allowCreditExceed),
         credit_days: params.creditDays ?? null,
         credit_amount: Number(creditAmount.toFixed(2)),
         credit_used: Number(creditUsed.toFixed(2)),

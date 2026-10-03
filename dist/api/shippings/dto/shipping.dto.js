@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.QueryAvailableShippingOrdersDto = exports.QueryShippingDto = exports.ResolveOrdersDto = exports.UpdateShippingStatusDto = exports.AddShippingStopsDto = exports.PreviewShippingDto = exports.CreateShippingDto = exports.ShippingOrderItemDto = void 0;
+exports.QueryAvailableShippingOrdersDto = exports.QueryShippingDto = exports.ResolveOrdersDto = exports.SetShippingStopAddressDto = exports.UpdateShippingStatusDto = exports.AddShippingStopsDto = exports.PreviewShippingDto = exports.CreateShippingDto = exports.ShippingOrderItemDto = void 0;
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
 class ShippingOrderItemDto {
@@ -105,6 +105,15 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], UpdateShippingStatusDto.prototype, "status", void 0);
+class SetShippingStopAddressDto {
+    customer_address_id;
+}
+exports.SetShippingStopAddressDto = SetShippingStopAddressDto;
+__decorate([
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(1),
+    __metadata("design:type", Number)
+], SetShippingStopAddressDto.prototype, "customer_address_id", void 0);
 class ResolveOrdersDto {
     sales_order_ids;
 }

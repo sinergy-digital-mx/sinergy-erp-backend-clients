@@ -255,6 +255,9 @@ let InventoryService = InventoryService_1 = class InventoryService {
         const parsed = parseFloat(String(value ?? 0));
         return Number.isFinite(parsed) ? parsed : 0;
     }
+    hasAvailableStock(quantity) {
+        return this.parseDecimal(quantity) > 0;
+    }
     parseIntSafe(value) {
         const parsed = parseInt(String(value ?? 0), 10);
         return Number.isFinite(parsed) ? parsed : 0;
@@ -994,7 +997,6 @@ let InventoryService = InventoryService_1 = class InventoryService {
                 .addSelect('MAX(uom.name)', 'uom_name')
                 .addSelect('COALESCE(SUM(batch.available_quantity), 0)', 'total_available')
                 .addSelect('COALESCE(SUM(batch.initial_quantity), 0)', 'total_initial')
-                .addSelect('COUNT(batch.id)', 'total_batches')
                 .groupBy('batch.product_id')
                 .addGroupBy('batch.warehouse_id')
                 .orderBy(sortExpression, sortOrder)
@@ -1010,7 +1012,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
             if (groups.length === 0) {
                 return { data: [], total, page, limit, totalPages: Math.ceil(total / limit) || 0 };
             }
-            const batchesByGroup = await this.loadSummaryBatches(tenantId, filters, groups);
+            const batchesByGroup = await this.loadSummaryBatches(tenantId, groups);
             const productIds = Array.from(new Set(groups.map((row) => row.product_id)));
             const uomIds = Array.from(new Set(groups.map((row) => row.uom_id).filter(Boolean)));
             const [priceMap, photoMap] = await Promise.all([
@@ -1019,7 +1021,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
             ]);
             const data = groups.map((row) => {
                 const key = `${row.product_id}|${row.warehouse_id}`;
-                const batches = batchesByGroup.get(key) ?? [];
+                const batches = (batchesByGroup.get(key) ?? []).filter((batch) => this.hasAvailableStock(batch.available_quantity));
                 const pricingOptions = priceMap.get(`${row.product_id}|${row.uom_id}`) || [];
                 const suggestedPrice = pricingOptions[0] || null;
                 const photoKey = row.product_photo ?? null;
@@ -1042,7 +1044,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
                     pricing_options: pricingOptions,
                     total_available_quantity: this.formatQty(this.parseDecimal(row.total_available)),
                     total_initial_quantity: this.formatQty(this.parseDecimal(row.total_initial)),
-                    total_batches: this.parseIntSafe(row.total_batches),
+                    total_batches: batches.length,
                     measure_totals: (0, inventory_measure_util_1.buildMeasureTotals)(batches),
                     batches,
                 };
@@ -1086,7 +1088,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
         }
         return qb;
     }
-    async loadSummaryBatches(tenantId, filters, groups) {
+    async loadSummaryBatches(tenantId, groups) {
         const qb = this.inventoryBatchRepo
             .createQueryBuilder('batch')
             .leftJoin('batch.purchase_order_batch', 'po')
@@ -1112,10 +1114,9 @@ let InventoryService = InventoryService_1 = class InventoryService {
                 });
             });
         }))
-            .orderBy('batch.created_at', 'DESC');
-        if (filters.only_available) {
-            qb.andWhere('batch.available_quantity > 0');
-        }
+            .andWhere('batch.available_quantity > 0')
+            .orderBy('batch.available_quantity', 'DESC')
+            .addOrderBy('batch.batch_number', 'ASC');
         const rows = await qb.getRawMany();
         const map = new Map();
         for (const row of rows) {

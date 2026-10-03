@@ -40,6 +40,7 @@ class QuerySalesOrderDto {
     fiscal_configuration_id;
     billing_branch_id;
     customer_id;
+    with_downloads;
     created_from;
     created_to;
     page = 1;
@@ -106,6 +107,18 @@ __decorate([
     (0, class_validator_1.IsNumber)(),
     __metadata("design:type", Number)
 ], QuerySalesOrderDto.prototype, "customer_id", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => {
+        if (value === true || value === 'true' || value === '1')
+            return true;
+        if (value === false || value === 'false' || value === '0')
+            return false;
+        return value;
+    }),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], QuerySalesOrderDto.prototype, "with_downloads", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsDateString)(),

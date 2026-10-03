@@ -11,5 +11,6 @@ var InventoryStockLedgerMovementType;
     InventoryStockLedgerMovementType["TRANSFER_OUT"] = "transfer_out";
     InventoryStockLedgerMovementType["AUDIT_ADJUSTMENT"] = "audit_adjustment";
     InventoryStockLedgerMovementType["OPENING_BALANCE"] = "opening_balance";
+    InventoryStockLedgerMovementType["PURCHASE_REVERSAL"] = "purchase_reversal";
 })(InventoryStockLedgerMovementType || (exports.InventoryStockLedgerMovementType = InventoryStockLedgerMovementType = {}));
 //# sourceMappingURL=inventory-stock-ledger-movement-type.enum.js.map

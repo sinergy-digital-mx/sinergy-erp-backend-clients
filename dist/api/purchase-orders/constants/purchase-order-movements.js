@@ -19,6 +19,7 @@ exports.PURCHASE_ORDER_MOVEMENT_TYPES = {
     DOCUMENT_GENERATED: 'document_generated',
     PAYMENT_RECORDED: 'payment_recorded',
     PAYMENT_DELETED: 'payment_deleted',
+    RECEIPT_CORRECTED: 'receipt_corrected',
     INVENTORY_ADJUSTED: 'inventory_adjusted',
     STOCK_SOLD: 'stock_sold',
 };
@@ -41,6 +42,7 @@ exports.PURCHASE_ORDER_MOVEMENT_TYPE_LABELS = {
     document_generated: 'Documento generado',
     payment_recorded: 'Pago registrado',
     payment_deleted: 'Pago eliminado',
+    receipt_corrected: 'Recibo corregido',
     inventory_adjusted: 'Ajuste de inventario',
     stock_sold: 'Salida por venta',
 };

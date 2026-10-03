@@ -10,6 +10,7 @@ export declare class CustomerCredit {
     fiscal_configuration: FiscalConfiguration;
     fiscal_configuration_id: string;
     credit_enabled: boolean;
+    allow_credit_exceed: boolean;
     credit_days: number | null;
     credit_amount: number | null;
     created_at: Date;

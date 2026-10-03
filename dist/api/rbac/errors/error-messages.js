@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ERROR_MESSAGES = void 0;
 exports.getErrorMessage = getErrorMessage;
 exports.getUserFriendlyMessage = getUserFriendlyMessage;
+exports.getClientMessage = getClientMessage;
 exports.getTechnicalMessage = getTechnicalMessage;
 exports.getErrorSuggestions = getErrorSuggestions;
 const rbac_error_types_1 = require("./rbac-error.types");
@@ -284,6 +285,12 @@ function getErrorMessage(code) {
 }
 function getUserFriendlyMessage(code) {
     return getErrorMessage(code).userFriendly;
+}
+function getClientMessage(code) {
+    if (code === rbac_error_types_1.RBACErrorCode.PERMISSION_DENIED) {
+        return 'No tienes permiso para realizar esta acción';
+    }
+    return getErrorMessage(code).technical;
 }
 function getTechnicalMessage(code) {
     return getErrorMessage(code).technical;

@@ -14,6 +14,26 @@ export declare class AccountingController {
             date_to: string;
         };
         unclosed_shift_alert: import("../pos-shifts/utils/unclosed-shift-alert").UnclosedShiftAlert | null;
+        summary: {
+            orders_entered: number;
+            amount_entered: number;
+            orders_collected: number;
+            amount_collected: number;
+            orders_pending: number;
+            amount_pending: number;
+        };
+        entered_orders: {
+            id: string;
+            folio: string | null;
+            created_at: string;
+            total: number;
+            payment_status: string | null;
+            sales_order_type: string | null;
+            channel: string;
+            terminal_name: string | null;
+            customer_display_name: string | null;
+            amount_collected: number;
+        }[];
         sales_terminals: {
             terminal_user_id: string;
             terminal_name: string;

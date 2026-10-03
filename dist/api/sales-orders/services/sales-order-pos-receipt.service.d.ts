@@ -38,6 +38,11 @@ export declare class SalesOrderPosReceiptService {
     private ticketDocumentTypeIdCache;
     constructor(salesOrderRepo: Repository<SalesOrder>, collectionRepo: Repository<PosSaleCollection>, billingBranchRepo: Repository<BillingBranch>, documentTypeRepo: Repository<SalesOrderDocumentType>, documentsService: SalesOrderDocumentsService, s3Service: S3Service, configService: ConfigService);
     generateAndSavePosTicket(tenantId: string, salesOrderId: string, uploadedBy: string): Promise<PosReceiptResult>;
+    getPosTicketPdf(tenantId: string, salesOrderId: string, uploadedBy: string): Promise<{
+        buffer: Buffer;
+        fileName: string;
+        generated: boolean;
+    }>;
     getPosTicketRawBuffer(tenantId: string, salesOrderId: string): Promise<{
         buffer: Buffer;
         fileName: string;
@@ -48,6 +53,10 @@ export declare class SalesOrderPosReceiptService {
     refreshTicketIfExists(tenantId: string, salesOrderId: string, uploadedBy: string): Promise<void>;
     private buildReceiptResult;
     private buildReceiptResultFromDocument;
+    private renderThermalPdf;
+    private buildThermalPdfContent;
+    private findInvoiceUrl;
+    private isInvoiceUrlStart;
     private findExistingTicket;
     private resolveTicketDocumentTypeId;
     private loadReceiptContext;

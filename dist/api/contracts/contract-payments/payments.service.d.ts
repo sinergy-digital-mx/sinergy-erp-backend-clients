@@ -10,6 +10,10 @@ export interface PaymentSchedulePreview {
     payment_day: number;
     payments_count: number;
     monthly_payment: number;
+    last_installment_amount: number;
+    total_price: number;
+    down_payment_basis: number;
+    balance_after_down_payment: number;
     currency: string;
 }
 export interface GeneratedPaymentsResult extends PaymentSchedulePreview {
@@ -44,6 +48,7 @@ export declare class PaymentsService {
     private countPaidOrPartialPayments;
     private resolveStartDate;
     private buildSchedulePreview;
+    private installmentPlan;
     private resolveScheduleFromPayments;
     private parseDateOnly;
     private formatDateOnlyFromUnknown;

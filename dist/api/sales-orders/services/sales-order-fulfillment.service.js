@@ -39,9 +39,6 @@ let SalesOrderFulfillmentService = SalesOrderFulfillmentService_1 = class SalesO
     }
     async allocateFifo(detail, userId, manager, scope, quantityBase) {
         const needed = parseFloat((quantityBase ?? detail.quantity_base_uom).toString());
-        if (needed <= 0) {
-            return [];
-        }
         const product = await manager.findOne(product_entity_1.Product, {
             where: { id: detail.product_id },
             select: ['id', 'item_kind', 'name', 'sku'],
@@ -49,6 +46,15 @@ let SalesOrderFulfillmentService = SalesOrderFulfillmentService_1 = class SalesO
         if (product?.item_kind === product_item_kind_enum_1.ProductItemKind.Service) {
             return [];
         }
+        if (!Number.isFinite(needed) || needed <= 0) {
+            const ordered = parseFloat(String(detail.quantity ?? 0));
+            if (ordered > 0) {
+                throw new common_1.BadRequestException(`No se pudo apartar inventario de ${this.formatProductLabel(product) || 'la línea'}: la cantidad en unidad base quedó en cero.`);
+            }
+            return [];
+        }
+        const salesOrder = await this.resolveSalesOrder(detail, manager);
+        const tenantId = salesOrder?.tenant_id;
         const warehouseId = scope.warehouseId || undefined;
         const billingBranchId = scope.billingBranchId || undefined;
         if (!warehouseId && !billingBranchId) {
@@ -59,19 +65,36 @@ let SalesOrderFulfillmentService = SalesOrderFulfillmentService_1 = class SalesO
             .where('batch.product_id = :productId', { productId: detail.product_id })
             .andWhere('batch.available_quantity > 0')
             .orderBy('batch.created_at', 'ASC')
+            .addOrderBy('batch.id', 'ASC')
             .setLock('pessimistic_write');
+        if (tenantId) {
+            qb.andWhere('batch.tenant_id = :tenantId', { tenantId });
+        }
+        if (detail.base_uom_id) {
+            qb.andWhere('batch.uom_id = :uomId', { uomId: detail.base_uom_id });
+        }
         if (warehouseId) {
             qb.andWhere('batch.warehouse_id = :warehouseId', { warehouseId });
         }
         else {
-            qb.innerJoin('batch.warehouse', 'warehouse').andWhere('warehouse.billing_branch_id = :billingBranchId', { billingBranchId });
+            const params = [billingBranchId];
+            let sql = `SELECT id FROM warehouses WHERE billing_branch_id = ?`;
+            if (tenantId) {
+                sql += ` AND tenant_id = ?`;
+                params.push(tenantId);
+            }
+            const warehouses = await manager.query(sql, params);
+            const warehouseIds = warehouses.map((row) => row.id);
+            if (!warehouseIds.length) {
+                throw new common_1.BadRequestException(this.buildInsufficientStockMessage(product, needed, 0));
+            }
+            qb.andWhere('batch.warehouse_id IN (:...warehouseIds)', { warehouseIds });
         }
         const batches = await qb.getMany();
         const totalAvailable = batches.reduce((sum, b) => sum + parseFloat(b.available_quantity.toString()), 0);
         if (totalAvailable < needed) {
             throw new common_1.BadRequestException(this.buildInsufficientStockMessage(product, needed, totalAvailable));
         }
-        const salesOrder = await this.resolveSalesOrder(detail, manager);
         const allocations = [];
         let remaining = needed;
         for (const batch of batches) {

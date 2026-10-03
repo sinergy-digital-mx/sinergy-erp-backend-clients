@@ -23,9 +23,24 @@ export declare class SalesOrderController {
     private readonly invoiceEmailService;
     private readonly shippingsService;
     constructor(salesOrderService: SalesOrderService, documentsService: SalesOrderDocumentsService, posReceiptService: SalesOrderPosReceiptService, inventoryService: InventoryService, productsPicker: SalesOrderProductsPickerService, exportService: SalesOrderExportService, invoicingService: SalesOrderInvoicingService, invoiceEmailService: SalesOrderInvoiceEmailService, shippingsService: ShippingsService);
+    getSalesTrend(filters: QuerySalesOrderDto, req: any): Promise<{
+        from: string;
+        to: string;
+        total: number;
+        orders_count: number;
+        months: import("../../customers/utils/customer-purchase-trend.util").PurchaseTrendMonthPoint[];
+        currency: string;
+    }>;
     create(dto: CreateSalesOrderDto, req: any): Promise<import("../../../entities/sales-orders").SalesOrder>;
     replace(id: string, dto: CreateSalesOrderDto, req: any): Promise<import("../../../entities/sales-orders").SalesOrder>;
     addLineItem(id: string, dto: CreateSalesOrderLineItemDto, req: any): Promise<{
+        from: string;
+        to: string;
+        total: number;
+        orders_count: number;
+        months: import("../../customers/utils/customer-purchase-trend.util").PurchaseTrendMonthPoint[];
+        currency: string;
+    } | {
         data: {
             header: {
                 public_invoice_code: string | null;
@@ -345,6 +360,7 @@ export declare class SalesOrderController {
                 general_status: string;
                 notes: string | null;
                 walk_in_name: string | null;
+                walk_in_phone: string | null;
                 walk_in_rfc: string | null;
                 converted_from_quotation_id: string | null;
                 advance_invoice_id: string | null;
@@ -486,6 +502,13 @@ export declare class SalesOrderController {
         };
     }>;
     updateLineItem(orderId: string, lineItemId: string, dto: UpdateSalesOrderLineItemDto, req: any): Promise<{
+        from: string;
+        to: string;
+        total: number;
+        orders_count: number;
+        months: import("../../customers/utils/customer-purchase-trend.util").PurchaseTrendMonthPoint[];
+        currency: string;
+    } | {
         data: {
             header: {
                 public_invoice_code: string | null;
@@ -805,6 +828,7 @@ export declare class SalesOrderController {
                 general_status: string;
                 notes: string | null;
                 walk_in_name: string | null;
+                walk_in_phone: string | null;
                 walk_in_rfc: string | null;
                 converted_from_quotation_id: string | null;
                 advance_invoice_id: string | null;
@@ -946,6 +970,13 @@ export declare class SalesOrderController {
         };
     }>;
     removeLineItem(orderId: string, lineItemId: string, req: any): Promise<{
+        from: string;
+        to: string;
+        total: number;
+        orders_count: number;
+        months: import("../../customers/utils/customer-purchase-trend.util").PurchaseTrendMonthPoint[];
+        currency: string;
+    } | {
         data: {
             header: {
                 public_invoice_code: string | null;
@@ -1265,6 +1296,7 @@ export declare class SalesOrderController {
                 general_status: string;
                 notes: string | null;
                 walk_in_name: string | null;
+                walk_in_phone: string | null;
                 walk_in_rfc: string | null;
                 converted_from_quotation_id: string | null;
                 advance_invoice_id: string | null;
@@ -1725,6 +1757,7 @@ export declare class SalesOrderController {
             general_status: string;
             notes: string | null;
             walk_in_name: string | null;
+            walk_in_phone: string | null;
             walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
             advance_invoice_id: string | null;
@@ -1817,6 +1850,7 @@ export declare class SalesOrderController {
             general_status: string;
             notes: string | null;
             walk_in_name: string | null;
+            walk_in_phone: string | null;
             walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
             advance_invoice_id: string | null;
@@ -2257,6 +2291,7 @@ export declare class SalesOrderController {
             general_status: string;
             notes: string | null;
             walk_in_name: string | null;
+            walk_in_phone: string | null;
             walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
             advance_invoice_id: string | null;
@@ -2349,6 +2384,7 @@ export declare class SalesOrderController {
             general_status: string;
             notes: string | null;
             walk_in_name: string | null;
+            walk_in_phone: string | null;
             walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
             advance_invoice_id: string | null;
@@ -2667,6 +2703,29 @@ export declare class SalesOrderController {
     }[]>;
     findAll(filters: QuerySalesOrderDto, req: any): Promise<{
         data: {
+            downloads?: import("../utils/sales-order-downloads.util").OrderDownloads | {
+                invoice: import("../utils/sales-order-downloads.util").OrderDownloads["invoice"];
+                ticket: {
+                    id: string;
+                    file_name: string;
+                } | null;
+                order_document: {
+                    id: string;
+                    file_name: string;
+                    kind: "original" | "delivery";
+                    url: string | null;
+                } | null;
+            } | undefined;
+            customer_display_name: string | null;
+            customer_summary: {
+                id: number;
+                name: string;
+                lastname: string;
+                company_name: string;
+                fiscal_razon_social: string;
+                display_name: string | null;
+                is_walk_in: boolean;
+            } | null;
             payment_method: import("../../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod | null;
             payment_method_label: string | null;
             payment_breakdown_label: string | null;
@@ -2708,6 +2767,7 @@ export declare class SalesOrderController {
             general_status: string;
             notes: string | null;
             walk_in_name: string | null;
+            walk_in_phone: string | null;
             walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
             advance_invoice_id: string | null;
@@ -2746,6 +2806,8 @@ export declare class SalesOrderController {
         page: number;
         limit: number;
         totalPages: number;
+        hasNext: boolean;
+        hasPrev: boolean;
     }>;
     exportHeadersExcel(filters: QuerySalesOrderHeaderExportDto, req: any, res: any): Promise<void>;
     exportDetailsExcel(filters: QuerySalesOrderDetailExportDto, req: any, res: any): Promise<void>;
@@ -2864,8 +2926,16 @@ export declare class SalesOrderController {
         receipt: import("../services/sales-order-pos-receipt.service").PosReceiptResult;
         documents: any[];
     }>;
+    downloadTicketReciboPdf(id: string, req: any, res: any): Promise<void>;
     downloadTicketReciboRaw(id: string, req: any, res: any): Promise<void>;
-    findOne(id: string, req: any): Promise<{
+    findOne(id: string, req: any, filters?: QuerySalesOrderDto): Promise<{
+        from: string;
+        to: string;
+        total: number;
+        orders_count: number;
+        months: import("../../customers/utils/customer-purchase-trend.util").PurchaseTrendMonthPoint[];
+        currency: string;
+    } | {
         data: {
             header: {
                 public_invoice_code: string | null;
@@ -3185,6 +3255,7 @@ export declare class SalesOrderController {
                 general_status: string;
                 notes: string | null;
                 walk_in_name: string | null;
+                walk_in_phone: string | null;
                 walk_in_rfc: string | null;
                 converted_from_quotation_id: string | null;
                 advance_invoice_id: string | null;

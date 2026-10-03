@@ -53,6 +53,7 @@ class CollectPosSaleDto {
     received_cash_usd;
     notes;
     walk_in_name;
+    walk_in_phone;
     walk_in_rfc;
 }
 exports.CollectPosSaleDto = CollectPosSaleDto;
@@ -223,6 +224,16 @@ __decorate([
     (0, class_validator_1.MaxLength)(120),
     __metadata("design:type", String)
 ], CollectPosSaleDto.prototype, "walk_in_name", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        description: 'Teléfono para el ticket si se cobra como Público en general.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(20),
+    __metadata("design:type", String)
+], CollectPosSaleDto.prototype, "walk_in_phone", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
         required: false,

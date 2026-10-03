@@ -17,7 +17,10 @@ const tenant_entity_1 = require("../rbac/tenant.entity");
 var CustomerActivityType;
 (function (CustomerActivityType) {
     CustomerActivityType["CALL"] = "call";
+    CustomerActivityType["WHATSAPP"] = "whatsapp";
     CustomerActivityType["EMAIL"] = "email";
+    CustomerActivityType["HOME_VISIT"] = "home_visit";
+    CustomerActivityType["STORE_VISIT"] = "store_visit";
     CustomerActivityType["MEETING"] = "meeting";
     CustomerActivityType["NOTE"] = "note";
     CustomerActivityType["TASK"] = "task";

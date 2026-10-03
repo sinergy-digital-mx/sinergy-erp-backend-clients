@@ -23,6 +23,8 @@ import { PurchaseOrderDocumentsService } from './purchase-order-documents.servic
 import { PurchaseOrderLotsService } from './purchase-order-lots.service';
 import { PurchaseOrderActivityService } from './purchase-order-activity.service';
 import { PurchaseOrderDocumentLanguage } from '../../../entities/purchase-orders/purchase-order-document-language.enum';
+import { PurchaseOrderReversalService } from './purchase-order-reversal.service';
+import { CorrectPurchaseReceiptDto } from '../dto/correct-purchase-receipt.dto';
 type PurchaseOrderStatBucket = {
     count: number;
     amount: number;
@@ -62,10 +64,11 @@ export declare class PurchaseOrderService {
     private readonly lotsService;
     private readonly activityService;
     private readonly realCostService;
+    private readonly reversalService;
     private readonly dataSource;
     private static readonly DOC_TYPE_DOCUMENTO_ORIGINAL;
     private static readonly DOC_TYPE_RECEPCION;
-    constructor(purchaseOrderBatchRepository: Repository<PurchaseOrderBatch>, purchaseOrderDetailRepository: Repository<PurchaseOrderBatchDetail>, inventoryBatchRepository: Repository<InventoryBatch>, purchaseOrderPaymentRepository: Repository<PurchaseOrderPayment>, warehouseRepository: Repository<Warehouse>, vendorRepository: Repository<Vendor>, unitConversionService: UnitConversionService, batchNumberGenerator: BatchNumberGeneratorService, folioGenerator: FolioGeneratorService, pdfService: PurchaseOrderPdfService, documentsService: PurchaseOrderDocumentsService, lotsService: PurchaseOrderLotsService, activityService: PurchaseOrderActivityService, realCostService: PurchaseOrderRealCostService, dataSource: DataSource);
+    constructor(purchaseOrderBatchRepository: Repository<PurchaseOrderBatch>, purchaseOrderDetailRepository: Repository<PurchaseOrderBatchDetail>, inventoryBatchRepository: Repository<InventoryBatch>, purchaseOrderPaymentRepository: Repository<PurchaseOrderPayment>, warehouseRepository: Repository<Warehouse>, vendorRepository: Repository<Vendor>, unitConversionService: UnitConversionService, batchNumberGenerator: BatchNumberGeneratorService, folioGenerator: FolioGeneratorService, pdfService: PurchaseOrderPdfService, documentsService: PurchaseOrderDocumentsService, lotsService: PurchaseOrderLotsService, activityService: PurchaseOrderActivityService, realCostService: PurchaseOrderRealCostService, reversalService: PurchaseOrderReversalService, dataSource: DataSource);
     private deleteDocumentsByType;
     private normalizeCurrency;
     private throwMixedCurrency;
@@ -131,7 +134,9 @@ export declare class PurchaseOrderService {
     updatePedimento(id: string, dto: UpdatePurchaseOrderPedimentoDto, tenantId: string, userId: string): Promise<PurchaseOrderBatch>;
     updateVendorInvoice(id: string, dto: UpdatePurchaseOrderVendorInvoiceDto, tenantId: string, userId: string): Promise<PurchaseOrderBatch>;
     updateRealCost(id: string, dto: UpdatePurchaseOrderRealCostDto, tenantId: string, userId: string): Promise<any>;
-    cancel(id: string, tenantId: string, userId: string): Promise<PurchaseOrderBatch>;
+    cancel(id: string, tenantId: string, userId: string, reason?: string | null): Promise<PurchaseOrderBatch>;
+    reopen(id: string, tenantId: string, userId: string): Promise<PurchaseOrderBatch>;
+    correctReceipt(id: string, dto: CorrectPurchaseReceiptDto, tenantId: string, userId: string): Promise<PurchaseOrderBatch>;
     replacePurchaseOrder(id: string, dto: CreatePurchaseOrderDto, tenantId: string, userId: string): Promise<PurchaseOrderBatch>;
     addLineItem(orderId: string, dto: CreateLineItemDto, tenantId: string, userId: string): Promise<PurchaseOrderBatch>;
     private computeRequestedTotalsFromLineItems;

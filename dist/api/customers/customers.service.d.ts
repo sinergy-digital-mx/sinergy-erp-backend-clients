@@ -10,6 +10,7 @@ import { CustomerAddress } from '../../entities/customers/customer-address.entit
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { BillingBranch } from '../../entities/billing/billing-branch.entity';
 import { FiscalConfiguration } from '../../entities/billing/fiscal-configuration.entity';
+import { SalesOrder } from '../../entities/sales-orders/sales-order.entity';
 import { User } from '../../entities/users/user.entity';
 import { CustomerGroupsService } from './customer-groups.service';
 import { CustomerCreditService } from './services/customer-credit.service';
@@ -45,10 +46,11 @@ export declare class CustomersService {
     private fiscalConfigRepo;
     private userRepo;
     private addressRepo;
+    private salesOrderRepo;
     private readonly customerGroupsService;
     private readonly customerCreditService;
     private readonly customerAssignmentService;
-    constructor(customerRepo: Repository<Customer>, statusRepo: Repository<CustomerStatus>, warehouseRepo: Repository<Warehouse>, billingBranchRepo: Repository<BillingBranch>, fiscalConfigRepo: Repository<FiscalConfiguration>, userRepo: Repository<User>, addressRepo: Repository<CustomerAddress>, customerGroupsService: CustomerGroupsService, customerCreditService: CustomerCreditService, customerAssignmentService: CustomerAssignmentService);
+    constructor(customerRepo: Repository<Customer>, statusRepo: Repository<CustomerStatus>, warehouseRepo: Repository<Warehouse>, billingBranchRepo: Repository<BillingBranch>, fiscalConfigRepo: Repository<FiscalConfiguration>, userRepo: Repository<User>, addressRepo: Repository<CustomerAddress>, salesOrderRepo: Repository<SalesOrder>, customerGroupsService: CustomerGroupsService, customerCreditService: CustomerCreditService, customerAssignmentService: CustomerAssignmentService);
     private resolveDefaultStatus;
     findAllStatuses(): Promise<CustomerStatus[]>;
     create(dto: CreateCustomerDto, tenantId: string, currentUserId?: string): Promise<{
@@ -100,6 +102,26 @@ export declare class CustomersService {
         assignment_history: import("../../common/utils/assignment-change.util").AssignmentHistoryRow[];
         credits: import("./utils/customer-credit.util").CustomerCreditFiscalSnapshot[];
         credit_enabled: boolean;
+        allow_credit_exceed: boolean;
+        credit_days: number | null;
+        credit_amount: number;
+        credit_used: number;
+        credit_available: number;
+        credit_usage_percent: number;
+        auto_generate_invoice: boolean;
+        fiscal_ready_for_invoice: boolean;
+        fiscal_missing_fields: ("fiscal_rfc" | "fiscal_razon_social" | "fiscal_postal_code")[];
+    }>;
+    applySatConstancia(id: number, file: {
+        buffer?: Buffer;
+        mimetype?: string;
+        originalname?: string;
+        size?: number;
+    }, tenantId: string, currentUserId?: string): Promise<{
+        assignment_history: import("../../common/utils/assignment-change.util").AssignmentHistoryRow[];
+        credits: import("./utils/customer-credit.util").CustomerCreditFiscalSnapshot[];
+        credit_enabled: boolean;
+        allow_credit_exceed: boolean;
         credit_days: number | null;
         credit_amount: number;
         credit_used: number;
@@ -114,6 +136,7 @@ export declare class CustomersService {
         assignment_history: import("../../common/utils/assignment-change.util").AssignmentHistoryRow[];
         credits: import("./utils/customer-credit.util").CustomerCreditFiscalSnapshot[];
         credit_enabled: boolean;
+        allow_credit_exceed: boolean;
         credit_days: number | null;
         credit_amount: number;
         credit_used: number;
@@ -180,5 +203,27 @@ export declare class CustomersService {
     private applyCreditPatchToCustomer;
     private stripLegacyCreditFields;
     private enrichCustomer;
+    getSalesStats(customerId: number, tenantId: string): Promise<{
+        orders_count: number;
+        active_orders_count: number;
+        cancelled_count: number;
+        sales_total: number;
+        paid_total: number;
+        paid_count: number;
+        pending_total: number;
+        pending_count: number;
+        invoiced_count: number;
+        average_order: number;
+        last_order_at: string | Date | null;
+        last_order_folio: string | null;
+    }>;
+    getPurchaseTrend(customerId: number, tenantId: string): Promise<{
+        from: string;
+        to: string;
+        total: number;
+        orders_count: number;
+        months: import("./utils/customer-purchase-trend.util").PurchaseTrendMonthPoint[];
+        currency: string;
+    }>;
 }
 export {};

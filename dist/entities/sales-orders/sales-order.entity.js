@@ -45,6 +45,7 @@ let SalesOrder = class SalesOrder {
     general_status;
     notes;
     walk_in_name;
+    walk_in_phone;
     walk_in_rfc;
     converted_from_quotation_id;
     advance_invoice_id;
@@ -193,6 +194,10 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 120, nullable: true }),
     __metadata("design:type", Object)
 ], SalesOrder.prototype, "walk_in_name", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 20, nullable: true }),
+    __metadata("design:type", Object)
+], SalesOrder.prototype, "walk_in_phone", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 13, nullable: true }),
     __metadata("design:type", Object)

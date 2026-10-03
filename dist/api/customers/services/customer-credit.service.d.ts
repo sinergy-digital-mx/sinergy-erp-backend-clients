@@ -13,6 +13,7 @@ export declare class CustomerCreditService {
     private readonly paymentRepo;
     constructor(creditRepo: Repository<CustomerCredit>, fiscalRepo: Repository<FiscalConfiguration>, salesOrderRepo: Repository<SalesOrder>, paymentRepo: Repository<SalesOrderPayment>);
     listForCustomer(customer: Customer): Promise<CustomerCreditFiscalSnapshot[]>;
+    consumeExceedWaiver(tenantId: string, customerId: number, fiscalConfigurationId: string): Promise<void>;
     getSnapshotForFiscal(customer: Customer, fiscalConfigurationId: string): Promise<CustomerCreditSnapshot>;
     getUsedCredit(tenantId: string, customerId: number, fiscalConfigurationId: string): Promise<number>;
     getEnabledByFiscalMap(tenantId: string, pairs: Array<{

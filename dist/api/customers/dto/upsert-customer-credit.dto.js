@@ -16,6 +16,7 @@ const class_validator_1 = require("class-validator");
 class UpsertCustomerCreditItemDto {
     fiscal_configuration_id;
     credit_enabled;
+    allow_credit_exceed;
     credit_days;
     credit_amount;
 }
@@ -30,6 +31,15 @@ __decorate([
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], UpsertCustomerCreditItemDto.prototype, "credit_enabled", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        description: 'Autorización temporal de una venta que supere el monto. Se apaga al cobrarla.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpsertCustomerCreditItemDto.prototype, "allow_credit_exceed", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ required: false, example: 30 }),
     (0, class_validator_1.IsOptional)(),

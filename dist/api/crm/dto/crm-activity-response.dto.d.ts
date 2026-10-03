@@ -13,6 +13,7 @@ export declare class CrmActivityCustomerDto {
     lastname: string | null;
     company_name: string | null;
     display_name: string;
+    created_by: CrmActivityUserDto | null;
 }
 export declare class CrmActivityItemDto {
     id: string;

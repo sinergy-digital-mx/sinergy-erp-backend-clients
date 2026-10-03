@@ -67,13 +67,15 @@ let ReceiptService = ReceiptService_1 = class ReceiptService {
             if (!purchaseOrder) {
                 throw new common_1.NotFoundException(`Orden de compra no encontrada: ${id}`);
             }
-            const existingBatchesCount = await this.inventoryBatchRepository.count({
+            const linkedBatches = await this.inventoryBatchRepository.find({
                 where: {
                     purchase_order_batch_id: id,
                     tenant_id: tenantId,
                 },
             });
-            if (existingBatchesCount > 0 && purchaseOrder.general_status === 'Creada') {
+            const stillOnHand = linkedBatches.filter((batch) => Number(batch.available_quantity) > 0.001);
+            const liveDirect = stillOnHand.filter((batch) => !batch.transferred_from_batch_id);
+            if (liveDirect.length > 0 && purchaseOrder.general_status === 'Creada') {
                 this.logger.warn(`PO ${id} tiene lotes pero sigue en Creada; se completa el estado a Recibida`);
                 await this.finalizeReceivedStatus(id, tenantId, userId, dto, purchaseOrder);
                 await this.realCostService.recalculateIfEnabled(tenantId, id);
@@ -83,8 +85,8 @@ let ReceiptService = ReceiptService_1 = class ReceiptService {
             if (purchaseOrder.general_status !== 'Creada') {
                 throw new common_1.BadRequestException(`No se puede recibir la orden de compra. Estado actual: ${purchaseOrder.general_status}`);
             }
-            if (existingBatchesCount > 0) {
-                throw new common_1.BadRequestException('La orden de compra ya tiene lotes de inventario. Si una recepción falló antes, contacta a soporte antes de reintentar.');
+            if (stillOnHand.length > 0) {
+                throw new common_1.BadRequestException('La orden de compra ya tiene lotes con existencia. Si una recepción falló antes, contacta a soporte antes de reintentar.');
             }
             await this.receiptValidatorService.validateReceivedItems(dto.received_items);
             await this.assertMeasureUomsExist(dto.received_items, tenantId);

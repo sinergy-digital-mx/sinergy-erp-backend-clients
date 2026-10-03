@@ -43,6 +43,9 @@ let ShippingsController = class ShippingsController {
     findOne(id, req) {
         return this.service.findOne(id, req.user.tenant_id);
     }
+    setStopAddress(id, salesOrderId, dto, req) {
+        return this.service.setStopAddress(id, salesOrderId, dto.customer_address_id, req.user.tenant_id);
+    }
     addStops(id, dto, req) {
         return this.service.addStops(id, dto, req.user.tenant_id);
     }
@@ -116,6 +119,21 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], ShippingsController.prototype, "findOne", null);
+__decorate([
+    (0, common_1.Patch)(':id/stops/:salesOrderId/address'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Shipping', action: 'Update' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Elegir la dirección de entrega de una parada',
+        description: 'Solo en envíos Creado. La parada queda con esa dirección del cliente y se recalcula la ruta.',
+    }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Param)('salesOrderId')),
+    __param(2, (0, common_1.Body)()),
+    __param(3, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, shipping_dto_1.SetShippingStopAddressDto, Object]),
+    __metadata("design:returntype", void 0)
+], ShippingsController.prototype, "setStopAddress", null);
 __decorate([
     (0, common_1.Post)(':id/stops'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Shipping', action: 'Create' }),

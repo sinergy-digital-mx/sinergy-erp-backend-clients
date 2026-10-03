@@ -22,6 +22,7 @@ const customer_address_entity_1 = require("../../entities/customers/customer-add
 const warehouse_entity_1 = require("../../entities/warehouse/warehouse.entity");
 const billing_branch_entity_1 = require("../../entities/billing/billing-branch.entity");
 const fiscal_configuration_entity_1 = require("../../entities/billing/fiscal-configuration.entity");
+const sales_order_entity_1 = require("../../entities/sales-orders/sales-order.entity");
 const user_entity_1 = require("../../entities/users/user.entity");
 const phone_validator_1 = require("../../common/utils/phone.validator");
 const geo_helper_1 = require("../../common/utils/geo.helper");
@@ -32,7 +33,10 @@ const customer_assignment_service_1 = require("./services/customer-assignment.se
 const fiscal_invoice_readiness_util_1 = require("./utils/fiscal-invoice-readiness.util");
 const map_customer_checkout_util_1 = require("./utils/map-customer-checkout.util");
 const customer_credit_util_1 = require("./utils/customer-credit.util");
+const customer_purchase_trend_util_1 = require("./utils/customer-purchase-trend.util");
 const assignment_change_util_1 = require("../../common/utils/assignment-change.util");
+const sat_csf_pdf_util_1 = require("./utils/sat-csf-pdf.util");
+const sat_csf_util_1 = require("./utils/sat-csf.util");
 const GENERIC_RFCS = new Set(['XAXX010101000', 'XEXX010101000']);
 const DUPLICATE_MATCH_LIMIT = 10;
 let CustomersService = class CustomersService {
@@ -43,10 +47,11 @@ let CustomersService = class CustomersService {
     fiscalConfigRepo;
     userRepo;
     addressRepo;
+    salesOrderRepo;
     customerGroupsService;
     customerCreditService;
     customerAssignmentService;
-    constructor(customerRepo, statusRepo, warehouseRepo, billingBranchRepo, fiscalConfigRepo, userRepo, addressRepo, customerGroupsService, customerCreditService, customerAssignmentService) {
+    constructor(customerRepo, statusRepo, warehouseRepo, billingBranchRepo, fiscalConfigRepo, userRepo, addressRepo, salesOrderRepo, customerGroupsService, customerCreditService, customerAssignmentService) {
         this.customerRepo = customerRepo;
         this.statusRepo = statusRepo;
         this.warehouseRepo = warehouseRepo;
@@ -54,12 +59,15 @@ let CustomersService = class CustomersService {
         this.fiscalConfigRepo = fiscalConfigRepo;
         this.userRepo = userRepo;
         this.addressRepo = addressRepo;
+        this.salesOrderRepo = salesOrderRepo;
         this.customerGroupsService = customerGroupsService;
         this.customerCreditService = customerCreditService;
         this.customerAssignmentService = customerAssignmentService;
     }
     async resolveDefaultStatus() {
-        const active = await this.statusRepo.findOne({ where: { code: 'ACTIVE' } });
+        const active = await this.statusRepo.findOne({
+            where: { code: 'ACTIVE' },
+        });
         if (active)
             return active;
         return this.statusRepo.findOneByOrFail({ id: 1 });
@@ -90,15 +98,11 @@ let CustomersService = class CustomersService {
                 additionalPhoneCode = parsed.countryCode;
             }
         }
-        const warehouse = dto.warehouse_id !== undefined
-            ? await this.resolveWarehouseOrThrow(dto.warehouse_id, tenantId)
-            : undefined;
+        const warehouse = dto.warehouse_id !== undefined ? await this.resolveWarehouseOrThrow(dto.warehouse_id, tenantId) : undefined;
         const groupId = await this.customerGroupsService.assertBelongsToOrganization(dto.group_id, tenantId);
         const registration = await this.resolveRegistrationAssignment(dto, tenantId);
         const assignedSellerUserId = await this.resolveAssignedSellerOrThrow(dto.assigned_seller_user_id, tenantId);
-        const registeredByUserId = await this.resolveRegisteredByUserOrThrow(dto.registered_by_user_id !== undefined
-            ? dto.registered_by_user_id
-            : currentUserId, tenantId);
+        const registeredByUserId = await this.resolveRegisteredByUserOrThrow(dto.registered_by_user_id !== undefined ? dto.registered_by_user_id : currentUserId, tenantId);
         delete dto.registered_fiscal_configuration_id;
         delete dto.registered_billing_branch_id;
         delete dto.assigned_seller_user_id;
@@ -147,11 +151,7 @@ let CustomersService = class CustomersService {
     async update(id, dto, tenantId, currentUserId) {
         const customer = await this.customerRepo.findOneOrFail({
             where: { id, tenant_id: tenantId },
-            relations: [
-                'registered_fiscal_configuration',
-                'registered_billing_branch',
-                'assigned_seller_user',
-            ],
+            relations: ['registered_fiscal_configuration', 'registered_billing_branch', 'assigned_seller_user'],
         });
         const previousAssignment = {
             fiscalId: customer.registered_fiscal_configuration_id,
@@ -159,7 +159,9 @@ let CustomersService = class CustomersService {
             sellerId: customer.assigned_seller_user_id,
         };
         if (dto.status_id) {
-            const status = await this.statusRepo.findOneByOrFail({ id: dto.status_id });
+            const status = await this.statusRepo.findOneByOrFail({
+                id: dto.status_id,
+            });
             customer.status = status;
         }
         if (dto.phone) {
@@ -170,10 +172,7 @@ let CustomersService = class CustomersService {
             }
         }
         if (dto.additional_phone) {
-            const defaultCode = dto.additional_phone_code ??
-                customer.additional_phone_code ??
-                dto.phone_code ??
-                customer.phone_code;
+            const defaultCode = dto.additional_phone_code ?? customer.additional_phone_code ?? dto.phone_code ?? customer.phone_code;
             const parsed = (0, phone_validator_1.parsePhoneNumber)(dto.additional_phone, defaultCode);
             if (parsed.isValid) {
                 dto.additional_phone = parsed.nationalNumber;
@@ -187,8 +186,7 @@ let CustomersService = class CustomersService {
             customer.group_id = await this.customerGroupsService.assertBelongsToOrganization(dto.group_id, tenantId);
             delete dto.group_id;
         }
-        if (dto.registered_fiscal_configuration_id !== undefined ||
-            dto.registered_billing_branch_id !== undefined) {
+        if (dto.registered_fiscal_configuration_id !== undefined || dto.registered_billing_branch_id !== undefined) {
             const registration = await this.resolveRegistrationAssignment(dto, tenantId, customer);
             customer.registered_fiscal_configuration_id = registration.fiscalId;
             customer.registered_billing_branch_id = registration.branchId;
@@ -234,6 +232,31 @@ let CustomersService = class CustomersService {
         }
         return enriched;
     }
+    async applySatConstancia(id, file, tenantId, currentUserId) {
+        if (!file?.buffer?.length) {
+            throw new common_1.BadRequestException('Sube el PDF de la constancia del SAT.');
+        }
+        if ((file.size ?? file.buffer.length) > 10 * 1024 * 1024) {
+            throw new common_1.BadRequestException('El PDF no puede superar 10 MB.');
+        }
+        const name = (file.originalname ?? '').toLowerCase();
+        const mime = (file.mimetype ?? '').toLowerCase();
+        const header = file.buffer.subarray(0, 5).toString('utf8');
+        if (header !== '%PDF-' || (mime !== 'application/pdf' && !name.endsWith('.pdf'))) {
+            throw new common_1.BadRequestException('Sube el PDF de la constancia del SAT.');
+        }
+        try {
+            const items = await (0, sat_csf_pdf_util_1.extractSatCsfTextItems)(file.buffer);
+            const parsed = (0, sat_csf_util_1.parseSatCsfTextItems)(items);
+            return await this.update(id, toSatConstanciaUpdate(parsed), tenantId, currentUserId);
+        }
+        catch (error) {
+            if (error instanceof sat_csf_util_1.SatCsfParseError) {
+                throw new common_1.BadRequestException(error.message);
+            }
+            throw error;
+        }
+    }
     async findAll(tenantId, query) {
         let page = Number(query?.page) || 1;
         let limit = Number(query?.limit) || 20;
@@ -244,17 +267,14 @@ let CustomersService = class CustomersService {
         if (limit > 100)
             limit = 100;
         const skip = (page - 1) * limit;
-        const queryBuilder = this.customerRepo.createQueryBuilder('customer')
+        const queryBuilder = this.customerRepo
+            .createQueryBuilder('customer')
             .leftJoinAndSelect('customer.status', 'status')
             .leftJoinAndSelect('customer.group', 'group', 'group.tenant_id = customer.tenant_id')
             .leftJoinAndSelect('customer.warehouse', 'warehouse')
             .leftJoinAndSelect('customer.registered_billing_branch', 'registeredBranch')
             .leftJoin('customer.registered_fiscal_configuration', 'registeredFiscal')
-            .addSelect([
-            'registeredFiscal.id',
-            'registeredFiscal.razon_social',
-            'registeredFiscal.rfc',
-        ])
+            .addSelect(['registeredFiscal.id', 'registeredFiscal.razon_social', 'registeredFiscal.rfc'])
             .leftJoin('customer.registered_by_user', 'registeredByUser')
             .addSelect([
             'registeredByUser.id',
@@ -272,7 +292,15 @@ let CustomersService = class CustomersService {
         ])
             .leftJoin('customer.contracts', 'contracts')
             .leftJoin('contracts.property', 'property')
-            .addSelect(['contracts.id', 'contracts.status', 'contracts.contract_number', 'property.id', 'property.code', 'property.name', 'property.status'])
+            .addSelect([
+            'contracts.id',
+            'contracts.status',
+            'contracts.contract_number',
+            'property.id',
+            'property.code',
+            'property.name',
+            'property.status',
+        ])
             .where('customer.tenant_id = :tenantId', { tenantId });
         if (query?.search) {
             const term = `%${query.search.trim()}%`;
@@ -301,17 +329,18 @@ let CustomersService = class CustomersService {
                 )`, { search: term });
         }
         if (query?.status_id) {
-            queryBuilder.andWhere('customer.status_id = :status_id', { status_id: query.status_id });
+            queryBuilder.andWhere('customer.status_id = :status_id', {
+                status_id: query.status_id,
+            });
         }
         if (query?.group_id) {
-            queryBuilder.andWhere('customer.group_id = :group_id', { group_id: query.group_id });
+            queryBuilder.andWhere('customer.group_id = :group_id', {
+                group_id: query.group_id,
+            });
         }
         queryBuilder.orderBy('customer.created_at', 'DESC');
         const total = await queryBuilder.getCount();
-        const customers = await queryBuilder
-            .skip(skip)
-            .take(limit)
-            .getMany();
+        const customers = await queryBuilder.skip(skip).take(limit).getMany();
         const totalPages = Math.ceil(total / limit);
         return {
             data: customers,
@@ -331,11 +360,7 @@ let CustomersService = class CustomersService {
             .leftJoinAndSelect('customer.warehouse', 'warehouse')
             .leftJoinAndSelect('customer.registered_billing_branch', 'registeredBranch')
             .leftJoin('customer.registered_fiscal_configuration', 'registeredFiscal')
-            .addSelect([
-            'registeredFiscal.id',
-            'registeredFiscal.razon_social',
-            'registeredFiscal.rfc',
-        ])
+            .addSelect(['registeredFiscal.id', 'registeredFiscal.razon_social', 'registeredFiscal.rfc'])
             .leftJoin('customer.registered_by_user', 'registeredByUser')
             .addSelect([
             'registeredByUser.id',
@@ -362,14 +387,20 @@ let CustomersService = class CustomersService {
         return this.enrichCustomer(customer, fiscalConfigurationId);
     }
     async listCredits(id, tenantId) {
-        const customer = await this.customerRepo.findOneBy({ id, tenant_id: tenantId });
+        const customer = await this.customerRepo.findOneBy({
+            id,
+            tenant_id: tenantId,
+        });
         if (!customer) {
             throw new common_1.NotFoundException('Cliente no encontrado');
         }
         return this.customerCreditService.listForCustomer(customer);
     }
     async upsertCredits(id, dto, tenantId) {
-        const customer = await this.customerRepo.findOneBy({ id, tenant_id: tenantId });
+        const customer = await this.customerRepo.findOneBy({
+            id,
+            tenant_id: tenantId,
+        });
         if (!customer) {
             throw new common_1.NotFoundException('Cliente no encontrado');
         }
@@ -383,11 +414,7 @@ let CustomersService = class CustomersService {
             .leftJoinAndSelect('customer.warehouse', 'warehouse')
             .leftJoinAndSelect('customer.registered_billing_branch', 'registeredBranch')
             .leftJoin('customer.registered_fiscal_configuration', 'registeredFiscal')
-            .addSelect([
-            'registeredFiscal.id',
-            'registeredFiscal.razon_social',
-            'registeredFiscal.rfc',
-        ])
+            .addSelect(['registeredFiscal.id', 'registeredFiscal.razon_social', 'registeredFiscal.rfc'])
             .leftJoin('customer.registered_by_user', 'registeredByUser')
             .addSelect([
             'registeredByUser.id',
@@ -416,11 +443,7 @@ let CustomersService = class CustomersService {
             .leftJoinAndSelect('customer.warehouse', 'warehouse')
             .leftJoinAndSelect('customer.registered_billing_branch', 'registeredBranch')
             .leftJoin('customer.registered_fiscal_configuration', 'registeredFiscal')
-            .addSelect([
-            'registeredFiscal.id',
-            'registeredFiscal.razon_social',
-            'registeredFiscal.rfc',
-        ])
+            .addSelect(['registeredFiscal.id', 'registeredFiscal.razon_social', 'registeredFiscal.rfc'])
             .leftJoin('customer.registered_by_user', 'registeredByUser')
             .addSelect([
             'registeredByUser.id',
@@ -479,9 +502,7 @@ let CustomersService = class CustomersService {
         const gpsOk = (0, geo_helper_1.hasValidGps)(address);
         address.has_gps = gpsOk ? 1 : 0;
         if (dto.latitude !== undefined || dto.longitude !== undefined) {
-            address.address_source =
-                dto.address_source ||
-                    (gpsOk ? 'manual' : 'without_location');
+            address.address_source = dto.address_source || (gpsOk ? 'manual' : 'without_location');
         }
         return this.addressRepo.save(address);
     }
@@ -624,9 +645,7 @@ let CustomersService = class CustomersService {
             this.normalizePersonName(customer.lastname) === input.lastname) {
             reasons.push('name');
         }
-        if (input.rfc &&
-            !GENERIC_RFCS.has(input.rfc) &&
-            this.normalizeRfc(customer.fiscal_rfc) === input.rfc) {
+        if (input.rfc && !GENERIC_RFCS.has(input.rfc) && this.normalizeRfc(customer.fiscal_rfc) === input.rfc) {
             reasons.push('rfc');
         }
         return reasons;
@@ -728,10 +747,10 @@ let CustomersService = class CustomersService {
         const branchTouched = dto.registered_billing_branch_id !== undefined;
         let fiscalId = fiscalTouched
             ? await this.resolveRegisteredFiscalOrThrow(dto.registered_fiscal_configuration_id, tenantId)
-            : existing?.registered_fiscal_configuration_id ?? null;
+            : (existing?.registered_fiscal_configuration_id ?? null);
         let branchId = branchTouched
             ? await this.resolveRegisteredBranchOrThrow(dto.registered_billing_branch_id, tenantId)
-            : existing?.registered_billing_branch_id ?? null;
+            : (existing?.registered_billing_branch_id ?? null);
         fiscalId = fiscalId ?? null;
         branchId = branchId ?? null;
         if (branchId) {
@@ -813,10 +832,10 @@ let CustomersService = class CustomersService {
             return;
         }
         const composed = (0, fiscal_domicile_util_1.composeFiscalAddress)({
-            street: dto.fiscal_street ?? existing?.fiscal_street,
-            exteriorNumber: dto.fiscal_exterior_number ?? existing?.fiscal_exterior_number,
-            interiorNumber: dto.fiscal_interior_number ?? existing?.fiscal_interior_number,
-            colonia: dto.fiscal_colonia ?? existing?.fiscal_colonia,
+            street: (0, fiscal_domicile_util_1.pickFiscalPart)(dto.fiscal_street, existing?.fiscal_street),
+            exteriorNumber: (0, fiscal_domicile_util_1.pickFiscalPart)(dto.fiscal_exterior_number, existing?.fiscal_exterior_number),
+            interiorNumber: (0, fiscal_domicile_util_1.pickFiscalPart)(dto.fiscal_interior_number, existing?.fiscal_interior_number),
+            colonia: (0, fiscal_domicile_util_1.pickFiscalPart)(dto.fiscal_colonia, existing?.fiscal_colonia),
         });
         if (composed) {
             dto.fiscal_address = composed;
@@ -840,8 +859,7 @@ let CustomersService = class CustomersService {
         const fiscal = (0, fiscal_invoice_readiness_util_1.getFiscalInvoiceReadiness)(customer);
         const activeCredit = fiscalConfigurationId
             ? await this.customerCreditService.getSnapshotForFiscal(customer, fiscalConfigurationId)
-            : credits.find((item) => item.credit_enabled) ??
-                (0, customer_credit_util_1.buildCreditSnapshot)({ creditEnabled: false });
+            : (credits.find((item) => item.credit_enabled) ?? (0, customer_credit_util_1.buildCreditSnapshot)({ creditEnabled: false }));
         const mapped = (0, map_customer_checkout_util_1.mapCustomerCheckoutFields)(customer, credits, fiscal, activeCredit);
         const assignment_history = await this.customerAssignmentService.listForExistingCustomer(customer.id, customer.tenant_id);
         const rest = { ...customer };
@@ -852,6 +870,97 @@ let CustomersService = class CustomersService {
             ...rest,
             ...mapped,
             assignment_history,
+        };
+    }
+    async getSalesStats(customerId, tenantId) {
+        const customer = await this.customerRepo.findOne({
+            where: { id: customerId, tenant_id: tenantId },
+            select: ['id'],
+        });
+        if (!customer) {
+            throw new common_1.NotFoundException('Cliente no encontrado');
+        }
+        const active = `so.general_status <> 'Cancelada'`;
+        const invoiced = `EXISTS (
+            SELECT 1 FROM electronic_invoices ei
+            WHERE ei.tenant_id = so.tenant_id
+              AND ei.source_module = 'sales_orders'
+              AND ei.source_id = so.id
+              AND ei.stamp_status IN ('stamped', 'cancel_pending', 'cancel_error')
+              AND (ei.sat_status IS NULL OR ei.sat_status <> 'Cancelado')
+        )`;
+        const balanceDue = `GREATEST(
+            so.total - COALESCE((
+                SELECT SUM(p.amount)
+                FROM inv_s_sales_order_payments p
+                WHERE p.sales_order_id = so.id AND p.tenant_id = so.tenant_id
+            ), 0),
+            0
+        )`;
+        const row = await this.salesOrderRepo
+            .createQueryBuilder('so')
+            .select('COUNT(so.id)', 'orders_count')
+            .addSelect(`COALESCE(SUM(CASE WHEN ${active} THEN 1 ELSE 0 END), 0)`, 'active_orders_count')
+            .addSelect(`COALESCE(SUM(CASE WHEN so.general_status = 'Cancelada' THEN 1 ELSE 0 END), 0)`, 'cancelled_count')
+            .addSelect(`COALESCE(SUM(CASE WHEN ${active} THEN so.total ELSE 0 END), 0)`, 'sales_total')
+            .addSelect(`MAX(CASE WHEN ${active} THEN so.created_at END)`, 'last_order_at')
+            .addSelect(`COALESCE(SUM(CASE WHEN ${active} AND ${invoiced} THEN 1 ELSE 0 END), 0)`, 'invoiced_count')
+            .addSelect(`COALESCE(SUM(CASE WHEN ${active} AND so.payment_status = 'Pagado' THEN 1 ELSE 0 END), 0)`, 'paid_count')
+            .addSelect(`COALESCE(SUM(CASE WHEN ${active} AND so.payment_status = 'Pagado' THEN so.total ELSE 0 END), 0)`, 'paid_total')
+            .addSelect(`COALESCE(SUM(CASE WHEN ${active} AND so.payment_status = 'Pendiente' THEN 1 ELSE 0 END), 0)`, 'pending_count')
+            .addSelect(`COALESCE(SUM(CASE WHEN ${active} AND so.payment_status = 'Pendiente' THEN ${balanceDue} ELSE 0 END), 0)`, 'pending_total')
+            .where('so.customer_id = :customerId', { customerId })
+            .andWhere('so.tenant_id = :tenantId', { tenantId })
+            .getRawOne();
+        const lastOrder = await this.salesOrderRepo.findOne({
+            where: {
+                customer_id: customerId,
+                tenant_id: tenantId,
+                general_status: (0, typeorm_2.Not)('Cancelada'),
+            },
+            select: ['folio', 'created_at'],
+            order: { created_at: 'DESC' },
+        });
+        const money = (value) => Number(Number(value ?? 0).toFixed(2));
+        const count = (value) => Number(value ?? 0);
+        const activeOrders = count(row?.active_orders_count);
+        const salesTotal = money(row?.sales_total);
+        return {
+            orders_count: count(row?.orders_count),
+            active_orders_count: activeOrders,
+            cancelled_count: count(row?.cancelled_count),
+            sales_total: salesTotal,
+            paid_total: money(row?.paid_total),
+            paid_count: count(row?.paid_count),
+            pending_total: money(row?.pending_total),
+            pending_count: count(row?.pending_count),
+            invoiced_count: count(row?.invoiced_count),
+            average_order: activeOrders > 0 ? Number((salesTotal / activeOrders).toFixed(2)) : 0,
+            last_order_at: lastOrder?.created_at ?? row?.last_order_at ?? null,
+            last_order_folio: lastOrder?.folio ?? null,
+        };
+    }
+    async getPurchaseTrend(customerId, tenantId) {
+        const customer = await this.customerRepo.findOne({
+            where: { id: customerId, tenant_id: tenantId },
+            select: ['id'],
+        });
+        if (!customer) {
+            throw new common_1.NotFoundException('Cliente no encontrado');
+        }
+        const from = (0, customer_purchase_trend_util_1.formatUtcDateTime)(new Date((0, customer_purchase_trend_util_1.rollingWindowStart)().getTime() - 24 * 60 * 60 * 1000));
+        const rows = await this.salesOrderRepo
+            .createQueryBuilder('so')
+            .select('so.created_at', 'created_at')
+            .addSelect('so.total', 'total')
+            .where('so.customer_id = :customerId', { customerId })
+            .andWhere('so.tenant_id = :tenantId', { tenantId })
+            .andWhere(`so.general_status <> 'Cancelada'`)
+            .andWhere('so.created_at >= :from', { from })
+            .getRawMany();
+        return {
+            currency: 'MXN',
+            ...(0, customer_purchase_trend_util_1.buildPurchaseTrend)(rows),
         };
     }
 };
@@ -865,7 +974,9 @@ exports.CustomersService = CustomersService = __decorate([
     __param(4, (0, typeorm_1.InjectRepository)(fiscal_configuration_entity_1.FiscalConfiguration)),
     __param(5, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
     __param(6, (0, typeorm_1.InjectRepository)(customer_address_entity_1.CustomerAddress)),
+    __param(7, (0, typeorm_1.InjectRepository)(sales_order_entity_1.SalesOrder)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
@@ -876,4 +987,28 @@ exports.CustomersService = CustomersService = __decorate([
         customer_credit_service_1.CustomerCreditService,
         customer_assignment_service_1.CustomerAssignmentService])
 ], CustomersService);
+function toSatConstanciaUpdate(data) {
+    const dto = {
+        fiscal_rfc: data.fiscal_rfc,
+        fiscal_person_type: data.fiscal_person_type,
+        fiscal_razon_social: data.fiscal_razon_social,
+        fiscal_postal_code: data.fiscal_postal_code,
+        fiscal_country: data.fiscal_country,
+    };
+    const optional = [
+        'fiscal_street',
+        'fiscal_exterior_number',
+        'fiscal_interior_number',
+        'fiscal_colonia',
+        'fiscal_localidad',
+        'fiscal_municipio',
+        'fiscal_state',
+    ];
+    for (const key of optional) {
+        if (data[key] !== undefined) {
+            dto[key] = data[key];
+        }
+    }
+    return dto;
+}
 //# sourceMappingURL=customers.service.js.map

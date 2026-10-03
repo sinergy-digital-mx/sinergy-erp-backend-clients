@@ -53,6 +53,9 @@ let SalesOrderController = class SalesOrderController {
         this.invoiceEmailService = invoiceEmailService;
         this.shippingsService = shippingsService;
     }
+    async getSalesTrend(filters, req) {
+        return this.salesOrderService.getSalesTrend(req.user.tenant_id, filters);
+    }
     async create(dto, req) {
         return this.salesOrderService.create(dto, req.user.tenant_id, req.user.id);
     }
@@ -215,13 +218,25 @@ let SalesOrderController = class SalesOrderController {
             documents,
         };
     }
+    async downloadTicketReciboPdf(id, req, res) {
+        const { buffer, fileName, generated } = await this.posReceiptService.getPosTicketPdf(req.user.tenant_id, id, req.user.id);
+        if (generated) {
+            res.setHeader('X-Ticket-Generated', '1');
+        }
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        res.send(buffer);
+    }
     async downloadTicketReciboRaw(id, req, res) {
         const { buffer, fileName } = await this.posReceiptService.getPosTicketRawBuffer(req.user.tenant_id, id);
         res.setHeader('Content-Type', 'application/octet-stream');
         res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
         res.send(buffer);
     }
-    async findOne(id, req) {
+    async findOne(id, req, filters = {}) {
+        if (id === 'sales-trend') {
+            return this.salesOrderService.getSalesTrend(req.user.tenant_id, filters);
+        }
         const detail = await this.salesOrderService.findOneDetail(id, req.user.tenant_id);
         const documents = await this.documentsService.getDocuments(id);
         const shipping = await this.shippingsService.getShippingSummaryForOrder(id, req.user.tenant_id);
@@ -263,6 +278,17 @@ let SalesOrderController = class SalesOrderController {
     }
 };
 exports.SalesOrderController = SalesOrderController;
+__decorate([
+    (0, common_1.Get)('sales-trend'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Ventas de los últimos 12 meses con los filtros del listado',
+    }),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [dto_1.QuerySalesOrderDto, Object]),
+    __metadata("design:returntype", Promise)
+], SalesOrderController.prototype, "getSalesTrend", null);
 __decorate([
     (0, common_1.Post)(),
     (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
@@ -677,6 +703,19 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], SalesOrderController.prototype, "regenerateTicketRecibo", null);
 __decorate([
+    (0, common_1.Get)(':id/ticket-recibo/pdf'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'PDF del ticket térmico',
+        description: 'PDF de 80 mm con el texto del ticket. Si todavía no hay ticket, lo genera y luego arma el PDF.',
+    }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __param(2, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], SalesOrderController.prototype, "downloadTicketReciboPdf", null);
+__decorate([
     (0, common_1.Get)(':id/ticket-recibo/raw'),
     (0, swagger_1.ApiOperation)({
         summary: 'Descargar bytes ESC/POS del ticket (binario)',
@@ -696,8 +735,9 @@ __decorate([
     }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Req)()),
+    __param(2, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:paramtypes", [String, Object, dto_1.QuerySalesOrderDto]),
     __metadata("design:returntype", Promise)
 ], SalesOrderController.prototype, "findOne", null);
 __decorate([

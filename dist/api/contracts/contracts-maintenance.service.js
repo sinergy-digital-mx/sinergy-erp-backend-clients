@@ -66,8 +66,9 @@ let ContractsMaintenanceService = ContractsMaintenanceService_1 = class Contract
              ), 0)
            ),
            monthly_payment = CASE
+             WHEN c.down_payment_financed = 1 AND COALESCE(c.down_payment_target, 0) <= 0 THEN 0
              WHEN c.down_payment_financed = 1 AND c.payment_months > 0 THEN ROUND(
-               COALESCE(c.down_payment_target, 0) / c.payment_months,
+               GREATEST(0, c.total_price - COALESCE(c.down_payment_target, 0)) / c.payment_months,
                2
              )
              WHEN c.payment_months > 0 THEN ROUND(

@@ -1,14 +1,19 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.POS_CALENDAR_TIMEZONE = void 0;
+exports.posCalendarDateSql = posCalendarDateSql;
 exports.getTodayDateString = getTodayDateString;
 exports.toDateOnlyString = toDateOnlyString;
 exports.resolvePosCalendarRange = resolvePosCalendarRange;
 exports.isPreviousDayOpenShift = isPreviousDayOpenShift;
 exports.buildUnclosedShiftAlert = buildUnclosedShiftAlert;
-const POS_CALENDAR_TIMEZONE = 'America/Mexico_City';
+exports.POS_CALENDAR_TIMEZONE = 'America/Tijuana';
+function posCalendarDateSql(column) {
+    return `DATE(CONVERT_TZ(${column}, '+00:00', '${exports.POS_CALENDAR_TIMEZONE}'))`;
+}
 function getTodayDateString(now = new Date()) {
     return new Intl.DateTimeFormat('en-CA', {
-        timeZone: POS_CALENDAR_TIMEZONE,
+        timeZone: exports.POS_CALENDAR_TIMEZONE,
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',

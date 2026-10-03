@@ -28,11 +28,49 @@ let PermissionGuard = PermissionGuard_1 = class PermissionGuard {
         this.tenantContextService = tenantContextService;
     }
     async canActivate(context) {
-        const requiredPermissions = this.reflector.getAllAndOverride(require_permissions_decorator_1.PERMISSIONS_KEY, [context.getHandler(), context.getClass()]);
-        if (!requiredPermissions || requiredPermissions.length === 0) {
+        const targets = [context.getHandler(), context.getClass()];
+        const requiredPermissions = this.reflector.getAllAndOverride(require_permissions_decorator_1.PERMISSIONS_KEY, targets);
+        if (requiredPermissions?.length) {
+            return this.authorizeAll(context, requiredPermissions);
+        }
+        const anyPermissions = this.reflector.getAllAndOverride(require_permissions_decorator_1.PERMISSIONS_ANY_KEY, targets);
+        if (!anyPermissions?.length) {
             this.logger.debug('No permissions required for this route');
             return true;
         }
+        return this.authorizeAny(context, anyPermissions);
+    }
+    async authorizeAll(context, requiredPermissions) {
+        const { user, tenantId } = this.requireUserContext(context);
+        this.logger.debug(`Checking permissions for user ${user.user_id} in tenant ${tenantId}: ${requiredPermissions
+            .map(p => `${p.entityType}:${p.action}`)
+            .join(', ')}`);
+        for (const permission of requiredPermissions) {
+            const hasPermission = await this.checkPermission(user.user_id, tenantId, permission);
+            if (!hasPermission) {
+                this.logger.warn(`Permission denied for user ${user.user_id} in tenant ${tenantId}: missing ${permission.entityType}:${permission.action}`);
+                error_utils_1.RBACErrorUtils.throwPermissionDenied(permission.entityType, permission.action, user.user_id, tenantId);
+            }
+        }
+        this.logger.debug(`All permissions granted for user ${user.user_id} in tenant ${tenantId}`);
+        return true;
+    }
+    async authorizeAny(context, permissions) {
+        const { user, tenantId } = this.requireUserContext(context);
+        for (const permission of permissions) {
+            const hasPermission = await this.checkPermission(user.user_id, tenantId, permission);
+            if (hasPermission) {
+                this.logger.debug(`Permission granted for user ${user.user_id}: ${permission.entityType}:${permission.action}`);
+                return true;
+            }
+        }
+        const denied = permissions[0];
+        this.logger.warn(`Permission denied for user ${user.user_id} in tenant ${tenantId}: missing any of ${permissions
+            .map(p => `${p.entityType}:${p.action}`)
+            .join(', ')}`);
+        error_utils_1.RBACErrorUtils.throwPermissionDenied(denied.entityType, denied.action, user.user_id, tenantId);
+    }
+    requireUserContext(context) {
         const request = context.switchToHttp().getRequest();
         const user = request.user;
         if (!user) {
@@ -45,28 +83,19 @@ let PermissionGuard = PermissionGuard_1 = class PermissionGuard {
             error_utils_1.RBACErrorUtils.throwAuthenticationRequired('Tenant context is required');
         }
         this.tenantContextService.setTenantContext(tenantId, user.user_id);
-        this.logger.debug(`Checking permissions for user ${user.user_id} in tenant ${tenantId}: ${requiredPermissions
-            .map(p => `${p.entityType}:${p.action}`)
-            .join(', ')}`);
-        for (const permission of requiredPermissions) {
-            try {
-                const hasPermission = await this.permissionService.hasPermission(user.user_id, tenantId, permission.entityType, permission.action);
-                if (!hasPermission) {
-                    this.logger.warn(`Permission denied for user ${user.user_id} in tenant ${tenantId}: missing ${permission.entityType}:${permission.action}`);
-                    error_utils_1.RBACErrorUtils.throwPermissionDenied(permission.entityType, permission.action, user.user_id, tenantId);
-                }
-                this.logger.debug(`Permission granted for user ${user.user_id}: ${permission.entityType}:${permission.action}`);
-            }
-            catch (error) {
-                if (error_utils_1.RBACErrorUtils.isRBACException(error)) {
-                    throw error;
-                }
-                this.logger.error(`Error checking permission ${permission.entityType}:${permission.action} for user ${user.user_id}:`, error);
-                error_utils_1.RBACErrorUtils.throwSystemError('PermissionGuard', 'canActivate', error);
-            }
+        return { user, tenantId };
+    }
+    async checkPermission(userId, tenantId, permission) {
+        try {
+            return await this.permissionService.hasPermission(userId, tenantId, permission.entityType, permission.action);
         }
-        this.logger.debug(`All permissions granted for user ${user.user_id} in tenant ${tenantId}`);
-        return true;
+        catch (error) {
+            if (error_utils_1.RBACErrorUtils.isRBACException(error)) {
+                throw error;
+            }
+            this.logger.error(`Error checking permission ${permission.entityType}:${permission.action} for user ${userId}:`, error);
+            error_utils_1.RBACErrorUtils.throwSystemError('PermissionGuard', 'canActivate', error);
+        }
     }
     extractTenantId(request, user) {
         const headerTenantId = request.headers['x-tenant-id'] ||

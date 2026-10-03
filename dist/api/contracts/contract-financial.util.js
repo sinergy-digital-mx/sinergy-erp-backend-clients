@@ -7,6 +7,7 @@ exports.computeDownPaymentRemaining = computeDownPaymentRemaining;
 exports.getDownPaymentApplied = getDownPaymentApplied;
 exports.computeFinancedAmount = computeFinancedAmount;
 exports.computeMonthlyPayment = computeMonthlyPayment;
+exports.buildInstallmentAmounts = buildInstallmentAmounts;
 exports.sumPaidFromPaymentRows = sumPaidFromPaymentRows;
 exports.computeTotalPaid = computeTotalPaid;
 exports.computeRemainingBalance = computeRemainingBalance;
@@ -57,25 +58,33 @@ function getDownPaymentApplied(contract) {
     return Number(contract.down_payment ?? 0);
 }
 function computeFinancedAmount(totalPrice, contract) {
-    if (contract.down_payment_financed) {
-        return Math.round(getDownPaymentTarget(contract) * 100) / 100;
+    if (contract.down_payment_financed && getDownPaymentTarget(contract) <= 0) {
+        return 0;
     }
     const baseline = getDownPaymentTarget(contract);
-    return Math.round((totalPrice - baseline) * 100) / 100;
+    return Math.max(0, Math.round((totalPrice - baseline) * 100) / 100);
 }
 function computeMonthlyPayment(totalPrice, contract, paymentMonths) {
-    if (contract.down_payment_financed) {
-        const target = getDownPaymentTarget(contract);
-        if (target <= 0 || !Number.isFinite(paymentMonths) || paymentMonths < 1) {
-            return 0;
-        }
-        return Math.round((target / paymentMonths) * 100) / 100;
-    }
     const financed = computeFinancedAmount(totalPrice, contract);
     if (financed <= 0 || !Number.isFinite(paymentMonths) || paymentMonths < 1) {
         return 0;
     }
     return Math.round((financed / paymentMonths) * 100) / 100;
+}
+function buildInstallmentAmounts(balance, months) {
+    const count = Math.max(0, Math.floor(months));
+    if (count < 1) {
+        return [];
+    }
+    const total = Math.max(0, Math.round(balance * 100) / 100);
+    if (total <= 0) {
+        return Array.from({ length: count }, () => 0);
+    }
+    const base = Math.round((total / count) * 100) / 100;
+    const amounts = Array.from({ length: count }, () => base);
+    const allocated = Math.round(base * (count - 1) * 100) / 100;
+    amounts[count - 1] = Math.round((total - allocated) * 100) / 100;
+    return amounts;
 }
 function sumPaidFromPaymentRows(payments) {
     return payments.reduce((sum, payment) => {

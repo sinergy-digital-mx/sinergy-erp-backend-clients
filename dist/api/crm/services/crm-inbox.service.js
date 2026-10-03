@@ -43,8 +43,9 @@ let CrmInboxService = class CrmInboxService {
         this.userRepo = userRepo;
     }
     async list(tenantId, actorUserId, hasAdminRole, query) {
-        const isCrmAdmin = await this.resolveCrmAdmin(tenantId, actorUserId, hasAdminRole);
-        const scopeUserId = this.resolveScopeUserId(isCrmAdmin, actorUserId, query.user_id);
+        const scope = await this.resolveActivityScope(tenantId, actorUserId, hasAdminRole, query.user_id);
+        const isCrmAdmin = scope.isCrmAdmin;
+        const scopeUserId = scope.userId;
         let page = Number(query.page) || 1;
         let limit = Number(query.limit) || 20;
         if (page < 1)
@@ -53,7 +54,7 @@ let CrmInboxService = class CrmInboxService {
             limit = 1;
         if (limit > 100)
             limit = 100;
-        const qb = this.filteredListQuery(tenantId, scopeUserId, query);
+        const qb = this.filteredListQuery(tenantId, scopeUserId, query, scope.branchIds);
         const total = await qb.clone().getCount();
         const rows = await qb
             .skip((page - 1) * limit)
@@ -73,9 +74,10 @@ let CrmInboxService = class CrmInboxService {
         };
     }
     async listForExport(tenantId, actorUserId, hasAdminRole, query) {
-        const isCrmAdmin = await this.resolveCrmAdmin(tenantId, actorUserId, hasAdminRole);
-        const scopeUserId = this.resolveScopeUserId(isCrmAdmin, actorUserId, query.user_id);
-        const qb = this.filteredListQuery(tenantId, scopeUserId, query);
+        const scope = await this.resolveActivityScope(tenantId, actorUserId, hasAdminRole, query.user_id);
+        const isCrmAdmin = scope.isCrmAdmin;
+        const scopeUserId = scope.userId;
+        const qb = this.filteredListQuery(tenantId, scopeUserId, query, scope.branchIds);
         const rows = await qb.take(20000).getMany();
         const now = new Date();
         const period = query.period ?? query_crm_activity_dto_1.CrmReportPeriod.MONTH;
@@ -89,11 +91,12 @@ let CrmInboxService = class CrmInboxService {
         };
     }
     async stats(tenantId, actorUserId, hasAdminRole, query) {
-        const isCrmAdmin = await this.resolveCrmAdmin(tenantId, actorUserId, hasAdminRole);
-        const scopeUserId = this.resolveScopeUserId(isCrmAdmin, actorUserId, query.user_id);
+        const scope = await this.resolveActivityScope(tenantId, actorUserId, hasAdminRole, query.user_id);
+        const isCrmAdmin = scope.isCrmAdmin;
+        const scopeUserId = scope.userId;
         const period = query.period ?? query_crm_activity_dto_1.CrmReportPeriod.MONTH;
         const { dateFrom, dateTo } = this.resolveDateRange(period, query.date_from, query.date_to);
-        const periodQb = this.countQuery(tenantId, scopeUserId);
+        const periodQb = this.countQuery(tenantId, scopeUserId, scope.branchIds);
         this.applySearchAndType(periodQb, query);
         periodQb.andWhere('activity.activity_date >= :dateFrom', { dateFrom });
         periodQb.andWhere('activity.activity_date <= :dateTo', { dateTo });
@@ -114,7 +117,7 @@ let CrmInboxService = class CrmInboxService {
         const byType = this.toCountMap(typeRows, 'type');
         const byStatus = this.toCountMap(statusRows, 'status');
         const activities = Object.values(byType).reduce((sum, n) => sum + n, 0);
-        const attention = await this.loadAttention(tenantId, scopeUserId);
+        const attention = await this.loadAttention(tenantId, scopeUserId, scope.branchIds);
         return {
             is_crm_admin: isCrmAdmin,
             period: {
@@ -132,7 +135,8 @@ let CrmInboxService = class CrmInboxService {
         };
     }
     async authors(tenantId, actorUserId, hasAdminRole) {
-        const isCrmAdmin = await this.resolveCrmAdmin(tenantId, actorUserId, hasAdminRole);
+        const scope = await this.resolveActivityScope(tenantId, actorUserId, hasAdminRole);
+        const isCrmAdmin = scope.isCrmAdmin;
         const qb = this.activityRepo
             .createQueryBuilder('activity')
             .innerJoin('activity.user', 'user')
@@ -140,12 +144,9 @@ let CrmInboxService = class CrmInboxService {
             .addSelect('user.first_name', 'first_name')
             .addSelect('user.last_name', 'last_name')
             .addSelect('user.email', 'email')
-            .addSelect('COUNT(activity.id)', 'activity_count')
-            .where('activity.tenant_id = :tenantId', { tenantId })
-            .andWhere('activity.user_id IS NOT NULL');
-        if (!isCrmAdmin) {
-            qb.andWhere('activity.user_id = :actorUserId', { actorUserId });
-        }
+            .addSelect('COUNT(activity.id)', 'activity_count');
+        this.applyScope(qb, tenantId, scope.userId, scope.branchIds);
+        qb.andWhere('activity.user_id IS NOT NULL');
         const rows = await qb
             .groupBy('user.id')
             .addGroupBy('user.first_name')
@@ -164,13 +165,13 @@ let CrmInboxService = class CrmInboxService {
         }));
         return { is_crm_admin: isCrmAdmin, authors };
     }
-    async loadAttention(tenantId, scopeUserId) {
+    async loadAttention(tenantId, scopeUserId, branchIds = null) {
         const now = new Date();
-        const openQb = this.countQuery(tenantId, scopeUserId);
+        const openQb = this.countQuery(tenantId, scopeUserId, branchIds);
         openQb.andWhere('activity.status IN (:...openStatuses)', {
             openStatuses: OPEN_STATUSES,
         });
-        const followQb = this.countQuery(tenantId, scopeUserId);
+        const followQb = this.countQuery(tenantId, scopeUserId, branchIds);
         followQb.andWhere('activity.follow_up_date IS NOT NULL');
         followQb.andWhere('activity.status NOT IN (:...closedStatuses)', {
             closedStatuses: CLOSED_STATUSES,
@@ -202,27 +203,72 @@ let CrmInboxService = class CrmInboxService {
             pending_tasks: pendingTasks,
         };
     }
-    baseQuery(tenantId, scopeUserId) {
+    baseQuery(tenantId, scopeUserId, branchIds = null) {
         const qb = this.activityRepo
             .createQueryBuilder('activity')
             .leftJoinAndSelect('activity.user', 'user')
-            .leftJoinAndSelect('activity.customer', 'customer');
-        this.applyScope(qb, tenantId, scopeUserId);
+            .leftJoinAndSelect('activity.customer', 'customer')
+            .leftJoinAndSelect('customer.registered_by_user', 'customerCreator');
+        this.applyScope(qb, tenantId, scopeUserId, branchIds);
         return qb;
     }
-    countQuery(tenantId, scopeUserId) {
+    countQuery(tenantId, scopeUserId, branchIds = null) {
         const qb = this.activityRepo.createQueryBuilder('activity');
-        this.applyScope(qb, tenantId, scopeUserId);
+        this.applyScope(qb, tenantId, scopeUserId, branchIds);
         return qb;
     }
-    applyScope(qb, tenantId, scopeUserId) {
+    applyScope(qb, tenantId, scopeUserId, branchIds) {
         qb.where('activity.tenant_id = :tenantId', { tenantId });
         if (scopeUserId) {
             qb.andWhere('activity.user_id = :scopeUserId', { scopeUserId });
         }
+        if (branchIds) {
+            if (!branchIds.length) {
+                qb.andWhere('1 = 0');
+                return;
+            }
+            qb.andWhere(`activity.user_id IN (
+          SELECT u.id FROM users u
+          WHERE u.tenant_id = :tenantId
+            AND (
+              u.billing_branch_id IN (:...managerBranchIds)
+              OR EXISTS (
+                SELECT 1 FROM user_billing_branches ubb
+                WHERE ubb.user_id = u.id
+                  AND ubb.tenant_id = :tenantId
+                  AND ubb.billing_branch_id IN (:...managerBranchIds)
+              )
+            )
+        )`, { managerBranchIds: branchIds });
+        }
     }
-    filteredListQuery(tenantId, scopeUserId, query) {
-        const qb = this.baseQuery(tenantId, scopeUserId);
+    async resolveActivityScope(tenantId, actorUserId, hasAdminRole, requestedUserId) {
+        const isCrmAdmin = await this.resolveCrmAdmin(tenantId, actorUserId, hasAdminRole);
+        if (isCrmAdmin) {
+            return {
+                isCrmAdmin: true,
+                userId: requestedUserId?.trim() || null,
+                branchIds: null,
+            };
+        }
+        const user = await this.userRepo.findOne({
+            where: { id: actorUserId, tenant_id: tenantId },
+            select: ['id', 'is_manager', 'billing_branch_id'],
+        });
+        if (!user?.is_manager) {
+            return { isCrmAdmin: false, userId: actorUserId, branchIds: null };
+        }
+        const rows = await this.userRepo.manager.query(`SELECT billing_branch_id AS id
+       FROM user_billing_branches
+       WHERE tenant_id = $1 AND user_id = $2`, [tenantId, actorUserId]);
+        const branchIds = new Set(rows.map((row) => row.id).filter(Boolean));
+        if (user.billing_branch_id) {
+            branchIds.add(user.billing_branch_id);
+        }
+        return { isCrmAdmin: false, userId: null, branchIds: [...branchIds] };
+    }
+    filteredListQuery(tenantId, scopeUserId, query, branchIds = null) {
+        const qb = this.baseQuery(tenantId, scopeUserId, branchIds);
         this.applyListFilters(qb, query);
         if (!query.attention) {
             const { dateFrom, dateTo } = this.resolveDateRange(query.period ?? query_crm_activity_dto_1.CrmReportPeriod.MONTH, query.date_from, query.date_to);
@@ -370,6 +416,7 @@ let CrmInboxService = class CrmInboxService {
                 lastname: null,
                 company_name: null,
                 display_name: `#${customerId}`,
+                created_by: null,
             };
         }
         const person = [customer.name, customer.lastname].filter(Boolean).join(' ').trim();
@@ -380,6 +427,7 @@ let CrmInboxService = class CrmInboxService {
             lastname: customer.lastname ?? null,
             company_name: customer.company_name ?? null,
             display_name: displayName,
+            created_by: this.mapUser(customer.registered_by_user ?? undefined),
         };
     }
     mapUser(user) {

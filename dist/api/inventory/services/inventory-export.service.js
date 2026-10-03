@@ -192,7 +192,8 @@ let InventoryExportService = class InventoryExportService {
             const first = batchGroup[0];
             const totalAvailable = batchGroup.reduce((sum, b) => sum + (0, excel_export_util_1.num)(b.available_quantity), 0);
             const totalInitial = batchGroup.reduce((sum, b) => sum + (0, excel_export_util_1.num)(b.initial_quantity), 0);
-            const measureTotals = (0, inventory_measure_util_1.buildMeasureTotals)(batchGroup);
+            const stocked = batchGroup.filter((batch) => (0, excel_export_util_1.num)(batch.available_quantity) > 0);
+            const measureTotals = (0, inventory_measure_util_1.buildMeasureTotals)(stocked);
             rows.push({
                 product_sku: first.product?.sku ?? '',
                 product_name: first.product?.name ?? '',
@@ -202,7 +203,7 @@ let InventoryExportService = class InventoryExportService {
                 uom_name: first.uom?.name ?? '',
                 total_available_quantity: totalAvailable,
                 total_initial_quantity: totalInitial,
-                total_batches: batchGroup.length,
+                total_batches: stocked.length,
                 measure_totals: (0, inventory_measure_util_1.formatMeasureTotalsLabel)(measureTotals),
                 suggested_unit_price: null,
             });

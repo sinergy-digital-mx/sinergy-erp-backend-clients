@@ -19,6 +19,7 @@ export declare class CrmInboxService {
     private baseQuery;
     private countQuery;
     private applyScope;
+    private resolveActivityScope;
     private filteredListQuery;
     private applyListFilters;
     private applySearchAndType;

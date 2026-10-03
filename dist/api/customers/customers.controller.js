@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CustomersController = void 0;
 const common_1 = require("@nestjs/common");
+const platform_express_1 = require("@nestjs/platform-express");
 const swagger_1 = require("@nestjs/swagger");
 const customers_service_1 = require("./customers.service");
 const create_customer_dto_1 = require("./dto/create-customer.dto");
@@ -50,6 +51,12 @@ let CustomersController = class CustomersController {
     update(id, dto, req) {
         return this.customersService.update(Number(id), dto, req.user.tenantId, req.user.id ?? req.user.user_id);
     }
+    applySatConstancia(id, file, req) {
+        if (!file) {
+            throw new common_1.BadRequestException('Sube el PDF de la constancia del SAT.');
+        }
+        return this.customersService.applySatConstancia(Number(id), file, req.user.tenantId, req.user.id ?? req.user.user_id);
+    }
     findAllStatuses() {
         return this.customersService.findAllStatuses();
     }
@@ -79,6 +86,9 @@ let CustomersController = class CustomersController {
     }
     findOne(id, fiscalConfigurationId, req) {
         return this.customersService.findOne(Number(id), req.user.tenantId, fiscalConfigurationId);
+    }
+    salesStats(id, req) {
+        return this.customersService.getSalesStats(Number(id), req.user.tenantId);
     }
     getProductInsights(id, query, req) {
         return this.productInsightsService.getInsights(Number(id), req.user.tenant_id ?? req.user.tenantId, query);
@@ -149,6 +159,28 @@ __decorate([
     __metadata("design:paramtypes", [String, update_customer_dto_1.UpdateCustomerDto, Object]),
     __metadata("design:returntype", void 0)
 ], CustomersController.prototype, "update", null);
+__decorate([
+    (0, common_1.Post)(':id/fiscal-constancia'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'customers', action: 'Update' }),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
+    (0, swagger_1.ApiOperation)({ summary: 'Leer la constancia del SAT (PDF) y guardar los datos fiscales' }),
+    (0, swagger_1.ApiParam)({ name: 'id', type: 'number', description: 'Customer ID' }),
+    (0, swagger_1.ApiBody)({
+        schema: {
+            type: 'object',
+            properties: { file: { type: 'string', format: 'binary' } },
+        },
+    }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Datos fiscales actualizados desde la constancia' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'El PDF no es una constancia legible' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.UploadedFile)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", void 0)
+], CustomersController.prototype, "applySatConstancia", null);
 __decorate([
     (0, common_1.Get)('statuses'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'customers', action: 'Read' }),
@@ -275,6 +307,17 @@ __decorate([
     __metadata("design:paramtypes", [String, Object, Object]),
     __metadata("design:returntype", void 0)
 ], CustomersController.prototype, "findOne", null);
+__decorate([
+    (0, common_1.Get)(':id/sales-stats'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'customers', action: 'Read' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Resumen de ventas del cliente' }),
+    (0, swagger_1.ApiParam)({ name: 'id', type: 'number' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], CustomersController.prototype, "salesStats", null);
 __decorate([
     (0, common_1.Get)(':id/product-insights'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'customers', action: 'ComprasFrecuentes' }),

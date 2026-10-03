@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.QueryPurchaseOrderDetailExportDto = exports.QueryPurchaseOrderHeaderExportDto = exports.UpdatePurchaseOrderRealCostDto = exports.UpdatePurchaseOrderVendorInvoiceDto = exports.UpdatePurchaseOrderPedimentoDto = exports.UpdatePurchaseOrderNotesDto = exports.RegenerateDocumentDto = exports.CreatePurchaseOrderPaymentDto = exports.QueryInventoryBatchDto = exports.QueryVendorProductsDto = exports.QueryPurchaseOrderDto = exports.UpdateLineItemDto = exports.ReceiptLotMode = exports.ReceivedLotDto = exports.ReceivedItemDto = exports.ReceivePurchaseOrderDto = exports.CreateLineItemDto = exports.CreatePurchaseOrderDto = void 0;
+exports.QueryPurchaseOrderDetailExportDto = exports.QueryPurchaseOrderHeaderExportDto = exports.CorrectPurchaseReceiptDto = exports.UpdatePurchaseOrderRealCostDto = exports.UpdatePurchaseOrderVendorInvoiceDto = exports.UpdatePurchaseOrderPedimentoDto = exports.UpdatePurchaseOrderNotesDto = exports.RegenerateDocumentDto = exports.CreatePurchaseOrderPaymentDto = exports.QueryInventoryBatchDto = exports.QueryVendorProductsDto = exports.QueryPurchaseOrderDto = exports.UpdateLineItemDto = exports.ReceiptLotMode = exports.ReceivedLotDto = exports.ReceivedItemDto = exports.ReceivePurchaseOrderDto = exports.CreateLineItemDto = exports.CreatePurchaseOrderDto = void 0;
 var create_purchase_order_dto_1 = require("./create-purchase-order.dto");
 Object.defineProperty(exports, "CreatePurchaseOrderDto", { enumerable: true, get: function () { return create_purchase_order_dto_1.CreatePurchaseOrderDto; } });
 Object.defineProperty(exports, "CreateLineItemDto", { enumerable: true, get: function () { return create_purchase_order_dto_1.CreateLineItemDto; } });
@@ -29,6 +29,8 @@ var update_purchase_order_vendor_invoice_dto_1 = require("./update-purchase-orde
 Object.defineProperty(exports, "UpdatePurchaseOrderVendorInvoiceDto", { enumerable: true, get: function () { return update_purchase_order_vendor_invoice_dto_1.UpdatePurchaseOrderVendorInvoiceDto; } });
 var update_purchase_order_real_cost_dto_1 = require("./update-purchase-order-real-cost.dto");
 Object.defineProperty(exports, "UpdatePurchaseOrderRealCostDto", { enumerable: true, get: function () { return update_purchase_order_real_cost_dto_1.UpdatePurchaseOrderRealCostDto; } });
+var correct_purchase_receipt_dto_1 = require("./correct-purchase-receipt.dto");
+Object.defineProperty(exports, "CorrectPurchaseReceiptDto", { enumerable: true, get: function () { return correct_purchase_receipt_dto_1.CorrectPurchaseReceiptDto; } });
 var query_purchase_order_export_dto_1 = require("./query-purchase-order-export.dto");
 Object.defineProperty(exports, "QueryPurchaseOrderHeaderExportDto", { enumerable: true, get: function () { return query_purchase_order_export_dto_1.QueryPurchaseOrderHeaderExportDto; } });
 Object.defineProperty(exports, "QueryPurchaseOrderDetailExportDto", { enumerable: true, get: function () { return query_purchase_order_export_dto_1.QueryPurchaseOrderDetailExportDto; } });

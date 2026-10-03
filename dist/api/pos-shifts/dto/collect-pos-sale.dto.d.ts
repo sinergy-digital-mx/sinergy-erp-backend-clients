@@ -23,5 +23,6 @@ export declare class CollectPosSaleDto {
     received_cash_usd?: number;
     notes?: string;
     walk_in_name?: string;
+    walk_in_phone?: string;
     walk_in_rfc?: string;
 }

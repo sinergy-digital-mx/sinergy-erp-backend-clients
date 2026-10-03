@@ -5,6 +5,7 @@ function mapCustomerCheckoutFields(customer, credits, fiscal, activeCredit) {
     return {
         credits,
         credit_enabled: activeCredit.credit_enabled,
+        allow_credit_exceed: activeCredit.allow_credit_exceed,
         credit_days: activeCredit.credit_days,
         credit_amount: activeCredit.credit_amount,
         credit_used: activeCredit.credit_used,

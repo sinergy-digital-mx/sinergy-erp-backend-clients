@@ -23,7 +23,7 @@ class RBACException extends common_1.HttpException {
         const response = {
             statusCode,
             error: common_1.HttpException.createBody('', '', statusCode).error || 'Unknown Error',
-            message: errorMessage.technical,
+            message: (0, error_messages_1.getClientMessage)(code),
             code,
             category,
             severity,

@@ -1,20 +1,59 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 var SalesOrderPosReceiptService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SalesOrderPosReceiptService = exports.SALES_ORDER_TICKET_RECIBO_NAMES = void 0;
 const common_1 = require("@nestjs/common");
+const pdfmake_1 = __importDefault(require("pdfmake"));
+const QRCode = __importStar(require("qrcode"));
+const path = __importStar(require("path"));
 const config_1 = require("@nestjs/config");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
@@ -75,6 +114,35 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
             this.logger.warn(`No se pudo firmar URL del ticket ${salesOrderId}: ${error}`);
         }
         return this.buildReceiptResult(escposBuffer, plainText, document.id, fileName, downloadUrl, publicInvoiceCode, selfInvoiceUrl);
+    }
+    async getPosTicketPdf(tenantId, salesOrderId, uploadedBy) {
+        const order = await this.salesOrderRepo.findOne({
+            where: { id: salesOrderId, tenant_id: tenantId },
+        });
+        if (!order) {
+            throw new common_1.NotFoundException('Orden de venta no encontrada');
+        }
+        let generated = false;
+        let receipt;
+        try {
+            receipt = await this.getPosTicket(tenantId, salesOrderId);
+        }
+        catch (error) {
+            if (!(error instanceof common_1.NotFoundException)) {
+                throw error;
+            }
+            receipt = await this.generateAndSavePosTicket(tenantId, salesOrderId, uploadedBy);
+            generated = true;
+        }
+        let text = receipt.plain_text?.trim() ?? '';
+        if (!text) {
+            receipt = await this.generateAndSavePosTicket(tenantId, salesOrderId, uploadedBy);
+            text = receipt.plain_text?.trim() || 'Ticket sin contenido';
+            generated = true;
+        }
+        const buffer = await this.renderThermalPdf(text, receipt.self_invoice_url);
+        const safeFolio = String(order.folio || salesOrderId).replace(/[^\w.-]+/g, '_');
+        return { buffer, fileName: `TICKET-${safeFolio}.pdf`, generated };
     }
     async getPosTicketRawBuffer(tenantId, salesOrderId) {
         const order = await this.salesOrderRepo.findOne({
@@ -156,12 +224,113 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
         }
         return this.buildReceiptResult(Buffer.alloc(0), plainText, ticketDoc.id, ticketDoc.document_name, ticketDoc.path ?? null, publicInvoiceCode, selfInvoiceUrl);
     }
+    async renderThermalPdf(plainText, selfInvoiceUrl) {
+        const lines = plainText.split(/\r?\n/);
+        const qrUrl = selfInvoiceUrl?.trim() || this.findInvoiceUrl(lines);
+        const qrImage = qrUrl
+            ? await QRCode.toDataURL(qrUrl, {
+                errorCorrectionLevel: 'M',
+                margin: 1,
+                width: 320,
+            })
+            : null;
+        const content = this.buildThermalPdfContent(lines, qrUrl, qrImage);
+        const lineHeight = 10;
+        const qrBlock = qrImage ? 148 : 0;
+        const width = 226.77;
+        const height = Math.max(360, 36 + lines.length * lineHeight + qrBlock);
+        const printer = new pdfmake_1.default({
+            Roboto: {
+                normal: path.join(process.cwd(), 'src/_public/fonts/Roboto-Regular.ttf'),
+                bold: path.join(process.cwd(), 'src/_public/fonts/Roboto-Bold.ttf'),
+                italics: path.join(process.cwd(), 'src/_public/fonts/Roboto-Italic.ttf'),
+                bolditalics: path.join(process.cwd(), 'src/_public/fonts/Roboto-BoldItalic.ttf'),
+            },
+        });
+        return new Promise((resolve, reject) => {
+            try {
+                const pdfDoc = printer.createPdfKitDocument({
+                    pageSize: { width, height },
+                    pageMargins: [10, 12, 10, 12],
+                    defaultStyle: { font: 'Roboto', fontSize: 7.5 },
+                    content,
+                });
+                const chunks = [];
+                pdfDoc.on('data', (chunk) => chunks.push(chunk));
+                pdfDoc.on('end', () => resolve(Buffer.concat(chunks)));
+                pdfDoc.on('error', reject);
+                pdfDoc.end();
+            }
+            catch (error) {
+                reject(error);
+            }
+        });
+    }
+    buildThermalPdfContent(lines, qrUrl, qrImage) {
+        const content = [];
+        let qrPlaced = false;
+        for (const line of lines) {
+            if (qrImage && qrUrl && !qrPlaced && this.isInvoiceUrlStart(line, qrUrl)) {
+                content.push({
+                    image: qrImage,
+                    width: 132,
+                    alignment: 'center',
+                    margin: [0, 6, 0, 6],
+                });
+                qrPlaced = true;
+            }
+            content.push({
+                text: line.length ? line : ' ',
+                fontSize: 7.5,
+                margin: [0, 0, 0, 0],
+            });
+        }
+        if (qrImage && !qrPlaced) {
+            content.push({
+                image: qrImage,
+                width: 132,
+                alignment: 'center',
+                margin: [0, 6, 0, 4],
+            });
+        }
+        return content;
+    }
+    findInvoiceUrl(lines) {
+        for (let index = 0; index < lines.length; index += 1) {
+            const start = lines[index].trim();
+            if (!/^https?:\/\//i.test(start)) {
+                continue;
+            }
+            let url = start;
+            for (let next = index + 1; next < lines.length; next += 1) {
+                const part = lines[next].trim();
+                if (!part || /\s/.test(part) || !/^[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=%]+$/.test(part)) {
+                    break;
+                }
+                url += part;
+            }
+            return url;
+        }
+        return null;
+    }
+    isInvoiceUrlStart(line, qrUrl) {
+        const text = line.trim();
+        return text.startsWith('http') && (qrUrl.startsWith(text) || text.startsWith(qrUrl));
+    }
     async findExistingTicket(salesOrderId) {
         const documents = await this.documentsService.getDocuments(salesOrderId);
         const ticketTypeId = await this.resolveTicketDocumentTypeId();
-        return (documents.find((doc) => Number(doc.document_type_id) === ticketTypeId) ??
-            documents.find((doc) => exports.SALES_ORDER_TICKET_RECIBO_NAMES.includes(doc.document_type_name)) ??
-            null);
+        const byType = documents.find((doc) => Number(doc.document_type_id) === ticketTypeId);
+        if (byType)
+            return byType;
+        const byName = documents.find((doc) => exports.SALES_ORDER_TICKET_RECIBO_NAMES.includes(doc.document_type_name));
+        if (byName)
+            return byName;
+        return (documents.find((doc) => {
+            const type = String(doc.document_type_name || '').toUpperCase();
+            const file = String(doc.document_name || doc.file_name || '').toUpperCase();
+            return type.includes('TICKET') || file.startsWith('TICKET_RECIBO');
+        }) ?? null);
     }
     async resolveTicketDocumentTypeId() {
         if (this.ticketDocumentTypeIdCache != null) {
@@ -294,6 +463,9 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
         this.pushFooterLines(lines, 'Cajero(a):', this.formatUserName(collection.collected_by_user));
         this.pushFooterLines(lines, 'Lo atendio:', this.formatUserName(order.seller_user));
         this.pushFooterLines(lines, 'Cliente:', this.formatCustomerName(order));
+        if (order.walk_in_phone) {
+            this.pushFooterLines(lines, 'Tel:', order.walk_in_phone);
+        }
         if (order.walk_in_rfc) {
             this.pushFooterLines(lines, 'RFC:', order.walk_in_rfc);
         }

@@ -3,7 +3,9 @@ export interface RequiredPermission {
     action: string;
 }
 export declare const PERMISSIONS_KEY = "permissions";
+export declare const PERMISSIONS_ANY_KEY = "permissions_any";
 export declare const RequirePermissions: (...permissions: RequiredPermission[]) => import("@nestjs/common").CustomDecorator<string>;
+export declare const RequireAnyPermissions: (...permissions: RequiredPermission[]) => import("@nestjs/common").CustomDecorator<string>;
 export declare const RequirePermission: (entityType: string, action: string) => import("@nestjs/common").CustomDecorator<string>;
 export declare const RequireCreate: (entityType: string) => import("@nestjs/common").CustomDecorator<string>;
 export declare const RequireRead: (entityType: string) => import("@nestjs/common").CustomDecorator<string>;

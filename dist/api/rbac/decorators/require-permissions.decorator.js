@@ -1,10 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RequireReportMenu = exports.RequireActivityMenu = exports.RequireContractMenu = exports.RequireWarehouseMenu = exports.RequireProductMenu = exports.RequireVendorMenu = exports.RequireLeadMenu = exports.RequireCustomerMenu = exports.RequireVerMenu = exports.RequireFullAccess = exports.RequireReadOnly = exports.RequireAdmin = exports.RequireUserDelete = exports.RequireUserUpdate = exports.RequireUserCreate = exports.RequireUserRead = exports.RequireLeadDelete = exports.RequireLeadUpdate = exports.RequireLeadCreate = exports.RequireLeadRead = exports.RequireCustomerDelete = exports.RequireCustomerUpdate = exports.RequireCustomerCreate = exports.RequireCustomerRead = exports.RequireDelete = exports.RequireUpdate = exports.RequireRead = exports.RequireCreate = exports.RequirePermission = exports.RequirePermissions = exports.PERMISSIONS_KEY = void 0;
+exports.RequireReportMenu = exports.RequireActivityMenu = exports.RequireContractMenu = exports.RequireWarehouseMenu = exports.RequireProductMenu = exports.RequireVendorMenu = exports.RequireLeadMenu = exports.RequireCustomerMenu = exports.RequireVerMenu = exports.RequireFullAccess = exports.RequireReadOnly = exports.RequireAdmin = exports.RequireUserDelete = exports.RequireUserUpdate = exports.RequireUserCreate = exports.RequireUserRead = exports.RequireLeadDelete = exports.RequireLeadUpdate = exports.RequireLeadCreate = exports.RequireLeadRead = exports.RequireCustomerDelete = exports.RequireCustomerUpdate = exports.RequireCustomerCreate = exports.RequireCustomerRead = exports.RequireDelete = exports.RequireUpdate = exports.RequireRead = exports.RequireCreate = exports.RequirePermission = exports.RequireAnyPermissions = exports.RequirePermissions = exports.PERMISSIONS_ANY_KEY = exports.PERMISSIONS_KEY = void 0;
 const common_1 = require("@nestjs/common");
 exports.PERMISSIONS_KEY = 'permissions';
+exports.PERMISSIONS_ANY_KEY = 'permissions_any';
 const RequirePermissions = (...permissions) => (0, common_1.SetMetadata)(exports.PERMISSIONS_KEY, permissions);
 exports.RequirePermissions = RequirePermissions;
+const RequireAnyPermissions = (...permissions) => (0, common_1.SetMetadata)(exports.PERMISSIONS_ANY_KEY, permissions);
+exports.RequireAnyPermissions = RequireAnyPermissions;
 const RequirePermission = (entityType, action) => (0, exports.RequirePermissions)({ entityType, action });
 exports.RequirePermission = RequirePermission;
 const RequireCreate = (entityType) => (0, exports.RequirePermission)(entityType, 'Create');

@@ -12,6 +12,7 @@ exports.STOCK_LEDGER_MOVEMENT_TYPE_LABELS = {
     [inventory_stock_ledger_movement_type_enum_1.InventoryStockLedgerMovementType.TRANSFER_OUT]: 'Salida por transferencia',
     [inventory_stock_ledger_movement_type_enum_1.InventoryStockLedgerMovementType.AUDIT_ADJUSTMENT]: 'Ajuste por auditoría',
     [inventory_stock_ledger_movement_type_enum_1.InventoryStockLedgerMovementType.OPENING_BALANCE]: 'Saldo inicial',
+    [inventory_stock_ledger_movement_type_enum_1.InventoryStockLedgerMovementType.PURCHASE_REVERSAL]: 'Salida por cancelación de compra',
 };
 function formatStockQty(value) {
     const parsed = parseFloat(String(value ?? 0));

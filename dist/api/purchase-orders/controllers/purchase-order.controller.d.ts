@@ -3,7 +3,7 @@ import { PurchaseOrderDocumentsService } from '../services/purchase-order-docume
 import { PurchaseOrderExportService } from '../services/purchase-order-export.service';
 import { PurchaseOrderMovementsService } from '../services/purchase-order-movements.service';
 import { PurchaseOrderLocationsService } from '../services/purchase-order-locations.service';
-import { CreatePurchaseOrderDto, CreateLineItemDto, ReceivePurchaseOrderDto, UpdateLineItemDto, QueryPurchaseOrderDto, CreatePurchaseOrderPaymentDto, RegenerateDocumentDto, UpdatePurchaseOrderNotesDto, UpdatePurchaseOrderPedimentoDto, UpdatePurchaseOrderVendorInvoiceDto, UpdatePurchaseOrderRealCostDto, QueryPurchaseOrderHeaderExportDto, QueryPurchaseOrderDetailExportDto } from '../dto';
+import { CreatePurchaseOrderDto, CreateLineItemDto, ReceivePurchaseOrderDto, UpdateLineItemDto, QueryPurchaseOrderDto, CreatePurchaseOrderPaymentDto, RegenerateDocumentDto, UpdatePurchaseOrderNotesDto, UpdatePurchaseOrderPedimentoDto, UpdatePurchaseOrderVendorInvoiceDto, UpdatePurchaseOrderRealCostDto, QueryPurchaseOrderHeaderExportDto, QueryPurchaseOrderDetailExportDto, CorrectPurchaseReceiptDto } from '../dto';
 export declare class PurchaseOrderController {
     private readonly purchaseOrderService;
     private readonly documentsService;
@@ -75,6 +75,11 @@ export declare class PurchaseOrderController {
     replacePurchaseOrderPut(id: string, dto: CreatePurchaseOrderDto, req: any): Promise<import("../../../entities/purchase-orders").PurchaseOrderBatch>;
     replacePurchaseOrderPatch(id: string, dto: CreatePurchaseOrderDto, req: any): Promise<import("../../../entities/purchase-orders").PurchaseOrderBatch>;
     private runReplacePurchaseOrder;
+    cancelOrder(id: string, body: {
+        reason?: string;
+    } | undefined, req: any): Promise<import("../../../entities/purchase-orders").PurchaseOrderBatch>;
+    reopenOrder(id: string, req: any): Promise<import("../../../entities/purchase-orders").PurchaseOrderBatch>;
+    correctReceipt(id: string, dto: CorrectPurchaseReceiptDto, req: any): Promise<import("../../../entities/purchase-orders").PurchaseOrderBatch>;
     cancel(id: string, req: any): Promise<import("../../../entities/purchase-orders").PurchaseOrderBatch>;
     findOne(id: string, req: any): Promise<{
         data: {
@@ -94,4 +99,5 @@ export declare class PurchaseOrderController {
             movements_count: number;
         };
     }>;
+    private assertCorrectReceiptPermission;
 }

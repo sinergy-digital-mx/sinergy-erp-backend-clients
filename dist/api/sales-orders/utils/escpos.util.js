@@ -128,8 +128,7 @@ function compactMoneyLine(label, formattedValue, width = exports.ESCPOS_CHARS_PE
     const text = `${label} ${formattedValue}`;
     if (text.length <= width)
         return text;
-    const trimmedLabel = label.slice(0, Math.max(1, width - formattedValue.length - 1));
-    return `${trimmedLabel} ${formattedValue}`;
+    return wrapLines(text, width).join('\n');
 }
 function labelValueLine(label, value, width = exports.ESCPOS_CHARS_PER_LINE) {
     const maxLabel = width - value.length - 1;
@@ -158,9 +157,23 @@ function wrapLines(text, width = exports.ESCPOS_CHARS_PER_LINE) {
             current = candidate;
             continue;
         }
-        if (current)
+        if (current) {
             lines.push(current);
-        current = word.length > width ? word.slice(0, width) : word;
+            current = '';
+        }
+        if (word.length <= width) {
+            current = word;
+            continue;
+        }
+        for (let offset = 0; offset < word.length; offset += width) {
+            const chunk = word.slice(offset, offset + width);
+            if (chunk.length === width) {
+                lines.push(chunk);
+            }
+            else {
+                current = chunk;
+            }
+        }
     }
     if (current)
         lines.push(current);

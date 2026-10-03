@@ -16,6 +16,7 @@ export declare const PURCHASE_ORDER_MOVEMENT_TYPES: {
     readonly DOCUMENT_GENERATED: "document_generated";
     readonly PAYMENT_RECORDED: "payment_recorded";
     readonly PAYMENT_DELETED: "payment_deleted";
+    readonly RECEIPT_CORRECTED: "receipt_corrected";
     readonly INVENTORY_ADJUSTED: "inventory_adjusted";
     readonly STOCK_SOLD: "stock_sold";
 };

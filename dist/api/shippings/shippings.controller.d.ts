@@ -1,5 +1,5 @@
 import { ShippingsService } from './shippings.service';
-import { AddShippingStopsDto, CreateShippingDto, PreviewShippingDto, QueryAvailableShippingOrdersDto, QueryShippingDto, ResolveOrdersDto, UpdateShippingStatusDto } from './dto/shipping.dto';
+import { AddShippingStopsDto, CreateShippingDto, PreviewShippingDto, QueryAvailableShippingOrdersDto, QueryShippingDto, ResolveOrdersDto, SetShippingStopAddressDto, UpdateShippingStatusDto } from './dto/shipping.dto';
 export declare class ShippingsController {
     private readonly service;
     constructor(service: ShippingsService);
@@ -34,6 +34,7 @@ export declare class ShippingsController {
             address_summary: string | null;
             customer_address_id: number | null;
             address_type: string | null;
+            customer_addresses: import("./shippings.service").CustomerAddressOption[];
             distance_from_previous_km: number | null;
             distance_from_origin_km: number | null;
         }[];
@@ -129,6 +130,7 @@ export declare class ShippingsController {
         hasPrev: boolean;
     }>;
     findOne(id: string, req: any): Promise<import("../../entities/logistics/shipping.entity").Shipping>;
+    setStopAddress(id: string, salesOrderId: string, dto: SetShippingStopAddressDto, req: any): Promise<import("../../entities/logistics/shipping.entity").Shipping>;
     addStops(id: string, dto: AddShippingStopsDto, req: any): Promise<import("../../entities/logistics/shipping.entity").Shipping>;
     recalculate(id: string, req: any): Promise<import("../../entities/logistics/shipping.entity").Shipping>;
     updateStatus(id: string, dto: UpdateShippingStatusDto, req: any): Promise<import("../../entities/logistics/shipping.entity").Shipping>;

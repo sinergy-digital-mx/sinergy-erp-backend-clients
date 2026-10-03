@@ -8,6 +8,8 @@ export type UnclosedShiftAlert = {
     message: string;
     severity: 'blocking';
 };
+export declare const POS_CALENDAR_TIMEZONE = "America/Tijuana";
+export declare function posCalendarDateSql(column: string): string;
 export declare function getTodayDateString(now?: Date): string;
 export declare function toDateOnlyString(value: string | Date): string;
 export declare function resolvePosCalendarRange(period: 'today' | 'week' | 'month' | 'range', dateFrom?: string, dateTo?: string, now?: Date): {

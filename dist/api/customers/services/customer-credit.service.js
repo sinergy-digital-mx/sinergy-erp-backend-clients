@@ -56,6 +56,14 @@ let CustomerCreditService = class CustomerCreditService {
         })
             .filter((item) => item != null);
     }
+    async consumeExceedWaiver(tenantId, customerId, fiscalConfigurationId) {
+        await this.creditRepo.update({
+            tenant_id: tenantId,
+            customer_id: customerId,
+            fiscal_configuration_id: fiscalConfigurationId,
+            allow_credit_exceed: true,
+        }, { allow_credit_exceed: false });
+    }
     async getSnapshotForFiscal(customer, fiscalConfigurationId) {
         const [row, used] = await Promise.all([
             this.creditRepo.findOne({
@@ -69,6 +77,7 @@ let CustomerCreditService = class CustomerCreditService {
         ]);
         return (0, customer_credit_util_1.buildCreditSnapshot)({
             creditEnabled: Boolean(row?.credit_enabled),
+            allowCreditExceed: Boolean(row?.allow_credit_exceed),
             creditDays: row?.credit_days,
             creditAmount: row?.credit_amount,
             creditUsed: used,
@@ -142,6 +151,9 @@ let CustomerCreditService = class CustomerCreditService {
             });
             if (existing) {
                 existing.credit_enabled = item.credit_enabled;
+                existing.allow_credit_exceed = item.credit_enabled
+                    ? Boolean(item.allow_credit_exceed)
+                    : false;
                 existing.credit_days = item.credit_enabled ? (item.credit_days ?? 0) : null;
                 existing.credit_amount = item.credit_enabled
                     ? Number(item.credit_amount)
@@ -155,6 +167,9 @@ let CustomerCreditService = class CustomerCreditService {
                 customer_id: customer.id,
                 fiscal_configuration_id: item.fiscal_configuration_id,
                 credit_enabled: item.credit_enabled,
+                allow_credit_exceed: item.credit_enabled
+                    ? Boolean(item.allow_credit_exceed)
+                    : false,
                 credit_days: item.credit_enabled ? (item.credit_days ?? 0) : null,
                 credit_amount: item.credit_enabled ? Number(item.credit_amount) : null,
             }));
@@ -183,6 +198,7 @@ let CustomerCreditService = class CustomerCreditService {
             fiscal_status: fiscal.status,
             ...(0, customer_credit_util_1.buildCreditSnapshot)({
                 creditEnabled: Boolean(row?.credit_enabled),
+                allowCreditExceed: Boolean(row?.allow_credit_exceed),
                 creditDays: row?.credit_days,
                 creditAmount: row?.credit_amount,
                 creditUsed: used,

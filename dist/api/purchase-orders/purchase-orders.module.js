@@ -90,6 +90,7 @@ exports.PurchaseOrdersModule = PurchaseOrdersModule = __decorate([
             services_1.PurchaseOrderMovementsService,
             services_1.PurchaseOrderRealCostService,
             services_1.PurchaseOrderLocationsService,
+            services_1.PurchaseOrderReversalService,
             s3_service_1.S3Service,
         ],
         exports: [

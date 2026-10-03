@@ -4,6 +4,7 @@ import { FiscalInvoiceReadiness } from '../utils/fiscal-invoice-readiness.util';
 export declare function mapCustomerCheckoutFields(customer: Customer, credits: CustomerCreditFiscalSnapshot[], fiscal: FiscalInvoiceReadiness, activeCredit: CustomerCreditSnapshot): {
     credits: CustomerCreditFiscalSnapshot[];
     credit_enabled: boolean;
+    allow_credit_exceed: boolean;
     credit_days: number | null;
     credit_amount: number;
     credit_used: number;

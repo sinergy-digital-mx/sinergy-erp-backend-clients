@@ -19,3 +19,4 @@ export { PurchaseOrderActivityService } from './purchase-order-activity.service'
 export { PurchaseOrderMovementsService } from './purchase-order-movements.service';
 export { PurchaseOrderRealCostService } from './purchase-order-real-cost.service';
 export { PurchaseOrderLocationsService } from './purchase-order-locations.service';
+export { PurchaseOrderReversalService } from './purchase-order-reversal.service';

@@ -654,6 +654,7 @@ export declare class PosShiftsController {
                 lastname: string;
                 company_name: string;
                 fiscal_razon_social: string;
+                display_name: string | null;
                 is_walk_in: boolean;
                 credit_enabled: boolean;
             } | null;
@@ -723,6 +724,7 @@ export declare class PosShiftsController {
                 lastname: string;
                 company_name: string;
                 fiscal_razon_social: string;
+                display_name: string | null;
                 is_walk_in: boolean;
             } | null;
             seller_user: {
@@ -944,6 +946,7 @@ export declare class PosShiftsController {
                 lastname: string;
                 company_name: string;
                 fiscal_razon_social: string;
+                display_name: string | null;
                 is_walk_in: boolean;
             } | null;
             seller_user: {
@@ -1005,6 +1008,7 @@ export declare class PosShiftsController {
             lastname: string;
             company_name: string;
             fiscal_razon_social: string;
+            display_name: string | null;
             is_walk_in: boolean;
         } | null;
         seller_user: {
@@ -1036,6 +1040,7 @@ export declare class PosShiftsController {
                 lastname: string;
                 company_name: string;
                 fiscal_razon_social: string;
+                display_name: string | null;
                 is_walk_in: boolean;
             } | null;
             seller_user: {

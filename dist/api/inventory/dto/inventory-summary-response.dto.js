@@ -210,7 +210,7 @@ __decorate([
     __metadata("design:type", String)
 ], ProductInventorySummaryDto.prototype, "total_initial_quantity", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)(),
+    (0, swagger_1.ApiProperty)({ description: 'Lotes con existencia mayor a 0. No incluye agotados.' }),
     __metadata("design:type", Number)
 ], ProductInventorySummaryDto.prototype, "total_batches", void 0);
 __decorate([

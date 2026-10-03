@@ -23,6 +23,7 @@ let CustomerCredit = class CustomerCredit {
     fiscal_configuration;
     fiscal_configuration_id;
     credit_enabled;
+    allow_credit_exceed;
     credit_days;
     credit_amount;
     created_at;
@@ -64,6 +65,10 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'boolean', default: false }),
     __metadata("design:type", Boolean)
 ], CustomerCredit.prototype, "credit_enabled", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], CustomerCredit.prototype, "allow_credit_exceed", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'int', nullable: true }),
     __metadata("design:type", Object)

@@ -69,6 +69,26 @@ export declare class CustomersController {
         assignment_history: import("../../common/utils/assignment-change.util").AssignmentHistoryRow[];
         credits: import("./utils/customer-credit.util").CustomerCreditFiscalSnapshot[];
         credit_enabled: boolean;
+        allow_credit_exceed: boolean;
+        credit_days: number | null;
+        credit_amount: number;
+        credit_used: number;
+        credit_available: number;
+        credit_usage_percent: number;
+        auto_generate_invoice: boolean;
+        fiscal_ready_for_invoice: boolean;
+        fiscal_missing_fields: ("fiscal_rfc" | "fiscal_razon_social" | "fiscal_postal_code")[];
+    }>;
+    applySatConstancia(id: string, file: {
+        buffer?: Buffer;
+        mimetype?: string;
+        originalname?: string;
+        size?: number;
+    }, req: any): Promise<{
+        assignment_history: import("../../common/utils/assignment-change.util").AssignmentHistoryRow[];
+        credits: import("./utils/customer-credit.util").CustomerCreditFiscalSnapshot[];
+        credit_enabled: boolean;
+        allow_credit_exceed: boolean;
         credit_days: number | null;
         credit_amount: number;
         credit_used: number;
@@ -117,6 +137,7 @@ export declare class CustomersController {
         assignment_history: import("../../common/utils/assignment-change.util").AssignmentHistoryRow[];
         credits: import("./utils/customer-credit.util").CustomerCreditFiscalSnapshot[];
         credit_enabled: boolean;
+        allow_credit_exceed: boolean;
         credit_days: number | null;
         credit_amount: number;
         credit_used: number;
@@ -126,6 +147,20 @@ export declare class CustomersController {
         fiscal_ready_for_invoice: boolean;
         fiscal_missing_fields: ("fiscal_rfc" | "fiscal_razon_social" | "fiscal_postal_code")[];
     } | null>;
+    salesStats(id: string, req: any): Promise<{
+        orders_count: number;
+        active_orders_count: number;
+        cancelled_count: number;
+        sales_total: number;
+        paid_total: number;
+        paid_count: number;
+        pending_total: number;
+        pending_count: number;
+        invoiced_count: number;
+        average_order: number;
+        last_order_at: string | Date | null;
+        last_order_folio: string | null;
+    }>;
     getProductInsights(id: string, query: QueryCustomerProductInsightsDto, req: any): Promise<{
         customer_id: number;
         most_purchased: {

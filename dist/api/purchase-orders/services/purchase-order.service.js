@@ -39,6 +39,7 @@ const uuid_1 = require("uuid");
 const purchase_order_line_breakdown_util_1 = require("../utils/purchase-order-line-breakdown.util");
 const purchase_order_activity_change_util_1 = require("../utils/purchase-order-activity-change.util");
 const purchase_order_movements_1 = require("../constants/purchase-order-movements");
+const purchase_order_reversal_service_1 = require("./purchase-order-reversal.service");
 let PurchaseOrderService = class PurchaseOrderService {
     static { PurchaseOrderService_1 = this; }
     purchaseOrderBatchRepository;
@@ -55,10 +56,11 @@ let PurchaseOrderService = class PurchaseOrderService {
     lotsService;
     activityService;
     realCostService;
+    reversalService;
     dataSource;
     static DOC_TYPE_DOCUMENTO_ORIGINAL = 1;
     static DOC_TYPE_RECEPCION = 4;
-    constructor(purchaseOrderBatchRepository, purchaseOrderDetailRepository, inventoryBatchRepository, purchaseOrderPaymentRepository, warehouseRepository, vendorRepository, unitConversionService, batchNumberGenerator, folioGenerator, pdfService, documentsService, lotsService, activityService, realCostService, dataSource) {
+    constructor(purchaseOrderBatchRepository, purchaseOrderDetailRepository, inventoryBatchRepository, purchaseOrderPaymentRepository, warehouseRepository, vendorRepository, unitConversionService, batchNumberGenerator, folioGenerator, pdfService, documentsService, lotsService, activityService, realCostService, reversalService, dataSource) {
         this.purchaseOrderBatchRepository = purchaseOrderBatchRepository;
         this.purchaseOrderDetailRepository = purchaseOrderDetailRepository;
         this.inventoryBatchRepository = inventoryBatchRepository;
@@ -73,6 +75,7 @@ let PurchaseOrderService = class PurchaseOrderService {
         this.lotsService = lotsService;
         this.activityService = activityService;
         this.realCostService = realCostService;
+        this.reversalService = reversalService;
         this.dataSource = dataSource;
     }
     async deleteDocumentsByType(purchaseOrderId, documentTypeId) {
@@ -950,24 +953,16 @@ let PurchaseOrderService = class PurchaseOrderService {
         await this.realCostService.updateRealCost(id, dto, tenantId, userId);
         return this.findOne(id, tenantId);
     }
-    async cancel(id, tenantId, userId) {
-        const purchaseOrder = await this.findOne(id, tenantId);
-        if (purchaseOrder.general_status !== 'Creada') {
-            throw new common_1.BadRequestException(`No se puede cancelar la orden de compra con estado: ${purchaseOrder.general_status}`);
-        }
-        purchaseOrder.general_status = 'Cancelada';
-        purchaseOrder.updated_by = userId;
-        await this.purchaseOrderBatchRepository.save(purchaseOrder);
-        await this.recordActivity({
-            tenantId,
-            purchaseOrderId: id,
-            type: purchase_order_movements_1.PURCHASE_ORDER_MOVEMENT_TYPES.STATUS_CHANGED,
-            actorId: userId,
-            description: 'La orden pasó de Creada a Cancelada.',
-            changes: (0, purchase_order_activity_change_util_1.compactActivityChanges)([
-                (0, purchase_order_activity_change_util_1.activityChange)('general_status', 'Estatus', 'Creada', 'Cancelada'),
-            ]),
-        });
+    async cancel(id, tenantId, userId, reason) {
+        await this.reversalService.cancel(id, tenantId, userId, reason);
+        return this.findOne(id, tenantId);
+    }
+    async reopen(id, tenantId, userId) {
+        await this.reversalService.reopen(id, tenantId, userId);
+        return this.findOne(id, tenantId);
+    }
+    async correctReceipt(id, dto, tenantId, userId) {
+        await this.reversalService.correctReceipt(id, dto, tenantId, userId);
         return this.findOne(id, tenantId);
     }
     async replacePurchaseOrder(id, dto, tenantId, userId) {
@@ -1391,6 +1386,7 @@ exports.PurchaseOrderService = PurchaseOrderService = PurchaseOrderService_1 = _
         purchase_order_lots_service_1.PurchaseOrderLotsService,
         purchase_order_activity_service_1.PurchaseOrderActivityService,
         purchase_order_real_cost_service_1.PurchaseOrderRealCostService,
+        purchase_order_reversal_service_1.PurchaseOrderReversalService,
         typeorm_2.DataSource])
 ], PurchaseOrderService);
 //# sourceMappingURL=purchase-order.service.js.map

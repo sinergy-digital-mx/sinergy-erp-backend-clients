@@ -18,6 +18,7 @@ class CrmActivityCustomerDto {
     lastname;
     company_name;
     display_name;
+    created_by;
 }
 exports.CrmActivityCustomerDto = CrmActivityCustomerDto;
 class CrmActivityItemDto {

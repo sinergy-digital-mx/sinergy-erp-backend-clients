@@ -23,7 +23,6 @@ const pos_daily_shift_status_enum_1 = require("../../entities/pos/pos-daily-shif
 const electronic_invoice_entity_1 = require("../../entities/electronic-invoicing/electronic-invoice.entity");
 const purchase_order_batch_entity_1 = require("../../entities/purchase-orders/purchase-order-batch.entity");
 const user_entity_1 = require("../../entities/users/user.entity");
-const pos_user_type_enum_1 = require("../../entities/users/pos-user-type.enum");
 const pos_shifts_service_1 = require("../pos-shifts/pos-shifts.service");
 const query_accounting_base_dto_1 = require("./dto/query-accounting-base.dto");
 const pos_sale_collection_mapper_1 = require("../pos-shifts/mappers/pos-sale-collection.mapper");
@@ -55,42 +54,37 @@ let AccountingService = class AccountingService {
         const terminalRows = await this.salesOrderRepo
             .createQueryBuilder('so')
             .innerJoin('so.terminal_user', 'terminal_user')
-            .innerJoin('so.warehouse', 'warehouse')
+            .leftJoin('so.warehouse', 'warehouse')
             .select('terminal_user.id', 'terminal_user_id')
             .addSelect('terminal_user.first_name', 'first_name')
             .addSelect('terminal_user.last_name', 'last_name')
             .addSelect('COUNT(so.id)', 'sales_count')
             .addSelect('COALESCE(SUM(so.total), 0)', 'amount_sold')
             .where('so.tenant_id = :tenantId', { tenantId })
-            .andWhere('warehouse.billing_branch_id = :branchId', {
-            branchId: filters.billing_branch_id,
-        })
+            .andWhere(this.posBranchSql(), { branchId: filters.billing_branch_id })
             .andWhere('so.sales_order_type = :posType', { posType: 'POS' })
             .andWhere('so.general_status != :cancelled', { cancelled: 'Cancelada' })
-            .andWhere('terminal_user.pos_user_type IN (:...sellTypes)', {
-            sellTypes: pos_user_type_enum_1.POS_SELL_TYPES,
-        })
-            .andWhere('DATE(so.created_at) >= :shiftFrom', { shiftFrom })
-            .andWhere('DATE(so.created_at) <= :shiftTo', { shiftTo })
+            .andWhere(`${(0, unclosed_shift_alert_1.posCalendarDateSql)('so.created_at')} >= :shiftFrom`, { shiftFrom })
+            .andWhere(`${(0, unclosed_shift_alert_1.posCalendarDateSql)('so.created_at')} <= :shiftTo`, { shiftTo })
             .groupBy('terminal_user.id')
             .addGroupBy('terminal_user.first_name')
             .addGroupBy('terminal_user.last_name')
             .orderBy('sales_count', 'DESC')
             .getRawMany();
+        const enteredOrders = await this.loadPosEnteredOrders(tenantId, filters.billing_branch_id, shiftFrom, shiftTo);
         const stampedInvoiceSql = this.stampedInvoiceExistsSql('so');
         const walkInSql = this.walkInCustomerSql('customer');
         const collectionRows = await this.collectionRepo
             .createQueryBuilder('collection')
             .innerJoin('collection.sales_order', 'so')
             .innerJoin('collection.pos_daily_shift', 'shift')
-            .innerJoin('so.warehouse', 'warehouse')
             .innerJoin('collection.customer', 'customer')
             .select('COUNT(collection.id)', 'orders_collected')
             .addSelect('COALESCE(SUM(collection.order_total_mxn), 0)', 'amount_collected')
             .addSelect(`SUM(CASE WHEN ${walkInSql} AND NOT ${stampedInvoiceSql} THEN 1 ELSE 0 END)`, 'walk_in_count')
             .addSelect(`SUM(CASE WHEN ${stampedInvoiceSql} THEN 1 ELSE 0 END)`, 'invoiced_count')
             .where('collection.tenant_id = :tenantId', { tenantId })
-            .andWhere('warehouse.billing_branch_id = :branchId', {
+            .andWhere('shift.billing_branch_id = :branchId', {
             branchId: filters.billing_branch_id,
         })
             .andWhere('shift.shift_date >= :shiftFrom', { shiftFrom })
@@ -123,18 +117,27 @@ let AccountingService = class AccountingService {
         });
         const ordersCollected = Number(collectionRows?.orders_collected || 0);
         const amountCollected = Number(collectionRows?.amount_collected || 0);
+        const amountEntered = enteredOrders.reduce((sum, order) => sum + order.total, 0);
+        const pendingOrders = enteredOrders.filter((order) => order.payment_status === 'Pendiente');
+        const amountPending = pendingOrders.reduce((sum, order) => sum + order.total, 0);
         const walkInCount = Number(collectionRows?.walk_in_count || 0);
         const invoicedCount = Number(collectionRows?.invoiced_count || 0);
         const dailyShiftsCount = Number(shiftStats?.daily_shifts_count || 0);
         const partialShiftsCount = Number(shiftStats?.partial_shifts_count || 0);
-        const cobranzaTerminal = await this.userRepo.findOne({
+        const periodShift = await this.dailyShiftRepo.findOne({
             where: {
                 tenant_id: tenantId,
                 billing_branch_id: filters.billing_branch_id,
-                is_pos_user: true,
-                pos_user_type: (0, typeorm_2.In)(pos_user_type_enum_1.POS_COLLECT_TYPES),
+                shift_date: (0, typeorm_2.Between)(shiftFrom, shiftTo),
             },
+            relations: ['terminal_user'],
+            order: { shift_date: 'DESC', created_at: 'DESC' },
         });
+        const cobranzaTerminal = periodShift?.terminal_user ?? null;
+        const openShiftDate = openDailyShift ? (0, unclosed_shift_alert_1.toDateOnlyString)(openDailyShift.shift_date) : null;
+        const openShiftInPeriod = openDailyShift && openShiftDate && openShiftDate >= shiftFrom && openShiftDate <= shiftTo
+            ? openDailyShift
+            : null;
         const salesTerminals = terminalRows.map((row) => ({
             terminal_user_id: row.terminal_user_id,
             terminal_name: this.buildUserName(row.first_name, row.last_name),
@@ -150,6 +153,15 @@ let AccountingService = class AccountingService {
                 date_to: shiftTo,
             },
             unclosed_shift_alert: unclosedShiftAlert,
+            summary: {
+                orders_entered: enteredOrders.length,
+                amount_entered: Number(amountEntered.toFixed(2)),
+                orders_collected: ordersCollected,
+                amount_collected: Number(amountCollected.toFixed(2)),
+                orders_pending: pendingOrders.length,
+                amount_pending: Number(amountPending.toFixed(2)),
+            },
+            entered_orders: enteredOrders,
             sales_terminals: salesTerminals,
             collection_terminal: {
                 terminal_user_id: cobranzaTerminal?.id ?? null,
@@ -162,13 +174,13 @@ let AccountingService = class AccountingService {
                 invoiced_count: invoicedCount,
                 daily_shifts_count: dailyShiftsCount,
                 partial_shifts_count: partialShiftsCount,
-                open_daily_shift: openDailyShift
+                open_daily_shift: openShiftInPeriod
                     ? {
-                        id: openDailyShift.id,
-                        shift_date: (0, unclosed_shift_alert_1.toDateOnlyString)(openDailyShift.shift_date),
-                        status: openDailyShift.status,
-                        is_previous_day: (0, unclosed_shift_alert_1.isPreviousDayOpenShift)(openDailyShift.shift_date),
-                        partial_shifts_count: openDailyShift.partial_shifts?.length ?? 0,
+                        id: openShiftInPeriod.id,
+                        shift_date: (0, unclosed_shift_alert_1.toDateOnlyString)(openShiftInPeriod.shift_date),
+                        status: openShiftInPeriod.status,
+                        is_previous_day: (0, unclosed_shift_alert_1.isPreviousDayOpenShift)(openShiftInPeriod.shift_date),
+                        partial_shifts_count: openShiftInPeriod.partial_shifts?.length ?? 0,
                     }
                     : null,
             },
@@ -189,16 +201,15 @@ let AccountingService = class AccountingService {
             .createQueryBuilder('so')
             .leftJoinAndSelect('so.customer', 'customer')
             .leftJoinAndSelect('so.seller_user', 'seller_user')
-            .innerJoin('so.warehouse', 'warehouse')
             .where('so.tenant_id = :tenantId', { tenantId })
             .andWhere('so.terminal_user_id = :terminalUserId', { terminalUserId })
-            .andWhere('warehouse.billing_branch_id = :branchId', {
+            .andWhere('so.billing_branch_id = :branchId', {
             branchId: filters.billing_branch_id,
         })
             .andWhere('so.sales_order_type = :posType', { posType: 'POS' })
             .andWhere('so.general_status != :cancelled', { cancelled: 'Cancelada' })
-            .andWhere('DATE(so.created_at) >= :shiftFrom', { shiftFrom })
-            .andWhere('DATE(so.created_at) <= :shiftTo', { shiftTo })
+            .andWhere(`${(0, unclosed_shift_alert_1.posCalendarDateSql)('so.created_at')} >= :shiftFrom`, { shiftFrom })
+            .andWhere(`${(0, unclosed_shift_alert_1.posCalendarDateSql)('so.created_at')} <= :shiftTo`, { shiftTo })
             .orderBy('so.created_at', 'DESC')
             .skip((page - 1) * limit)
             .take(limit);
@@ -245,14 +256,16 @@ let AccountingService = class AccountingService {
         const page = filters.page ?? 1;
         const limit = filters.limit ?? 20;
         const customerType = filters.customer_type ?? query_accounting_base_dto_1.PosCollectionCustomerType.ALL;
-        const cobranzaTerminal = await this.userRepo.findOne({
+        const periodShift = await this.dailyShiftRepo.findOne({
             where: {
                 tenant_id: tenantId,
                 billing_branch_id: filters.billing_branch_id,
-                is_pos_user: true,
-                pos_user_type: (0, typeorm_2.In)(pos_user_type_enum_1.POS_COLLECT_TYPES),
+                shift_date: (0, typeorm_2.Between)(shiftFrom, shiftTo),
             },
+            relations: ['terminal_user'],
+            order: { shift_date: 'DESC', created_at: 'DESC' },
         });
+        const cobranzaTerminal = periodShift?.terminal_user ?? null;
         const qb = this.buildPosCollectionsQuery(tenantId, filters, shiftFrom, shiftTo, customerType);
         qb.orderBy('collection.created_at', 'DESC')
             .skip((page - 1) * limit)
@@ -347,7 +360,7 @@ let AccountingService = class AccountingService {
             ],
             rows,
         });
-        const day = new Date().toISOString().slice(0, 10);
+        const day = (0, unclosed_shift_alert_1.getTodayDateString)();
         return { buffer, filename: `cobranza-pos-${day}.xlsx` };
     }
     async getPosDailyShifts(tenantId, filters) {
@@ -678,6 +691,75 @@ let AccountingService = class AccountingService {
             })),
         };
     }
+    posBranchSql() {
+        return '(so.billing_branch_id = :branchId OR warehouse.billing_branch_id = :branchId)';
+    }
+    async loadPosEnteredOrders(tenantId, branchId, shiftFrom, shiftTo) {
+        const rows = await this.salesOrderRepo
+            .createQueryBuilder('so')
+            .leftJoin('so.terminal_user', 'terminal_user')
+            .leftJoin('so.customer', 'customer')
+            .leftJoin('so.warehouse', 'warehouse')
+            .leftJoin('pos_sale_collections', 'collection', 'collection.sales_order_id = so.id')
+            .select('so.id', 'id')
+            .addSelect('so.folio', 'folio')
+            .addSelect('so.created_at', 'created_at')
+            .addSelect('so.total', 'total')
+            .addSelect('so.payment_status', 'payment_status')
+            .addSelect('terminal_user.first_name', 'terminal_first_name')
+            .addSelect('terminal_user.last_name', 'terminal_last_name')
+            .addSelect('customer.company_name', 'customer_company_name')
+            .addSelect('customer.name', 'customer_name')
+            .addSelect('customer.lastname', 'customer_lastname')
+            .addSelect('customer.fiscal_razon_social', 'customer_fiscal')
+            .addSelect('so.sales_order_type', 'sales_order_type')
+            .addSelect('COALESCE(collection.order_total_mxn, 0)', 'amount_collected')
+            .where('so.tenant_id = :tenantId', { tenantId })
+            .andWhere(this.posBranchSql(), { branchId })
+            .andWhere('so.sales_order_type IN (:...orderTypes)', { orderTypes: ['POS', 'MANUAL'] })
+            .andWhere('so.general_status != :cancelled', { cancelled: 'Cancelada' })
+            .andWhere(`(
+          (
+            ${(0, unclosed_shift_alert_1.posCalendarDateSql)('so.created_at')} >= :shiftFrom
+            AND ${(0, unclosed_shift_alert_1.posCalendarDateSql)('so.created_at')} <= :shiftTo
+          )
+          OR EXISTS (
+            SELECT 1 FROM pos_sale_collections col
+            INNER JOIN pos_daily_shifts sh ON sh.id = col.pos_daily_shift_id
+            WHERE col.sales_order_id = so.id
+              AND sh.billing_branch_id = :branchId
+              AND sh.shift_date >= :shiftFrom
+              AND sh.shift_date <= :shiftTo
+          )
+        )`)
+            .orderBy('so.created_at', 'DESC')
+            .getRawMany();
+        return rows.map((row) => {
+            const customerFields = this.buildCustomerFields({
+                company_name: row.customer_company_name,
+                name: row.customer_name,
+                lastname: row.customer_lastname,
+                fiscal_razon_social: row.customer_fiscal,
+            });
+            const createdAt = row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at ?? '');
+            return {
+                id: row.id,
+                folio: row.folio,
+                created_at: createdAt,
+                total: Number(row.total || 0),
+                payment_status: row.payment_status,
+                sales_order_type: row.sales_order_type,
+                channel: row.sales_order_type === 'POS' ? 'caja' : 'branch',
+                terminal_name: row.sales_order_type === 'POS'
+                    ? row.terminal_first_name || row.terminal_last_name
+                        ? this.buildUserName(row.terminal_first_name, row.terminal_last_name)
+                        : null
+                    : 'Sucursal',
+                customer_display_name: customerFields.customer_display_name,
+                amount_collected: Number(row.amount_collected || 0),
+            };
+        });
+    }
     walkInCustomerSql(customerAlias) {
         return `(${customerAlias}.fiscal_razon_social = :walkInFiscal OR ${customerAlias}.name = :walkInName)`;
     }
@@ -727,9 +809,8 @@ let AccountingService = class AccountingService {
             .innerJoinAndSelect('collection.customer', 'customer')
             .leftJoinAndSelect('so.seller_user', 'seller_user')
             .leftJoinAndSelect('collection.collected_by_user', 'collected_by_user')
-            .innerJoin('so.warehouse', 'warehouse')
             .where('collection.tenant_id = :tenantId', { tenantId })
-            .andWhere('warehouse.billing_branch_id = :branchId', {
+            .andWhere('shift.billing_branch_id = :branchId', {
             branchId: filters.billing_branch_id,
         })
             .andWhere('shift.shift_date >= :shiftFrom', { shiftFrom })

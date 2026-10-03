@@ -1,3 +1,4 @@
+export declare function pickFiscalPart(incoming: string | null | undefined, existing: string | null | undefined): string | null | undefined;
 type FiscalDomicileParts = {
     street?: string | null;
     exteriorNumber?: string | null;

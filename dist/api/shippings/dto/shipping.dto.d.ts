@@ -21,6 +21,9 @@ export declare class AddShippingStopsDto {
 export declare class UpdateShippingStatusDto {
     status: string;
 }
+export declare class SetShippingStopAddressDto {
+    customer_address_id: number;
+}
 export declare class ResolveOrdersDto {
     sales_order_ids: string[];
 }

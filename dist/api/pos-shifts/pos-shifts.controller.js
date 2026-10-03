@@ -106,7 +106,7 @@ let PosShiftsController = class PosShiftsController {
 exports.PosShiftsController = PosShiftsController;
 __decorate([
     (0, common_1.Post)('validate-seller-code'),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'PosShift', action: 'Read' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Read' }, { entityType: 'pos', action: 'Read' }, { entityType: 'pos', action: 'Create' }, { entityType: 'pos', action: 'Update' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Validar código de vendedor',
         description: 'El usuario POS autenticado envía el código numérico del vendedor y recibe su información',
@@ -120,7 +120,7 @@ __decorate([
 ], PosShiftsController.prototype, "validateSellerCode", null);
 __decorate([
     (0, common_1.Get)('daily-shift/current'),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'PosShift', action: 'Read' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Read' }, { entityType: 'pos', action: 'Read' }, { entityType: 'pos', action: 'Create' }, { entityType: 'pos', action: 'Update' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Obtener corte global abierto de la sucursal',
         description: 'Si el corte abierto es de un día anterior, incluye unclosed_shift_alert para forzar el cierre antes de continuar.',
@@ -133,7 +133,7 @@ __decorate([
 ], PosShiftsController.prototype, "getCurrentDailyShift", null);
 __decorate([
     (0, common_1.Post)('daily-shift/open'),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'PosShift', action: 'Create' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Create' }, { entityType: 'pos', action: 'Update' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Abrir corte global del día',
         description: 'Solo terminales POS de tipo COBRANZA',
@@ -156,7 +156,7 @@ __decorate([
 ], PosShiftsController.prototype, "findDailyShifts", null);
 __decorate([
     (0, common_1.Get)('daily-shift/:id'),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'PosShift', action: 'Read' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Read' }, { entityType: 'pos', action: 'Update' }),
     (0, swagger_1.ApiParam)({ name: 'id', description: 'Daily shift ID' }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Req)()),
@@ -166,7 +166,7 @@ __decorate([
 ], PosShiftsController.prototype, "findDailyShiftById", null);
 __decorate([
     (0, common_1.Post)('daily-shift/:id/partial-shifts'),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'PosShift', action: 'Update' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Update' }, { entityType: 'pos', action: 'Update' }),
     (0, swagger_1.ApiOperation)({ summary: 'Registrar corte parcial con denominaciones' }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
@@ -177,7 +177,7 @@ __decorate([
 ], PosShiftsController.prototype, "createPartialShift", null);
 __decorate([
     (0, common_1.Patch)('daily-shift/:id/close'),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'PosShift', action: 'Update' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Update' }, { entityType: 'pos', action: 'Update' }),
     (0, swagger_1.ApiOperation)({ summary: 'Cerrar corte global del día' }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
@@ -188,7 +188,7 @@ __decorate([
 ], PosShiftsController.prototype, "closeDailyShift", null);
 __decorate([
     (0, common_1.Get)('pending-sales'),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'PosShift', action: 'Read' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Read' }, { entityType: 'pos', action: 'Update' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Ventas pendientes de cobro',
         description: 'Solo terminal COBRANZA. Órdenes Surtida + Pendiente de la sucursal.',
@@ -201,7 +201,7 @@ __decorate([
 ], PosShiftsController.prototype, "getPendingSales", null);
 __decorate([
     (0, common_1.Get)('sales-in-progress'),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'PosShift', action: 'Read' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Read' }, { entityType: 'pos', action: 'Read' }, { entityType: 'pos', action: 'Create' }, { entityType: 'pos', action: 'Update' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Tickets POS reintegrados a ventas',
         description: 'Solo terminal VENTAS. Órdenes pos_stage=ventas de la sucursal.',
@@ -214,7 +214,7 @@ __decorate([
 ], PosShiftsController.prototype, "getSalesInProgress", null);
 __decorate([
     (0, common_1.Get)('collected-sales'),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'PosShift', action: 'Read' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Read' }, { entityType: 'pos', action: 'Update' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Ventas cobradas del corte',
         description: 'Solo terminal COBRANZA. Lista órdenes ya cobradas del corte abierto de la sucursal (o de daily_shift_id indicado).',
@@ -227,7 +227,7 @@ __decorate([
 ], PosShiftsController.prototype, "getCollectedSales", null);
 __decorate([
     (0, common_1.Post)('sales/:salesOrderId/collect'),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'PosShift', action: 'Update' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Update' }, { entityType: 'pos', action: 'Update' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Cobrar venta pendiente',
         description: 'Solo terminal COBRANZA. Registra método de pago, cliente y marca la orden como Pagada.',
@@ -255,7 +255,7 @@ __decorate([
 ], PosShiftsController.prototype, "returnSaleToVentas", null);
 __decorate([
     (0, common_1.Put)('sales/:salesOrderId/cart'),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'PosShift', action: 'Read' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Read' }, { entityType: 'pos', action: 'Read' }, { entityType: 'pos', action: 'Create' }, { entityType: 'pos', action: 'Update' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Reemplazar carrito de un ticket en ventas',
         description: 'Solo terminal VENTAS y pos_stage=ventas. Ajusta inventario.',
@@ -270,7 +270,7 @@ __decorate([
 ], PosShiftsController.prototype, "replaceSaleCart", null);
 __decorate([
     (0, common_1.Post)('sales/:salesOrderId/send-to-caja'),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'PosShift', action: 'Read' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Read' }, { entityType: 'pos', action: 'Read' }, { entityType: 'pos', action: 'Create' }, { entityType: 'pos', action: 'Update' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Reenviar ticket editado a caja',
         description: 'Solo terminal VENTAS. El folio vuelve a pendientes de cobro.',
@@ -283,7 +283,7 @@ __decorate([
 ], PosShiftsController.prototype, "sendSaleToCaja", null);
 __decorate([
     (0, common_1.Get)('sales/:salesOrderId/collection'),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'PosShift', action: 'Read' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Read' }, { entityType: 'pos', action: 'Read' }, { entityType: 'pos', action: 'Create' }, { entityType: 'pos', action: 'Update' }),
     (0, swagger_1.ApiOperation)({ summary: 'Detalle de cobro de una venta POS' }),
     __param(0, (0, common_1.Param)('salesOrderId')),
     __param(1, (0, common_1.Req)()),
@@ -293,7 +293,7 @@ __decorate([
 ], PosShiftsController.prototype, "getSaleCollection", null);
 __decorate([
     (0, common_1.Get)('sales/:salesOrderId/receipt'),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'PosShift', action: 'Read' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Read' }, { entityType: 'pos', action: 'Read' }, { entityType: 'pos', action: 'Create' }, { entityType: 'pos', action: 'Update' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Ticket térmico ESC/POS de venta cobrada',
         description: 'Devuelve el ticket guardado al cobrar. Si la venta ya está cobrada y el archivo no existe, lo genera.',
@@ -306,7 +306,7 @@ __decorate([
 ], PosShiftsController.prototype, "getSaleReceipt", null);
 __decorate([
     (0, common_1.Get)('sales/:salesOrderId/receipt/raw'),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'PosShift', action: 'Read' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Read' }, { entityType: 'pos', action: 'Read' }, { entityType: 'pos', action: 'Create' }, { entityType: 'pos', action: 'Update' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Bytes ESC/POS del ticket (binario)',
         description: 'application/octet-stream para impresión RAW Bixolon.',

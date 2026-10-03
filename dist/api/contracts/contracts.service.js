@@ -68,17 +68,21 @@ let ContractsService = class ContractsService {
             if (!Number.isFinite(paymentMonthsRequested) || paymentMonthsRequested < 1) {
                 throw new common_1.BadRequestException('payment_months debe ser al menos 1 cuando el enganche se financia en pagos');
             }
+            const total = Math.round(totalPrice * 100) / 100;
             if (!Number.isFinite(downPayment) || downPayment <= 0) {
                 return {
-                    remaining_balance: Math.round(totalPrice * 100) / 100,
+                    remaining_balance: total,
                     payment_months: paymentMonthsRequested,
                     monthly_payment: 0,
                 };
             }
+            const balanceAfterDownPayment = Math.max(0, Math.round((total - downPayment) * 100) / 100);
             return {
-                remaining_balance: Math.round(totalPrice * 100) / 100,
+                remaining_balance: total,
                 payment_months: paymentMonthsRequested,
-                monthly_payment: Math.round((downPayment / paymentMonthsRequested) * 100) / 100,
+                monthly_payment: balanceAfterDownPayment <= 0
+                    ? 0
+                    : Math.round((balanceAfterDownPayment / paymentMonthsRequested) * 100) / 100,
             };
         }
         const rawRemaining = Math.round((totalPrice - downPayment) * 100) / 100;

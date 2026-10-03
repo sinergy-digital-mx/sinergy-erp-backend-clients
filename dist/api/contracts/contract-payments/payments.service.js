@@ -70,18 +70,20 @@ let PaymentsService = class PaymentsService {
         if (!paymentMonths || paymentMonths < 1) {
             throw new common_1.BadRequestException('El contrato no tiene meses de pago definidos para generar el calendario');
         }
+        const plan = this.installmentPlan(contract);
         const payments = [];
         for (let i = 0; i < paymentMonths; i++) {
             const dueDate = this.addMonthsClamped(startDate, i);
+            const amount = plan.amounts[i] ?? plan.monthlyPayment;
             payments.push(this.paymentRepo.create({
                 tenant_id: tenantId,
                 contract_id: contract.id,
                 payment_number: String(i + 1),
                 payment_date: dueDate,
                 due_date: dueDate,
-                amount: contract.monthly_payment,
+                amount,
                 amount_paid: 0,
-                amount_pending: contract.monthly_payment,
+                amount_pending: amount,
                 payment_method: 'transferencia',
                 status: 'pendiente',
                 is_overdue: false,
@@ -89,7 +91,10 @@ let PaymentsService = class PaymentsService {
         }
         const saved = await this.paymentRepo.save(payments);
         const schedule = this.buildSchedulePreview(contract, startDate);
-        await this.contractRepo.update({ id: contract.id, tenant_id: tenantId }, { first_payment_date: schedule.start_date });
+        await this.contractRepo.update({ id: contract.id, tenant_id: tenantId }, {
+            first_payment_date: schedule.start_date,
+            monthly_payment: schedule.monthly_payment,
+        });
         return {
             ...schedule,
             payments: saved.map((payment) => ({
@@ -483,14 +488,35 @@ let PaymentsService = class PaymentsService {
             throw new common_1.BadRequestException('El contrato no tiene meses de pago definidos para calcular el calendario');
         }
         const endDate = this.addMonthsClamped(startDate, paymentMonths - 1);
+        const plan = this.installmentPlan(contract);
         return {
             start_date: this.formatDateOnly(startDate),
             end_date: this.formatDateOnly(endDate),
             payment_months: paymentMonths,
             payment_day: startDate.getDate(),
             payments_count: paymentMonths,
-            monthly_payment: Math.round(Number(contract.monthly_payment || 0) * 100) / 100,
+            monthly_payment: plan.monthlyPayment,
+            last_installment_amount: plan.lastInstallmentAmount,
+            total_price: plan.totalPrice,
+            down_payment_basis: plan.downPaymentBasis,
+            balance_after_down_payment: plan.balanceAfterDownPayment,
             currency: (0, contract_currency_util_1.resolveStoredContractCurrency)(contract.currency),
+        };
+    }
+    installmentPlan(contract) {
+        const totalPrice = Math.round(Number(contract.total_price || 0) * 100) / 100;
+        const months = Number(contract.payment_months) || 0;
+        const downPaymentBasis = Math.round((0, contract_financial_util_1.getDownPaymentTarget)(contract) * 100) / 100;
+        const balanceAfterDownPayment = (0, contract_financial_util_1.computeFinancedAmount)(totalPrice, contract);
+        const amounts = (0, contract_financial_util_1.buildInstallmentAmounts)(balanceAfterDownPayment, months);
+        const monthlyPayment = (0, contract_financial_util_1.computeMonthlyPayment)(totalPrice, contract, months);
+        return {
+            amounts,
+            monthlyPayment,
+            lastInstallmentAmount: amounts.length ? amounts[amounts.length - 1] : monthlyPayment,
+            totalPrice,
+            downPaymentBasis,
+            balanceAfterDownPayment,
         };
     }
     resolveScheduleFromPayments(contract, payments) {
@@ -508,6 +534,10 @@ let PaymentsService = class PaymentsService {
                 payment_day: firstDue.getDate(),
                 payments_count: payments.length,
                 monthly_payment: Math.round(Number(contract.monthly_payment || 0) * 100) / 100,
+                last_installment_amount: Math.round(Number(contract.monthly_payment || 0) * 100) / 100,
+                total_price: Math.round(Number(contract.total_price || 0) * 100) / 100,
+                down_payment_basis: Math.round((0, contract_financial_util_1.getDownPaymentTarget)(contract) * 100) / 100,
+                balance_after_down_payment: (0, contract_financial_util_1.computeFinancedAmount)(Number(contract.total_price) || 0, contract),
                 currency: (0, contract_currency_util_1.resolveStoredContractCurrency)(contract.currency),
             };
         }

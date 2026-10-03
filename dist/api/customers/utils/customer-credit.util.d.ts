@@ -1,5 +1,6 @@
 export interface CustomerCreditSnapshot {
     credit_enabled: boolean;
+    allow_credit_exceed: boolean;
     credit_days: number | null;
     credit_amount: number;
     credit_used: number;
@@ -16,11 +17,14 @@ export declare function parseOptionalBoolean(value: unknown): boolean | undefine
 export declare function parseOptionalNumber(value: unknown): number | undefined;
 export declare function extractCreditPatchFromBody(body: Record<string, unknown>): {
     credit_enabled: boolean;
+    allow_credit_exceed?: boolean;
     credit_days?: number | null;
     credit_amount?: number | null;
 } | null;
+export declare function creditChargeUsesExceedWaiver(amount: number, creditAvailable: number, allowCreditExceed: boolean): boolean;
 export declare function buildCreditSnapshot(params: {
     creditEnabled: boolean;
+    allowCreditExceed?: boolean;
     creditDays?: number | null;
     creditAmount?: number | string | null;
     creditUsed?: number | string | null;

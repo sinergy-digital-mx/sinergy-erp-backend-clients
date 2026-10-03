@@ -44,7 +44,7 @@ let RBACErrorHandlerService = RBACErrorHandlerService_1 = class RBACErrorHandler
         const baseResponse = {
             statusCode: exception.getStatus(),
             error: exception.name,
-            message: this.truncateMessage(errorMessage.technical),
+            message: this.truncateMessage((0, error_messages_1.getClientMessage)(exception.code)),
             code: exception.code,
             category: exception.category,
             severity: exception.severity,
@@ -77,7 +77,9 @@ let RBACErrorHandlerService = RBACErrorHandlerService_1 = class RBACErrorHandler
         return {
             statusCode: exception.getStatus(),
             error: exception.name,
-            message: this.truncateMessage((0, error_messages_1.getUserFriendlyMessage)(exception.code)),
+            message: this.truncateMessage(exception.code === 'PERMISSION_DENIED'
+                ? (0, error_messages_1.getClientMessage)(exception.code)
+                : (0, error_messages_1.getUserFriendlyMessage)(exception.code)),
             timestamp: new Date().toISOString(),
             path: request.url,
         };

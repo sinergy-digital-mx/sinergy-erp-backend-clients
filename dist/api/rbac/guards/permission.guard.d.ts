@@ -9,6 +9,10 @@ export declare class PermissionGuard implements CanActivate {
     private readonly logger;
     constructor(reflector: Reflector, permissionService: PermissionService, tenantContextService: TenantContextService);
     canActivate(context: ExecutionContext): Promise<boolean>;
+    private authorizeAll;
+    private authorizeAny;
+    private requireUserContext;
+    private checkPermission;
     private extractTenantId;
     private validateUserTenantAccess;
     canActivateWithTenantValidation(context: ExecutionContext): Promise<boolean>;

@@ -8,6 +8,16 @@ import { User } from '../../entities/users/user.entity';
 import { SalesOrder } from '../../entities/sales-orders/sales-order.entity';
 import { CustomerAddress } from '../../entities/customers/customer-address.entity';
 import { AddShippingStopsDto, CreateShippingDto, PreviewShippingDto, QueryAvailableShippingOrdersDto, QueryShippingDto, ResolveOrdersDto, UpdateShippingStatusDto } from './dto/shipping.dto';
+export interface CustomerAddressOption {
+    id: number;
+    type: string | null;
+    type_label: string;
+    address_summary: string;
+    is_primary: boolean;
+    has_gps: boolean;
+    latitude: number | null;
+    longitude: number | null;
+}
 export declare class ShippingsService {
     private readonly shippingRepo;
     private readonly stopRepo;
@@ -50,6 +60,7 @@ export declare class ShippingsService {
             address_summary: string | null;
             customer_address_id: number | null;
             address_type: string | null;
+            customer_addresses: CustomerAddressOption[];
             distance_from_previous_km: number | null;
             distance_from_origin_km: number | null;
         }[];
@@ -131,6 +142,7 @@ export declare class ShippingsService {
         hasPrev: boolean;
     }>;
     findOne(id: string, tenantId: string): Promise<Shipping>;
+    setStopAddress(shippingId: string, salesOrderId: string, addressId: number, tenantId: string): Promise<Shipping>;
     addStops(id: string, dto: AddShippingStopsDto, tenantId: string): Promise<Shipping>;
     recalculateDistance(id: string, tenantId: string): Promise<Shipping>;
     updateStatus(id: string, dto: UpdateShippingStatusDto, tenantId: string, userId: string): Promise<Shipping>;
@@ -171,6 +183,11 @@ export declare class ShippingsService {
     private buildStopDistances;
     private resolveStops;
     private resolveAddressForOrder;
+    private addressSelection;
+    private loadActiveAddresses;
+    private attachCustomerAddresses;
+    private toAddressOption;
+    private addressTypeLabel;
     private sortStopsByDistanceFromOrigin;
     private buildPreviewResponse;
     private addressSummary;

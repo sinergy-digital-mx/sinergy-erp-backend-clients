@@ -40,6 +40,7 @@ const pos_cash_payment_util_1 = require("./utils/pos-cash-payment.util");
 const walk_in_ticket_util_1 = require("./utils/walk-in-ticket.util");
 const unclosed_shift_alert_1 = require("./utils/unclosed-shift-alert");
 const customer_credit_service_1 = require("../customers/services/customer-credit.service");
+const customer_credit_util_1 = require("../customers/utils/customer-credit.util");
 const advance_shift_payment_service_1 = require("./services/advance-shift-payment.service");
 const fiscal_invoice_readiness_util_1 = require("../customers/utils/fiscal-invoice-readiness.util");
 const WALK_IN_FISCAL_NAME = 'VENTA DE MOSTRADOR';
@@ -396,7 +397,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             qb.andWhere('so.pos_daily_shift_id = :shiftId', { shiftId: openShift.id });
         }
         else {
-            qb.innerJoin('so.warehouse', 'warehouse').andWhere('warehouse.billing_branch_id = :branchId', { branchId });
+            this.applySalesOrderBranchScope(qb, branchId);
         }
         const orders = await qb.orderBy('so.created_at', 'ASC').getMany();
         const quotationIds = [
@@ -445,6 +446,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                     lastname: order.customer.lastname,
                     company_name: order.customer.company_name,
                     fiscal_razon_social: order.customer.fiscal_razon_social,
+                    display_name: (0, pos_sale_collection_mapper_1.formatCustomerDisplayName)(order.customer),
                     is_walk_in: (0, pos_sale_collection_mapper_1.isWalkInCustomer)(order.customer),
                     credit_enabled: Boolean(order.fiscal_configuration_id &&
                         creditEnabledByFiscal.get(`${order.customer.id}:${order.fiscal_configuration_id}`)),
@@ -563,9 +565,9 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             throw new common_1.BadRequestException('Cliente no válido');
         }
         const isCredit = dto.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CREDIT;
-        if (isCredit) {
-            await this.assertCustomerCanUseCredit(customer, amountPending, order.fiscal_configuration_id);
-        }
+        const creditWaiverUsed = isCredit
+            ? await this.assertCustomerCanUseCredit(customer, amountPending, order.fiscal_configuration_id)
+            : false;
         const fiscal = (0, fiscal_invoice_readiness_util_1.getFiscalInvoiceReadiness)(customer);
         if (dto.generate_invoice) {
             if ((0, pos_sale_collection_mapper_1.isWalkInCustomer)(customer) || !fiscal.fiscal_ready_for_invoice) {
@@ -627,6 +629,11 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                     ? (0, walk_in_ticket_util_1.normalizeWalkInName)(dto.walk_in_name)
                     : order.walk_in_name
                 : null,
+            walk_in_phone: (0, pos_sale_collection_mapper_1.isWalkInCustomer)(customer)
+                ? dto.walk_in_phone !== undefined
+                    ? (0, walk_in_ticket_util_1.normalizeWalkInPhone)(dto.walk_in_phone)
+                    : order.walk_in_phone
+                : null,
             walk_in_rfc: (0, pos_sale_collection_mapper_1.isWalkInCustomer)(customer)
                 ? dto.walk_in_rfc !== undefined
                     ? (0, walk_in_ticket_util_1.normalizeWalkInRfc)(dto.walk_in_rfc)
@@ -635,6 +642,9 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         });
         if (isCredit) {
             await this.salesOrderService.captureCreditCharge(order.id, tenantId, cobranzaUserId);
+            if (creditWaiverUsed && order.fiscal_configuration_id) {
+                await this.customerCreditService.consumeExceedWaiver(tenantId, customer.id, order.fiscal_configuration_id);
+            }
         }
         collection.customer = customer;
         collection.collected_by_user = cobranzaUser;
@@ -686,10 +696,8 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         if (!shift) {
             return 0;
         }
-        const shiftDate = (0, unclosed_shift_alert_1.toDateOnlyString)(shift.shift_date);
         const queued = await this.salesOrderRepo
             .createQueryBuilder('so')
-            .innerJoin('so.warehouse', 'warehouse')
             .where('so.tenant_id = :tenantId', { tenantId })
             .andWhere('so.sales_order_type = :type', { type: 'POS' })
             .andWhere('so.general_status = :queued', { queued: 'En cola' })
@@ -697,16 +705,13 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             .andWhere('(so.pos_stage IS NULL OR so.pos_stage = :posStage)', {
             posStage: sales_order_pos_stage_enum_1.SalesOrderPosStage.Caja,
         })
-            .andWhere('warehouse.billing_branch_id = :billingBranchId', { billingBranchId })
-            .andWhere('DATE(so.created_at) = :shiftDate', { shiftDate })
-            .andWhere(`NOT EXISTS (
-          SELECT 1 FROM pos_sale_collections col
-          WHERE col.sales_order_id = so.id
-        )`)
-            .getMany();
+            .andWhere(this.uncollectedSaleSql())
+            .andWhere(this.applySalesOrderBranchScopeSql());
+        this.bindSalesOrderBranch(queued, billingBranchId);
+        const queuedOrders = await queued.getMany();
         const leftoverUnpaid = await this.salesOrderRepo
             .createQueryBuilder('so')
-            .innerJoin('so.warehouse', 'warehouse')
+            .leftJoin('so.pos_daily_shift', 'linked_shift')
             .where('so.tenant_id = :tenantId', { tenantId })
             .andWhere('so.sales_order_type = :type', { type: 'POS' })
             .andWhere('so.general_status = :surtida', { surtida: 'Surtida' })
@@ -714,15 +719,12 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             .andWhere('(so.pos_stage IS NULL OR so.pos_stage = :posStage)', {
             posStage: sales_order_pos_stage_enum_1.SalesOrderPosStage.Caja,
         })
-            .andWhere('warehouse.billing_branch_id = :billingBranchId', { billingBranchId })
-            .andWhere('so.pos_daily_shift_id IS NULL')
-            .andWhere('DATE(so.created_at) = :shiftDate', { shiftDate })
-            .andWhere(`NOT EXISTS (
-          SELECT 1 FROM pos_sale_collections col
-          WHERE col.sales_order_id = so.id
-        )`)
-            .getMany();
-        const toAssign = [...queued, ...leftoverUnpaid];
+            .andWhere('(so.pos_daily_shift_id IS NULL OR linked_shift.status = :closedStatus)', { closedStatus: pos_daily_shift_status_enum_1.PosDailyShiftStatus.CLOSED })
+            .andWhere(this.uncollectedSaleSql())
+            .andWhere(this.applySalesOrderBranchScopeSql());
+        this.bindSalesOrderBranch(leftoverUnpaid, billingBranchId);
+        const leftoverOrders = await leftoverUnpaid.getMany();
+        const toAssign = [...queuedOrders, ...leftoverOrders];
         if (!toAssign.length) {
             return 0;
         }
@@ -734,12 +736,28 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             seen.add(order.id);
             return true;
         });
-        for (const order of unique) {
-            order.general_status = 'Surtida';
-            order.pos_daily_shift_id = shiftId;
-        }
-        await this.salesOrderRepo.save(unique);
+        await this.salesOrderRepo.update({ id: (0, typeorm_2.In)(unique.map((order) => order.id)) }, {
+            general_status: 'Surtida',
+            pos_daily_shift_id: shiftId,
+        });
         return unique.length;
+    }
+    applySalesOrderBranchScopeSql() {
+        return '(so.billing_branch_id = :billingBranchId OR warehouse.billing_branch_id = :billingBranchId)';
+    }
+    applySalesOrderBranchScope(qb, billingBranchId) {
+        qb.leftJoin('so.warehouse', 'warehouse').andWhere(this.applySalesOrderBranchScopeSql(), {
+            billingBranchId,
+        });
+    }
+    bindSalesOrderBranch(qb, billingBranchId) {
+        qb.leftJoin('so.warehouse', 'warehouse').setParameter('billingBranchId', billingBranchId);
+    }
+    uncollectedSaleSql() {
+        return `NOT EXISTS (
+      SELECT 1 FROM pos_sale_collections col
+      WHERE col.sales_order_id = so.id
+    )`;
     }
     async requireSellerUser(tenantId, sellerUserId) {
         const seller = await this.userRepo.findOne({
@@ -940,9 +958,11 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         if (!snapshot.credit_enabled) {
             throw new common_1.BadRequestException('El cliente no tiene crédito activo con esta razón social');
         }
-        if (amount - snapshot.credit_available > 0.01) {
+        const usesWaiver = (0, customer_credit_util_1.creditChargeUsesExceedWaiver)(amount, snapshot.credit_available, snapshot.allow_credit_exceed);
+        if (amount - snapshot.credit_available > 0.01 && !usesWaiver) {
             throw new common_1.BadRequestException(`Crédito insuficiente. Disponible: ${snapshot.credit_available.toFixed(2)} MXN`);
         }
+        return usesWaiver;
     }
     mapCollectedSaleRow(collection) {
         const order = collection.sales_order;
@@ -1185,6 +1205,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                     lastname: order.customer.lastname,
                     company_name: order.customer.company_name,
                     fiscal_razon_social: order.customer.fiscal_razon_social,
+                    display_name: (0, pos_sale_collection_mapper_1.formatCustomerDisplayName)(order.customer),
                     is_walk_in: (0, pos_sale_collection_mapper_1.isWalkInCustomer)(order.customer),
                 }
                 : null,

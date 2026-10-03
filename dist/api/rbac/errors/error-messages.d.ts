@@ -10,5 +10,6 @@ export declare function getErrorMessage(code: RBACErrorCode): {
     suggestions: string[];
 };
 export declare function getUserFriendlyMessage(code: RBACErrorCode): string;
+export declare function getClientMessage(code: RBACErrorCode): string;
 export declare function getTechnicalMessage(code: RBACErrorCode): string;
 export declare function getErrorSuggestions(code: RBACErrorCode): string[];

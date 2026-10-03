@@ -52,6 +52,7 @@ export declare class InventoryService {
     getStats(tenantId: string, filters: InventoryStatsFilterDto): Promise<InventoryStatsResponseDto>;
     private buildStatsBaseQuery;
     private parseDecimal;
+    private hasAvailableStock;
     private parseIntSafe;
     private formatMoney;
     private formatQty;

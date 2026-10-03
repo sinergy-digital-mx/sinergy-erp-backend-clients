@@ -291,7 +291,37 @@ let ShippingsService = class ShippingsService {
         if (!shipping) {
             throw new common_1.NotFoundException('Envío no encontrado');
         }
+        await this.attachCustomerAddresses(shipping, tenantId);
         return shipping;
+    }
+    async setStopAddress(shippingId, salesOrderId, addressId, tenantId) {
+        const shipping = await this.shippingRepo.findOne({
+            where: { id: shippingId, tenant_id: tenantId },
+            relations: ['stops', 'stops.sales_order'],
+        });
+        if (!shipping) {
+            throw new common_1.NotFoundException('Envío no encontrado');
+        }
+        if (shipping.status !== 'Creado') {
+            throw new common_1.BadRequestException('Solo se puede cambiar la dirección en un envío creado');
+        }
+        const stop = (shipping.stops ?? []).find((item) => item.sales_order_id === salesOrderId);
+        if (!stop?.sales_order) {
+            throw new common_1.NotFoundException('La orden no está en este envío');
+        }
+        const address = await this.addressRepo.findOne({
+            where: {
+                id: addressId,
+                tenant_id: tenantId,
+                customer_id: stop.sales_order.customer_id,
+                status: 1,
+            },
+        });
+        if (!address) {
+            throw new common_1.BadRequestException('La dirección no pertenece a este cliente');
+        }
+        await this.stopRepo.update(stop.id, { customer_address_id: address.id });
+        return this.recalculateDistance(shippingId, tenantId);
     }
     async addStops(id, dto, tenantId) {
         const shipping = await this.findOne(id, tenantId);
@@ -319,6 +349,7 @@ let ShippingsService = class ShippingsService {
                 customer_name: null,
                 customer_id: s.sales_order?.customer_id ?? null,
                 address_type: null,
+                customer_addresses: [],
             })),
             ...resolved,
         ];
@@ -596,59 +627,117 @@ let ShippingsService = class ShippingsService {
     }
     async resolveAddressForOrder(order, preferredAddressId, tenantId) {
         const customerName = this.customerName(order);
-        if (preferredAddressId) {
-            const preferred = await this.addressRepo.findOne({
-                where: {
-                    id: preferredAddressId,
-                    tenant_id: tenantId,
-                    customer_id: order.customer_id,
-                    status: 1,
-                },
-            });
-            if (preferred && (0, geo_helper_1.hasValidGps)(preferred)) {
-                return {
-                    customer_address_id: preferred.id,
-                    location_status: 'ok',
-                    delivery_latitude: Number(preferred.latitude),
-                    delivery_longitude: Number(preferred.longitude),
-                    address_summary: this.addressSummary(preferred),
-                    customer_name: customerName,
-                    address_type: preferred.type ?? null,
-                };
-            }
+        const addresses = await this.loadActiveAddresses(order.customer_id, tenantId);
+        const customer_addresses = addresses.map((address) => this.toAddressOption(address));
+        const preferred = preferredAddressId
+            ? addresses.find((address) => address.id === Number(preferredAddressId))
+            : undefined;
+        const primary = addresses.find((address) => Boolean(address.is_primary));
+        const shippingWithGps = addresses.find((address) => address.type === 'shipping' && (0, geo_helper_1.hasValidGps)(address));
+        const anyWithGps = addresses.find((address) => (0, geo_helper_1.hasValidGps)(address));
+        const shippingAny = addresses.find((address) => address.type === 'shipping');
+        const chosen = preferred ||
+            primary ||
+            shippingWithGps ||
+            anyWithGps ||
+            shippingAny ||
+            addresses[0];
+        return this.addressSelection(chosen, customerName, customer_addresses);
+    }
+    addressSelection(chosen, customerName, customer_addresses) {
+        if (!chosen) {
+            return {
+                customer_address_id: null,
+                location_status: 'without_location',
+                delivery_latitude: null,
+                delivery_longitude: null,
+                address_summary: null,
+                customer_name: customerName,
+                address_type: null,
+                customer_addresses,
+            };
         }
-        const addresses = await this.addressRepo.find({
+        const gps = (0, geo_helper_1.hasValidGps)(chosen);
+        return {
+            customer_address_id: chosen.id,
+            location_status: (gps ? 'ok' : 'without_location'),
+            delivery_latitude: gps ? Number(chosen.latitude) : null,
+            delivery_longitude: gps ? Number(chosen.longitude) : null,
+            address_summary: this.addressSummary(chosen),
+            customer_name: customerName,
+            address_type: chosen.type ?? null,
+            customer_addresses,
+        };
+    }
+    async loadActiveAddresses(customerId, tenantId) {
+        if (customerId == null)
+            return [];
+        return this.addressRepo.find({
             where: {
                 tenant_id: tenantId,
-                customer_id: order.customer_id,
+                customer_id: customerId,
                 status: 1,
             },
             order: { is_primary: 'DESC', id: 'ASC' },
         });
-        const shippingWithGps = addresses.find((a) => a.type === 'shipping' && (0, geo_helper_1.hasValidGps)(a));
-        const anyWithGps = addresses.find((a) => (0, geo_helper_1.hasValidGps)(a));
-        const shippingAny = addresses.find((a) => a.type === 'shipping');
-        const chosen = shippingWithGps || anyWithGps || shippingAny || addresses[0];
-        if (chosen && (0, geo_helper_1.hasValidGps)(chosen)) {
-            return {
-                customer_address_id: chosen.id,
-                location_status: 'ok',
-                delivery_latitude: Number(chosen.latitude),
-                delivery_longitude: Number(chosen.longitude),
-                address_summary: this.addressSummary(chosen),
-                customer_name: customerName,
-                address_type: chosen.type ?? null,
-            };
+    }
+    async attachCustomerAddresses(shipping, tenantId) {
+        const stops = shipping.stops ?? [];
+        const customerIds = [
+            ...new Set(stops
+                .map((stop) => stop.sales_order?.customer_id)
+                .filter((id) => id != null)),
+        ];
+        if (customerIds.length === 0) {
+            for (const stop of stops) {
+                stop.customer_addresses =
+                    [];
+            }
+            return;
         }
+        const rows = await this.addressRepo.find({
+            where: {
+                tenant_id: tenantId,
+                customer_id: (0, typeorm_2.In)(customerIds),
+                status: 1,
+            },
+            order: { is_primary: 'DESC', id: 'ASC' },
+        });
+        const byCustomer = new Map();
+        for (const row of rows) {
+            const list = byCustomer.get(row.customer_id) ?? [];
+            list.push(this.toAddressOption(row));
+            byCustomer.set(row.customer_id, list);
+        }
+        for (const stop of stops) {
+            const customerId = stop.sales_order?.customer_id;
+            stop.customer_addresses =
+                customerId != null ? byCustomer.get(customerId) ?? [] : [];
+        }
+    }
+    toAddressOption(address) {
         return {
-            customer_address_id: chosen?.id ?? null,
-            location_status: 'without_location',
-            delivery_latitude: null,
-            delivery_longitude: null,
-            address_summary: chosen ? this.addressSummary(chosen) : null,
-            customer_name: customerName,
-            address_type: chosen?.type ?? null,
+            id: address.id,
+            type: address.type ?? null,
+            type_label: this.addressTypeLabel(address.type),
+            address_summary: this.addressSummary(address),
+            is_primary: Boolean(address.is_primary),
+            has_gps: (0, geo_helper_1.hasValidGps)(address),
+            latitude: address.latitude != null ? Number(address.latitude) : null,
+            longitude: address.longitude != null ? Number(address.longitude) : null,
         };
+    }
+    addressTypeLabel(type) {
+        switch (type) {
+            case 'shipping':
+                return 'Entrega';
+            case 'billing':
+                return 'Facturación';
+            case 'primary':
+                return 'Principal';
+            default:
+                return 'Dirección';
+        }
     }
     sortStopsByDistanceFromOrigin(origin, stops) {
         const originGps = {
@@ -735,6 +824,7 @@ let ShippingsService = class ShippingsService {
                 address_summary: r.address_summary,
                 customer_address_id: r.customer_address_id,
                 address_type: r.address_type,
+                customer_addresses: r.customer_addresses ?? [],
                 distance_from_previous_km: segment,
                 distance_from_origin_km: (0, geo_helper_1.segmentDistanceKm)(originPoint, current),
             };

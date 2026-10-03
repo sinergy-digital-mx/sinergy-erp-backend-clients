@@ -28,6 +28,7 @@ const product_item_kind_enum_1 = require("../../../entities/products/product-ite
 const sales_order_batch_allocation_entity_1 = require("../../../entities/sales-orders/sales-order-batch-allocation.entity");
 const sales_order_payment_entity_1 = require("../../../entities/sales-orders/sales-order-payment.entity");
 const sales_order_payment_document_entity_1 = require("../../../entities/sales-orders/sales-order-payment-document.entity");
+const customer_purchase_trend_util_1 = require("../../customers/utils/customer-purchase-trend.util");
 const pos_sale_payment_method_enum_1 = require("../../../entities/pos/pos-sale-payment-method.enum");
 const user_entity_1 = require("../../../entities/users/user.entity");
 const customer_entity_1 = require("../../../entities/customers/customer.entity");
@@ -53,6 +54,9 @@ const pos_sale_collection_entity_1 = require("../../../entities/pos/pos-sale-col
 const pos_sale_collection_mapper_1 = require("../../pos-shifts/mappers/pos-sale-collection.mapper");
 const walk_in_ticket_util_1 = require("../../pos-shifts/utils/walk-in-ticket.util");
 const electronic_invoice_service_1 = require("../../electronic-invoicing/services/electronic-invoice.service");
+const electronic_invoice_entity_1 = require("../../../entities/electronic-invoicing/electronic-invoice.entity");
+const sales_order_document_entity_1 = require("../../../entities/sales-orders/sales-order-document.entity");
+const sales_order_downloads_util_1 = require("../utils/sales-order-downloads.util");
 const advance_cfdi_service_1 = require("../../electronic-invoicing/services/advance-cfdi.service");
 const quotation_collection_util_1 = require("../utils/quotation-collection.util");
 const billing_branch_entity_1 = require("../../../entities/billing/billing-branch.entity");
@@ -209,16 +213,25 @@ let SalesOrderService = class SalesOrderService {
        WHERE pu.id = ? AND pu.product_id = ?
        LIMIT 1`, [providedUomId, productId]);
         if (productUomRow) {
-            return productUomRow;
+            return this.normalizeProductUomRow(productUomRow);
         }
         const [productUomByCatalog] = await qr.manager.query(`SELECT pu.id, pu.factor, pu.is_base, pu.uom_catalog_id
        FROM product_uoms pu
        WHERE pu.product_id = ? AND pu.uom_catalog_id = ?
        LIMIT 1`, [productId, providedUomId]);
         if (productUomByCatalog) {
-            return productUomByCatalog;
+            return this.normalizeProductUomRow(productUomByCatalog);
         }
         throw new common_1.BadRequestException(`UOM no encontrado: ${providedUomId}`);
+    }
+    normalizeProductUomRow(row) {
+        const factor = Number(row.factor);
+        return {
+            id: row.id,
+            factor: Number.isFinite(factor) && factor > 0 ? factor : 1,
+            is_base: row.is_base === true || row.is_base === 1 || row.is_base === '1',
+            uom_catalog_id: row.uom_catalog_id,
+        };
     }
     async resolveLineDiscountAmounts(tenantId, item, productUomId) {
         if (item.product_discount_id) {
@@ -265,12 +278,7 @@ let SalesOrderService = class SalesOrderService {
         let paymentStatus = dto.payment_status || 'Pendiente';
         let collectedByUserId = null;
         let posQueued = false;
-        if (!isPosSale && dto.customer_id == null) {
-            throw new common_1.BadRequestException('Las órdenes manuales requieren customer_id');
-        }
-        const customerId = isPosSale
-            ? dto.customer_id ?? (await this.posShiftsService.resolveWalkInCustomerId(tenantId))
-            : dto.customer_id;
+        const customerId = await this.resolveSalesOrderCustomerId(tenantId, dto.customer_id, isPosSale);
         const location = await this.resolveSalesOrderLocation(tenantId, dto, isPosSale);
         if (isPosSale && !dto.seller_user_id) {
             throw new common_1.BadRequestException('Las ventas POS requieren seller_user_id');
@@ -420,6 +428,10 @@ let SalesOrderService = class SalesOrderService {
             else {
                 await this.holdManualInventoryIfNeeded(qr, savedSO, savedDetails, userId);
             }
+            await qr.manager.update(sales_order_entity_1.SalesOrder, { id: savedSO.id }, {
+                customer_id: customerId,
+                ...(await this.resolveWalkInTicketFields(tenantId, customerId, dto)),
+            });
             await qr.commitTransaction();
             if (!isPosSale && paymentStatus === 'Pendiente' && !fromQuotation) {
                 await this.captureDebtQuietly(this.debtLedger.captureCharge({
@@ -526,16 +538,104 @@ let SalesOrderService = class SalesOrderService {
         return this.findOne(orderId, tenantId);
     }
     async findAll(tenantId, filters) {
-        const { search, general_status, payment_status, is_credit, sales_order_type, sale_scope, collection_channel, fiscal_configuration_id, billing_branch_id, customer_id, created_from, created_to, page = 1, limit = 20, sort_by = 'created_at', sort_order = 'DESC', } = filters;
+        const { sort_by = 'created_at', sort_order = 'DESC' } = filters;
+        const pageNum = Math.max(1, Math.trunc(Number(filters.page) || 1));
+        const limitNum = Math.min(100, Math.max(1, Math.trunc(Number(filters.limit) || 20)));
         const qb = this.soRepo
             .createQueryBuilder('so')
-            .leftJoinAndSelect('so.customer', 'customer')
-            .leftJoinAndSelect('so.fiscal_configuration', 'fiscal_configuration')
-            .leftJoinAndSelect('so.billing_branch', 'billing_branch')
-            .leftJoinAndSelect('so.warehouse', 'warehouse')
             .where('so.tenant_id = :tenantId', { tenantId });
+        this.applyListFilters(qb, filters);
+        const total = Number(await qb.clone().getCount()) || 0;
+        const totalPages = total > 0 ? Math.ceil(total / limitNum) : 0;
+        const sortCol = sort_by === 'total' ? 'so.total' : sort_by === 'folio' ? 'so.folio' : 'so.created_at';
+        const idRows = await qb
+            .clone()
+            .select('so.id', 'id')
+            .orderBy(sortCol, sort_order)
+            .addOrderBy('so.id', 'DESC')
+            .offset((pageNum - 1) * limitNum)
+            .limit(limitNum)
+            .getRawMany();
+        const ids = [];
+        const seen = new Set();
+        for (const row of idRows) {
+            const id = row.id ?? row.so_id;
+            if (!id || seen.has(id))
+                continue;
+            seen.add(id);
+            ids.push(id);
+        }
+        let rows = [];
+        if (ids.length) {
+            const loaded = await this.soRepo
+                .createQueryBuilder('so')
+                .leftJoinAndSelect('so.customer', 'customer')
+                .leftJoinAndSelect('so.fiscal_configuration', 'fiscal_configuration')
+                .leftJoinAndSelect('so.billing_branch', 'billing_branch')
+                .leftJoinAndSelect('so.warehouse', 'warehouse')
+                .where('so.tenant_id = :tenantId', { tenantId })
+                .andWhere('so.id IN (:...ids)', { ids })
+                .getMany();
+            const byId = new Map(loaded.map((so) => [so.id, so]));
+            rows = ids
+                .map((id) => byId.get(id))
+                .filter((so) => !!so);
+        }
+        const paymentByOrderId = await this.getPaymentDisplayByOrderIds(tenantId, rows);
+        const downloadsByOrder = filters.with_downloads
+            ? await this.loadOrderDownloads(tenantId, rows.map((so) => so.id))
+            : null;
+        return {
+            data: rows.map((so) => {
+                const paymentInfo = paymentByOrderId.get(so.id);
+                const paymentDisplay = paymentInfo?.display ??
+                    (0, sales_order_payment_display_util_1.buildSalesOrderPaymentDisplay)({ isCredit: !!so.is_credit });
+                const customerSummary = (0, pos_sale_collection_mapper_1.mapPosCustomer)(so.customer);
+                return {
+                    ...this.mapOrderLocation(so),
+                    customer_display_name: customerSummary?.display_name ?? (0, pos_sale_collection_mapper_1.formatCustomerDisplayName)(so.customer),
+                    customer_summary: customerSummary,
+                    payment_method: paymentDisplay.payment_method,
+                    payment_method_label: paymentDisplay.payment_method_label,
+                    payment_breakdown_label: paymentDisplay.payment_breakdown_label,
+                    payment_display: paymentDisplay,
+                    collection_channel: paymentInfo?.collection_channel ?? null,
+                    collection_channel_label: paymentInfo?.collection_channel_label ?? null,
+                    ...(downloadsByOrder
+                        ? { downloads: downloadsByOrder.get(so.id) ?? (0, sales_order_downloads_util_1.emptyOrderDownloads)() }
+                        : {}),
+                };
+            }),
+            total,
+            page: pageNum,
+            limit: limitNum,
+            totalPages,
+            hasNext: pageNum < totalPages,
+            hasPrev: pageNum > 1,
+        };
+    }
+    async getSalesTrend(tenantId, filters) {
+        const windowFrom = new Date((0, customer_purchase_trend_util_1.rollingWindowStart)().getTime() - 24 * 60 * 60 * 1000);
+        const requestedFrom = filters.created_from ? new Date(filters.created_from) : null;
+        const from = requestedFrom && !Number.isNaN(requestedFrom.getTime()) && requestedFrom > windowFrom
+            ? requestedFrom
+            : windowFrom;
+        const qb = this.soRepo
+            .createQueryBuilder('so')
+            .select('so.created_at', 'created_at')
+            .addSelect('so.total', 'total')
+            .where('so.tenant_id = :tenantId', { tenantId });
+        this.applyListFilters(qb, { ...filters, created_from: from.toISOString() });
+        const rows = await qb.getRawMany();
+        return {
+            currency: 'MXN',
+            ...(0, customer_purchase_trend_util_1.buildPurchaseTrend)(rows),
+        };
+    }
+    applyListFilters(qb, filters) {
+        const { search, general_status, payment_status, is_credit, sales_order_type, sale_scope, collection_channel, fiscal_configuration_id, billing_branch_id, customer_id, created_from, created_to, } = filters;
         if (search) {
-            qb.andWhere('(so.folio LIKE :s OR customer.name LIKE :s OR customer.lastname LIKE :s OR CONCAT(customer.name, \' \', COALESCE(customer.lastname, \'\')) LIKE :s)', { s: `%${search}%` });
+            qb.leftJoin('so.customer', 'customer').andWhere('(so.folio LIKE :s OR customer.name LIKE :s OR customer.lastname LIKE :s OR CONCAT(customer.name, \' \', COALESCE(customer.lastname, \'\')) LIKE :s)', { s: `%${search}%` });
         }
         if (general_status?.length) {
             if (general_status.length === 1) {
@@ -565,7 +665,7 @@ let SalesOrderService = class SalesOrderService {
             });
         }
         if (billing_branch_id) {
-            qb.andWhere('(so.billing_branch_id = :billing_branch_id OR (so.billing_branch_id IS NULL AND warehouse.billing_branch_id = :billing_branch_id))', { billing_branch_id });
+            qb.leftJoin('so.warehouse', 'warehouse').andWhere('(so.billing_branch_id = :billing_branch_id OR (so.billing_branch_id IS NULL AND warehouse.billing_branch_id = :billing_branch_id))', { billing_branch_id });
         }
         if (customer_id)
             qb.andWhere('so.customer_id = :customer_id', { customer_id });
@@ -573,30 +673,78 @@ let SalesOrderService = class SalesOrderService {
             qb.andWhere('so.created_at >= :created_from', { created_from: new Date(created_from) });
         if (created_to)
             qb.andWhere('so.created_at <= :created_to', { created_to: new Date(created_to) });
-        const sortCol = sort_by === 'total' ? 'so.total' : sort_by === 'folio' ? 'so.folio' : 'so.created_at';
-        qb.orderBy(sortCol, sort_order).skip((page - 1) * limit).take(limit);
-        const [rows, total] = await qb.getManyAndCount();
-        const paymentByOrderId = await this.getPaymentDisplayByOrderIds(tenantId, rows);
-        return {
-            data: rows.map((so) => {
-                const paymentInfo = paymentByOrderId.get(so.id);
-                const paymentDisplay = paymentInfo?.display ??
-                    (0, sales_order_payment_display_util_1.buildSalesOrderPaymentDisplay)({ isCredit: !!so.is_credit });
-                return {
-                    ...this.mapOrderLocation(so),
-                    payment_method: paymentDisplay.payment_method,
-                    payment_method_label: paymentDisplay.payment_method_label,
-                    payment_breakdown_label: paymentDisplay.payment_breakdown_label,
-                    payment_display: paymentDisplay,
-                    collection_channel: paymentInfo?.collection_channel ?? null,
-                    collection_channel_label: paymentInfo?.collection_channel_label ?? null,
-                };
-            }),
-            total,
-            page,
-            limit,
-            totalPages: Math.ceil(total / limit),
-        };
+    }
+    async loadOrderDownloads(tenantId, orderIds) {
+        if (!orderIds.length)
+            return new Map();
+        const invoices = await this.dataSource.getRepository(electronic_invoice_entity_1.ElectronicInvoice).find({
+            where: {
+                tenant_id: tenantId,
+                source_module: 'sales_orders',
+                source_id: (0, typeorm_2.In)(orderIds),
+            },
+            select: [
+                'id',
+                'source_id',
+                'uuid',
+                'series',
+                'folio',
+                'tipo_comprobante',
+                'rfc_receptor',
+                'receptor_nombre',
+                'total',
+                'currency',
+                'stamp_status',
+                'sat_status',
+                'stamped_at',
+                'updated_at',
+                'sat_last_sync_at',
+                'created_at',
+            ],
+        });
+        const documents = await this.dataSource
+            .getRepository(sales_order_document_entity_1.SalesOrderDocument)
+            .createQueryBuilder('doc')
+            .innerJoin('doc.document_type', 'docType')
+            .select('doc.id', 'id')
+            .addSelect('doc.sales_order_id', 'sales_order_id')
+            .addSelect('doc.file_name', 'file_name')
+            .addSelect('doc.file_path', 'file_path')
+            .addSelect('doc.created_at', 'created_at')
+            .addSelect('docType.name', 'type_name')
+            .where('doc.sales_order_id IN (:...orderIds)', { orderIds })
+            .getRawMany();
+        const built = (0, sales_order_downloads_util_1.buildOrderDownloads)(orderIds, invoices, documents);
+        const signed = new Map();
+        await Promise.all(orderIds.map(async (orderId) => {
+            const downloads = built.get(orderId) ?? (0, sales_order_downloads_util_1.emptyOrderDownloads)();
+            const orderDocument = downloads.order_document;
+            const orderKind = orderDocument?.kind === 'delivery' ? 'delivery' : 'original';
+            let url = null;
+            if (orderDocument?.file_path && orderDocument.kind !== 'ticket') {
+                try {
+                    url = await this.s3Service.getSignedUrl(orderDocument.file_path, 900);
+                }
+                catch {
+                    url = null;
+                }
+            }
+            signed.set(orderId, {
+                invoice: downloads.invoice,
+                ticket: downloads.ticket
+                    ? { id: downloads.ticket.id, file_name: downloads.ticket.file_name }
+                    : null,
+                order_document: orderDocument && orderDocument.kind !== 'ticket'
+                    ? {
+                        id: orderDocument.id,
+                        file_name: orderDocument.file_name,
+                        kind: orderKind,
+                        url,
+                    }
+                    : null,
+            });
+        }));
+        return signed;
     }
     async linkConvertedFromQuotation(salesOrderId, quotationId, tenantId) {
         await this.soRepo.update({ id: salesOrderId, tenant_id: tenantId }, { converted_from_quotation_id: quotationId });
@@ -1675,8 +1823,37 @@ let SalesOrderService = class SalesOrderService {
         so.iva_total = iva_total;
         so.ieps_total = ieps_total;
         so.total = this.computeOrderTotal(subtotal, discount_total, Number(so.global_discount_amount) || 0, iva_total, ieps_total);
-        so.updated_by = userId;
-        await qr.manager.save(sales_order_entity_1.SalesOrder, so);
+        await qr.manager.update(sales_order_entity_1.SalesOrder, { id: salesOrderId }, {
+            subtotal: so.subtotal,
+            discount_total: so.discount_total,
+            global_discount_amount: so.global_discount_amount,
+            iva_total: so.iva_total,
+            ieps_total: so.ieps_total,
+            total: so.total,
+            updated_by: userId,
+        });
+    }
+    async resolveSalesOrderCustomerId(tenantId, rawCustomerId, isPosSale) {
+        if (rawCustomerId != null && Number(rawCustomerId) > 0) {
+            const id = Math.floor(Number(rawCustomerId));
+            const byId = await this.customerRepo.findOne({
+                where: { id, tenant_id: tenantId },
+            });
+            if (byId) {
+                return byId.id;
+            }
+            const byLegacy = await this.customerRepo.findOne({
+                where: { legacy_customer_id: id, tenant_id: tenantId },
+            });
+            if (byLegacy) {
+                return byLegacy.id;
+            }
+            throw new common_1.BadRequestException('Cliente no válido');
+        }
+        if (!isPosSale) {
+            throw new common_1.BadRequestException('Las órdenes manuales requieren customer_id');
+        }
+        return this.posShiftsService.resolveWalkInCustomerId(tenantId);
     }
     async regenerateDocumentoOriginal(id, tenantId, userId, language, keepPrevious = false) {
         const salesOrder = await this.findOne(id, tenantId);
@@ -1809,10 +1986,6 @@ let SalesOrderService = class SalesOrderService {
         await qr.connect();
         await qr.startTransaction();
         try {
-            const allocations = (so.line_items ?? []).flatMap((line) => line.batch_allocations ?? []);
-            if (allocations.length) {
-                await this.fulfillmentService.releaseAllocations(allocations, qr.manager);
-            }
             await qr.manager.update(sales_order_entity_1.SalesOrder, { id: so.id }, {
                 sales_order_type: 'MANUAL',
                 pos_stage: null,

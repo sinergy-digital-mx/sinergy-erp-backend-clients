@@ -138,6 +138,22 @@ let PurchaseOrderController = class PurchaseOrderController {
         const userId = req.user.id;
         return this.purchaseOrderService.replacePurchaseOrder(id, dto, tenantId, userId);
     }
+    async cancelOrder(id, body, req) {
+        const tenantId = req.user.tenant_id;
+        const userId = req.user.id;
+        return this.purchaseOrderService.cancel(id, tenantId, userId, body?.reason);
+    }
+    async reopenOrder(id, req) {
+        const tenantId = req.user.tenant_id;
+        const userId = req.user.id;
+        return this.purchaseOrderService.reopen(id, tenantId, userId);
+    }
+    async correctReceipt(id, dto, req) {
+        this.assertCorrectReceiptPermission(req);
+        const tenantId = req.user.tenant_id;
+        const userId = req.user.id;
+        return this.purchaseOrderService.correctReceipt(id, dto, tenantId, userId);
+    }
     async cancel(id, req) {
         const tenantId = req.user.tenant_id;
         const userId = req.user.id;
@@ -170,6 +186,16 @@ let PurchaseOrderController = class PurchaseOrderController {
                 movements_count: movements.total,
             },
         };
+    }
+    assertCorrectReceiptPermission(req) {
+        if (req.user?.hasAdminRole) {
+            return;
+        }
+        const permissions = Array.isArray(req.user?.permissions) ? req.user.permissions : [];
+        const allowed = permissions.some((permission) => String(permission).toLowerCase() === 'purchase_orders:correctreceipt');
+        if (!allowed) {
+            throw new common_1.ForbiddenException('No tienes permiso para corregir un recibo de compra');
+        }
     }
 };
 exports.PurchaseOrderController = PurchaseOrderController;
@@ -362,6 +388,32 @@ __decorate([
     __metadata("design:paramtypes", [String, dto_1.CreatePurchaseOrderDto, Object]),
     __metadata("design:returntype", Promise)
 ], PurchaseOrderController.prototype, "replacePurchaseOrderPatch", null);
+__decorate([
+    (0, common_1.Post)(':id/cancel'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], PurchaseOrderController.prototype, "cancelOrder", null);
+__decorate([
+    (0, common_1.Post)(':id/reopen'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], PurchaseOrderController.prototype, "reopenOrder", null);
+__decorate([
+    (0, common_1.Patch)(':id/receipt-correction'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, dto_1.CorrectPurchaseReceiptDto, Object]),
+    __metadata("design:returntype", Promise)
+], PurchaseOrderController.prototype, "correctReceipt", null);
 __decorate([
     (0, common_1.Delete)(':id'),
     __param(0, (0, common_1.Param)('id')),

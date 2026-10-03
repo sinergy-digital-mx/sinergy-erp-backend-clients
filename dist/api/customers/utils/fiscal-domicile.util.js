@@ -1,7 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.pickFiscalPart = pickFiscalPart;
 exports.composeFiscalAddress = composeFiscalAddress;
 exports.hasSatStreetParts = hasSatStreetParts;
+function pickFiscalPart(incoming, existing) {
+    return incoming !== undefined ? incoming : existing;
+}
 function composeFiscalAddress(parts) {
     const chunks = [];
     const street = parts.street?.trim();

@@ -30,6 +30,7 @@ import { GlobalDiscountService } from '../../global-discounts/global-discount.se
 import { DocumentLanguage } from '../../../common/enums/document-language.enum';
 import { PosSaleCollection } from '../../../entities/pos/pos-sale-collection.entity';
 import { ElectronicInvoiceService } from '../../electronic-invoicing/services/electronic-invoice.service';
+import { OrderDownloads } from '../utils/sales-order-downloads.util';
 import { AdvanceCfdiService } from '../../electronic-invoicing/services/advance-cfdi.service';
 import { BillingBranch } from '../../../entities/billing/billing-branch.entity';
 import { Warehouse } from '../../../entities/warehouse/warehouse.entity';
@@ -74,6 +75,7 @@ export declare class SalesOrderService {
     private generateAndUploadPdf;
     private generateAndUploadDeliveryPdf;
     private resolveProductUom;
+    private normalizeProductUomRow;
     private resolveLineDiscountAmounts;
     private resolveGlobalDiscountAmounts;
     private computeOrderTotal;
@@ -90,6 +92,29 @@ export declare class SalesOrderService {
     }, tenantId: string, userId: string): Promise<SalesOrder>;
     findAll(tenantId: string, filters: QuerySalesOrderDto): Promise<{
         data: {
+            downloads?: OrderDownloads | {
+                invoice: OrderDownloads["invoice"];
+                ticket: {
+                    id: string;
+                    file_name: string;
+                } | null;
+                order_document: {
+                    id: string;
+                    file_name: string;
+                    kind: "original" | "delivery";
+                    url: string | null;
+                } | null;
+            } | undefined;
+            customer_display_name: string | null;
+            customer_summary: {
+                id: number;
+                name: string;
+                lastname: string;
+                company_name: string;
+                fiscal_razon_social: string;
+                display_name: string | null;
+                is_walk_in: boolean;
+            } | null;
             payment_method: PosSalePaymentMethod | null;
             payment_method_label: string | null;
             payment_breakdown_label: string | null;
@@ -131,6 +156,7 @@ export declare class SalesOrderService {
             general_status: string;
             notes: string | null;
             walk_in_name: string | null;
+            walk_in_phone: string | null;
             walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
             advance_invoice_id: string | null;
@@ -169,7 +195,19 @@ export declare class SalesOrderService {
         page: number;
         limit: number;
         totalPages: number;
+        hasNext: boolean;
+        hasPrev: boolean;
     }>;
+    getSalesTrend(tenantId: string, filters: QuerySalesOrderDto): Promise<{
+        from: string;
+        to: string;
+        total: number;
+        orders_count: number;
+        months: import("../../customers/utils/customer-purchase-trend.util").PurchaseTrendMonthPoint[];
+        currency: string;
+    }>;
+    private applyListFilters;
+    private loadOrderDownloads;
     linkConvertedFromQuotation(salesOrderId: string, quotationId: string, tenantId: string): Promise<void>;
     findOne(id: string, tenantId: string): Promise<SalesOrder>;
     findOneDetail(id: string, tenantId: string): Promise<{
@@ -491,6 +529,7 @@ export declare class SalesOrderService {
             general_status: string;
             notes: string | null;
             walk_in_name: string | null;
+            walk_in_phone: string | null;
             walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
             advance_invoice_id: string | null;
@@ -583,6 +622,7 @@ export declare class SalesOrderService {
             general_status: string;
             notes: string | null;
             walk_in_name: string | null;
+            walk_in_phone: string | null;
             walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
             advance_invoice_id: string | null;
@@ -1149,6 +1189,7 @@ export declare class SalesOrderService {
             general_status: string;
             notes: string | null;
             walk_in_name: string | null;
+            walk_in_phone: string | null;
             walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
             advance_invoice_id: string | null;
@@ -1241,6 +1282,7 @@ export declare class SalesOrderService {
             general_status: string;
             notes: string | null;
             walk_in_name: string | null;
+            walk_in_phone: string | null;
             walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
             advance_invoice_id: string | null;
@@ -1681,6 +1723,7 @@ export declare class SalesOrderService {
             general_status: string;
             notes: string | null;
             walk_in_name: string | null;
+            walk_in_phone: string | null;
             walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
             advance_invoice_id: string | null;
@@ -1773,6 +1816,7 @@ export declare class SalesOrderService {
             general_status: string;
             notes: string | null;
             walk_in_name: string | null;
+            walk_in_phone: string | null;
             walk_in_rfc: string | null;
             converted_from_quotation_id: string | null;
             advance_invoice_id: string | null;
@@ -1914,6 +1958,7 @@ export declare class SalesOrderService {
     private assertLineItemsEditable;
     private applyPersistedLineTaxes;
     private recomputeTotals;
+    private resolveSalesOrderCustomerId;
     regenerateDocumentoOriginal(id: string, tenantId: string, userId: string, language: DocumentLanguage, keepPrevious?: boolean): Promise<{
         success: boolean;
         message: string;

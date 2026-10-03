@@ -11,6 +11,7 @@ export declare function computeDownPaymentRemaining(effectiveTarget: number | nu
 export declare function getDownPaymentApplied(contract: Pick<Contract, 'down_payment'>): number;
 export declare function computeFinancedAmount(totalPrice: number, contract: ContractFinancialFields): number;
 export declare function computeMonthlyPayment(totalPrice: number, contract: ContractFinancialFields, paymentMonths: number): number;
+export declare function buildInstallmentAmounts(balance: number, months: number): number[];
 export declare function sumPaidFromPaymentRows(payments: Array<{
     status: string;
     amount?: number | string | null;
