@@ -166,6 +166,7 @@ class BatchDetailResponseDto {
     purchase_order_detail_id;
     purchase_order_folio;
     pedimento_number;
+    pedimento_numbers;
     vendor_invoice_number;
     vendor_invoice_numbers;
     payment_currency;
@@ -281,10 +282,17 @@ __decorate([
 __decorate([
     (0, swagger_1.ApiProperty)({
         nullable: true,
-        description: 'Número de pedimento de la OC de origen. Null si no hay OC o la OC no tiene pedimento.',
+        description: 'Pedimento principal. El de la OC si existe; si no, el más reciente guardado en el lote (importación).',
     }),
     __metadata("design:type", Object)
 ], BatchDetailResponseDto.prototype, "pedimento_number", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        type: [String],
+        description: 'Pedimentos del lote. Uno si viene de la OC; todos los del reporte si el lote se importó.',
+    }),
+    __metadata("design:type", Array)
+], BatchDetailResponseDto.prototype, "pedimento_numbers", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
         nullable: true,

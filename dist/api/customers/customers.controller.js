@@ -90,6 +90,9 @@ let CustomersController = class CustomersController {
     salesStats(id, req) {
         return this.customersService.getSalesStats(Number(id), req.user.tenantId);
     }
+    purchaseTrend(id, req) {
+        return this.customersService.getPurchaseTrend(Number(id), req.user.tenant_id ?? req.user.tenantId);
+    }
     getProductInsights(id, query, req) {
         return this.productInsightsService.getInsights(Number(id), req.user.tenant_id ?? req.user.tenantId, query);
     }
@@ -318,6 +321,17 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], CustomersController.prototype, "salesStats", null);
+__decorate([
+    (0, common_1.Get)(':id/purchase-trend'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'customers', action: 'Read' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Compras del cliente en los últimos 12 meses' }),
+    (0, swagger_1.ApiParam)({ name: 'id', type: 'number' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], CustomersController.prototype, "purchaseTrend", null);
 __decorate([
     (0, common_1.Get)(':id/product-insights'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'customers', action: 'ComprasFrecuentes' }),

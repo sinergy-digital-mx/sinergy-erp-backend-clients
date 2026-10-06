@@ -1230,6 +1230,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
             .filter((item) => item.direction === 'in')
             .reduce((sum, item) => sum + parseFloat(item.quantity ?? '0'), 0);
         const vendorInvoiceNumbers = (0, purchase_order_vendor_invoice_util_1.parseStoredVendorInvoiceNumbers)(batch.purchase_order_batch?.vendor_invoice_numbers, batch.purchase_order_batch?.vendor_invoice_number);
+        const pedimentoNumbers = this.resolvePedimentoNumbers(batch);
         return {
             id: batch.id,
             batch_number: batch.batch_number,
@@ -1245,7 +1246,11 @@ let InventoryService = InventoryService_1 = class InventoryService {
             purchase_order_batch_id: batch.purchase_order_batch_id ?? null,
             purchase_order_detail_id: batch.purchase_order_detail_id ?? null,
             purchase_order_folio: batch.purchase_order_batch?.folio ?? null,
-            pedimento_number: batch.purchase_order_batch?.pedimento_number ?? null,
+            pedimento_number: batch.purchase_order_batch?.pedimento_number?.trim() ||
+                batch.pedimento_number?.trim() ||
+                pedimentoNumbers[0] ||
+                null,
+            pedimento_numbers: pedimentoNumbers,
             vendor_invoice_number: vendorInvoiceNumbers[0] ?? null,
             vendor_invoice_numbers: vendorInvoiceNumbers,
             payment_currency: batch.purchase_order_batch?.payment_currency ?? null,
@@ -1284,6 +1289,26 @@ let InventoryService = InventoryService_1 = class InventoryService {
                 },
             },
         };
+    }
+    resolvePedimentoNumbers(batch) {
+        const fromPurchaseOrder = batch.purchase_order_batch?.pedimento_number?.trim();
+        if (fromPurchaseOrder) {
+            return [fromPurchaseOrder];
+        }
+        const fromEntries = (batch.pedimento_entries ?? [])
+            .map((entry) => entry?.number?.trim() ?? '')
+            .filter((number) => number.length > 0);
+        const unique = [];
+        for (const number of fromEntries) {
+            if (!unique.includes(number)) {
+                unique.push(number);
+            }
+        }
+        if (unique.length) {
+            return unique;
+        }
+        const own = batch.pedimento_number?.trim();
+        return own ? [own] : [];
     }
     optionalMoney(value) {
         if (value === undefined || value === null || value === '') {

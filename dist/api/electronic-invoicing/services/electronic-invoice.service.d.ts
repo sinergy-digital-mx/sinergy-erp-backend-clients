@@ -5,6 +5,7 @@ import { FiscalConfiguration } from '../../../entities/billing/fiscal-configurat
 import { StampElectronicInvoiceDto } from '../dto/stamp-electronic-invoice.dto';
 import { CancelElectronicInvoiceDto } from '../dto/cancel-electronic-invoice.dto';
 import { QueryElectronicInvoiceDto } from '../dto/query-electronic-invoice.dto';
+import { FinkokEnvironment } from '../../../entities/electronic-invoicing/finkok-provider-configuration.entity';
 import { FinkokProviderConfigurationService } from './finkok-provider-configuration.service';
 import { FinkokSoapClient } from './finkok-soap.client';
 import { ElectronicInvoicePdfService } from './electronic-invoice-pdf.service';
@@ -21,6 +22,8 @@ export declare class ElectronicInvoiceService {
     cancel(id: string, tenantId: string, userId: string, dto: CancelElectronicInvoiceDto): Promise<ElectronicInvoice>;
     syncSatStatus(id: string, tenantId: string, userId: string | null, trigger?: 'manual' | 'scheduled' | 'batch'): Promise<ElectronicInvoice>;
     findBySource(tenantId: string, sourceModule: ElectronicInvoiceSourceModule, sourceId: string): Promise<ElectronicInvoice[]>;
+    assertNoActiveProductionInvoice(tenantId: string, sourceModule: ElectronicInvoiceSourceModule, sourceId: string, environment?: FinkokEnvironment): Promise<void>;
+    private isActiveProductionInvoice;
     isCfdiVigente(invoice: ElectronicInvoice): boolean;
     findVigenteBySource(tenantId: string, sourceModule: ElectronicInvoiceSourceModule, sourceId: string): Promise<ElectronicInvoice[]>;
     findAll(tenantId: string, query: QueryElectronicInvoiceDto): Promise<ElectronicInvoice[]>;

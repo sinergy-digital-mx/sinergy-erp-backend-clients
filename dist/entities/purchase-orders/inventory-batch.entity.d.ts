@@ -10,6 +10,14 @@ export declare class InventoryBatch {
     tenant_id: string;
     batch_number: string;
     source_tag_identifier: string | null;
+    pedimento_number: string | null;
+    pedimento_entries: Array<{
+        number: string | null;
+        date: string | null;
+        customs: string | null;
+        vendor: string | null;
+        raw: string;
+    }> | null;
     measure: number | null;
     measure_uom: UoMCatalog | null;
     measure_uom_id: string | null;

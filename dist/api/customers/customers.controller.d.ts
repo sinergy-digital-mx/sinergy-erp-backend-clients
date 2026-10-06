@@ -161,6 +161,14 @@ export declare class CustomersController {
         last_order_at: string | Date | null;
         last_order_folio: string | null;
     }>;
+    purchaseTrend(id: string, req: any): Promise<{
+        from: string;
+        to: string;
+        total: number;
+        orders_count: number;
+        months: import("./utils/customer-purchase-trend.util").PurchaseTrendMonthPoint[];
+        currency: string;
+    }>;
     getProductInsights(id: string, query: QueryCustomerProductInsightsDto, req: any): Promise<{
         customer_id: number;
         most_purchased: {

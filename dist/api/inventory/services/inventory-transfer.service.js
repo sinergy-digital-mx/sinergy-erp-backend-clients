@@ -228,6 +228,8 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
                     available_quantity: requested,
                     purchase_order_batch_id: sourceBatch.purchase_order_batch_id,
                     purchase_order_detail_id: sourceBatch.purchase_order_detail_id,
+                    pedimento_number: sourceBatch.pedimento_number,
+                    pedimento_entries: sourceBatch.pedimento_entries,
                     transferred_from_batch_id: sourceBatch.id,
                     created_by: userId,
                 });

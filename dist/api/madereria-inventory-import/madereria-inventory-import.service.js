@@ -170,6 +170,7 @@ let MadereriaInventoryImportService = MadereriaInventoryImportService_1 = class 
                 costs_created: 0,
                 costs_updated: 0,
                 batches_created: 0,
+                sat_claves_saved: 0,
                 skipped: [],
                 errors: [],
             };
@@ -242,6 +243,14 @@ let MadereriaInventoryImportService = MadereriaInventoryImportService_1 = class 
                 name: product.name,
                 row_number: row.row_number,
             });
+            if (row.sat_clave) {
+                result.sat_claves_saved += 1;
+            }
+        }
+        else if (row.sat_clave && product.sat_clave !== row.sat_clave) {
+            product.sat_clave = row.sat_clave;
+            await manager.getRepository(product_entity_1.Product).save(product);
+            result.sat_claves_saved += 1;
         }
         const productUom = await this.ensureBaseUom(manager, product.id, ctx.piezaUomId);
         if (row.price != null && row.price > 0) {
@@ -270,11 +279,15 @@ let MadereriaInventoryImportService = MadereriaInventoryImportService_1 = class 
             return;
         }
         const batchNumber = await this.batchNumberGenerator.generateBatchNumber(ctx.warehouseId, ctx.organizationId, manager);
+        const pedimentos = row.pedimentos ?? [];
+        const primaryPedimento = (0, excel_inventory_parser_1.selectPrimaryPedimento)(pedimentos);
         const batchRepo = manager.getRepository(inventory_batch_entity_1.InventoryBatch);
         await batchRepo.save(batchRepo.create({
             tenant_id: ctx.organizationId,
             batch_number: batchNumber,
             source_tag_identifier: 'IMPORTACION',
+            pedimento_number: primaryPedimento?.number ?? null,
+            pedimento_entries: pedimentos.length ? pedimentos : null,
             warehouse_id: ctx.warehouseId,
             product_id: product.id,
             uom_id: productUom.uom_catalog_id,
@@ -316,6 +329,7 @@ let MadereriaInventoryImportService = MadereriaInventoryImportService_1 = class 
             external_sku: null,
             name: row.name.slice(0, 255),
             description: row.name,
+            sat_clave: row.sat_clave,
             is_active: true,
         }));
         const uomRepo = manager.getRepository(product_uom_entity_1.ProductUoM);

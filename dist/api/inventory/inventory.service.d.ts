@@ -97,6 +97,7 @@ export declare class InventoryService {
     private loadTransferHistory;
     private loadAuditHistory;
     private mapToDetailResponseDto;
+    private resolvePedimentoNumbers;
     private optionalMoney;
     private unitCostFromPurchaseLine;
     private attachBatchCosting;

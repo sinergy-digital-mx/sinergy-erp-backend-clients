@@ -201,6 +201,27 @@ let ElectronicInvoiceService = ElectronicInvoiceService_1 = class ElectronicInvo
             order: { created_at: 'DESC' },
         });
     }
+    async assertNoActiveProductionInvoice(tenantId, sourceModule, sourceId, environment) {
+        const credentials = await this.finkokConfigService.getCredentials(tenantId, environment);
+        if (credentials.environment !== 'production') {
+            return;
+        }
+        const invoices = await this.findBySource(tenantId, sourceModule, sourceId);
+        const active = invoices.some((invoice) => this.isActiveProductionInvoice(invoice));
+        if (active) {
+            throw new common_1.BadRequestException('Ya existe una factura activa en producción. Cancela la anterior antes de timbrar otra factura en PROD.');
+        }
+    }
+    isActiveProductionInvoice(invoice) {
+        if (invoice.metadata?.finkok_environment !== 'production') {
+            return false;
+        }
+        if (invoice.stamp_status !== 'stamped') {
+            return false;
+        }
+        const sat = String(invoice.sat_status ?? '').toLowerCase();
+        return !/\bcancelad[oa]\b/.test(sat);
+    }
     isCfdiVigente(invoice) {
         if (invoice.sat_status === 'Cancelado') {
             return false;

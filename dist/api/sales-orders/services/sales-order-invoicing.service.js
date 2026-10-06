@@ -48,6 +48,7 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
         if (order.general_status === 'Cancelada') {
             throw new common_1.BadRequestException('No se puede facturar una orden cancelada');
         }
+        await this.electronicInvoiceService.assertNoActiveProductionInvoice(tenantId, 'sales_orders', salesOrderId, dto.environment);
         if (order.advance_invoice_id) {
             const advance = await this.electronicInvoiceService
                 .findOne(order.advance_invoice_id, tenantId)

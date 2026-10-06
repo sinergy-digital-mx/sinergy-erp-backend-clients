@@ -23,6 +23,8 @@ let InventoryBatch = class InventoryBatch {
     tenant_id;
     batch_number;
     source_tag_identifier;
+    pedimento_number;
+    pedimento_entries;
     measure;
     measure_uom;
     measure_uom_id;
@@ -66,6 +68,14 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 100, nullable: true }),
     __metadata("design:type", Object)
 ], InventoryBatch.prototype, "source_tag_identifier", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 30, nullable: true }),
+    __metadata("design:type", Object)
+], InventoryBatch.prototype, "pedimento_number", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'json', nullable: true }),
+    __metadata("design:type", Object)
+], InventoryBatch.prototype, "pedimento_entries", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'decimal', precision: 12, scale: 3, nullable: true }),
     __metadata("design:type", Object)
