@@ -35,8 +35,22 @@ export declare class ElectronicInvoiceService {
         currency?: string | null;
         stamped_at?: Date | null;
         xml?: string | null;
-        origin: 'xml' | 'pdf' | 'uuid';
+        pdf?: Buffer | null;
+        origin: 'xml' | 'pdf' | 'uuid' | 'xml_pdf';
     }): Promise<ElectronicInvoice>;
+    attachManualFiles(id: string, tenantId: string, input: {
+        xml?: string | null;
+        pdf?: Buffer | null;
+        series?: string | null;
+        folio?: string | null;
+        subtotal?: number | null;
+        total?: number | null;
+        rfcEmisor?: string | null;
+        rfcReceptor?: string | null;
+        receptorNombre?: string | null;
+        stampedAt?: Date | null;
+    }): Promise<ElectronicInvoice>;
+    unlinkManualRegistration(id: string, tenantId: string, sourceId: string): Promise<void>;
     findBySource(tenantId: string, sourceModule: ElectronicInvoiceSourceModule, sourceId: string): Promise<ElectronicInvoice[]>;
     assertNoActiveProductionInvoice(tenantId: string, sourceModule: ElectronicInvoiceSourceModule, sourceId: string, environment?: FinkokEnvironment): Promise<void>;
     private isActiveProductionInvoice;

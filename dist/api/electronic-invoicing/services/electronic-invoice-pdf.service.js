@@ -413,6 +413,11 @@ let ElectronicInvoicePdfService = ElectronicInvoicePdfService_1 = class Electron
         };
         return this.renderPdf(printer, docDefinition);
     }
+    async storeUploadedPdf(invoice, pdfBuffer) {
+        const fileName = `${invoice.uuid || invoice.id}.pdf`;
+        const { entityType, entityId, documentType } = this.resolveS3Path(invoice);
+        return this.s3Service.uploadEntityFile(invoice.tenant_id, entityType, entityId, documentType, pdfBuffer, fileName, 'application/pdf');
+    }
     async uploadPdf(invoice, cfdi, pdfBuffer, options = {}) {
         const fileName = this.buildFileName(invoice, cfdi, options.preview);
         const { entityType, entityId, documentType } = this.resolveS3Path(invoice, options.preview);

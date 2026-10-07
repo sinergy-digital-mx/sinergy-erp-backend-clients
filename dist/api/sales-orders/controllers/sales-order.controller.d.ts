@@ -2613,10 +2613,27 @@ export declare class SalesOrderController {
         success: true;
         id: string;
     }>;
-    registerExistingInvoice(id: string, file: {
-        buffer: Buffer;
-        originalname?: string;
-    } | undefined, body: {
+    attachManualInvoiceFiles(id: string, invoiceId: string, files: {
+        xml?: {
+            buffer: Buffer;
+            originalname?: string;
+        }[];
+        pdf?: {
+            buffer: Buffer;
+            originalname?: string;
+        }[];
+    }, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
+    unlinkManualInvoice(id: string, invoiceId: string, req: any): Promise<void>;
+    registerExistingInvoice(id: string, files: {
+        xml?: {
+            buffer: Buffer;
+            originalname?: string;
+        }[];
+        pdf?: {
+            buffer: Buffer;
+            originalname?: string;
+        }[];
+    }, body: {
         uuid?: string;
     }, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     getInvoices(id: string, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice[]>;

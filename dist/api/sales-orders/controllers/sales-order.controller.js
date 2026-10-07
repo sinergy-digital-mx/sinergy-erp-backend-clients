@@ -118,8 +118,14 @@ let SalesOrderController = class SalesOrderController {
     async deletePaymentDocument(id, paymentId, documentId, req) {
         return this.salesOrderService.deletePaymentDocument(id, paymentId, documentId, req.user.tenant_id);
     }
-    async registerExistingInvoice(id, file, body, req) {
-        return this.invoicingService.registerExistingInvoice(id, req.user.tenant_id, req.user.id, file, body?.uuid);
+    async attachManualInvoiceFiles(id, invoiceId, files, req) {
+        return this.invoicingService.attachManualFiles(id, invoiceId, req.user.tenant_id, { xml: files?.xml?.[0], pdf: files?.pdf?.[0] });
+    }
+    async unlinkManualInvoice(id, invoiceId, req) {
+        await this.invoicingService.unlinkManualInvoice(id, invoiceId, req.user.tenant_id);
+    }
+    async registerExistingInvoice(id, files, body, req) {
+        return this.invoicingService.registerExistingInvoice(id, req.user.tenant_id, req.user.id, { xml: files?.xml?.[0], pdf: files?.pdf?.[0] }, body?.uuid?.trim() || undefined);
     }
     async getInvoices(id, req) {
         return this.invoicingService.listInvoices(id, req.user.tenant_id);
@@ -466,13 +472,43 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], SalesOrderController.prototype, "deletePaymentDocument", null);
 __decorate([
+    (0, common_1.Post)(':id/invoices/:invoiceId/files'),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
+    (0, swagger_1.ApiOperation)({ summary: 'Agregar XML o PDF a una factura registrada a mano' }),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileFieldsInterceptor)([
+        { name: 'xml', maxCount: 1 },
+        { name: 'pdf', maxCount: 1 },
+    ], { limits: { fileSize: 8 * 1024 * 1024 } })),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Param)('invoiceId')),
+    __param(2, (0, common_1.UploadedFiles)()),
+    __param(3, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], SalesOrderController.prototype, "attachManualInvoiceFiles", null);
+__decorate([
+    (0, common_1.Delete)(':id/invoices/:invoiceId/manual'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.NO_CONTENT),
+    (0, swagger_1.ApiOperation)({ summary: 'Quitar una factura registrada a mano. No cancela el CFDI en el SAT.' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Param)('invoiceId')),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object]),
+    __metadata("design:returntype", Promise)
+], SalesOrderController.prototype, "unlinkManualInvoice", null);
+__decorate([
     (0, common_1.Post)(':id/invoices/register'),
     (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
     (0, swagger_1.ApiConsumes)('multipart/form-data', 'application/json'),
     (0, swagger_1.ApiOperation)({ summary: 'Registrar un CFDI ya emitido (XML, PDF o UUID)' }),
-    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', { limits: { fileSize: 8 * 1024 * 1024 } })),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileFieldsInterceptor)([
+        { name: 'xml', maxCount: 1 },
+        { name: 'pdf', maxCount: 1 },
+    ], { limits: { fileSize: 8 * 1024 * 1024 } })),
     __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, common_1.UploadedFile)()),
+    __param(1, (0, common_1.UploadedFiles)()),
     __param(2, (0, common_1.Body)()),
     __param(3, (0, common_1.Req)()),
     __metadata("design:type", Function),

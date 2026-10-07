@@ -19,11 +19,29 @@ export declare class SalesOrderInvoicingService {
     private readonly advancePayments;
     private readonly periodRepo;
     constructor(salesOrderRepo: Repository<SalesOrder>, customerRepo: Repository<Customer>, electronicInvoiceService: ElectronicInvoiceService, advanceCfdi: AdvanceCfdiService, posShiftsService: PosShiftsService, advancePayments: AdvanceShiftPaymentService, periodRepo: Repository<ServiceSubscriptionPeriod>);
-    registerExistingInvoice(salesOrderId: string, tenantId: string, userId: string, file: {
-        buffer: Buffer;
-        originalname?: string;
-    } | undefined, typedUuid?: string): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
+    registerExistingInvoice(salesOrderId: string, tenantId: string, userId: string, files: {
+        xml?: {
+            buffer: Buffer;
+            originalname?: string;
+        };
+        pdf?: {
+            buffer: Buffer;
+            originalname?: string;
+        };
+    }, typedUuid?: string): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
+    attachManualFiles(salesOrderId: string, invoiceId: string, tenantId: string, files: {
+        xml?: {
+            buffer: Buffer;
+            originalname?: string;
+        };
+        pdf?: {
+            buffer: Buffer;
+            originalname?: string;
+        };
+    }): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
+    unlinkManualInvoice(salesOrderId: string, invoiceId: string, tenantId: string): Promise<void>;
     private readExistingCfdi;
+    private readXmlCfdi;
     listInvoices(salesOrderId: string, tenantId: string): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice[]>;
     stampInvoice(salesOrderId: string, tenantId: string, userId: string, dto: StampSalesOrderInvoiceDto): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     cancelInvoice(salesOrderId: string, invoiceId: string, tenantId: string, userId: string, dto: CancelElectronicInvoiceDto): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;

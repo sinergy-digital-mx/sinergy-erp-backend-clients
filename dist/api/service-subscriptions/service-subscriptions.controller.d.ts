@@ -31,7 +31,10 @@ export declare class ServiceSubscriptionsController {
     }>;
     create(dto: CreateServiceSubscriptionDto, req: any): Promise<{
         fiscal_configuration_id: string;
+        fiscal_razon_social: string;
+        fiscal_rfc: string;
         billing_branch_id: string;
+        billing_branch_code: string;
         product_id: string;
         product_uom_id: string;
         uso_cfdi: string;
@@ -78,7 +81,10 @@ export declare class ServiceSubscriptionsController {
     }>;
     getOne(id: string, req: any): Promise<{
         fiscal_configuration_id: string;
+        fiscal_razon_social: string;
+        fiscal_rfc: string;
         billing_branch_id: string;
+        billing_branch_code: string;
         product_id: string;
         product_uom_id: string;
         uso_cfdi: string;
@@ -116,7 +122,10 @@ export declare class ServiceSubscriptionsController {
     }>;
     update(id: string, dto: UpdateServiceSubscriptionDto, req: any): Promise<{
         fiscal_configuration_id: string;
+        fiscal_razon_social: string;
+        fiscal_rfc: string;
         billing_branch_id: string;
+        billing_branch_code: string;
         product_id: string;
         product_uom_id: string;
         uso_cfdi: string;
@@ -154,7 +163,10 @@ export declare class ServiceSubscriptionsController {
     }>;
     cancel(id: string, req: any): Promise<{
         fiscal_configuration_id: string;
+        fiscal_razon_social: string;
+        fiscal_rfc: string;
         billing_branch_id: string;
+        billing_branch_code: string;
         product_id: string;
         product_uom_id: string;
         uso_cfdi: string;
@@ -192,7 +204,10 @@ export declare class ServiceSubscriptionsController {
     }>;
     renew(id: string, dto: RenewServiceSubscriptionDto, req: any): Promise<{
         fiscal_configuration_id: string;
+        fiscal_razon_social: string;
+        fiscal_rfc: string;
         billing_branch_id: string;
+        billing_branch_code: string;
         product_id: string;
         product_uom_id: string;
         uso_cfdi: string;
@@ -230,7 +245,10 @@ export declare class ServiceSubscriptionsController {
     }>;
     generate(id: string, periodId: string, req: any): Promise<{
         fiscal_configuration_id: string;
+        fiscal_razon_social: string;
+        fiscal_rfc: string;
         billing_branch_id: string;
+        billing_branch_code: string;
         product_id: string;
         product_uom_id: string;
         uso_cfdi: string;
@@ -268,7 +286,10 @@ export declare class ServiceSubscriptionsController {
     }>;
     invoice(id: string, periodId: string, req: any): Promise<{
         fiscal_configuration_id: string;
+        fiscal_razon_social: string;
+        fiscal_rfc: string;
         billing_branch_id: string;
+        billing_branch_code: string;
         product_id: string;
         product_uom_id: string;
         uso_cfdi: string;
@@ -306,7 +327,10 @@ export declare class ServiceSubscriptionsController {
     }>;
     link(id: string, periodId: string, dto: LinkServiceSubscriptionPeriodDto, req: any): Promise<{
         fiscal_configuration_id: string;
+        fiscal_razon_social: string;
+        fiscal_rfc: string;
         billing_branch_id: string;
+        billing_branch_code: string;
         product_id: string;
         product_uom_id: string;
         uso_cfdi: string;
@@ -344,7 +368,10 @@ export declare class ServiceSubscriptionsController {
     }>;
     skip(id: string, periodId: string, req: any): Promise<{
         fiscal_configuration_id: string;
+        fiscal_razon_social: string;
+        fiscal_rfc: string;
         billing_branch_id: string;
+        billing_branch_code: string;
         product_id: string;
         product_uom_id: string;
         uso_cfdi: string;
@@ -382,7 +409,10 @@ export declare class ServiceSubscriptionsController {
     }>;
     unlink(id: string, periodId: string, req: any): Promise<{
         fiscal_configuration_id: string;
+        fiscal_razon_social: string;
+        fiscal_rfc: string;
         billing_branch_id: string;
+        billing_branch_code: string;
         product_id: string;
         product_uom_id: string;
         uso_cfdi: string;

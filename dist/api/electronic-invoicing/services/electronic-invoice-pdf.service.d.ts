@@ -31,6 +31,7 @@ export declare class ElectronicInvoicePdfService {
     }>;
     generatePreviewAndUpload(invoice: ElectronicInvoice, fiscal: FiscalConfiguration): Promise<ElectronicInvoicePdfUploadResult>;
     private buildPdfBuffer;
+    storeUploadedPdf(invoice: ElectronicInvoice, pdfBuffer: Buffer): Promise<string>;
     private uploadPdf;
     resolveS3Path(invoice: ElectronicInvoice, preview?: boolean): {
         entityType: string;

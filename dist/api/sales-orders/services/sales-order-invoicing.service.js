@@ -44,7 +44,7 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
         this.advancePayments = advancePayments;
         this.periodRepo = periodRepo;
     }
-    async registerExistingInvoice(salesOrderId, tenantId, userId, file, typedUuid) {
+    async registerExistingInvoice(salesOrderId, tenantId, userId, files, typedUuid) {
         const order = await this.getSalesOrderWithRelations(salesOrderId, tenantId);
         if (order.general_status === 'Cancelada') {
             throw new common_1.BadRequestException('No se puede facturar una orden cancelada');
@@ -58,7 +58,7 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
         if (!customer?.fiscal_rfc) {
             throw new common_1.BadRequestException('El cliente debe tener RFC configurado');
         }
-        const parsed = this.readExistingCfdi(file, typedUuid);
+        const parsed = this.readExistingCfdi(files, typedUuid);
         const invoice = await this.electronicInvoiceService.registerExisting(tenantId, userId, {
             fiscal_configuration_id: order.fiscal_configuration_id,
             source_id: salesOrderId,
@@ -73,6 +73,7 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
             currency: parsed.currency || 'MXN',
             stamped_at: parsed.stampedAt,
             xml: parsed.xml,
+            pdf: parsed.pdf,
             origin: parsed.origin,
         });
         await this.periodRepo.update({ tenant_id: tenantId, sales_order_id: salesOrderId }, {
@@ -82,45 +83,103 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
         });
         return invoice;
     }
-    readExistingCfdi(file, typedUuid) {
-        const name = (file?.originalname ?? '').toLowerCase();
-        const text = file ? file.buffer.toString('utf8') : '';
-        const looksXml = name.endsWith('.xml') || text.includes('<cfdi:Comprobante') || text.includes('<Comprobante');
-        if (file && looksXml) {
-            let parsed;
-            try {
-                parsed = (0, cfdi_xml_parser_1.parseStampedCfdiXml)(text);
+    async attachManualFiles(salesOrderId, invoiceId, tenantId, files) {
+        await this.getSalesOrderWithRelations(salesOrderId, tenantId);
+        const invoice = await this.electronicInvoiceService.findOne(invoiceId, tenantId);
+        if (invoice.source_id !== salesOrderId || invoice.metadata?.registered_existing !== true) {
+            throw new common_1.BadRequestException('Solo se pueden completar facturas registradas a mano');
+        }
+        if (!files.xml && !files.pdf) {
+            throw new common_1.BadRequestException('Sube el XML, el PDF o ambos');
+        }
+        const parsed = this.readExistingCfdi(files, invoice.uuid ?? undefined);
+        if (parsed.uuid !== String(invoice.uuid || '').toUpperCase()) {
+            throw new common_1.BadRequestException('El archivo no corresponde al UUID de esta factura');
+        }
+        return this.electronicInvoiceService.attachManualFiles(invoiceId, tenantId, {
+            xml: parsed.xml,
+            pdf: parsed.pdf,
+            series: parsed.series,
+            folio: parsed.folio,
+            subtotal: parsed.subtotal,
+            total: parsed.total,
+            rfcEmisor: parsed.rfcEmisor,
+            rfcReceptor: parsed.rfcReceptor,
+            receptorNombre: parsed.receptorNombre,
+            stampedAt: parsed.stampedAt,
+        });
+    }
+    async unlinkManualInvoice(salesOrderId, invoiceId, tenantId) {
+        await this.getSalesOrderWithRelations(salesOrderId, tenantId);
+        await this.electronicInvoiceService.unlinkManualRegistration(invoiceId, tenantId, salesOrderId);
+        await this.periodRepo.update({ tenant_id: tenantId, sales_order_id: salesOrderId, electronic_invoice_id: invoiceId }, {
+            electronic_invoice_id: null,
+            status: service_subscription_period_status_enum_1.ServiceSubscriptionPeriodStatus.Linked,
+            invoice_error: null,
+        });
+    }
+    readExistingCfdi(files, typedUuid) {
+        const xmlFile = files?.xml;
+        const pdfFile = files?.pdf;
+        let fromXml = null;
+        if (xmlFile) {
+            fromXml = this.readXmlCfdi(xmlFile.buffer.toString('utf8'));
+        }
+        let pdfUuid = null;
+        if (pdfFile) {
+            const isPdf = (pdfFile.originalname ?? '').toLowerCase().endsWith('.pdf')
+                || pdfFile.buffer.subarray(0, 4).toString() === '%PDF';
+            if (!isPdf) {
+                throw new common_1.BadRequestException('El archivo PDF no es un PDF');
             }
-            catch {
-                throw new common_1.BadRequestException('El XML no trae un CFDI timbrado con UUID');
-            }
+            pdfUuid = extractUuid(pdfFile.buffer.toString('latin1'));
+        }
+        if (fromXml && pdfUuid && fromXml.uuid !== pdfUuid) {
+            throw new common_1.BadRequestException('El UUID del XML y el del PDF no coinciden');
+        }
+        if (fromXml) {
             return {
-                uuid: parsed.timbre.uuid,
-                origin: 'xml',
-                xml: text,
-                rfcEmisor: parsed.emisor.rfc || null,
-                rfcReceptor: parsed.receptor.rfc || null,
-                receptorNombre: parsed.receptor.nombre || null,
-                subtotal: Number(parsed.subTotal) || null,
-                total: Number(parsed.total) || null,
-                series: parsed.serie || null,
-                folio: parsed.folio || null,
-                currency: parsed.moneda || null,
-                stampedAt: parsed.timbre.fechaTimbrado ? new Date(parsed.timbre.fechaTimbrado) : null,
+                ...fromXml,
+                origin: pdfFile ? 'xml_pdf' : 'xml',
+                pdf: pdfFile?.buffer ?? null,
             };
         }
-        if (file && (name.endsWith('.pdf') || file.buffer.subarray(0, 4).toString() === '%PDF')) {
-            const uuid = extractUuid(file.buffer.toString('latin1')) ?? extractUuid(typedUuid);
+        if (pdfFile) {
+            const uuid = pdfUuid ?? extractUuid(typedUuid);
             if (!uuid) {
-                throw new common_1.BadRequestException('No encontré el UUID en el PDF. Sube el XML o escribe el UUID.');
+                throw new common_1.BadRequestException('No encontré el UUID en el PDF. Sube también el XML o escríbelo.');
             }
-            return emptyFromUuid(uuid, 'pdf');
+            return { ...emptyFromUuid(uuid, 'pdf'), pdf: pdfFile.buffer };
         }
         const uuid = extractUuid(typedUuid);
         if (!uuid) {
-            throw new common_1.BadRequestException('Sube el XML, el PDF o escribe el UUID de la factura');
+            throw new common_1.BadRequestException('Sube el XML, el PDF o ambos, o escribe el UUID');
         }
-        return emptyFromUuid(uuid, 'uuid');
+        return { ...emptyFromUuid(uuid, 'uuid'), pdf: null };
+    }
+    readXmlCfdi(text) {
+        let parsed;
+        try {
+            parsed = (0, cfdi_xml_parser_1.parseStampedCfdiXml)(text);
+        }
+        catch {
+            throw new common_1.BadRequestException('El XML no trae un CFDI timbrado con UUID');
+        }
+        return {
+            uuid: parsed.timbre.uuid.toUpperCase(),
+            origin: 'xml',
+            xml: text,
+            pdf: null,
+            rfcEmisor: parsed.emisor.rfc || null,
+            rfcReceptor: parsed.receptor.rfc || null,
+            receptorNombre: parsed.receptor.nombre || null,
+            subtotal: Number(parsed.subTotal) || null,
+            total: Number(parsed.total) || null,
+            series: parsed.serie || null,
+            folio: parsed.folio || null,
+            currency: parsed.moneda || null,
+            stampedAt: parsed.timbre.fechaTimbrado ? new Date(parsed.timbre.fechaTimbrado) : null,
+        };
     }
     async listInvoices(salesOrderId, tenantId) {
         await this.getSalesOrderOrFail(salesOrderId, tenantId);
@@ -399,6 +458,7 @@ function emptyFromUuid(uuid, origin) {
         uuid,
         origin,
         xml: null,
+        pdf: null,
         rfcEmisor: null,
         rfcReceptor: null,
         receptorNombre: null,

@@ -24,6 +24,7 @@ const finkok_provider_configuration_service_1 = require("./finkok-provider-confi
 const finkok_soap_client_1 = require("./finkok-soap.client");
 const electronic_invoice_pdf_service_1 = require("./electronic-invoice-pdf.service");
 const cfdi_xml_parser_1 = require("../utils/cfdi-xml.parser");
+const finkok_error_message_util_1 = require("../utils/finkok-error-message.util");
 let ElectronicInvoiceService = ElectronicInvoiceService_1 = class ElectronicInvoiceService {
     invoiceRepo;
     syncLogRepo;
@@ -58,7 +59,7 @@ let ElectronicInvoiceService = ElectronicInvoiceService_1 = class ElectronicInvo
         catch (error) {
             const msg = error instanceof Error ? error.message : 'Error de comunicación con Finkok';
             this.logger.warn(`Finkok Sign_Stamp comunicación: ${msg}`);
-            throw new common_1.BadRequestException(msg);
+            throw new common_1.BadRequestException((0, finkok_error_message_util_1.finkokErrorMessage)(undefined, msg));
         }
         if (!result.success || !result.xml) {
             const incidencia = result.incidencias?.[0];
@@ -67,7 +68,7 @@ let ElectronicInvoiceService = ElectronicInvoiceService_1 = class ElectronicInvo
                 'Error desconocido al timbrar';
             const codigo = incidencia?.codigoError;
             this.logger.warn(`Finkok Sign_Stamp rechazado${codigo ? ` [${codigo}]` : ''}: ${errorMsg}`);
-            throw new common_1.BadRequestException(codigo ? `${codigo}: ${errorMsg}` : errorMsg);
+            throw new common_1.BadRequestException((0, finkok_error_message_util_1.finkokErrorMessage)(codigo, errorMsg));
         }
         const invoice = this.invoiceRepo.create({
             tenant_id: tenantId,
@@ -141,7 +142,7 @@ let ElectronicInvoiceService = ElectronicInvoiceService_1 = class ElectronicInvo
         invoice.cancel_replacement_uuid = dto.folio_sustitucion ?? null;
         if (!result.success) {
             invoice.stamp_status = 'cancel_error';
-            invoice.stamp_error_message = result.codEstatus ?? 'Error al cancelar en Finkok';
+            invoice.stamp_error_message = (0, finkok_error_message_util_1.finkokErrorMessage)(undefined, result.codEstatus ?? 'Error al cancelar en Finkok');
             return this.invoiceRepo.save(invoice);
         }
         const folio = result.folios[0];
@@ -228,7 +229,59 @@ let ElectronicInvoiceService = ElectronicInvoiceService_1 = class ElectronicInvo
             sat_sync_enabled: input.xml ? 1 : 0,
             metadata: { registered_existing: true, origin: input.origin },
         });
-        return this.invoiceRepo.save(invoice);
+        const saved = await this.invoiceRepo.save(invoice);
+        if (!input.pdf?.length) {
+            return saved;
+        }
+        saved.pdf_stamped_s3_key = await this.pdfService.storeUploadedPdf(saved, input.pdf);
+        saved.metadata = { ...(saved.metadata ?? {}), pdf_file_name: `${saved.uuid}.pdf` };
+        return this.invoiceRepo.save(saved);
+    }
+    async attachManualFiles(id, tenantId, input) {
+        const invoice = await this.getByIdOrFail(id, tenantId);
+        if (invoice.metadata?.registered_existing !== true) {
+            throw new common_1.BadRequestException('Solo se pueden completar facturas registradas a mano');
+        }
+        if (input.xml) {
+            invoice.xml_stamped = input.xml;
+            invoice.sat_sync_enabled = 1;
+            if (input.series)
+                invoice.series = input.series;
+            if (input.folio)
+                invoice.folio = input.folio;
+            if (input.subtotal != null)
+                invoice.subtotal = input.subtotal;
+            if (input.total != null)
+                invoice.total = input.total;
+            if (input.rfcEmisor)
+                invoice.rfc_emisor = input.rfcEmisor;
+            if (input.rfcReceptor)
+                invoice.rfc_receptor = input.rfcReceptor;
+            if (input.receptorNombre)
+                invoice.receptor_nombre = input.receptorNombre;
+            if (input.stampedAt)
+                invoice.stamped_at = input.stampedAt;
+        }
+        const saved = await this.invoiceRepo.save(invoice);
+        if (!input.pdf?.length) {
+            return saved;
+        }
+        saved.pdf_stamped_s3_key = await this.pdfService.storeUploadedPdf(saved, input.pdf);
+        saved.metadata = { ...(saved.metadata ?? {}), pdf_file_name: `${saved.uuid}.pdf` };
+        return this.invoiceRepo.save(saved);
+    }
+    async unlinkManualRegistration(id, tenantId, sourceId) {
+        const invoice = await this.getByIdOrFail(id, tenantId);
+        if (invoice.source_module !== 'sales_orders' || invoice.source_id !== sourceId) {
+            throw new common_1.NotFoundException('Factura no encontrada en esta orden');
+        }
+        if (invoice.metadata?.registered_existing !== true) {
+            throw new common_1.BadRequestException('Solo se puede quitar una factura registrada a mano. Las timbradas desde aquí se cancelan en el SAT.');
+        }
+        await this.invoiceRepo.manager.query('DELETE FROM electronic_invoice_sync_logs WHERE electronic_invoice_id = ?', [id]);
+        await this.invoiceRepo.manager.query('DELETE FROM inv_s_sales_order_invoice_emails WHERE invoice_id = ?', [id]);
+        await this.invoiceRepo.manager.query('UPDATE electronic_invoices SET related_advance_invoice_id = NULL WHERE related_advance_invoice_id = ?', [id]);
+        await this.invoiceRepo.delete({ id, tenant_id: tenantId });
     }
     async findBySource(tenantId, sourceModule, sourceId) {
         return this.invoiceRepo.find({

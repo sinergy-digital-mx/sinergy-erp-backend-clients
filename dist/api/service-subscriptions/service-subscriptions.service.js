@@ -345,7 +345,7 @@ let ServiceSubscriptionsService = class ServiceSubscriptionsService {
     async loadSubscription(tenantId, id) {
         const subscription = await this.subscriptionRepo.findOne({
             where: { id, tenant_id: tenantId },
-            relations: ['customer', 'periods', 'periods.sales_order'],
+            relations: ['customer', 'fiscal_configuration', 'billing_branch', 'periods', 'periods.sales_order'],
         });
         if (!subscription) {
             throw new common_1.NotFoundException('Suscripción no encontrada');
@@ -413,7 +413,10 @@ let ServiceSubscriptionsService = class ServiceSubscriptionsService {
                 covered,
             }),
             fiscal_configuration_id: subscription.fiscal_configuration_id,
+            fiscal_razon_social: subscription.fiscal_configuration?.razon_social ?? null,
+            fiscal_rfc: subscription.fiscal_configuration?.rfc ?? null,
             billing_branch_id: subscription.billing_branch_id,
+            billing_branch_code: subscription.billing_branch?.code ?? null,
             product_id: subscription.product_id,
             product_uom_id: subscription.product_uom_id,
             uso_cfdi: subscription.uso_cfdi,
