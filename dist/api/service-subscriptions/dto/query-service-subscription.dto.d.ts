@@ -2,6 +2,7 @@ import { ServiceSubscriptionStatus } from '../../../entities/service-subscriptio
 export declare class QueryServiceSubscriptionDto {
     search?: string;
     status?: ServiceSubscriptionStatus;
+    customer_id?: number;
     page?: number;
     limit?: number;
 }

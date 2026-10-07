@@ -16,6 +16,7 @@ const service_subscription_status_enum_1 = require("../../../entities/service-su
 class QueryServiceSubscriptionDto {
     search;
     status;
+    customer_id;
     page = 1;
     limit = 20;
 }
@@ -30,6 +31,13 @@ __decorate([
     (0, class_validator_1.IsEnum)(service_subscription_status_enum_1.ServiceSubscriptionStatus),
     __metadata("design:type", String)
 ], QueryServiceSubscriptionDto.prototype, "status", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(1),
+    __metadata("design:type", Number)
+], QueryServiceSubscriptionDto.prototype, "customer_id", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_transformer_1.Type)(() => Number),

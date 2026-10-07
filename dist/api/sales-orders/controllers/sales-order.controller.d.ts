@@ -2613,6 +2613,12 @@ export declare class SalesOrderController {
         success: true;
         id: string;
     }>;
+    registerExistingInvoice(id: string, file: {
+        buffer: Buffer;
+        originalname?: string;
+    } | undefined, body: {
+        uuid?: string;
+    }, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     getInvoices(id: string, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice[]>;
     stampInvoice(id: string, dto: StampSalesOrderInvoiceDto, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     stampAdvance(id: string, dto: StampAdvanceInvoiceDto, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
@@ -2702,8 +2708,8 @@ export declare class SalesOrderController {
         } | null;
     }[]>;
     findAll(filters: QuerySalesOrderDto, req: any): Promise<{
-        data: {
-            downloads?: import("../utils/sales-order-downloads.util").OrderDownloads | {
+        data: ({
+            downloads: import("../utils/sales-order-downloads.util").OrderDownloads | {
                 invoice: import("../utils/sales-order-downloads.util").OrderDownloads["invoice"];
                 ticket: {
                     id: string;
@@ -2715,7 +2721,7 @@ export declare class SalesOrderController {
                     kind: "original" | "delivery";
                     url: string | null;
                 } | null;
-            } | undefined;
+            };
             customer_display_name: string | null;
             customer_summary: {
                 id: number;
@@ -2801,7 +2807,94 @@ export declare class SalesOrderController {
             updated_by: string;
             updated_at: Date;
             line_items: import("../../../entities/sales-orders").SalesOrderDetail[];
-        }[];
+        } | {
+            invoice: import("../utils/sales-order-downloads.util").OrderInvoiceShortcut | null;
+            customer_display_name: string | null;
+            customer_summary: {
+                id: number;
+                name: string;
+                lastname: string;
+                company_name: string;
+                fiscal_razon_social: string;
+                display_name: string | null;
+                is_walk_in: boolean;
+            } | null;
+            payment_method: import("../../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod | null;
+            payment_method_label: string | null;
+            payment_breakdown_label: string | null;
+            payment_display: import("../utils/sales-order-payment-display.util").SalesOrderPaymentDisplay;
+            collection_channel: "mixed" | "manual" | "pos_cobranza" | null;
+            collection_channel_label: string | null;
+            razon_social: string;
+            sucursal: string | null;
+            fiscal_configuration: {
+                id: string;
+                razon_social: string;
+                rfc: string;
+            } | null;
+            billing_branch_id: string | null;
+            billing_branch: {
+                id: string;
+                code: string;
+                address: string;
+                city: string;
+                state: string;
+                country: string;
+                postal_code: string;
+            } | null;
+            id: string;
+            tenant: import("../../rbac").RBACTenant;
+            tenant_id: string;
+            folio: string;
+            public_invoice_code: string | null;
+            fiscal_configuration_id: string;
+            warehouse_id: string | null;
+            customer: import("../../../entities/customers/customer.entity").Customer;
+            customer_id: number;
+            expected_delivery_date: Date;
+            sales_order_type: string;
+            fiscal_razon_social: string;
+            payment_status: string;
+            is_credit: boolean;
+            invoice_requested: boolean;
+            general_status: string;
+            notes: string | null;
+            walk_in_name: string | null;
+            walk_in_phone: string | null;
+            walk_in_rfc: string | null;
+            converted_from_quotation_id: string | null;
+            advance_invoice_id: string | null;
+            sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
+            requires_selection_assembly: boolean;
+            corroborator: import("../../../entities/users/user.entity").User | null;
+            corroborated_by: string | null;
+            corroborated_at: Date | null;
+            subtotal: number;
+            iva_total: number;
+            ieps_total: number;
+            discount_total: number;
+            global_discount: import("../../../entities/global-discounts/global-discount.entity").GlobalDiscount | null;
+            global_discount_id: string | null;
+            global_discount_amount: number;
+            total: number;
+            creator: import("../../../entities/users/user.entity").User;
+            created_by: string;
+            terminal_user: import("../../../entities/users/user.entity").User;
+            terminal_user_id: string | null;
+            seller_user: import("../../../entities/users/user.entity").User;
+            seller_user_id: string | null;
+            assigned_seller_user: import("../../../entities/users/user.entity").User | null;
+            assigned_seller_user_id: string | null;
+            pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
+            pos_daily_shift_id: string | null;
+            pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
+            collected_by_user: import("../../../entities/users/user.entity").User;
+            collected_by_user_id: string | null;
+            created_at: Date;
+            updated_by: string;
+            updated_at: Date;
+            line_items: import("../../../entities/sales-orders").SalesOrderDetail[];
+        })[];
         total: number;
         page: number;
         limit: number;

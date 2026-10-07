@@ -91,8 +91,8 @@ export declare class SalesOrderService {
         walk_in_rfc?: string | null;
     }, tenantId: string, userId: string): Promise<SalesOrder>;
     findAll(tenantId: string, filters: QuerySalesOrderDto): Promise<{
-        data: {
-            downloads?: OrderDownloads | {
+        data: ({
+            downloads: OrderDownloads | {
                 invoice: OrderDownloads["invoice"];
                 ticket: {
                     id: string;
@@ -104,7 +104,7 @@ export declare class SalesOrderService {
                     kind: "original" | "delivery";
                     url: string | null;
                 } | null;
-            } | undefined;
+            };
             customer_display_name: string | null;
             customer_summary: {
                 id: number;
@@ -190,7 +190,94 @@ export declare class SalesOrderService {
             updated_by: string;
             updated_at: Date;
             line_items: SalesOrderDetail[];
-        }[];
+        } | {
+            invoice: import("../utils/sales-order-downloads.util").OrderInvoiceShortcut | null;
+            customer_display_name: string | null;
+            customer_summary: {
+                id: number;
+                name: string;
+                lastname: string;
+                company_name: string;
+                fiscal_razon_social: string;
+                display_name: string | null;
+                is_walk_in: boolean;
+            } | null;
+            payment_method: PosSalePaymentMethod | null;
+            payment_method_label: string | null;
+            payment_breakdown_label: string | null;
+            payment_display: import("../utils/sales-order-payment-display.util").SalesOrderPaymentDisplay;
+            collection_channel: "mixed" | "manual" | "pos_cobranza" | null;
+            collection_channel_label: string | null;
+            razon_social: string;
+            sucursal: string | null;
+            fiscal_configuration: {
+                id: string;
+                razon_social: string;
+                rfc: string;
+            } | null;
+            billing_branch_id: string | null;
+            billing_branch: {
+                id: string;
+                code: string;
+                address: string;
+                city: string;
+                state: string;
+                country: string;
+                postal_code: string;
+            } | null;
+            id: string;
+            tenant: import("../../rbac").RBACTenant;
+            tenant_id: string;
+            folio: string;
+            public_invoice_code: string | null;
+            fiscal_configuration_id: string;
+            warehouse_id: string | null;
+            customer: Customer;
+            customer_id: number;
+            expected_delivery_date: Date;
+            sales_order_type: string;
+            fiscal_razon_social: string;
+            payment_status: string;
+            is_credit: boolean;
+            invoice_requested: boolean;
+            general_status: string;
+            notes: string | null;
+            walk_in_name: string | null;
+            walk_in_phone: string | null;
+            walk_in_rfc: string | null;
+            converted_from_quotation_id: string | null;
+            advance_invoice_id: string | null;
+            sale_scope: SalesOrderSaleScope;
+            requires_selection_assembly: boolean;
+            corroborator: User | null;
+            corroborated_by: string | null;
+            corroborated_at: Date | null;
+            subtotal: number;
+            iva_total: number;
+            ieps_total: number;
+            discount_total: number;
+            global_discount: import("../../../entities/global-discounts/global-discount.entity").GlobalDiscount | null;
+            global_discount_id: string | null;
+            global_discount_amount: number;
+            total: number;
+            creator: User;
+            created_by: string;
+            terminal_user: User;
+            terminal_user_id: string | null;
+            seller_user: User;
+            seller_user_id: string | null;
+            assigned_seller_user: User | null;
+            assigned_seller_user_id: string | null;
+            pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
+            pos_daily_shift_id: string | null;
+            pos_stage: SalesOrderPosStage | null;
+            collected_by_user: User;
+            collected_by_user_id: string | null;
+            created_at: Date;
+            updated_by: string;
+            updated_at: Date;
+            line_items: SalesOrderDetail[];
+        })[];
         total: number;
         page: number;
         limit: number;
@@ -207,6 +294,7 @@ export declare class SalesOrderService {
         currency: string;
     }>;
     private applyListFilters;
+    private loadOrderInvoiceShortcuts;
     private loadOrderDownloads;
     linkConvertedFromQuotation(salesOrderId: string, quotationId: string, tenantId: string): Promise<void>;
     findOne(id: string, tenantId: string): Promise<SalesOrder>;

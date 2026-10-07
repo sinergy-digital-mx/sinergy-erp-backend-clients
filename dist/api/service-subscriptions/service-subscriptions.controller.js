@@ -36,6 +36,9 @@ let ServiceSubscriptionsController = class ServiceSubscriptionsController {
     create(dto, req) {
         return this.service.create(req.user.tenant_id, req.user.id, dto);
     }
+    bySalesOrder(salesOrderId, req) {
+        return this.service.findBySalesOrder(req.user.tenant_id, salesOrderId);
+    }
     getOne(id, req) {
         return this.service.getOne(req.user.tenant_id, id);
     }
@@ -85,6 +88,16 @@ __decorate([
     __metadata("design:paramtypes", [create_service_subscription_dto_1.CreateServiceSubscriptionDto, Object]),
     __metadata("design:returntype", void 0)
 ], ServiceSubscriptionsController.prototype, "create", null);
+__decorate([
+    (0, common_1.Get)('by-sales-order/:salesOrderId'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: service_subscription_constants_1.SERVICE_SUBSCRIPTION_ENTITY, action: 'Read' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Suscripción ligada a una orden de venta' }),
+    __param(0, (0, common_1.Param)('salesOrderId')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], ServiceSubscriptionsController.prototype, "bySalesOrder", null);
 __decorate([
     (0, common_1.Get)(':id'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: service_subscription_constants_1.SERVICE_SUBSCRIPTION_ENTITY, action: 'Read' }),

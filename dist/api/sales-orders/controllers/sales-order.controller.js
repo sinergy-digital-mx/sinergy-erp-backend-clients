@@ -118,6 +118,9 @@ let SalesOrderController = class SalesOrderController {
     async deletePaymentDocument(id, paymentId, documentId, req) {
         return this.salesOrderService.deletePaymentDocument(id, paymentId, documentId, req.user.tenant_id);
     }
+    async registerExistingInvoice(id, file, body, req) {
+        return this.invoicingService.registerExistingInvoice(id, req.user.tenant_id, req.user.id, file, body?.uuid);
+    }
     async getInvoices(id, req) {
         return this.invoicingService.listInvoices(id, req.user.tenant_id);
     }
@@ -462,6 +465,20 @@ __decorate([
     __metadata("design:paramtypes", [String, String, String, Object]),
     __metadata("design:returntype", Promise)
 ], SalesOrderController.prototype, "deletePaymentDocument", null);
+__decorate([
+    (0, common_1.Post)(':id/invoices/register'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
+    (0, swagger_1.ApiConsumes)('multipart/form-data', 'application/json'),
+    (0, swagger_1.ApiOperation)({ summary: 'Registrar un CFDI ya emitido (XML, PDF o UUID)' }),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', { limits: { fileSize: 8 * 1024 * 1024 } })),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.UploadedFile)()),
+    __param(2, (0, common_1.Body)()),
+    __param(3, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object, Object]),
+    __metadata("design:returntype", Promise)
+], SalesOrderController.prototype, "registerExistingInvoice", null);
 __decorate([
     (0, common_1.Get)(':id/invoices'),
     (0, swagger_1.ApiOperation)({ summary: 'Listar facturas electrónicas de la orden de venta' }),

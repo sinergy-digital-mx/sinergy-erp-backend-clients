@@ -64,6 +64,9 @@ let ServiceSubscriptionsService = class ServiceSubscriptionsService {
         if (query.status) {
             qb.andWhere('subscription.status = :status', { status: query.status });
         }
+        if (query.customer_id) {
+            qb.andWhere('subscription.customer_id = :customerId', { customerId: query.customer_id });
+        }
         if (query.search?.trim()) {
             qb.andWhere(`(subscription.title LIKE :search OR customer.name LIKE :search OR customer.lastname LIKE :search OR customer.company_name LIKE :search OR customer.fiscal_razon_social LIKE :search)`, { search: `%${query.search.trim()}%` });
         }
@@ -76,6 +79,25 @@ let ServiceSubscriptionsService = class ServiceSubscriptionsService {
             page,
             limit,
             totalPages: Math.ceil(total / limit) || 0,
+        };
+    }
+    async findBySalesOrder(tenantId, salesOrderId) {
+        if (tenantId !== service_subscription_constants_1.VEXIA_TENANT_ID) {
+            return { subscription: null };
+        }
+        const period = await this.periodRepo.findOne({
+            where: { tenant_id: tenantId, sales_order_id: salesOrderId },
+            relations: ['subscription'],
+        });
+        if (!period?.subscription) {
+            return { subscription: null };
+        }
+        return {
+            subscription: {
+                id: period.subscription.id,
+                title: period.subscription.title,
+                period_label: (0, service_subscription_months_util_1.formatPeriodLabel)(String(period.period_month)),
+            },
         };
     }
     async getOne(tenantId, id) {

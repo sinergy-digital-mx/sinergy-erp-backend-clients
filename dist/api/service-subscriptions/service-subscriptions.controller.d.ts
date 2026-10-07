@@ -67,6 +67,15 @@ export declare class ServiceSubscriptionsController {
         months_total: number;
         months_covered: number;
     }>;
+    bySalesOrder(salesOrderId: string, req: any): Promise<{
+        subscription: null;
+    } | {
+        subscription: {
+            id: string;
+            title: string;
+            period_label: string;
+        };
+    }>;
     getOne(id: string, req: any): Promise<{
         fiscal_configuration_id: string;
         billing_branch_id: string;

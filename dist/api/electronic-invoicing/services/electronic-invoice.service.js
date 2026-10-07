@@ -195,6 +195,39 @@ let ElectronicInvoiceService = ElectronicInvoiceService_1 = class ElectronicInvo
         }));
         return this.invoiceRepo.save(invoice);
     }
+    async registerExisting(tenantId, userId, input) {
+        const uuid = input.uuid.trim().toUpperCase();
+        const duplicate = await this.invoiceRepo.findOne({
+            where: { tenant_id: tenantId, uuid },
+        });
+        if (duplicate) {
+            throw new common_1.BadRequestException('Ese UUID ya está registrado');
+        }
+        const invoice = this.invoiceRepo.create({
+            tenant_id: tenantId,
+            fiscal_configuration_id: input.fiscal_configuration_id,
+            source_module: 'sales_orders',
+            source_id: input.source_id,
+            uuid,
+            series: input.series ?? null,
+            folio: input.folio ?? null,
+            tipo_comprobante: 'I',
+            rfc_emisor: input.rfc_emisor,
+            rfc_receptor: input.rfc_receptor,
+            receptor_nombre: input.receptor_nombre ?? null,
+            subtotal: input.subtotal,
+            total: input.total,
+            currency: input.currency || 'MXN',
+            xml_stamped: input.xml ?? null,
+            stamp_status: 'stamped',
+            sat_status: 'Vigente',
+            stamped_at: input.stamped_at ?? new Date(),
+            created_by: userId,
+            sat_sync_enabled: input.xml ? 1 : 0,
+            metadata: { registered_existing: true, origin: input.origin },
+        });
+        return this.invoiceRepo.save(invoice);
+    }
     async findBySource(tenantId, sourceModule, sourceId) {
         return this.invoiceRepo.find({
             where: { tenant_id: tenantId, source_module: sourceModule, source_id: sourceId },

@@ -24,6 +24,9 @@ const advance_cfdi_util_1 = require("../../electronic-invoicing/utils/advance-cf
 const pos_shifts_service_1 = require("../../pos-shifts/pos-shifts.service");
 const advance_shift_payment_service_1 = require("../../pos-shifts/services/advance-shift-payment.service");
 const advance_payment_method_util_1 = require("../../pos-shifts/utils/advance-payment-method.util");
+const service_subscription_period_entity_1 = require("../../../entities/service-subscriptions/service-subscription-period.entity");
+const service_subscription_period_status_enum_1 = require("../../../entities/service-subscriptions/service-subscription-period-status.enum");
+const cfdi_xml_parser_1 = require("../../electronic-invoicing/utils/cfdi-xml.parser");
 let SalesOrderInvoicingService = class SalesOrderInvoicingService {
     salesOrderRepo;
     customerRepo;
@@ -31,13 +34,93 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
     advanceCfdi;
     posShiftsService;
     advancePayments;
-    constructor(salesOrderRepo, customerRepo, electronicInvoiceService, advanceCfdi, posShiftsService, advancePayments) {
+    periodRepo;
+    constructor(salesOrderRepo, customerRepo, electronicInvoiceService, advanceCfdi, posShiftsService, advancePayments, periodRepo) {
         this.salesOrderRepo = salesOrderRepo;
         this.customerRepo = customerRepo;
         this.electronicInvoiceService = electronicInvoiceService;
         this.advanceCfdi = advanceCfdi;
         this.posShiftsService = posShiftsService;
         this.advancePayments = advancePayments;
+        this.periodRepo = periodRepo;
+    }
+    async registerExistingInvoice(salesOrderId, tenantId, userId, file, typedUuid) {
+        const order = await this.getSalesOrderWithRelations(salesOrderId, tenantId);
+        if (order.general_status === 'Cancelada') {
+            throw new common_1.BadRequestException('No se puede facturar una orden cancelada');
+        }
+        if (!order.fiscal_configuration_id || !order.fiscal_configuration?.rfc) {
+            throw new common_1.BadRequestException('La orden no tiene razón social');
+        }
+        const customer = await this.customerRepo.findOne({
+            where: { id: order.customer_id },
+        });
+        if (!customer?.fiscal_rfc) {
+            throw new common_1.BadRequestException('El cliente debe tener RFC configurado');
+        }
+        const parsed = this.readExistingCfdi(file, typedUuid);
+        const invoice = await this.electronicInvoiceService.registerExisting(tenantId, userId, {
+            fiscal_configuration_id: order.fiscal_configuration_id,
+            source_id: salesOrderId,
+            uuid: parsed.uuid,
+            rfc_emisor: parsed.rfcEmisor || order.fiscal_configuration.rfc,
+            rfc_receptor: parsed.rfcReceptor || customer.fiscal_rfc,
+            receptor_nombre: parsed.receptorNombre || customer.fiscal_razon_social || customer.name,
+            subtotal: parsed.subtotal ?? Number(order.subtotal),
+            total: parsed.total ?? Number(order.total),
+            series: parsed.series,
+            folio: parsed.folio || order.folio,
+            currency: parsed.currency || 'MXN',
+            stamped_at: parsed.stampedAt,
+            xml: parsed.xml,
+            origin: parsed.origin,
+        });
+        await this.periodRepo.update({ tenant_id: tenantId, sales_order_id: salesOrderId }, {
+            electronic_invoice_id: invoice.id,
+            status: service_subscription_period_status_enum_1.ServiceSubscriptionPeriodStatus.Invoiced,
+            invoice_error: null,
+        });
+        return invoice;
+    }
+    readExistingCfdi(file, typedUuid) {
+        const name = (file?.originalname ?? '').toLowerCase();
+        const text = file ? file.buffer.toString('utf8') : '';
+        const looksXml = name.endsWith('.xml') || text.includes('<cfdi:Comprobante') || text.includes('<Comprobante');
+        if (file && looksXml) {
+            let parsed;
+            try {
+                parsed = (0, cfdi_xml_parser_1.parseStampedCfdiXml)(text);
+            }
+            catch {
+                throw new common_1.BadRequestException('El XML no trae un CFDI timbrado con UUID');
+            }
+            return {
+                uuid: parsed.timbre.uuid,
+                origin: 'xml',
+                xml: text,
+                rfcEmisor: parsed.emisor.rfc || null,
+                rfcReceptor: parsed.receptor.rfc || null,
+                receptorNombre: parsed.receptor.nombre || null,
+                subtotal: Number(parsed.subTotal) || null,
+                total: Number(parsed.total) || null,
+                series: parsed.serie || null,
+                folio: parsed.folio || null,
+                currency: parsed.moneda || null,
+                stampedAt: parsed.timbre.fechaTimbrado ? new Date(parsed.timbre.fechaTimbrado) : null,
+            };
+        }
+        if (file && (name.endsWith('.pdf') || file.buffer.subarray(0, 4).toString() === '%PDF')) {
+            const uuid = extractUuid(file.buffer.toString('latin1')) ?? extractUuid(typedUuid);
+            if (!uuid) {
+                throw new common_1.BadRequestException('No encontré el UUID en el PDF. Sube el XML o escribe el UUID.');
+            }
+            return emptyFromUuid(uuid, 'pdf');
+        }
+        const uuid = extractUuid(typedUuid);
+        if (!uuid) {
+            throw new common_1.BadRequestException('Sube el XML, el PDF o escribe el UUID de la factura');
+        }
+        return emptyFromUuid(uuid, 'uuid');
     }
     async listInvoices(salesOrderId, tenantId) {
         await this.getSalesOrderOrFail(salesOrderId, tenantId);
@@ -297,11 +380,34 @@ exports.SalesOrderInvoicingService = SalesOrderInvoicingService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(sales_order_entity_1.SalesOrder)),
     __param(1, (0, typeorm_1.InjectRepository)(customer_entity_1.Customer)),
+    __param(6, (0, typeorm_1.InjectRepository)(service_subscription_period_entity_1.ServiceSubscriptionPeriod)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
         typeorm_2.Repository,
         electronic_invoice_service_1.ElectronicInvoiceService,
         advance_cfdi_service_1.AdvanceCfdiService,
         pos_shifts_service_1.PosShiftsService,
-        advance_shift_payment_service_1.AdvanceShiftPaymentService])
+        advance_shift_payment_service_1.AdvanceShiftPaymentService,
+        typeorm_2.Repository])
 ], SalesOrderInvoicingService);
+const UUID_PATTERN = /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/;
+function extractUuid(value) {
+    const match = UUID_PATTERN.exec(value ?? '');
+    return match ? match[0].toUpperCase() : null;
+}
+function emptyFromUuid(uuid, origin) {
+    return {
+        uuid,
+        origin,
+        xml: null,
+        rfcEmisor: null,
+        rfcReceptor: null,
+        receptorNombre: null,
+        subtotal: null,
+        total: null,
+        series: null,
+        folio: null,
+        currency: null,
+        stampedAt: null,
+    };
+}
 //# sourceMappingURL=sales-order-invoicing.service.js.map

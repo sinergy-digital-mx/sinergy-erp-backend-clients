@@ -46,6 +46,15 @@ export declare class ServiceSubscriptionsService {
         limit: number;
         totalPages: number;
     }>;
+    findBySalesOrder(tenantId: string, salesOrderId: string): Promise<{
+        subscription: null;
+    } | {
+        subscription: {
+            id: string;
+            title: string;
+            period_label: string;
+        };
+    }>;
     getOne(tenantId: string, id: string): Promise<{
         fiscal_configuration_id: string;
         billing_branch_id: string;

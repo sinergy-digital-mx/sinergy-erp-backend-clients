@@ -20,6 +20,7 @@ export interface OrderInvoiceShortcut {
     folio: string | null;
     uuid: string | null;
     tipo_comprobante: string | null;
+    rfc_emisor: string | null;
     stamp_status: string;
     sat_status: string | null;
     total: number;

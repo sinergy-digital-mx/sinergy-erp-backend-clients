@@ -9,6 +9,7 @@ import { StampAdvanceInvoiceDto } from '../../electronic-invoicing/dto/stamp-adv
 import { ApplyAdvanceInvoiceDto } from '../../electronic-invoicing/dto/apply-advance-invoice.dto';
 import { PosShiftsService } from '../../pos-shifts/pos-shifts.service';
 import { AdvanceShiftPaymentService } from '../../pos-shifts/services/advance-shift-payment.service';
+import { ServiceSubscriptionPeriod } from '../../../entities/service-subscriptions/service-subscription-period.entity';
 export declare class SalesOrderInvoicingService {
     private readonly salesOrderRepo;
     private readonly customerRepo;
@@ -16,7 +17,13 @@ export declare class SalesOrderInvoicingService {
     private readonly advanceCfdi;
     private readonly posShiftsService;
     private readonly advancePayments;
-    constructor(salesOrderRepo: Repository<SalesOrder>, customerRepo: Repository<Customer>, electronicInvoiceService: ElectronicInvoiceService, advanceCfdi: AdvanceCfdiService, posShiftsService: PosShiftsService, advancePayments: AdvanceShiftPaymentService);
+    private readonly periodRepo;
+    constructor(salesOrderRepo: Repository<SalesOrder>, customerRepo: Repository<Customer>, electronicInvoiceService: ElectronicInvoiceService, advanceCfdi: AdvanceCfdiService, posShiftsService: PosShiftsService, advancePayments: AdvanceShiftPaymentService, periodRepo: Repository<ServiceSubscriptionPeriod>);
+    registerExistingInvoice(salesOrderId: string, tenantId: string, userId: string, file: {
+        buffer: Buffer;
+        originalname?: string;
+    } | undefined, typedUuid?: string): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
+    private readExistingCfdi;
     listInvoices(salesOrderId: string, tenantId: string): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice[]>;
     stampInvoice(salesOrderId: string, tenantId: string, userId: string, dto: StampSalesOrderInvoiceDto): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     cancelInvoice(salesOrderId: string, invoiceId: string, tenantId: string, userId: string, dto: CancelElectronicInvoiceDto): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;

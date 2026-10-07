@@ -582,9 +582,13 @@ let SalesOrderService = class SalesOrderService {
                 .filter((so) => !!so);
         }
         const paymentByOrderId = await this.getPaymentDisplayByOrderIds(tenantId, rows);
+        const orderIds = rows.map((so) => so.id);
         const downloadsByOrder = filters.with_downloads
-            ? await this.loadOrderDownloads(tenantId, rows.map((so) => so.id))
+            ? await this.loadOrderDownloads(tenantId, orderIds)
             : null;
+        const invoiceByOrder = downloadsByOrder
+            ? null
+            : await this.loadOrderInvoiceShortcuts(tenantId, orderIds);
         return {
             data: rows.map((so) => {
                 const paymentInfo = paymentByOrderId.get(so.id);
@@ -603,7 +607,7 @@ let SalesOrderService = class SalesOrderService {
                     collection_channel_label: paymentInfo?.collection_channel_label ?? null,
                     ...(downloadsByOrder
                         ? { downloads: downloadsByOrder.get(so.id) ?? (0, sales_order_downloads_util_1.emptyOrderDownloads)() }
-                        : {}),
+                        : { invoice: invoiceByOrder?.get(so.id) ?? null }),
                 };
             }),
             total,
@@ -674,6 +678,42 @@ let SalesOrderService = class SalesOrderService {
         if (created_to)
             qb.andWhere('so.created_at <= :created_to', { created_to: new Date(created_to) });
     }
+    async loadOrderInvoiceShortcuts(tenantId, orderIds) {
+        if (!orderIds.length)
+            return new Map();
+        const invoices = await this.dataSource.getRepository(electronic_invoice_entity_1.ElectronicInvoice).find({
+            where: {
+                tenant_id: tenantId,
+                source_module: 'sales_orders',
+                source_id: (0, typeorm_2.In)(orderIds),
+            },
+            select: [
+                'id',
+                'source_id',
+                'uuid',
+                'rfc_emisor',
+                'series',
+                'folio',
+                'tipo_comprobante',
+                'rfc_receptor',
+                'receptor_nombre',
+                'total',
+                'currency',
+                'stamp_status',
+                'sat_status',
+                'stamped_at',
+                'updated_at',
+                'sat_last_sync_at',
+                'created_at',
+            ],
+        });
+        const built = (0, sales_order_downloads_util_1.buildOrderDownloads)(orderIds, invoices, []);
+        const shortcuts = new Map();
+        for (const orderId of orderIds) {
+            shortcuts.set(orderId, built.get(orderId)?.invoice ?? null);
+        }
+        return shortcuts;
+    }
     async loadOrderDownloads(tenantId, orderIds) {
         if (!orderIds.length)
             return new Map();
@@ -687,6 +727,7 @@ let SalesOrderService = class SalesOrderService {
                 'id',
                 'source_id',
                 'uuid',
+                'rfc_emisor',
                 'series',
                 'folio',
                 'tipo_comprobante',

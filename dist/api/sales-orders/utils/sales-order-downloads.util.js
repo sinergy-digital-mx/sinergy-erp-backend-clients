@@ -30,6 +30,7 @@ function buildOrderDownloads(orderIds, invoices, documents) {
                 folio: primary.folio ?? null,
                 uuid: primary.uuid ?? null,
                 tipo_comprobante: primary.tipo_comprobante ?? null,
+                rfc_emisor: primary.rfc_emisor ?? null,
                 stamp_status: primary.stamp_status,
                 sat_status: primary.sat_status ?? null,
                 total: Number(primary.total) || 0,

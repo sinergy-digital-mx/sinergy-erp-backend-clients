@@ -21,6 +21,22 @@ export declare class ElectronicInvoiceService {
     stamp(tenantId: string, userId: string, dto: StampElectronicInvoiceDto): Promise<ElectronicInvoice>;
     cancel(id: string, tenantId: string, userId: string, dto: CancelElectronicInvoiceDto): Promise<ElectronicInvoice>;
     syncSatStatus(id: string, tenantId: string, userId: string | null, trigger?: 'manual' | 'scheduled' | 'batch'): Promise<ElectronicInvoice>;
+    registerExisting(tenantId: string, userId: string, input: {
+        fiscal_configuration_id: string;
+        source_id: string;
+        uuid: string;
+        rfc_emisor: string;
+        rfc_receptor: string;
+        receptor_nombre?: string | null;
+        subtotal: number;
+        total: number;
+        series?: string | null;
+        folio?: string | null;
+        currency?: string | null;
+        stamped_at?: Date | null;
+        xml?: string | null;
+        origin: 'xml' | 'pdf' | 'uuid';
+    }): Promise<ElectronicInvoice>;
     findBySource(tenantId: string, sourceModule: ElectronicInvoiceSourceModule, sourceId: string): Promise<ElectronicInvoice[]>;
     assertNoActiveProductionInvoice(tenantId: string, sourceModule: ElectronicInvoiceSourceModule, sourceId: string, environment?: FinkokEnvironment): Promise<void>;
     private isActiveProductionInvoice;
