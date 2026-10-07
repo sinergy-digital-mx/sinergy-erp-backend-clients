@@ -80,11 +80,7 @@ __decorate([
     __metadata("design:type", String)
 ], FiscalConfiguration.prototype, "persona_type", void 0);
 __decorate([
-    (0, typeorm_1.Column)({
-        type: 'enum',
-        enum: ['601', '603', '605', '606', '607', '608', '609', '610', '611', '614', '616', '620', '621', '622', '623', '624', '625', '626', '627', '628', '629', '630'],
-        nullable: true,
-    }),
+    (0, typeorm_1.Column)({ type: 'varchar', length: 8, nullable: true }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
