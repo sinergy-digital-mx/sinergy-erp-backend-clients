@@ -110,7 +110,9 @@ let ElectronicInvoiceService = ElectronicInvoiceService_1 = class ElectronicInvo
     }
     async cancel(id, tenantId, userId, dto) {
         const invoice = await this.getByIdOrFail(id, tenantId);
-        if (invoice.stamp_status !== 'stamped' && invoice.stamp_status !== 'cancel_pending') {
+        if (invoice.stamp_status !== 'stamped' &&
+            invoice.stamp_status !== 'cancel_pending' &&
+            invoice.stamp_status !== 'cancel_error') {
             throw new common_1.BadRequestException(`Solo se pueden cancelar facturas timbradas. Estado actual: ${invoice.stamp_status}`);
         }
         if (!invoice.uuid) {
@@ -295,7 +297,10 @@ let ElectronicInvoiceService = ElectronicInvoiceService_1 = class ElectronicInvo
         if (preview) {
             return this.getPdfPreviewDownload(invoice, tenantId);
         }
-        if (invoice.stamp_status !== 'stamped' && invoice.stamp_status !== 'cancel_pending' && invoice.stamp_status !== 'cancelled') {
+        if (invoice.stamp_status !== 'stamped' &&
+            invoice.stamp_status !== 'cancel_pending' &&
+            invoice.stamp_status !== 'cancelled' &&
+            invoice.stamp_status !== 'cancel_error') {
             throw new common_1.BadRequestException('Solo hay PDF para facturas timbradas');
         }
         if (!invoice.pdf_stamped_s3_key || regenerate) {
