@@ -14,6 +14,7 @@ import { QueryServiceSubscriptionDto } from './dto/query-service-subscription.dt
 import { LinkServiceSubscriptionPeriodDto } from './dto/link-service-subscription-period.dto';
 import { RenewServiceSubscriptionDto } from './dto/renew-service-subscription.dto';
 import { ServiceSubscriptionBillingService } from './service-subscription-billing.service';
+import { MailerConfigurationService } from '../mailer-configuration/services/mailer-configuration.service';
 export declare class ServiceSubscriptionsService {
     private readonly subscriptionRepo;
     private readonly periodRepo;
@@ -23,13 +24,16 @@ export declare class ServiceSubscriptionsService {
     private readonly branchRepo;
     private readonly salesOrderRepo;
     private readonly billing;
-    constructor(subscriptionRepo: Repository<ServiceSubscription>, periodRepo: Repository<ServiceSubscriptionPeriod>, customerRepo: Repository<Customer>, productRepo: Repository<Product>, productUomRepo: Repository<ProductUoM>, branchRepo: Repository<BillingBranch>, salesOrderRepo: Repository<SalesOrder>, billing: ServiceSubscriptionBillingService);
+    private readonly mailerConfigurationService;
+    constructor(subscriptionRepo: Repository<ServiceSubscription>, periodRepo: Repository<ServiceSubscriptionPeriod>, customerRepo: Repository<Customer>, productRepo: Repository<Product>, productUomRepo: Repository<ProductUoM>, branchRepo: Repository<BillingBranch>, salesOrderRepo: Repository<SalesOrder>, billing: ServiceSubscriptionBillingService, mailerConfigurationService: MailerConfigurationService);
     list(tenantId: string, query: QueryServiceSubscriptionDto): Promise<{
         data: {
             id: string;
             title: string;
             customer_id: number;
             customer_name: string;
+            fiscal_razon_social: string;
+            fiscal_rfc: string;
             monthly_amount: number;
             iva_percentage: number;
             start_month: string;
@@ -55,10 +59,13 @@ export declare class ServiceSubscriptionsService {
             period_label: string;
         };
     }>;
+    sendSummaryEmail(tenantId: string, id: string, toEmail?: string): Promise<{
+        sent_to: string;
+    }>;
+    private sendViaResend;
     getOne(tenantId: string, id: string): Promise<{
         fiscal_configuration_id: string;
-        fiscal_razon_social: string;
-        fiscal_rfc: string;
+        customer_email: string;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -85,6 +92,8 @@ export declare class ServiceSubscriptionsService {
         title: string;
         customer_id: number;
         customer_name: string;
+        fiscal_razon_social: string;
+        fiscal_rfc: string;
         monthly_amount: number;
         iva_percentage: number;
         start_month: string;
@@ -98,8 +107,7 @@ export declare class ServiceSubscriptionsService {
     }>;
     create(tenantId: string, userId: string, dto: CreateServiceSubscriptionDto): Promise<{
         fiscal_configuration_id: string;
-        fiscal_razon_social: string;
-        fiscal_rfc: string;
+        customer_email: string;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -126,6 +134,8 @@ export declare class ServiceSubscriptionsService {
         title: string;
         customer_id: number;
         customer_name: string;
+        fiscal_razon_social: string;
+        fiscal_rfc: string;
         monthly_amount: number;
         iva_percentage: number;
         start_month: string;
@@ -139,8 +149,7 @@ export declare class ServiceSubscriptionsService {
     }>;
     update(tenantId: string, id: string, dto: UpdateServiceSubscriptionDto): Promise<{
         fiscal_configuration_id: string;
-        fiscal_razon_social: string;
-        fiscal_rfc: string;
+        customer_email: string;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -167,6 +176,8 @@ export declare class ServiceSubscriptionsService {
         title: string;
         customer_id: number;
         customer_name: string;
+        fiscal_razon_social: string;
+        fiscal_rfc: string;
         monthly_amount: number;
         iva_percentage: number;
         start_month: string;
@@ -180,8 +191,7 @@ export declare class ServiceSubscriptionsService {
     }>;
     cancel(tenantId: string, id: string): Promise<{
         fiscal_configuration_id: string;
-        fiscal_razon_social: string;
-        fiscal_rfc: string;
+        customer_email: string;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -208,6 +218,8 @@ export declare class ServiceSubscriptionsService {
         title: string;
         customer_id: number;
         customer_name: string;
+        fiscal_razon_social: string;
+        fiscal_rfc: string;
         monthly_amount: number;
         iva_percentage: number;
         start_month: string;
@@ -221,8 +233,7 @@ export declare class ServiceSubscriptionsService {
     }>;
     renew(tenantId: string, userId: string, id: string, dto: RenewServiceSubscriptionDto): Promise<{
         fiscal_configuration_id: string;
-        fiscal_razon_social: string;
-        fiscal_rfc: string;
+        customer_email: string;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -249,6 +260,8 @@ export declare class ServiceSubscriptionsService {
         title: string;
         customer_id: number;
         customer_name: string;
+        fiscal_razon_social: string;
+        fiscal_rfc: string;
         monthly_amount: number;
         iva_percentage: number;
         start_month: string;
@@ -262,8 +275,7 @@ export declare class ServiceSubscriptionsService {
     }>;
     generate(tenantId: string, userId: string, id: string, periodId: string): Promise<{
         fiscal_configuration_id: string;
-        fiscal_razon_social: string;
-        fiscal_rfc: string;
+        customer_email: string;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -290,6 +302,8 @@ export declare class ServiceSubscriptionsService {
         title: string;
         customer_id: number;
         customer_name: string;
+        fiscal_razon_social: string;
+        fiscal_rfc: string;
         monthly_amount: number;
         iva_percentage: number;
         start_month: string;
@@ -303,8 +317,7 @@ export declare class ServiceSubscriptionsService {
     }>;
     invoice(tenantId: string, userId: string, id: string, periodId: string): Promise<{
         fiscal_configuration_id: string;
-        fiscal_razon_social: string;
-        fiscal_rfc: string;
+        customer_email: string;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -331,6 +344,8 @@ export declare class ServiceSubscriptionsService {
         title: string;
         customer_id: number;
         customer_name: string;
+        fiscal_razon_social: string;
+        fiscal_rfc: string;
         monthly_amount: number;
         iva_percentage: number;
         start_month: string;
@@ -344,8 +359,7 @@ export declare class ServiceSubscriptionsService {
     }>;
     link(tenantId: string, id: string, periodId: string, dto: LinkServiceSubscriptionPeriodDto): Promise<{
         fiscal_configuration_id: string;
-        fiscal_razon_social: string;
-        fiscal_rfc: string;
+        customer_email: string;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -372,6 +386,8 @@ export declare class ServiceSubscriptionsService {
         title: string;
         customer_id: number;
         customer_name: string;
+        fiscal_razon_social: string;
+        fiscal_rfc: string;
         monthly_amount: number;
         iva_percentage: number;
         start_month: string;
@@ -385,8 +401,7 @@ export declare class ServiceSubscriptionsService {
     }>;
     skip(tenantId: string, id: string, periodId: string): Promise<{
         fiscal_configuration_id: string;
-        fiscal_razon_social: string;
-        fiscal_rfc: string;
+        customer_email: string;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -413,6 +428,8 @@ export declare class ServiceSubscriptionsService {
         title: string;
         customer_id: number;
         customer_name: string;
+        fiscal_razon_social: string;
+        fiscal_rfc: string;
         monthly_amount: number;
         iva_percentage: number;
         start_month: string;
@@ -426,8 +443,7 @@ export declare class ServiceSubscriptionsService {
     }>;
     unlink(tenantId: string, id: string, periodId: string): Promise<{
         fiscal_configuration_id: string;
-        fiscal_razon_social: string;
-        fiscal_rfc: string;
+        customer_email: string;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -454,6 +470,8 @@ export declare class ServiceSubscriptionsService {
         title: string;
         customer_id: number;
         customer_name: string;
+        fiscal_razon_social: string;
+        fiscal_rfc: string;
         monthly_amount: number;
         iva_percentage: number;
         start_month: string;

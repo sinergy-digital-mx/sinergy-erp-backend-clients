@@ -39,6 +39,9 @@ let ServiceSubscriptionsController = class ServiceSubscriptionsController {
     bySalesOrder(salesOrderId, req) {
         return this.service.findBySalesOrder(req.user.tenant_id, salesOrderId);
     }
+    summaryEmail(id, body, req) {
+        return this.service.sendSummaryEmail(req.user.tenant_id, id, body?.to_email);
+    }
     getOne(id, req) {
         return this.service.getOne(req.user.tenant_id, id);
     }
@@ -98,6 +101,17 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], ServiceSubscriptionsController.prototype, "bySalesOrder", null);
+__decorate([
+    (0, common_1.Post)(':id/summary-email'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: service_subscription_constants_1.SERVICE_SUBSCRIPTION_ENTITY, action: 'Read' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Enviar por correo el resumen del servicio y el detalle de cada mes' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", void 0)
+], ServiceSubscriptionsController.prototype, "summaryEmail", null);
 __decorate([
     (0, common_1.Get)(':id'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: service_subscription_constants_1.SERVICE_SUBSCRIPTION_ENTITY, action: 'Read' }),

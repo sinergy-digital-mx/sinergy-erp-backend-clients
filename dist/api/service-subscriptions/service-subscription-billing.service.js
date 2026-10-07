@@ -141,6 +141,28 @@ let ServiceSubscriptionBillingService = ServiceSubscriptionBillingService_1 = cl
         }
         return this.periodRepo.save(period);
     }
+    async syncPeriodInvoices(subscription) {
+        const dirty = [];
+        for (const period of subscription.periods ?? []) {
+            if (!period.sales_order_id || period.status === service_subscription_period_status_enum_1.ServiceSubscriptionPeriodStatus.Skipped) {
+                continue;
+            }
+            const invoice = await this.findVigenteInvoice(subscription.tenant_id, period.sales_order_id);
+            if (!invoice)
+                continue;
+            if (period.status === service_subscription_period_status_enum_1.ServiceSubscriptionPeriodStatus.Invoiced &&
+                period.electronic_invoice_id === invoice.id) {
+                continue;
+            }
+            period.electronic_invoice_id = invoice.id;
+            period.status = service_subscription_period_status_enum_1.ServiceSubscriptionPeriodStatus.Invoiced;
+            period.invoice_error = null;
+            dirty.push(period);
+        }
+        if (dirty.length) {
+            await this.periodRepo.save(dirty);
+        }
+    }
     async findVigenteInvoice(tenantId, salesOrderId) {
         const invoices = await this.electronicInvoiceService.findVigenteBySource(tenantId, 'sales_orders', salesOrderId);
         return invoices[0] ?? null;

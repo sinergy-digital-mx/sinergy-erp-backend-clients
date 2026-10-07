@@ -207,7 +207,7 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
             throw new common_1.BadRequestException('El cliente debe tener RFC configurado');
         }
         const xml = dto.xml ?? this.buildXmlPlaceholder(order, customer);
-        return this.electronicInvoiceService.stamp(tenantId, userId, {
+        const invoice = await this.electronicInvoiceService.stamp(tenantId, userId, {
             fiscal_configuration_id: order.fiscal_configuration_id,
             source_module: 'sales_orders',
             source_id: salesOrderId,
@@ -226,6 +226,12 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
                 customer_id: order.customer_id,
             },
         });
+        await this.periodRepo.update({ tenant_id: tenantId, sales_order_id: salesOrderId }, {
+            electronic_invoice_id: invoice.id,
+            status: service_subscription_period_status_enum_1.ServiceSubscriptionPeriodStatus.Invoiced,
+            invoice_error: null,
+        });
+        return invoice;
     }
     async cancelInvoice(salesOrderId, invoiceId, tenantId, userId, dto) {
         await this.getSalesOrderOrFail(salesOrderId, tenantId);

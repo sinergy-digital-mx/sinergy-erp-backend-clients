@@ -11,9 +11,13 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ServiceSubscriptionsService = void 0;
 const common_1 = require("@nestjs/common");
+const axios_1 = __importDefault(require("axios"));
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const crypto_1 = require("crypto");
@@ -29,6 +33,8 @@ const billing_branch_entity_1 = require("../../entities/billing/billing-branch.e
 const sales_order_entity_1 = require("../../entities/sales-orders/sales-order.entity");
 const service_subscription_constants_1 = require("./service-subscription.constants");
 const service_subscription_billing_service_1 = require("./service-subscription-billing.service");
+const mailer_configuration_service_1 = require("../mailer-configuration/services/mailer-configuration.service");
+const service_subscription_summary_email_util_1 = require("./utils/service-subscription-summary-email.util");
 const service_subscription_months_util_1 = require("./utils/service-subscription-months.util");
 let ServiceSubscriptionsService = class ServiceSubscriptionsService {
     subscriptionRepo;
@@ -39,7 +45,8 @@ let ServiceSubscriptionsService = class ServiceSubscriptionsService {
     branchRepo;
     salesOrderRepo;
     billing;
-    constructor(subscriptionRepo, periodRepo, customerRepo, productRepo, productUomRepo, branchRepo, salesOrderRepo, billing) {
+    mailerConfigurationService;
+    constructor(subscriptionRepo, periodRepo, customerRepo, productRepo, productUomRepo, branchRepo, salesOrderRepo, billing, mailerConfigurationService) {
         this.subscriptionRepo = subscriptionRepo;
         this.periodRepo = periodRepo;
         this.customerRepo = customerRepo;
@@ -48,6 +55,7 @@ let ServiceSubscriptionsService = class ServiceSubscriptionsService {
         this.branchRepo = branchRepo;
         this.salesOrderRepo = salesOrderRepo;
         this.billing = billing;
+        this.mailerConfigurationService = mailerConfigurationService;
     }
     async list(tenantId, query) {
         this.assertVexia(tenantId);
@@ -56,6 +64,7 @@ let ServiceSubscriptionsService = class ServiceSubscriptionsService {
         const qb = this.subscriptionRepo
             .createQueryBuilder('subscription')
             .leftJoinAndSelect('subscription.customer', 'customer')
+            .leftJoinAndSelect('subscription.fiscal_configuration', 'fiscal_configuration')
             .where('subscription.tenant_id = :tenantId', { tenantId })
             .orderBy('subscription.start_month', 'DESC')
             .addOrderBy('subscription.created_at', 'DESC')
@@ -100,9 +109,71 @@ let ServiceSubscriptionsService = class ServiceSubscriptionsService {
             },
         };
     }
+    async sendSummaryEmail(tenantId, id, toEmail) {
+        this.assertVexia(tenantId);
+        const subscription = await this.loadSubscription(tenantId, id);
+        await this.billing.syncPeriodInvoices(subscription);
+        const recipient = (toEmail || subscription.customer?.email || '').trim();
+        if (!recipient) {
+            throw new common_1.BadRequestException('Indica un correo. El cliente no tiene uno registrado.');
+        }
+        const months = [];
+        for (const period of subscription.periods ?? []) {
+            const invoice = period.sales_order_id
+                ? await this.billing.findVigenteInvoice(tenantId, period.sales_order_id)
+                : null;
+            const folio = [invoice?.series, invoice?.folio].filter(Boolean).join('-');
+            const payment = period.sales_order?.payment_status;
+            months.push({
+                label: (0, service_subscription_months_util_1.formatPeriodLabel)(String(period.period_month)),
+                amount: Number(period.amount),
+                orderFolio: period.sales_order?.folio ?? null,
+                invoiceLabel: invoice ? folio || invoice.uuid || 'Factura' : null,
+                paid: period.sales_order ? payment === 'Pagado' : null,
+            });
+        }
+        const message = (0, service_subscription_summary_email_util_1.buildSubscriptionSummaryEmail)({
+            title: subscription.title,
+            customerName: this.customerName(subscription.customer),
+            issuerName: subscription.fiscal_configuration?.razon_social || 'Razón social',
+            issuerRfc: subscription.fiscal_configuration?.rfc ?? null,
+            startLabel: (0, service_subscription_months_util_1.formatPeriodLabel)(String(subscription.start_month)),
+            endLabel: (0, service_subscription_months_util_1.formatPeriodLabel)(String(subscription.end_month)),
+            monthlyAmount: Number(subscription.monthly_amount),
+            ivaPercentage: Number(subscription.iva_percentage),
+            months,
+        });
+        await this.sendViaResend(tenantId, recipient, message.subject, message.html);
+        return { sent_to: recipient };
+    }
+    async sendViaResend(tenantId, toEmail, subject, html) {
+        let config;
+        try {
+            config = await this.mailerConfigurationService.findActiveInternal(tenantId);
+        }
+        catch {
+            throw new common_1.BadRequestException('No hay una configuración de correo activa. Configúrala en Sistema.');
+        }
+        const vendorConfig = this.mailerConfigurationService.decryptVendorConfig(config);
+        if (config.vendor !== 'resend') {
+            throw new common_1.BadRequestException(`El proveedor de correo "${config.vendor}" aún no está soportado para envío.`);
+        }
+        const fromEmail = 'fromEmail' in vendorConfig ? vendorConfig.fromEmail : undefined;
+        if (!fromEmail || !('apiKey' in vendorConfig) || !vendorConfig.apiKey) {
+            throw new common_1.BadRequestException('La configuración de correo activa no tiene remitente o apiKey.');
+        }
+        const fromName = 'fromName' in vendorConfig ? vendorConfig.fromName : undefined;
+        await axios_1.default.post('https://api.resend.com/emails', {
+            from: fromName ? `${fromName} <${fromEmail}>` : fromEmail,
+            to: [toEmail],
+            subject,
+            html,
+        }, { headers: { Authorization: `Bearer ${vendorConfig.apiKey}` } });
+    }
     async getOne(tenantId, id) {
         this.assertVexia(tenantId);
         const subscription = await this.loadSubscription(tenantId, id);
+        await this.billing.syncPeriodInvoices(subscription);
         return this.toDetail(subscription);
     }
     async create(tenantId, userId, dto) {
@@ -392,6 +463,8 @@ let ServiceSubscriptionsService = class ServiceSubscriptionsService {
             title: row.title,
             customer_id: row.customer_id,
             customer_name: this.customerName(row.customer),
+            fiscal_razon_social: row.fiscal_configuration?.razon_social ?? null,
+            fiscal_rfc: row.fiscal_configuration?.rfc ?? null,
             monthly_amount: Number(row.monthly_amount),
             iva_percentage: Number(row.iva_percentage),
             start_month: String(row.start_month).slice(0, 10),
@@ -413,8 +486,7 @@ let ServiceSubscriptionsService = class ServiceSubscriptionsService {
                 covered,
             }),
             fiscal_configuration_id: subscription.fiscal_configuration_id,
-            fiscal_razon_social: subscription.fiscal_configuration?.razon_social ?? null,
-            fiscal_rfc: subscription.fiscal_configuration?.rfc ?? null,
+            customer_email: subscription.customer?.email ?? null,
             billing_branch_id: subscription.billing_branch_id,
             billing_branch_code: subscription.billing_branch?.code ?? null,
             product_id: subscription.product_id,
@@ -462,6 +534,7 @@ exports.ServiceSubscriptionsService = ServiceSubscriptionsService = __decorate([
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
-        service_subscription_billing_service_1.ServiceSubscriptionBillingService])
+        service_subscription_billing_service_1.ServiceSubscriptionBillingService,
+        mailer_configuration_service_1.MailerConfigurationService])
 ], ServiceSubscriptionsService);
 //# sourceMappingURL=service-subscriptions.service.js.map

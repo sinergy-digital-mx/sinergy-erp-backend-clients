@@ -18,6 +18,7 @@ const billing_branch_entity_1 = require("../../entities/billing/billing-branch.e
 const sales_order_entity_1 = require("../../entities/sales-orders/sales-order.entity");
 const sales_orders_module_1 = require("../sales-orders/sales-orders.module");
 const electronic_invoicing_module_1 = require("../electronic-invoicing/electronic-invoicing.module");
+const mailer_configuration_module_1 = require("../mailer-configuration/mailer-configuration.module");
 const rbac_module_1 = require("../rbac/rbac.module");
 const service_subscriptions_controller_1 = require("./service-subscriptions.controller");
 const service_subscriptions_service_1 = require("./service-subscriptions.service");
@@ -40,6 +41,7 @@ exports.ServiceSubscriptionsModule = ServiceSubscriptionsModule = __decorate([
             ]),
             sales_orders_module_1.SalesOrdersModule,
             electronic_invoicing_module_1.ElectronicInvoicingModule,
+            mailer_configuration_module_1.MailerConfigurationModule,
             rbac_module_1.RBACModule,
         ],
         controllers: [service_subscriptions_controller_1.ServiceSubscriptionsController],

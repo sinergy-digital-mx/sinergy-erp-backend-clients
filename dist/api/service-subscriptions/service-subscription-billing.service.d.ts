@@ -17,6 +17,7 @@ export declare class ServiceSubscriptionBillingService {
     billDuePeriods(): Promise<void>;
     generatePeriod(subscription: ServiceSubscription, period: ServiceSubscriptionPeriod, userId: string): Promise<ServiceSubscriptionPeriod>;
     stampPeriod(subscription: ServiceSubscription, period: ServiceSubscriptionPeriod, userId: string): Promise<ServiceSubscriptionPeriod>;
+    syncPeriodInvoices(subscription: ServiceSubscription): Promise<void>;
     findVigenteInvoice(tenantId: string, salesOrderId: string): Promise<import("../../entities/electronic-invoicing").ElectronicInvoice>;
     alignOrderDate(orderId: string, tenantId: string, date: string): Promise<void>;
     private stampOrder;
