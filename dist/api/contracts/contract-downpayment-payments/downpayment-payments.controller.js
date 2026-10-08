@@ -24,11 +24,14 @@ const generate_downpayment_payments_dto_1 = require("./dto/generate-downpayment-
 const update_downpayment_payment_dto_1 = require("./dto/update-downpayment-payment.dto");
 const update_downpayment_target_dto_1 = require("./dto/update-downpayment-target.dto");
 const downpayment_payments_service_1 = require("./downpayment-payments.service");
+const payment_receipt_service_1 = require("../contract-payments/payment-receipt.service");
 let DownpaymentPaymentsController = class DownpaymentPaymentsController {
     downpaymentPaymentsService;
+    paymentReceiptService;
     tenantContext;
-    constructor(downpaymentPaymentsService, tenantContext) {
+    constructor(downpaymentPaymentsService, paymentReceiptService, tenantContext) {
         this.downpaymentPaymentsService = downpaymentPaymentsService;
+        this.paymentReceiptService = paymentReceiptService;
         this.tenantContext = tenantContext;
     }
     async createManual(contractId, dto) {
@@ -48,6 +51,18 @@ let DownpaymentPaymentsController = class DownpaymentPaymentsController {
     }
     async pay(contractId, paymentId, dto) {
         return this.downpaymentPaymentsService.recordDownpaymentPayment(this.getTenantIdOrThrow(), contractId, paymentId, dto.amount, dto.payment_date, dto.payment_method, dto.reference_number, dto.notes);
+    }
+    async downloadReceipt(contractId, paymentId, res) {
+        const { buffer, filename } = await this.paymentReceiptService.pdf(this.getTenantIdOrThrow(), contractId, paymentId, 'downpayment');
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(buffer);
+    }
+    composeReceipt(contractId, paymentId) {
+        return this.paymentReceiptService.compose(this.getTenantIdOrThrow(), contractId, paymentId, '', 'downpayment');
+    }
+    sendReceipt(contractId, paymentId, body) {
+        return this.paymentReceiptService.send(this.getTenantIdOrThrow(), contractId, paymentId, body, 'downpayment');
     }
     async update(contractId, paymentId, dto) {
         return this.downpaymentPaymentsService.updateDownpaymentPayment(this.getTenantIdOrThrow(), contractId, paymentId, dto);
@@ -132,6 +147,35 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], DownpaymentPaymentsController.prototype, "pay", null);
 __decorate([
+    (0, common_1.Get)(':paymentId/receipt.pdf'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Contract', action: 'Read' }),
+    __param(0, (0, common_1.Param)('contractId')),
+    __param(1, (0, common_1.Param)('paymentId')),
+    __param(2, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object]),
+    __metadata("design:returntype", Promise)
+], DownpaymentPaymentsController.prototype, "downloadReceipt", null);
+__decorate([
+    (0, common_1.Get)(':paymentId/receipt/compose'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Contract', action: 'Read' }),
+    __param(0, (0, common_1.Param)('contractId')),
+    __param(1, (0, common_1.Param)('paymentId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], DownpaymentPaymentsController.prototype, "composeReceipt", null);
+__decorate([
+    (0, common_1.Post)(':paymentId/receipt/send'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Contract', action: 'Update' }),
+    __param(0, (0, common_1.Param)('contractId')),
+    __param(1, (0, common_1.Param)('paymentId')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object]),
+    __metadata("design:returntype", void 0)
+], DownpaymentPaymentsController.prototype, "sendReceipt", null);
+__decorate([
     (0, common_1.Put)(':paymentId'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Contract', action: 'Update' }),
     __param(0, (0, common_1.Param)('contractId')),
@@ -180,6 +224,7 @@ exports.DownpaymentPaymentsController = DownpaymentPaymentsController = __decora
     (0, common_1.Controller)('tenant/contracts/:contractId/downpayment-payments'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     __metadata("design:paramtypes", [downpayment_payments_service_1.DownpaymentPaymentsService,
+        payment_receipt_service_1.PaymentReceiptService,
         tenant_context_service_1.TenantContextService])
 ], DownpaymentPaymentsController);
 //# sourceMappingURL=downpayment-payments.controller.js.map

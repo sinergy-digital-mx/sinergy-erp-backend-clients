@@ -17,6 +17,13 @@ export declare class PaymentsController {
         id: string;
         subject: string;
         body_html: string;
+        fiscal_configuration_id: string | null;
+        fiscal_configurations: {
+            id: string;
+            razon_social: string;
+            rfc: string;
+            has_logo: boolean;
+        }[];
         variables: readonly [{
             readonly key: "organization_name";
             readonly label: "Razón social";
@@ -71,6 +78,13 @@ export declare class PaymentsController {
         id: string;
         subject: string;
         body_html: string;
+        fiscal_configuration_id: string | null;
+        fiscal_configurations: {
+            id: string;
+            razon_social: string;
+            rfc: string;
+            has_logo: boolean;
+        }[];
         variables: readonly [{
             readonly key: "organization_name";
             readonly label: "Razón social";
@@ -131,13 +145,16 @@ export declare class PaymentsController {
             customer_name: string;
             contract_number: string;
             property_code: string;
+            lot_phrase: string;
             payment_number: string;
             amount_paid: string;
+            amount_words: string;
             amount: string;
             amount_pending: string;
             payment_date: string;
             due_date: string;
             payment_method: string;
+            concept: string;
             status: string;
             extra_message: string;
         };

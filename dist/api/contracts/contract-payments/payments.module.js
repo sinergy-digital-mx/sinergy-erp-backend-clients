@@ -20,6 +20,7 @@ const payment_receipt_service_1 = require("./payment-receipt.service");
 const payments_controller_1 = require("./payments.controller");
 const rbac_module_1 = require("../../rbac/rbac.module");
 const mailer_configuration_module_1 = require("../../mailer-configuration/mailer-configuration.module");
+const s3_service_1 = require("../../../common/services/s3.service");
 let PaymentsModule = class PaymentsModule {
 };
 exports.PaymentsModule = PaymentsModule;
@@ -37,9 +38,9 @@ exports.PaymentsModule = PaymentsModule = __decorate([
             rbac_module_1.RBACModule,
             mailer_configuration_module_1.MailerConfigurationModule,
         ],
-        providers: [payments_service_1.PaymentsService, payment_receipt_service_1.PaymentReceiptService],
+        providers: [payments_service_1.PaymentsService, payment_receipt_service_1.PaymentReceiptService, s3_service_1.S3Service],
         controllers: [payments_controller_1.PaymentsController],
-        exports: [payments_service_1.PaymentsService, typeorm_1.TypeOrmModule],
+        exports: [payments_service_1.PaymentsService, payment_receipt_service_1.PaymentReceiptService, typeorm_1.TypeOrmModule],
     })
 ], PaymentsModule);
 //# sourceMappingURL=payments.module.js.map
