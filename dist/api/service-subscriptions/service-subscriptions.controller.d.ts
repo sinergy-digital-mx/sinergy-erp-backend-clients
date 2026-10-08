@@ -1,3 +1,4 @@
+import type { Response } from 'express';
 import { ServiceSubscriptionsService } from './service-subscriptions.service';
 import { CreateServiceSubscriptionDto } from './dto/create-service-subscription.dto';
 import { UpdateServiceSubscriptionDto } from './dto/update-service-subscription.dto';
@@ -82,6 +83,7 @@ export declare class ServiceSubscriptionsController {
             period_label: string;
         };
     }>;
+    summaryPdf(id: string, req: any, res: Response): Promise<void>;
     summaryEmail(id: string, body: {
         to_email?: string;
     }, req: any): Promise<{

@@ -43,6 +43,7 @@ export declare class SalesOrderInvoicingService {
     private readExistingCfdi;
     private readXmlCfdi;
     listInvoices(salesOrderId: string, tenantId: string): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice[]>;
+    private repairStoredStampDate;
     stampInvoice(salesOrderId: string, tenantId: string, userId: string, dto: StampSalesOrderInvoiceDto): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     cancelInvoice(salesOrderId: string, invoiceId: string, tenantId: string, userId: string, dto: CancelElectronicInvoiceDto): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     syncInvoiceSat(salesOrderId: string, invoiceId: string, tenantId: string, userId: string): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;

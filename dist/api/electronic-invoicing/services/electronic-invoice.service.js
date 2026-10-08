@@ -224,7 +224,7 @@ let ElectronicInvoiceService = ElectronicInvoiceService_1 = class ElectronicInvo
             xml_stamped: input.xml ?? null,
             stamp_status: 'stamped',
             sat_status: 'Vigente',
-            stamped_at: input.stamped_at ?? new Date(),
+            stamped_at: input.stamped_at ?? null,
             created_by: userId,
             sat_sync_enabled: input.xml ? 1 : 0,
             metadata: { registered_existing: true, origin: input.origin },
@@ -259,9 +259,9 @@ let ElectronicInvoiceService = ElectronicInvoiceService_1 = class ElectronicInvo
                 invoice.rfc_receptor = input.rfcReceptor;
             if (input.receptorNombre)
                 invoice.receptor_nombre = input.receptorNombre;
-            if (input.stampedAt)
-                invoice.stamped_at = input.stampedAt;
         }
+        if (input.stampedAt)
+            invoice.stamped_at = input.stampedAt;
         const saved = await this.invoiceRepo.save(invoice);
         if (!input.pdf?.length) {
             return saved;
@@ -282,6 +282,14 @@ let ElectronicInvoiceService = ElectronicInvoiceService_1 = class ElectronicInvo
         await this.invoiceRepo.manager.query('DELETE FROM inv_s_sales_order_invoice_emails WHERE invoice_id = ?', [id]);
         await this.invoiceRepo.manager.query('UPDATE electronic_invoices SET related_advance_invoice_id = NULL WHERE related_advance_invoice_id = ?', [id]);
         await this.invoiceRepo.delete({ id, tenant_id: tenantId });
+    }
+    async readPdfBuffer(id, tenantId) {
+        const invoice = await this.getByIdOrFail(id, tenantId);
+        const file = await this.pdfService.getPdfBuffer(invoice);
+        return file.buffer;
+    }
+    async saveStampDate(id, tenantId, stampedAt) {
+        await this.invoiceRepo.update({ id, tenant_id: tenantId }, { stamped_at: stampedAt });
     }
     async findBySource(tenantId, sourceModule, sourceId) {
         return this.invoiceRepo.find({

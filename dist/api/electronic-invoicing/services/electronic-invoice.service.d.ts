@@ -51,6 +51,8 @@ export declare class ElectronicInvoiceService {
         stampedAt?: Date | null;
     }): Promise<ElectronicInvoice>;
     unlinkManualRegistration(id: string, tenantId: string, sourceId: string): Promise<void>;
+    readPdfBuffer(id: string, tenantId: string): Promise<Buffer>;
+    saveStampDate(id: string, tenantId: string, stampedAt: Date): Promise<void>;
     findBySource(tenantId: string, sourceModule: ElectronicInvoiceSourceModule, sourceId: string): Promise<ElectronicInvoice[]>;
     assertNoActiveProductionInvoice(tenantId: string, sourceModule: ElectronicInvoiceSourceModule, sourceId: string, environment?: FinkokEnvironment): Promise<void>;
     private isActiveProductionInvoice;

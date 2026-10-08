@@ -39,6 +39,11 @@ let ServiceSubscriptionsController = class ServiceSubscriptionsController {
     bySalesOrder(salesOrderId, req) {
         return this.service.findBySalesOrder(req.user.tenant_id, salesOrderId);
     }
+    async summaryPdf(id, req, res) {
+        const file = await this.service.buildSummaryPdf(req.user.tenant_id, id);
+        res.setHeader('Content-Disposition', `attachment; filename="${file.fileName}"`);
+        res.send(file.buffer);
+    }
     summaryEmail(id, body, req) {
         return this.service.sendSummaryEmail(req.user.tenant_id, id, body?.to_email);
     }
@@ -101,6 +106,18 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], ServiceSubscriptionsController.prototype, "bySalesOrder", null);
+__decorate([
+    (0, common_1.Get)(':id/summary-pdf'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: service_subscription_constants_1.SERVICE_SUBSCRIPTION_ENTITY, action: 'Read' }),
+    (0, common_1.Header)('Content-Type', 'application/pdf'),
+    (0, swagger_1.ApiOperation)({ summary: 'Descargar el resumen del servicio en PDF' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __param(2, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], ServiceSubscriptionsController.prototype, "summaryPdf", null);
 __decorate([
     (0, common_1.Post)(':id/summary-email'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: service_subscription_constants_1.SERVICE_SUBSCRIPTION_ENTITY, action: 'Read' }),

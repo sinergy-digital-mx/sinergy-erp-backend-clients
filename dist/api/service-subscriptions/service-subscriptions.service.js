@@ -37,6 +37,7 @@ const service_subscription_billing_service_1 = require("./service-subscription-b
 const mailer_configuration_service_1 = require("../mailer-configuration/services/mailer-configuration.service");
 const electronic_invoice_pdf_service_1 = require("../electronic-invoicing/services/electronic-invoice-pdf.service");
 const service_subscription_summary_email_util_1 = require("./utils/service-subscription-summary-email.util");
+const service_subscription_summary_pdf_util_1 = require("./utils/service-subscription-summary-pdf.util");
 const service_subscription_months_util_1 = require("./utils/service-subscription-months.util");
 let ServiceSubscriptionsService = class ServiceSubscriptionsService {
     subscriptionRepo;
@@ -121,30 +122,20 @@ let ServiceSubscriptionsService = class ServiceSubscriptionsService {
         if (!recipient) {
             throw new common_1.BadRequestException('Indica un correo. El cliente no tiene uno registrado.');
         }
-        const months = [];
+        const summary = await this.buildSummaryInput(tenantId, subscription);
         const zip = new jszip_1.default();
         let pdfCount = 0;
         for (const period of subscription.periods ?? []) {
             const invoice = period.sales_order_id
                 ? await this.billing.findVigenteInvoice(tenantId, period.sales_order_id)
                 : null;
-            const folio = [invoice?.series, invoice?.folio].filter(Boolean).join('-');
-            const payment = period.sales_order?.payment_status;
-            const label = (0, service_subscription_months_util_1.formatPeriodLabel)(String(period.period_month));
-            months.push({
-                label,
-                amount: Number(period.amount),
-                orderFolio: period.sales_order?.folio ?? null,
-                invoiceFolio: invoice ? folio || null : null,
-                invoiceUuid: invoice?.uuid ?? null,
-                paid: period.sales_order ? payment === 'Pagado' : null,
-            });
             if (!invoice?.pdf_stamped_s3_key)
                 continue;
             try {
                 const pdf = await this.invoicePdf.getPdfBuffer(invoice);
+                const folio = [invoice.series, invoice.folio].filter(Boolean).join('-');
                 const stamp = (invoice.uuid || invoice.id).slice(0, 8);
-                const base = [label, folio || period.sales_order?.folio || 'factura', stamp]
+                const base = [(0, service_subscription_months_util_1.formatPeriodLabel)(String(period.period_month)), folio || period.sales_order?.folio || 'factura', stamp]
                     .join('-')
                     .replace(/[^\w.\-áéíóúñÁÉÍÓÚÑ ]+/g, '')
                     .replace(/\s+/g, '-');
@@ -156,7 +147,45 @@ let ServiceSubscriptionsService = class ServiceSubscriptionsService {
         }
         const zipFileName = pdfCount ? `facturas-${subscription.title.replace(/[^\w.\-]+/g, '-').slice(0, 40)}.zip` : null;
         const zipBuffer = pdfCount ? await zip.generateAsync({ type: 'nodebuffer' }) : null;
-        const message = (0, service_subscription_summary_email_util_1.buildSubscriptionSummaryEmail)({
+        const message = (0, service_subscription_summary_email_util_1.buildSubscriptionSummaryEmail)({ ...summary, zipFileName, pdfCount });
+        await this.sendViaResend(tenantId, recipient, message.subject, message.html, zipBuffer && zipFileName
+            ? [{ filename: zipFileName, content: zipBuffer.toString('base64') }]
+            : []);
+        return { sent_to: recipient, pdf_count: pdfCount };
+    }
+    async buildSummaryPdf(tenantId, id) {
+        this.assertVexia(tenantId);
+        const subscription = await this.loadSubscription(tenantId, id);
+        await this.billing.syncPeriodInvoices(subscription);
+        const summary = await this.buildSummaryInput(tenantId, subscription);
+        const buffer = await (0, service_subscription_summary_pdf_util_1.renderSubscriptionSummaryPdf)({ ...summary, zipFileName: null, pdfCount: 0 });
+        const fileName = `resumen-${subscription.title.replace(/[^\w.\-]+/g, '-').slice(0, 48)}.pdf`;
+        return { buffer, fileName };
+    }
+    async buildSummaryInput(tenantId, subscription) {
+        const months = [];
+        for (const period of subscription.periods ?? []) {
+            const invoice = period.sales_order_id
+                ? await this.billing.findVigenteInvoice(tenantId, period.sales_order_id)
+                : null;
+            const folio = [invoice?.series, invoice?.folio].filter(Boolean).join('-');
+            const payment = period.sales_order?.payment_status;
+            months.push({
+                label: (0, service_subscription_months_util_1.formatPeriodLabel)(String(period.period_month)),
+                amount: Number(period.amount),
+                orderFolio: period.sales_order?.folio ?? null,
+                invoiceFolio: invoice ? folio || null : null,
+                invoiceUuid: invoice?.uuid ?? null,
+                invoiceTotal: invoice ? Number(invoice.total) : null,
+                stampStatus: invoice ? (0, service_subscription_summary_email_util_1.stampStatusLabel)(invoice.stamp_status) : null,
+                satStatus: invoice?.sat_status ?? null,
+                stampedAt: invoice?.stamped_at
+                    ? new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(invoice.stamped_at))
+                    : null,
+                paid: period.sales_order ? payment === 'Pagado' : null,
+            });
+        }
+        return {
             title: subscription.title,
             customerName: this.customerName(subscription.customer),
             issuerName: subscription.fiscal_configuration?.razon_social || 'Razón social',
@@ -166,13 +195,7 @@ let ServiceSubscriptionsService = class ServiceSubscriptionsService {
             monthlyAmount: Number(subscription.monthly_amount),
             ivaPercentage: Number(subscription.iva_percentage),
             months,
-            zipFileName,
-            pdfCount,
-        });
-        await this.sendViaResend(tenantId, recipient, message.subject, message.html, zipBuffer && zipFileName
-            ? [{ filename: zipFileName, content: zipBuffer.toString('base64') }]
-            : []);
-        return { sent_to: recipient, pdf_count: pdfCount };
+        };
     }
     async sendViaResend(tenantId, toEmail, subject, html, attachments = []) {
         let config;

@@ -27,6 +27,7 @@ const advance_payment_method_util_1 = require("../../pos-shifts/utils/advance-pa
 const service_subscription_period_entity_1 = require("../../../entities/service-subscriptions/service-subscription-period.entity");
 const service_subscription_period_status_enum_1 = require("../../../entities/service-subscriptions/service-subscription-period-status.enum");
 const cfdi_xml_parser_1 = require("../../electronic-invoicing/utils/cfdi-xml.parser");
+const cfdi_stamp_date_util_1 = require("../../electronic-invoicing/utils/cfdi-stamp-date.util");
 let SalesOrderInvoicingService = class SalesOrderInvoicingService {
     salesOrderRepo;
     customerRepo;
@@ -134,12 +135,14 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
             }
             pdfUuid = extractUuid(pdfFile.buffer.toString('latin1'));
         }
+        const pdfStamp = pdfFile ? (0, cfdi_stamp_date_util_1.extractStampDate)(pdfFile.buffer) : null;
         if (fromXml && pdfUuid && fromXml.uuid !== pdfUuid) {
             throw new common_1.BadRequestException('El UUID del XML y el del PDF no coinciden');
         }
         if (fromXml) {
             return {
                 ...fromXml,
+                stampedAt: fromXml.stampedAt ?? pdfStamp,
                 origin: pdfFile ? 'xml_pdf' : 'xml',
                 pdf: pdfFile?.buffer ?? null,
             };
@@ -149,7 +152,7 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
             if (!uuid) {
                 throw new common_1.BadRequestException('No encontré el UUID en el PDF. Sube también el XML o escríbelo.');
             }
-            return { ...emptyFromUuid(uuid, 'pdf'), pdf: pdfFile.buffer };
+            return { ...emptyFromUuid(uuid, 'pdf'), pdf: pdfFile.buffer, stampedAt: pdfStamp };
         }
         const uuid = extractUuid(typedUuid);
         if (!uuid) {
@@ -178,12 +181,38 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
             series: parsed.serie || null,
             folio: parsed.folio || null,
             currency: parsed.moneda || null,
-            stampedAt: parsed.timbre.fechaTimbrado ? new Date(parsed.timbre.fechaTimbrado) : null,
+            stampedAt: (0, cfdi_stamp_date_util_1.parseCfdiDate)(parsed.timbre.fechaTimbrado),
         };
     }
     async listInvoices(salesOrderId, tenantId) {
         await this.getSalesOrderOrFail(salesOrderId, tenantId);
-        return this.electronicInvoiceService.findBySource(tenantId, 'sales_orders', salesOrderId);
+        const invoices = await this.electronicInvoiceService.findBySource(tenantId, 'sales_orders', salesOrderId);
+        for (const invoice of invoices) {
+            await this.repairStoredStampDate(invoice);
+        }
+        return invoices;
+    }
+    async repairStoredStampDate(invoice) {
+        if (invoice.metadata?.registered_existing !== true)
+            return;
+        const fromXml = (0, cfdi_stamp_date_util_1.stampDateFromXml)(invoice.xml_stamped);
+        let next = fromXml;
+        if (!next && invoice.pdf_stamped_s3_key) {
+            try {
+                const pdf = await this.electronicInvoiceService.readPdfBuffer(invoice.id, invoice.tenant_id);
+                next = (0, cfdi_stamp_date_util_1.extractStampDate)(pdf);
+            }
+            catch {
+                next = null;
+            }
+        }
+        if (!next)
+            return;
+        const current = invoice.stamped_at ? new Date(invoice.stamped_at).getTime() : 0;
+        if (Math.abs(current - next.getTime()) < 60_000)
+            return;
+        invoice.stamped_at = next;
+        await this.electronicInvoiceService.saveStampDate(invoice.id, invoice.tenant_id, next);
     }
     async stampInvoice(salesOrderId, tenantId, userId, dto) {
         const order = await this.getSalesOrderWithRelations(salesOrderId, tenantId);

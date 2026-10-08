@@ -65,6 +65,11 @@ export declare class ServiceSubscriptionsService {
         sent_to: string;
         pdf_count: number;
     }>;
+    buildSummaryPdf(tenantId: string, id: string): Promise<{
+        buffer: Buffer;
+        fileName: string;
+    }>;
+    private buildSummaryInput;
     private sendViaResend;
     getOne(tenantId: string, id: string): Promise<{
         fiscal_configuration_id: string;
