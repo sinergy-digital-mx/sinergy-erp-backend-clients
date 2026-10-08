@@ -20,6 +20,7 @@ const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const permission_guard_1 = require("../rbac/guards/permission.guard");
 const require_permissions_decorator_1 = require("../rbac/decorators/require-permissions.decorator");
 const tenant_context_service_1 = require("../rbac/services/tenant-context.service");
+const permission_service_1 = require("../rbac/services/permission.service");
 const employees_service_1 = require("./employees.service");
 const employee_leave_service_1 = require("./employee-leave.service");
 const create_employee_dto_1 = require("./dto/create-employee.dto");
@@ -34,19 +35,23 @@ let EmployeesController = class EmployeesController {
     employeesService;
     leaveService;
     tenantContext;
-    constructor(employeesService, leaveService, tenantContext) {
+    permissionService;
+    constructor(employeesService, leaveService, tenantContext, permissionService) {
         this.employeesService = employeesService;
         this.leaveService = leaveService;
         this.tenantContext = tenantContext;
+        this.permissionService = permissionService;
     }
     create(dto) {
         return this.employeesService.create(this.getTenantId(), dto);
     }
-    findAll(query) {
-        return this.employeesService.findAll(this.getTenantId(), query);
+    async findAll(query) {
+        const scope = await this.getScope();
+        return this.employeesService.findAll(scope.tenantId, query, scope);
     }
-    findOne(id) {
-        return this.employeesService.findOne(this.getTenantId(), id);
+    async findOne(id) {
+        const scope = await this.getScope();
+        return this.employeesService.findOne(scope.tenantId, id, scope);
     }
     update(id, dto) {
         return this.employeesService.update(this.getTenantId(), id, dto);
@@ -61,11 +66,15 @@ let EmployeesController = class EmployeesController {
     findAllLeaveRequests(query) {
         return this.leaveService.findAll(this.getTenantId(), query);
     }
-    findEmployeeLeaveRequests(id, query) {
-        return this.leaveService.findAllByEmployee(this.getTenantId(), id, query);
+    async findEmployeeLeaveRequests(id, query) {
+        const scope = await this.getScope();
+        await this.employeesService.assertAccessible(scope.tenantId, id, scope);
+        return this.leaveService.findAllByEmployee(scope.tenantId, id, query);
     }
-    createLeaveRequest(id, dto) {
-        return this.leaveService.create(this.getTenantId(), id, dto, this.tenantContext.getCurrentUserId());
+    async createLeaveRequest(id, dto) {
+        const scope = await this.getScope();
+        await this.employeesService.assertAccessible(scope.tenantId, id, scope);
+        return this.leaveService.create(scope.tenantId, id, dto, this.tenantContext.getCurrentUserId());
     }
     updateLeaveRequest(requestId, dto) {
         return this.leaveService.update(this.getTenantId(), requestId, dto);
@@ -73,8 +82,22 @@ let EmployeesController = class EmployeesController {
     reviewLeaveRequest(requestId, dto) {
         return this.leaveService.review(this.getTenantId(), requestId, dto, this.tenantContext.getCurrentUserId());
     }
-    cancelLeaveRequest(requestId) {
-        return this.leaveService.cancel(this.getTenantId(), requestId);
+    async cancelLeaveRequest(requestId) {
+        const scope = await this.getScope();
+        const canManage = scope.userId
+            ? await this.permissionService.hasPermission(scope.userId, scope.tenantId, employees_constants_1.EMPLOYEES_ENTITY_CODE, 'ManageLeave')
+            : false;
+        let ownEmployeeId;
+        if (!canManage) {
+            const own = scope.userId
+                ? await this.employeesService.findEntityByUser(scope.tenantId, scope.userId)
+                : null;
+            ownEmployeeId = own?.id;
+            if (!ownEmployeeId) {
+                ownEmployeeId = '00000000-0000-0000-0000-000000000000';
+            }
+        }
+        return this.leaveService.cancel(scope.tenantId, requestId, ownEmployeeId);
     }
     getTenantId() {
         const tenantId = this.tenantContext.getCurrentTenantId();
@@ -82,6 +105,14 @@ let EmployeesController = class EmployeesController {
             throw new Error('Tenant context is required');
         }
         return tenantId;
+    }
+    async getScope() {
+        const tenantId = this.getTenantId();
+        const userId = this.tenantContext.getCurrentUserId();
+        const seeAll = userId
+            ? await this.permissionService.hasPermission(userId, tenantId, employees_constants_1.EMPLOYEES_ENTITY_CODE, 'Read')
+            : false;
+        return { tenantId, userId, seeAll };
     }
 };
 exports.EmployeesController = EmployeesController;
@@ -97,7 +128,7 @@ __decorate([
 ], EmployeesController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),
-    (0, require_permissions_decorator_1.RequirePermission)(employees_constants_1.EMPLOYEES_ENTITY_CODE, 'Read'),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: employees_constants_1.EMPLOYEES_ENTITY_CODE, action: 'Read' }, { entityType: employees_constants_1.EMPLOYEES_ENTITY_CODE, action: 'ViewOwn' }),
     (0, swagger_1.ApiOperation)({ summary: 'Listar empleados con búsqueda, filtros y vacaciones' }),
     (0, swagger_1.ApiQuery)({ name: 'page', required: false, type: Number }),
     (0, swagger_1.ApiQuery)({ name: 'limit', required: false, type: Number }),
@@ -107,17 +138,17 @@ __decorate([
     __param(0, (0, common_1.Query)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [query_employee_dto_1.QueryEmployeeDto]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], EmployeesController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)(':id'),
-    (0, require_permissions_decorator_1.RequirePermission)(employees_constants_1.EMPLOYEES_ENTITY_CODE, 'Read'),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: employees_constants_1.EMPLOYEES_ENTITY_CODE, action: 'Read' }, { entityType: employees_constants_1.EMPLOYEES_ENTITY_CODE, action: 'ViewOwn' }),
     (0, swagger_1.ApiOperation)({ summary: 'Detalle del empleado (nómina, vacaciones, solicitudes)' }),
     (0, swagger_1.ApiParam)({ name: 'id', type: 'string' }),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], EmployeesController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Put)(':id'),
@@ -168,25 +199,25 @@ __decorate([
 ], EmployeesController.prototype, "findAllLeaveRequests", null);
 __decorate([
     (0, common_1.Get)(':id/leave-requests'),
-    (0, require_permissions_decorator_1.RequirePermission)(employees_constants_1.EMPLOYEES_ENTITY_CODE, 'Read'),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: employees_constants_1.EMPLOYEES_ENTITY_CODE, action: 'Read' }, { entityType: employees_constants_1.EMPLOYEES_ENTITY_CODE, action: 'ViewOwn' }),
     (0, swagger_1.ApiOperation)({ summary: 'Listar solicitudes de un empleado' }),
     (0, swagger_1.ApiParam)({ name: 'id', type: 'string' }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Query)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, query_leave_request_dto_1.QueryLeaveRequestDto]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], EmployeesController.prototype, "findEmployeeLeaveRequests", null);
 __decorate([
     (0, common_1.Post)(':id/leave-requests'),
-    (0, require_permissions_decorator_1.RequirePermission)(employees_constants_1.EMPLOYEES_ENTITY_CODE, 'Update'),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: employees_constants_1.EMPLOYEES_ENTITY_CODE, action: 'Update' }, { entityType: employees_constants_1.EMPLOYEES_ENTITY_CODE, action: 'ViewOwn' }),
     (0, swagger_1.ApiOperation)({ summary: 'Registrar una solicitud a nombre de un empleado' }),
     (0, swagger_1.ApiParam)({ name: 'id', type: 'string' }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, create_leave_request_dto_1.CreateLeaveRequestDto]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], EmployeesController.prototype, "createLeaveRequest", null);
 __decorate([
     (0, common_1.Put)('leave-requests/:requestId'),
@@ -214,13 +245,13 @@ __decorate([
 ], EmployeesController.prototype, "reviewLeaveRequest", null);
 __decorate([
     (0, common_1.Put)('leave-requests/:requestId/cancel'),
-    (0, require_permissions_decorator_1.RequirePermission)(employees_constants_1.EMPLOYEES_ENTITY_CODE, 'ManageLeave'),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: employees_constants_1.EMPLOYEES_ENTITY_CODE, action: 'ManageLeave' }, { entityType: employees_constants_1.EMPLOYEES_ENTITY_CODE, action: 'ViewOwn' }),
     (0, swagger_1.ApiOperation)({ summary: 'Cancelar una solicitud pendiente' }),
     (0, swagger_1.ApiParam)({ name: 'requestId', type: 'string' }),
     __param(0, (0, common_1.Param)('requestId')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], EmployeesController.prototype, "cancelLeaveRequest", null);
 exports.EmployeesController = EmployeesController = __decorate([
     (0, swagger_1.ApiTags)('Employees'),
@@ -229,6 +260,7 @@ exports.EmployeesController = EmployeesController = __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     __metadata("design:paramtypes", [employees_service_1.EmployeesService,
         employee_leave_service_1.EmployeeLeaveService,
-        tenant_context_service_1.TenantContextService])
+        tenant_context_service_1.TenantContextService,
+        permission_service_1.PermissionService])
 ], EmployeesController);
 //# sourceMappingURL=employees.controller.js.map

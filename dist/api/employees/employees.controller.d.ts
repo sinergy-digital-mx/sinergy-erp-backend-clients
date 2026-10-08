@@ -1,4 +1,5 @@
 import { TenantContextService } from '../rbac/services/tenant-context.service';
+import { PermissionService } from '../rbac/services/permission.service';
 import { EmployeesService } from './employees.service';
 import { EmployeeLeaveService } from './employee-leave.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
@@ -12,7 +13,8 @@ export declare class EmployeesController {
     private readonly employeesService;
     private readonly leaveService;
     private readonly tenantContext;
-    constructor(employeesService: EmployeesService, leaveService: EmployeeLeaveService, tenantContext: TenantContextService);
+    private readonly permissionService;
+    constructor(employeesService: EmployeesService, leaveService: EmployeeLeaveService, tenantContext: TenantContextService, permissionService: PermissionService);
     create(dto: CreateEmployeeDto): Promise<{
         id: string;
         user_id: string;
@@ -617,4 +619,5 @@ export declare class EmployeesController {
         updated_at: Date;
     }>;
     private getTenantId;
+    private getScope;
 }

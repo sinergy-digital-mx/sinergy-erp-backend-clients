@@ -104,7 +104,7 @@ let EmployeesService = class EmployeesService {
             employee.vacation_carryover_days = 0;
         }
     }
-    async findAll(tenantId, query) {
+    async findAll(tenantId, query, scope) {
         let page = Number(query?.page) || 1;
         let limit = Number(query?.limit) || 20;
         if (page < 1)
@@ -118,6 +118,11 @@ let EmployeesService = class EmployeesService {
             .createQueryBuilder('employee')
             .leftJoinAndSelect('employee.user', 'user')
             .where('employee.tenant_id = :tenantId', { tenantId });
+        if (scope && !scope.seeAll) {
+            qb.andWhere('employee.user_id = :ownUserId', {
+                ownUserId: scope.userId ?? '00000000-0000-0000-0000-000000000000',
+            });
+        }
         if (query?.status) {
             qb.andWhere('employee.status = :status', { status: query.status });
         }
@@ -149,7 +154,7 @@ let EmployeesService = class EmployeesService {
             hasPrev: page > 1,
         };
     }
-    async findOne(tenantId, id) {
+    async findOne(tenantId, id, scope) {
         const employee = await this.employeeRepo.findOne({
             where: { id, tenant_id: tenantId },
             relations: ['user'],
@@ -157,7 +162,25 @@ let EmployeesService = class EmployeesService {
         if (!employee) {
             throw new common_1.NotFoundException('Empleado no encontrado');
         }
+        this.assertEmployeeScope(employee, scope);
         return this.mapEmployee(employee, { withRequests: true });
+    }
+    async assertAccessible(tenantId, id, scope) {
+        const employee = await this.employeeRepo.findOne({
+            where: { id, tenant_id: tenantId },
+        });
+        if (!employee) {
+            throw new common_1.NotFoundException('Empleado no encontrado');
+        }
+        this.assertEmployeeScope(employee, scope);
+    }
+    assertEmployeeScope(employee, scope) {
+        if (!scope || scope.seeAll) {
+            return;
+        }
+        if (!scope.userId || employee.user_id !== scope.userId) {
+            throw new common_1.ForbiddenException('Solo puedes consultar tu propio expediente');
+        }
     }
     async findEntityByUser(tenantId, userId) {
         return this.employeeRepo.findOne({

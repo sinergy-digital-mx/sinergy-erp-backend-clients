@@ -112,7 +112,10 @@ export declare class EmployeesService {
     upsertForUser(tenantId: string, userId: string, profile: EmployeeProfileDto): Promise<Employee>;
     setEmployeeFlag(tenantId: string, userId: string, isEmployee: boolean): Promise<void>;
     private assignProfile;
-    findAll(tenantId: string, query?: QueryEmployeeDto): Promise<{
+    findAll(tenantId: string, query?: QueryEmployeeDto, scope?: {
+        userId: string | null;
+        seeAll: boolean;
+    }): Promise<{
         data: ({
             id: string;
             user_id: string;
@@ -212,7 +215,10 @@ export declare class EmployeesService {
         hasNext: boolean;
         hasPrev: boolean;
     }>;
-    findOne(tenantId: string, id: string): Promise<{
+    findOne(tenantId: string, id: string, scope?: {
+        userId: string | null;
+        seeAll: boolean;
+    }): Promise<{
         id: string;
         user_id: string;
         first_name: string;
@@ -304,6 +310,11 @@ export declare class EmployeesService {
         created_at: Date;
         updated_at: Date;
     }>;
+    assertAccessible(tenantId: string, id: string, scope?: {
+        userId: string | null;
+        seeAll: boolean;
+    }): Promise<void>;
+    private assertEmployeeScope;
     findEntityByUser(tenantId: string, userId: string): Promise<Employee | null>;
     update(tenantId: string, id: string, dto: UpdateEmployeeDto): Promise<{
         id: string;
