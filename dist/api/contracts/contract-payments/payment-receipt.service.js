@@ -96,12 +96,18 @@ let PaymentReceiptService = class PaymentReceiptService {
         const values = await this.buildValues(organizationId, payment, extraMessage);
         const { logo_data: _logo, ...publicValues } = values;
         const customer = payment.contract?.customer;
+        let body = template.body_html;
+        if (publicValues.cadastral_key && !body.includes('cadastral_line') && !body.includes('cadastral_key')) {
+            body = body.includes('{{property_code}}</strong>.')
+                ? body.replace('{{property_code}}</strong>.', '{{property_code}}</strong>.{{cadastral_line}}')
+                : body.replace('{{extra_message}}', '{{cadastral_line}}{{extra_message}}');
+        }
         return {
             to_email: customer?.email || '',
             additional_email: customer?.additional_email || null,
             customer_name: values.customer_name,
             subject: (0, payment_receipt_template_1.renderPaymentReceiptTemplate)(template.subject, publicValues),
-            preview_html: (0, payment_receipt_template_1.renderPaymentReceiptTemplate)(template.body_html, publicValues),
+            preview_html: (0, payment_receipt_template_1.renderPaymentReceiptTemplate)(body, publicValues),
             body_html: template.body_html,
             values: publicValues,
             attachment_name: this.fileName(payment),
@@ -191,6 +197,10 @@ let PaymentReceiptService = class PaymentReceiptService {
             customer_name: customerName || 'cliente',
             contract_number: payment.contract?.contract_number || '',
             property_code: property?.code || '',
+            cadastral_key: property?.cadastral_key?.trim() || '',
+            cadastral_line: property?.cadastral_key?.trim()
+                ? ` Clave catastral ${property.cadastral_key.trim()}.`
+                : '',
             lot_phrase: lotBits.join(', '),
             payment_number: payment.payment_number,
             amount_paid: this.money(paid, currency),
@@ -213,6 +223,8 @@ let PaymentReceiptService = class PaymentReceiptService {
             customer_name: 'Ana López',
             contract_number: 'CONT-1-01',
             property_code: 'LOT-1-01',
+            cadastral_key: '02-0Q3-011',
+            cadastral_line: ' Clave catastral 02-0Q3-011.',
             payment_number: 'P-1',
             amount_paid: '$1,500.00 USD',
             amount: '$1,500.00 USD',
@@ -239,7 +251,7 @@ let PaymentReceiptService = class PaymentReceiptService {
                 { text: values.customer_name, bold: true },
                 ' la cantidad de ',
                 { text: values.amount_paid, bold: true },
-                ` (${values.amount_words}), recibida mediante ${values.payment_method}, como ${values.concept} por la compraventa del ${values.lot_phrase || values.property_code}.`,
+                ` (${values.amount_words}), recibida mediante ${values.payment_method}, como ${values.concept} por la compraventa del ${values.lot_phrase || values.property_code}${values.cadastral_key ? `, clave catastral ${values.cadastral_key}` : ''}.`,
             ],
             alignment: 'justify',
             fontSize: 12,
@@ -250,7 +262,7 @@ let PaymentReceiptService = class PaymentReceiptService {
             fontSize: 12,
             margin: [0, 0, 0, 8],
         }, {
-            text: `Contrato ${values.contract_number} · Pago ${values.payment_number} · Saldo de este pago ${values.amount_pending}`,
+            text: `Contrato ${values.contract_number} · Pago ${values.payment_number}${values.cadastral_key ? ` · Clave catastral ${values.cadastral_key}` : ''} · Saldo de este pago ${values.amount_pending}`,
             fontSize: 9,
             color: '#64748b',
             margin: [0, 8, 0, 0],

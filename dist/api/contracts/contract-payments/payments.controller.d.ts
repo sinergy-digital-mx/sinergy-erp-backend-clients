@@ -40,6 +40,9 @@ export declare class PaymentsController {
             readonly key: "property_code";
             readonly label: "Lote";
         }, {
+            readonly key: "cadastral_key";
+            readonly label: "Clave catastral";
+        }, {
             readonly key: "payment_number";
             readonly label: "Número de pago";
         }, {
@@ -101,6 +104,9 @@ export declare class PaymentsController {
             readonly key: "property_code";
             readonly label: "Lote";
         }, {
+            readonly key: "cadastral_key";
+            readonly label: "Clave catastral";
+        }, {
             readonly key: "payment_number";
             readonly label: "Número de pago";
         }, {
@@ -145,6 +151,8 @@ export declare class PaymentsController {
             customer_name: string;
             contract_number: string;
             property_code: string;
+            cadastral_key: string;
+            cadastral_line: string;
             lot_phrase: string;
             payment_number: string;
             amount_paid: string;

@@ -9,6 +9,7 @@ exports.PAYMENT_RECEIPT_VARIABLES = [
     { key: 'customer_name', label: 'Cliente' },
     { key: 'contract_number', label: 'Contrato' },
     { key: 'property_code', label: 'Lote' },
+    { key: 'cadastral_key', label: 'Clave catastral' },
     { key: 'payment_number', label: 'Número de pago' },
     { key: 'amount_paid', label: 'Monto pagado' },
     { key: 'amount', label: 'Monto del pago' },
@@ -44,6 +45,7 @@ exports.DEFAULT_PAYMENT_RECEIPT_HTML = `<!DOCTYPE html>
               <p style="margin:0 0 14px;font-size:16px;line-height:1.6;">Hola <strong>{{customer_name}}</strong>,</p>
               <p style="margin:0 0 18px;font-size:14px;line-height:1.7;color:#334155;">
                 Este es el recibo del pago <strong>{{payment_number}}</strong> del contrato <strong>{{contract_number}}</strong>, lote <strong>{{property_code}}</strong>.
+                {{cadastral_line}}
               </p>
               {{extra_message}}
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;">
