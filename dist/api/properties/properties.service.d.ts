@@ -53,6 +53,7 @@ export declare class PropertiesService {
     private resolvePricing;
     private pricingFields;
     private presentProperty;
+    private contractsWithoutPropertyBackref;
     getMeasurementUnits(): Promise<MeasurementUnit[]>;
     private normalizeOptionalText;
     private assertPropertyCodeAvailable;

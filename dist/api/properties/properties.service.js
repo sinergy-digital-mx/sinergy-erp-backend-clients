@@ -107,7 +107,7 @@ let PropertiesService = class PropertiesService {
                         ? { id: customer.group.id, name: customer.group.name }
                         : null,
                 } : null,
-                contracts: property.contracts,
+                contracts: this.contractsWithoutPropertyBackref(property.contracts),
                 ...this.pricingFields(property),
                 currency: (0, contract_currency_util_1.resolveStoredContractCurrency)(property.currency),
             };
@@ -360,7 +360,18 @@ let PropertiesService = class PropertiesService {
         property.total_price = pricing.total_price;
         property.price_per_m2 = pricing.price_per_m2;
         property.currency = (0, contract_currency_util_1.resolveStoredContractCurrency)(property.currency);
+        property.contracts = this.contractsWithoutPropertyBackref(property.contracts);
         return property;
+    }
+    contractsWithoutPropertyBackref(contracts) {
+        return (contracts ?? []).map((contract) => {
+            const { property: _property, customer, ...rest } = contract;
+            if (customer) {
+                const { contracts: _customerContracts, ...customerRest } = customer;
+                return { ...rest, customer: customerRest };
+            }
+            return rest;
+        });
     }
     async getMeasurementUnits() {
         return this.measurementUnitRepo.find({
