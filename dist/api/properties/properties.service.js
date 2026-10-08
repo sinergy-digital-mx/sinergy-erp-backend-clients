@@ -17,16 +17,20 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const property_entity_1 = require("../../entities/properties/property.entity");
+const contract_entity_1 = require("../../entities/contracts/contract.entity");
+const contract_number_util_1 = require("../contracts/contract-number.util");
 const measurement_unit_entity_1 = require("../../entities/properties/measurement-unit.entity");
 const customer_groups_service_1 = require("../customers/customer-groups.service");
 const property_pricing_util_1 = require("./utils/property-pricing.util");
 const contract_currency_util_1 = require("../contracts/contract-currency.util");
 let PropertiesService = class PropertiesService {
     propertyRepo;
+    contractRepo;
     measurementUnitRepo;
     customerGroupsService;
-    constructor(propertyRepo, measurementUnitRepo, customerGroupsService) {
+    constructor(propertyRepo, contractRepo, measurementUnitRepo, customerGroupsService) {
         this.propertyRepo = propertyRepo;
+        this.contractRepo = contractRepo;
         this.measurementUnitRepo = measurementUnitRepo;
         this.customerGroupsService = customerGroupsService;
     }
@@ -186,7 +190,49 @@ let PropertiesService = class PropertiesService {
             }
             throw err;
         }
+        if (dto.code !== undefined) {
+            await this.syncContractNumbers(tenantId, updated);
+        }
         return this.presentProperty(updated);
+    }
+    async syncContractNumbers(tenantId, property) {
+        const contracts = await this.contractRepo.find({
+            where: { tenant_id: tenantId, property_id: property.id },
+            order: { created_at: 'ASC' },
+        });
+        if (!contracts.length) {
+            return;
+        }
+        const base = (0, contract_number_util_1.buildContractNumberFromPropertyCode)(property.code);
+        const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        for (let index = 0; index < contracts.length; index += 1) {
+            const contract = contracts[index];
+            const next = await this.nextFreeContractNumber(tenantId, base, contract.id, index, letters);
+            if (!next || next === contract.contract_number) {
+                continue;
+            }
+            contract.contract_number = next;
+            await this.contractRepo.save(contract);
+        }
+    }
+    async nextFreeContractNumber(tenantId, base, contractId, index, letters) {
+        const candidates = [
+            index === 0 ? base : `${base}${letters[index - 1] ?? ''}`.slice(0, 50),
+            ...letters.split('').map((letter) => `${base}${letter}`.slice(0, 50)),
+            `${base}-${Date.now()}`.slice(0, 50),
+        ];
+        for (const candidate of candidates) {
+            if (!candidate) {
+                continue;
+            }
+            const taken = await this.contractRepo.findOne({
+                where: { tenant_id: tenantId, contract_number: candidate },
+            });
+            if (!taken || taken.id === contractId) {
+                return candidate;
+            }
+        }
+        return null;
     }
     async remove(tenantId, id) {
         const property = await this.findOne(tenantId, id);
@@ -360,8 +406,10 @@ exports.PropertiesService = PropertiesService;
 exports.PropertiesService = PropertiesService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(property_entity_1.Property)),
-    __param(1, (0, typeorm_1.InjectRepository)(measurement_unit_entity_1.MeasurementUnit)),
+    __param(1, (0, typeorm_1.InjectRepository)(contract_entity_1.Contract)),
+    __param(2, (0, typeorm_1.InjectRepository)(measurement_unit_entity_1.MeasurementUnit)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.Repository,
         customer_groups_service_1.CustomerGroupsService])
 ], PropertiesService);

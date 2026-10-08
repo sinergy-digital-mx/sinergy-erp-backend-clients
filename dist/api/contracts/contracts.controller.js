@@ -113,6 +113,7 @@ let ContractsController = class ContractsController {
             propertyId: query.propertyId,
             status: query.status,
             hasOverdue: query.hasOverdue === true,
+            downPaymentFinanced: query.downPaymentFinanced === true,
             search: query.search,
             group_id: query.group_id,
         };

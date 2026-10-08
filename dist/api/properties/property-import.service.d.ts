@@ -8,11 +8,11 @@ export declare class PropertyImportService {
     private readonly customerGroupsService;
     private readonly dataSource;
     constructor(propertyRepo: Repository<Property>, measurementUnitRepo: Repository<MeasurementUnit>, customerGroupsService: CustomerGroupsService, dataSource: DataSource);
-    exportTemplate(organizationId: string): Promise<{
+    exportTemplate(_organizationId: string): Promise<{
         buffer: Buffer;
         filename: string;
     }>;
-    importWorkbook(organizationId: string, file?: Express.Multer.File): Promise<{
+    importWorkbook(organizationId: string, file?: Express.Multer.File, groupId?: string): Promise<{
         created: number;
     }>;
     private findExistingCodes;

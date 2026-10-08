@@ -64,9 +64,9 @@ let PropertiesController = class PropertiesController {
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         res.send(buffer);
     }
-    async importProperties(file) {
+    async importProperties(file, groupId) {
         const organizationId = this.requireOrganizationId();
-        return this.propertyImportService.importWorkbook(organizationId, file);
+        return this.propertyImportService.importWorkbook(organizationId, file, groupId);
     }
     async findAll(req, query) {
         const tenantId = this.tenantContext.getCurrentTenantId();
@@ -162,8 +162,9 @@ __decorate([
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Property', action: 'Create' }),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', { limits: { fileSize: 5 * 1024 * 1024 } })),
     __param(0, (0, common_1.UploadedFile)()),
+    __param(1, (0, common_1.Body)('group_id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], PropertiesController.prototype, "importProperties", null);
 __decorate([

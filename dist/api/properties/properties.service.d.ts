@@ -1,5 +1,6 @@
 import { Repository } from 'typeorm';
 import { Property } from '../../entities/properties/property.entity';
+import { Contract } from '../../entities/contracts/contract.entity';
 import { MeasurementUnit } from '../../entities/properties/measurement-unit.entity';
 import { CreatePropertyDto } from './dto/create-property.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
@@ -11,14 +12,17 @@ export type PropertyListFilters = {
 };
 export declare class PropertiesService {
     private propertyRepo;
+    private contractRepo;
     private measurementUnitRepo;
     private readonly customerGroupsService;
-    constructor(propertyRepo: Repository<Property>, measurementUnitRepo: Repository<MeasurementUnit>, customerGroupsService: CustomerGroupsService);
+    constructor(propertyRepo: Repository<Property>, contractRepo: Repository<Contract>, measurementUnitRepo: Repository<MeasurementUnit>, customerGroupsService: CustomerGroupsService);
     create(tenantId: string, dto: CreatePropertyDto): Promise<Property>;
     findAll(tenantId: string, filters?: PropertyListFilters, page?: number, limit?: number): Promise<any>;
     findOne(tenantId: string, id: string): Promise<Property | null>;
     findByCode(tenantId: string, code: string): Promise<Property | null>;
     update(tenantId: string, id: string, dto: UpdatePropertyDto): Promise<Property>;
+    private syncContractNumbers;
+    private nextFreeContractNumber;
     remove(tenantId: string, id: string): Promise<void>;
     getListStats(tenantId: string, filters?: PropertyListFilters): Promise<{
         currency: string | null;

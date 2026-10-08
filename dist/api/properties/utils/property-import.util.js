@@ -33,8 +33,9 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PROPERTY_IMPORT_HEADERS = exports.PROPERTY_IMPORT_EXAMPLE_CODE = exports.PROPERTY_IMPORT_MAX_ROWS = exports.PROPERTY_IMPORT_SHEET = void 0;
+exports.PROPERTY_IMPORT_HEADERS = exports.PROPERTY_IMPORT_EXAMPLE_NAME = exports.PROPERTY_IMPORT_MAX_ROWS = exports.PROPERTY_IMPORT_SHEET = void 0;
 exports.foldText = foldText;
+exports.buildPropertyImportCode = buildPropertyImportCode;
 exports.buildPropertyImportTemplate = buildPropertyImportTemplate;
 exports.parsePropertyImportWorkbook = parsePropertyImportWorkbook;
 exports.resolvePropertyImportRows = resolvePropertyImportRows;
@@ -43,11 +44,9 @@ const XLSX = __importStar(require("xlsx"));
 const property_pricing_util_1 = require("./property-pricing.util");
 exports.PROPERTY_IMPORT_SHEET = 'Lotes';
 exports.PROPERTY_IMPORT_MAX_ROWS = 500;
-exports.PROPERTY_IMPORT_EXAMPLE_CODE = 'EJEMPLO';
+exports.PROPERTY_IMPORT_EXAMPLE_NAME = 'Lote ejemplo';
 exports.PROPERTY_IMPORT_HEADERS = [
-    'codigo',
     'nombre',
-    'grupo',
     'area',
     'unidad',
     'manzana',
@@ -61,9 +60,7 @@ exports.PROPERTY_IMPORT_HEADERS = [
     'estado',
 ];
 const HEADER_ALIASES = {
-    codigo: 'code',
     nombre: 'name',
-    grupo: 'group',
     area: 'area',
     unidad: 'unit',
     manzana: 'block',
@@ -111,14 +108,15 @@ function parseNumber(value) {
     const parsed = Number(text);
     return Number.isFinite(parsed) ? parsed : 'invalid';
 }
+function buildPropertyImportCode(block, lotNumber) {
+    return `LOT-${block}-${lotNumber.padStart(2, '0')}`;
+}
 async function buildPropertyImportTemplate(catalogs) {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet(exports.PROPERTY_IMPORT_SHEET);
     sheet.addRow([...exports.PROPERTY_IMPORT_HEADERS]);
     sheet.addRow([
-        exports.PROPERTY_IMPORT_EXAMPLE_CODE,
-        'Lote ejemplo',
-        catalogs.groups[0]?.name ?? 'Nombre del grupo',
+        exports.PROPERTY_IMPORT_EXAMPLE_NAME,
         250,
         catalogs.units[0]?.symbol ?? 'm²',
         'A',
@@ -136,13 +134,6 @@ async function buildPropertyImportTemplate(catalogs) {
     sheet.columns.forEach((column) => {
         column.width = 18;
     });
-    const groupsSheet = workbook.addWorksheet('Grupos');
-    groupsSheet.addRow(['nombre']);
-    groupsSheet.getRow(1).font = { bold: true };
-    for (const group of catalogs.groups) {
-        groupsSheet.addRow([group.name]);
-    }
-    groupsSheet.getColumn(1).width = 32;
     const unitsSheet = workbook.addWorksheet('Unidades');
     unitsSheet.addRow(['simbolo', 'nombre', 'codigo']);
     unitsSheet.getRow(1).font = { bold: true };
@@ -171,7 +162,7 @@ function parsePropertyImportWorkbook(buffer) {
         return { rows: [], errors: [{ row: 1, message: 'La hoja de lotes está vacía.' }] };
     }
     const headers = (matrix[0] ?? []).map((cell) => HEADER_ALIASES[headerKey(cell)]).filter(Boolean);
-    const required = ['code', 'name', 'group', 'area', 'unit'];
+    const required = ['name', 'area', 'unit', 'block', 'lot_number'];
     const missing = required.filter((key) => !headers.includes(key));
     if (missing.length) {
         return {
@@ -179,7 +170,7 @@ function parsePropertyImportWorkbook(buffer) {
             errors: [
                 {
                     row: 1,
-                    message: 'La primera fila debe ser la plantilla (codigo, nombre, grupo, area, unidad). Descárgala de nuevo.',
+                    message: 'La primera fila debe ser la plantilla (nombre, area, unidad, manzana, numero_lote). Descárgala de nuevo.',
                 },
             ],
         };
@@ -199,9 +190,9 @@ function parsePropertyImportWorkbook(buffer) {
         for (const [key, column] of columnIndex) {
             values[key] = line[column];
         }
-        const code = cellText(values.code);
+        const name = cellText(values.name);
         const hasContent = Object.values(values).some((value) => cellText(value) !== '');
-        if (!hasContent || foldText(code) === foldText(exports.PROPERTY_IMPORT_EXAMPLE_CODE)) {
+        if (!hasContent || foldText(name) === foldText(exports.PROPERTY_IMPORT_EXAMPLE_NAME)) {
             continue;
         }
         if (rows.length >= exports.PROPERTY_IMPORT_MAX_ROWS) {
@@ -219,7 +210,6 @@ function resolvePropertyImportRows(rows, catalogs, parseErrors = []) {
     const errors = [...parseErrors];
     const ready = [];
     const seenCodes = new Set();
-    const groups = new Map(catalogs.groups.map((group) => [foldText(group.name), group.id]));
     const units = new Map();
     for (const unit of catalogs.units) {
         for (const label of [unit.symbol, unit.code, unit.name]) {
@@ -230,22 +220,20 @@ function resolvePropertyImportRows(rows, catalogs, parseErrors = []) {
         }
     }
     for (const row of rows) {
-        const rowErrors = validateRow(row, groups, units, catalogs.existingCodes, seenCodes);
+        const rowErrors = validateRow(row, units, catalogs.existingCodes, seenCodes);
         if (rowErrors.length) {
             errors.push(...rowErrors);
             continue;
         }
-        ready.push(toDto(row, groups, units));
+        ready.push(toDto(row, catalogs.groupId, units));
     }
     errors.sort((left, right) => left.row - right.row || left.message.localeCompare(right.message));
     return { ready: errors.length ? [] : ready, errors };
 }
-function validateRow(row, groups, units, existingCodes, seenCodes) {
+function validateRow(row, units, existingCodes, seenCodes) {
     const errors = [];
     const fail = (message) => errors.push({ row: row.row, message });
-    const code = cellText(row.values.code);
     const name = cellText(row.values.name);
-    const groupName = cellText(row.values.group);
     const unitLabel = cellText(row.values.unit);
     const area = parseNumber(row.values.area);
     const pricePerM2 = parseNumber(row.values.price_per_m2);
@@ -256,11 +244,22 @@ function validateRow(row, groups, units, existingCodes, seenCodes) {
     const lotNumber = cellText(row.values.lot_number);
     const cadastralKey = cellText(row.values.cadastral_key);
     const location = cellText(row.values.location);
-    if (!code)
-        fail('El código es obligatorio.');
-    else if (code.length > 50)
-        fail('El código admite máximo 50 caracteres.');
-    else {
+    const code = block && lotNumber ? buildPropertyImportCode(block, lotNumber) : '';
+    if (!name)
+        fail('El nombre es obligatorio.');
+    else if (name.length > 150)
+        fail('El nombre admite máximo 150 caracteres.');
+    if (!block)
+        fail('La manzana es obligatoria.');
+    else if (block.length > 50)
+        fail('La manzana admite máximo 50 caracteres.');
+    if (!lotNumber)
+        fail('El número de lote es obligatorio.');
+    else if (lotNumber.length > 50)
+        fail('El número de lote admite máximo 50 caracteres.');
+    if (code.length > 50)
+        fail('El código generado admite máximo 50 caracteres.');
+    else if (code) {
         const folded = foldText(code);
         if (seenCodes.has(folded))
             fail(`El código "${code}" está repetido en el archivo.`);
@@ -268,15 +267,6 @@ function validateRow(row, groups, units, existingCodes, seenCodes) {
             fail(`Ya existe un lote con el código "${code}".`);
         else
             seenCodes.add(folded);
-    }
-    if (!name)
-        fail('El nombre es obligatorio.');
-    else if (name.length > 150)
-        fail('El nombre admite máximo 150 caracteres.');
-    if (!groupName)
-        fail('El grupo es obligatorio.');
-    else if (!groups.has(foldText(groupName))) {
-        fail(`No existe el grupo "${groupName}". Usa un nombre de la hoja Grupos.`);
     }
     if (area === 'invalid')
         fail('El área no es un número.');
@@ -287,10 +277,6 @@ function validateRow(row, groups, units, existingCodes, seenCodes) {
     else if (!units.has(foldText(unitLabel))) {
         fail(`No existe la unidad "${unitLabel}". Usa un símbolo de la hoja Unidades.`);
     }
-    if (block.length > 50)
-        fail('La manzana admite máximo 50 caracteres.');
-    if (lotNumber.length > 50)
-        fail('El número de lote admite máximo 50 caracteres.');
     if (cadastralKey.length > 100)
         fail('La clave catastral admite máximo 100 caracteres.');
     if (location.length > 255)
@@ -325,21 +311,23 @@ function validateRow(row, groups, units, existingCodes, seenCodes) {
     }
     return errors;
 }
-function toDto(row, groups, units) {
+function toDto(row, groupId, units) {
     const area = parseNumber(row.values.area);
     const pricePerM2 = parseNumber(row.values.price_per_m2);
     const totalPrice = parseNumber(row.values.total_price);
     const currency = cellText(row.values.currency).toUpperCase();
     const status = foldText(cellText(row.values.status));
-    const dto = {
-        code: cellText(row.values.code),
-        name: cellText(row.values.name),
-        group_id: groups.get(foldText(cellText(row.values.group))),
-        total_area: area,
-        measurement_unit_id: units.get(foldText(cellText(row.values.unit))),
-    };
     const block = cellText(row.values.block);
     const lotNumber = cellText(row.values.lot_number);
+    const dto = {
+        code: buildPropertyImportCode(block, lotNumber),
+        name: cellText(row.values.name),
+        group_id: groupId,
+        total_area: area,
+        measurement_unit_id: units.get(foldText(cellText(row.values.unit))),
+        block,
+        lot_number: lotNumber,
+    };
     const cadastralKey = cellText(row.values.cadastral_key);
     const location = cellText(row.values.location);
     const description = cellText(row.values.description);

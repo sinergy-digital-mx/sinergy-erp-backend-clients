@@ -3,6 +3,7 @@ export declare class QueryContractsDto {
     propertyId?: string;
     status?: string;
     hasOverdue?: boolean;
+    downPaymentFinanced?: boolean;
     search?: string;
     group_id?: string;
     page?: number;

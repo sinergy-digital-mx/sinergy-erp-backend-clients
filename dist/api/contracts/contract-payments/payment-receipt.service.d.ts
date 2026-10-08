@@ -1,19 +1,17 @@
-import { TenantContextService } from '../../rbac/services/tenant-context.service';
-import { PaymentsService } from './payments.service';
-import { PaymentReceiptService } from './payment-receipt.service';
-import { RecordPartialPaymentDto } from '../dto/record-partial-payment.dto';
-import { GenerateContractPaymentsDto } from './dto/generate-contract-payments.dto';
-export declare class PaymentsController {
-    private paymentsService;
-    private paymentReceiptService;
-    private tenantContext;
-    constructor(paymentsService: PaymentsService, paymentReceiptService: PaymentReceiptService, tenantContext: TenantContextService);
-    generatePayments(contractId: string, dto: GenerateContractPaymentsDto | undefined, req: any): Promise<import("./payments.service").GeneratedPaymentsResult>;
-    regeneratePayments(contractId: string, dto: GenerateContractPaymentsDto | undefined, req: any): Promise<import("./payments.service").GeneratedPaymentsResult>;
-    getPayments(contractId: string, req: any): Promise<any[]>;
-    getStats(contractId: string, req: any): Promise<any>;
-    previewSchedule(contractId: string, startDate: string | undefined): Promise<import("./payments.service").PaymentSchedulePreview>;
-    getReceiptTemplate(): Promise<{
+import { Repository } from 'typeorm';
+import { Payment } from '../../../entities/contracts/payment.entity';
+import { EmailTemplate } from '../../../entities/email-templates/email-template.entity';
+import { FiscalConfiguration } from '../../../entities/billing/fiscal-configuration.entity';
+import { RBACTenant } from '../../../entities/rbac/tenant.entity';
+import { MailerConfigurationService } from '../../mailer-configuration/services/mailer-configuration.service';
+export declare class PaymentReceiptService {
+    private readonly paymentRepo;
+    private readonly templateRepo;
+    private readonly fiscalRepo;
+    private readonly tenantRepo;
+    private readonly mailerConfigurationService;
+    constructor(paymentRepo: Repository<Payment>, templateRepo: Repository<EmailTemplate>, fiscalRepo: Repository<FiscalConfiguration>, tenantRepo: Repository<RBACTenant>, mailerConfigurationService: MailerConfigurationService);
+    getTemplate(organizationId: string): Promise<{
         id: string;
         subject: string;
         body_html: string;
@@ -63,7 +61,7 @@ export declare class PaymentsController {
         sample_subject: string;
         sample_html: string;
     }>;
-    updateReceiptTemplate(body: {
+    updateTemplate(organizationId: string, dto: {
         subject?: string;
         body_html?: string;
         reset_default?: boolean;
@@ -117,8 +115,7 @@ export declare class PaymentsController {
         sample_subject: string;
         sample_html: string;
     }>;
-    downloadReceipt(contractId: string, paymentId: string, res: any): Promise<void>;
-    composeReceipt(contractId: string, paymentId: string): Promise<{
+    compose(organizationId: string, contractId: string, paymentId: string, extraMessage?: string): Promise<{
         to_email: string;
         additional_email: string | null;
         customer_name: string;
@@ -143,7 +140,11 @@ export declare class PaymentsController {
         };
         attachment_name: string;
     }>;
-    sendReceipt(contractId: string, paymentId: string, body: {
+    pdf(organizationId: string, contractId: string, paymentId: string): Promise<{
+        buffer: Buffer;
+        filename: string;
+    }>;
+    send(organizationId: string, contractId: string, paymentId: string, dto: {
         to_email?: string;
         cc?: string[];
         extra_message?: string;
@@ -151,24 +152,14 @@ export declare class PaymentsController {
         sent: boolean;
         to_email: string;
     }>;
-    getPayment(contractId: string, paymentId: string, req: any): Promise<import("../../../entities/contracts/payment.entity").Payment | null>;
-    updatePayment(contractId: string, paymentId: string, body: {
-        amount_paid?: number;
-        due_date?: Date;
-        paid_date?: Date;
-        payment_method?: string;
-        reference_number?: string;
-        notes?: string;
-    }, req: any): Promise<import("../../../entities/contracts/payment.entity").Payment>;
-    recordPayment(contractId: string, paymentId: string, dto: RecordPartialPaymentDto, req: any): Promise<import("../../../entities/contracts/payment.entity").Payment>;
-    cancelPayment(contractId: string, paymentId: string, req: any): Promise<import("../../../entities/contracts/payment.entity").Payment>;
-    resetPayment(contractId: string, paymentId: string, req: any): Promise<import("../../../entities/contracts/payment.entity").Payment>;
-    deletePayment(contractId: string, paymentId: string, req: any): Promise<{
-        message: string;
-    }>;
-    markOverduePayments(contractId: string, req: any): Promise<{
-        message: string;
-        updated_count: number;
-    }>;
-    private requireOrganizationId;
+    private ensureTemplate;
+    private loadPayment;
+    private buildValues;
+    private sampleValues;
+    private buildPdf;
+    private fileName;
+    private money;
+    private formatDate;
+    private wrapNote;
+    private sendViaResend;
 }

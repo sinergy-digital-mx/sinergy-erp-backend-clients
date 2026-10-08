@@ -38,7 +38,7 @@ export declare class PropertiesController {
         avg_price_per_m2: number;
     }>;
     downloadImportTemplate(res: any): Promise<void>;
-    importProperties(file: Express.Multer.File): Promise<{
+    importProperties(file: Express.Multer.File, groupId?: string): Promise<{
         created: number;
     }>;
     findAll(req: any, query: QueryPropertiesDto): Promise<any>;

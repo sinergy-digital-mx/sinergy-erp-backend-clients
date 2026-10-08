@@ -18,6 +18,7 @@ class QueryContractsDto {
     propertyId;
     status;
     hasOverdue;
+    downPaymentFinanced;
     search;
     group_id;
     page;
@@ -52,6 +53,15 @@ __decorate([
     (0, class_transformer_1.Transform)(({ value }) => value === true || value === 'true'),
     __metadata("design:type", Boolean)
 ], QueryContractsDto.prototype, "hasOverdue", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Solo contratos con enganche financiado',
+        type: Boolean,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => value === true || value === 'true'),
+    __metadata("design:type", Boolean)
+], QueryContractsDto.prototype, "downPaymentFinanced", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ description: 'Buscar número, cliente, lote o clave catastral' }),
     (0, class_validator_1.IsOptional)(),

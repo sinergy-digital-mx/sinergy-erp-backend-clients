@@ -33,13 +33,9 @@ let PropertyImportService = class PropertyImportService {
         this.customerGroupsService = customerGroupsService;
         this.dataSource = dataSource;
     }
-    async exportTemplate(organizationId) {
-        const [groups, units] = await Promise.all([
-            this.customerGroupsService.findOptions(organizationId),
-            this.measurementUnitRepo.find({ order: { system: 'ASC', name: 'ASC' } }),
-        ]);
+    async exportTemplate(_organizationId) {
+        const units = await this.measurementUnitRepo.find({ order: { system: 'ASC', name: 'ASC' } });
         const buffer = await (0, property_import_util_1.buildPropertyImportTemplate)({
-            groups,
             units: units.map((unit) => ({
                 code: unit.code,
                 name: unit.name,
@@ -48,7 +44,7 @@ let PropertyImportService = class PropertyImportService {
         });
         return { buffer, filename: 'plantilla-lotes.xlsx' };
     }
-    async importWorkbook(organizationId, file) {
+    async importWorkbook(organizationId, file, groupId) {
         if (!file?.buffer?.length) {
             throw new common_1.BadRequestException('Adjunta la plantilla de lotes en Excel.');
         }
@@ -56,14 +52,17 @@ let PropertyImportService = class PropertyImportService {
         if (!name.endsWith('.xlsx') && !name.endsWith('.xls')) {
             throw new common_1.BadRequestException('El archivo debe ser Excel (.xlsx).');
         }
+        const group = await this.customerGroupsService.assertBelongsToOrganization(groupId, organizationId);
+        if (!group) {
+            throw new common_1.BadRequestException('Selecciona el grupo de cliente.');
+        }
         const parsed = (0, property_import_util_1.parsePropertyImportWorkbook)(file.buffer);
-        const [groups, units, existing] = await Promise.all([
-            this.customerGroupsService.findOptions(organizationId),
+        const [units, existing] = await Promise.all([
             this.measurementUnitRepo.find(),
-            this.findExistingCodes(organizationId, parsed.rows.map((row) => String(row.values.code ?? '').trim()).filter(Boolean)),
+            this.findExistingCodes(organizationId),
         ]);
         const resolved = (0, property_import_util_1.resolvePropertyImportRows)(parsed.rows, {
-            groups,
+            groupId: group,
             units: units.map((unit) => ({
                 id: unit.id,
                 code: unit.code,
@@ -117,18 +116,11 @@ let PropertyImportService = class PropertyImportService {
         });
         return { created: resolved.ready.length };
     }
-    async findExistingCodes(organizationId, codes) {
-        const unique = [...new Set(codes)];
-        if (!unique.length) {
-            return new Set();
-        }
+    async findExistingCodes(organizationId) {
         const rows = await this.propertyRepo
             .createQueryBuilder('p')
             .select('p.code', 'code')
             .where('p.tenant_id = :organizationId', { organizationId })
-            .andWhere('LOWER(p.code) IN (:...codes)', {
-            codes: unique.map((code) => code.toLowerCase()),
-        })
             .getRawMany();
         return new Set(rows.map((row) => (0, property_import_util_1.foldText)(row.code)));
     }

@@ -19,13 +19,16 @@ const permission_guard_1 = require("../../rbac/guards/permission.guard");
 const require_permissions_decorator_1 = require("../../rbac/decorators/require-permissions.decorator");
 const tenant_context_service_1 = require("../../rbac/services/tenant-context.service");
 const payments_service_1 = require("./payments.service");
+const payment_receipt_service_1 = require("./payment-receipt.service");
 const record_partial_payment_dto_1 = require("../dto/record-partial-payment.dto");
 const generate_contract_payments_dto_1 = require("./dto/generate-contract-payments.dto");
 let PaymentsController = class PaymentsController {
     paymentsService;
+    paymentReceiptService;
     tenantContext;
-    constructor(paymentsService, tenantContext) {
+    constructor(paymentsService, paymentReceiptService, tenantContext) {
         this.paymentsService = paymentsService;
+        this.paymentReceiptService = paymentReceiptService;
         this.tenantContext = tenantContext;
     }
     async generatePayments(contractId, dto = {}, req) {
@@ -62,6 +65,29 @@ let PaymentsController = class PaymentsController {
             throw new Error('Tenant context is required');
         }
         return this.paymentsService.previewPaymentSchedule(tenantId, contractId, startDate);
+    }
+    getReceiptTemplate() {
+        const organizationId = this.requireOrganizationId();
+        return this.paymentReceiptService.getTemplate(organizationId);
+    }
+    updateReceiptTemplate(body) {
+        const organizationId = this.requireOrganizationId();
+        return this.paymentReceiptService.updateTemplate(organizationId, body);
+    }
+    async downloadReceipt(contractId, paymentId, res) {
+        const organizationId = this.requireOrganizationId();
+        const { buffer, filename } = await this.paymentReceiptService.pdf(organizationId, contractId, paymentId);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(buffer);
+    }
+    composeReceipt(contractId, paymentId) {
+        const organizationId = this.requireOrganizationId();
+        return this.paymentReceiptService.compose(organizationId, contractId, paymentId);
+    }
+    sendReceipt(contractId, paymentId, body) {
+        const organizationId = this.requireOrganizationId();
+        return this.paymentReceiptService.send(organizationId, contractId, paymentId, body);
     }
     async getPayment(contractId, paymentId, req) {
         const tenantId = this.tenantContext.getCurrentTenantId();
@@ -117,6 +143,13 @@ let PaymentsController = class PaymentsController {
             updated_count: updatedCount,
         };
     }
+    requireOrganizationId() {
+        const organizationId = this.tenantContext.getCurrentTenantId();
+        if (!organizationId) {
+            throw new Error('Tenant context is required');
+        }
+        return organizationId;
+    }
 };
 exports.PaymentsController = PaymentsController;
 __decorate([
@@ -166,6 +199,50 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], PaymentsController.prototype, "previewSchedule", null);
+__decorate([
+    (0, common_1.Get)('receipt-template'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Contract', action: 'Read' }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], PaymentsController.prototype, "getReceiptTemplate", null);
+__decorate([
+    (0, common_1.Patch)('receipt-template'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Contract', action: 'Update' }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], PaymentsController.prototype, "updateReceiptTemplate", null);
+__decorate([
+    (0, common_1.Get)(':paymentId/receipt.pdf'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Contract', action: 'Read' }),
+    __param(0, (0, common_1.Param)('contractId')),
+    __param(1, (0, common_1.Param)('paymentId')),
+    __param(2, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object]),
+    __metadata("design:returntype", Promise)
+], PaymentsController.prototype, "downloadReceipt", null);
+__decorate([
+    (0, common_1.Get)(':paymentId/receipt/compose'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Contract', action: 'Read' }),
+    __param(0, (0, common_1.Param)('contractId')),
+    __param(1, (0, common_1.Param)('paymentId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], PaymentsController.prototype, "composeReceipt", null);
+__decorate([
+    (0, common_1.Post)(':paymentId/receipt/send'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Contract', action: 'Update' }),
+    __param(0, (0, common_1.Param)('contractId')),
+    __param(1, (0, common_1.Param)('paymentId')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object]),
+    __metadata("design:returntype", void 0)
+], PaymentsController.prototype, "sendReceipt", null);
 __decorate([
     (0, common_1.Get)(':paymentId'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Contract', action: 'Read' }),
@@ -241,6 +318,7 @@ exports.PaymentsController = PaymentsController = __decorate([
     (0, common_1.Controller)('tenant/contracts/:contractId/payments'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     __metadata("design:paramtypes", [payments_service_1.PaymentsService,
+        payment_receipt_service_1.PaymentReceiptService,
         tenant_context_service_1.TenantContextService])
 ], PaymentsController);
 //# sourceMappingURL=payments.controller.js.map

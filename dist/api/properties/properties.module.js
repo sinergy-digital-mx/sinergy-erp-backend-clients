@@ -10,6 +10,7 @@ exports.PropertiesModule = void 0;
 const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const property_entity_1 = require("../../entities/properties/property.entity");
+const contract_entity_1 = require("../../entities/contracts/contract.entity");
 const property_group_entity_1 = require("../../entities/properties/property-group.entity");
 const measurement_unit_entity_1 = require("../../entities/properties/measurement-unit.entity");
 const properties_service_1 = require("./properties.service");
@@ -25,7 +26,7 @@ exports.PropertiesModule = PropertiesModule;
 exports.PropertiesModule = PropertiesModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            typeorm_1.TypeOrmModule.forFeature([property_entity_1.Property, property_group_entity_1.PropertyGroup, measurement_unit_entity_1.MeasurementUnit]),
+            typeorm_1.TypeOrmModule.forFeature([property_entity_1.Property, property_group_entity_1.PropertyGroup, measurement_unit_entity_1.MeasurementUnit, contract_entity_1.Contract]),
             rbac_module_1.RBACModule,
             customers_module_1.CustomersModule,
         ],

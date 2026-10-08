@@ -25,6 +25,9 @@ function applyContractListFilters(query, filters) {
     if (filters.group_id) {
         query.andWhere('(customer.group_id = :group_id OR property.group_id = :group_id)', { group_id: filters.group_id });
     }
+    if (filters.downPaymentFinanced === true) {
+        query.andWhere('c.down_payment_financed = true');
+    }
     if (filters.hasOverdue === true) {
         query.andWhere(`EXISTS (
         SELECT 1 FROM contract_payments overdue_filter_p
