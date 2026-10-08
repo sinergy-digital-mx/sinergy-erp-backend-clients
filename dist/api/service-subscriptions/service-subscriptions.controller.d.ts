@@ -86,6 +86,7 @@ export declare class ServiceSubscriptionsController {
         to_email?: string;
     }, req: any): Promise<{
         sent_to: string;
+        pdf_count: number;
     }>;
     getOne(id: string, req: any): Promise<{
         fiscal_configuration_id: string;

@@ -2,7 +2,8 @@ export interface SubscriptionSummaryMonth {
     label: string;
     amount: number;
     orderFolio: string | null;
-    invoiceLabel: string | null;
+    invoiceFolio: string | null;
+    invoiceUuid: string | null;
     paid: boolean | null;
 }
 export interface SubscriptionSummaryEmailInput {
@@ -15,6 +16,8 @@ export interface SubscriptionSummaryEmailInput {
     monthlyAmount: number;
     ivaPercentage: number;
     months: SubscriptionSummaryMonth[];
+    zipFileName: string | null;
+    pdfCount: number;
 }
 export declare function buildSubscriptionSummaryEmail(input: SubscriptionSummaryEmailInput): {
     subject: string;

@@ -18,6 +18,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ServiceSubscriptionsService = void 0;
 const common_1 = require("@nestjs/common");
 const axios_1 = __importDefault(require("axios"));
+const jszip_1 = __importDefault(require("jszip"));
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const crypto_1 = require("crypto");
@@ -34,6 +35,7 @@ const sales_order_entity_1 = require("../../entities/sales-orders/sales-order.en
 const service_subscription_constants_1 = require("./service-subscription.constants");
 const service_subscription_billing_service_1 = require("./service-subscription-billing.service");
 const mailer_configuration_service_1 = require("../mailer-configuration/services/mailer-configuration.service");
+const electronic_invoice_pdf_service_1 = require("../electronic-invoicing/services/electronic-invoice-pdf.service");
 const service_subscription_summary_email_util_1 = require("./utils/service-subscription-summary-email.util");
 const service_subscription_months_util_1 = require("./utils/service-subscription-months.util");
 let ServiceSubscriptionsService = class ServiceSubscriptionsService {
@@ -45,8 +47,9 @@ let ServiceSubscriptionsService = class ServiceSubscriptionsService {
     branchRepo;
     salesOrderRepo;
     billing;
+    invoicePdf;
     mailerConfigurationService;
-    constructor(subscriptionRepo, periodRepo, customerRepo, productRepo, productUomRepo, branchRepo, salesOrderRepo, billing, mailerConfigurationService) {
+    constructor(subscriptionRepo, periodRepo, customerRepo, productRepo, productUomRepo, branchRepo, salesOrderRepo, billing, invoicePdf, mailerConfigurationService) {
         this.subscriptionRepo = subscriptionRepo;
         this.periodRepo = periodRepo;
         this.customerRepo = customerRepo;
@@ -55,6 +58,7 @@ let ServiceSubscriptionsService = class ServiceSubscriptionsService {
         this.branchRepo = branchRepo;
         this.salesOrderRepo = salesOrderRepo;
         this.billing = billing;
+        this.invoicePdf = invoicePdf;
         this.mailerConfigurationService = mailerConfigurationService;
     }
     async list(tenantId, query) {
@@ -118,20 +122,40 @@ let ServiceSubscriptionsService = class ServiceSubscriptionsService {
             throw new common_1.BadRequestException('Indica un correo. El cliente no tiene uno registrado.');
         }
         const months = [];
+        const zip = new jszip_1.default();
+        let pdfCount = 0;
         for (const period of subscription.periods ?? []) {
             const invoice = period.sales_order_id
                 ? await this.billing.findVigenteInvoice(tenantId, period.sales_order_id)
                 : null;
             const folio = [invoice?.series, invoice?.folio].filter(Boolean).join('-');
             const payment = period.sales_order?.payment_status;
+            const label = (0, service_subscription_months_util_1.formatPeriodLabel)(String(period.period_month));
             months.push({
-                label: (0, service_subscription_months_util_1.formatPeriodLabel)(String(period.period_month)),
+                label,
                 amount: Number(period.amount),
                 orderFolio: period.sales_order?.folio ?? null,
-                invoiceLabel: invoice ? folio || invoice.uuid || 'Factura' : null,
+                invoiceFolio: invoice ? folio || null : null,
+                invoiceUuid: invoice?.uuid ?? null,
                 paid: period.sales_order ? payment === 'Pagado' : null,
             });
+            if (!invoice?.pdf_stamped_s3_key)
+                continue;
+            try {
+                const pdf = await this.invoicePdf.getPdfBuffer(invoice);
+                const stamp = (invoice.uuid || invoice.id).slice(0, 8);
+                const base = [label, folio || period.sales_order?.folio || 'factura', stamp]
+                    .join('-')
+                    .replace(/[^\w.\-áéíóúñÁÉÍÓÚÑ ]+/g, '')
+                    .replace(/\s+/g, '-');
+                zip.file(`${base}.pdf`, pdf.buffer);
+                pdfCount += 1;
+            }
+            catch {
+            }
         }
+        const zipFileName = pdfCount ? `facturas-${subscription.title.replace(/[^\w.\-]+/g, '-').slice(0, 40)}.zip` : null;
+        const zipBuffer = pdfCount ? await zip.generateAsync({ type: 'nodebuffer' }) : null;
         const message = (0, service_subscription_summary_email_util_1.buildSubscriptionSummaryEmail)({
             title: subscription.title,
             customerName: this.customerName(subscription.customer),
@@ -142,11 +166,15 @@ let ServiceSubscriptionsService = class ServiceSubscriptionsService {
             monthlyAmount: Number(subscription.monthly_amount),
             ivaPercentage: Number(subscription.iva_percentage),
             months,
+            zipFileName,
+            pdfCount,
         });
-        await this.sendViaResend(tenantId, recipient, message.subject, message.html);
-        return { sent_to: recipient };
+        await this.sendViaResend(tenantId, recipient, message.subject, message.html, zipBuffer && zipFileName
+            ? [{ filename: zipFileName, content: zipBuffer.toString('base64') }]
+            : []);
+        return { sent_to: recipient, pdf_count: pdfCount };
     }
-    async sendViaResend(tenantId, toEmail, subject, html) {
+    async sendViaResend(tenantId, toEmail, subject, html, attachments = []) {
         let config;
         try {
             config = await this.mailerConfigurationService.findActiveInternal(tenantId);
@@ -168,6 +196,7 @@ let ServiceSubscriptionsService = class ServiceSubscriptionsService {
             to: [toEmail],
             subject,
             html,
+            attachments: attachments.length ? attachments : undefined,
         }, { headers: { Authorization: `Bearer ${vendorConfig.apiKey}` } });
     }
     async getOne(tenantId, id) {
@@ -535,6 +564,7 @@ exports.ServiceSubscriptionsService = ServiceSubscriptionsService = __decorate([
         typeorm_2.Repository,
         typeorm_2.Repository,
         service_subscription_billing_service_1.ServiceSubscriptionBillingService,
+        electronic_invoice_pdf_service_1.ElectronicInvoicePdfService,
         mailer_configuration_service_1.MailerConfigurationService])
 ], ServiceSubscriptionsService);
 //# sourceMappingURL=service-subscriptions.service.js.map

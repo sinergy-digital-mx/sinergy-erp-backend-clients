@@ -15,6 +15,7 @@ import { LinkServiceSubscriptionPeriodDto } from './dto/link-service-subscriptio
 import { RenewServiceSubscriptionDto } from './dto/renew-service-subscription.dto';
 import { ServiceSubscriptionBillingService } from './service-subscription-billing.service';
 import { MailerConfigurationService } from '../mailer-configuration/services/mailer-configuration.service';
+import { ElectronicInvoicePdfService } from '../electronic-invoicing/services/electronic-invoice-pdf.service';
 export declare class ServiceSubscriptionsService {
     private readonly subscriptionRepo;
     private readonly periodRepo;
@@ -24,8 +25,9 @@ export declare class ServiceSubscriptionsService {
     private readonly branchRepo;
     private readonly salesOrderRepo;
     private readonly billing;
+    private readonly invoicePdf;
     private readonly mailerConfigurationService;
-    constructor(subscriptionRepo: Repository<ServiceSubscription>, periodRepo: Repository<ServiceSubscriptionPeriod>, customerRepo: Repository<Customer>, productRepo: Repository<Product>, productUomRepo: Repository<ProductUoM>, branchRepo: Repository<BillingBranch>, salesOrderRepo: Repository<SalesOrder>, billing: ServiceSubscriptionBillingService, mailerConfigurationService: MailerConfigurationService);
+    constructor(subscriptionRepo: Repository<ServiceSubscription>, periodRepo: Repository<ServiceSubscriptionPeriod>, customerRepo: Repository<Customer>, productRepo: Repository<Product>, productUomRepo: Repository<ProductUoM>, branchRepo: Repository<BillingBranch>, salesOrderRepo: Repository<SalesOrder>, billing: ServiceSubscriptionBillingService, invoicePdf: ElectronicInvoicePdfService, mailerConfigurationService: MailerConfigurationService);
     list(tenantId: string, query: QueryServiceSubscriptionDto): Promise<{
         data: {
             id: string;
@@ -61,6 +63,7 @@ export declare class ServiceSubscriptionsService {
     }>;
     sendSummaryEmail(tenantId: string, id: string, toEmail?: string): Promise<{
         sent_to: string;
+        pdf_count: number;
     }>;
     private sendViaResend;
     getOne(tenantId: string, id: string): Promise<{

@@ -1,6 +1,6 @@
 {
   "name": "sinergy-erp-backend-clients",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "",
   "author": "",
   "private": true,
@@ -80,6 +80,7 @@
     "exceljs": "^4.4.0",
     "googleapis": "^171.4.0",
     "jsonwebtoken": "^9.0.3",
+    "jszip": "^3.10.2",
     "mysql": "^2.18.1",
     "mysql2": "^3.17.4",
     "nodemailer": "^6.9.7",
