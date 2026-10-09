@@ -1,4 +1,5 @@
 import { CustomersService } from './customers.service';
+import { PermissionService } from '../rbac/services/permission.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { QueryCustomersDto } from './dto/query-customers.dto';
@@ -15,7 +16,9 @@ export declare class CustomersController {
     private readonly exportService;
     private readonly productInsightsService;
     private readonly customerGroupsService;
-    constructor(customersService: CustomersService, exportService: CustomersExportService, productInsightsService: CustomerProductInsightsService, customerGroupsService: CustomerGroupsService);
+    private readonly permissionService;
+    constructor(customersService: CustomersService, exportService: CustomersExportService, productInsightsService: CustomerProductInsightsService, customerGroupsService: CustomerGroupsService, permissionService: PermissionService);
+    private stripInsightWithoutPermission;
     create(dto: CreateCustomerDto, req: any): Promise<{
         credit_enabled?: boolean;
         credit_days?: number | null | undefined;
@@ -126,6 +129,7 @@ export declare class CustomersController {
         }[];
     }>;
     exportExcel(query: QueryCustomersExportDto, req: any, res: any): Promise<void>;
+    getListStats(query: QueryCustomersDto, req: any): Promise<import("./customers.service").CustomerListStats>;
     findAll(query: QueryCustomersDto, req: any): Promise<any>;
     getAssignmentHistory(id: string, req: any): Promise<{
         data: import("../../common/utils/assignment-change.util").AssignmentHistoryRow[];

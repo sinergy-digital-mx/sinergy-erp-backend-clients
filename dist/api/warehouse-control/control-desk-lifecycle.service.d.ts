@@ -18,7 +18,7 @@ export declare class ControlDeskLifecycleService {
     cancelJob(manager: EntityManager, job: ControlDeskJob, userId: string): Promise<void>;
     deriveJobStatus(tasks: Array<{
         status: ControlDeskTaskStatus;
-    }>): {
+    }>, hasPosition?: boolean): {
         status: ControlDeskJobStatus;
         hasShortage: boolean;
     };

@@ -24,6 +24,7 @@ const billing_branch_entity_1 = require("../../entities/billing/billing-branch.e
 const user_entity_1 = require("../../entities/users/user.entity");
 const sales_order_entity_1 = require("../../entities/sales-orders/sales-order.entity");
 const customer_address_entity_1 = require("../../entities/customers/customer-address.entity");
+const carta_porte_util_1 = require("./utils/carta-porte.util");
 const geo_helper_1 = require("../../common/utils/geo.helper");
 const ELIGIBLE_SHIPPING_STATUSES = ['Surtida', 'Lista para entrega'];
 const ALLOWED_TRANSITIONS = {
@@ -75,6 +76,7 @@ let ShippingsService = class ShippingsService {
         await qr.connect();
         await qr.startTransaction();
         try {
+            await this.assertTruckAvailable(qr.manager, tenantId, truck);
             const shipping = qr.manager.create(shipping_entity_1.Shipping, {
                 tenant_id: tenantId,
                 shipping_date: dto.shipping_date,
@@ -164,10 +166,32 @@ let ShippingsService = class ShippingsService {
         }
         qb.orderBy('shipping.shipping_date', 'DESC').addOrderBy('shipping.created_at', 'DESC');
         const total = await qb.getCount();
-        const data = await qb
+        const pageRows = await qb
             .skip((page - 1) * limit)
             .take(limit)
             .getMany();
+        const ids = pageRows.map((row) => row.id);
+        let data = pageRows;
+        if (ids.length > 0) {
+            const detailed = await this.shippingRepo.find({
+                where: { id: (0, typeorm_2.In)(ids), tenant_id: tenantId },
+                relations: [
+                    'truck',
+                    'driver',
+                    'origin_warehouse',
+                    'origin_billing_branch',
+                    'stops',
+                    'stops.sales_order',
+                    'stops.sales_order.customer',
+                ],
+                order: { stops: { stop_sequence: 'ASC' } },
+            });
+            const byId = new Map(detailed.map((row) => [row.id, row]));
+            data = ids
+                .map((id) => byId.get(id))
+                .filter((row) => !!row)
+                .map((row) => (0, carta_porte_util_1.decorateShippingCartaPorte)(row));
+        }
         const totalPages = Math.ceil(total / limit) || 1;
         return {
             data,
@@ -292,7 +316,7 @@ let ShippingsService = class ShippingsService {
             throw new common_1.NotFoundException('Envío no encontrado');
         }
         await this.attachCustomerAddresses(shipping, tenantId);
-        return shipping;
+        return (0, carta_porte_util_1.decorateShippingCartaPorte)(shipping);
     }
     async setStopAddress(shippingId, salesOrderId, addressId, tenantId) {
         const shipping = await this.shippingRepo.findOne({
@@ -961,6 +985,21 @@ let ShippingsService = class ShippingsService {
             return this.originFromWarehouse(warehouse);
         }
         throw new common_1.BadRequestException('El envío no tiene sucursal de origen');
+    }
+    async assertTruckAvailable(manager, tenantId, truck) {
+        const busy = await manager
+            .createQueryBuilder(shipping_entity_1.Shipping, 'shipping')
+            .setLock('pessimistic_write')
+            .where('shipping.tenant_id = :tenantId', { tenantId })
+            .andWhere('shipping.truck_id = :truckId', { truckId: truck.id })
+            .andWhere('shipping.status IN (:...statuses)', {
+            statuses: [...shipping_entity_1.ACTIVE_SHIPPING_STATUSES],
+        })
+            .getOne();
+        if (busy) {
+            const label = [truck.name, truck.placa].filter(Boolean).join(' · ');
+            throw new common_1.ConflictException(`La unidad ${label} ya está en un envío activo. Complétalo o cancélalo para volver a usarla.`);
+        }
     }
     async getActiveTruck(id, tenantId) {
         const truck = await this.truckRepo.findOne({

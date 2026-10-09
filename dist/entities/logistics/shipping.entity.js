@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Shipping = exports.SHIPPING_STATUSES = void 0;
+exports.Shipping = exports.ACTIVE_SHIPPING_STATUSES = exports.SHIPPING_STATUSES = void 0;
 const typeorm_1 = require("typeorm");
 const tenant_entity_1 = require("../rbac/tenant.entity");
 const user_entity_1 = require("../users/user.entity");
@@ -23,6 +23,7 @@ exports.SHIPPING_STATUSES = [
     'Completado',
     'Cancelado',
 ];
+exports.ACTIVE_SHIPPING_STATUSES = ['Creado', 'En Ruta'];
 let Shipping = class Shipping {
     id;
     tenant;
@@ -43,6 +44,12 @@ let Shipping = class Shipping {
     status;
     distance_km;
     notes;
+    carta_porte_uuid;
+    carta_porte_idccp;
+    carta_porte_xml;
+    carta_porte_stamped_at;
+    carta_porte_error;
+    carta_porte_peso_kg;
     stops;
     created_at;
     updated_at;
@@ -131,6 +138,30 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'text', nullable: true }),
     __metadata("design:type", Object)
 ], Shipping.prototype, "notes", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 36, nullable: true }),
+    __metadata("design:type", Object)
+], Shipping.prototype, "carta_porte_uuid", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 36, nullable: true }),
+    __metadata("design:type", Object)
+], Shipping.prototype, "carta_porte_idccp", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'longtext', nullable: true }),
+    __metadata("design:type", Object)
+], Shipping.prototype, "carta_porte_xml", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'timestamp', nullable: true }),
+    __metadata("design:type", Object)
+], Shipping.prototype, "carta_porte_stamped_at", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'text', nullable: true }),
+    __metadata("design:type", Object)
+], Shipping.prototype, "carta_porte_error", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'decimal', precision: 12, scale: 3, nullable: true }),
+    __metadata("design:type", Object)
+], Shipping.prototype, "carta_porte_peso_kg", void 0);
 __decorate([
     (0, typeorm_1.OneToMany)(() => shipping_stop_entity_1.ShippingStop, (stop) => stop.shipping),
     __metadata("design:type", Array)

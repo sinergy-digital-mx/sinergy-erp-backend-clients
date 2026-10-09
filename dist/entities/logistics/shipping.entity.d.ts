@@ -6,6 +6,7 @@ import { Truck } from './truck.entity';
 import { ShippingStop } from './shipping-stop.entity';
 export declare const SHIPPING_STATUSES: readonly ["Creado", "En Ruta", "Completado", "Cancelado"];
 export type ShippingStatus = (typeof SHIPPING_STATUSES)[number];
+export declare const ACTIVE_SHIPPING_STATUSES: ShippingStatus[];
 export declare class Shipping {
     id: string;
     tenant: RBACTenant;
@@ -26,6 +27,12 @@ export declare class Shipping {
     status: ShippingStatus;
     distance_km: number | null;
     notes: string | null;
+    carta_porte_uuid: string | null;
+    carta_porte_idccp: string | null;
+    carta_porte_xml: string | null;
+    carta_porte_stamped_at: Date | null;
+    carta_porte_error: string | null;
+    carta_porte_peso_kg: number | null;
     stops: ShippingStop[];
     created_at: Date;
     updated_at: Date;

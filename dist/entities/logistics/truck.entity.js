@@ -26,9 +26,12 @@ let Truck = class Truck {
     tipo_auto_transporte;
     aseguradora_rc;
     poliza_rc;
+    peso_bruto_vehicular;
     subtipo_remolque1;
     placa_remolque1;
     photo;
+    gps_unit_uid;
+    gps_unit_name;
     status;
     created_at;
     updated_at;
@@ -88,6 +91,10 @@ __decorate([
     __metadata("design:type", Object)
 ], Truck.prototype, "poliza_rc", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'decimal', precision: 10, scale: 3, nullable: true }),
+    __metadata("design:type", Object)
+], Truck.prototype, "peso_bruto_vehicular", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 100, nullable: true }),
     __metadata("design:type", Object)
 ], Truck.prototype, "subtipo_remolque1", void 0);
@@ -99,6 +106,14 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 500, nullable: true }),
     __metadata("design:type", Object)
 ], Truck.prototype, "photo", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 80, nullable: true }),
+    __metadata("design:type", Object)
+], Truck.prototype, "gps_unit_uid", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 120, nullable: true }),
+    __metadata("design:type", Object)
+], Truck.prototype, "gps_unit_name", void 0);
 __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',
@@ -119,6 +134,7 @@ exports.Truck = Truck = __decorate([
     (0, typeorm_1.Entity)('trucks'),
     (0, typeorm_1.Index)('idx_trucks_tenant', ['tenant_id']),
     (0, typeorm_1.Index)('idx_trucks_status', ['status']),
-    (0, typeorm_1.Index)('uq_trucks_tenant_placa', ['tenant_id', 'placa'], { unique: true })
+    (0, typeorm_1.Index)('uq_trucks_tenant_placa', ['tenant_id', 'placa'], { unique: true }),
+    (0, typeorm_1.Index)('uq_trucks_tenant_gps_unit', ['tenant_id', 'gps_unit_uid'], { unique: true })
 ], Truck);
 //# sourceMappingURL=truck.entity.js.map

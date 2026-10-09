@@ -34,6 +34,8 @@ const inventory_stock_flow_service_1 = require("./services/inventory-stock-flow.
 const query_inventory_export_dto_1 = require("./dto/query-inventory-export.dto");
 const query_stock_flow_dto_1 = require("./dto/query-stock-flow.dto");
 const stock_flow_response_dto_1 = require("./dto/stock-flow-response.dto");
+const purchase_order_real_cost_permission_1 = require("../purchase-orders/constants/purchase-order-real-cost-permission");
+const omit_purchase_order_real_cost_util_1 = require("../purchase-orders/utils/omit-purchase-order-real-cost.util");
 let InventoryController = class InventoryController {
     inventoryService;
     exportService;
@@ -92,7 +94,11 @@ let InventoryController = class InventoryController {
     }
     async findOne(id, req) {
         const tenantId = req.user.tenant_id;
-        return this.inventoryService.findById(id, tenantId);
+        const batch = await this.inventoryService.findById(id, tenantId);
+        if ((0, purchase_order_real_cost_permission_1.userCanViewPurchaseOrderRealCost)(req.user)) {
+            return batch;
+        }
+        return (0, omit_purchase_order_real_cost_util_1.omitPurchaseOrderRealCost)(batch);
     }
     async updateBatch(id, dto, req) {
         return this.inventoryService.updateBatch(id, req.user.tenant_id, dto);

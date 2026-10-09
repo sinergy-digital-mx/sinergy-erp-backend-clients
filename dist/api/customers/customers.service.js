@@ -37,6 +37,7 @@ const customer_purchase_trend_util_1 = require("./utils/customer-purchase-trend.
 const assignment_change_util_1 = require("../../common/utils/assignment-change.util");
 const sat_csf_pdf_util_1 = require("./utils/sat-csf-pdf.util");
 const sat_csf_util_1 = require("./utils/sat-csf.util");
+const customer_list_insight_util_1 = require("./utils/customer-list-insight.util");
 const GENERIC_RFCS = new Set(['XAXX010101000', 'XEXX010101000']);
 const DUPLICATE_MATCH_LIMIT = 10;
 let CustomersService = class CustomersService {
@@ -302,42 +303,7 @@ let CustomersService = class CustomersService {
             'property.status',
         ])
             .where('customer.tenant_id = :tenantId', { tenantId });
-        if (query?.search) {
-            const term = `%${query.search.trim()}%`;
-            queryBuilder.andWhere(`(
-                    LOWER(customer.name) LIKE LOWER(:search)
-                    OR LOWER(customer.lastname) LIKE LOWER(:search)
-                    OR LOWER(CONCAT(customer.name, ' ', COALESCE(customer.lastname, ''))) LIKE LOWER(:search)
-                    OR LOWER(CONCAT(COALESCE(customer.lastname, ''), ' ', customer.name)) LIKE LOWER(:search)
-                    OR LOWER(customer.email) LIKE LOWER(:search)
-                    OR LOWER(customer.phone) LIKE LOWER(:search)
-                    OR LOWER(customer.phone_code) LIKE LOWER(:search)
-                    OR LOWER(CONCAT(COALESCE(customer.phone_code, ''), customer.phone)) LIKE LOWER(:search)
-                    OR LOWER(customer.company_name) LIKE LOWER(:search)
-                    OR LOWER(customer.website) LIKE LOWER(:search)
-                    OR LOWER(customer.additional_name) LIKE LOWER(:search)
-                    OR LOWER(customer.additional_lastname) LIKE LOWER(:search)
-                    OR LOWER(CONCAT(customer.additional_name, ' ', COALESCE(customer.additional_lastname, ''))) LIKE LOWER(:search)
-                    OR LOWER(customer.additional_email) LIKE LOWER(:search)
-                    OR LOWER(customer.additional_phone) LIKE LOWER(:search)
-                    OR LOWER(customer.fiscal_rfc) LIKE LOWER(:search)
-                    OR LOWER(customer.fiscal_razon_social) LIKE LOWER(:search)
-                    OR LOWER(property.code) LIKE LOWER(:search)
-                    OR LOWER(property.name) LIKE LOWER(:search)
-                    OR LOWER(property.cadastral_key) LIKE LOWER(:search)
-                    OR LOWER(contracts.contract_number) LIKE LOWER(:search)
-                )`, { search: term });
-        }
-        if (query?.status_id) {
-            queryBuilder.andWhere('customer.status_id = :status_id', {
-                status_id: query.status_id,
-            });
-        }
-        if (query?.group_id) {
-            queryBuilder.andWhere('customer.group_id = :group_id', {
-                group_id: query.group_id,
-            });
-        }
+        (0, customer_list_insight_util_1.applyCustomerDirectoryFilters)(queryBuilder, query);
         queryBuilder.orderBy('customer.created_at', 'DESC');
         const total = await queryBuilder.getCount();
         const customers = await queryBuilder.skip(skip).take(limit).getMany();
@@ -350,6 +316,41 @@ let CustomersService = class CustomersService {
             totalPages,
             hasNext: page < totalPages,
             hasPrev: page > 1,
+        };
+    }
+    async getListStats(tenantId, query) {
+        const queryBuilder = this.customerRepo
+            .createQueryBuilder('customer')
+            .leftJoin('customer.status', 'status')
+            .leftJoin('customer.contracts', 'contracts')
+            .leftJoin('contracts.property', 'property')
+            .where('customer.tenant_id = :tenantId', { tenantId });
+        (0, customer_list_insight_util_1.applyCustomerDirectoryFilters)(queryBuilder, query, { applyInsight: false });
+        const raw = await queryBuilder
+            .select('COUNT(DISTINCT customer.id)', 'total')
+            .addSelect(`COUNT(DISTINCT CASE WHEN ${customer_list_insight_util_1.CUSTOMER_HAS_ORDER_SQL} THEN customer.id END)`, 'with_orders')
+            .addSelect(`COUNT(DISTINCT CASE WHEN NOT (${customer_list_insight_util_1.CUSTOMER_HAS_ORDER_SQL}) THEN customer.id END)`, 'without_orders')
+            .addSelect(`COUNT(DISTINCT CASE WHEN ${customer_list_insight_util_1.CUSTOMER_FISCAL_READY_SQL} THEN customer.id END)`, 'fiscal_ready')
+            .addSelect(`COUNT(DISTINCT CASE WHEN NOT (${customer_list_insight_util_1.CUSTOMER_FISCAL_READY_SQL}) THEN customer.id END)`, 'fiscal_not_ready')
+            .addSelect(`COUNT(DISTINCT CASE WHEN ${customer_list_insight_util_1.CUSTOMER_IS_ACTIVE_SQL} THEN customer.id END)`, 'active')
+            .addSelect(`COUNT(DISTINCT CASE WHEN ${customer_list_insight_util_1.CUSTOMER_IS_INACTIVE_SQL} THEN customer.id END)`, 'inactive')
+            .addSelect(`COUNT(DISTINCT CASE WHEN ${customer_list_insight_util_1.CUSTOMER_HAS_EMAIL_SQL} THEN customer.id END)`, 'with_email')
+            .addSelect(`COUNT(DISTINCT CASE WHEN NOT (${customer_list_insight_util_1.CUSTOMER_HAS_EMAIL_SQL}) THEN customer.id END)`, 'without_email')
+            .getRawOne();
+        const count = (key) => {
+            const value = Number(raw?.[key] ?? 0);
+            return Number.isFinite(value) ? value : 0;
+        };
+        return {
+            total: count('total'),
+            with_orders: count('with_orders'),
+            without_orders: count('without_orders'),
+            fiscal_ready: count('fiscal_ready'),
+            fiscal_not_ready: count('fiscal_not_ready'),
+            active: count('active'),
+            inactive: count('inactive'),
+            with_email: count('with_email'),
+            without_email: count('without_email'),
         };
     }
     async findOne(id, tenantId, fiscalConfigurationId) {

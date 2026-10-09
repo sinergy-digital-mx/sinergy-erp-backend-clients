@@ -19,11 +19,17 @@ const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const permission_guard_1 = require("../rbac/guards/permission.guard");
 const require_permissions_decorator_1 = require("../rbac/decorators/require-permissions.decorator");
 const shippings_service_1 = require("./shippings.service");
+const carta_porte_service_1 = require("./services/carta-porte.service");
+const carta_porte_pdf_service_1 = require("./services/carta-porte-pdf.service");
 const shipping_dto_1 = require("./dto/shipping.dto");
 let ShippingsController = class ShippingsController {
     service;
-    constructor(service) {
+    cartaPorte;
+    cartaPortePdf;
+    constructor(service, cartaPorte, cartaPortePdf) {
         this.service = service;
+        this.cartaPorte = cartaPorte;
+        this.cartaPortePdf = cartaPortePdf;
     }
     preview(dto, req) {
         return this.service.preview(dto, req.user.tenant_id);
@@ -42,6 +48,16 @@ let ShippingsController = class ShippingsController {
     }
     findOne(id, req) {
         return this.service.findOne(id, req.user.tenant_id);
+    }
+    stampCartaPorte(id, dto, req) {
+        return this.cartaPorte.stamp(id, req.user.tenant_id, dto.peso_bruto_kg);
+    }
+    async downloadCartaPortePdf(id, req, res) {
+        const { buffer, filename } = await this.cartaPortePdf.generate(id, req.user.tenant_id);
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Length', buffer.length);
+        res.send(buffer);
     }
     setStopAddress(id, salesOrderId, dto, req) {
         return this.service.setStopAddress(id, salesOrderId, dto.customer_address_id, req.user.tenant_id);
@@ -120,6 +136,31 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], ShippingsController.prototype, "findOne", null);
 __decorate([
+    (0, common_1.Post)(':id/carta-porte'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Shipping', action: 'Update' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Timbrar carta porte del viaje',
+        description: 'CFDI de traslado con complemento Carta Porte 3.1. Finkok lo sella y timbra con sign_stamp.',
+    }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, shipping_dto_1.StampCartaPorteDto, Object]),
+    __metadata("design:returntype", void 0)
+], ShippingsController.prototype, "stampCartaPorte", null);
+__decorate([
+    (0, common_1.Get)(':id/carta-porte/pdf'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Shipping', action: 'Read' }),
+    (0, swagger_1.ApiOperation)({ summary: 'PDF de la carta porte timbrada' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __param(2, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], ShippingsController.prototype, "downloadCartaPortePdf", null);
+__decorate([
     (0, common_1.Patch)(':id/stops/:salesOrderId/address'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Shipping', action: 'Update' }),
     (0, swagger_1.ApiOperation)({
@@ -171,6 +212,8 @@ exports.ShippingsController = ShippingsController = __decorate([
     (0, common_1.Controller)('tenant/shippings'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     (0, swagger_1.ApiBearerAuth)(),
-    __metadata("design:paramtypes", [shippings_service_1.ShippingsService])
+    __metadata("design:paramtypes", [shippings_service_1.ShippingsService,
+        carta_porte_service_1.CartaPorteService,
+        carta_porte_pdf_service_1.CartaPortePdfService])
 ], ShippingsController);
 //# sourceMappingURL=shippings.controller.js.map

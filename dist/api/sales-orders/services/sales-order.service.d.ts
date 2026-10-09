@@ -452,6 +452,7 @@ export declare class SalesOrderService {
             can_edit_lines: boolean;
             control_desk: {
                 id: string;
+                sales_order_id: string;
                 folio: string;
                 customer_name: string | null;
                 customer_display_name: string | null;
@@ -459,6 +460,7 @@ export declare class SalesOrderService {
                 status: "cancelled" | "released" | "picking" | "waiting_assembly" | "assembling" | "assembled";
                 has_shortage: boolean;
                 created_at: Date;
+                updated_at: Date;
                 sales_order: {
                     id: string;
                     folio: string;
@@ -1112,6 +1114,7 @@ export declare class SalesOrderService {
             can_edit_lines: boolean;
             control_desk: {
                 id: string;
+                sales_order_id: string;
                 folio: string;
                 customer_name: string | null;
                 customer_display_name: string | null;
@@ -1119,6 +1122,7 @@ export declare class SalesOrderService {
                 status: "cancelled" | "released" | "picking" | "waiting_assembly" | "assembling" | "assembled";
                 has_shortage: boolean;
                 created_at: Date;
+                updated_at: Date;
                 sales_order: {
                     id: string;
                     folio: string;
@@ -1646,6 +1650,7 @@ export declare class SalesOrderService {
             can_edit_lines: boolean;
             control_desk: {
                 id: string;
+                sales_order_id: string;
                 folio: string;
                 customer_name: string | null;
                 customer_display_name: string | null;
@@ -1653,6 +1658,7 @@ export declare class SalesOrderService {
                 status: "cancelled" | "released" | "picking" | "waiting_assembly" | "assembling" | "assembled";
                 has_shortage: boolean;
                 created_at: Date;
+                updated_at: Date;
                 sales_order: {
                     id: string;
                     folio: string;
@@ -2060,6 +2066,7 @@ export declare class SalesOrderService {
     }>;
     private collectionActions;
     private describeAdvance;
+    setControlDesk(id: string, enabled: boolean, tenantId: string, userId: string): Promise<SalesOrder>;
     sendToCollection(id: string, tenantId: string, userId: string): Promise<SalesOrder>;
     withdrawFromCollection(id: string, tenantId: string, userId: string): Promise<SalesOrder>;
     private allocationScope;

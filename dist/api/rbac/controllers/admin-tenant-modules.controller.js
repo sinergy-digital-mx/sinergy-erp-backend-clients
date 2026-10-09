@@ -23,6 +23,8 @@ const module_entity_1 = require("../../../entities/rbac/module.entity");
 const tenant_module_entity_1 = require("../../../entities/rbac/tenant-module.entity");
 const permission_entity_1 = require("../../../entities/rbac/permission.entity");
 const uuid_1 = require("uuid");
+const madereria_inventory_import_constants_1 = require("../../madereria-inventory-import/madereria-inventory-import.constants");
+const purchase_order_real_cost_permission_1 = require("../../purchase-orders/constants/purchase-order-real-cost-permission");
 let AdminTenantModulesController = class AdminTenantModulesController {
     moduleService;
     tenantService;
@@ -109,6 +111,10 @@ let AdminTenantModulesController = class AdminTenantModulesController {
             const allModules = await this.moduleRepository.find();
             let enabledCount = 0;
             for (const module of allModules) {
+                if (module.code === purchase_order_real_cost_permission_1.PURCHASE_ORDER_REAL_COST_MODULE_CODE &&
+                    tenantId !== madereria_inventory_import_constants_1.MADERERIA_ORGANIZATION_ID) {
+                    continue;
+                }
                 try {
                     await this.moduleService.enableModuleForTenant(tenantId, module.id, {
                         skipPermissionRefresh: true,

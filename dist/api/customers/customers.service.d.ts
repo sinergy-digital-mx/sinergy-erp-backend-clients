@@ -38,6 +38,17 @@ interface PaginatedCustomersDto {
     hasNext: boolean;
     hasPrev: boolean;
 }
+export interface CustomerListStats {
+    total: number;
+    with_orders: number;
+    without_orders: number;
+    fiscal_ready: number;
+    fiscal_not_ready: number;
+    active: number;
+    inactive: number;
+    with_email: number;
+    without_email: number;
+}
 export declare class CustomersService {
     private customerRepo;
     private statusRepo;
@@ -132,6 +143,7 @@ export declare class CustomersService {
         fiscal_missing_fields: ("fiscal_rfc" | "fiscal_razon_social" | "fiscal_postal_code")[];
     }>;
     findAll(tenantId: string, query?: QueryCustomersDto): Promise<PaginatedCustomersDto>;
+    getListStats(tenantId: string, query?: QueryCustomersDto): Promise<CustomerListStats>;
     findOne(id: number, tenantId: string, fiscalConfigurationId?: string): Promise<{
         assignment_history: import("../../common/utils/assignment-change.util").AssignmentHistoryRow[];
         credits: import("./utils/customer-credit.util").CustomerCreditFiscalSnapshot[];

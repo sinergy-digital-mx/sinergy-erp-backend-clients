@@ -10,6 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateTruckDto = void 0;
+const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
 class CreateTruckDto {
     name;
@@ -22,9 +23,12 @@ class CreateTruckDto {
     tipo_auto_transporte;
     aseguradora_rc;
     poliza_rc;
+    peso_bruto_vehicular;
     subtipo_remolque1;
     placa_remolque1;
     status;
+    gps_unit_uid;
+    gps_unit_name;
 }
 exports.CreateTruckDto = CreateTruckDto;
 __decorate([
@@ -89,6 +93,13 @@ __decorate([
 ], CreateTruckDto.prototype, "poliza_rc", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0.001),
+    __metadata("design:type", Number)
+], CreateTruckDto.prototype, "peso_bruto_vehicular", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MaxLength)(100),
     __metadata("design:type", String)
@@ -104,4 +115,16 @@ __decorate([
     (0, class_validator_1.IsEnum)(['active', 'inactive']),
     __metadata("design:type", String)
 ], CreateTruckDto.prototype, "status", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(80),
+    __metadata("design:type", Object)
+], CreateTruckDto.prototype, "gps_unit_uid", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(120),
+    __metadata("design:type", Object)
+], CreateTruckDto.prototype, "gps_unit_name", void 0);
 //# sourceMappingURL=create-truck.dto.js.map

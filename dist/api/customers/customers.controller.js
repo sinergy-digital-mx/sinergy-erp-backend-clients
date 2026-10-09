@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const platform_express_1 = require("@nestjs/platform-express");
 const swagger_1 = require("@nestjs/swagger");
 const customers_service_1 = require("./customers.service");
+const permission_service_1 = require("../rbac/services/permission.service");
 const create_customer_dto_1 = require("./dto/create-customer.dto");
 const update_customer_dto_1 = require("./dto/update-customer.dto");
 const query_customers_dto_1 = require("./dto/query-customers.dto");
@@ -36,11 +37,28 @@ let CustomersController = class CustomersController {
     exportService;
     productInsightsService;
     customerGroupsService;
-    constructor(customersService, exportService, productInsightsService, customerGroupsService) {
+    permissionService;
+    constructor(customersService, exportService, productInsightsService, customerGroupsService, permissionService) {
         this.customersService = customersService;
         this.exportService = exportService;
         this.productInsightsService = productInsightsService;
         this.customerGroupsService = customerGroupsService;
+        this.permissionService = permissionService;
+    }
+    async stripInsightWithoutPermission(query, req) {
+        if (!query?.insight) {
+            return;
+        }
+        const userId = req.user?.user_id ?? req.user?.id;
+        const tenantId = req.user?.tenantId ?? req.user?.tenant_id;
+        if (!userId || !tenantId) {
+            query.insight = undefined;
+            return;
+        }
+        const allowed = await this.permissionService.hasPermission(userId, tenantId, 'customers', 'ViewStats');
+        if (!allowed) {
+            query.insight = undefined;
+        }
     }
     create(dto, req) {
         return this.customersService.create(dto, req.user.tenantId, req.user.id ?? req.user.user_id);
@@ -67,12 +85,17 @@ let CustomersController = class CustomersController {
         return this.customersService.getRegistrationOptions(req.user.tenant_id ?? req.user.tenantId);
     }
     async exportExcel(query, req, res) {
+        await this.stripInsightWithoutPermission(query, req);
         const buffer = await this.exportService.exportCustomers(req.user.tenantId, query);
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename="${this.exportService.getFilename()}"`);
         res.send(buffer);
     }
+    getListStats(query, req) {
+        return this.customersService.getListStats(req.user.tenantId ?? req.user.tenant_id, query);
+    }
     async findAll(query, req) {
+        await this.stripInsightWithoutPermission(query, req);
         return this.customersService.findAll(req.user.tenantId, query);
     }
     getAssignmentHistory(id, req) {
@@ -230,6 +253,24 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], CustomersController.prototype, "exportExcel", null);
 __decorate([
+    (0, common_1.Get)('stats'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'customers', action: 'ViewStats' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Resumen del listado de clientes de esta organización',
+        description: 'Totales de órdenes vigentes, listos para facturar, activos y con correo. Respeta búsqueda, estatus y grupo. No aplica insight.',
+    }),
+    (0, swagger_1.ApiQuery)({ name: 'search', required: false, type: String }),
+    (0, swagger_1.ApiQuery)({ name: 'status_id', required: false, type: Number }),
+    (0, swagger_1.ApiQuery)({ name: 'group_id', required: false, type: String }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Conteos del directorio' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Sin permiso ViewStats' }),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [query_customers_dto_1.QueryCustomersDto, Object]),
+    __metadata("design:returntype", void 0)
+], CustomersController.prototype, "getListStats", null);
+__decorate([
     (0, common_1.Get)(),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'customers', action: 'Read' }),
     (0, swagger_1.ApiOperation)({ summary: 'Get paginated customers with search and filters' }),
@@ -238,6 +279,12 @@ __decorate([
     (0, swagger_1.ApiQuery)({ name: 'search', required: false, type: String, description: 'Search by name, email, phone, company, RFC, fiscal name, etc.' }),
     (0, swagger_1.ApiQuery)({ name: 'status_id', required: false, type: Number, description: 'Filter by status ID' }),
     (0, swagger_1.ApiQuery)({ name: 'group_id', required: false, type: String, description: 'Filter by customer group ID' }),
+    (0, swagger_1.ApiQuery)({
+        name: 'insight',
+        required: false,
+        type: String,
+        description: 'Corte del resumen. Se ignora sin el permiso ViewStats.',
+    }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'List of customers retrieved successfully' }),
     (0, swagger_1.ApiResponse)({ status: 401, description: 'Unauthorized - Invalid or missing token' }),
     (0, swagger_1.ApiResponse)({ status: 403, description: 'Forbidden - Insufficient permissions' }),
@@ -422,6 +469,7 @@ exports.CustomersController = CustomersController = __decorate([
     __metadata("design:paramtypes", [customers_service_1.CustomersService,
         customers_export_service_1.CustomersExportService,
         customer_product_insights_service_1.CustomerProductInsightsService,
-        customer_groups_service_1.CustomerGroupsService])
+        customer_groups_service_1.CustomerGroupsService,
+        permission_service_1.PermissionService])
 ], CustomersController);
 //# sourceMappingURL=customers.controller.js.map

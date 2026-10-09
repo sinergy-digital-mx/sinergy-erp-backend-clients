@@ -36,6 +36,9 @@ let User = class User {
     is_employee;
     is_manager;
     is_crm_admin;
+    is_driver;
+    driver_license_number;
+    driver_rfc;
     created_at;
     updated_at;
 };
@@ -127,6 +130,18 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'tinyint', default: 0 }),
     __metadata("design:type", Boolean)
 ], User.prototype, "is_crm_admin", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'tinyint', default: 0 }),
+    __metadata("design:type", Boolean)
+], User.prototype, "is_driver", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 30, nullable: true }),
+    __metadata("design:type", Object)
+], User.prototype, "driver_license_number", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 13, nullable: true }),
+    __metadata("design:type", Object)
+], User.prototype, "driver_rfc", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)({ type: 'timestamp' }),
     __metadata("design:type", Date)

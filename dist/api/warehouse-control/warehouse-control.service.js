@@ -58,7 +58,7 @@ let WarehouseControlService = WarehouseControlService_1 = class WarehouseControl
     async getBoard(tenantId, actor, filters) {
         await this.ensureJobsForOpenOrders(tenantId, actor.userId);
         const scope = await this.resolveScope(tenantId, actor, filters);
-        const { search, status, page = 1, limit = 50 } = filters;
+        const { search, status, stage, page = 1, limit = 50 } = filters;
         const qb = this.jobRepo
             .createQueryBuilder('job')
             .leftJoinAndSelect('job.sales_order', 'so')
@@ -74,7 +74,11 @@ let WarehouseControlService = WarehouseControlService_1 = class WarehouseControl
             .leftJoinAndSelect('product_uom.uom', 'uom')
             .where('job.tenant_id = :tenantId', { tenantId })
             .andWhere('job.status != :cancelled', { cancelled: 'cancelled' })
-            .andWhere('so.general_status = :enSeleccion', { enSeleccion: 'En Selección' });
+            .andWhere(`(so.general_status = :enSeleccion OR (job.status = :assembledStatus AND so.general_status = :readyStatus))`, {
+            enSeleccion: 'En Selección',
+            assembledStatus: 'assembled',
+            readyStatus: 'Lista para entrega',
+        });
         if (scope.billingBranchId) {
             qb.andWhere('job.billing_branch_id = :billingBranchId', {
                 billingBranchId: scope.billingBranchId,
@@ -88,9 +92,6 @@ let WarehouseControlService = WarehouseControlService_1 = class WarehouseControl
             AND scoped.status != 'cancelled'
         )`, { warehouseIds: scope.warehouseIds });
         }
-        if (status) {
-            qb.andWhere('job.status = :status', { status });
-        }
         if (search) {
             qb.andWhere(`(so.folio LIKE :s
           OR customer.name LIKE :s
@@ -100,12 +101,14 @@ let WarehouseControlService = WarehouseControlService_1 = class WarehouseControl
         qb.orderBy('so.created_at', 'ASC');
         const jobs = await qb.getMany();
         const mappedJobs = jobs.map((job) => this.mapJob(job, scope.warehouseIds));
-        const queue = mappedJobs.filter((job) => !job.position);
-        const paged = mappedJobs.slice((page - 1) * limit, page * limit);
+        const onDesk = mappedJobs.filter((job) => job.sales_order?.general_status === 'En Selección');
+        const listed = this.filterJobsByStage(mappedJobs, stage || status);
+        const queue = listed.filter((job) => !job.position && job.sales_order?.general_status === 'En Selección');
+        const paged = listed.slice((page - 1) * limit, page * limit);
         const [stats, positions] = await Promise.all([
             this.buildStats(tenantId, scope),
             scope.billingBranchId
-                ? this.listPositionsInternal(tenantId, scope.billingBranchId, mappedJobs)
+                ? this.listPositionsInternal(tenantId, scope.billingBranchId, onDesk)
                 : [],
         ]);
         return {
@@ -177,6 +180,7 @@ let WarehouseControlService = WarehouseControlService_1 = class WarehouseControl
                 }
             }
             await qr.manager.update(control_desk_job_entity_1.ControlDeskJob, { id: job.id }, { position_id: position.id, updated_by: actor.userId });
+            await this.lifecycle.refreshJobProgress(qr.manager, job.id, actor.userId);
             await qr.commitTransaction();
             return this.findOneJob(job.id, tenantId, actor);
         }
@@ -345,8 +349,8 @@ let WarehouseControlService = WarehouseControlService_1 = class WarehouseControl
             const assemblyReady = job.status === 'assembling' ||
                 job.status === 'assembled' ||
                 job.status === 'waiting_assembly';
-            if (positionCount > 0 && job.status === 'waiting_assembly') {
-                throw new common_1.BadRequestException('Marca la orden como armando en su posición antes de corroborar');
+            if (positionCount > 0 && !job.position_id && job.status !== 'assembled') {
+                throw new common_1.BadRequestException('Asigna una posición de piso antes de marcarla armada');
             }
             if (!assemblyReady) {
                 throw new common_1.BadRequestException('La orden todavía tiene almacenes pendientes de surtir');
@@ -612,11 +616,13 @@ let WarehouseControlService = WarehouseControlService_1 = class WarehouseControl
     async buildStats(tenantId, scope) {
         const empty = {
             in_desk: 0,
+            queue: 0,
             released: 0,
             picking: 0,
             waiting_assembly: 0,
             assembling: 0,
             assembled: 0,
+            assembled_today: 0,
             with_shortage: 0,
             positions_free: 0,
             positions_occupied: 0,
@@ -628,10 +634,14 @@ let WarehouseControlService = WarehouseControlService_1 = class WarehouseControl
         };
         const jobQb = this.jobRepo
             .createQueryBuilder('job')
-            .innerJoin('job.sales_order', 'so')
+            .innerJoinAndSelect('job.sales_order', 'so')
             .where('job.tenant_id = :tenantId', { tenantId })
             .andWhere('job.status != :cancelled', { cancelled: 'cancelled' })
-            .andWhere('so.general_status = :enSeleccion', { enSeleccion: 'En Selección' });
+            .andWhere(`(so.general_status = :enSeleccion OR (job.status = :assembledStatus AND so.general_status = :readyStatus))`, {
+            enSeleccion: 'En Selección',
+            assembledStatus: 'assembled',
+            readyStatus: 'Lista para entrega',
+        });
         if (scope.billingBranchId) {
             jobQb.andWhere('job.billing_branch_id = :billingBranchId', {
                 billingBranchId: scope.billingBranchId,
@@ -646,15 +656,30 @@ let WarehouseControlService = WarehouseControlService_1 = class WarehouseControl
         }
         const jobs = await jobQb.getMany();
         const stats = { ...empty, warehouse: { ...empty.warehouse } };
-        stats.in_desk = jobs.length;
         for (const job of jobs) {
-            if (job.status in stats) {
-                stats[job.status] += 1;
+            const onDesk = job.sales_order?.general_status === 'En Selección';
+            const stage = this.stageOf(job.status, !!job.position_id);
+            if (onDesk) {
+                stats.in_desk += 1;
+                if (stage === 'queue')
+                    stats.queue += 1;
+                else if (stage === 'picking')
+                    stats.picking += 1;
+                else if (stage === 'assembling') {
+                    stats.assembling += 1;
+                    if (job.status === 'waiting_assembly')
+                        stats.waiting_assembly += 1;
+                }
+                if (job.has_shortage)
+                    stats.with_shortage += 1;
             }
-            if (job.has_shortage) {
-                stats.with_shortage += 1;
+            if (job.status === 'assembled') {
+                stats.assembled += 1;
+                if (this.isSameLocalDay(job.updated_at))
+                    stats.assembled_today += 1;
             }
         }
+        stats.released = stats.queue;
         if (scope.billingBranchId) {
             const positions = await this.positionRepo.find({
                 where: {
@@ -717,6 +742,42 @@ let WarehouseControlService = WarehouseControlService_1 = class WarehouseControl
             job: byPosition.get(position.id) ?? null,
         }));
     }
+    stageOf(status, hasPosition) {
+        if (status === 'assembled')
+            return 'assembled';
+        if (status === 'assembling' || status === 'waiting_assembly')
+            return 'assembling';
+        if (status === 'picking' || hasPosition)
+            return 'picking';
+        return 'queue';
+    }
+    isSameLocalDay(value) {
+        if (!value)
+            return false;
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime()))
+            return false;
+        const now = new Date();
+        return (date.getFullYear() === now.getFullYear() &&
+            date.getMonth() === now.getMonth() &&
+            date.getDate() === now.getDate());
+    }
+    filterJobsByStage(jobs, stage) {
+        if (!stage) {
+            return jobs.filter((job) => job.sales_order?.general_status === 'En Selección');
+        }
+        if (stage === 'today') {
+            return jobs.filter((job) => job.status === 'assembled' && this.isSameLocalDay(job.updated_at));
+        }
+        const wanted = stage === 'released' ? 'queue' : stage === 'waiting_assembly' ? 'assembling' : stage;
+        return jobs.filter((job) => {
+            const onDesk = job.sales_order?.general_status === 'En Selección';
+            const current = this.stageOf(job.status, !!job.position?.id);
+            if (wanted === 'assembled')
+                return current === 'assembled';
+            return onDesk && current === wanted;
+        });
+    }
     mapJob(job, warehouseScope) {
         const so = job.sales_order;
         const tasks = (job.tasks ?? []).map((task) => this.mapTask(task));
@@ -736,6 +797,7 @@ let WarehouseControlService = WarehouseControlService_1 = class WarehouseControl
             null;
         return {
             id: job.id,
+            sales_order_id: so?.id ?? job.sales_order_id,
             folio: so?.folio ?? null,
             customer_name: customerName,
             customer_display_name: customerName,
@@ -743,6 +805,7 @@ let WarehouseControlService = WarehouseControlService_1 = class WarehouseControl
             status: job.status,
             has_shortage: Boolean(job.has_shortage),
             created_at: job.created_at,
+            updated_at: job.updated_at,
             sales_order: so
                 ? {
                     id: so.id,

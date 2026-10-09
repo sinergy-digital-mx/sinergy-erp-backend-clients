@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.QueryAvailableShippingOrdersDto = exports.QueryShippingDto = exports.ResolveOrdersDto = exports.SetShippingStopAddressDto = exports.UpdateShippingStatusDto = exports.AddShippingStopsDto = exports.PreviewShippingDto = exports.CreateShippingDto = exports.ShippingOrderItemDto = void 0;
+exports.StampCartaPorteDto = exports.QueryAvailableShippingOrdersDto = exports.QueryShippingDto = exports.ResolveOrdersDto = exports.SetShippingStopAddressDto = exports.UpdateShippingStatusDto = exports.AddShippingStopsDto = exports.PreviewShippingDto = exports.CreateShippingDto = exports.ShippingOrderItemDto = void 0;
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
 class ShippingOrderItemDto {
@@ -221,4 +221,14 @@ __decorate([
     (0, class_validator_1.Min)(1),
     __metadata("design:type", Number)
 ], QueryAvailableShippingOrdersDto.prototype, "limit", void 0);
+class StampCartaPorteDto {
+    peso_bruto_kg;
+}
+exports.StampCartaPorteDto = StampCartaPorteDto;
+__decorate([
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0.001),
+    __metadata("design:type", Number)
+], StampCartaPorteDto.prototype, "peso_bruto_kg", void 0);
 //# sourceMappingURL=shipping.dto.js.map

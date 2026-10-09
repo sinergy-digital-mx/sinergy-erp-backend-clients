@@ -43,6 +43,17 @@ export declare class UsersRolesController {
             can_switch_branch: boolean;
             has_all_branches_access: boolean;
             reports?: any;
+            manager: {
+                id: string;
+                email: string | null;
+                first_name: string;
+                last_name: string;
+            } | null;
+            is_driver: boolean;
+            driver_license_number: string | null;
+            driver_rfc: string | null;
+            carta_porte_ready: boolean;
+            carta_porte_missing: string[];
             id: string;
             email: string | null;
             first_name: string;
@@ -62,12 +73,6 @@ export declare class UsersRolesController {
             employee: any;
             is_manager: boolean;
             is_crm_admin: boolean;
-            manager: {
-                id: string;
-                email: string | null;
-                first_name: string;
-                last_name: string;
-            } | null;
         };
     }>;
     getUserStatuses(): Promise<import("../../../entities/users/user-status.entity").UserStatus[]>;
@@ -147,6 +152,17 @@ export declare class UsersRolesController {
             can_switch_branch: boolean;
             has_all_branches_access: boolean;
             reports?: any;
+            manager: {
+                id: string;
+                email: string | null;
+                first_name: string;
+                last_name: string;
+            } | null;
+            is_driver: boolean;
+            driver_license_number: string | null;
+            driver_rfc: string | null;
+            carta_porte_ready: boolean;
+            carta_porte_missing: string[];
             id: string;
             email: string | null;
             first_name: string;
@@ -166,12 +182,6 @@ export declare class UsersRolesController {
             employee: any;
             is_manager: boolean;
             is_crm_admin: boolean;
-            manager: {
-                id: string;
-                email: string | null;
-                first_name: string;
-                last_name: string;
-            } | null;
         }[];
     }>;
     getUserById(userId: string): Promise<{
@@ -198,6 +208,17 @@ export declare class UsersRolesController {
         can_switch_branch: boolean;
         has_all_branches_access: boolean;
         reports?: any;
+        manager: {
+            id: string;
+            email: string | null;
+            first_name: string;
+            last_name: string;
+        } | null;
+        is_driver: boolean;
+        driver_license_number: string | null;
+        driver_rfc: string | null;
+        carta_porte_ready: boolean;
+        carta_porte_missing: string[];
         id: string;
         email: string | null;
         first_name: string;
@@ -217,12 +238,6 @@ export declare class UsersRolesController {
         employee: any;
         is_manager: boolean;
         is_crm_admin: boolean;
-        manager: {
-            id: string;
-            email: string | null;
-            first_name: string;
-            last_name: string;
-        } | null;
     }>;
     updateUserStatus(userId: string, dto: UpdateUserStatusDto): Promise<{
         message: string;
@@ -250,6 +265,17 @@ export declare class UsersRolesController {
             can_switch_branch: boolean;
             has_all_branches_access: boolean;
             reports?: any;
+            manager: {
+                id: string;
+                email: string | null;
+                first_name: string;
+                last_name: string;
+            } | null;
+            is_driver: boolean;
+            driver_license_number: string | null;
+            driver_rfc: string | null;
+            carta_porte_ready: boolean;
+            carta_porte_missing: string[];
             id: string;
             email: string | null;
             first_name: string;
@@ -269,12 +295,6 @@ export declare class UsersRolesController {
             employee: any;
             is_manager: boolean;
             is_crm_admin: boolean;
-            manager: {
-                id: string;
-                email: string | null;
-                first_name: string;
-                last_name: string;
-            } | null;
         };
     }>;
     deleteUser(userId: string): Promise<{
@@ -303,6 +323,17 @@ export declare class UsersRolesController {
             can_switch_branch: boolean;
             has_all_branches_access: boolean;
             reports?: any;
+            manager: {
+                id: string;
+                email: string | null;
+                first_name: string;
+                last_name: string;
+            } | null;
+            is_driver: boolean;
+            driver_license_number: string | null;
+            driver_rfc: string | null;
+            carta_porte_ready: boolean;
+            carta_porte_missing: string[];
             id: string;
             email: string | null;
             first_name: string;
@@ -322,12 +353,6 @@ export declare class UsersRolesController {
             employee: any;
             is_manager: boolean;
             is_crm_admin: boolean;
-            manager: {
-                id: string;
-                email: string | null;
-                first_name: string;
-                last_name: string;
-            } | null;
         };
     }>;
     getUserBranch(userId: string): Promise<{
@@ -458,6 +483,17 @@ export declare class UsersRolesController {
             can_switch_branch: boolean;
             has_all_branches_access: boolean;
             reports?: any;
+            manager: {
+                id: string;
+                email: string | null;
+                first_name: string;
+                last_name: string;
+            } | null;
+            is_driver: boolean;
+            driver_license_number: string | null;
+            driver_rfc: string | null;
+            carta_porte_ready: boolean;
+            carta_porte_missing: string[];
             id: string;
             email: string | null;
             first_name: string;
@@ -477,12 +513,6 @@ export declare class UsersRolesController {
             employee: any;
             is_manager: boolean;
             is_crm_admin: boolean;
-            manager: {
-                id: string;
-                email: string | null;
-                first_name: string;
-                last_name: string;
-            } | null;
         };
     }>;
     getUserPermissions(userId: string): Promise<{

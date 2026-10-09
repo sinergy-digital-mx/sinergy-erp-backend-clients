@@ -1,8 +1,12 @@
 import { ShippingsService } from './shippings.service';
-import { AddShippingStopsDto, CreateShippingDto, PreviewShippingDto, QueryAvailableShippingOrdersDto, QueryShippingDto, ResolveOrdersDto, SetShippingStopAddressDto, UpdateShippingStatusDto } from './dto/shipping.dto';
+import { CartaPorteService } from './services/carta-porte.service';
+import { CartaPortePdfService } from './services/carta-porte-pdf.service';
+import { AddShippingStopsDto, CreateShippingDto, PreviewShippingDto, QueryAvailableShippingOrdersDto, QueryShippingDto, ResolveOrdersDto, SetShippingStopAddressDto, StampCartaPorteDto, UpdateShippingStatusDto } from './dto/shipping.dto';
 export declare class ShippingsController {
     private readonly service;
-    constructor(service: ShippingsService);
+    private readonly cartaPorte;
+    private readonly cartaPortePdf;
+    constructor(service: ShippingsService, cartaPorte: CartaPorteService, cartaPortePdf: CartaPortePdfService);
     preview(dto: PreviewShippingDto, req: any): Promise<{
         origin: {
             label: string;
@@ -130,6 +134,8 @@ export declare class ShippingsController {
         hasPrev: boolean;
     }>;
     findOne(id: string, req: any): Promise<import("../../entities/logistics/shipping.entity").Shipping>;
+    stampCartaPorte(id: string, dto: StampCartaPorteDto, req: any): Promise<import("../../entities/logistics/shipping.entity").Shipping>;
+    downloadCartaPortePdf(id: string, req: any, res: any): Promise<void>;
     setStopAddress(id: string, salesOrderId: string, dto: SetShippingStopAddressDto, req: any): Promise<import("../../entities/logistics/shipping.entity").Shipping>;
     addStops(id: string, dto: AddShippingStopsDto, req: any): Promise<import("../../entities/logistics/shipping.entity").Shipping>;
     recalculate(id: string, req: any): Promise<import("../../entities/logistics/shipping.entity").Shipping>;

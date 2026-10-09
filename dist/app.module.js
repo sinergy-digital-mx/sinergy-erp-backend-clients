@@ -47,6 +47,7 @@ const employees_module_1 = require("./api/employees/employees.module");
 const employee_portal_module_1 = require("./api/employee-portal/employee-portal.module");
 const trucks_module_1 = require("./api/trucks/trucks.module");
 const shippings_module_1 = require("./api/shippings/shippings.module");
+const gps_tracking_module_1 = require("./api/gps-tracking/gps-tracking.module");
 const warehouse_control_module_1 = require("./api/warehouse-control/warehouse-control.module");
 const madereria_inventory_import_module_1 = require("./api/madereria-inventory-import/madereria-inventory-import.module");
 const self_invoice_module_1 = require("./api/self-invoice/self-invoice.module");
@@ -95,6 +96,7 @@ exports.AppModule = AppModule = __decorate([
             employee_portal_module_1.EmployeePortalModule,
             trucks_module_1.TrucksModule,
             shippings_module_1.ShippingsModule,
+            gps_tracking_module_1.GpsTrackingModule,
             warehouse_control_module_1.WarehouseControlModule,
             madereria_inventory_import_module_1.MadereriaInventoryImportModule,
             self_invoice_module_1.SelfInvoiceModule,

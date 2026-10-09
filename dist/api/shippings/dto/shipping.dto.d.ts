@@ -45,3 +45,6 @@ export declare class QueryAvailableShippingOrdersDto {
     page?: number;
     limit?: number;
 }
+export declare class StampCartaPorteDto {
+    peso_bruto_kg: number;
+}

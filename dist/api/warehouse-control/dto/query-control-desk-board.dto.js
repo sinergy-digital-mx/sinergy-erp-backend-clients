@@ -17,6 +17,7 @@ class QueryControlDeskBoardDto {
     billing_branch_id;
     warehouse_id;
     status;
+    stage;
     view;
     page = 1;
     limit = 50;
@@ -42,6 +43,11 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], QueryControlDeskBoardDto.prototype, "status", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['queue', 'picking', 'assembling', 'assembled', 'today']),
+    __metadata("design:type", String)
+], QueryControlDeskBoardDto.prototype, "stage", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsIn)(['admin', 'warehouse']),

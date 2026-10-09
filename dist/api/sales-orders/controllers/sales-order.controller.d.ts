@@ -195,6 +195,7 @@ export declare class SalesOrderController {
                 can_edit_lines: boolean;
                 control_desk: {
                     id: string;
+                    sales_order_id: string;
                     folio: string;
                     customer_name: string | null;
                     customer_display_name: string | null;
@@ -202,6 +203,7 @@ export declare class SalesOrderController {
                     status: "cancelled" | "released" | "picking" | "waiting_assembly" | "assembling" | "assembled";
                     has_shortage: boolean;
                     created_at: Date;
+                    updated_at: Date;
                     sales_order: {
                         id: string;
                         folio: string;
@@ -663,6 +665,7 @@ export declare class SalesOrderController {
                 can_edit_lines: boolean;
                 control_desk: {
                     id: string;
+                    sales_order_id: string;
                     folio: string;
                     customer_name: string | null;
                     customer_display_name: string | null;
@@ -670,6 +673,7 @@ export declare class SalesOrderController {
                     status: "cancelled" | "released" | "picking" | "waiting_assembly" | "assembling" | "assembled";
                     has_shortage: boolean;
                     created_at: Date;
+                    updated_at: Date;
                     sales_order: {
                         id: string;
                         folio: string;
@@ -1131,6 +1135,7 @@ export declare class SalesOrderController {
                 can_edit_lines: boolean;
                 control_desk: {
                     id: string;
+                    sales_order_id: string;
                     folio: string;
                     customer_name: string | null;
                     customer_display_name: string | null;
@@ -1138,6 +1143,7 @@ export declare class SalesOrderController {
                     status: "cancelled" | "released" | "picking" | "waiting_assembly" | "assembling" | "assembled";
                     has_shortage: boolean;
                     created_at: Date;
+                    updated_at: Date;
                     sales_order: {
                         id: string;
                         folio: string;
@@ -1592,6 +1598,7 @@ export declare class SalesOrderController {
             can_edit_lines: boolean;
             control_desk: {
                 id: string;
+                sales_order_id: string;
                 folio: string;
                 customer_name: string | null;
                 customer_display_name: string | null;
@@ -1599,6 +1606,7 @@ export declare class SalesOrderController {
                 status: "cancelled" | "released" | "picking" | "waiting_assembly" | "assembling" | "assembled";
                 has_shortage: boolean;
                 created_at: Date;
+                updated_at: Date;
                 sales_order: {
                     id: string;
                     folio: string;
@@ -2126,6 +2134,7 @@ export declare class SalesOrderController {
             can_edit_lines: boolean;
             control_desk: {
                 id: string;
+                sales_order_id: string;
                 folio: string;
                 customer_name: string | null;
                 customer_display_name: string | null;
@@ -2133,6 +2142,7 @@ export declare class SalesOrderController {
                 status: "cancelled" | "released" | "picking" | "waiting_assembly" | "assembling" | "assembled";
                 has_shortage: boolean;
                 created_at: Date;
+                updated_at: Date;
                 sales_order: {
                     id: string;
                     folio: string;
@@ -2637,6 +2647,8 @@ export declare class SalesOrderController {
         uuid?: string;
     }, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     getInvoices(id: string, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice[]>;
+    getPaymentComplement(id: string, req: any): Promise<import("../services/sales-order-invoicing.service").PaymentComplementStatus>;
+    stampPaymentComplement(id: string, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     stampInvoice(id: string, dto: StampSalesOrderInvoiceDto, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     stampAdvance(id: string, dto: StampAdvanceInvoiceDto, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     applyAdvance(id: string, dto: ApplyAdvanceInvoiceDto, req: any): Promise<{
@@ -3200,6 +3212,7 @@ export declare class SalesOrderController {
                 can_edit_lines: boolean;
                 control_desk: {
                     id: string;
+                    sales_order_id: string;
                     folio: string;
                     customer_name: string | null;
                     customer_display_name: string | null;
@@ -3207,6 +3220,7 @@ export declare class SalesOrderController {
                     status: "cancelled" | "released" | "picking" | "waiting_assembly" | "assembling" | "assembled";
                     has_shortage: boolean;
                     created_at: Date;
+                    updated_at: Date;
                     sales_order: {
                         id: string;
                         folio: string;
@@ -3508,6 +3522,9 @@ export declare class SalesOrderController {
     }>;
     fulfill(id: string, dto: FulfillSalesOrderDto, req: any): Promise<import("../../../entities/sales-orders").SalesOrder>;
     cancelPost(id: string, req: any): Promise<import("../../../entities/sales-orders").SalesOrder>;
+    setControlDesk(id: string, body: {
+        enabled?: boolean;
+    }, req: any): Promise<import("../../../entities/sales-orders").SalesOrder>;
     sendToCollection(id: string, req: any): Promise<import("../../../entities/sales-orders").SalesOrder>;
     withdrawFromCollection(id: string, req: any): Promise<import("../../../entities/sales-orders").SalesOrder>;
     cancel(id: string, req: any): Promise<import("../../../entities/sales-orders").SalesOrder>;

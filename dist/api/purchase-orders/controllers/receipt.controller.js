@@ -18,6 +18,7 @@ const jwt_auth_guard_1 = require("../../auth/jwt-auth.guard");
 const tenant_module_validation_guard_1 = require("../../auth/tenant-module-validation.guard");
 const receipt_service_1 = require("../services/receipt.service");
 const dto_1 = require("../dto");
+const hide_purchase_order_real_cost_interceptor_1 = require("../interceptors/hide-purchase-order-real-cost.interceptor");
 let ReceiptController = class ReceiptController {
     receiptService;
     constructor(receiptService) {
@@ -43,6 +44,7 @@ __decorate([
 exports.ReceiptController = ReceiptController = __decorate([
     (0, common_1.Controller)('tenant/purchase-orders'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, tenant_module_validation_guard_1.TenantModuleValidationGuard),
+    (0, common_1.UseInterceptors)(hide_purchase_order_real_cost_interceptor_1.HidePurchaseOrderRealCostInterceptor),
     __metadata("design:paramtypes", [receipt_service_1.ReceiptService])
 ], ReceiptController);
 //# sourceMappingURL=receipt.controller.js.map

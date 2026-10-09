@@ -50,6 +50,7 @@ const USO_CFDI = {
     G03: 'Gastos en general',
     I01: 'Construcciones',
     P01: 'Por definir',
+    CP01: 'Pagos',
 };
 function labelRegimenFiscal(code) {
     if (!code) {

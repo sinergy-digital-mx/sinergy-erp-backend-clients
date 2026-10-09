@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const sales_order_entity_1 = require("../../../entities/sales-orders/sales-order.entity");
+const sales_order_payment_entity_1 = require("../../../entities/sales-orders/sales-order-payment.entity");
 const customer_entity_1 = require("../../../entities/customers/customer.entity");
 const electronic_invoice_service_1 = require("../../electronic-invoicing/services/electronic-invoice.service");
 const advance_cfdi_service_1 = require("../../electronic-invoicing/services/advance-cfdi.service");
@@ -27,17 +28,20 @@ const advance_payment_method_util_1 = require("../../pos-shifts/utils/advance-pa
 const service_subscription_period_entity_1 = require("../../../entities/service-subscriptions/service-subscription-period.entity");
 const service_subscription_period_status_enum_1 = require("../../../entities/service-subscriptions/service-subscription-period-status.enum");
 const cfdi_xml_parser_1 = require("../../electronic-invoicing/utils/cfdi-xml.parser");
+const payment_cfdi_util_1 = require("../../electronic-invoicing/utils/payment-cfdi.util");
 const cfdi_stamp_date_util_1 = require("../../electronic-invoicing/utils/cfdi-stamp-date.util");
 let SalesOrderInvoicingService = class SalesOrderInvoicingService {
     salesOrderRepo;
+    paymentRepo;
     customerRepo;
     electronicInvoiceService;
     advanceCfdi;
     posShiftsService;
     advancePayments;
     periodRepo;
-    constructor(salesOrderRepo, customerRepo, electronicInvoiceService, advanceCfdi, posShiftsService, advancePayments, periodRepo) {
+    constructor(salesOrderRepo, paymentRepo, customerRepo, electronicInvoiceService, advanceCfdi, posShiftsService, advancePayments, periodRepo) {
         this.salesOrderRepo = salesOrderRepo;
+        this.paymentRepo = paymentRepo;
         this.customerRepo = customerRepo;
         this.electronicInvoiceService = electronicInvoiceService;
         this.advanceCfdi = advanceCfdi;
@@ -192,6 +196,38 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
         }
         return invoices;
     }
+    async getPaymentComplementStatus(salesOrderId, tenantId) {
+        return (await this.preparePaymentComplement(salesOrderId, tenantId)).status;
+    }
+    async stampPaymentComplement(salesOrderId, tenantId, userId) {
+        const prepared = await this.preparePaymentComplement(salesOrderId, tenantId);
+        if (!prepared.stamp) {
+            throw new common_1.BadRequestException(prepared.status.reason || 'No se puede generar el CEP');
+        }
+        const { income, customerRfc, customerName, xml, amount, environment } = prepared.stamp;
+        return this.electronicInvoiceService.stamp(tenantId, userId, {
+            fiscal_configuration_id: income.fiscal_configuration_id,
+            source_module: 'sales_orders',
+            source_id: salesOrderId,
+            xml,
+            rfc_receptor: customerRfc,
+            receptor_nombre: customerName,
+            subtotal: 0,
+            total: 0,
+            series: 'CP',
+            folio: prepared.stamp.folio,
+            tipo_comprobante: 'P',
+            currency: 'XXX',
+            environment,
+            metadata: {
+                kind: 'payment_complement',
+                related_invoice_id: income.id,
+                related_uuid: prepared.stamp.relatedUuid,
+                monto_total_pagos: amount,
+                sales_order_folio: prepared.stamp.folio,
+            },
+        });
+    }
     async repairStoredStampDate(invoice) {
         if (invoice.metadata?.registered_existing !== true)
             return;
@@ -300,6 +336,244 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
     }
     buildXmlPlaceholder(order, customer) {
         throw new common_1.BadRequestException('Debe enviar el XML CFDI en el campo xml. La generación automática desde la orden estará disponible próximamente.');
+    }
+    async preparePaymentComplement(salesOrderId, tenantId) {
+        const order = await this.getSalesOrderOrFail(salesOrderId, tenantId);
+        const payments = await this.paymentRepo.find({
+            where: { sales_order_id: salesOrderId, tenant_id: tenantId },
+            order: { payment_date: 'ASC', created_at: 'ASC' },
+        });
+        const orderTotal = Number(order.total || 0);
+        const paidAmount = payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+        const pending = Math.max(Number((orderTotal - paidAmount).toFixed(2)), 0);
+        const paid = order.general_status !== 'Cancelada' && orderTotal > 0.009 && pending <= 0.009;
+        const invoices = await this.electronicInvoiceService.findBySource(tenantId, 'sales_orders', salesOrderId);
+        const empty = {
+            paid,
+            can_generate: false,
+            reason: null,
+            payment_complement: null,
+        };
+        if (order.general_status === 'Cancelada') {
+            return { status: { ...empty, paid: false, reason: null }, stamp: null };
+        }
+        const income = this.pickIncomeInvoice(invoices);
+        const complement = this.pickPaymentComplement(invoices, income);
+        if (complement) {
+            return {
+                status: {
+                    paid,
+                    can_generate: false,
+                    reason: null,
+                    payment_complement: this.mapPaymentComplement(complement),
+                },
+                stamp: null,
+            };
+        }
+        if (!paid) {
+            return { status: empty, stamp: null };
+        }
+        if (!income) {
+            return {
+                status: {
+                    ...empty,
+                    reason: 'Primero timbra la factura de la venta. El CEP se liga a ese comprobante.',
+                },
+                stamp: null,
+            };
+        }
+        if (!income.xml_stamped) {
+            return {
+                status: {
+                    ...empty,
+                    reason: 'La factura no tiene XML timbrado, así que no se puede armar el CEP.',
+                },
+                stamp: null,
+            };
+        }
+        let parsed;
+        try {
+            parsed = (0, cfdi_xml_parser_1.parseCfdiXmlForPdf)(income.xml_stamped);
+        }
+        catch {
+            return {
+                status: { ...empty, reason: 'El XML de la factura no se pudo leer.' },
+                stamp: null,
+            };
+        }
+        if (!parsed.timbre.uuid && !income.uuid) {
+            return {
+                status: { ...empty, reason: 'La factura no tiene UUID, así que no se puede ligar el CEP.' },
+                stamp: null,
+            };
+        }
+        if (!parsed.emisor.rfc ||
+            !parsed.receptor.rfc ||
+            !parsed.lugarExpedicion ||
+            !parsed.receptor.domicilioFiscalReceptor ||
+            !parsed.receptor.regimenFiscalReceptor) {
+            return {
+                status: {
+                    ...empty,
+                    reason: 'A la factura le faltan datos fiscales para armar el CEP.',
+                },
+                stamp: null,
+            };
+        }
+        if ((parsed.metodoPago || '').toUpperCase() !== 'PPD') {
+            return {
+                status: {
+                    ...empty,
+                    reason: 'El comprobante electrónico de pago solo aplica si la factura es PPD. Esta se timbró como PUE, y el pago ya quedó en esa factura.',
+                },
+                stamp: null,
+            };
+        }
+        if (/<(?:[\w.-]+:)?Retencion\b/i.test(income.xml_stamped)) {
+            return {
+                status: {
+                    ...empty,
+                    reason: 'Esta factura tiene retenciones. El CEP automático todavía no las arma.',
+                },
+                stamp: null,
+            };
+        }
+        const selected = [];
+        let remaining = Number(parsed.total) || Number(income.total) || 0;
+        for (const payment of payments) {
+            if (remaining <= 0.009)
+                break;
+            if (payment.source === 'advance')
+                continue;
+            const amount = Number(payment.amount || 0);
+            if (amount <= 0)
+                continue;
+            if ((payment.currency || 'MXN') !== 'MXN') {
+                return {
+                    status: { ...empty, reason: 'El CEP automático solo cubre pagos en MXN.' },
+                    stamp: null,
+                };
+            }
+            const formaPago = (0, payment_cfdi_util_1.formaPagoFromSalesMethod)(payment.payment_method);
+            if (!formaPago) {
+                return {
+                    status: {
+                        ...empty,
+                        reason: 'Para el CEP cada pago debe ser efectivo, cheque, transferencia o tarjeta. Separa un pago mixto.',
+                    },
+                    stamp: null,
+                };
+            }
+            selected.push({
+                amount,
+                paymentDate: String(payment.payment_date),
+                formaPago,
+                reference: payment.reference_number,
+            });
+            remaining -= amount;
+        }
+        const taxInfo = (0, payment_cfdi_util_1.taxesFromIncomeCfdi)(parsed);
+        try {
+            const built = (0, payment_cfdi_util_1.buildPaymentComplementXml)({
+                series: 'CP',
+                folio: order.folio || income.folio || '1',
+                fecha: (0, payment_cfdi_util_1.paymentComplementFecha)(),
+                lugarExpedicion: parsed.lugarExpedicion,
+                emisor: {
+                    rfc: parsed.emisor.rfc,
+                    nombre: parsed.emisor.nombre,
+                    regimen: parsed.emisor.regimenFiscal,
+                },
+                receptor: {
+                    rfc: parsed.receptor.rfc,
+                    nombre: parsed.receptor.nombre,
+                    regimen: parsed.receptor.regimenFiscalReceptor,
+                    postalCode: parsed.receptor.domicilioFiscalReceptor,
+                },
+                related: {
+                    uuid: parsed.timbre.uuid || income.uuid || '',
+                    serie: parsed.serie,
+                    folio: parsed.folio,
+                    moneda: parsed.moneda || 'MXN',
+                    total: Number(parsed.total) || Number(income.total) || 0,
+                    fecha: parsed.fecha,
+                },
+                taxes: taxInfo.taxes,
+                objetoImp: taxInfo.objetoImp,
+                payments: selected,
+            });
+            const environment = this.finkokEnvironment(income);
+            return {
+                status: { ...empty, can_generate: true },
+                stamp: {
+                    income,
+                    xml: built.xml,
+                    amount: built.amount,
+                    relatedUuid: (parsed.timbre.uuid || income.uuid || '').toUpperCase(),
+                    customerRfc: parsed.receptor.rfc,
+                    customerName: parsed.receptor.nombre,
+                    folio: order.folio || income.folio || '1',
+                    environment,
+                },
+            };
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : 'No se pudo armar el CEP';
+            return { status: { ...empty, reason: message }, stamp: null };
+        }
+    }
+    pickIncomeInvoice(invoices) {
+        const candidates = invoices.filter((invoice) => this.electronicInvoiceService.isCfdiVigente(invoice) &&
+            (invoice.tipo_comprobante || 'I') === 'I' &&
+            invoice.invoice_role !== 'advance');
+        const parsed = candidates.map((invoice) => ({
+            invoice,
+            metodo: this.readMetodoPago(invoice),
+        }));
+        const ppd = parsed.filter((row) => row.metodo === 'PPD');
+        const pool = (ppd.length ? ppd : parsed).slice().sort((a, b) => {
+            const role = (row) => row.invoice.invoice_role === 'merchandise' ? 0 : 1;
+            if (role(a) !== role(b))
+                return role(a) - role(b);
+            return Number(b.invoice.total) - Number(a.invoice.total);
+        });
+        return pool[0]?.invoice ?? null;
+    }
+    pickPaymentComplement(invoices, income) {
+        const relatedUuid = (income?.uuid || '').toUpperCase();
+        const complements = invoices.filter((invoice) => invoice.tipo_comprobante === 'P' && this.electronicInvoiceService.isCfdiVigente(invoice));
+        if (relatedUuid) {
+            const match = complements.find((invoice) => String(invoice.metadata?.related_uuid || '').toUpperCase() === relatedUuid);
+            if (match)
+                return match;
+            return complements.find((invoice) => !invoice.metadata?.related_uuid) ?? null;
+        }
+        return complements[0] ?? null;
+    }
+    mapPaymentComplement(invoice) {
+        const amount = Number(invoice.metadata?.monto_total_pagos ?? invoice.total ?? 0);
+        return {
+            id: invoice.id,
+            uuid: invoice.uuid,
+            stamp_status: invoice.stamp_status,
+            sat_status: invoice.sat_status,
+            stamped_at: invoice.stamped_at,
+            amount: Number.isFinite(amount) ? amount : 0,
+        };
+    }
+    readMetodoPago(invoice) {
+        if (!invoice.xml_stamped)
+            return '';
+        try {
+            return (0, cfdi_xml_parser_1.parseCfdiXmlForPdf)(invoice.xml_stamped).metodoPago.toUpperCase();
+        }
+        catch {
+            return '';
+        }
+    }
+    finkokEnvironment(invoice) {
+        const value = invoice.metadata?.finkok_environment;
+        return value === 'demo' || value === 'production' ? value : undefined;
     }
     async getSalesOrderOrFail(id, tenantId) {
         const order = await this.salesOrderRepo.findOne({
@@ -473,9 +747,11 @@ exports.SalesOrderInvoicingService = SalesOrderInvoicingService;
 exports.SalesOrderInvoicingService = SalesOrderInvoicingService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(sales_order_entity_1.SalesOrder)),
-    __param(1, (0, typeorm_1.InjectRepository)(customer_entity_1.Customer)),
-    __param(6, (0, typeorm_1.InjectRepository)(service_subscription_period_entity_1.ServiceSubscriptionPeriod)),
+    __param(1, (0, typeorm_1.InjectRepository)(sales_order_payment_entity_1.SalesOrderPayment)),
+    __param(2, (0, typeorm_1.InjectRepository)(customer_entity_1.Customer)),
+    __param(7, (0, typeorm_1.InjectRepository)(service_subscription_period_entity_1.ServiceSubscriptionPeriod)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.Repository,
         electronic_invoice_service_1.ElectronicInvoiceService,
         advance_cfdi_service_1.AdvanceCfdiService,

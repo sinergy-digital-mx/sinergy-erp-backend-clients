@@ -63,6 +63,7 @@ const cfdi_xml_parser_1 = require("../utils/cfdi-xml.parser");
 const fiscal_domicile_util_1 = require("../../customers/utils/fiscal-domicile.util");
 const cfdi_qr_util_1 = require("../utils/cfdi-qr.util");
 const cfdi_catalog_labels_1 = require("../utils/cfdi-catalog-labels");
+const payment_cfdi_util_1 = require("../utils/payment-cfdi.util");
 let ElectronicInvoicePdfService = ElectronicInvoicePdfService_1 = class ElectronicInvoicePdfService {
     s3Service;
     billingBranchRepo;
@@ -97,7 +98,9 @@ let ElectronicInvoicePdfService = ElectronicInvoicePdfService_1 = class Electron
             order: { created_at: 'ASC' },
         });
         const receptor = await this.findReceptorCustomer(invoice, cfdi.receptor.rfc);
-        const pdfBuffer = await this.buildPdfBuffer(cfdi, fiscal, branch, receptor);
+        const pdfBuffer = await this.buildPdfBuffer(cfdi, fiscal, branch, receptor, {
+            xml: invoice.xml_stamped ?? undefined,
+        });
         return this.uploadPdf(invoice, cfdi, pdfBuffer);
     }
     async getSignedPdfUrl(invoice) {
@@ -130,7 +133,10 @@ let ElectronicInvoicePdfService = ElectronicInvoicePdfService_1 = class Electron
             order: { created_at: 'ASC' },
         });
         const receptor = await this.findReceptorCustomer(invoice, cfdi.receptor.rfc);
-        const pdfBuffer = await this.buildPdfBuffer(cfdi, fiscal, branch, receptor, { preview: true });
+        const pdfBuffer = await this.buildPdfBuffer(cfdi, fiscal, branch, receptor, {
+            preview: true,
+            xml,
+        });
         const upload = await this.uploadPdf(invoice, cfdi, pdfBuffer, { preview: true });
         return { ...upload, preview: true };
     }
@@ -184,6 +190,9 @@ let ElectronicInvoicePdfService = ElectronicInvoicePdfService_1 = class Electron
                 ]);
             }
         }
+        const paymentSection = cfdi.tipoComprobante === 'P' && options.xml
+            ? this.buildPaymentComplementSection(options.xml)
+            : null;
         const previewBanner = isPreview
             ? {
                 text: 'VISTA PREVIA — Modo pruebas Finkok. Documento sin timbrar; no válido ante el SAT.',
@@ -244,6 +253,7 @@ let ElectronicInvoicePdfService = ElectronicInvoicePdfService_1 = class Electron
                     ['Uso CFDI', (0, cfdi_catalog_labels_1.labelUsoCfdi)(cfdi.receptor.usoCfdi)],
                     ['Version CFDI', `CFDI ${cfdi.version || '4.0'}`],
                 ]),
+                ...(paymentSection ?? []),
                 this.sectionBar('CONCEPTOS'),
                 {
                     table: {
@@ -601,6 +611,42 @@ let ElectronicInvoicePdfService = ElectronicInvoicePdfService_1 = class Electron
             margin: [0, 0, 0, 4],
         };
     }
+    buildPaymentComplementSection(xml) {
+        const lines = (0, payment_cfdi_util_1.readPaymentComplementLines)(xml);
+        if (!lines.length) {
+            return null;
+        }
+        const body = [
+            [
+                { text: 'Fecha de pago', style: 'tableTh' },
+                { text: 'Forma de pago', style: 'tableTh' },
+                { text: 'Monto', style: 'tableTh' },
+                { text: 'Parcialidad', style: 'tableTh' },
+                { text: 'Saldo', style: 'tableTh' },
+            ],
+        ];
+        for (const line of lines) {
+            body.push([
+                line.fecha || '—',
+                (0, cfdi_catalog_labels_1.labelFormaPago)(line.formaPago) || line.formaPago || '—',
+                this.formatCurrency(line.monto),
+                line.parcialidad || '—',
+                this.formatCurrency(line.saldo || '0'),
+            ]);
+        }
+        return [
+            this.sectionBar('PAGOS'),
+            {
+                table: {
+                    headerRows: 1,
+                    widths: ['*', '*', 70, 70, 70],
+                    body,
+                },
+                layout: this.tableLayout(),
+                margin: [0, 0, 0, 8],
+            },
+        ];
+    }
     sectionBar(title) {
         return {
             text: title,
@@ -621,7 +667,12 @@ let ElectronicInvoicePdfService = ElectronicInvoicePdfService_1 = class Electron
             table: {
                 widths: ['*'],
                 body: [
-                    [{ text: 'FACTURA', style: 'facturaTitle', alignment: 'center', margin: [0, 6, 0, 6] }],
+                    [{
+                            text: cfdi.tipoComprobante === 'P' ? 'COMPROBANTE DE PAGO' : 'FACTURA',
+                            style: 'facturaTitle',
+                            alignment: 'center',
+                            margin: [0, 6, 0, 6],
+                        }],
                     [{ stack: rows, margin: [6, 6, 6, 6] }],
                 ],
             },

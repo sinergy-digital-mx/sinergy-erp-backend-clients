@@ -22,6 +22,8 @@ const purchase_order_export_service_1 = require("../services/purchase-order-expo
 const purchase_order_movements_service_1 = require("../services/purchase-order-movements.service");
 const purchase_order_locations_service_1 = require("../services/purchase-order-locations.service");
 const dto_1 = require("../dto");
+const purchase_order_real_cost_permission_1 = require("../constants/purchase-order-real-cost-permission");
+const hide_purchase_order_real_cost_interceptor_1 = require("../interceptors/hide-purchase-order-real-cost.interceptor");
 let PurchaseOrderController = class PurchaseOrderController {
     purchaseOrderService;
     documentsService;
@@ -123,6 +125,9 @@ let PurchaseOrderController = class PurchaseOrderController {
         return this.purchaseOrderService.updateVendorInvoice(id, dto, tenantId, userId);
     }
     async updateRealCost(id, dto, req) {
+        if (!(0, purchase_order_real_cost_permission_1.userCanViewPurchaseOrderRealCost)(req.user)) {
+            throw new common_1.ForbiddenException('No tienes permiso para editar el costo real');
+        }
         const tenantId = req.user.tenant_id;
         const userId = req.user.id;
         return this.purchaseOrderService.updateRealCost(id, dto, tenantId, userId);
@@ -433,6 +438,7 @@ __decorate([
 exports.PurchaseOrderController = PurchaseOrderController = __decorate([
     (0, common_1.Controller)('tenant/purchase-orders'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, tenant_module_validation_guard_1.TenantModuleValidationGuard),
+    (0, common_1.UseInterceptors)(hide_purchase_order_real_cost_interceptor_1.HidePurchaseOrderRealCostInterceptor),
     __metadata("design:paramtypes", [purchase_order_service_1.PurchaseOrderService,
         purchase_order_documents_service_1.PurchaseOrderDocumentsService,
         purchase_order_export_service_1.PurchaseOrderExportService,

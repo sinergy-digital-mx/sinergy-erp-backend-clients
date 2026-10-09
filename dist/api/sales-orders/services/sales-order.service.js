@@ -1968,6 +1968,75 @@ let SalesOrderService = class SalesOrderService {
             canApply: enabled && so.general_status !== 'Cancelada' && !!summary && !summary.applied && vigente,
         };
     }
+    async setControlDesk(id, enabled, tenantId, userId) {
+        const qr = this.dataSource.createQueryRunner();
+        await qr.connect();
+        await qr.startTransaction();
+        try {
+            const so = await qr.manager.findOne(sales_order_entity_1.SalesOrder, {
+                where: { id, tenant_id: tenantId },
+                relations: ['line_items', 'line_items.batch_allocations'],
+            });
+            if (!so) {
+                throw new common_1.NotFoundException('Orden de venta no encontrada');
+            }
+            if (so.sales_order_type === 'POS' || so.sale_scope === sales_order_sale_scope_enum_1.SalesOrderSaleScope.Services) {
+                throw new common_1.BadRequestException('Esta orden no pasa por Mesa de Control');
+            }
+            if (!so.billing_branch_id) {
+                throw new common_1.BadRequestException('La orden necesita sucursal para entrar a Mesa de Control');
+            }
+            const allowed = enabled
+                ? ['Creada', 'En Selección']
+                : ['En Selección'];
+            if (!allowed.includes(so.general_status)) {
+                throw new common_1.BadRequestException(enabled
+                    ? 'Solo se puede enviar a Mesa de Control una orden creada'
+                    : 'Esta orden ya no se puede sacar de Mesa de Control');
+            }
+            if (enabled && so.requires_selection_assembly && so.general_status === 'En Selección') {
+                await qr.commitTransaction();
+                return this.findOne(id, tenantId);
+            }
+            const details = so.line_items ?? [];
+            if (enabled) {
+                const allocations = details.flatMap((line) => line.batch_allocations ?? []);
+                if (allocations.length) {
+                    await this.fulfillmentService.releaseAllocations(allocations, qr.manager);
+                }
+                so.requires_selection_assembly = true;
+                so.general_status = 'En Selección';
+            }
+            else {
+                so.requires_selection_assembly = false;
+                so.general_status = 'Creada';
+            }
+            so.updated_by = userId;
+            await qr.manager.save(sales_order_entity_1.SalesOrder, so);
+            await this.controlDeskLifecycle.syncJobForSalesOrder(qr.manager, {
+                tenantId,
+                userId,
+                salesOrder: so,
+                details,
+                requiresSelection: enabled,
+            });
+            if (!enabled) {
+                const goods = await this.filterGoodsDetails(qr, details);
+                if (goods.length) {
+                    await this.fulfillOrderLines(qr, so.id, { billingBranchId: so.billing_branch_id }, goods, userId, undefined, true);
+                }
+            }
+            await qr.commitTransaction();
+            return this.findOne(id, tenantId);
+        }
+        catch (err) {
+            await qr.rollbackTransaction();
+            throw err;
+        }
+        finally {
+            await qr.release();
+        }
+    }
     async sendToCollection(id, tenantId, userId) {
         const so = await this.findOne(id, tenantId);
         const actions = await this.collectionActions(so, tenantId);

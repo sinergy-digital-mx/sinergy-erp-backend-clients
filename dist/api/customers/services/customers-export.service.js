@@ -19,6 +19,7 @@ const typeorm_2 = require("typeorm");
 const customer_entity_1 = require("../../../entities/customers/customer.entity");
 const customer_credit_entity_1 = require("../../../entities/customers/customer-credit.entity");
 const excel_export_util_1 = require("../../../common/utils/excel-export.util");
+const customer_list_insight_util_1 = require("../utils/customer-list-insight.util");
 let CustomersExportService = class CustomersExportService {
     customerRepo;
     creditRepo;
@@ -31,6 +32,8 @@ let CustomersExportService = class CustomersExportService {
         { header: 'Teléfono', key: 'phone', width: 16 },
         { header: 'Estatus', key: 'status_name', width: 14 },
         { header: 'Grupo', key: 'group_name', width: 18 },
+        { header: 'Razón asignada', key: 'registered_razon_social', width: 28 },
+        { header: 'RFC razón asignada', key: 'registered_rfc', width: 18 },
         { header: 'RFC', key: 'fiscal_rfc', width: 16 },
         { header: 'Razón social', key: 'fiscal_razon_social', width: 26 },
         { header: 'Almacén', key: 'warehouse_name', width: 20 },
@@ -57,6 +60,8 @@ let CustomersExportService = class CustomersExportService {
                 phone: this.formatPhone(c.phone_code, c.phone),
                 status_name: c.status?.name ?? '',
                 group_name: c.group?.name ?? '',
+                registered_razon_social: c.registered_fiscal_configuration?.razon_social ?? '',
+                registered_rfc: c.registered_fiscal_configuration?.rfc ?? '',
                 fiscal_rfc: c.fiscal_rfc ?? '',
                 fiscal_razon_social: c.fiscal_razon_social ?? '',
                 warehouse_name: c.warehouse?.name ?? '',
@@ -114,41 +119,12 @@ let CustomersExportService = class CustomersExportService {
             .leftJoinAndSelect('customer.status', 'status')
             .leftJoinAndSelect('customer.group', 'group', 'group.tenant_id = customer.tenant_id')
             .leftJoinAndSelect('customer.warehouse', 'warehouse')
+            .leftJoin('customer.registered_fiscal_configuration', 'registeredFiscal')
+            .addSelect(['registeredFiscal.id', 'registeredFiscal.razon_social', 'registeredFiscal.rfc'])
             .leftJoin('customer.contracts', 'contracts')
             .leftJoin('contracts.property', 'property')
             .where('customer.tenant_id = :tenantId', { tenantId });
-        if (query?.search) {
-            const term = `%${query.search.trim()}%`;
-            qb.andWhere(`(
-          LOWER(customer.name) LIKE LOWER(:search)
-          OR LOWER(customer.lastname) LIKE LOWER(:search)
-          OR LOWER(CONCAT(customer.name, ' ', COALESCE(customer.lastname, ''))) LIKE LOWER(:search)
-          OR LOWER(CONCAT(COALESCE(customer.lastname, ''), ' ', customer.name)) LIKE LOWER(:search)
-          OR LOWER(customer.email) LIKE LOWER(:search)
-          OR LOWER(customer.phone) LIKE LOWER(:search)
-          OR LOWER(customer.phone_code) LIKE LOWER(:search)
-          OR LOWER(CONCAT(COALESCE(customer.phone_code, ''), customer.phone)) LIKE LOWER(:search)
-          OR LOWER(customer.company_name) LIKE LOWER(:search)
-          OR LOWER(customer.website) LIKE LOWER(:search)
-          OR LOWER(customer.additional_name) LIKE LOWER(:search)
-          OR LOWER(customer.additional_lastname) LIKE LOWER(:search)
-          OR LOWER(CONCAT(customer.additional_name, ' ', COALESCE(customer.additional_lastname, ''))) LIKE LOWER(:search)
-          OR LOWER(customer.additional_email) LIKE LOWER(:search)
-          OR LOWER(customer.additional_phone) LIKE LOWER(:search)
-          OR LOWER(customer.fiscal_rfc) LIKE LOWER(:search)
-          OR LOWER(customer.fiscal_razon_social) LIKE LOWER(:search)
-          OR LOWER(property.code) LIKE LOWER(:search)
-          OR LOWER(property.name) LIKE LOWER(:search)
-          OR LOWER(property.cadastral_key) LIKE LOWER(:search)
-          OR LOWER(contracts.contract_number) LIKE LOWER(:search)
-        )`, { search: term });
-        }
-        if (query?.status_id) {
-            qb.andWhere('customer.status_id = :status_id', { status_id: query.status_id });
-        }
-        if (query?.group_id) {
-            qb.andWhere('customer.group_id = :group_id', { group_id: query.group_id });
-        }
+        (0, customer_list_insight_util_1.applyCustomerDirectoryFilters)(qb, query);
         qb.orderBy('customer.created_at', 'DESC');
         return qb.getMany();
     }
@@ -167,6 +143,11 @@ let CustomersExportService = class CustomersExportService {
             parts.push(`Estatus ID: ${filters.status_id}`);
         if (filters.group_id)
             parts.push('Grupo filtrado');
+        if (filters.registered_fiscal_configuration_id)
+            parts.push('Razón social asignada');
+        if ((0, customer_list_insight_util_1.isCustomerListInsight)(filters.insight)) {
+            parts.push((0, customer_list_insight_util_1.customerInsightLabel)(filters.insight));
+        }
         return parts.join(' | ');
     }
 };

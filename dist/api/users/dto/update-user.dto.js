@@ -32,6 +32,9 @@ class UpdateUserDto {
     is_employee;
     is_manager;
     is_crm_admin;
+    is_driver;
+    driver_license_number;
+    driver_rfc;
     employee;
     warehouse_ids;
 }
@@ -165,6 +168,26 @@ __decorate([
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], UpdateUserDto.prototype, "is_crm_admin", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false, description: 'Chofer para carta porte' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateUserDto.prototype, "is_driver", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false }),
+    (0, class_validator_1.ValidateIf)((dto) => dto.is_driver === true),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], UpdateUserDto.prototype, "driver_license_number", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false }),
+    (0, class_validator_1.ValidateIf)((dto) => dto.is_driver === true),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], UpdateUserDto.prototype, "driver_rfc", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
         required: false,

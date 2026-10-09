@@ -13,12 +13,15 @@ exports.QueryCustomersDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
 const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
+const customer_list_insight_util_1 = require("../utils/customer-list-insight.util");
 class QueryCustomersDto {
     page;
     limit;
     search;
     status_id;
     group_id;
+    registered_fiscal_configuration_id;
+    insight;
 }
 exports.QueryCustomersDto = QueryCustomersDto;
 __decorate([
@@ -80,4 +83,24 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], QueryCustomersDto.prototype, "group_id", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Razón social de registro asignada al cliente',
+        example: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], QueryCustomersDto.prototype, "registered_fiscal_configuration_id", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Corte del resumen. Requiere el permiso ViewStats; si no, se ignora.',
+        enum: customer_list_insight_util_1.CUSTOMER_LIST_INSIGHTS,
+        example: 'fiscal_not_ready',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsIn)(customer_list_insight_util_1.CUSTOMER_LIST_INSIGHTS),
+    __metadata("design:type", String)
+], QueryCustomersDto.prototype, "insight", void 0);
 //# sourceMappingURL=query-customers.dto.js.map

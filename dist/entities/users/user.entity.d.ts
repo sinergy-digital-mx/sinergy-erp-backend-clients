@@ -23,6 +23,9 @@ export declare class User {
     is_employee: boolean;
     is_manager: boolean;
     is_crm_admin: boolean;
+    is_driver: boolean;
+    driver_license_number: string | null;
+    driver_rfc: string | null;
     created_at: Date;
     updated_at: Date;
 }

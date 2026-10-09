@@ -51,6 +51,7 @@ export declare class ElectronicInvoicePdfService {
     private wrapUnbreakable;
     private buildComprobanteHeader;
     private headerDivider;
+    private buildPaymentComplementSection;
     private sectionBar;
     private buildFacturaBox;
     private facturaRow;

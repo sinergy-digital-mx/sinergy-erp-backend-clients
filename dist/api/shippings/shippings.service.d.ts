@@ -197,6 +197,7 @@ export declare class ShippingsService {
     private getOriginBranch;
     private getRouteOriginFromBranch;
     private getRouteOriginFromShipping;
+    private assertTruckAvailable;
     private getActiveTruck;
     private getDriver;
 }

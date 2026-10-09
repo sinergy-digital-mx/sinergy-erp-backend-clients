@@ -25,6 +25,8 @@ const permission_version_service_1 = require("./permission-version.service");
 const permission_cache_service_1 = require("./permission-cache.service");
 const module_categories_constants_1 = require("../constants/module-categories.constants");
 const divino_dashboard_constants_1 = require("../../divino-dashboard/divino-dashboard.constants");
+const madereria_inventory_import_constants_1 = require("../../madereria-inventory-import/madereria-inventory-import.constants");
+const purchase_order_real_cost_permission_1 = require("../../purchase-orders/constants/purchase-order-real-cost-permission");
 const DIVINO_EXCLUDED_MODULE_CODES = ['warehouse_control'];
 let ModuleService = ModuleService_1 = class ModuleService {
     moduleRepository;
@@ -152,6 +154,10 @@ let ModuleService = ModuleService_1 = class ModuleService {
         }
         if (tenantId === divino_dashboard_constants_1.DIVINO_DASHBOARD_ALLOWED_TENANT_ID &&
             DIVINO_EXCLUDED_MODULE_CODES.includes(module.code)) {
+            throw new common_1.BadRequestException('Este módulo no aplica a esta organización');
+        }
+        if (module.code === purchase_order_real_cost_permission_1.PURCHASE_ORDER_REAL_COST_MODULE_CODE &&
+            tenantId !== madereria_inventory_import_constants_1.MADERERIA_ORGANIZATION_ID) {
             throw new common_1.BadRequestException('Este módulo no aplica a esta organización');
         }
         const existingTenantModule = await this.tenantModuleRepository.findOne({

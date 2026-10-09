@@ -130,6 +130,12 @@ let SalesOrderController = class SalesOrderController {
     async getInvoices(id, req) {
         return this.invoicingService.listInvoices(id, req.user.tenant_id);
     }
+    async getPaymentComplement(id, req) {
+        return this.invoicingService.getPaymentComplementStatus(id, req.user.tenant_id);
+    }
+    async stampPaymentComplement(id, req) {
+        return this.invoicingService.stampPaymentComplement(id, req.user.tenant_id, req.user.id);
+    }
     async stampInvoice(id, dto, req) {
         return this.invoicingService.stampInvoice(id, req.user.tenant_id, req.user.id, dto);
     }
@@ -275,6 +281,9 @@ let SalesOrderController = class SalesOrderController {
     }
     async cancelPost(id, req) {
         return this.salesOrderService.cancel(id, req.user.tenant_id, req.user.id);
+    }
+    async setControlDesk(id, body, req) {
+        return this.salesOrderService.setControlDesk(id, body?.enabled !== false, req.user.tenant_id, req.user.id);
     }
     async sendToCollection(id, req) {
         return this.salesOrderService.sendToCollection(id, req.user.tenant_id, req.user.id);
@@ -524,6 +533,28 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], SalesOrderController.prototype, "getInvoices", null);
+__decorate([
+    (0, common_1.Get)(':id/invoices/payment-complement'),
+    (0, swagger_1.ApiOperation)({ summary: 'Ver si la orden pagada puede timbrar el CEP' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], SalesOrderController.prototype, "getPaymentComplement", null);
+__decorate([
+    (0, common_1.Post)(':id/invoices/payment-complement'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Timbrar el comprobante electrónico de pago de la orden',
+        description: 'CFDI tipo P con complemento de recepción de pagos 2.0, vía Finkok. Solo si la venta está pagada y la factura de ingreso es PPD.',
+    }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], SalesOrderController.prototype, "stampPaymentComplement", null);
 __decorate([
     (0, common_1.Post)(':id/invoices/stamp'),
     (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
@@ -816,6 +847,19 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], SalesOrderController.prototype, "cancelPost", null);
+__decorate([
+    (0, common_1.Post)(':id/control-desk'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Enviar o sacar la orden de la cola de Mesa de Control',
+    }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], SalesOrderController.prototype, "setControlDesk", null);
 __decorate([
     (0, common_1.Post)(':id/send-to-collection'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),

@@ -71,6 +71,7 @@ export declare class ElectronicInvoiceService {
     private generatePdfAfterStamp;
     private resolveFinkokEnvironment;
     private resolveCancelCertificateSerial;
+    private assertReceptorRegimen;
     private readNoCertificadoFromXml;
     private rememberFiscalCertificateSerial;
     private getByIdOrFail;

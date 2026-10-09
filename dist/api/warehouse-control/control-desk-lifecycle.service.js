@@ -89,21 +89,18 @@ let ControlDeskLifecycleService = ControlDeskLifecycleService_1 = class ControlD
             updated_by: userId,
         });
     }
-    deriveJobStatus(tasks) {
+    deriveJobStatus(tasks, hasPosition = false) {
         const active = tasks.filter((task) => task.status !== 'cancelled');
         const hasShortage = active.some((task) => task.status === 'short');
-        if (!active.length) {
-            return { status: 'released', hasShortage: false };
-        }
-        const allPending = active.every((task) => task.status === 'pending');
-        if (allPending) {
-            return { status: 'released', hasShortage };
-        }
-        const allTerminal = active.every((task) => control_desk_constants_1.CONTROL_DESK_TERMINAL_TASK_STATUSES.includes(task.status));
+        const allTerminal = active.length > 0 &&
+            active.every((task) => control_desk_constants_1.CONTROL_DESK_TERMINAL_TASK_STATUSES.includes(task.status));
         if (allTerminal) {
-            return { status: 'waiting_assembly', hasShortage };
+            return { status: 'assembling', hasShortage };
         }
-        return { status: 'picking', hasShortage };
+        if (hasPosition) {
+            return { status: 'picking', hasShortage };
+        }
+        return { status: 'released', hasShortage };
     }
     async refreshJobProgress(manager, jobId, userId, preserveAssembly = false) {
         const job = await manager.findOne(control_desk_job_entity_1.ControlDeskJob, {
@@ -116,11 +113,14 @@ let ControlDeskLifecycleService = ControlDeskLifecycleService_1 = class ControlD
         if (job.status === 'cancelled') {
             return job;
         }
-        const derived = this.deriveJobStatus(job.tasks ?? []);
+        const derived = this.deriveJobStatus(job.tasks ?? [], !!job.position_id);
         let nextStatus = derived.status;
-        if (preserveAssembly &&
-            derived.status === 'waiting_assembly' &&
-            (job.status === 'assembling' || job.status === 'assembled')) {
+        if (job.status === 'assembled' && derived.status === 'assembling') {
+            nextStatus = 'assembled';
+        }
+        else if (preserveAssembly &&
+            (job.status === 'assembling' || job.status === 'assembled') &&
+            derived.status === 'assembling') {
             nextStatus = job.status;
         }
         await manager.update(control_desk_job_entity_1.ControlDeskJob, { id: job.id }, {

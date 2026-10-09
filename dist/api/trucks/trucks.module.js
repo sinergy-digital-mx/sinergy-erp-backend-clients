@@ -10,6 +10,7 @@ exports.TrucksModule = void 0;
 const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const truck_entity_1 = require("../../entities/logistics/truck.entity");
+const shipping_entity_1 = require("../../entities/logistics/shipping.entity");
 const s3_service_1 = require("../../common/services/s3.service");
 const auth_module_1 = require("../auth/auth.module");
 const rbac_module_1 = require("../rbac/rbac.module");
@@ -20,7 +21,7 @@ let TrucksModule = class TrucksModule {
 exports.TrucksModule = TrucksModule;
 exports.TrucksModule = TrucksModule = __decorate([
     (0, common_1.Module)({
-        imports: [typeorm_1.TypeOrmModule.forFeature([truck_entity_1.Truck]), auth_module_1.AuthModule, rbac_module_1.RBACModule],
+        imports: [typeorm_1.TypeOrmModule.forFeature([truck_entity_1.Truck, shipping_entity_1.Shipping]), auth_module_1.AuthModule, rbac_module_1.RBACModule],
         controllers: [trucks_controller_1.TrucksController],
         providers: [trucks_service_1.TrucksService, s3_service_1.S3Service],
         exports: [trucks_service_1.TrucksService],

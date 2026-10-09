@@ -59,11 +59,13 @@ export declare class WarehouseControlService {
                 picked_today: number;
             };
             in_desk: number;
+            queue: number;
             released: number;
             picking: number;
             waiting_assembly: number;
             assembling: number;
             assembled: number;
+            assembled_today: number;
             with_shortage: number;
             positions_free: number;
             positions_occupied: number;
@@ -79,6 +81,7 @@ export declare class WarehouseControlService {
             occupied: boolean;
             job: {
                 id: string;
+                sales_order_id: string;
                 folio: string;
                 customer_name: string | null;
                 customer_display_name: string | null;
@@ -86,6 +89,7 @@ export declare class WarehouseControlService {
                 status: "cancelled" | "released" | "picking" | "waiting_assembly" | "assembling" | "assembled";
                 has_shortage: boolean;
                 created_at: Date;
+                updated_at: Date;
                 sales_order: {
                     id: string;
                     folio: string;
@@ -213,6 +217,7 @@ export declare class WarehouseControlService {
         }[];
         queue: {
             id: string;
+            sales_order_id: string;
             folio: string;
             customer_name: string | null;
             customer_display_name: string | null;
@@ -220,6 +225,7 @@ export declare class WarehouseControlService {
             status: "cancelled" | "released" | "picking" | "waiting_assembly" | "assembling" | "assembled";
             has_shortage: boolean;
             created_at: Date;
+            updated_at: Date;
             sales_order: {
                 id: string;
                 folio: string;
@@ -346,6 +352,7 @@ export declare class WarehouseControlService {
         }[];
         jobs: {
             id: string;
+            sales_order_id: string;
             folio: string;
             customer_name: string | null;
             customer_display_name: string | null;
@@ -353,6 +360,7 @@ export declare class WarehouseControlService {
             status: "cancelled" | "released" | "picking" | "waiting_assembly" | "assembling" | "assembled";
             has_shortage: boolean;
             created_at: Date;
+            updated_at: Date;
             sales_order: {
                 id: string;
                 folio: string;
@@ -509,11 +517,13 @@ export declare class WarehouseControlService {
                 picked_today: number;
             };
             in_desk: number;
+            queue: number;
             released: number;
             picking: number;
             waiting_assembly: number;
             assembling: number;
             assembled: number;
+            assembled_today: number;
             with_shortage: number;
             positions_free: number;
             positions_occupied: number;
@@ -521,6 +531,7 @@ export declare class WarehouseControlService {
     }>;
     findOneJob(id: string, tenantId: string, actor: Actor): Promise<{
         id: string;
+        sales_order_id: string;
         folio: string;
         customer_name: string | null;
         customer_display_name: string | null;
@@ -528,6 +539,7 @@ export declare class WarehouseControlService {
         status: "cancelled" | "released" | "picking" | "waiting_assembly" | "assembling" | "assembled";
         has_shortage: boolean;
         created_at: Date;
+        updated_at: Date;
         sales_order: {
             id: string;
             folio: string;
@@ -654,6 +666,7 @@ export declare class WarehouseControlService {
     }>;
     assignPosition(jobId: string, dto: AssignPositionDto, tenantId: string, actor: Actor): Promise<{
         id: string;
+        sales_order_id: string;
         folio: string;
         customer_name: string | null;
         customer_display_name: string | null;
@@ -661,6 +674,7 @@ export declare class WarehouseControlService {
         status: "cancelled" | "released" | "picking" | "waiting_assembly" | "assembling" | "assembled";
         has_shortage: boolean;
         created_at: Date;
+        updated_at: Date;
         sales_order: {
             id: string;
             folio: string;
@@ -787,6 +801,7 @@ export declare class WarehouseControlService {
     }>;
     startTask(jobId: string, taskId: string, tenantId: string, actor: Actor): Promise<{
         id: string;
+        sales_order_id: string;
         folio: string;
         customer_name: string | null;
         customer_display_name: string | null;
@@ -794,6 +809,7 @@ export declare class WarehouseControlService {
         status: "cancelled" | "released" | "picking" | "waiting_assembly" | "assembling" | "assembled";
         has_shortage: boolean;
         created_at: Date;
+        updated_at: Date;
         sales_order: {
             id: string;
             folio: string;
@@ -920,6 +936,7 @@ export declare class WarehouseControlService {
     }>;
     completeTask(jobId: string, taskId: string, dto: CompletePickTaskDto, tenantId: string, actor: Actor): Promise<{
         id: string;
+        sales_order_id: string;
         folio: string;
         customer_name: string | null;
         customer_display_name: string | null;
@@ -927,6 +944,7 @@ export declare class WarehouseControlService {
         status: "cancelled" | "released" | "picking" | "waiting_assembly" | "assembling" | "assembled";
         has_shortage: boolean;
         created_at: Date;
+        updated_at: Date;
         sales_order: {
             id: string;
             folio: string;
@@ -1053,6 +1071,7 @@ export declare class WarehouseControlService {
     }>;
     assemble(jobId: string, tenantId: string, actor: Actor): Promise<{
         id: string;
+        sales_order_id: string;
         folio: string;
         customer_name: string | null;
         customer_display_name: string | null;
@@ -1060,6 +1079,7 @@ export declare class WarehouseControlService {
         status: "cancelled" | "released" | "picking" | "waiting_assembly" | "assembling" | "assembled";
         has_shortage: boolean;
         created_at: Date;
+        updated_at: Date;
         sales_order: {
             id: string;
             folio: string;
@@ -1186,6 +1206,7 @@ export declare class WarehouseControlService {
     }>;
     corroborate(jobId: string, dto: CorroborateSalesOrderDto, tenantId: string, actor: Actor): Promise<{
         id: string;
+        sales_order_id: string;
         folio: string;
         customer_name: string | null;
         customer_display_name: string | null;
@@ -1193,6 +1214,7 @@ export declare class WarehouseControlService {
         status: "cancelled" | "released" | "picking" | "waiting_assembly" | "assembling" | "assembled";
         has_shortage: boolean;
         created_at: Date;
+        updated_at: Date;
         sales_order: {
             id: string;
             folio: string;
@@ -1328,6 +1350,7 @@ export declare class WarehouseControlService {
         occupied: boolean;
         job: {
             id: string;
+            sales_order_id: string;
             folio: string;
             customer_name: string | null;
             customer_display_name: string | null;
@@ -1335,6 +1358,7 @@ export declare class WarehouseControlService {
             status: "cancelled" | "released" | "picking" | "waiting_assembly" | "assembling" | "assembled";
             has_shortage: boolean;
             created_at: Date;
+            updated_at: Date;
             sales_order: {
                 id: string;
                 folio: string;
@@ -1468,6 +1492,7 @@ export declare class WarehouseControlService {
     }>;
     getSalesOrderSummary(salesOrderId: string, tenantId: string): Promise<{
         id: string;
+        sales_order_id: string;
         folio: string;
         customer_name: string | null;
         customer_display_name: string | null;
@@ -1475,6 +1500,7 @@ export declare class WarehouseControlService {
         status: "cancelled" | "released" | "picking" | "waiting_assembly" | "assembling" | "assembled";
         has_shortage: boolean;
         created_at: Date;
+        updated_at: Date;
         sales_order: {
             id: string;
             folio: string;
@@ -1606,6 +1632,9 @@ export declare class WarehouseControlService {
     private getAssignedWarehouses;
     private buildStats;
     private listPositionsInternal;
+    private stageOf;
+    private isSameLocalDay;
+    private filterJobsByStage;
     private mapJob;
     private mapTask;
     private toQty;

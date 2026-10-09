@@ -16,6 +16,10 @@ const warehouse_entity_1 = require("../../entities/warehouse/warehouse.entity");
 const billing_branch_entity_1 = require("../../entities/billing/billing-branch.entity");
 const user_entity_1 = require("../../entities/users/user.entity");
 const sales_order_entity_1 = require("../../entities/sales-orders/sales-order.entity");
+const sales_order_detail_entity_1 = require("../../entities/sales-orders/sales-order-detail.entity");
+const electronic_invoicing_module_1 = require("../electronic-invoicing/electronic-invoicing.module");
+const carta_porte_service_1 = require("./services/carta-porte.service");
+const carta_porte_pdf_service_1 = require("./services/carta-porte-pdf.service");
 const customer_address_entity_1 = require("../../entities/customers/customer-address.entity");
 const auth_module_1 = require("../auth/auth.module");
 const rbac_module_1 = require("../rbac/rbac.module");
@@ -35,13 +39,15 @@ exports.ShippingsModule = ShippingsModule = __decorate([
                 billing_branch_entity_1.BillingBranch,
                 user_entity_1.User,
                 sales_order_entity_1.SalesOrder,
+                sales_order_detail_entity_1.SalesOrderDetail,
                 customer_address_entity_1.CustomerAddress,
             ]),
             auth_module_1.AuthModule,
             rbac_module_1.RBACModule,
+            electronic_invoicing_module_1.ElectronicInvoicingModule,
         ],
         controllers: [shippings_controller_1.ShippingsController],
-        providers: [shippings_service_1.ShippingsService],
+        providers: [shippings_service_1.ShippingsService, carta_porte_service_1.CartaPorteService, carta_porte_pdf_service_1.CartaPortePdfService],
         exports: [shippings_service_1.ShippingsService],
     })
 ], ShippingsModule);

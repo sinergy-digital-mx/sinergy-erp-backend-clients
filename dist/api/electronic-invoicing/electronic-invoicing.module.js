@@ -65,6 +65,7 @@ exports.ElectronicInvoicingModule = ElectronicInvoicingModule = __decorate([
             fiscal_configuration_finkok_service_1.FiscalConfigurationFinkokService,
             electronic_invoice_sat_sync_service_1.ElectronicInvoiceSatSyncService,
             advance_cfdi_service_1.AdvanceCfdiService,
+            finkok_soap_client_1.FinkokSoapClient,
         ],
     })
 ], ElectronicInvoicingModule);

@@ -17,6 +17,9 @@ export declare class CreateUserDto {
     is_employee?: boolean;
     is_manager?: boolean;
     is_crm_admin?: boolean;
+    is_driver?: boolean;
+    driver_license_number?: string;
+    driver_rfc?: string;
     employee?: EmployeeProfileDto;
     warehouse_ids?: string[];
 }

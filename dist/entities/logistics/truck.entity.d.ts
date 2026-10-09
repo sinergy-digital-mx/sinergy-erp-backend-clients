@@ -13,9 +13,12 @@ export declare class Truck {
     tipo_auto_transporte: string | null;
     aseguradora_rc: string | null;
     poliza_rc: string | null;
+    peso_bruto_vehicular: number | null;
     subtipo_remolque1: string | null;
     placa_remolque1: string | null;
     photo: string | null;
+    gps_unit_uid: string | null;
+    gps_unit_name: string | null;
     status: string;
     created_at: Date;
     updated_at: Date;

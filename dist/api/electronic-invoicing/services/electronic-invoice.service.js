@@ -24,6 +24,7 @@ const finkok_provider_configuration_service_1 = require("./finkok-provider-confi
 const finkok_soap_client_1 = require("./finkok-soap.client");
 const electronic_invoice_pdf_service_1 = require("./electronic-invoice-pdf.service");
 const cfdi_xml_parser_1 = require("../utils/cfdi-xml.parser");
+const cfdi_regimen_person_util_1 = require("../utils/cfdi-regimen-person.util");
 const finkok_error_message_util_1 = require("../utils/finkok-error-message.util");
 let ElectronicInvoiceService = ElectronicInvoiceService_1 = class ElectronicInvoiceService {
     invoiceRepo;
@@ -52,6 +53,7 @@ let ElectronicInvoiceService = ElectronicInvoiceService_1 = class ElectronicInvo
             throw new common_1.BadRequestException('La razón emisora debe estar registrada en Finkok antes de timbrar.');
         }
         const credentials = await this.finkokConfigService.getCredentials(tenantId, dto.environment);
+        this.assertReceptorRegimen(dto.xml);
         let result;
         try {
             result = await this.finkokClient.signStamp(credentials, dto.xml);
@@ -303,7 +305,7 @@ let ElectronicInvoiceService = ElectronicInvoiceService_1 = class ElectronicInvo
             return;
         }
         const invoices = await this.findBySource(tenantId, sourceModule, sourceId);
-        const active = invoices.some((invoice) => this.isActiveProductionInvoice(invoice));
+        const active = invoices.some((invoice) => invoice.tipo_comprobante !== 'P' && this.isActiveProductionInvoice(invoice));
         if (active) {
             throw new common_1.BadRequestException('Ya existe una factura activa en producción. Cancela la anterior antes de timbrar otra factura en PROD.');
         }
@@ -460,6 +462,19 @@ let ElectronicInvoiceService = ElectronicInvoiceService_1 = class ElectronicInvo
             return stored;
         }
         return this.readNoCertificadoFromXml(invoice.xml_stamped);
+    }
+    assertReceptorRegimen(xml) {
+        let parsed;
+        try {
+            parsed = (0, cfdi_xml_parser_1.parseCfdiXmlForPdf)(xml);
+        }
+        catch {
+            return;
+        }
+        const message = (0, cfdi_regimen_person_util_1.receptorRegimenMismatch)(parsed.receptor.rfc, parsed.receptor.regimenFiscalReceptor);
+        if (message) {
+            throw new common_1.BadRequestException(message);
+        }
     }
     readNoCertificadoFromXml(xml) {
         if (!xml?.trim()) {

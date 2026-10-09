@@ -64,6 +64,7 @@ const user_manager_report_entity_1 = require("../../entities/users/user-manager-
 const user_warehouse_assignment_entity_1 = require("../../entities/control-desk/user-warehouse-assignment.entity");
 const warehouse_entity_1 = require("../../entities/warehouse/warehouse.entity");
 const user_status_constants_1 = require("./user-status.constants");
+const carta_porte_util_1 = require("../shippings/utils/carta-porte.util");
 let UsersService = class UsersService {
     userRepo;
     tenantRepo;
@@ -100,7 +101,15 @@ let UsersService = class UsersService {
         this.validatePosUserType(isPosUser, dto.pos_user_type, dto.is_manager ?? false);
         await this.validatePosFields(tenantId, dto.pos_user_code);
         const hashedPassword = await bcrypt.hash(dto.password, 10);
-        const { is_pos_user, pos_user_code, billing_branch_id: _billing_branch_id, billing_branch_ids: _billing_branch_ids, primary_billing_branch_id: _primary_billing_branch_id, pos_user_type, is_employee, employee, is_manager, is_crm_admin, warehouse_ids, ...userFields } = dto;
+        const { is_pos_user, pos_user_code, billing_branch_id: _billing_branch_id, billing_branch_ids: _billing_branch_ids, primary_billing_branch_id: _primary_billing_branch_id, pos_user_type, is_employee, employee, is_manager, is_crm_admin, is_driver, driver_license_number, driver_rfc, warehouse_ids, ...userFields } = dto;
+        const driverProfile = {
+            is_driver: is_driver ?? false,
+            first_name: dto.first_name,
+            last_name: dto.last_name,
+            driver_license_number: (0, carta_porte_util_1.normalizeLicense)(driver_license_number),
+            driver_rfc: (0, carta_porte_util_1.normalizeRfc)(driver_rfc),
+        };
+        this.assertDriverProfile(driverProfile);
         const user = await this.userRepo.save({
             ...userFields,
             password: hashedPassword,
@@ -115,6 +124,9 @@ let UsersService = class UsersService {
             is_employee: false,
             is_manager: is_manager ?? false,
             is_crm_admin: is_crm_admin ?? false,
+            is_driver: driverProfile.is_driver,
+            driver_license_number: driverProfile.driver_license_number || null,
+            driver_rfc: driverProfile.driver_rfc || null,
         });
         await this.replaceAssignedBranches(user.id, tenantId, assignment);
         if (dto.is_employee) {
@@ -166,7 +178,21 @@ let UsersService = class UsersService {
             await this.validatePosFields(tenantId, nextPosCode, id);
         }
         await this.assertCobranzaConfigChangeAllowed(user, tenantId, nextIsPosUser, nextPosUserType, nextBillingBranchId);
-        const { is_pos_user, pos_user_code, billing_branch_id: _billing_branch_id, billing_branch_ids: _billing_branch_ids, primary_billing_branch_id: _primary_billing_branch_id, pos_user_type, is_employee, employee, is_manager, is_crm_admin, warehouse_ids, ...userFields } = dto;
+        const { is_pos_user, pos_user_code, billing_branch_id: _billing_branch_id, billing_branch_ids: _billing_branch_ids, primary_billing_branch_id: _primary_billing_branch_id, pos_user_type, is_employee, employee, is_manager, is_crm_admin, is_driver, driver_license_number, driver_rfc, warehouse_ids, ...userFields } = dto;
+        const nextIsDriver = is_driver !== undefined ? is_driver : (0, carta_porte_util_1.isDriverFlag)(user.is_driver);
+        const driverProfile = {
+            is_driver: nextIsDriver,
+            first_name: dto.first_name ?? user.first_name,
+            last_name: dto.last_name ?? user.last_name,
+            driver_license_number: (0, carta_porte_util_1.normalizeLicense)(driver_license_number !== undefined
+                ? driver_license_number
+                : user.driver_license_number),
+            driver_rfc: (0, carta_porte_util_1.normalizeRfc)(driver_rfc !== undefined ? driver_rfc : user.driver_rfc),
+        };
+        this.assertDriverProfile(driverProfile);
+        user.is_driver = driverProfile.is_driver;
+        user.driver_license_number = driverProfile.driver_license_number || null;
+        user.driver_rfc = driverProfile.driver_rfc || null;
         if (dto.is_pos_user === true) {
             user.is_pos_user = true;
             if (dto.pos_user_type !== undefined) {
@@ -484,6 +510,7 @@ let UsersService = class UsersService {
             employee: user.employeeProfile ?? null,
             is_manager: Boolean(user.is_manager),
             is_crm_admin: Boolean(user.is_crm_admin),
+            ...this.mapDriverResponse(user),
             manager: this.mapManagerSummary(user.managerUser),
             ...(user.managedUsers
                 ? { reports: user.managedUsers }
@@ -491,6 +518,22 @@ let UsersService = class UsersService {
             ...this.mapUserBranchResponse(user),
             assigned_warehouses: user.assignedWarehouses ?? [],
         };
+    }
+    mapDriverResponse(user) {
+        const check = (0, carta_porte_util_1.assessDriver)(user);
+        return {
+            is_driver: (0, carta_porte_util_1.isDriverFlag)(user.is_driver),
+            driver_license_number: user.driver_license_number,
+            driver_rfc: user.driver_rfc,
+            carta_porte_ready: check.ready,
+            carta_porte_missing: check.missing,
+        };
+    }
+    assertDriverProfile(input) {
+        const check = (0, carta_porte_util_1.assessDriver)(input);
+        if (input.is_driver && !check.ready) {
+            throw new common_1.BadRequestException(check.missing.join('. '));
+        }
     }
     async getAssignedWarehouses(userId, tenantId) {
         const user = await this.userRepo.findOne({
