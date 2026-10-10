@@ -136,6 +136,9 @@ export declare class PurchaseOrderService {
     updateRealCost(id: string, dto: UpdatePurchaseOrderRealCostDto, tenantId: string, userId: string): Promise<any>;
     cancel(id: string, tenantId: string, userId: string, reason?: string | null): Promise<PurchaseOrderBatch>;
     reopen(id: string, tenantId: string, userId: string): Promise<PurchaseOrderBatch>;
+    reopenForAdditionalReceipt(id: string, tenantId: string, userId: string): Promise<PurchaseOrderBatch>;
+    closeAdditionalReceipt(id: string, tenantId: string, userId: string): Promise<PurchaseOrderBatch>;
+    private assertLineOpenForEdit;
     correctReceipt(id: string, dto: CorrectPurchaseReceiptDto, tenantId: string, userId: string): Promise<PurchaseOrderBatch>;
     replacePurchaseOrder(id: string, dto: CreatePurchaseOrderDto, tenantId: string, userId: string): Promise<PurchaseOrderBatch>;
     addLineItem(orderId: string, dto: CreateLineItemDto, tenantId: string, userId: string): Promise<PurchaseOrderBatch>;

@@ -79,6 +79,8 @@ export declare class PurchaseOrderController {
         reason?: string;
     } | undefined, req: any): Promise<import("../../../entities/purchase-orders").PurchaseOrderBatch>;
     reopenOrder(id: string, req: any): Promise<import("../../../entities/purchase-orders").PurchaseOrderBatch>;
+    reopenForAdditionalReceipt(id: string, req: any): Promise<import("../../../entities/purchase-orders").PurchaseOrderBatch>;
+    closeAdditionalReceipt(id: string, req: any): Promise<import("../../../entities/purchase-orders").PurchaseOrderBatch>;
     correctReceipt(id: string, dto: CorrectPurchaseReceiptDto, req: any): Promise<import("../../../entities/purchase-orders").PurchaseOrderBatch>;
     cancel(id: string, req: any): Promise<import("../../../entities/purchase-orders").PurchaseOrderBatch>;
     findOne(id: string, req: any): Promise<{

@@ -27,6 +27,7 @@ export declare class ReceiptService {
     receive(id: string, dto: ReceivePurchaseOrderDto, tenantId: string, userId: string): Promise<PurchaseOrderBatch>;
     private finalizeReceivedStatus;
     private applyReceivedTotals;
+    private persistReceivedTotalsFromLines;
     private recordReceivedStatus;
     private loadReceivedPurchaseOrder;
     private assertMeasureUomsExist;

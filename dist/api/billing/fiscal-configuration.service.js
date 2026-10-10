@@ -111,6 +111,15 @@ let FiscalConfigurationService = class FiscalConfigurationService {
         if (dto.advance_invoicing_enabled !== undefined) {
             patch.advance_invoicing_enabled = dto.advance_invoicing_enabled;
         }
+        if (dto.iva_enabled !== undefined) {
+            patch.iva_enabled = dto.iva_enabled;
+        }
+        if (dto.ieps_enabled !== undefined) {
+            patch.ieps_enabled = dto.ieps_enabled;
+        }
+        if (dto.multi_fiscal_transfers_enabled !== undefined) {
+            patch.multi_fiscal_transfers_enabled = dto.multi_fiscal_transfers_enabled;
+        }
         if (dto.use_as_system_logo !== undefined) {
             if (dto.use_as_system_logo && !current.logo) {
                 throw new common_1.BadRequestException('Sube un logo antes de usarlo como logo del sistema.');

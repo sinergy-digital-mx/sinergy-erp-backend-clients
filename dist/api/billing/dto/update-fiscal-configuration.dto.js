@@ -27,6 +27,9 @@ class UpdateFiscalConfigurationDto {
     status;
     quotation_expiration_days;
     advance_invoicing_enabled;
+    iva_enabled;
+    ieps_enabled;
+    multi_fiscal_transfers_enabled;
 }
 exports.UpdateFiscalConfigurationDto = UpdateFiscalConfigurationDto;
 __decorate([
@@ -153,4 +156,39 @@ __decorate([
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], UpdateFiscalConfigurationDto.prototype, "advance_invoicing_enabled", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'IVA en compras, ventas y cotizaciones de esta razón social.' }),
+    (0, class_transformer_1.Transform)(({ value }) => {
+        if (value === undefined)
+            return undefined;
+        return value === true || value === 'true' || value === 1 || value === '1';
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateFiscalConfigurationDto.prototype, "iva_enabled", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'IEPS en compras, ventas y cotizaciones de esta razón social.' }),
+    (0, class_transformer_1.Transform)(({ value }) => {
+        if (value === undefined)
+            return undefined;
+        return value === true || value === 'true' || value === 1 || value === '1';
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateFiscalConfigurationDto.prototype, "ieps_enabled", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Permite transferir inventario de esta razón social hacia otra.',
+    }),
+    (0, class_transformer_1.Transform)(({ value }) => {
+        if (value === undefined)
+            return undefined;
+        return value === true || value === 'true' || value === 1 || value === '1';
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateFiscalConfigurationDto.prototype, "multi_fiscal_transfers_enabled", void 0);
 //# sourceMappingURL=update-fiscal-configuration.dto.js.map

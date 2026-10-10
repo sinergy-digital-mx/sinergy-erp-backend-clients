@@ -77,6 +77,48 @@ let PurchaseOrderReversalService = class PurchaseOrderReversalService {
             ]),
         });
     }
+    async reopenForAdditionalReceipt(id, tenantId, userId) {
+        const order = await this.loadOrder(id, tenantId);
+        if (order.general_status !== 'Recibida') {
+            throw new common_1.BadRequestException(`Solo se reabre para otro ingreso una orden recibida. Estado actual: ${order.general_status}`);
+        }
+        order.general_status = 'Creada';
+        order.additional_receipt_open = true;
+        order.updated_by = userId;
+        await this.orderRepo.save(order);
+        await this.activityService.record({
+            tenantId,
+            purchaseOrderId: id,
+            type: purchase_order_movements_1.PURCHASE_ORDER_MOVEMENT_TYPES.STATUS_CHANGED,
+            actorId: userId,
+            title: 'Orden reabierta para ingreso',
+            description: 'La orden volvió a Creada para agregar productos y recibir otro ingreso. El inventario ya ingresado se conserva.',
+            changes: (0, purchase_order_activity_change_util_1.compactActivityChanges)([
+                (0, purchase_order_activity_change_util_1.activityChange)('general_status', 'Estatus', 'Recibida', 'Creada'),
+            ]),
+        });
+    }
+    async closeAdditionalReceipt(id, tenantId, userId) {
+        const order = await this.loadOrder(id, tenantId);
+        if (!order.additional_receipt_open) {
+            throw new common_1.BadRequestException('La orden no está abierta para un ingreso adicional');
+        }
+        order.general_status = 'Recibida';
+        order.additional_receipt_open = false;
+        order.updated_by = userId;
+        await this.orderRepo.save(order);
+        await this.activityService.record({
+            tenantId,
+            purchaseOrderId: id,
+            type: purchase_order_movements_1.PURCHASE_ORDER_MOVEMENT_TYPES.STATUS_CHANGED,
+            actorId: userId,
+            title: 'Ingreso adicional cerrado',
+            description: 'La orden volvió a Recibida sin un ingreso nuevo.',
+            changes: (0, purchase_order_activity_change_util_1.compactActivityChanges)([
+                (0, purchase_order_activity_change_util_1.activityChange)('general_status', 'Estatus', 'Creada', 'Recibida'),
+            ]),
+        });
+    }
     async reopen(id, tenantId, userId) {
         const order = await this.loadOrder(id, tenantId);
         if (order.general_status !== 'Cancelada') {

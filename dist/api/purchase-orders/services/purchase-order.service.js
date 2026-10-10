@@ -40,6 +40,7 @@ const purchase_order_line_breakdown_util_1 = require("../utils/purchase-order-li
 const purchase_order_activity_change_util_1 = require("../utils/purchase-order-activity-change.util");
 const purchase_order_movements_1 = require("../constants/purchase-order-movements");
 const purchase_order_reversal_service_1 = require("./purchase-order-reversal.service");
+const fiscal_tax_policy_util_1 = require("../../billing/utils/fiscal-tax-policy.util");
 let PurchaseOrderService = class PurchaseOrderService {
     static { PurchaseOrderService_1 = this; }
     purchaseOrderBatchRepository;
@@ -164,14 +165,16 @@ let PurchaseOrderService = class PurchaseOrderService {
         });
         await queryRunner.manager.save(row);
     }
-    async insertLineItemsForPurchaseOrder(queryRunner, purchaseOrderBatchId, vendorId, lineItems, userId, headerCurrency) {
+    async insertLineItemsForPurchaseOrder(queryRunner, purchaseOrderBatchId, vendorId, lineItems, userId, headerCurrency, fiscalConfigurationId, tenantId) {
         const paymentCurrency = await this.resolvePurchaseOrderCurrency(queryRunner, vendorId, lineItems, headerCurrency);
+        const taxPolicy = await (0, fiscal_tax_policy_util_1.loadFiscalTaxPolicy)(queryRunner.manager, fiscalConfigurationId || '', tenantId || '');
         let requested_subtotal = 0;
         let requested_iva_total = 0;
         let requested_ieps_total = 0;
         for (const lineItem of lineItems) {
-            const iva_percentage = Number(lineItem.iva_percentage || 0);
-            const ieps_percentage = Number(lineItem.ieps_percentage || 0);
+            const taxes = (0, fiscal_tax_policy_util_1.clampTaxPercentages)(Number(lineItem.iva_percentage || 0), Number(lineItem.ieps_percentage || 0), taxPolicy);
+            const iva_percentage = taxes.ivaPercentage;
+            const ieps_percentage = taxes.iepsPercentage;
             const unitTotal = (0, purchase_order_line_breakdown_util_1.roundPoUnitCost)(lineItem.unit_total);
             const breakdown = (0, purchase_order_line_breakdown_util_1.computeRequestedLineBreakdown)(Number(lineItem.quantity), unitTotal, iva_percentage, ieps_percentage);
             const productUomId = await this.unitConversionService.getProductUomId(lineItem.uom_id, lineItem.product_id);
@@ -236,7 +239,7 @@ let PurchaseOrderService = class PurchaseOrderService {
                 created_by: userId,
             });
             const savedOrder = await queryRunner.manager.save(purchaseOrder);
-            const totals = await this.insertLineItemsForPurchaseOrder(queryRunner, savedOrder.id, dto.vendor_id, dto.line_items, userId, dto.payment_currency);
+            const totals = await this.insertLineItemsForPurchaseOrder(queryRunner, savedOrder.id, dto.vendor_id, dto.line_items, userId, dto.payment_currency, dto.fiscal_configuration_id, tenantId);
             savedOrder.payment_currency = totals.payment_currency;
             savedOrder.requested_subtotal = totals.requested_subtotal;
             savedOrder.requested_iva_total = totals.requested_iva_total;
@@ -961,6 +964,19 @@ let PurchaseOrderService = class PurchaseOrderService {
         await this.reversalService.reopen(id, tenantId, userId);
         return this.findOne(id, tenantId);
     }
+    async reopenForAdditionalReceipt(id, tenantId, userId) {
+        await this.reversalService.reopenForAdditionalReceipt(id, tenantId, userId);
+        return this.findOne(id, tenantId);
+    }
+    async closeAdditionalReceipt(id, tenantId, userId) {
+        await this.reversalService.closeAdditionalReceipt(id, tenantId, userId);
+        return this.findOne(id, tenantId);
+    }
+    assertLineOpenForEdit(lineItem) {
+        if (Number(lineItem.received_original_quantity || 0) > 0) {
+            throw new common_1.BadRequestException('Esta línea ya tiene mercancía recibida. Agrega un producto nuevo para el siguiente ingreso.');
+        }
+    }
     async correctReceipt(id, dto, tenantId, userId) {
         await this.reversalService.correctReceipt(id, dto, tenantId, userId);
         return this.findOne(id, tenantId);
@@ -985,7 +1001,7 @@ let PurchaseOrderService = class PurchaseOrderService {
             await queryRunner.manager.delete(purchase_order_batch_detail_entity_1.PurchaseOrderBatchDetail, {
                 purchase_order_batch_id: id,
             });
-            const totals = await this.insertLineItemsForPurchaseOrder(queryRunner, id, dto.vendor_id, dto.line_items, userId, dto.payment_currency);
+            const totals = await this.insertLineItemsForPurchaseOrder(queryRunner, id, dto.vendor_id, dto.line_items, userId, dto.payment_currency, dto.fiscal_configuration_id, tenantId);
             const batch = await queryRunner.manager.findOne(purchase_order_batch_entity_1.PurchaseOrderBatch, {
                 where: { id, tenant_id: tenantId },
             });
@@ -1054,8 +1070,10 @@ let PurchaseOrderService = class PurchaseOrderService {
             throw new common_1.BadRequestException(`No se puede agregar una línea a la orden de compra con estado: ${purchaseOrder.general_status}`);
         }
         const poCurrency = this.normalizeCurrency(purchaseOrder.payment_currency) || 'MXN';
-        const iva_percentage = Number(dto.iva_percentage || 0);
-        const ieps_percentage = Number(dto.ieps_percentage || 0);
+        const taxPolicy = await (0, fiscal_tax_policy_util_1.loadFiscalTaxPolicy)(this.dataSource, purchaseOrder.fiscal_configuration_id, tenantId);
+        const taxes = (0, fiscal_tax_policy_util_1.clampTaxPercentages)(Number(dto.iva_percentage || 0), Number(dto.ieps_percentage || 0), taxPolicy);
+        const iva_percentage = taxes.ivaPercentage;
+        const ieps_percentage = taxes.iepsPercentage;
         const unitTotal = (0, purchase_order_line_breakdown_util_1.roundPoUnitCost)(dto.unit_total);
         const breakdown = (0, purchase_order_line_breakdown_util_1.computeRequestedLineBreakdown)(Number(dto.quantity), unitTotal, iva_percentage, ieps_percentage);
         const productUomId = await this.unitConversionService.getProductUomId(dto.uom_id, dto.product_id);
@@ -1172,6 +1190,7 @@ let PurchaseOrderService = class PurchaseOrderService {
         if (!lineItem) {
             throw new common_1.NotFoundException(`Línea no encontrada: ${lineItemId}`);
         }
+        this.assertLineOpenForEdit(lineItem);
         const productName = (purchaseOrder.line_items || []).find((line) => line.id === lineItemId)?.product
             ?.name ?? lineItem.product_id;
         const before = {
@@ -1190,11 +1209,18 @@ let PurchaseOrderService = class PurchaseOrderService {
         if (dto.unit_total !== undefined) {
             lineItem.unit_total = (0, purchase_order_line_breakdown_util_1.roundPoUnitCost)(dto.unit_total);
         }
+        const taxPolicy = await (0, fiscal_tax_policy_util_1.loadFiscalTaxPolicy)(this.dataSource, purchaseOrder.fiscal_configuration_id, tenantId);
         if (dto.iva_percentage !== undefined) {
-            lineItem.iva_percentage = dto.iva_percentage;
+            lineItem.iva_percentage = (0, fiscal_tax_policy_util_1.clampTaxPercentages)(Number(dto.iva_percentage || 0), 0, taxPolicy).ivaPercentage;
+        }
+        else if (!taxPolicy.ivaEnabled) {
+            lineItem.iva_percentage = 0;
         }
         if (dto.ieps_percentage !== undefined) {
-            lineItem.ieps_percentage = dto.ieps_percentage;
+            lineItem.ieps_percentage = (0, fiscal_tax_policy_util_1.clampTaxPercentages)(0, Number(dto.ieps_percentage || 0), taxPolicy).iepsPercentage;
+        }
+        else if (!taxPolicy.iepsEnabled) {
+            lineItem.ieps_percentage = 0;
         }
         const qty = Number(lineItem.quantity);
         if (qty <= 0 || !Number.isFinite(qty)) {
@@ -1260,6 +1286,7 @@ let PurchaseOrderService = class PurchaseOrderService {
         if (!lineItem) {
             throw new common_1.NotFoundException(`Línea no encontrada: ${lineItemId}`);
         }
+        this.assertLineOpenForEdit(lineItem);
         const productName = (purchaseOrder.line_items || []).find((line) => line.id === lineItemId)?.product
             ?.name ?? lineItem.product_id;
         const queryRunner = this.dataSource.createQueryRunner();

@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildPurchaseOrderLocationTree = buildPurchaseOrderLocationTree;
+const fiscal_tax_policy_util_1 = require("../../billing/utils/fiscal-tax-policy.util");
 function toWarehouseNode(warehouse) {
     return {
         id: warehouse.id,
@@ -34,6 +35,9 @@ function buildPurchaseOrderLocationTree(fiscals, branches, warehouses) {
             razon_social: fiscal.razon_social,
             rfc: fiscal.rfc,
             status: fiscal.status,
+            iva_enabled: (0, fiscal_tax_policy_util_1.isFiscalFlagOn)(fiscal.iva_enabled, true),
+            ieps_enabled: (0, fiscal_tax_policy_util_1.isFiscalFlagOn)(fiscal.ieps_enabled, true),
+            multi_fiscal_transfers_enabled: (0, fiscal_tax_policy_util_1.isFiscalFlagOn)(fiscal.multi_fiscal_transfers_enabled, true),
             branches: (branchesByFiscal.get(fiscal.id) ?? []).map((branch) => ({
                 id: branch.id,
                 name: branch.code,

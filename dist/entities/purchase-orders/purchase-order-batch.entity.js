@@ -35,6 +35,7 @@ let PurchaseOrderBatch = class PurchaseOrderBatch {
     payment_status;
     payment_currency;
     general_status;
+    additional_receipt_open;
     notes;
     pedimento_number;
     vendor_invoice_number;
@@ -136,6 +137,10 @@ __decorate([
     }),
     __metadata("design:type", String)
 ], PurchaseOrderBatch.prototype, "general_status", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'tinyint', width: 1, default: 0 }),
+    __metadata("design:type", Boolean)
+], PurchaseOrderBatch.prototype, "additional_receipt_open", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'text', nullable: true }),
     __metadata("design:type", Object)

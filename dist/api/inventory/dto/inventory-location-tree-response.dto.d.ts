@@ -14,6 +14,9 @@ export declare class InventoryLocationFiscalDto {
     razon_social: string;
     rfc: string;
     status: string;
+    iva_enabled: boolean;
+    ieps_enabled: boolean;
+    multi_fiscal_transfers_enabled: boolean;
     branches: InventoryLocationBranchDto[];
 }
 export declare class InventoryLocationTreeResponseDto {

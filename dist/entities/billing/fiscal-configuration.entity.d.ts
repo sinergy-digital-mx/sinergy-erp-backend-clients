@@ -24,6 +24,9 @@ export declare class FiscalConfiguration {
     last_finkok_sync_at: Date | null;
     quotation_expiration_days: number | null;
     advance_invoicing_enabled: boolean;
+    iva_enabled: boolean;
+    ieps_enabled: boolean;
+    multi_fiscal_transfers_enabled: boolean;
     branches: BillingBranch[];
     created_at: Date;
     updated_at: Date;

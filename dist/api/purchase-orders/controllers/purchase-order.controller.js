@@ -153,6 +153,16 @@ let PurchaseOrderController = class PurchaseOrderController {
         const userId = req.user.id;
         return this.purchaseOrderService.reopen(id, tenantId, userId);
     }
+    async reopenForAdditionalReceipt(id, req) {
+        const tenantId = req.user.tenant_id;
+        const userId = req.user.id;
+        return this.purchaseOrderService.reopenForAdditionalReceipt(id, tenantId, userId);
+    }
+    async closeAdditionalReceipt(id, req) {
+        const tenantId = req.user.tenant_id;
+        const userId = req.user.id;
+        return this.purchaseOrderService.closeAdditionalReceipt(id, tenantId, userId);
+    }
     async correctReceipt(id, dto, req) {
         this.assertCorrectReceiptPermission(req);
         const tenantId = req.user.tenant_id;
@@ -410,6 +420,22 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], PurchaseOrderController.prototype, "reopenOrder", null);
+__decorate([
+    (0, common_1.Post)(':id/reopen-for-receipt'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], PurchaseOrderController.prototype, "reopenForAdditionalReceipt", null);
+__decorate([
+    (0, common_1.Post)(':id/close-additional-receipt'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], PurchaseOrderController.prototype, "closeAdditionalReceipt", null);
 __decorate([
     (0, common_1.Patch)(':id/receipt-correction'),
     __param(0, (0, common_1.Param)('id')),

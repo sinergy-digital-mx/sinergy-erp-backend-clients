@@ -30,6 +30,7 @@ const inventory_stock_ledger_service_1 = require("./inventory-stock-ledger.servi
 const inventory_stock_ledger_valuation_service_1 = require("./inventory-stock-ledger-valuation.service");
 const inventory_stock_ledger_movement_type_enum_1 = require("../../../entities/inventory/inventory-stock-ledger-movement-type.enum");
 const inventory_measure_util_1 = require("../utils/inventory-measure.util");
+const fiscal_tax_policy_util_1 = require("../../billing/utils/fiscal-tax-policy.util");
 let InventoryTransferService = InventoryTransferService_1 = class InventoryTransferService {
     transferRepo;
     batchRepo;
@@ -81,6 +82,7 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
         const totalAvailable = batches.reduce((sum, b) => sum + parseFloat(b.available_quantity?.toString() ?? '0'), 0);
         const fiscal = warehouse.billing_branch?.fiscal_configuration ?? null;
         const locationTree = await this.inventoryService.getLocationTree(tenantId);
+        const multiFiscalTransfersEnabled = (0, fiscal_tax_policy_util_1.isFiscalFlagOn)(fiscal?.multi_fiscal_transfers_enabled, true);
         return {
             product_id: first.product_id,
             product_name: first.product?.name ?? '',
@@ -110,7 +112,10 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
                     }
                     : null,
             },
-            destinations: this.filterDestinationTree(locationTree.data, warehouse.id),
+            destinations: this.filterDestinationTree(locationTree.data, warehouse.id, {
+                sourceFiscalId: fiscal?.id ?? warehouse.billing_branch?.fiscal_configuration_id ?? null,
+                multiFiscalTransfersEnabled,
+            }),
             batches: batches.map((b) => ({
                 batch_id: b.id,
                 batch_number: b.batch_number,
@@ -141,9 +146,11 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
         try {
             const sourceWarehouse = await qr.manager.findOne(warehouse_entity_1.Warehouse, {
                 where: { id: dto.source_warehouse_id, tenant_id: tenantId },
+                relations: ['billing_branch', 'billing_branch.fiscal_configuration'],
             });
             const destinationWarehouse = await qr.manager.findOne(warehouse_entity_1.Warehouse, {
                 where: { id: dto.destination_warehouse_id, tenant_id: tenantId },
+                relations: ['billing_branch', 'billing_branch.fiscal_configuration'],
             });
             if (!sourceWarehouse) {
                 throw new common_1.NotFoundException('Almacén de origen no encontrado');
@@ -154,6 +161,7 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
             if (destinationWarehouse.status !== 'active') {
                 throw new common_1.BadRequestException('El almacén de destino no está activo');
             }
+            this.assertTransferFiscalScope(sourceWarehouse, destinationWarehouse);
             const lockedBatches = new Map();
             const orderedLines = [...dto.lines].sort((a, b) => a.inventory_batch_id.localeCompare(b.inventory_batch_id));
             for (const lineDto of orderedLines) {
@@ -501,9 +509,28 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
             lines_count: group.lines_count,
         }));
     }
-    filterDestinationTree(fiscals, sourceWarehouseId) {
+    assertTransferFiscalScope(source, destination) {
+        const sourceFiscalId = source.billing_branch?.fiscal_configuration?.id ??
+            source.billing_branch?.fiscal_configuration_id ??
+            null;
+        const destinationFiscalId = destination.billing_branch?.fiscal_configuration?.id ??
+            destination.billing_branch?.fiscal_configuration_id ??
+            null;
+        if (!sourceFiscalId || !destinationFiscalId) {
+            throw new common_1.BadRequestException('El almacén de origen y destino deben tener razón social');
+        }
+        if (sourceFiscalId === destinationFiscalId) {
+            return;
+        }
+        if (!(0, fiscal_tax_policy_util_1.isFiscalFlagOn)(source.billing_branch?.fiscal_configuration?.multi_fiscal_transfers_enabled, true)) {
+            throw new common_1.BadRequestException('Esta razón social solo puede transferir dentro de la misma razón social');
+        }
+    }
+    filterDestinationTree(fiscals, sourceWarehouseId, scope) {
+        const sameFiscalOnly = scope && !scope.multiFiscalTransfersEnabled && !!scope.sourceFiscalId;
         return fiscals
             .filter((fiscal) => fiscal.status === 'active')
+            .filter((fiscal) => !sameFiscalOnly || fiscal.id === scope?.sourceFiscalId)
             .map((fiscal) => ({
             ...fiscal,
             branches: fiscal.branches

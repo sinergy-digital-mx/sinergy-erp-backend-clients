@@ -28,6 +28,7 @@ const customer_entity_1 = require("../../../entities/customers/customer.entity")
 const billing_branch_entity_1 = require("../../../entities/billing/billing-branch.entity");
 const warehouse_entity_1 = require("../../../entities/warehouse/warehouse.entity");
 const unit_amount_util_1 = require("../../../common/utils/unit-amount.util");
+const fiscal_tax_policy_util_1 = require("../../billing/utils/fiscal-tax-policy.util");
 const quotation_folio_service_1 = require("./quotation-folio.service");
 const quotation_pdf_service_1 = require("./quotation-pdf.service");
 const quotation_documents_service_1 = require("./quotation-documents.service");
@@ -122,7 +123,7 @@ let QuotationService = class QuotationService {
                 assigned_seller_user_id: assignedSellerUserId,
             });
             const saved = await qr.manager.save(quotation_entity_1.Quotation, quotation);
-            await this.insertLineItems(qr, saved.id, dto.line_items, userId, tenantId);
+            await this.insertLineItems(qr, saved.id, dto.line_items, userId, tenantId, location.fiscalConfigurationId);
             await this.recomputeTotals(qr, saved, tenantId, dto.global_discount_id);
             await qr.commitTransaction();
             this.generateAndUploadPdf(saved.id, tenantId, userId).catch((err) => {
@@ -178,7 +179,7 @@ let QuotationService = class QuotationService {
             }
             quotation.updated_by = userId;
             await qr.manager.save(quotation_entity_1.Quotation, quotation);
-            await this.insertLineItems(qr, id, dto.line_items, userId, tenantId);
+            await this.insertLineItems(qr, id, dto.line_items, userId, tenantId, quotation.fiscal_configuration_id);
             await this.recomputeTotals(qr, quotation, tenantId, dto.global_discount_id !== undefined
                 ? dto.global_discount_id
                 : existing.global_discount_id ?? undefined);
@@ -415,7 +416,7 @@ let QuotationService = class QuotationService {
             if (!quotation) {
                 throw new common_1.NotFoundException(`Cotización no encontrada: ${id}`);
             }
-            await this.insertLineItems(qr, id, [dto], userId, tenantId);
+            await this.insertLineItems(qr, id, [dto], userId, tenantId, quotation.fiscal_configuration_id);
             quotation.updated_by = userId;
             await this.recomputeTotals(qr, quotation, tenantId, quotation.global_discount_id ?? undefined);
             await qr.commitTransaction();
@@ -456,11 +457,12 @@ let QuotationService = class QuotationService {
             if (dto.unit_price !== undefined) {
                 line.unit_price = (0, unit_amount_util_1.roundUnitAmount)(dto.unit_price);
             }
-            if (dto.iva_percentage !== undefined) {
-                line.iva_percentage = dto.iva_percentage;
+            const taxPolicy = await (0, fiscal_tax_policy_util_1.loadFiscalTaxPolicy)(qr.manager, quotation.fiscal_configuration_id, tenantId);
+            if (dto.iva_percentage !== undefined || !taxPolicy.ivaEnabled) {
+                line.iva_percentage = (0, fiscal_tax_policy_util_1.clampTaxPercentages)(Number(dto.iva_percentage ?? line.iva_percentage ?? 0), 0, taxPolicy).ivaPercentage;
             }
-            if (dto.ieps_percentage !== undefined) {
-                line.ieps_percentage = dto.ieps_percentage;
+            if (dto.ieps_percentage !== undefined || !taxPolicy.iepsEnabled) {
+                line.ieps_percentage = (0, fiscal_tax_policy_util_1.clampTaxPercentages)(0, Number(dto.ieps_percentage ?? line.ieps_percentage ?? 0), taxPolicy).iepsPercentage;
             }
             const productUomId = dto.product_uom_id || line.product_uom_id;
             const productUomRow = await this.resolveProductUom(qr, line.product_id, productUomId);
@@ -709,7 +711,8 @@ let QuotationService = class QuotationService {
             .leftJoinAndSelect('qt.global_discount', 'global_discount')
             .getOne();
     }
-    async insertLineItems(qr, quotationId, lineItems, userId, tenantId) {
+    async insertLineItems(qr, quotationId, lineItems, userId, tenantId, fiscalConfigurationId) {
+        const taxPolicy = await (0, fiscal_tax_policy_util_1.loadFiscalTaxPolicy)(qr.manager, fiscalConfigurationId || '', tenantId);
         const saved = [];
         for (const item of lineItems) {
             const productUomRow = await this.resolveProductUom(qr, item.product_id, item.product_uom_id);
@@ -717,8 +720,9 @@ let QuotationService = class QuotationService {
             const line_subtotal = Number(item.quantity) * Number(item.unit_price);
             const line_discount = discountAmounts.line_discount;
             const taxable_subtotal = Math.max(line_subtotal - line_discount, 0);
-            const iva_pct = Number(item.iva_percentage || 0);
-            const ieps_pct = Number(item.ieps_percentage || 0);
+            const taxes = (0, fiscal_tax_policy_util_1.clampTaxPercentages)(Number(item.iva_percentage || 0), Number(item.ieps_percentage || 0), taxPolicy);
+            const iva_pct = taxes.ivaPercentage;
+            const ieps_pct = taxes.iepsPercentage;
             const line_iva = (taxable_subtotal * iva_pct) / 100;
             const line_ieps = (taxable_subtotal * ieps_pct) / 100;
             const [baseUomRow] = await qr.manager.query(`SELECT pu.uom_catalog_id FROM product_uoms pu

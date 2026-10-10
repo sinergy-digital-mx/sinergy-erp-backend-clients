@@ -14,6 +14,8 @@ export declare class PurchaseOrderReversalService {
     private readonly activityService;
     constructor(orderRepo: Repository<PurchaseOrderBatch>, detailRepo: Repository<PurchaseOrderBatchDetail>, dataSource: DataSource, stockLedger: InventoryStockLedgerService, stockLedgerValuation: InventoryStockLedgerValuationService, activityService: PurchaseOrderActivityService);
     cancel(id: string, tenantId: string, userId: string, reason?: string | null): Promise<void>;
+    reopenForAdditionalReceipt(id: string, tenantId: string, userId: string): Promise<void>;
+    closeAdditionalReceipt(id: string, tenantId: string, userId: string): Promise<void>;
     reopen(id: string, tenantId: string, userId: string): Promise<void>;
     correctReceipt(id: string, dto: CorrectPurchaseReceiptDto, tenantId: string, userId: string): Promise<void>;
     private exitReceivedInventory;

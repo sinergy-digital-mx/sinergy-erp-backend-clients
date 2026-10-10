@@ -54,6 +54,7 @@ const purchase_order_pdf_labels_1 = require("./purchase-order-pdf-labels");
 const path = __importStar(require("path"));
 const purchase_order_line_breakdown_util_1 = require("../utils/purchase-order-line-breakdown.util");
 const inventory_measure_util_1 = require("../../inventory/utils/inventory-measure.util");
+const fiscal_tax_policy_util_1 = require("../../billing/utils/fiscal-tax-policy.util");
 const COLORS = {
     primary: '#1E3A5F',
     primarySoft: '#E8EEF5',
@@ -362,7 +363,7 @@ let PurchaseOrderPdfService = class PurchaseOrderPdfService {
                 },
             ]);
         }
-        return this.productsTable(labels.requestedProductsDetail, ['*', 78, 78, 86, 78, 92], tableBody);
+        return this.productsTable(labels.requestedProductsDetail, ['*', 58, 68, 72, 62, 72], tableBody);
     }
     buildReceivedProducts(purchaseOrder, labels, currency) {
         const lineItems = purchaseOrder.line_items || [];
@@ -435,7 +436,7 @@ let PurchaseOrderPdfService = class PurchaseOrderPdfService {
                 },
             ]);
         }
-        return this.productsTable(labels.receivedProductsDetail, ['*', 120, 70, 78, 78, 92], tableBody);
+        return this.productsTable(labels.receivedProductsDetail, ['*', 108, 56, 64, 58, 68], tableBody);
     }
     productsTable(title, widths, body) {
         return {
@@ -462,10 +463,10 @@ let PurchaseOrderPdfService = class PurchaseOrderPdfService {
                         hLineWidth: () => 0.4,
                         vLineWidth: () => 0,
                         hLineColor: () => COLORS.line,
-                        paddingTop: () => 6,
-                        paddingBottom: () => 6,
-                        paddingLeft: () => 8,
-                        paddingRight: () => 8,
+                        paddingTop: () => 5,
+                        paddingBottom: () => 5,
+                        paddingLeft: () => 4,
+                        paddingRight: () => 4,
                     },
                 },
             ],
@@ -497,13 +498,13 @@ let PurchaseOrderPdfService = class PurchaseOrderPdfService {
                             ],
                             fillColor: COLORS.light,
                             border: [false, false, false, false],
-                            margin: [14, 14, 16, 14],
+                            margin: [8, 8, 8, 8],
                         },
                         {
-                            stack: [this.buildTotalsTable(labels, totals, currency)],
+                            stack: [this.buildTotalsTable(purchaseOrder, labels, totals, currency)],
                             fillColor: COLORS.light,
                             border: [false, false, false, false],
-                            margin: [10, 12, 12, 12],
+                            margin: [8, 8, 8, 8],
                         },
                     ],
                 ],
@@ -512,16 +513,20 @@ let PurchaseOrderPdfService = class PurchaseOrderPdfService {
             margin: [0, 0, 0, 0],
         };
     }
-    buildTotalsTable(labels, totals, currency) {
+    buildTotalsTable(purchaseOrder, labels, totals, currency) {
+        const fiscal = purchaseOrder.fiscal_configuration;
+        const rows = [this.totalRow(labels.subtotal, totals.subtotal, currency)];
+        if ((0, fiscal_tax_policy_util_1.isFiscalFlagOn)(fiscal?.iva_enabled, true)) {
+            rows.push(this.totalRow(labels.vat, totals.iva, currency));
+        }
+        if ((0, fiscal_tax_policy_util_1.isFiscalFlagOn)(fiscal?.ieps_enabled, true) && totals.ieps !== 0) {
+            rows.push(this.totalRow(labels.ieps, totals.ieps, currency));
+        }
+        rows.push(this.totalRow(`${labels.totalLabel} (${currency})`, totals.total, currency, true));
         return {
             table: {
-                widths: ['*', 108],
-                body: [
-                    this.totalRow(labels.subtotal, totals.subtotal, currency),
-                    this.totalRow(labels.vat, totals.iva, currency),
-                    this.totalRow(labels.ieps, totals.ieps, currency),
-                    this.totalRow(`${labels.totalLabel} (${currency})`, totals.total, currency, true),
-                ],
+                widths: ['*', 78],
+                body: rows,
             },
             layout: {
                 hLineWidth: (i, node) => (i === node.table.body.length - 1 ? 0 : 0),
@@ -655,7 +660,7 @@ let PurchaseOrderPdfService = class PurchaseOrderPdfService {
             minimumFractionDigits: 2,
             maximumFractionDigits,
         });
-        return `$${formatted} ${currency}`;
+        return `$${formatted}`;
     }
     async getFiscalLogoImage(purchaseOrder) {
         const logoKey = purchaseOrder.fiscal_configuration?.logo;

@@ -36,6 +36,7 @@ const customer_debt_ledger_service_1 = require("../../accounting/services/custom
 const s3_service_1 = require("../../../common/services/s3.service");
 const public_invoice_code_util_1 = require("../../../common/utils/public-invoice-code.util");
 const unit_amount_util_1 = require("../../../common/utils/unit-amount.util");
+const fiscal_tax_policy_util_1 = require("../../billing/utils/fiscal-tax-policy.util");
 const quoted_pricing_util_1 = require("../utils/quoted-pricing.util");
 const sales_order_folio_service_1 = require("./sales-order-folio.service");
 const sales_order_fulfillment_service_1 = require("./sales-order-fulfillment.service");
@@ -350,6 +351,7 @@ let SalesOrderService = class SalesOrderService {
             const savedSO = await qr.manager.save(sales_order_entity_1.SalesOrder, so);
             const savedDetails = [];
             let subtotal = 0, iva_total = 0, ieps_total = 0, discount_total = 0;
+            const taxPolicy = await (0, fiscal_tax_policy_util_1.loadFiscalTaxPolicy)(qr.manager, dto.fiscal_configuration_id, tenantId);
             for (const item of dto.line_items) {
                 const productUomRow = await this.resolveProductUom(qr, item.product_id, item.product_uom_id);
                 const discountAmounts = fromQuotation
@@ -358,8 +360,9 @@ let SalesOrderService = class SalesOrderService {
                 const line_subtotal = Number(item.quantity) * (0, quoted_pricing_util_1.quotedUnitPrice)(item.unit_price);
                 const line_discount = discountAmounts.line_discount;
                 const taxable_subtotal = Math.max(line_subtotal - line_discount, 0);
-                const iva_pct = Number(item.iva_percentage || 0);
-                const ieps_pct = Number(item.ieps_percentage || 0);
+                const taxes = (0, fiscal_tax_policy_util_1.clampTaxPercentages)(Number(item.iva_percentage || 0), Number(item.ieps_percentage || 0), taxPolicy);
+                const iva_pct = taxes.ivaPercentage;
+                const ieps_pct = taxes.iepsPercentage;
                 const line_iva = (taxable_subtotal * iva_pct) / 100;
                 const line_ieps = (taxable_subtotal * ieps_pct) / 100;
                 const [baseUomRow] = await qr.manager.query(`SELECT pu.uom_catalog_id FROM product_uoms pu
@@ -505,7 +508,7 @@ let SalesOrderService = class SalesOrderService {
             so.customer_id = customerId;
             const lineKinds = await this.loadProductKinds(qr, dto.line_items.map((item) => item.product_id));
             this.assertLineItemsMatchSaleScope(dto.line_items, so.sale_scope, lineKinds);
-            const savedDetails = await this.insertSalesOrderLineItems(qr, so.id, dto.line_items, userId, tenantId);
+            const savedDetails = await this.insertSalesOrderLineItems(qr, so.id, dto.line_items, userId, tenantId, so.fiscal_configuration_id);
             so.global_discount_id = dto.global_discount_id ?? null;
             so.updated_by = userId;
             const walkInTicket = (0, pos_sale_collection_mapper_1.isWalkInCustomer)(customer)
@@ -1501,7 +1504,7 @@ let SalesOrderService = class SalesOrderService {
             }
             so.updated_by = userId;
             await qr.manager.save(sales_order_entity_1.SalesOrder, so);
-            const savedDetails = await this.insertSalesOrderLineItems(qr, so.id, dto.line_items, userId, tenantId);
+            const savedDetails = await this.insertSalesOrderLineItems(qr, so.id, dto.line_items, userId, tenantId, so.fiscal_configuration_id);
             await this.recomputeTotals(qr, so.id, tenantId, userId);
             await this.controlDeskLifecycle.syncJobForSalesOrder(qr.manager, {
                 tenantId,
@@ -1540,7 +1543,7 @@ let SalesOrderService = class SalesOrderService {
             const saleScope = (0, sale_scope_util_1.resolveSaleScope)(so.sale_scope, so.sales_order_type === 'POS');
             const lineKinds = await this.loadProductKinds(qr, [dto.product_id]);
             this.assertLineItemsMatchSaleScope([dto], saleScope, lineKinds);
-            const added = await this.insertSalesOrderLineItems(qr, so.id, [dto], userId, tenantId);
+            const added = await this.insertSalesOrderLineItems(qr, so.id, [dto], userId, tenantId, so.fiscal_configuration_id);
             await this.holdManualInventoryIfNeeded(qr, so, added, userId);
             await this.recomputeTotals(qr, so.id, tenantId, userId);
             const details = await qr.manager.find(sales_order_detail_entity_1.SalesOrderDetail, {
@@ -1596,11 +1599,12 @@ let SalesOrderService = class SalesOrderService {
             if (dto.unit_price !== undefined) {
                 line.unit_price = (0, unit_amount_util_1.roundUnitAmount)(dto.unit_price);
             }
-            if (dto.iva_percentage !== undefined) {
-                line.iva_percentage = dto.iva_percentage;
+            const taxPolicy = await (0, fiscal_tax_policy_util_1.loadFiscalTaxPolicy)(qr.manager, so.fiscal_configuration_id, tenantId);
+            if (dto.iva_percentage !== undefined || !taxPolicy.ivaEnabled) {
+                line.iva_percentage = (0, fiscal_tax_policy_util_1.clampTaxPercentages)(Number(dto.iva_percentage ?? line.iva_percentage ?? 0), 0, taxPolicy).ivaPercentage;
             }
-            if (dto.ieps_percentage !== undefined) {
-                line.ieps_percentage = dto.ieps_percentage;
+            if (dto.ieps_percentage !== undefined || !taxPolicy.iepsEnabled) {
+                line.ieps_percentage = (0, fiscal_tax_policy_util_1.clampTaxPercentages)(0, Number(dto.ieps_percentage ?? line.ieps_percentage ?? 0), taxPolicy).iepsPercentage;
             }
             const productUomId = dto.product_uom_id || line.product_uom_id;
             const productUomRow = await this.resolveProductUom(qr, line.product_id, productUomId);
@@ -1758,7 +1762,8 @@ let SalesOrderService = class SalesOrderService {
         const kinds = await this.loadProductKinds(qr, lineItems.map((item) => item.product_id));
         return lineItems.filter((item) => (kinds.get(item.product_id) ?? product_item_kind_enum_1.ProductItemKind.Goods) === product_item_kind_enum_1.ProductItemKind.Goods);
     }
-    async insertSalesOrderLineItems(qr, salesOrderId, lineItems, userId, tenantId) {
+    async insertSalesOrderLineItems(qr, salesOrderId, lineItems, userId, tenantId, fiscalConfigurationId) {
+        const taxPolicy = await (0, fiscal_tax_policy_util_1.loadFiscalTaxPolicy)(qr.manager, fiscalConfigurationId || '', tenantId);
         const saved = [];
         for (const item of lineItems) {
             const productUomRow = await this.resolveProductUom(qr, item.product_id, item.product_uom_id);
@@ -1766,8 +1771,9 @@ let SalesOrderService = class SalesOrderService {
             const line_subtotal = Number(item.quantity) * Number(item.unit_price);
             const line_discount = discountAmounts.line_discount;
             const taxable_subtotal = Math.max(line_subtotal - line_discount, 0);
-            const iva_pct = Number(item.iva_percentage || 0);
-            const ieps_pct = Number(item.ieps_percentage || 0);
+            const taxes = (0, fiscal_tax_policy_util_1.clampTaxPercentages)(Number(item.iva_percentage || 0), Number(item.ieps_percentage || 0), taxPolicy);
+            const iva_pct = taxes.ivaPercentage;
+            const ieps_pct = taxes.iepsPercentage;
             const line_iva = (taxable_subtotal * iva_pct) / 100;
             const line_ieps = (taxable_subtotal * ieps_pct) / 100;
             const [baseUomRow] = await qr.manager.query(`SELECT pu.uom_catalog_id FROM product_uoms pu

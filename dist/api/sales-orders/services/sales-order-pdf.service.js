@@ -54,6 +54,7 @@ const s3_service_1 = require("../../../common/services/s3.service");
 const document_language_enum_1 = require("../../../common/enums/document-language.enum");
 const invoice_month_deadline_util_1 = require("../utils/invoice-month-deadline.util");
 const sales_order_pdf_labels_1 = require("./sales-order-pdf-labels");
+const fiscal_tax_policy_util_1 = require("../../billing/utils/fiscal-tax-policy.util");
 const COLORS = {
     primary: '#1E3A5F',
     primarySoft: '#E8EEF5',
@@ -356,7 +357,7 @@ let SalesOrderPdfService = class SalesOrderPdfService {
                 {
                     table: {
                         headerRows: 1,
-                        widths: ['*', 78, 78, 58, 78],
+                        widths: ['*', 62, 70, 48, 72],
                         body: tableBody,
                     },
                     layout: {
@@ -368,10 +369,10 @@ let SalesOrderPdfService = class SalesOrderPdfService {
                         hLineWidth: () => 0.4,
                         vLineWidth: () => 0,
                         hLineColor: () => COLORS.line,
-                        paddingTop: () => 6,
-                        paddingBottom: () => 6,
-                        paddingLeft: () => 8,
-                        paddingRight: () => 8,
+                        paddingTop: () => 5,
+                        paddingBottom: () => 5,
+                        paddingLeft: () => 4,
+                        paddingRight: () => 4,
                     },
                 },
             ],
@@ -403,13 +404,13 @@ let SalesOrderPdfService = class SalesOrderPdfService {
                             ],
                             fillColor: COLORS.light,
                             border: [false, false, false, false],
-                            margin: [14, 14, 16, 14],
+                            margin: [8, 8, 8, 8],
                         },
                         {
                             stack: [this.buildTotalsTable(salesOrder, labels)],
                             fillColor: COLORS.light,
                             border: [false, false, false, false],
-                            margin: [10, 12, 12, 12],
+                            margin: [8, 8, 8, 8],
                         },
                     ],
                 ],
@@ -431,7 +432,14 @@ let SalesOrderPdfService = class SalesOrderPdfService {
         if (lineDiscountTotal <= 0 && globalDiscountAmount <= 0) {
             rows.push(this.totalRow(labels.discountTotal, 0));
         }
-        rows.push(this.totalRow(labels.vat, Number(salesOrder.iva_total) || 0), this.totalRow(labels.ieps, Number(salesOrder.ieps_total) || 0), this.totalRow(labels.totalLabel, Number(salesOrder.total) || 0, true));
+        const fiscal = salesOrder.fiscal_configuration;
+        if ((0, fiscal_tax_policy_util_1.isFiscalFlagOn)(fiscal?.iva_enabled, true)) {
+            rows.push(this.totalRow(labels.vat, Number(salesOrder.iva_total) || 0));
+        }
+        if ((0, fiscal_tax_policy_util_1.isFiscalFlagOn)(fiscal?.ieps_enabled, true) && Number(salesOrder.ieps_total) !== 0) {
+            rows.push(this.totalRow(labels.ieps, Number(salesOrder.ieps_total) || 0));
+        }
+        rows.push(this.totalRow(labels.totalLabel, Number(salesOrder.total) || 0, true));
         return {
             table: {
                 widths: ['*', 82],

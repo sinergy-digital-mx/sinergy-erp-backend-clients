@@ -35,6 +35,7 @@ const fiscal_configuration_entity_1 = require("../../entities/billing/fiscal-con
 const billing_branch_entity_1 = require("../../entities/billing/billing-branch.entity");
 const uom_catalog_entity_1 = require("../../entities/uom-catalog/uom-catalog.entity");
 const s3_service_1 = require("../../common/services/s3.service");
+const fiscal_tax_policy_util_1 = require("../billing/utils/fiscal-tax-policy.util");
 const purchase_order_vendor_invoice_util_1 = require("../purchase-orders/utils/purchase-order-vendor-invoice.util");
 const inventory_location_filter_util_1 = require("./utils/inventory-location-filter.util");
 const inventory_measure_util_1 = require("./utils/inventory-measure.util");
@@ -142,6 +143,9 @@ let InventoryService = InventoryService_1 = class InventoryService {
                 razon_social: fiscal.razon_social,
                 rfc: fiscal.rfc,
                 status: fiscal.status,
+                iva_enabled: (0, fiscal_tax_policy_util_1.isFiscalFlagOn)(fiscal.iva_enabled, true),
+                ieps_enabled: (0, fiscal_tax_policy_util_1.isFiscalFlagOn)(fiscal.ieps_enabled, true),
+                multi_fiscal_transfers_enabled: (0, fiscal_tax_policy_util_1.isFiscalFlagOn)(fiscal.multi_fiscal_transfers_enabled, true),
                 branches: (branchesByFiscal.get(fiscal.id) ?? []).map((branch) => ({
                     id: branch.id,
                     name: branch.code,

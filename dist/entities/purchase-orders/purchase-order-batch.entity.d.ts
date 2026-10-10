@@ -22,6 +22,7 @@ export declare class PurchaseOrderBatch {
     payment_status: string;
     payment_currency: string;
     general_status: string;
+    additional_receipt_open: boolean;
     notes: string | null;
     pedimento_number: string | null;
     vendor_invoice_number: string | null;

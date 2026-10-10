@@ -57,6 +57,9 @@ class InventoryLocationFiscalDto {
     razon_social;
     rfc;
     status;
+    iva_enabled;
+    ieps_enabled;
+    multi_fiscal_transfers_enabled;
     branches;
 }
 exports.InventoryLocationFiscalDto = InventoryLocationFiscalDto;
@@ -76,6 +79,18 @@ __decorate([
     (0, swagger_1.ApiProperty)({ enum: ['active', 'inactive'] }),
     __metadata("design:type", String)
 ], InventoryLocationFiscalDto.prototype, "status", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", Boolean)
+], InventoryLocationFiscalDto.prototype, "iva_enabled", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    __metadata("design:type", Boolean)
+], InventoryLocationFiscalDto.prototype, "ieps_enabled", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Transferencias multi razón social habilitadas' }),
+    __metadata("design:type", Boolean)
+], InventoryLocationFiscalDto.prototype, "multi_fiscal_transfers_enabled", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ type: [InventoryLocationBranchDto] }),
     __metadata("design:type", Array)

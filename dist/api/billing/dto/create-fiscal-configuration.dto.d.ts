@@ -11,4 +11,7 @@ export declare class CreateFiscalConfigurationDto {
     status?: string;
     quotation_expiration_days?: number | null;
     advance_invoicing_enabled?: boolean;
+    iva_enabled?: boolean;
+    ieps_enabled?: boolean;
+    multi_fiscal_transfers_enabled?: boolean;
 }

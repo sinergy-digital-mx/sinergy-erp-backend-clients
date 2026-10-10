@@ -38,6 +38,9 @@ let FiscalConfiguration = class FiscalConfiguration {
     last_finkok_sync_at;
     quotation_expiration_days;
     advance_invoicing_enabled;
+    iva_enabled;
+    ieps_enabled;
+    multi_fiscal_transfers_enabled;
     branches;
     created_at;
     updated_at;
@@ -169,6 +172,18 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'tinyint', width: 1, default: 0 }),
     __metadata("design:type", Boolean)
 ], FiscalConfiguration.prototype, "advance_invoicing_enabled", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'tinyint', width: 1, default: 1 }),
+    __metadata("design:type", Boolean)
+], FiscalConfiguration.prototype, "iva_enabled", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'tinyint', width: 1, default: 1 }),
+    __metadata("design:type", Boolean)
+], FiscalConfiguration.prototype, "ieps_enabled", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'tinyint', width: 1, default: 1 }),
+    __metadata("design:type", Boolean)
+], FiscalConfiguration.prototype, "multi_fiscal_transfers_enabled", void 0);
 __decorate([
     (0, typeorm_1.OneToMany)(() => billing_branch_entity_1.BillingBranch, (branch) => branch.fiscal_configuration),
     __metadata("design:type", Array)

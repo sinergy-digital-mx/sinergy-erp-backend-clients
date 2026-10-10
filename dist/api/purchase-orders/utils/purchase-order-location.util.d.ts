@@ -15,6 +15,9 @@ export type LocationFiscalInput = {
     razon_social: string;
     rfc: string;
     status: string;
+    iva_enabled?: boolean | number | null;
+    ieps_enabled?: boolean | number | null;
+    multi_fiscal_transfers_enabled?: boolean | number | null;
 };
 export type PurchaseOrderLocationWarehouse = {
     id: string;
@@ -32,6 +35,9 @@ export type PurchaseOrderLocationFiscal = {
     razon_social: string;
     rfc: string;
     status: string;
+    iva_enabled: boolean;
+    ieps_enabled: boolean;
+    multi_fiscal_transfers_enabled: boolean;
     branches: PurchaseOrderLocationBranch[];
 };
 export type PurchaseOrderLocationTree = {

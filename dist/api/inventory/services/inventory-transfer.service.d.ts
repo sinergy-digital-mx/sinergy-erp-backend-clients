@@ -30,6 +30,7 @@ export declare class InventoryTransferService {
     private mapToResponseDto;
     private mapLine;
     private buildProductSummaries;
+    private assertTransferFiscalScope;
     private filterDestinationTree;
     private mapWarehouseSummary;
 }
