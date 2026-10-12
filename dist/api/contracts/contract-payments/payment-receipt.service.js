@@ -96,7 +96,7 @@ let PaymentReceiptService = class PaymentReceiptService {
         const values = await this.buildValues(organizationId, payment, extraMessage);
         const { logo_data: _logo, ...publicValues } = values;
         const customer = payment.contract?.customer;
-        let body = template.body_html;
+        let body = this.withReceiptPeriod(template.body_html);
         if (publicValues.cadastral_key && !body.includes('cadastral_line') && !body.includes('cadastral_key')) {
             body = body.includes('{{property_code}}</strong>.')
                 ? body.replace('{{property_code}}</strong>.', '{{property_code}}</strong>.{{cadastral_line}}')
@@ -185,6 +185,11 @@ let PaymentReceiptService = class PaymentReceiptService {
         const concept = payment.kind === 'downpayment'
             ? (partial ? 'pago parcial de enganche' : 'pago de enganche')
             : (partial ? 'pago parcial' : 'pago');
+        const paymentMonth = this.formatMonthYear(payment.due_date || payment.payment_date);
+        const paymentKindLabel = payment.kind === 'downpayment' ? 'Enganche' : 'Pago';
+        const paymentReference = paymentMonth
+            ? `${paymentKindLabel} ${payment.payment_number} · ${paymentMonth}`
+            : `${paymentKindLabel} ${payment.payment_number}`;
         const lotBits = [
             property?.lot_number ? `lote ${property.lot_number}` : property?.code ? `lote ${property.code}` : '',
             property?.block ? `manzana ${property.block}` : '',
@@ -203,6 +208,8 @@ let PaymentReceiptService = class PaymentReceiptService {
                 : '',
             lot_phrase: lotBits.join(', '),
             payment_number: payment.payment_number,
+            payment_month: paymentMonth,
+            payment_reference: paymentReference,
             amount_paid: this.money(paid, currency),
             amount_words: amountToWords(paid, currency),
             amount: this.money(payment.amount, currency),
@@ -225,7 +232,9 @@ let PaymentReceiptService = class PaymentReceiptService {
             property_code: 'LOT-1-01',
             cadastral_key: '02-0Q3-011',
             cadastral_line: ' Clave catastral 02-0Q3-011.',
-            payment_number: 'P-1',
+            payment_number: '12',
+            payment_month: 'octubre de 2026',
+            payment_reference: 'Pago 12 · octubre de 2026',
             amount_paid: '$1,500.00 USD',
             amount: '$1,500.00 USD',
             amount_pending: '$0.00 USD',
@@ -251,7 +260,7 @@ let PaymentReceiptService = class PaymentReceiptService {
                 { text: values.customer_name, bold: true },
                 ' la cantidad de ',
                 { text: values.amount_paid, bold: true },
-                ` (${values.amount_words}), recibida mediante ${values.payment_method}, como ${values.concept} por la compraventa del ${values.lot_phrase || values.property_code}${values.cadastral_key ? `, clave catastral ${values.cadastral_key}` : ''}.`,
+                ` (${values.amount_words}), recibida mediante ${values.payment_method}, como ${values.concept} número ${values.payment_number}${values.payment_month ? `, correspondiente al mes de ${values.payment_month}` : ''}, por la compraventa del ${values.lot_phrase || values.property_code}${values.cadastral_key ? `, clave catastral ${values.cadastral_key}` : ''}.`,
             ],
             alignment: 'justify',
             fontSize: 12,
@@ -262,7 +271,7 @@ let PaymentReceiptService = class PaymentReceiptService {
             fontSize: 12,
             margin: [0, 0, 0, 8],
         }, {
-            text: `Contrato ${values.contract_number} · Pago ${values.payment_number}${values.cadastral_key ? ` · Clave catastral ${values.cadastral_key}` : ''} · Saldo de este pago ${values.amount_pending}`,
+            text: `Contrato ${values.contract_number} · ${values.payment_reference}${values.cadastral_key ? ` · Clave catastral ${values.cadastral_key}` : ''} · Saldo de este pago ${values.amount_pending}`,
             fontSize: 9,
             color: '#64748b',
             margin: [0, 8, 0, 0],
@@ -310,6 +319,36 @@ let PaymentReceiptService = class PaymentReceiptService {
         if (!year || !monthName || !day)
             return '—';
         return `${Number(day)} de ${monthName} de ${year}`;
+    }
+    formatMonthYear(date) {
+        const parts = this.dateParts(date);
+        if (!parts)
+            return '';
+        const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+        const monthName = months[Number(parts.month) - 1];
+        if (!parts.year || !monthName)
+            return '';
+        return `${monthName} de ${parts.year}`;
+    }
+    dateParts(date) {
+        if (!date)
+            return null;
+        const text = date instanceof Date ? date.toISOString() : String(date);
+        const match = text.match(/(\d{4})-(\d{2})-(\d{2})/);
+        if (!match)
+            return null;
+        return { year: match[1], month: match[2], day: match[3] };
+    }
+    withReceiptPeriod(body) {
+        if (body.includes('{{payment_month}}') || body.includes('{{payment_reference}}'))
+            return body;
+        if (body.includes('del pago <strong>{{payment_number}}</strong>')) {
+            return body.replace('del pago <strong>{{payment_number}}</strong>', 'del <strong>{{payment_reference}}</strong>');
+        }
+        if (body.includes('{{extra_message}}')) {
+            return body.replace('{{extra_message}}', '<p style="margin:0 0 18px;font-size:14px;line-height:1.7;color:#334155;">Corresponde a <strong>{{payment_reference}}</strong>.</p>{{extra_message}}');
+        }
+        return body;
     }
     formatDate(date) {
         if (!date)

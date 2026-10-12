@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.cashReceivedEquivalentMxn = cashReceivedEquivalentMxn;
 exports.usdCentToleranceMxn = usdCentToleranceMxn;
 exports.splitCashPayment = splitCashPayment;
+exports.displayCashChange = displayCashChange;
 exports.cashCoversOrder = cashCoversOrder;
 const cash_drawer_1 = require("./cash-drawer");
 function cashReceivedEquivalentMxn(receivedMxn, receivedUsd, rate) {
@@ -37,6 +38,21 @@ function splitCashPayment(orderTotal, receivedMxn, receivedUsd, rate) {
         changeCashUsd: (0, cash_drawer_1.roundPosMoney)(Math.max(0, usdIn - amountCashUsd)),
         covers,
     };
+}
+function displayCashChange(changeMxn, changeUsd, rate) {
+    const mxn = (0, cash_drawer_1.roundPosMoney)(Math.max(0, Number(changeMxn) || 0));
+    const usd = (0, cash_drawer_1.roundPosMoney)(Math.max(0, Number(changeUsd) || 0));
+    const fx = Number(rate) || 0;
+    if (fx <= 0) {
+        return { mxn, usd };
+    }
+    if (usd > 0 && mxn <= 0) {
+        return { mxn: (0, cash_drawer_1.roundPosMoney)(usd * fx), usd };
+    }
+    if (mxn > 0 && usd <= 0) {
+        return { mxn, usd: (0, cash_drawer_1.roundPosMoney)(mxn / fx) };
+    }
+    return { mxn, usd };
 }
 function cashCoversOrder(orderTotal, receivedMxn, receivedUsd, rate) {
     return splitCashPayment(orderTotal, receivedMxn, receivedUsd, rate).covers;

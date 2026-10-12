@@ -1264,22 +1264,32 @@ let SalesOrderService = class SalesOrderService {
         return this.findOne(id, tenantId);
     }
     async updateSeller(id, sellerUserId, tenantId, userId) {
-        const so = await this.findOne(id, tenantId);
+        const so = await this.soRepo.findOne({
+            where: { id, tenant_id: tenantId },
+            select: ['id', 'general_status'],
+        });
+        if (!so) {
+            throw new common_1.NotFoundException(`Sales order not found: ${id}`);
+        }
         if (so.general_status === 'Cancelada') {
             throw new common_1.BadRequestException('No se puede cambiar el vendedor de una orden cancelada');
         }
         const seller = await this.assertPosSellerUser(sellerUserId, tenantId, 'Vendedor no válido');
         await this.soRepo.update({ id, tenant_id: tenantId }, { seller_user_id: seller.id, updated_by: userId });
-        return this.findOneDetail(id, tenantId);
     }
     async updateAssignedSeller(id, assignedSellerUserId, tenantId, userId) {
-        const so = await this.findOne(id, tenantId);
+        const so = await this.soRepo.findOne({
+            where: { id, tenant_id: tenantId },
+            select: ['id', 'general_status'],
+        });
+        if (!so) {
+            throw new common_1.NotFoundException(`Sales order not found: ${id}`);
+        }
         if (so.general_status === 'Cancelada') {
             throw new common_1.BadRequestException('No se puede cambiar el comisionado de una orden cancelada');
         }
         const assigned = await this.assertPosSellerUser(assignedSellerUserId, tenantId, 'Comisionado no válido');
         await this.soRepo.update({ id, tenant_id: tenantId }, { assigned_seller_user_id: assigned.id, updated_by: userId });
-        return this.findOneDetail(id, tenantId);
     }
     async fulfill(id, dto, tenantId, userId) {
         const so = await this.findOne(id, tenantId);
@@ -1588,8 +1598,8 @@ let SalesOrderService = class SalesOrderService {
             if (!line) {
                 throw new common_1.NotFoundException(`Línea no encontrada: ${lineItemId}`);
             }
-            const quantityChanged = dto.quantity !== undefined || dto.product_uom_id !== undefined;
-            if (quantityChanged && line.batch_allocations?.length) {
+            const allocationChanged = this.lineAllocationChanged(line, dto);
+            if (allocationChanged && line.batch_allocations?.length) {
                 await this.fulfillmentService.releaseAllocations(line.batch_allocations, qr.manager);
                 line.batch_allocations = [];
             }
@@ -1630,7 +1640,7 @@ let SalesOrderService = class SalesOrderService {
             line.product_discount_id = discountAmounts.product_discount_id;
             this.applyPersistedLineTaxes(line);
             await qr.manager.save(sales_order_detail_entity_1.SalesOrderDetail, line);
-            if (quantityChanged) {
+            if (allocationChanged) {
                 await this.holdManualInventoryIfNeeded(qr, so, [line], userId);
             }
             await this.recomputeTotals(qr, so.id, tenantId, userId);
@@ -1819,6 +1829,15 @@ let SalesOrderService = class SalesOrderService {
             return false;
         }
         return (controlDesk.progress?.warehouses_done ?? 0) <= 0;
+    }
+    lineAllocationChanged(line, dto) {
+        if (dto.product_uom_id !== undefined && dto.product_uom_id !== line.product_uom_id) {
+            return true;
+        }
+        if (dto.quantity === undefined) {
+            return false;
+        }
+        return Math.abs(Number(dto.quantity) - Number(line.quantity)) > 0.0000001;
     }
     async assertLineItemsEditable(qr, so, tenantId) {
         if (so.general_status !== 'Creada' && so.general_status !== 'En Selección') {

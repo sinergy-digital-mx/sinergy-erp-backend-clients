@@ -11,6 +11,8 @@ exports.PAYMENT_RECEIPT_VARIABLES = [
     { key: 'property_code', label: 'Lote' },
     { key: 'cadastral_key', label: 'Clave catastral' },
     { key: 'payment_number', label: 'Número de pago' },
+    { key: 'payment_month', label: 'Mes del pago' },
+    { key: 'payment_reference', label: 'Pago y mes' },
     { key: 'amount_paid', label: 'Monto pagado' },
     { key: 'amount', label: 'Monto del pago' },
     { key: 'amount_pending', label: 'Saldo del pago' },
@@ -44,7 +46,7 @@ exports.DEFAULT_PAYMENT_RECEIPT_HTML = `<!DOCTYPE html>
             <td style="padding:28px 32px 8px;">
               <p style="margin:0 0 14px;font-size:16px;line-height:1.6;">Hola <strong>{{customer_name}}</strong>,</p>
               <p style="margin:0 0 18px;font-size:14px;line-height:1.7;color:#334155;">
-                Este es el recibo del pago <strong>{{payment_number}}</strong> del contrato <strong>{{contract_number}}</strong>, lote <strong>{{property_code}}</strong>.
+                Este es el recibo del <strong>{{payment_reference}}</strong> del contrato <strong>{{contract_number}}</strong>, lote <strong>{{property_code}}</strong>.
                 {{cadastral_line}}
               </p>
               {{extra_message}}
@@ -52,6 +54,10 @@ exports.DEFAULT_PAYMENT_RECEIPT_HTML = `<!DOCTYPE html>
                 <tr>
                   <td style="padding:18px 20px;">
                     <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                      <tr>
+                        <td style="padding:6px 0;font-size:13px;color:#64748b;">Corresponde a</td>
+                        <td align="right" style="padding:6px 0;font-size:13px;font-weight:700;">{{payment_reference}}</td>
+                      </tr>
                       <tr>
                         <td style="padding:6px 0;font-size:13px;color:#64748b;">Fecha de pago</td>
                         <td align="right" style="padding:6px 0;font-size:13px;font-weight:700;">{{payment_date}}</td>

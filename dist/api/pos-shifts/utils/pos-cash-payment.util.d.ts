@@ -8,4 +8,8 @@ export interface CashPaymentSplit {
     covers: boolean;
 }
 export declare function splitCashPayment(orderTotal: number, receivedMxn: number, receivedUsd: number, rate: number): CashPaymentSplit;
+export declare function displayCashChange(changeMxn: number, changeUsd: number, rate: number): {
+    mxn: number;
+    usd: number;
+};
 export declare function cashCoversOrder(orderTotal: number, receivedMxn: number, receivedUsd: number, rate: number): boolean;

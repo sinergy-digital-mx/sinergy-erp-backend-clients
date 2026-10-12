@@ -78,10 +78,12 @@ let SalesOrderController = class SalesOrderController {
         return this.salesOrderService.updateNotes(id, dto, req.user.tenant_id, req.user.id);
     }
     async updateSeller(id, dto, req) {
-        return this.salesOrderService.updateSeller(id, dto.seller_user_id, req.user.tenant_id, req.user.id);
+        await this.salesOrderService.updateSeller(id, dto.seller_user_id, req.user.tenant_id, req.user.id);
+        return this.findOne(id, req);
     }
     async updateAssignedSeller(id, dto, req) {
-        return this.salesOrderService.updateAssignedSeller(id, dto.assigned_seller_user_id, req.user.tenant_id, req.user.id);
+        await this.salesOrderService.updateAssignedSeller(id, dto.assigned_seller_user_id, req.user.tenant_id, req.user.id);
+        return this.findOne(id, req);
     }
     async getPayments(id, req) {
         return this.salesOrderService.getPayments(id, req.user.tenant_id);

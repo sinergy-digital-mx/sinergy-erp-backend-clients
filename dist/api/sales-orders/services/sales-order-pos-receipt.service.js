@@ -68,6 +68,7 @@ const sales_order_documents_service_1 = require("./sales-order-documents.service
 const sales_order_document_type_entity_1 = require("../../../entities/sales-orders/sales-order-document-type.entity");
 const escpos_util_1 = require("../utils/escpos.util");
 const pos_card_payments_util_1 = require("../../pos-shifts/utils/pos-card-payments.util");
+const pos_cash_payment_util_1 = require("../../pos-shifts/utils/pos-cash-payment.util");
 const invoice_month_deadline_util_1 = require("../utils/invoice-month-deadline.util");
 exports.SALES_ORDER_TICKET_RECIBO_NAMES = ['TICKET / RECIBO', 'TICKET_RECIBO'];
 let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrderPosReceiptService {
@@ -572,8 +573,9 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
         const cashUsd = Number(collection.amount_cash_usd) || 0;
         const transferMxn = Number(collection.amount_transfer_mxn) || 0;
         const cardMxn = Number(collection.amount_card_mxn) || 0;
-        const changeMxn = Number(collection.change_cash_mxn) || 0;
-        const changeUsd = Number(collection.change_cash_usd) || 0;
+        const changeShown = (0, pos_cash_payment_util_1.displayCashChange)(Number(collection.change_cash_mxn) || 0, Number(collection.change_cash_usd) || 0, Number(collection.usd_exchange_rate) || 0);
+        const changeMxn = changeShown.mxn;
+        const changeUsd = changeShown.usd;
         const receivedMxn = Number(collection.received_cash_mxn) || (cashMxn > 0 ? cashMxn + changeMxn : 0);
         const receivedUsd = Number(collection.received_cash_usd) || (cashUsd > 0 ? cashUsd + changeUsd : 0);
         lines.push((0, escpos_util_1.compactMoneyLine)('Recibido Pesos:', (0, escpos_util_1.formatMoney)(receivedMxn)));

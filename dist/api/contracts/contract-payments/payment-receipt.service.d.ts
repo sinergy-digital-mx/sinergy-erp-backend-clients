@@ -49,6 +49,12 @@ export declare class PaymentReceiptService {
             readonly key: "payment_number";
             readonly label: "Número de pago";
         }, {
+            readonly key: "payment_month";
+            readonly label: "Mes del pago";
+        }, {
+            readonly key: "payment_reference";
+            readonly label: "Pago y mes";
+        }, {
             readonly key: "amount_paid";
             readonly label: "Monto pagado";
         }, {
@@ -114,6 +120,12 @@ export declare class PaymentReceiptService {
             readonly key: "payment_number";
             readonly label: "Número de pago";
         }, {
+            readonly key: "payment_month";
+            readonly label: "Mes del pago";
+        }, {
+            readonly key: "payment_reference";
+            readonly label: "Pago y mes";
+        }, {
             readonly key: "amount_paid";
             readonly label: "Monto pagado";
         }, {
@@ -158,6 +170,8 @@ export declare class PaymentReceiptService {
             cadastral_line: string;
             lot_phrase: string;
             payment_number: string;
+            payment_month: string;
+            payment_reference: string;
             amount_paid: string;
             amount_words: string;
             amount: string;
@@ -191,6 +205,9 @@ export declare class PaymentReceiptService {
     private fileName;
     private money;
     private formatLongDate;
+    private formatMonthYear;
+    private dateParts;
+    private withReceiptPeriod;
     private formatDate;
     private wrapNote;
     private readFiscalId;

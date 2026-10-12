@@ -35,6 +35,8 @@ export declare class DownpaymentPaymentsController {
             cadastral_line: string;
             lot_phrase: string;
             payment_number: string;
+            payment_month: string;
+            payment_reference: string;
             amount_paid: string;
             amount_words: string;
             amount: string;
