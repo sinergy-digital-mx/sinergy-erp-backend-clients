@@ -19,6 +19,7 @@ const pos_sale_collection_entity_1 = require("../../entities/pos/pos-sale-collec
 const advance_shift_payment_entity_1 = require("../../entities/pos/advance-shift-payment.entity");
 const sales_order_payment_entity_1 = require("../../entities/sales-orders/sales-order-payment.entity");
 const advance_shift_payment_service_1 = require("./services/advance-shift-payment.service");
+const exchange_rate_module_1 = require("../exchange-rate/exchange-rate.module");
 const customer_entity_1 = require("../../entities/customers/customer.entity");
 const warehouse_entity_1 = require("../../entities/warehouse/warehouse.entity");
 const rbac_module_1 = require("../rbac/rbac.module");
@@ -48,6 +49,7 @@ exports.PosShiftsModule = PosShiftsModule = __decorate([
             rbac_module_1.RBACModule,
             (0, common_1.forwardRef)(() => sales_orders_module_1.SalesOrdersModule),
             customers_module_1.CustomersModule,
+            exchange_rate_module_1.ExchangeRateModule,
         ],
         controllers: [pos_shifts_controller_1.PosShiftsController],
         providers: [pos_shifts_service_1.PosShiftsService, advance_shift_payment_service_1.AdvanceShiftPaymentService],

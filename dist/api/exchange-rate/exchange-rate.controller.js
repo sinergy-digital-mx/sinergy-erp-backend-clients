@@ -54,9 +54,14 @@ __decorate([
 __decorate([
     (0, common_1.Get)('daily'),
     (0, require_permissions_decorator_1.RequirePermission)('ExchangeRate', 'Read'),
-    (0, swagger_1.ApiOperation)({ summary: 'Get exchange rate for a specific day or today' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Tipo de cambio del día, o el más reciente anterior si ese día no se capturó',
+    }),
     (0, swagger_1.ApiQuery)({ name: 'date', required: false, type: String, example: '2026-04-28' }),
-    (0, swagger_1.ApiResponse)({ status: 200, description: 'Exchange rate found or null if not configured for the day' }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'Tipo de cambio vigente. Si no hay captura ese día, el del último día previo.',
+    }),
     __param(0, (0, common_1.Query)('date')),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),

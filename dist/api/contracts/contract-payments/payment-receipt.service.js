@@ -59,11 +59,13 @@ let PaymentReceiptService = class PaymentReceiptService {
         const template = await this.ensureTemplate(organizationId);
         const sample = this.sampleValues();
         const options = await this.fiscalOptions(organizationId);
+        const effective = await this.resolveFiscal(organizationId);
         return {
             id: template.id,
             subject: template.subject,
             body_html: template.body_html,
             fiscal_configuration_id: this.readFiscalId(template),
+            effective_fiscal_configuration_id: effective?.id || null,
             fiscal_configurations: options,
             variables: payment_receipt_template_1.PAYMENT_RECEIPT_VARIABLES,
             sample_subject: (0, payment_receipt_template_1.renderPaymentReceiptTemplate)(template.subject, sample),
@@ -374,14 +376,39 @@ let PaymentReceiptService = class PaymentReceiptService {
         const value = stored?.defaultValue;
         return typeof value === 'string' && value ? value : null;
     }
+    async uploadLogo(organizationId, fiscalConfigurationId, file) {
+        const fiscalId = fiscalConfigurationId?.trim();
+        if (!fiscalId) {
+            throw new common_1.BadRequestException('Selecciona la razón social.');
+        }
+        const allowed = new Set(['image/png', 'image/jpeg', 'image/jpg', 'image/webp']);
+        if (!file?.buffer || !allowed.has(file.mimetype)) {
+            throw new common_1.BadRequestException('El logo debe ser PNG, JPG o WEBP.');
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            throw new common_1.BadRequestException('El logo no puede pasar de 5 MB.');
+        }
+        const fiscal = await this.fiscalRepo.findOne({ where: { id: fiscalId, tenant_id: organizationId } });
+        if (!fiscal) {
+            throw new common_1.NotFoundException('No se encontró la razón social.');
+        }
+        if (fiscal.logo) {
+            await this.s3Service.deleteFile(fiscal.logo).catch(() => undefined);
+        }
+        fiscal.logo = await this.s3Service.uploadEntityFile(organizationId, 'fiscal_configurations', fiscal.id, 'logo', file.buffer, file.originalname || 'logo.png', file.mimetype);
+        await this.fiscalRepo.save(fiscal);
+        return this.updateTemplate(organizationId, { fiscal_configuration_id: fiscal.id });
+    }
     async fiscalOptions(organizationId) {
         const rows = await this.fiscalRepo.find({ where: { tenant_id: organizationId }, order: { razon_social: 'ASC' } });
-        return rows.map((row) => ({
+        return Promise.all(rows.map(async (row) => ({
             id: row.id,
             razon_social: row.razon_social,
             rfc: row.rfc,
             has_logo: !!row.logo,
-        }));
+            use_as_system_logo: !!row.use_as_system_logo,
+            logo_url: row.logo ? await this.s3Service.getSignedUrl(row.logo, 900).catch(() => null) : null,
+        })));
     }
     async resolveFiscal(organizationId) {
         const template = await this.templateRepo.findOne({

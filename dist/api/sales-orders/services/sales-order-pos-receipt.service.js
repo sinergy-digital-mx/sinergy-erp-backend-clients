@@ -573,9 +573,9 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
         const cashUsd = Number(collection.amount_cash_usd) || 0;
         const transferMxn = Number(collection.amount_transfer_mxn) || 0;
         const cardMxn = Number(collection.amount_card_mxn) || 0;
-        const changeShown = (0, pos_cash_payment_util_1.displayCashChange)(Number(collection.change_cash_mxn) || 0, Number(collection.change_cash_usd) || 0, Number(collection.usd_exchange_rate) || 0);
-        const changeMxn = changeShown.mxn;
-        const changeUsd = changeShown.usd;
+        const changeMxn = Number(collection.change_cash_mxn) || 0;
+        const changeUsd = Number(collection.change_cash_usd) || 0;
+        const changeShown = (0, pos_cash_payment_util_1.displayCashChange)(changeMxn, changeUsd, Number(collection.usd_exchange_rate) || 0);
         const receivedMxn = Number(collection.received_cash_mxn) || (cashMxn > 0 ? cashMxn + changeMxn : 0);
         const receivedUsd = Number(collection.received_cash_usd) || (cashUsd > 0 ? cashUsd + changeUsd : 0);
         lines.push((0, escpos_util_1.compactMoneyLine)('Recibido Pesos:', (0, escpos_util_1.formatMoney)(receivedMxn)));
@@ -605,8 +605,8 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
                 lines.push((0, escpos_util_1.compactMoneyLine)('Tarjeta:', (0, escpos_util_1.formatMoney)(cardMxn)));
             }
         }
-        lines.push((0, escpos_util_1.compactMoneyLine)('Cambio Pesos:', (0, escpos_util_1.formatMoney)(changeMxn)));
-        lines.push((0, escpos_util_1.compactMoneyLine)('Cambio Dolares:', (0, escpos_util_1.formatUsd)(changeUsd)));
+        lines.push((0, escpos_util_1.compactMoneyLine)('Cambio Pesos:', (0, escpos_util_1.formatMoney)(changeShown.mxn)));
+        lines.push((0, escpos_util_1.compactMoneyLine)('Cambio Dolares:', (0, escpos_util_1.formatUsd)(changeShown.usd)));
         return lines;
     }
     formatBranchAddress(billingBranch, order) {

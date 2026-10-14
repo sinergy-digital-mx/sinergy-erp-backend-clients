@@ -21,11 +21,14 @@ export declare class PaymentReceiptService {
         subject: string;
         body_html: string;
         fiscal_configuration_id: string | null;
+        effective_fiscal_configuration_id: string | null;
         fiscal_configurations: {
             id: string;
             razon_social: string;
             rfc: string;
             has_logo: boolean;
+            use_as_system_logo: boolean;
+            logo_url: string | null;
         }[];
         variables: readonly [{
             readonly key: "organization_name";
@@ -92,11 +95,14 @@ export declare class PaymentReceiptService {
         subject: string;
         body_html: string;
         fiscal_configuration_id: string | null;
+        effective_fiscal_configuration_id: string | null;
         fiscal_configurations: {
             id: string;
             razon_social: string;
             rfc: string;
             has_logo: boolean;
+            use_as_system_logo: boolean;
+            logo_url: string | null;
         }[];
         variables: readonly [{
             readonly key: "organization_name";
@@ -211,6 +217,75 @@ export declare class PaymentReceiptService {
     private formatDate;
     private wrapNote;
     private readFiscalId;
+    uploadLogo(organizationId: string, fiscalConfigurationId: string, file: Express.Multer.File): Promise<{
+        id: string;
+        subject: string;
+        body_html: string;
+        fiscal_configuration_id: string | null;
+        effective_fiscal_configuration_id: string | null;
+        fiscal_configurations: {
+            id: string;
+            razon_social: string;
+            rfc: string;
+            has_logo: boolean;
+            use_as_system_logo: boolean;
+            logo_url: string | null;
+        }[];
+        variables: readonly [{
+            readonly key: "organization_name";
+            readonly label: "Razón social";
+        }, {
+            readonly key: "organization_rfc";
+            readonly label: "RFC";
+        }, {
+            readonly key: "customer_name";
+            readonly label: "Cliente";
+        }, {
+            readonly key: "contract_number";
+            readonly label: "Contrato";
+        }, {
+            readonly key: "property_code";
+            readonly label: "Lote";
+        }, {
+            readonly key: "cadastral_key";
+            readonly label: "Clave catastral";
+        }, {
+            readonly key: "payment_number";
+            readonly label: "Número de pago";
+        }, {
+            readonly key: "payment_month";
+            readonly label: "Mes del pago";
+        }, {
+            readonly key: "payment_reference";
+            readonly label: "Pago y mes";
+        }, {
+            readonly key: "amount_paid";
+            readonly label: "Monto pagado";
+        }, {
+            readonly key: "amount";
+            readonly label: "Monto del pago";
+        }, {
+            readonly key: "amount_pending";
+            readonly label: "Saldo del pago";
+        }, {
+            readonly key: "payment_date";
+            readonly label: "Fecha de pago";
+        }, {
+            readonly key: "due_date";
+            readonly label: "Fecha límite";
+        }, {
+            readonly key: "payment_method";
+            readonly label: "Forma de pago";
+        }, {
+            readonly key: "status";
+            readonly label: "Estado";
+        }, {
+            readonly key: "extra_message";
+            readonly label: "Nota del envío";
+        }];
+        sample_subject: string;
+        sample_html: string;
+    }>;
     private fiscalOptions;
     private resolveFiscal;
     private loadLogo;

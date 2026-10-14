@@ -42,6 +42,7 @@ const unclosed_shift_alert_1 = require("./utils/unclosed-shift-alert");
 const customer_credit_service_1 = require("../customers/services/customer-credit.service");
 const customer_credit_util_1 = require("../customers/utils/customer-credit.util");
 const advance_shift_payment_service_1 = require("./services/advance-shift-payment.service");
+const exchange_rate_service_1 = require("../exchange-rate/exchange-rate.service");
 const fiscal_invoice_readiness_util_1 = require("../customers/utils/fiscal-invoice-readiness.util");
 const WALK_IN_FISCAL_NAME = 'VENTA DE MOSTRADOR';
 const WALK_IN_DISPLAY_NAME = 'Público en General';
@@ -58,8 +59,9 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
     salesOrderService;
     customerCreditService;
     advanceShiftPayments;
+    exchangeRateService;
     logger = new common_1.Logger(PosShiftsService_1.name);
-    constructor(dailyShiftRepo, partialShiftRepo, userRepo, branchAssignmentRepo, salesOrderRepo, customerRepo, warehouseRepo, collectionRepo, posReceiptService, salesOrderService, customerCreditService, advanceShiftPayments) {
+    constructor(dailyShiftRepo, partialShiftRepo, userRepo, branchAssignmentRepo, salesOrderRepo, customerRepo, warehouseRepo, collectionRepo, posReceiptService, salesOrderService, customerCreditService, advanceShiftPayments, exchangeRateService) {
         this.dailyShiftRepo = dailyShiftRepo;
         this.partialShiftRepo = partialShiftRepo;
         this.userRepo = userRepo;
@@ -72,6 +74,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         this.salesOrderService = salesOrderService;
         this.customerCreditService = customerCreditService;
         this.advanceShiftPayments = advanceShiftPayments;
+        this.exchangeRateService = exchangeRateService;
     }
     async validateSellerCode(tenantId, terminalUserId, code, billingBranchId) {
         const terminalUser = await this.requirePosTerminal(tenantId, terminalUserId);
@@ -106,11 +109,19 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             ? await this.findDailyShiftById(shift.id, tenantId)
             : null;
         const unclosedShiftAlert = (0, unclosed_shift_alert_1.buildUnclosedShiftAlert)(shift);
+        const usdRate = await this.exchangeRateService.getDailyRate(tenantId);
         return {
             daily_shift: dailyShift,
             requires_previous_close: Boolean(unclosedShiftAlert),
             unclosed_shift_alert: unclosedShiftAlert,
+            usd_exchange_rate: usdRate ? Number(usdRate.exchange_rate) : null,
+            usd_exchange_rate_date: usdRate?.rate_date ?? null,
         };
+    }
+    async resolveUsdExchangeRate(tenantId) {
+        const usdRate = await this.exchangeRateService.getDailyRate(tenantId);
+        const value = Number(usdRate?.exchange_rate ?? 0);
+        return value > 0 ? value : null;
     }
     async resolveOpenDailyShiftId(tenantId, terminalUserId, billingBranchId) {
         const terminalUser = await this.requirePosTerminal(tenantId, terminalUserId);
@@ -574,7 +585,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 throw new common_1.BadRequestException(`No se puede generar factura: faltan ${fiscal.fiscal_missing_fields.join(', ') || 'datos fiscales'}`);
             }
         }
-        const payment = this.validateAndNormalizePayment(dto, amountPending);
+        const payment = await this.validateAndNormalizePayment(tenantId, dto, amountPending);
         const collection = this.collectionRepo.create({
             id: (0, uuid_1.v4)(),
             tenant_id: tenantId,
@@ -789,7 +800,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         }
         return order.customer_id;
     }
-    validateAndNormalizePayment(dto, orderTotal) {
+    async validateAndNormalizePayment(tenantId, dto, orderTotal) {
         const amountCashMxn = Number(dto.amount_cash_mxn ?? 0);
         const amountCashUsd = Number(dto.amount_cash_usd ?? 0);
         const amountTransferMxn = Number(dto.amount_transfer_mxn ?? 0);
@@ -810,12 +821,16 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             : Number(dto.amount_credit_mxn ?? 0);
         const receivedCashMxn = Number(dto.received_cash_mxn ?? amountCashMxn);
         const receivedCashUsd = Number(dto.received_cash_usd ?? amountCashUsd);
-        const usdExchangeRate = amountCashUsd > 0 || receivedCashUsd > 0
+        let usdExchangeRate = amountCashUsd > 0 || receivedCashUsd > 0
             ? Number(dto.usd_exchange_rate ?? 0)
             : null;
         if ((amountCashUsd > 0 || receivedCashUsd > 0) &&
             (!usdExchangeRate || usdExchangeRate <= 0)) {
-            throw new common_1.BadRequestException('usd_exchange_rate es obligatorio cuando se cobra en USD');
+            usdExchangeRate = await this.resolveUsdExchangeRate(tenantId);
+        }
+        if ((amountCashUsd > 0 || receivedCashUsd > 0) &&
+            (!usdExchangeRate || usdExchangeRate <= 0)) {
+            throw new common_1.BadRequestException('No hay tipo de cambio. Captúralo en Tipo de Cambio o indícalo al cobrar en USD');
         }
         if (amountTransferMxn > 0 && !dto.transfer_reference?.trim()) {
             throw new common_1.BadRequestException('transfer_reference es obligatorio para pagos por transferencia');
@@ -1617,6 +1632,7 @@ exports.PosShiftsService = PosShiftsService = PosShiftsService_1 = __decorate([
         sales_order_pos_receipt_service_1.SalesOrderPosReceiptService,
         sales_order_service_1.SalesOrderService,
         customer_credit_service_1.CustomerCreditService,
-        advance_shift_payment_service_1.AdvanceShiftPaymentService])
+        advance_shift_payment_service_1.AdvanceShiftPaymentService,
+        exchange_rate_service_1.ExchangeRateService])
 ], PosShiftsService);
 //# sourceMappingURL=pos-shifts.service.js.map

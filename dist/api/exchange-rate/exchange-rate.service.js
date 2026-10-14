@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const exchange_rate_entity_1 = require("../../entities/billing/exchange-rate.entity");
+const unclosed_shift_alert_1 = require("../pos-shifts/utils/unclosed-shift-alert");
 let ExchangeRateService = class ExchangeRateService {
     exchangeRateRepository;
     constructor(exchangeRateRepository) {
@@ -37,8 +38,9 @@ let ExchangeRateService = class ExchangeRateService {
         return this.exchangeRateRepository
             .createQueryBuilder('rate')
             .where('rate.tenant_id = :tenantId', { tenantId })
-            .andWhere('rate.rate_date = :rateDate', { rateDate })
-            .orderBy('rate.created_at', 'DESC')
+            .andWhere('rate.rate_date <= :rateDate', { rateDate })
+            .orderBy('rate.rate_date', 'DESC')
+            .addOrderBy('rate.created_at', 'DESC')
             .addOrderBy('rate.id', 'DESC')
             .getOne();
     }
@@ -75,9 +77,9 @@ let ExchangeRateService = class ExchangeRateService {
             throw new common_1.BadRequestException('Invalid date format, expected YYYY-MM-DD');
         }
         if (date) {
-            return new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10);
+            return date.slice(0, 10);
         }
-        return new Date().toISOString().slice(0, 10);
+        return (0, unclosed_shift_alert_1.getTodayDateString)();
     }
 };
 exports.ExchangeRateService = ExchangeRateService;

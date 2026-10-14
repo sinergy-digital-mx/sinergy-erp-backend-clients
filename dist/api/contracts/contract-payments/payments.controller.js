@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PaymentsController = void 0;
 const common_1 = require("@nestjs/common");
+const platform_express_1 = require("@nestjs/platform-express");
 const jwt_auth_guard_1 = require("../../auth/jwt-auth.guard");
 const permission_guard_1 = require("../../rbac/guards/permission.guard");
 const require_permissions_decorator_1 = require("../../rbac/decorators/require-permissions.decorator");
@@ -73,6 +74,13 @@ let PaymentsController = class PaymentsController {
     updateReceiptTemplate(body) {
         const organizationId = this.requireOrganizationId();
         return this.paymentReceiptService.updateTemplate(organizationId, body);
+    }
+    uploadReceiptLogo(file, fiscalConfigurationId) {
+        if (!file) {
+            throw new common_1.BadRequestException('No se envió ningún archivo');
+        }
+        const organizationId = this.requireOrganizationId();
+        return this.paymentReceiptService.uploadLogo(organizationId, fiscalConfigurationId || '', file);
     }
     async downloadReceipt(contractId, paymentId, res) {
         const organizationId = this.requireOrganizationId();
@@ -214,6 +222,16 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], PaymentsController.prototype, "updateReceiptTemplate", null);
+__decorate([
+    (0, common_1.Post)('receipt-template/logo'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Contract', action: 'Update' }),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
+    __param(0, (0, common_1.UploadedFile)()),
+    __param(1, (0, common_1.Body)('fiscal_configuration_id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], PaymentsController.prototype, "uploadReceiptLogo", null);
 __decorate([
     (0, common_1.Get)(':paymentId/receipt.pdf'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Contract', action: 'Read' }),

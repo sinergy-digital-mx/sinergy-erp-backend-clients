@@ -158,6 +158,8 @@ export declare class PosShiftsController {
         } | null;
         requires_previous_close: boolean;
         unclosed_shift_alert: import("./utils/unclosed-shift-alert").UnclosedShiftAlert | null;
+        usd_exchange_rate: number | null;
+        usd_exchange_rate_date: string | null;
     }>;
     openDailyShift(dto: OpenDailyShiftDto, req: any): Promise<{
         message: string;

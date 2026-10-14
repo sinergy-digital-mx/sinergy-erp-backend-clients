@@ -20,6 +20,7 @@ import { SalesOrderPosReceiptService, PosReceiptResult } from '../sales-orders/s
 import { SalesOrderService } from '../sales-orders/services/sales-order.service';
 import { CustomerCreditService } from '../customers/services/customer-credit.service';
 import { AdvanceShiftPaymentService } from './services/advance-shift-payment.service';
+import { ExchangeRateService } from '../exchange-rate/exchange-rate.service';
 export declare class PosShiftsService {
     private readonly dailyShiftRepo;
     private readonly partialShiftRepo;
@@ -33,8 +34,9 @@ export declare class PosShiftsService {
     private readonly salesOrderService;
     private readonly customerCreditService;
     private readonly advanceShiftPayments;
+    private readonly exchangeRateService;
     private readonly logger;
-    constructor(dailyShiftRepo: Repository<PosDailyShift>, partialShiftRepo: Repository<PosPartialShift>, userRepo: Repository<User>, branchAssignmentRepo: Repository<UserBillingBranch>, salesOrderRepo: Repository<SalesOrder>, customerRepo: Repository<Customer>, warehouseRepo: Repository<Warehouse>, collectionRepo: Repository<PosSaleCollection>, posReceiptService: SalesOrderPosReceiptService, salesOrderService: SalesOrderService, customerCreditService: CustomerCreditService, advanceShiftPayments: AdvanceShiftPaymentService);
+    constructor(dailyShiftRepo: Repository<PosDailyShift>, partialShiftRepo: Repository<PosPartialShift>, userRepo: Repository<User>, branchAssignmentRepo: Repository<UserBillingBranch>, salesOrderRepo: Repository<SalesOrder>, customerRepo: Repository<Customer>, warehouseRepo: Repository<Warehouse>, collectionRepo: Repository<PosSaleCollection>, posReceiptService: SalesOrderPosReceiptService, salesOrderService: SalesOrderService, customerCreditService: CustomerCreditService, advanceShiftPayments: AdvanceShiftPaymentService, exchangeRateService: ExchangeRateService);
     validateSellerCode(tenantId: string, terminalUserId: string, code: number, billingBranchId?: string): Promise<{
         seller: {
             id: string;
@@ -183,7 +185,10 @@ export declare class PosShiftsService {
         } | null;
         requires_previous_close: boolean;
         unclosed_shift_alert: import("./utils/unclosed-shift-alert").UnclosedShiftAlert | null;
+        usd_exchange_rate: number | null;
+        usd_exchange_rate_date: string | null;
     }>;
+    private resolveUsdExchangeRate;
     resolveOpenDailyShiftId(tenantId: string, terminalUserId: string, billingBranchId?: string): Promise<string>;
     resolveBranchCajaShift(tenantId: string, billingBranchId: string): Promise<{
         shift: PosDailyShift | null;
