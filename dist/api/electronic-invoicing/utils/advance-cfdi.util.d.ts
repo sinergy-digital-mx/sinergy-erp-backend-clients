@@ -57,6 +57,7 @@ export interface BuiltCfdiAmounts {
     tax: number;
     total: number;
 }
+export declare function advanceCfdiFecha(now?: Date): string;
 export declare function inferIvaPercentage(ivaTotal: number, taxableBase: number): number;
 export declare function taxableBaseOfDocument(subtotal: number, discountTotal: number, globalDiscount: number): number;
 export declare function distributeCents(weights: number[], amountCents: number): number[];

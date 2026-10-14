@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ADVANCE_RELATION_TYPE = exports.ADVANCE_IDENTIFICATION = exports.ADVANCE_APPLICATION_DESCRIPTION = exports.ADVANCE_DESCRIPTION = exports.ADVANCE_UNIT_NAME = exports.ADVANCE_UNIT_CODE = exports.ADVANCE_SAT_CLAVE = void 0;
+exports.advanceCfdiFecha = advanceCfdiFecha;
 exports.inferIvaPercentage = inferIvaPercentage;
 exports.taxableBaseOfDocument = taxableBaseOfDocument;
 exports.distributeCents = distributeCents;
@@ -8,6 +9,8 @@ exports.buildAdvanceConceptCfdi = buildAdvanceConceptCfdi;
 exports.buildMerchandiseCfdi = buildMerchandiseCfdi;
 exports.fiveDigitPostalCode = fiveDigitPostalCode;
 exports.resolveSatUnit = resolveSatUnit;
+const self_invoice_cfdi_xml_util_1 = require("../../self-invoice/utils/self-invoice-cfdi-xml.util");
+const ADVANCE_TIME_ZONE = 'America/Tijuana';
 exports.ADVANCE_SAT_CLAVE = '84111506';
 exports.ADVANCE_UNIT_CODE = 'ACT';
 exports.ADVANCE_UNIT_NAME = 'Actividad';
@@ -32,9 +35,8 @@ function escapeXml(value) {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&apos;');
 }
-function cfdiFechaLocal(now = new Date()) {
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+function advanceCfdiFecha(now = new Date()) {
+    return (0, self_invoice_cfdi_xml_util_1.formatCfdiFecha)(now, ADVANCE_TIME_ZONE).replace('T24:', 'T00:');
 }
 function tasa(percent) {
     return (percent / 100).toFixed(6);
@@ -67,7 +69,7 @@ function comprobanteShell(params) {
     const serieAttr = series ? ` Serie="${escapeXml(series)}"` : '';
     const discountAttr = params.discount > 0 ? ` Descuento="${money(params.discount)}"` : '';
     return `<?xml version="1.0" encoding="UTF-8"?>
-<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0"${serieAttr} Folio="${escapeXml(params.folio)}" Fecha="${cfdiFechaLocal()}" SubTotal="${money(params.subtotal)}"${discountAttr} Total="${money(params.total)}" Moneda="MXN" TipoDeComprobante="${params.tipo}" Exportacion="01" MetodoPago="${escapeXml(params.metodoPago)}" FormaPago="${escapeXml(params.formaPago)}" LugarExpedicion="${escapeXml(params.emisor.postalCode)}">${relacionXml(params.relatedUuid)}
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0"${serieAttr} Folio="${escapeXml(params.folio)}" Fecha="${advanceCfdiFecha()}" SubTotal="${money(params.subtotal)}"${discountAttr} Total="${money(params.total)}" Moneda="MXN" TipoDeComprobante="${params.tipo}" Exportacion="01" MetodoPago="${escapeXml(params.metodoPago)}" FormaPago="${escapeXml(params.formaPago)}" LugarExpedicion="${escapeXml(params.emisor.postalCode)}">${relacionXml(params.relatedUuid)}
   <cfdi:Emisor Rfc="${escapeXml(params.emisor.rfc)}" Nombre="${escapeXml(params.emisor.nombre)}" RegimenFiscal="${escapeXml(params.emisor.regimen)}"/>
   <cfdi:Receptor Rfc="${escapeXml(params.receptor.rfc)}" Nombre="${escapeXml(params.receptor.nombre)}" DomicilioFiscalReceptor="${escapeXml(params.receptor.postalCode)}" RegimenFiscalReceptor="${escapeXml(params.receptor.regimen)}" UsoCFDI="${escapeXml(params.usoCfdi)}"/>
   <cfdi:Conceptos>${params.conceptosXml}

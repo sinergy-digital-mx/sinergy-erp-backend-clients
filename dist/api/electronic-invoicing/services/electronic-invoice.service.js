@@ -69,8 +69,13 @@ let ElectronicInvoiceService = ElectronicInvoiceService_1 = class ElectronicInvo
                 result.codEstatus ??
                 'Error desconocido al timbrar';
             const codigo = incidencia?.codigoError;
-            this.logger.warn(`Finkok Sign_Stamp rechazado${codigo ? ` [${codigo}]` : ''}: ${errorMsg}`);
-            throw new common_1.BadRequestException((0, finkok_error_message_util_1.finkokErrorMessage)(codigo, errorMsg));
+            const extra = incidencia?.extraInfo?.trim();
+            const fecha = readXmlAttr(dto.xml, 'Fecha');
+            const lugar = readXmlAttr(dto.xml, 'LugarExpedicion');
+            this.logger.warn(`Finkok Sign_Stamp rechazado${codigo ? ` [${codigo}]` : ''}: ${errorMsg}` +
+                `${fecha ? ` Fecha=${fecha}` : ''}${lugar ? ` CP=${lugar}` : ''}` +
+                `${extra ? ` Extra=${extra}` : ''}`);
+            throw new common_1.BadRequestException((0, finkok_error_message_util_1.stampRejectionMessage)(codigo, errorMsg, extra, fecha, lugar));
         }
         const invoice = this.invoiceRepo.create({
             tenant_id: tenantId,
@@ -517,4 +522,9 @@ exports.ElectronicInvoiceService = ElectronicInvoiceService = ElectronicInvoiceS
         finkok_soap_client_1.FinkokSoapClient,
         electronic_invoice_pdf_service_1.ElectronicInvoicePdfService])
 ], ElectronicInvoiceService);
+function readXmlAttr(xml, name) {
+    const match = xml.match(new RegExp(`${name}="([^"]*)"`));
+    const value = match?.[1]?.trim();
+    return value || null;
+}
 //# sourceMappingURL=electronic-invoice.service.js.map
