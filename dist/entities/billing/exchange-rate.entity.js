@@ -46,7 +46,7 @@ __decorate([
 ], ExchangeRate.prototype, "exchange_rate", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 255, nullable: true }),
-    __metadata("design:type", String)
+    __metadata("design:type", Object)
 ], ExchangeRate.prototype, "notes", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)({ type: 'timestamp' }),

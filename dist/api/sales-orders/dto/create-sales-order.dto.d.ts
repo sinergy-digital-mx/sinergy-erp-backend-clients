@@ -16,6 +16,7 @@ export declare class CreateSalesOrderDto {
     customer_id?: number;
     expected_delivery_date: string;
     sales_order_type?: 'POS' | 'MANUAL';
+    currency?: 'MXN' | 'USD';
     seller_user_id?: string;
     assigned_seller_user_id?: string;
     pos_daily_shift_id?: string;

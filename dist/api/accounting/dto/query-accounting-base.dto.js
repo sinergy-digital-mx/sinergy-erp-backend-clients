@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.QueryPosCollectionsDto = exports.PosCollectionCustomerType = exports.QueryPosTerminalSalesDto = exports.QueryAccountsReceivableDto = exports.QueryAccountsPayableDto = exports.QueryAccountingBaseDto = exports.AccountingReportPeriod = void 0;
+exports.QueryPosCollectionsDto = exports.PosCollectionDateBasis = exports.PosCollectionCustomerType = exports.QueryPosTerminalSalesDto = exports.QueryAccountsReceivableDto = exports.QueryAccountsPayableDto = exports.AccountsPayableCurrencyView = exports.QueryAccountingBaseDto = exports.AccountingReportPeriod = void 0;
 const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
 var AccountingReportPeriod;
@@ -45,10 +45,17 @@ __decorate([
     (0, class_validator_1.IsDateString)(),
     __metadata("design:type", String)
 ], QueryAccountingBaseDto.prototype, "date_to", void 0);
+var AccountsPayableCurrencyView;
+(function (AccountsPayableCurrencyView) {
+    AccountsPayableCurrencyView["ALL"] = "all";
+    AccountsPayableCurrencyView["MXN"] = "mxn";
+    AccountsPayableCurrencyView["USD"] = "usd";
+})(AccountsPayableCurrencyView || (exports.AccountsPayableCurrencyView = AccountsPayableCurrencyView = {}));
 class QueryAccountsPayableDto {
     page = 1;
     limit = 20;
     search;
+    currency = AccountsPayableCurrencyView.ALL;
 }
 exports.QueryAccountsPayableDto = QueryAccountsPayableDto;
 __decorate([
@@ -65,6 +72,11 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], QueryAccountsPayableDto.prototype, "search", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(AccountsPayableCurrencyView),
+    __metadata("design:type", String)
+], QueryAccountsPayableDto.prototype, "currency", void 0);
 class QueryAccountsReceivableDto {
     billing_branch_id;
     page = 1;
@@ -112,13 +124,24 @@ var PosCollectionCustomerType;
     PosCollectionCustomerType["WALK_IN"] = "walk_in";
     PosCollectionCustomerType["INVOICED"] = "invoiced";
 })(PosCollectionCustomerType || (exports.PosCollectionCustomerType = PosCollectionCustomerType = {}));
+var PosCollectionDateBasis;
+(function (PosCollectionDateBasis) {
+    PosCollectionDateBasis["SHIFT"] = "shift";
+    PosCollectionDateBasis["COLLECTED"] = "collected";
+})(PosCollectionDateBasis || (exports.PosCollectionDateBasis = PosCollectionDateBasis = {}));
 class QueryPosCollectionsDto extends QueryAccountingBaseDto {
+    date_basis = PosCollectionDateBasis.SHIFT;
     customer_type = PosCollectionCustomerType.ALL;
     search;
     page = 1;
     limit = 20;
 }
 exports.QueryPosCollectionsDto = QueryPosCollectionsDto;
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(PosCollectionDateBasis),
+    __metadata("design:type", String)
+], QueryPosCollectionsDto.prototype, "date_basis", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(PosCollectionCustomerType),

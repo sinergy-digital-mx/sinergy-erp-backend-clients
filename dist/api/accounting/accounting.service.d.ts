@@ -7,8 +7,9 @@ import { ElectronicInvoice } from '../../entities/electronic-invoicing/electroni
 import { PurchaseOrderBatch } from '../../entities/purchase-orders/purchase-order-batch.entity';
 import { User } from '../../entities/users/user.entity';
 import { PosShiftsService } from '../pos-shifts/pos-shifts.service';
-import { AccountingReportPeriod, PosCollectionCustomerType, QueryAccountsPayableDto, QueryAccountsReceivableDto, QueryAccountingBaseDto, QueryPosCollectionsDto, QueryPosTerminalSalesDto } from './dto/query-accounting-base.dto';
+import { AccountingReportPeriod, PosCollectionCustomerType, PosCollectionDateBasis, QueryAccountsPayableDto, QueryAccountsReceivableDto, QueryAccountingBaseDto, QueryPosCollectionsDto, QueryPosTerminalSalesDto } from './dto/query-accounting-base.dto';
 import { PosSalePaymentMethod } from '../../entities/pos/pos-sale-payment-method.enum';
+import { AccountsPayableVendorTotals } from './utils/accounts-payable-currency.util';
 export declare class AccountingService {
     private readonly salesOrderRepo;
     private readonly collectionRepo;
@@ -110,9 +111,17 @@ export declare class AccountingService {
             period: AccountingReportPeriod;
             date_from: string;
             date_to: string;
+            date_basis: PosCollectionDateBasis;
             customer_type: PosCollectionCustomerType;
             search: string | null;
         };
+        summary: {
+            orders_collected: number;
+            amount_collected: number;
+            walk_in_count: number;
+            invoiced_count: number;
+        };
+        filtered_amount: number;
         data: {
             is_walk_in: boolean;
             seller_user: {
@@ -138,6 +147,13 @@ export declare class AccountingService {
             general_status: string;
             created_at: Date;
             collected_at: Date;
+            shift_date: string | null;
+            billing_branch: {
+                id: string | null;
+                code: string | null;
+                city: string | null;
+                label: string | null;
+            } | null;
             payment_method: PosSalePaymentMethod;
             payment_method_label: string;
             has_stamped_invoice: boolean;
@@ -307,26 +323,16 @@ export declare class AccountingService {
         }[];
     }>;
     getAccountsPayable(tenantId: string, filters: QueryAccountsPayableDto): Promise<{
-        summary: {
-            total_vendors: number;
-            total_amount_pending: number;
-        };
-        data: {
-            amount_pending: number;
-            amount_paid: number;
-            total_committed: number;
-            progress_percentage: number;
-            vendor_id: string;
-            vendor_name: string;
-            razon_social: string | null;
-            company_name: string | null;
-            credit_limit: number | null;
-            pending_order_count: number;
-        }[];
+        summary: import("./utils/accounts-payable-currency.util").AccountsPayableCurrencySummary;
+        data: AccountsPayableVendorTotals[];
         total: number;
         page: number;
         limit: number;
         totalPages: number;
+    }>;
+    exportAccountsPayableExcel(tenantId: string, filters: QueryAccountsPayableDto): Promise<{
+        buffer: Buffer;
+        filename: string;
     }>;
     getAccountsPayableDetail(tenantId: string, vendorId: string): Promise<{
         vendor: {
@@ -393,9 +399,15 @@ export declare class AccountingService {
     private walkInCustomerSql;
     private stampedInvoiceExistsSql;
     private getStampedInvoiceOrderIds;
+    private collectAccountsPayableVendors;
+    private payableExcelSheets;
+    private payableVendorLabel;
     private buildPurchaseOrderPaymentSummary;
     private buildPosCollectionsQuery;
+    private aggregatePosCollections;
+    private applyPosCollectionScope;
     private mapPosCollectionRow;
+    private mapCollectionBranch;
     private formatPosUserLabel;
     private buildUserName;
     private buildCustomerFields;

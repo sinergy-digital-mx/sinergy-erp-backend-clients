@@ -91,6 +91,7 @@ class CreateSalesOrderDto {
     customer_id;
     expected_delivery_date;
     sales_order_type;
+    currency;
     seller_user_id;
     assigned_seller_user_id;
     pos_daily_shift_id;
@@ -145,6 +146,17 @@ __decorate([
     (0, class_validator_1.IsEnum)(['POS', 'MANUAL']),
     __metadata("design:type", String)
 ], CreateSalesOrderDto.prototype, "sales_order_type", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        enum: ['MXN', 'USD'],
+        default: 'MXN',
+        description: 'Moneda de toda la orden y de su factura. En POS se ignora: se define al cobrar, y solo puede ser USD si el pago en dólares es mayor.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(['MXN', 'USD']),
+    __metadata("design:type", String)
+], CreateSalesOrderDto.prototype, "currency", void 0);
 __decorate([
     (0, class_validator_1.ValidateIf)((dto) => dto.sales_order_type === 'POS'),
     (0, class_validator_1.IsUUID)(),

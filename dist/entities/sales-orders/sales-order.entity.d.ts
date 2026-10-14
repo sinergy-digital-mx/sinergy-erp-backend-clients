@@ -49,6 +49,8 @@ export declare class SalesOrder {
     global_discount_id: string | null;
     global_discount_amount: number;
     total: number;
+    currency: string;
+    exchange_rate: number | null;
     creator: User;
     created_by: string;
     terminal_user: User;

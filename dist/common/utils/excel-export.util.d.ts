@@ -14,6 +14,7 @@ export interface BuildExcelOptions {
     titleColor?: string;
 }
 export declare function buildStyledExcelBuffer(options: BuildExcelOptions): Promise<Buffer>;
+export declare function buildStyledExcelWorkbook(sheets: BuildExcelOptions[]): Promise<Buffer>;
 export declare function formatExportDate(value: Date | string | null | undefined): string;
 export declare function formatExportDateTime(value: Date | string | null | undefined): string;
 export declare function num(value: unknown): number;

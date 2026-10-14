@@ -43,7 +43,7 @@ exports.ExchangeRateController = ExchangeRateController;
 __decorate([
     (0, common_1.Put)('daily'),
     (0, require_permissions_decorator_1.RequirePermission)('ExchangeRate', 'Update'),
-    (0, swagger_1.ApiOperation)({ summary: 'Create or update exchange rate for a day' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Crea o sobrescribe el tipo de cambio de un día' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Exchange rate saved successfully' }),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
@@ -55,12 +55,12 @@ __decorate([
     (0, common_1.Get)('daily'),
     (0, require_permissions_decorator_1.RequirePermission)('ExchangeRate', 'Read'),
     (0, swagger_1.ApiOperation)({
-        summary: 'Tipo de cambio del día, o el más reciente anterior si ese día no se capturó',
+        summary: 'Tipo de cambio del día. Si no hay captura, deja en el historial el del día anterior',
     }),
     (0, swagger_1.ApiQuery)({ name: 'date', required: false, type: String, example: '2026-04-28' }),
     (0, swagger_1.ApiResponse)({
         status: 200,
-        description: 'Tipo de cambio vigente. Si no hay captura ese día, el del último día previo.',
+        description: 'Registro de esa fecha. Si faltaba, se creó copiando la tasa del día previo.',
     }),
     __param(0, (0, common_1.Query)('date')),
     __param(1, (0, common_1.Req)()),

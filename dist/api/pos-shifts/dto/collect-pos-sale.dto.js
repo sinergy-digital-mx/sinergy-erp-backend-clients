@@ -49,6 +49,7 @@ class CollectPosSaleDto {
     check_reference;
     amount_credit_mxn;
     generate_invoice;
+    order_currency;
     received_cash_mxn;
     received_cash_usd;
     notes;
@@ -188,6 +189,17 @@ __decorate([
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], CollectPosSaleDto.prototype, "generate_invoice", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        enum: ['MXN', 'USD'],
+        default: 'MXN',
+        description: 'Moneda de la orden y de la factura. USD solo si el pago aplicado en dólares es mayor que el pago en pesos.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(['MXN', 'USD']),
+    __metadata("design:type", String)
+], CollectPosSaleDto.prototype, "order_currency", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
         required: false,

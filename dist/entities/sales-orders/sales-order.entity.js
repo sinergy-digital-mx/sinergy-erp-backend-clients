@@ -62,6 +62,8 @@ let SalesOrder = class SalesOrder {
     global_discount_id;
     global_discount_amount;
     total;
+    currency;
+    exchange_rate;
     creator;
     created_by;
     terminal_user;
@@ -264,6 +266,14 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'decimal', precision: 12, scale: 2, default: 0 }),
     __metadata("design:type", Number)
 ], SalesOrder.prototype, "total", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 3, default: 'MXN' }),
+    __metadata("design:type", String)
+], SalesOrder.prototype, "currency", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'decimal', precision: 12, scale: 6, nullable: true }),
+    __metadata("design:type", Object)
+], SalesOrder.prototype, "exchange_rate", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => user_entity_1.User, { onDelete: 'SET NULL', nullable: true }),
     (0, typeorm_1.JoinColumn)({ name: 'created_by' }),

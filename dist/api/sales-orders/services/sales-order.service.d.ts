@@ -18,6 +18,7 @@ import { PosSalePaymentMethod } from '../../../entities/pos/pos-sale-payment-met
 import { User } from '../../../entities/users/user.entity';
 import { Customer } from '../../../entities/customers/customer.entity';
 import { CustomerDebtLedgerService } from '../../accounting/services/customer-debt-ledger.service';
+import { ExchangeRateService } from '../../exchange-rate/exchange-rate.service';
 import { S3Service } from '../../../common/services/s3.service';
 import { SalesOrderFolioService } from './sales-order-folio.service';
 import { SalesOrderFulfillmentService } from './sales-order-fulfillment.service';
@@ -62,11 +63,13 @@ export declare class SalesOrderService {
     private readonly controlDeskLifecycle;
     private readonly warehouseControlService;
     private readonly debtLedger;
+    private readonly exchangeRateService;
     private readonly logger;
     private static readonly DOC_TYPE_DOCUMENTO_ORIGINAL;
     private static readonly DOC_TYPE_NAME_ENTREGA;
     private static readonly DOC_TYPE_NAMES_ENTREGA;
-    constructor(soRepo: Repository<SalesOrder>, detailRepo: Repository<SalesOrderDetail>, allocationRepo: Repository<SalesOrderBatchAllocation>, folioService: SalesOrderFolioService, fulfillmentService: SalesOrderFulfillmentService, dataSource: DataSource, posShiftsService: PosShiftsService, productDiscountService: ProductDiscountService, globalDiscountService: GlobalDiscountService, pdfService: SalesOrderPdfService, documentsService: SalesOrderDocumentsService, posReceiptService: SalesOrderPosReceiptService, s3Service: S3Service, posCollectionRepo: Repository<PosSaleCollection>, paymentRepo: Repository<SalesOrderPayment>, paymentDocumentRepo: Repository<SalesOrderPaymentDocument>, userRepo: Repository<User>, customerRepo: Repository<Customer>, billingBranchRepo: Repository<BillingBranch>, warehouseRepo: Repository<Warehouse>, electronicInvoiceService: ElectronicInvoiceService, advanceCfdi: AdvanceCfdiService, controlDeskLifecycle: ControlDeskLifecycleService, warehouseControlService: WarehouseControlService, debtLedger: CustomerDebtLedgerService);
+    constructor(soRepo: Repository<SalesOrder>, detailRepo: Repository<SalesOrderDetail>, allocationRepo: Repository<SalesOrderBatchAllocation>, folioService: SalesOrderFolioService, fulfillmentService: SalesOrderFulfillmentService, dataSource: DataSource, posShiftsService: PosShiftsService, productDiscountService: ProductDiscountService, globalDiscountService: GlobalDiscountService, pdfService: SalesOrderPdfService, documentsService: SalesOrderDocumentsService, posReceiptService: SalesOrderPosReceiptService, s3Service: S3Service, posCollectionRepo: Repository<PosSaleCollection>, paymentRepo: Repository<SalesOrderPayment>, paymentDocumentRepo: Repository<SalesOrderPaymentDocument>, userRepo: Repository<User>, customerRepo: Repository<Customer>, billingBranchRepo: Repository<BillingBranch>, warehouseRepo: Repository<Warehouse>, electronicInvoiceService: ElectronicInvoiceService, advanceCfdi: AdvanceCfdiService, controlDeskLifecycle: ControlDeskLifecycleService, warehouseControlService: WarehouseControlService, debtLedger: CustomerDebtLedgerService, exchangeRateService: ExchangeRateService);
+    private resolveDocumentCurrency;
     private resolveWalkInTicketFields;
     private deleteDocumentsByType;
     private deleteDocumentsByTypeNames;
@@ -173,6 +176,8 @@ export declare class SalesOrderService {
             global_discount_id: string | null;
             global_discount_amount: number;
             total: number;
+            currency: string;
+            exchange_rate: number | null;
             creator: User;
             created_by: string;
             terminal_user: User;
@@ -260,6 +265,8 @@ export declare class SalesOrderService {
             global_discount_id: string | null;
             global_discount_amount: number;
             total: number;
+            currency: string;
+            exchange_rate: number | null;
             creator: User;
             created_by: string;
             terminal_user: User;
@@ -636,6 +643,8 @@ export declare class SalesOrderService {
             global_discount_id: string | null;
             global_discount_amount: number;
             total: number;
+            currency: string;
+            exchange_rate: number | null;
             creator: User;
             created_by: string;
             terminal_user_id: string | null;
@@ -729,6 +738,8 @@ export declare class SalesOrderService {
             global_discount_id: string | null;
             global_discount_amount: number;
             total: number;
+            currency: string;
+            exchange_rate: number | null;
             creator: User;
             created_by: string;
             terminal_user: User;

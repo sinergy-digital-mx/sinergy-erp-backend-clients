@@ -19,15 +19,19 @@ const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const permission_guard_1 = require("../rbac/guards/permission.guard");
 const require_permissions_decorator_1 = require("../rbac/decorators/require-permissions.decorator");
 const accounting_service_1 = require("./accounting.service");
+const average_cost_report_service_1 = require("./services/average-cost-report.service");
 const customer_debt_flow_service_1 = require("./services/customer-debt-flow.service");
 const query_debt_flow_dto_1 = require("./dto/query-debt-flow.dto");
 const query_accounting_base_dto_1 = require("./dto/query-accounting-base.dto");
+const query_average_cost_report_dto_1 = require("./dto/query-average-cost-report.dto");
 let AccountingController = class AccountingController {
     accountingService;
     debtFlowService;
-    constructor(accountingService, debtFlowService) {
+    averageCostReportService;
+    constructor(accountingService, debtFlowService, averageCostReportService) {
         this.accountingService = accountingService;
         this.debtFlowService = debtFlowService;
+        this.averageCostReportService = averageCostReportService;
     }
     getPosSummary(query, req) {
         return this.accountingService.getPosSummary(req.user.tenant_id, query);
@@ -55,6 +59,12 @@ let AccountingController = class AccountingController {
     getAccountsPayable(query, req) {
         return this.accountingService.getAccountsPayable(req.user.tenant_id, query);
     }
+    async exportAccountsPayableExcel(query, req, res) {
+        const { buffer, filename } = await this.accountingService.exportAccountsPayableExcel(req.user.tenant_id, query);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(buffer);
+    }
     getAccountsPayableDetail(vendorId, req) {
         return this.accountingService.getAccountsPayableDetail(req.user.tenant_id, vendorId);
     }
@@ -63,6 +73,15 @@ let AccountingController = class AccountingController {
     }
     getAccountsReceivableDetail(razonSocial, billingBranchId, req) {
         return this.accountingService.getAccountsReceivableDetail(req.user.tenant_id, razonSocial, billingBranchId);
+    }
+    getAverageCostReport(query, req) {
+        return this.averageCostReportService.getReport(req.user.tenant_id, query);
+    }
+    async exportAverageCostReportExcel(query, req, res) {
+        const { buffer, filename } = await this.averageCostReportService.exportExcel(req.user.tenant_id, query);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(buffer);
     }
     getDebtFlow(query, req) {
         return this.debtFlowService.getReport(req.user.tenant_id, query);
@@ -106,7 +125,7 @@ __decorate([
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Detalle de órdenes cobradas (terminal de caja)',
-        description: 'Lista cobros del periodo/sucursal. Filtro customer_type: all | walk_in | invoiced.',
+        description: 'Lista cobros del periodo/sucursal. customer_type: all | walk_in | invoiced. date_basis=shift usa la fecha del corte; date_basis=collected usa el día de cobro (America/Tijuana).',
     }),
     __param(0, (0, common_1.Query)()),
     __param(1, (0, common_1.Req)()),
@@ -155,13 +174,30 @@ __decorate([
 __decorate([
     (0, common_1.Get)('accounts-payable'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }),
-    (0, swagger_1.ApiOperation)({ summary: 'Cuentas por pagar agrupadas por proveedor' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Cuentas por pagar agrupadas por proveedor',
+        description: 'currency=all muestra pesos y dólares. currency=mxn o usd deja solo esa moneda.',
+    }),
     __param(0, (0, common_1.Query)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [query_accounting_base_dto_1.QueryAccountsPayableDto, Object]),
     __metadata("design:returntype", void 0)
 ], AccountingController.prototype, "getAccountsPayable", null);
+__decorate([
+    (0, common_1.Get)('accounts-payable/export/excel'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Excel de cuentas por pagar',
+        description: 'currency=all descarga dos hojas (pesos y dólares). mxn o usd descarga una sola lista.',
+    }),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Req)()),
+    __param(2, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [query_accounting_base_dto_1.QueryAccountsPayableDto, Object, Object]),
+    __metadata("design:returntype", Promise)
+], AccountingController.prototype, "exportAccountsPayableExcel", null);
 __decorate([
     (0, common_1.Get)('accounts-payable/vendors/:vendorId'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }),
@@ -199,6 +235,30 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], AccountingController.prototype, "getAccountsReceivableDetail", null);
 __decorate([
+    (0, common_1.Get)('average-cost-report'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Artículos por costo promedio',
+        description: 'Agrupa ingresos de compra por artículo. El costo es el costo real en pesos cuando existe; si no, el costo de la compra. El margen es precio 1 menos costo, por unidad.',
+    }),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [query_average_cost_report_dto_1.QueryAverageCostReportDto, Object]),
+    __metadata("design:returntype", void 0)
+], AccountingController.prototype, "getAverageCostReport", null);
+__decorate([
+    (0, common_1.Get)('average-cost-report/export/excel'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Excel de artículos por costo promedio' }),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Req)()),
+    __param(2, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [query_average_cost_report_dto_1.QueryAverageCostReportDto, Object, Object]),
+    __metadata("design:returntype", Promise)
+], AccountingController.prototype, "exportAverageCostReportExcel", null);
+__decorate([
     (0, common_1.Get)('debt-flow'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }),
     (0, swagger_1.ApiOperation)({
@@ -228,6 +288,7 @@ exports.AccountingController = AccountingController = __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     (0, swagger_1.ApiBearerAuth)(),
     __metadata("design:paramtypes", [accounting_service_1.AccountingService,
-        customer_debt_flow_service_1.CustomerDebtFlowService])
+        customer_debt_flow_service_1.CustomerDebtFlowService,
+        average_cost_report_service_1.AverageCostReportService])
 ], AccountingController);
 //# sourceMappingURL=accounting.controller.js.map

@@ -34,6 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildStyledExcelBuffer = buildStyledExcelBuffer;
+exports.buildStyledExcelWorkbook = buildStyledExcelWorkbook;
 exports.formatExportDate = formatExportDate;
 exports.formatExportDateTime = formatExportDateTime;
 exports.num = num;
@@ -43,10 +44,20 @@ const ExcelJS = __importStar(require("exceljs"));
 const DEFAULT_HEADER_COLOR = 'FF4B5A8A';
 const DEFAULT_TITLE_COLOR = 'FF2C3E6B';
 async function buildStyledExcelBuffer(options) {
-    const { sheetName, title, subtitle, columns, rows, headerColor = DEFAULT_HEADER_COLOR, titleColor = DEFAULT_TITLE_COLOR, } = options;
+    return buildStyledExcelWorkbook([options]);
+}
+async function buildStyledExcelWorkbook(sheets) {
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'Sinergy ERP';
     workbook.created = new Date();
+    for (const sheet of sheets) {
+        appendStyledWorksheet(workbook, sheet);
+    }
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
+}
+function appendStyledWorksheet(workbook, options) {
+    const { sheetName, title, subtitle, columns, rows, headerColor = DEFAULT_HEADER_COLOR, titleColor = DEFAULT_TITLE_COLOR, } = options;
     const worksheet = workbook.addWorksheet(sheetName, {
         views: [{ state: 'frozen', ySplit: subtitle ? 3 : 2 }],
     });
@@ -128,8 +139,6 @@ async function buildStyledExcelBuffer(options) {
         });
     });
     worksheet.columns = columns.map((col) => ({ width: col.width ?? 16 }));
-    const buffer = await workbook.xlsx.writeBuffer();
-    return Buffer.from(buffer);
 }
 function thinBorder(color) {
     const side = { style: 'thin', color: { argb: color } };

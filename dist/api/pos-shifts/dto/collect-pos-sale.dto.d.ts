@@ -19,6 +19,7 @@ export declare class CollectPosSaleDto {
     check_reference?: string;
     amount_credit_mxn?: number;
     generate_invoice?: boolean;
+    order_currency?: 'MXN' | 'USD';
     received_cash_mxn?: number;
     received_cash_usd?: number;
     notes?: string;

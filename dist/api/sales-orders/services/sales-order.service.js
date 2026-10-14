@@ -33,6 +33,8 @@ const pos_sale_payment_method_enum_1 = require("../../../entities/pos/pos-sale-p
 const user_entity_1 = require("../../../entities/users/user.entity");
 const customer_entity_1 = require("../../../entities/customers/customer.entity");
 const customer_debt_ledger_service_1 = require("../../accounting/services/customer-debt-ledger.service");
+const exchange_rate_service_1 = require("../../exchange-rate/exchange-rate.service");
+const sales_order_currency_util_1 = require("../utils/sales-order-currency.util");
 const s3_service_1 = require("../../../common/services/s3.service");
 const public_invoice_code_util_1 = require("../../../common/utils/public-invoice-code.util");
 const unit_amount_util_1 = require("../../../common/utils/unit-amount.util");
@@ -94,11 +96,12 @@ let SalesOrderService = class SalesOrderService {
     controlDeskLifecycle;
     warehouseControlService;
     debtLedger;
+    exchangeRateService;
     logger = new common_1.Logger(SalesOrderService_1.name);
     static DOC_TYPE_DOCUMENTO_ORIGINAL = 1;
     static DOC_TYPE_NAME_ENTREGA = 'ENTREGA';
     static DOC_TYPE_NAMES_ENTREGA = ['ENTREGA', 'RECIBO'];
-    constructor(soRepo, detailRepo, allocationRepo, folioService, fulfillmentService, dataSource, posShiftsService, productDiscountService, globalDiscountService, pdfService, documentsService, posReceiptService, s3Service, posCollectionRepo, paymentRepo, paymentDocumentRepo, userRepo, customerRepo, billingBranchRepo, warehouseRepo, electronicInvoiceService, advanceCfdi, controlDeskLifecycle, warehouseControlService, debtLedger) {
+    constructor(soRepo, detailRepo, allocationRepo, folioService, fulfillmentService, dataSource, posShiftsService, productDiscountService, globalDiscountService, pdfService, documentsService, posReceiptService, s3Service, posCollectionRepo, paymentRepo, paymentDocumentRepo, userRepo, customerRepo, billingBranchRepo, warehouseRepo, electronicInvoiceService, advanceCfdi, controlDeskLifecycle, warehouseControlService, debtLedger, exchangeRateService) {
         this.soRepo = soRepo;
         this.detailRepo = detailRepo;
         this.allocationRepo = allocationRepo;
@@ -124,6 +127,18 @@ let SalesOrderService = class SalesOrderService {
         this.controlDeskLifecycle = controlDeskLifecycle;
         this.warehouseControlService = warehouseControlService;
         this.debtLedger = debtLedger;
+        this.exchangeRateService = exchangeRateService;
+    }
+    async resolveDocumentCurrency(tenantId, dto, isPosSale) {
+        if (isPosSale || (0, sales_order_currency_util_1.normalizeSalesOrderCurrency)(dto.currency) !== 'USD') {
+            return { currency: 'MXN', exchangeRate: null };
+        }
+        const daily = await this.exchangeRateService.getDailyRate(tenantId);
+        const rate = Number(daily?.exchange_rate ?? 0);
+        if (!(rate > 0)) {
+            throw new common_1.BadRequestException('No hay tipo de cambio. Captúralo antes de crear una orden en dólares.');
+        }
+        return { currency: 'USD', exchangeRate: Number(rate.toFixed(6)) };
     }
     async resolveWalkInTicketFields(tenantId, customerId, dto) {
         const customer = await this.customerRepo.findOne({
@@ -307,6 +322,7 @@ let SalesOrderService = class SalesOrderService {
             posQueued = false;
             posDailyShiftId = caja.shift.id;
         }
+        const documentCurrency = await this.resolveDocumentCurrency(tenantId, dto, isPosSale);
         const qr = this.dataSource.createQueryRunner();
         await qr.connect();
         await qr.startTransaction();
@@ -339,6 +355,8 @@ let SalesOrderService = class SalesOrderService {
                 notes: dto.notes,
                 ...(await this.resolveWalkInTicketFields(tenantId, customerId, dto)),
                 sale_scope: saleScope,
+                currency: documentCurrency.currency,
+                exchange_rate: documentCurrency.exchangeRate,
                 requires_selection_assembly: requiresSelectionAssembly,
                 created_by: userId,
                 terminal_user_id: isPosSale ? userId : null,
@@ -2261,6 +2279,7 @@ exports.SalesOrderService = SalesOrderService = SalesOrderService_1 = __decorate
         advance_cfdi_service_1.AdvanceCfdiService,
         control_desk_lifecycle_service_1.ControlDeskLifecycleService,
         warehouse_control_service_1.WarehouseControlService,
-        customer_debt_ledger_service_1.CustomerDebtLedgerService])
+        customer_debt_ledger_service_1.CustomerDebtLedgerService,
+        exchange_rate_service_1.ExchangeRateService])
 ], SalesOrderService);
 //# sourceMappingURL=sales-order.service.js.map

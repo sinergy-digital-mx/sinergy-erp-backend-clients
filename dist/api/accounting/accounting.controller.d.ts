@@ -1,11 +1,14 @@
 import { AccountingService } from './accounting.service';
+import { AverageCostReportService } from './services/average-cost-report.service';
 import { CustomerDebtFlowService } from './services/customer-debt-flow.service';
 import { QueryDebtFlowDto } from './dto/query-debt-flow.dto';
 import { QueryAccountingBaseDto, QueryAccountsPayableDto, QueryAccountsReceivableDto, QueryPosCollectionsDto, QueryPosTerminalSalesDto } from './dto/query-accounting-base.dto';
+import { QueryAverageCostReportDto } from './dto/query-average-cost-report.dto';
 export declare class AccountingController {
     private readonly accountingService;
     private readonly debtFlowService;
-    constructor(accountingService: AccountingService, debtFlowService: CustomerDebtFlowService);
+    private readonly averageCostReportService;
+    constructor(accountingService: AccountingService, debtFlowService: CustomerDebtFlowService, averageCostReportService: AverageCostReportService);
     getPosSummary(query: QueryAccountingBaseDto, req: any): Promise<{
         filters_applied: {
             billing_branch_id: string;
@@ -98,9 +101,17 @@ export declare class AccountingController {
             period: import("./dto/query-accounting-base.dto").AccountingReportPeriod;
             date_from: string;
             date_to: string;
+            date_basis: import("./dto/query-accounting-base.dto").PosCollectionDateBasis;
             customer_type: import("./dto/query-accounting-base.dto").PosCollectionCustomerType;
             search: string | null;
         };
+        summary: {
+            orders_collected: number;
+            amount_collected: number;
+            walk_in_count: number;
+            invoiced_count: number;
+        };
+        filtered_amount: number;
         data: {
             is_walk_in: boolean;
             seller_user: {
@@ -126,6 +137,13 @@ export declare class AccountingController {
             general_status: string;
             created_at: Date;
             collected_at: Date;
+            shift_date: string | null;
+            billing_branch: {
+                id: string | null;
+                code: string | null;
+                city: string | null;
+                label: string | null;
+            } | null;
             payment_method: import("../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
             payment_method_label: string;
             has_stamped_invoice: boolean;
@@ -294,27 +312,14 @@ export declare class AccountingController {
         };
     }>;
     getAccountsPayable(query: QueryAccountsPayableDto, req: any): Promise<{
-        summary: {
-            total_vendors: number;
-            total_amount_pending: number;
-        };
-        data: {
-            amount_pending: number;
-            amount_paid: number;
-            total_committed: number;
-            progress_percentage: number;
-            vendor_id: string;
-            vendor_name: string;
-            razon_social: string | null;
-            company_name: string | null;
-            credit_limit: number | null;
-            pending_order_count: number;
-        }[];
+        summary: import("./utils/accounts-payable-currency.util").AccountsPayableCurrencySummary;
+        data: import("./utils/accounts-payable-currency.util").AccountsPayableVendorTotals[];
         total: number;
         page: number;
         limit: number;
         totalPages: number;
     }>;
+    exportAccountsPayableExcel(query: QueryAccountsPayableDto, req: any, res: any): Promise<void>;
     getAccountsPayableDetail(vendorId: string, req: any): Promise<{
         vendor: {
             id: string;
@@ -375,6 +380,15 @@ export declare class AccountingController {
             } | null;
         }[];
     }>;
+    getAverageCostReport(query: QueryAverageCostReportDto, req: any): Promise<{
+        summary: import("./utils/average-cost-report.util").AverageCostReportSummary;
+        data: import("./utils/average-cost-report.util").AverageCostReportRow[];
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+    }>;
+    exportAverageCostReportExcel(query: QueryAverageCostReportDto, req: any, res: any): Promise<void>;
     getDebtFlow(query: QueryDebtFlowDto, req: any): Promise<import("./services/customer-debt-flow.service").DebtFlowResponse>;
     exportDebtFlowExcel(query: QueryDebtFlowDto, req: any, res: any): Promise<void>;
 }

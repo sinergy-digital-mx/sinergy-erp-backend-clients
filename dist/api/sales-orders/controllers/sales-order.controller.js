@@ -28,6 +28,7 @@ const shippings_service_1 = require("../../shippings/shippings.service");
 const cancel_electronic_invoice_dto_1 = require("../../electronic-invoicing/dto/cancel-electronic-invoice.dto");
 const stamp_sales_order_invoice_dto_1 = require("../dto/stamp-sales-order-invoice.dto");
 const stamp_advance_invoice_dto_1 = require("../../electronic-invoicing/dto/stamp-advance-invoice.dto");
+const stamp_payment_complement_dto_1 = require("../dto/stamp-payment-complement.dto");
 const apply_advance_invoice_dto_1 = require("../../electronic-invoicing/dto/apply-advance-invoice.dto");
 const inventory_service_1 = require("../../inventory/inventory.service");
 const sales_order_products_picker_service_1 = require("../services/sales-order-products-picker.service");
@@ -135,8 +136,8 @@ let SalesOrderController = class SalesOrderController {
     async getPaymentComplement(id, req) {
         return this.invoicingService.getPaymentComplementStatus(id, req.user.tenant_id);
     }
-    async stampPaymentComplement(id, req) {
-        return this.invoicingService.stampPaymentComplement(id, req.user.tenant_id, req.user.id);
+    async stampPaymentComplement(id, dto, req) {
+        return this.invoicingService.stampPaymentComplement(id, req.user.tenant_id, req.user.id, dto.environment);
     }
     async stampInvoice(id, dto, req) {
         return this.invoicingService.stampInvoice(id, req.user.tenant_id, req.user.id, dto);
@@ -549,12 +550,13 @@ __decorate([
     (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
     (0, swagger_1.ApiOperation)({
         summary: 'Timbrar el comprobante electrónico de pago de la orden',
-        description: 'CFDI tipo P con complemento de recepción de pagos 2.0, vía Finkok. Solo si la venta está pagada y la factura de ingreso es PPD.',
+        description: 'CFDI tipo P con complemento de recepción de pagos 2.0, vía Finkok. Solo si la venta está pagada y la factura de ingreso es PPD. Body.environment elige demo o production; si se omite, usa el ambiente de la factura ligada.',
     }),
     __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:paramtypes", [String, stamp_payment_complement_dto_1.StampPaymentComplementDto, Object]),
     __metadata("design:returntype", Promise)
 ], SalesOrderController.prototype, "stampPaymentComplement", null);
 __decorate([

@@ -3,7 +3,7 @@ export declare class ExchangeRate {
     tenant_id: string;
     rate_date: string;
     exchange_rate: number;
-    notes?: string;
+    notes?: string | null;
     created_at: Date;
     updated_at: Date;
 }

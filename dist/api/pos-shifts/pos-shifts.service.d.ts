@@ -896,6 +896,8 @@ export declare class PosShiftsService {
             } | null;
             pos_daily_shift_id: string;
             total: number;
+            currency: import("../sales-orders/utils/sales-order-currency.util").SalesOrderCurrency;
+            exchange_rate: number | null;
             amount_collected: number;
             amount_on_credit: number;
         };

@@ -10,10 +10,16 @@ export declare class QueryAccountingBaseDto {
     date_from?: string;
     date_to?: string;
 }
+export declare enum AccountsPayableCurrencyView {
+    ALL = "all",
+    MXN = "mxn",
+    USD = "usd"
+}
 export declare class QueryAccountsPayableDto {
     page?: number;
     limit?: number;
     search?: string;
+    currency?: AccountsPayableCurrencyView;
 }
 export declare class QueryAccountsReceivableDto {
     billing_branch_id?: string;
@@ -30,7 +36,12 @@ export declare enum PosCollectionCustomerType {
     WALK_IN = "walk_in",
     INVOICED = "invoiced"
 }
+export declare enum PosCollectionDateBasis {
+    SHIFT = "shift",
+    COLLECTED = "collected"
+}
 export declare class QueryPosCollectionsDto extends QueryAccountingBaseDto {
+    date_basis?: PosCollectionDateBasis;
     customer_type?: PosCollectionCustomerType;
     search?: string;
     page?: number;

@@ -29,6 +29,7 @@ const pos_sale_collection_mapper_1 = require("../pos-shifts/mappers/pos-sale-col
 const unclosed_shift_alert_1 = require("../pos-shifts/utils/unclosed-shift-alert");
 const sales_order_payment_display_util_1 = require("../sales-orders/utils/sales-order-payment-display.util");
 const excel_export_util_1 = require("../../common/utils/excel-export.util");
+const accounts_payable_currency_util_1 = require("./utils/accounts-payable-currency.util");
 const WALK_IN_FISCAL_NAME = 'VENTA DE MOSTRADOR';
 const WALK_IN_DISPLAY_NAME = 'Público en General';
 let AccountingService = class AccountingService {
@@ -256,6 +257,8 @@ let AccountingService = class AccountingService {
         const page = filters.page ?? 1;
         const limit = filters.limit ?? 20;
         const customerType = filters.customer_type ?? query_accounting_base_dto_1.PosCollectionCustomerType.ALL;
+        const dateBasis = filters.date_basis ?? query_accounting_base_dto_1.PosCollectionDateBasis.SHIFT;
+        const search = filters.search?.trim() || '';
         const periodShift = await this.dailyShiftRepo.findOne({
             where: {
                 tenant_id: tenantId,
@@ -266,11 +269,16 @@ let AccountingService = class AccountingService {
             order: { shift_date: 'DESC', created_at: 'DESC' },
         });
         const cobranzaTerminal = periodShift?.terminal_user ?? null;
-        const qb = this.buildPosCollectionsQuery(tenantId, filters, shiftFrom, shiftTo, customerType);
+        const summary = await this.aggregatePosCollections(tenantId, filters, shiftFrom, shiftTo, dateBasis, query_accounting_base_dto_1.PosCollectionCustomerType.ALL);
+        const filtered = customerType === query_accounting_base_dto_1.PosCollectionCustomerType.ALL && !search
+            ? summary
+            : await this.aggregatePosCollections(tenantId, filters, shiftFrom, shiftTo, dateBasis, customerType, search);
+        const total = filtered.orders_collected;
+        const qb = this.buildPosCollectionsQuery(tenantId, filters, shiftFrom, shiftTo, customerType, dateBasis);
         qb.orderBy('collection.created_at', 'DESC')
             .skip((page - 1) * limit)
             .take(limit);
-        const [collections, total] = await qb.getManyAndCount();
+        const collections = await qb.getMany();
         const stampedOrderIds = await this.getStampedInvoiceOrderIds(tenantId, collections
             .map((collection) => collection.sales_order_id)
             .filter((id) => Boolean(id)));
@@ -284,9 +292,17 @@ let AccountingService = class AccountingService {
                 period,
                 date_from: shiftFrom,
                 date_to: shiftTo,
+                date_basis: dateBasis,
                 customer_type: customerType,
-                search: filters.search?.trim() || null,
+                search: search || null,
             },
+            summary: {
+                orders_collected: summary.orders_collected,
+                amount_collected: summary.amount_collected,
+                walk_in_count: summary.walk_in_count,
+                invoiced_count: summary.invoiced_count,
+            },
+            filtered_amount: filtered.amount_collected,
             data: collections.map((collection) => this.mapPosCollectionRow(collection, stampedOrderIds)),
             total,
             page,
@@ -298,7 +314,8 @@ let AccountingService = class AccountingService {
         const period = filters.period ?? query_accounting_base_dto_1.AccountingReportPeriod.MONTH;
         const { from: shiftFrom, to: shiftTo } = (0, unclosed_shift_alert_1.resolvePosCalendarRange)(period, filters.date_from, filters.date_to);
         const customerType = filters.customer_type ?? query_accounting_base_dto_1.PosCollectionCustomerType.ALL;
-        const qb = this.buildPosCollectionsQuery(tenantId, filters, shiftFrom, shiftTo, customerType);
+        const dateBasis = filters.date_basis ?? query_accounting_base_dto_1.PosCollectionDateBasis.SHIFT;
+        const qb = this.buildPosCollectionsQuery(tenantId, filters, shiftFrom, shiftTo, customerType, dateBasis);
         qb.orderBy('collection.created_at', 'DESC');
         const collections = await qb.getMany();
         const stampedOrderIds = await this.getStampedInvoiceOrderIds(tenantId, collections
@@ -314,8 +331,10 @@ let AccountingService = class AccountingService {
                 'Público en General';
             return {
                 folio: mapped.folio ?? '',
+                branch: mapped.billing_branch?.label ?? '',
                 created_at: (0, excel_export_util_1.formatExportDateTime)(mapped.created_at),
                 collected_at: (0, excel_export_util_1.formatExportDateTime)(mapped.collected_at),
+                shift_date: mapped.shift_date ?? '',
                 customer: customerName,
                 walk_in_rfc: mapped.walk_in_rfc ?? '',
                 customer_type: mapped.has_stamped_invoice
@@ -341,14 +360,17 @@ let AccountingService = class AccountingService {
             subtitle: (0, excel_export_util_1.buildExportSubtitle)([
                 `Periodo: ${filters.period ?? query_accounting_base_dto_1.AccountingReportPeriod.MONTH}`,
                 `${shiftFrom} – ${shiftTo}`,
+                dateBasis === query_accounting_base_dto_1.PosCollectionDateBasis.COLLECTED ? 'Por fecha de cobro' : 'Por fecha de corte',
                 `Tipo: ${customerTypeLabel}`,
                 filters.search?.trim() ? `Búsqueda: ${filters.search.trim()}` : '',
                 `${rows.length} órdenes`,
             ]),
             columns: [
                 { header: 'Folio', key: 'folio', width: 16 },
+                { header: 'Sucursal', key: 'branch', width: 28 },
                 { header: 'Fecha venta', key: 'created_at', width: 18, type: 'date' },
                 { header: 'Fecha cobro', key: 'collected_at', width: 18, type: 'date' },
+                { header: 'Fecha corte', key: 'shift_date', width: 14, type: 'date' },
                 { header: 'Cliente', key: 'customer', width: 28 },
                 { header: 'RFC ticket', key: 'walk_in_rfc', width: 16 },
                 { header: 'Tipo', key: 'customer_type', width: 18 },
@@ -449,74 +471,27 @@ let AccountingService = class AccountingService {
     async getAccountsPayable(tenantId, filters) {
         const page = filters.page ?? 1;
         const limit = filters.limit ?? 20;
-        const pendingOrders = await this.purchaseOrderRepo.find({
-            where: {
-                tenant_id: tenantId,
-                payment_status: 'Pendiente',
-            },
-            relations: ['vendor', 'payments'],
-        });
-        const activeOrders = pendingOrders.filter((po) => po.general_status !== 'Cancelada');
-        const vendorMap = new Map();
-        for (const order of activeOrders) {
-            const summary = this.buildPurchaseOrderPaymentSummary(order);
-            if (summary.amount_pending <= 0)
-                continue;
-            const vendor = order.vendor;
-            if (!vendor)
-                continue;
-            const displayName = vendor.razon_social ?? vendor.company_name ?? vendor.name;
-            if (filters.search) {
-                const term = filters.search.toLowerCase();
-                const matches = vendor.name.toLowerCase().includes(term) ||
-                    (vendor.razon_social ?? '').toLowerCase().includes(term) ||
-                    (vendor.company_name ?? '').toLowerCase().includes(term);
-                if (!matches)
-                    continue;
-            }
-            const existing = vendorMap.get(vendor.id) ?? {
-                vendor_id: vendor.id,
-                vendor_name: vendor.name,
-                razon_social: vendor.razon_social,
-                company_name: vendor.company_name,
-                credit_limit: vendor.credit_limit ? Number(vendor.credit_limit) : null,
-                pending_order_count: 0,
-                amount_pending: 0,
-                amount_paid: 0,
-                total_committed: 0,
-            };
-            existing.pending_order_count += 1;
-            existing.amount_pending += summary.amount_pending;
-            existing.amount_paid += summary.amount_paid;
-            existing.total_committed += summary.amount_paid + summary.amount_pending;
-            vendorMap.set(vendor.id, existing);
-        }
-        const rows = Array.from(vendorMap.values())
-            .map((row) => ({
-            ...row,
-            amount_pending: Number(row.amount_pending.toFixed(2)),
-            amount_paid: Number(row.amount_paid.toFixed(2)),
-            total_committed: Number(row.total_committed.toFixed(2)),
-            progress_percentage: row.credit_limit && row.credit_limit > 0
-                ? Number(((row.amount_pending / row.credit_limit) * 100).toFixed(2))
-                : row.total_committed > 0
-                    ? Number(((row.amount_pending / row.total_committed) * 100).toFixed(2))
-                    : 0,
-        }))
-            .sort((a, b) => b.amount_pending - a.amount_pending);
+        const currency = filters.currency ?? query_accounting_base_dto_1.AccountsPayableCurrencyView.ALL;
+        const rows = (0, accounts_payable_currency_util_1.sortPayableVendors)((0, accounts_payable_currency_util_1.filterPayableVendors)(await this.collectAccountsPayableVendors(tenantId, filters.search), currency), currency);
         const total = rows.length;
         const paginated = rows.slice((page - 1) * limit, page * limit);
         return {
-            summary: {
-                total_vendors: total,
-                total_amount_pending: Number(rows.reduce((sum, row) => sum + row.amount_pending, 0).toFixed(2)),
-            },
+            summary: (0, accounts_payable_currency_util_1.summarizePayableVendors)(rows, currency),
             data: paginated,
             total,
             page,
             limit,
-            totalPages: Math.ceil(total / limit),
+            totalPages: Math.ceil(total / limit) || 0,
         };
+    }
+    async exportAccountsPayableExcel(tenantId, filters) {
+        const currency = filters.currency ?? query_accounting_base_dto_1.AccountsPayableCurrencyView.ALL;
+        const rows = await this.collectAccountsPayableVendors(tenantId, filters.search);
+        const searchLabel = filters.search?.trim() ? `Búsqueda: ${filters.search.trim()}` : '';
+        const buffer = await (0, excel_export_util_1.buildStyledExcelWorkbook)(this.payableExcelSheets(rows, currency, searchLabel));
+        const day = (0, unclosed_shift_alert_1.getTodayDateString)();
+        const suffix = currency === query_accounting_base_dto_1.AccountsPayableCurrencyView.ALL ? '' : `-${currency}`;
+        return { buffer, filename: `cuentas-por-pagar${suffix}-${day}.xlsx` };
     }
     async getAccountsPayableDetail(tenantId, vendorId) {
         const orders = await this.purchaseOrderRepo.find({
@@ -731,7 +706,7 @@ let AccountingService = class AccountingService {
               AND sh.shift_date >= :shiftFrom
               AND sh.shift_date <= :shiftTo
           )
-        )`)
+        )`, { shiftFrom, shiftTo, branchId })
             .orderBy('so.created_at', 'DESC')
             .getRawMany();
         return rows.map((row) => {
@@ -788,6 +763,80 @@ let AccountingService = class AccountingService {
             .getRawMany();
         return new Set(rows.map((row) => row.source_id));
     }
+    async collectAccountsPayableVendors(tenantId, search) {
+        const pendingOrders = await this.purchaseOrderRepo.find({
+            where: {
+                tenant_id: tenantId,
+                payment_status: 'Pendiente',
+            },
+            relations: ['vendor', 'payments'],
+        });
+        const term = search?.trim().toLowerCase();
+        const inputs = [];
+        for (const order of pendingOrders) {
+            if (order.general_status === 'Cancelada')
+                continue;
+            const summary = this.buildPurchaseOrderPaymentSummary(order);
+            if (summary.amount_pending <= 0)
+                continue;
+            const vendor = order.vendor;
+            if (!vendor)
+                continue;
+            if (term) {
+                const matches = vendor.name.toLowerCase().includes(term) ||
+                    (vendor.razon_social ?? '').toLowerCase().includes(term) ||
+                    (vendor.company_name ?? '').toLowerCase().includes(term);
+                if (!matches)
+                    continue;
+            }
+            inputs.push({
+                vendor_id: vendor.id,
+                vendor_name: vendor.name,
+                razon_social: vendor.razon_social,
+                company_name: vendor.company_name,
+                credit_limit: (0, accounts_payable_currency_util_1.parseCreditLimit)(vendor.credit_limit),
+                payment_currency: order.payment_currency,
+                amount_pending: summary.amount_pending,
+                amount_paid: summary.amount_paid,
+            });
+        }
+        return (0, accounts_payable_currency_util_1.aggregatePayableVendors)(inputs);
+    }
+    payableExcelSheets(rows, currency, searchLabel) {
+        const views = currency === query_accounting_base_dto_1.AccountsPayableCurrencyView.ALL
+            ? [query_accounting_base_dto_1.AccountsPayableCurrencyView.MXN, query_accounting_base_dto_1.AccountsPayableCurrencyView.USD]
+            : [currency];
+        return views.map((view) => {
+            const isUsd = view === query_accounting_base_dto_1.AccountsPayableCurrencyView.USD;
+            const list = (0, accounts_payable_currency_util_1.sortPayableVendors)((0, accounts_payable_currency_util_1.filterPayableVendors)(rows, view), view);
+            return {
+                sheetName: isUsd ? 'Dólares USD' : 'Pesos MXN',
+                title: isUsd ? 'Cuentas por pagar — dólares' : 'Cuentas por pagar — pesos',
+                subtitle: (0, excel_export_util_1.buildExportSubtitle)([
+                    isUsd ? 'Montos en USD' : 'Montos en MXN',
+                    searchLabel,
+                    `${list.length} proveedores`,
+                ]),
+                headerColor: isUsd ? 'FF047857' : 'FF1D4ED8',
+                titleColor: isUsd ? 'FF065F46' : 'FF1E3A8A',
+                columns: [
+                    { header: 'Proveedor', key: 'vendor', width: 36 },
+                    { header: 'OC pendientes', key: 'pending_orders', width: 16, type: 'integer' },
+                    { header: 'Monto adeudado', key: 'amount_pending', width: 18, type: 'currency' },
+                    { header: 'Progreso', key: 'progress', width: 14, type: 'percent' },
+                ],
+                rows: list.map((row) => ({
+                    vendor: this.payableVendorLabel(row),
+                    pending_orders: isUsd ? row.pending_order_count_usd : row.pending_order_count_mxn,
+                    amount_pending: isUsd ? row.amount_pending_usd : row.amount_pending_mxn,
+                    progress: isUsd ? row.progress_percentage_usd : row.progress_percentage_mxn,
+                })),
+            };
+        });
+    }
+    payableVendorLabel(row) {
+        return row.vendor_name?.trim() || row.razon_social?.trim() || row.company_name?.trim() || '—';
+    }
     buildPurchaseOrderPaymentSummary(order) {
         const requestedTotal = Number(order.requested_total || 0);
         const receivedTotal = Number(order.received_total || 0);
@@ -801,7 +850,7 @@ let AccountingService = class AccountingService {
             amount_pending: Number(amountPending.toFixed(2)),
         };
     }
-    buildPosCollectionsQuery(tenantId, filters, shiftFrom, shiftTo, customerType) {
+    buildPosCollectionsQuery(tenantId, filters, periodFrom, periodTo, customerType, dateBasis = query_accounting_base_dto_1.PosCollectionDateBasis.SHIFT) {
         const qb = this.collectionRepo
             .createQueryBuilder('collection')
             .innerJoinAndSelect('collection.sales_order', 'so')
@@ -809,12 +858,44 @@ let AccountingService = class AccountingService {
             .innerJoinAndSelect('collection.customer', 'customer')
             .leftJoinAndSelect('so.seller_user', 'seller_user')
             .leftJoinAndSelect('collection.collected_by_user', 'collected_by_user')
-            .where('collection.tenant_id = :tenantId', { tenantId })
-            .andWhere('shift.billing_branch_id = :branchId', {
-            branchId: filters.billing_branch_id,
-        })
-            .andWhere('shift.shift_date >= :shiftFrom', { shiftFrom })
-            .andWhere('shift.shift_date <= :shiftTo', { shiftTo });
+            .leftJoinAndSelect('so.billing_branch', 'sale_branch')
+            .leftJoinAndSelect('so.warehouse', 'warehouse')
+            .leftJoinAndSelect('warehouse.billing_branch', 'warehouse_branch')
+            .leftJoinAndSelect('shift.billing_branch', 'shift_branch');
+        this.applyPosCollectionScope(qb, tenantId, filters.billing_branch_id, periodFrom, periodTo, dateBasis, customerType, filters.search);
+        return qb;
+    }
+    async aggregatePosCollections(tenantId, filters, periodFrom, periodTo, dateBasis, customerType, search) {
+        const walkInSql = this.walkInCustomerSql('customer');
+        const stampedSql = this.stampedInvoiceExistsSql('so');
+        const qb = this.collectionRepo
+            .createQueryBuilder('collection')
+            .innerJoin('collection.sales_order', 'so')
+            .innerJoin('collection.pos_daily_shift', 'shift')
+            .innerJoin('collection.customer', 'customer')
+            .select('COUNT(collection.id)', 'orders_collected')
+            .addSelect('COALESCE(SUM(collection.order_total_mxn), 0)', 'amount_collected')
+            .addSelect(`SUM(CASE WHEN ${walkInSql} AND NOT ${stampedSql} THEN 1 ELSE 0 END)`, 'walk_in_count')
+            .addSelect(`SUM(CASE WHEN ${stampedSql} THEN 1 ELSE 0 END)`, 'invoiced_count');
+        this.applyPosCollectionScope(qb, tenantId, filters.billing_branch_id, periodFrom, periodTo, dateBasis, customerType, search);
+        qb.setParameter('walkInFiscal', WALK_IN_FISCAL_NAME).setParameter('walkInName', WALK_IN_DISPLAY_NAME);
+        const row = await qb.getRawOne();
+        return {
+            orders_collected: Number(row?.orders_collected || 0),
+            amount_collected: Number(Number(row?.amount_collected || 0).toFixed(2)),
+            walk_in_count: Number(row?.walk_in_count || 0),
+            invoiced_count: Number(row?.invoiced_count || 0),
+        };
+    }
+    applyPosCollectionScope(qb, tenantId, branchId, periodFrom, periodTo, dateBasis, customerType, search) {
+        qb.where('collection.tenant_id = :tenantId', { tenantId }).andWhere('shift.billing_branch_id = :branchId', { branchId });
+        if (dateBasis === query_accounting_base_dto_1.PosCollectionDateBasis.COLLECTED) {
+            qb.andWhere(`${(0, unclosed_shift_alert_1.posCalendarDateSql)('collection.created_at')} >= :periodFrom`, { periodFrom })
+                .andWhere(`${(0, unclosed_shift_alert_1.posCalendarDateSql)('collection.created_at')} <= :periodTo`, { periodTo });
+        }
+        else {
+            qb.andWhere('shift.shift_date >= :periodFrom', { periodFrom }).andWhere('shift.shift_date <= :periodTo', { periodTo });
+        }
         if (customerType === query_accounting_base_dto_1.PosCollectionCustomerType.WALK_IN) {
             qb.andWhere(this.walkInCustomerSql('customer'), {
                 walkInFiscal: WALK_IN_FISCAL_NAME,
@@ -824,22 +905,24 @@ let AccountingService = class AccountingService {
         else if (customerType === query_accounting_base_dto_1.PosCollectionCustomerType.INVOICED) {
             qb.andWhere(this.stampedInvoiceExistsSql('so'));
         }
-        const search = filters.search?.trim();
-        if (search) {
+        const term = search?.trim();
+        if (term) {
             qb.andWhere(`(so.folio ILIKE :search
           OR customer.name ILIKE :search
           OR customer.lastname ILIKE :search
           OR customer.company_name ILIKE :search
           OR so.walk_in_name ILIKE :search
-          OR so.walk_in_rfc ILIKE :search)`, { search: `%${search}%` });
+          OR so.walk_in_rfc ILIKE :search)`, { search: `%${term}%` });
         }
-        return qb;
     }
     mapPosCollectionRow(collection, stampedOrderIds) {
         const order = collection.sales_order;
         const customer = collection.customer;
         const customerFields = this.buildCustomerFields(customer);
         const hasStampedInvoice = order ? stampedOrderIds.has(order.id) : false;
+        const billingBranch = this.mapCollectionBranch(order?.billing_branch ??
+            order?.warehouse?.billing_branch ??
+            collection.pos_daily_shift?.billing_branch);
         const paymentMethod = collection.payment_method;
         const paymentMethodLabel = paymentMethod && paymentMethod in sales_order_payment_display_util_1.SALES_ORDER_PAYMENT_METHOD_LABELS
             ? sales_order_payment_display_util_1.SALES_ORDER_PAYMENT_METHOD_LABELS[paymentMethod]
@@ -853,6 +936,10 @@ let AccountingService = class AccountingService {
             general_status: order?.general_status ?? null,
             created_at: order?.created_at ?? null,
             collected_at: collection.created_at,
+            shift_date: collection.pos_daily_shift?.shift_date
+                ? (0, unclosed_shift_alert_1.toDateOnlyString)(collection.pos_daily_shift.shift_date)
+                : null,
+            billing_branch: billingBranch,
             payment_method: paymentMethod,
             payment_method_label: paymentMethodLabel,
             has_stamped_invoice: hasStampedInvoice,
@@ -876,6 +963,22 @@ let AccountingService = class AccountingService {
                     pos_user_code: collection.collected_by_user.pos_user_code ?? null,
                 }
                 : null,
+        };
+    }
+    mapCollectionBranch(branch) {
+        if (!branch) {
+            return null;
+        }
+        const code = branch.code?.trim() || null;
+        const city = branch.city?.trim() || null;
+        if (!branch.id && !code && !city) {
+            return null;
+        }
+        return {
+            id: branch.id ?? null,
+            code,
+            city,
+            label: [code, city].filter(Boolean).join(' · ') || null,
         };
     }
     formatPosUserLabel(user) {

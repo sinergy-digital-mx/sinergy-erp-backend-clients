@@ -30,6 +30,7 @@ const service_subscription_period_status_enum_1 = require("../../../entities/ser
 const cfdi_xml_parser_1 = require("../../electronic-invoicing/utils/cfdi-xml.parser");
 const payment_cfdi_util_1 = require("../../electronic-invoicing/utils/payment-cfdi.util");
 const cfdi_stamp_date_util_1 = require("../../electronic-invoicing/utils/cfdi-stamp-date.util");
+const sales_order_currency_util_1 = require("../utils/sales-order-currency.util");
 let SalesOrderInvoicingService = class SalesOrderInvoicingService {
     salesOrderRepo;
     paymentRepo;
@@ -199,12 +200,13 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
     async getPaymentComplementStatus(salesOrderId, tenantId) {
         return (await this.preparePaymentComplement(salesOrderId, tenantId)).status;
     }
-    async stampPaymentComplement(salesOrderId, tenantId, userId) {
+    async stampPaymentComplement(salesOrderId, tenantId, userId, environment) {
         const prepared = await this.preparePaymentComplement(salesOrderId, tenantId);
         if (!prepared.stamp) {
             throw new common_1.BadRequestException(prepared.status.reason || 'No se puede generar el CEP');
         }
-        const { income, customerRfc, customerName, xml, amount, environment } = prepared.stamp;
+        const { income, customerRfc, customerName, xml, amount } = prepared.stamp;
+        const stampEnvironment = environment ?? prepared.stamp.environment;
         return this.electronicInvoiceService.stamp(tenantId, userId, {
             fiscal_configuration_id: income.fiscal_configuration_id,
             source_module: 'sales_orders',
@@ -218,7 +220,7 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
             folio: prepared.stamp.folio,
             tipo_comprobante: 'P',
             currency: 'XXX',
-            environment,
+            environment: stampEnvironment,
             metadata: {
                 kind: 'payment_complement',
                 related_invoice_id: income.id,
@@ -272,6 +274,17 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
             throw new common_1.BadRequestException('El cliente debe tener RFC configurado');
         }
         const xml = dto.xml ?? this.buildXmlPlaceholder(order, customer);
+        const currencyError = (0, sales_order_currency_util_1.invoiceCurrencyMismatchMessage)(order.currency, xml, order.exchange_rate);
+        if (currencyError) {
+            throw new common_1.BadRequestException(currencyError);
+        }
+        let parsedXml = null;
+        try {
+            parsedXml = (0, cfdi_xml_parser_1.parseCfdiXmlForPdf)(xml);
+        }
+        catch {
+            parsedXml = null;
+        }
         const invoice = await this.electronicInvoiceService.stamp(tenantId, userId, {
             fiscal_configuration_id: order.fiscal_configuration_id,
             source_module: 'sales_orders',
@@ -279,8 +292,9 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
             xml,
             rfc_receptor: customer.fiscal_rfc,
             receptor_nombre: customer.fiscal_razon_social ?? customer.name ?? undefined,
-            subtotal: Number(order.subtotal),
-            total: Number(order.total),
+            subtotal: Number(parsedXml?.subTotal) || Number(order.subtotal),
+            total: Number(parsedXml?.total) || Number(order.total),
+            currency: parsedXml?.moneda || order.currency || 'MXN',
             series: dto.series,
             folio: dto.folio ?? order.folio,
             tipo_comprobante: dto.tipo_comprobante ?? 'I',
@@ -504,7 +518,11 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
             });
             const environment = this.finkokEnvironment(income);
             return {
-                status: { ...empty, can_generate: true },
+                status: {
+                    ...empty,
+                    can_generate: true,
+                    related_environment: this.finkokEnvironment(income) ?? null,
+                },
                 stamp: {
                     income,
                     xml: built.xml,

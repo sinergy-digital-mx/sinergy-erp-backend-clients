@@ -8,6 +8,7 @@ import { ShippingsService } from '../../shippings/shippings.service';
 import { CancelElectronicInvoiceDto } from '../../electronic-invoicing/dto/cancel-electronic-invoice.dto';
 import { StampSalesOrderInvoiceDto } from '../dto/stamp-sales-order-invoice.dto';
 import { StampAdvanceInvoiceDto } from '../../electronic-invoicing/dto/stamp-advance-invoice.dto';
+import { StampPaymentComplementDto } from '../dto/stamp-payment-complement.dto';
 import { ApplyAdvanceInvoiceDto } from '../../electronic-invoicing/dto/apply-advance-invoice.dto';
 import { InventoryService } from '../../inventory/inventory.service';
 import { SalesOrderProductsPickerService } from '../services/sales-order-products-picker.service';
@@ -379,6 +380,8 @@ export declare class SalesOrderController {
                 global_discount_id: string | null;
                 global_discount_amount: number;
                 total: number;
+                currency: string;
+                exchange_rate: number | null;
                 creator: import("../../../entities/users/user.entity").User;
                 created_by: string;
                 terminal_user_id: string | null;
@@ -849,6 +852,8 @@ export declare class SalesOrderController {
                 global_discount_id: string | null;
                 global_discount_amount: number;
                 total: number;
+                currency: string;
+                exchange_rate: number | null;
                 creator: import("../../../entities/users/user.entity").User;
                 created_by: string;
                 terminal_user_id: string | null;
@@ -1319,6 +1324,8 @@ export declare class SalesOrderController {
                 global_discount_id: string | null;
                 global_discount_amount: number;
                 total: number;
+                currency: string;
+                exchange_rate: number | null;
                 creator: import("../../../entities/users/user.entity").User;
                 created_by: string;
                 terminal_user_id: string | null;
@@ -1790,6 +1797,8 @@ export declare class SalesOrderController {
                 global_discount_id: string | null;
                 global_discount_amount: number;
                 total: number;
+                currency: string;
+                exchange_rate: number | null;
                 creator: import("../../../entities/users/user.entity").User;
                 created_by: string;
                 terminal_user_id: string | null;
@@ -2260,6 +2269,8 @@ export declare class SalesOrderController {
                 global_discount_id: string | null;
                 global_discount_amount: number;
                 total: number;
+                currency: string;
+                exchange_rate: number | null;
                 creator: import("../../../entities/users/user.entity").User;
                 created_by: string;
                 terminal_user_id: string | null;
@@ -2516,7 +2527,7 @@ export declare class SalesOrderController {
     }, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     getInvoices(id: string, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice[]>;
     getPaymentComplement(id: string, req: any): Promise<import("../services/sales-order-invoicing.service").PaymentComplementStatus>;
-    stampPaymentComplement(id: string, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
+    stampPaymentComplement(id: string, dto: StampPaymentComplementDto, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     stampInvoice(id: string, dto: StampSalesOrderInvoiceDto, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     stampAdvance(id: string, dto: StampAdvanceInvoiceDto, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     applyAdvance(id: string, dto: ApplyAdvanceInvoiceDto, req: any): Promise<{
@@ -2687,6 +2698,8 @@ export declare class SalesOrderController {
             global_discount_id: string | null;
             global_discount_amount: number;
             total: number;
+            currency: string;
+            exchange_rate: number | null;
             creator: import("../../../entities/users/user.entity").User;
             created_by: string;
             terminal_user: import("../../../entities/users/user.entity").User;
@@ -2774,6 +2787,8 @@ export declare class SalesOrderController {
             global_discount_id: string | null;
             global_discount_amount: number;
             total: number;
+            currency: string;
+            exchange_rate: number | null;
             creator: import("../../../entities/users/user.entity").User;
             created_by: string;
             terminal_user: import("../../../entities/users/user.entity").User;
@@ -3264,6 +3279,8 @@ export declare class SalesOrderController {
                 global_discount_id: string | null;
                 global_discount_amount: number;
                 total: number;
+                currency: string;
+                exchange_rate: number | null;
                 creator: import("../../../entities/users/user.entity").User;
                 created_by: string;
                 terminal_user_id: string | null;

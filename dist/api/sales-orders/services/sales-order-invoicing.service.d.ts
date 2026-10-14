@@ -12,6 +12,7 @@ import { PosShiftsService } from '../../pos-shifts/pos-shifts.service';
 import { AdvanceShiftPaymentService } from '../../pos-shifts/services/advance-shift-payment.service';
 import { ServiceSubscriptionPeriod } from '../../../entities/service-subscriptions/service-subscription-period.entity';
 import { ElectronicInvoice } from '../../../entities/electronic-invoicing/electronic-invoice.entity';
+import { FinkokEnvironment } from '../../../entities/electronic-invoicing/finkok-provider-configuration.entity';
 export declare class SalesOrderInvoicingService {
     private readonly salesOrderRepo;
     private readonly paymentRepo;
@@ -47,7 +48,7 @@ export declare class SalesOrderInvoicingService {
     private readXmlCfdi;
     listInvoices(salesOrderId: string, tenantId: string): Promise<ElectronicInvoice[]>;
     getPaymentComplementStatus(salesOrderId: string, tenantId: string): Promise<PaymentComplementStatus>;
-    stampPaymentComplement(salesOrderId: string, tenantId: string, userId: string): Promise<ElectronicInvoice>;
+    stampPaymentComplement(salesOrderId: string, tenantId: string, userId: string, environment?: FinkokEnvironment): Promise<ElectronicInvoice>;
     private repairStoredStampDate;
     stampInvoice(salesOrderId: string, tenantId: string, userId: string, dto: StampSalesOrderInvoiceDto): Promise<ElectronicInvoice>;
     cancelInvoice(salesOrderId: string, invoiceId: string, tenantId: string, userId: string, dto: CancelElectronicInvoiceDto): Promise<ElectronicInvoice>;
@@ -87,4 +88,5 @@ export interface PaymentComplementStatus {
     can_generate: boolean;
     reason: string | null;
     payment_complement: PaymentComplementCard | null;
+    related_environment?: FinkokEnvironment | null;
 }

@@ -31,6 +31,7 @@ const sales_order_entity_1 = require("../../entities/sales-orders/sales-order.en
 const sales_order_pos_stage_enum_1 = require("../../entities/sales-orders/sales-order-pos-stage.enum");
 const customer_entity_1 = require("../../entities/customers/customer.entity");
 const warehouse_entity_1 = require("../../entities/warehouse/warehouse.entity");
+const sales_order_currency_util_1 = require("../sales-orders/utils/sales-order-currency.util");
 const sales_order_pos_receipt_service_1 = require("../sales-orders/services/sales-order-pos-receipt.service");
 const sales_order_service_1 = require("../sales-orders/services/sales-order.service");
 const pos_sale_collection_mapper_1 = require("./mappers/pos-sale-collection.mapper");
@@ -586,6 +587,19 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             }
         }
         const payment = await this.validateAndNormalizePayment(tenantId, dto, amountPending);
+        const documentCurrency = (0, sales_order_currency_util_1.resolvePosDocumentCurrency)({
+            requested: dto.order_currency,
+            amountCashMxn: payment.amountCashMxn,
+            amountCashUsd: payment.amountCashUsd,
+            usdExchangeRate: payment.usdExchangeRate,
+            amountTransferMxn: payment.amountTransferMxn,
+            amountCardMxn: payment.amountCardMxn,
+            amountCheckMxn: payment.amountCheckMxn,
+            amountCreditMxn: payment.amountCreditMxn,
+        });
+        if (documentCurrency.error) {
+            throw new common_1.BadRequestException(documentCurrency.error);
+        }
         const collection = this.collectionRepo.create({
             id: (0, uuid_1.v4)(),
             tenant_id: tenantId,
@@ -631,6 +645,8 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         await this.salesOrderRepo.update({ id: order.id, tenant_id: tenantId }, {
             payment_status: paymentStatus,
             is_credit: isCredit,
+            currency: documentCurrency.currency,
+            exchange_rate: documentCurrency.exchangeRate,
             invoice_requested: Boolean(dto.generate_invoice),
             collected_by_user_id: cobranzaUserId,
             customer_id: customerId,
@@ -695,6 +711,8 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 customer: (0, pos_sale_collection_mapper_1.mapPosCustomer)(customer),
                 pos_daily_shift_id: shift.id,
                 total: orderTotal,
+                currency: documentCurrency.currency,
+                exchange_rate: documentCurrency.exchangeRate,
                 amount_collected: isCredit ? 0 : amountPending,
                 amount_on_credit: isCredit ? amountPending : 0,
             },

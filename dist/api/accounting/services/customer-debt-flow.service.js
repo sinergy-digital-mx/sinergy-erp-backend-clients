@@ -88,7 +88,9 @@ let CustomerDebtFlowService = class CustomerDebtFlowService {
                     charge_amount: row.charge_amount,
                     payment_amount: row.payment_amount,
                     order_balance_after: row.order_balance_after,
-                    balance_after: row.balance_after,
+                    currency: row.currency,
+                    balance_mxn: row.balance_mxn,
+                    balance_usd: row.balance_usd,
                 })),
             });
         }
@@ -107,13 +109,20 @@ let CustomerDebtFlowService = class CustomerDebtFlowService {
                     customer_name: row.customer_name,
                     customer_rfc: row.customer_rfc ?? '',
                     billing_branch_name: row.billing_branch_name ?? '',
-                    open_order_count: row.open_order_count,
+                    mxn_order_count: row.mxn_order_count,
                     current: row.current,
                     d1_30: row.d1_30,
                     d31_60: row.d31_60,
                     d61_90: row.d61_90,
                     d91_plus: row.d91_plus,
                     total: row.total,
+                    usd_order_count: row.usd_order_count,
+                    usd_current: row.usd_current,
+                    usd_d1_30: row.usd_d1_30,
+                    usd_d31_60: row.usd_d31_60,
+                    usd_d61_90: row.usd_d61_90,
+                    usd_d91_plus: row.usd_d91_plus,
+                    usd_total: row.usd_total,
                     credit_days: row.credit_days,
                     credit_limit: row.credit_limit,
                 })),
@@ -121,13 +130,20 @@ let CustomerDebtFlowService = class CustomerDebtFlowService {
                     customer_name: 'Total',
                     customer_rfc: '',
                     billing_branch_name: '',
-                    open_order_count: report.aging_totals.open_order_count,
+                    mxn_order_count: report.aging_totals.mxn_order_count,
                     current: report.aging_totals.current,
                     d1_30: report.aging_totals.d1_30,
                     d31_60: report.aging_totals.d31_60,
                     d61_90: report.aging_totals.d61_90,
                     d91_plus: report.aging_totals.d91_plus,
                     total: report.aging_totals.total,
+                    usd_order_count: report.aging_totals.usd_order_count,
+                    usd_current: report.aging_totals.usd_current,
+                    usd_d1_30: report.aging_totals.usd_d1_30,
+                    usd_d31_60: report.aging_totals.usd_d31_60,
+                    usd_d61_90: report.aging_totals.usd_d61_90,
+                    usd_d91_plus: report.aging_totals.usd_d91_plus,
+                    usd_total: report.aging_totals.usd_total,
                     credit_days: null,
                     credit_limit: null,
                 },
@@ -149,13 +165,25 @@ let CustomerDebtFlowService = class CustomerDebtFlowService {
                 continue;
             const bucket = (0, customer_debt_ledger_util_1.debtAgingBucket)(row.due_date ? String(row.due_date).slice(0, 10) : null, asOf);
             const current = grouped.get(row.customer_id) ?? blankAging(row);
-            addBucket(current, bucket, pending);
+            const currency = debtCurrency(row.currency);
+            if (currency === 'USD') {
+                addUsdBucket(current, bucket, pending);
+                current.usd_order_count += 1;
+                current.usd_total = (0, customer_debt_ledger_util_1.roundDebtMoney)(current.usd_total + pending);
+            }
+            else {
+                addBucket(current, bucket, pending);
+                current.mxn_order_count += 1;
+                current.total = (0, customer_debt_ledger_util_1.roundDebtMoney)(current.total + pending);
+            }
             current.open_order_count += 1;
-            current.total = (0, customer_debt_ledger_util_1.roundDebtMoney)(current.total + pending);
             current.billing_branch_name = mergeBranch(current.billing_branch_name, row.billing_branch_name);
             grouped.set(row.customer_id, current);
         }
-        const rows = Array.from(grouped.values()).sort((a, b) => b.total - a.total || a.customer_name.localeCompare(b.customer_name));
+        const rows = Array.from(grouped.values()).sort((a, b) => b.open_order_count - a.open_order_count ||
+            b.total - a.total ||
+            b.usd_total - a.usd_total ||
+            a.customer_name.localeCompare(b.customer_name, 'es'));
         await this.attachCredit(tenantId, filters.fiscal_configuration_id, rows);
         return { rows, totals: sumAging(rows) };
     }
@@ -185,6 +213,7 @@ let CustomerDebtFlowService = class CustomerDebtFlowService {
                 return time;
             return (a.folio ?? '').localeCompare(b.folio ?? '');
         });
+        applyCurrencyBalances(rows);
         return rows;
     }
     toOpeningRow(order, dateFrom, pending) {
@@ -212,6 +241,9 @@ let CustomerDebtFlowService = class CustomerDebtFlowService {
             payment_amount: null,
             order_balance_after: pending,
             balance_after: null,
+            currency: debtCurrency(order.currency),
+            balance_mxn: null,
+            balance_usd: null,
             due_date: due,
             is_opening: true,
         };
@@ -247,6 +279,9 @@ let CustomerDebtFlowService = class CustomerDebtFlowService {
             payment_amount: isCharge ? null : (0, customer_debt_ledger_util_1.roundDebtMoney)(Math.abs(delta)),
             order_balance_after: (0, customer_debt_ledger_util_1.roundDebtMoney)(Number(row.order_balance_after || 0)),
             balance_after: (0, customer_debt_ledger_util_1.roundDebtMoney)(Number(row.balance_after || 0)),
+            currency: debtCurrency(row.currency),
+            balance_mxn: null,
+            balance_usd: null,
             due_date: due,
             is_opening: false,
         };
@@ -261,11 +296,14 @@ let CustomerDebtFlowService = class CustomerDebtFlowService {
           l.id, l.customer_id, l.customer_name, l.customer_rfc, l.billing_branch_name,
           l.sales_order_id, l.folio, l.movement_type, l.amount_delta, l.balance_after,
           l.order_balance_after, l.occurred_at, l.due_date, l.payment_method, l.reference_number,
+          COALESCE(NULLIF(so.currency, ''), 'MXN') AS currency,
           ROW_NUMBER() OVER (
             PARTITION BY l.sales_order_id
             ORDER BY l.occurred_at DESC, l.created_at DESC, l.id DESC
           ) AS rn
         FROM acc_customer_debt_ledger l
+        LEFT JOIN inv_s_sales_orders so
+          ON so.id = l.sales_order_id AND so.tenant_id = l.tenant_id
         WHERE ${where}
       ) ranked
       WHERE ranked.rn = 1
@@ -278,8 +316,11 @@ let CustomerDebtFlowService = class CustomerDebtFlowService {
       SELECT
         l.id, l.customer_id, l.customer_name, l.customer_rfc, l.billing_branch_name,
         l.sales_order_id, l.folio, l.movement_type, l.amount_delta, l.balance_after,
-        l.order_balance_after, l.occurred_at, l.due_date, l.payment_method, l.reference_number
+        l.order_balance_after, l.occurred_at, l.due_date, l.payment_method, l.reference_number,
+        COALESCE(NULLIF(so.currency, ''), 'MXN') AS currency
       FROM acc_customer_debt_ledger l
+      LEFT JOIN inv_s_sales_orders so
+        ON so.id = l.sales_order_id AND so.tenant_id = l.tenant_id
       WHERE ${where}
       ORDER BY l.occurred_at ASC, l.created_at ASC, l.id ASC
       `, params);
@@ -423,15 +464,58 @@ function blankAging(row) {
         customer_rfc: row.customer_rfc,
         billing_branch_name: row.billing_branch_name,
         open_order_count: 0,
+        mxn_order_count: 0,
+        usd_order_count: 0,
         current: 0,
         d1_30: 0,
         d31_60: 0,
         d61_90: 0,
         d91_plus: 0,
         total: 0,
+        usd_current: 0,
+        usd_d1_30: 0,
+        usd_d31_60: 0,
+        usd_d61_90: 0,
+        usd_d91_plus: 0,
+        usd_total: 0,
         credit_days: null,
         credit_limit: null,
     };
+}
+const USD_BUCKET = {
+    current: 'usd_current',
+    d1_30: 'usd_d1_30',
+    d31_60: 'usd_d31_60',
+    d61_90: 'usd_d61_90',
+    d91_plus: 'usd_d91_plus',
+};
+function debtCurrency(value) {
+    return String(value ?? '').trim().toUpperCase() === 'USD' ? 'USD' : 'MXN';
+}
+function addUsdBucket(row, bucket, amount) {
+    const key = USD_BUCKET[bucket];
+    row[key] = (0, customer_debt_ledger_util_1.roundDebtMoney)(row[key] + amount);
+}
+function applyCurrencyBalances(rows) {
+    let customerId = null;
+    let mxn = 0;
+    let usd = 0;
+    for (const row of rows) {
+        if (row.customer_id !== customerId) {
+            customerId = row.customer_id;
+            mxn = 0;
+            usd = 0;
+        }
+        const delta = row.is_opening
+            ? (0, customer_debt_ledger_util_1.roundDebtMoney)(Number(row.order_balance_after || 0))
+            : (0, customer_debt_ledger_util_1.roundDebtMoney)(Number(row.charge_amount || 0) - Number(row.payment_amount || 0));
+        if (row.currency === 'USD')
+            usd = (0, customer_debt_ledger_util_1.roundDebtMoney)(usd + delta);
+        else
+            mxn = (0, customer_debt_ledger_util_1.roundDebtMoney)(mxn + delta);
+        row.balance_mxn = mxn;
+        row.balance_usd = usd;
+    }
 }
 function addBucket(row, bucket, amount) {
     row[bucket] = (0, customer_debt_ledger_util_1.roundDebtMoney)(row[bucket] + amount);
@@ -449,12 +533,20 @@ function emptyTotals() {
     return {
         customer_count: 0,
         open_order_count: 0,
+        mxn_order_count: 0,
+        usd_order_count: 0,
         current: 0,
         d1_30: 0,
         d31_60: 0,
         d61_90: 0,
         d91_plus: 0,
         total: 0,
+        usd_current: 0,
+        usd_d1_30: 0,
+        usd_d31_60: 0,
+        usd_d61_90: 0,
+        usd_d91_plus: 0,
+        usd_total: 0,
     };
 }
 function sumAging(rows) {
@@ -462,12 +554,20 @@ function sumAging(rows) {
     totals.customer_count = rows.length;
     for (const row of rows) {
         totals.open_order_count += row.open_order_count;
+        totals.mxn_order_count += row.mxn_order_count;
+        totals.usd_order_count += row.usd_order_count;
         totals.current = (0, customer_debt_ledger_util_1.roundDebtMoney)(totals.current + row.current);
         totals.d1_30 = (0, customer_debt_ledger_util_1.roundDebtMoney)(totals.d1_30 + row.d1_30);
         totals.d31_60 = (0, customer_debt_ledger_util_1.roundDebtMoney)(totals.d31_60 + row.d31_60);
         totals.d61_90 = (0, customer_debt_ledger_util_1.roundDebtMoney)(totals.d61_90 + row.d61_90);
         totals.d91_plus = (0, customer_debt_ledger_util_1.roundDebtMoney)(totals.d91_plus + row.d91_plus);
         totals.total = (0, customer_debt_ledger_util_1.roundDebtMoney)(totals.total + row.total);
+        totals.usd_current = (0, customer_debt_ledger_util_1.roundDebtMoney)(totals.usd_current + row.usd_current);
+        totals.usd_d1_30 = (0, customer_debt_ledger_util_1.roundDebtMoney)(totals.usd_d1_30 + row.usd_d1_30);
+        totals.usd_d31_60 = (0, customer_debt_ledger_util_1.roundDebtMoney)(totals.usd_d31_60 + row.usd_d31_60);
+        totals.usd_d61_90 = (0, customer_debt_ledger_util_1.roundDebtMoney)(totals.usd_d61_90 + row.usd_d61_90);
+        totals.usd_d91_plus = (0, customer_debt_ledger_util_1.roundDebtMoney)(totals.usd_d91_plus + row.usd_d91_plus);
+        totals.usd_total = (0, customer_debt_ledger_util_1.roundDebtMoney)(totals.usd_total + row.usd_total);
     }
     return totals;
 }
@@ -476,13 +576,20 @@ function agingColumns() {
         { header: 'Cliente', key: 'customer_name', width: 36 },
         { header: 'RFC', key: 'customer_rfc', width: 16 },
         { header: 'Sucursal', key: 'billing_branch_name', width: 24 },
-        { header: 'Órdenes', key: 'open_order_count', width: 12, type: 'integer' },
-        { header: 'Por vencer', key: 'current', width: 16, type: 'currency' },
-        { header: '1-30', key: 'd1_30', width: 14, type: 'currency' },
-        { header: '31-60', key: 'd31_60', width: 14, type: 'currency' },
-        { header: '61-90', key: 'd61_90', width: 14, type: 'currency' },
-        { header: '+90', key: 'd91_plus', width: 14, type: 'currency' },
-        { header: 'Total', key: 'total', width: 16, type: 'currency' },
+        { header: 'Órdenes MXN', key: 'mxn_order_count', width: 14, type: 'integer' },
+        { header: 'Por vencer MXN', key: 'current', width: 16, type: 'currency' },
+        { header: '1-30 MXN', key: 'd1_30', width: 14, type: 'currency' },
+        { header: '31-60 MXN', key: 'd31_60', width: 14, type: 'currency' },
+        { header: '61-90 MXN', key: 'd61_90', width: 14, type: 'currency' },
+        { header: '+90 MXN', key: 'd91_plus', width: 14, type: 'currency' },
+        { header: 'Debe MXN', key: 'total', width: 16, type: 'currency' },
+        { header: 'Órdenes USD', key: 'usd_order_count', width: 14, type: 'integer' },
+        { header: 'Por vencer USD', key: 'usd_current', width: 16, type: 'currency' },
+        { header: '1-30 USD', key: 'usd_d1_30', width: 14, type: 'currency' },
+        { header: '31-60 USD', key: 'usd_d31_60', width: 14, type: 'currency' },
+        { header: '61-90 USD', key: 'usd_d61_90', width: 14, type: 'currency' },
+        { header: '+90 USD', key: 'usd_d91_plus', width: 14, type: 'currency' },
+        { header: 'Debe USD', key: 'usd_total', width: 16, type: 'currency' },
         { header: 'Días de crédito', key: 'credit_days', width: 16, type: 'integer' },
         { header: 'Límite', key: 'credit_limit', width: 16, type: 'currency' },
     ];
@@ -501,8 +608,10 @@ function ledgerColumns() {
         { header: 'Vence', key: 'due_date', width: 14 },
         { header: 'Cargo', key: 'charge_amount', width: 14, type: 'currency' },
         { header: 'Abono', key: 'payment_amount', width: 14, type: 'currency' },
+        { header: 'Moneda', key: 'currency', width: 10 },
         { header: 'Saldo OV', key: 'order_balance_after', width: 14, type: 'currency' },
-        { header: 'Saldo cliente', key: 'balance_after', width: 16, type: 'currency' },
+        { header: 'Saldo MXN', key: 'balance_mxn', width: 16, type: 'currency' },
+        { header: 'Saldo USD', key: 'balance_usd', width: 16, type: 'currency' },
     ];
 }
 //# sourceMappingURL=customer-debt-flow.service.js.map
