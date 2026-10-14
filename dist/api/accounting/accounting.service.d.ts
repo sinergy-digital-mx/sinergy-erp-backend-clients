@@ -7,9 +7,11 @@ import { ElectronicInvoice } from '../../entities/electronic-invoicing/electroni
 import { PurchaseOrderBatch } from '../../entities/purchase-orders/purchase-order-batch.entity';
 import { User } from '../../entities/users/user.entity';
 import { PosShiftsService } from '../pos-shifts/pos-shifts.service';
+import { ExchangeRateService } from '../exchange-rate/exchange-rate.service';
 import { AccountingReportPeriod, PosCollectionCustomerType, PosCollectionDateBasis, QueryAccountsPayableDto, QueryAccountsReceivableDto, QueryAccountingBaseDto, QueryPosCollectionsDto, QueryPosTerminalSalesDto } from './dto/query-accounting-base.dto';
 import { PosSalePaymentMethod } from '../../entities/pos/pos-sale-payment-method.enum';
 import { AccountsPayableVendorTotals } from './utils/accounts-payable-currency.util';
+import { AccountsReceivableAccountTotals } from './utils/accounts-receivable-currency.util';
 export declare class AccountingService {
     private readonly salesOrderRepo;
     private readonly collectionRepo;
@@ -18,7 +20,8 @@ export declare class AccountingService {
     private readonly purchaseOrderRepo;
     private readonly userRepo;
     private readonly posShiftsService;
-    constructor(salesOrderRepo: Repository<SalesOrder>, collectionRepo: Repository<PosSaleCollection>, dailyShiftRepo: Repository<PosDailyShift>, electronicInvoiceRepo: Repository<ElectronicInvoice>, purchaseOrderRepo: Repository<PurchaseOrderBatch>, userRepo: Repository<User>, posShiftsService: PosShiftsService);
+    private readonly exchangeRateService;
+    constructor(salesOrderRepo: Repository<SalesOrder>, collectionRepo: Repository<PosSaleCollection>, dailyShiftRepo: Repository<PosDailyShift>, electronicInvoiceRepo: Repository<ElectronicInvoice>, purchaseOrderRepo: Repository<PurchaseOrderBatch>, userRepo: Repository<User>, posShiftsService: PosShiftsService, exchangeRateService: ExchangeRateService);
     getPosSummary(tenantId: string, filters: QueryAccountingBaseDto): Promise<{
         filters_applied: {
             billing_branch_id: string;
@@ -356,30 +359,30 @@ export declare class AccountingService {
         }[];
     }>;
     getAccountsReceivable(tenantId: string, filters: QueryAccountsReceivableDto): Promise<{
-        summary: {
-            total_accounts: number;
-            total_amount_pending: number;
-        };
-        data: {
-            razon_social: string;
-            fiscal_rfc: string | null;
-            pending_order_count: number;
-            amount_pending: number;
-            customer_count: number;
-        }[];
+        summary: import("./utils/accounts-receivable-currency.util").AccountsReceivableCurrencySummary;
+        data: AccountsReceivableAccountTotals[];
         total: number;
         page: number;
         limit: number;
         totalPages: number;
     }>;
+    exportAccountsReceivableExcel(tenantId: string, filters: QueryAccountsReceivableDto): Promise<{
+        buffer: Buffer;
+        filename: string;
+    }>;
     getAccountsReceivableDetail(tenantId: string, razonSocial: string, billingBranchId?: string): Promise<{
         razon_social: string;
         fiscal_rfc: string;
         pending_order_count: number;
+        pending_order_count_mxn: number;
+        pending_order_count_usd: number;
         amount_pending: number;
+        amount_pending_mxn: number;
+        amount_pending_usd: number;
         orders: {
             id: string;
             folio: string;
+            currency: import("./utils/accounts-payable-currency.util").PayableCurrencyCode;
             total: number;
             payment_status: string;
             general_status: string;
@@ -394,13 +397,20 @@ export declare class AccountingService {
             } | null;
         }[];
     }>;
+    private collectAccountsReceivable;
+    private receivableRazonSocial;
+    private receivableExcelSheets;
+    private receivableAmbosSheet;
     private posBranchSql;
     private loadPosEnteredOrders;
     private walkInCustomerSql;
     private stampedInvoiceExistsSql;
     private getStampedInvoiceOrderIds;
     private collectAccountsPayableVendors;
+    private resolvePayableExchangeRate;
     private payableExcelSheets;
+    private payableAmbosSheet;
+    private payableRateBanner;
     private payableVendorLabel;
     private buildPurchaseOrderPaymentSummary;
     private buildPosCollectionsQuery;

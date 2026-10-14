@@ -6,6 +6,10 @@ exports.aggregatePayableVendors = aggregatePayableVendors;
 exports.filterPayableVendors = filterPayableVendors;
 exports.sortPayableVendors = sortPayableVendors;
 exports.summarizePayableVendors = summarizePayableVendors;
+exports.normalizeExchangeRate = normalizeExchangeRate;
+exports.payableTotalInMxn = payableTotalInMxn;
+exports.applyPayableExchangeRate = applyPayableExchangeRate;
+exports.summarizePayableWithRate = summarizePayableWithRate;
 function normalizePayableCurrency(value) {
     return String(value ?? '').trim().toUpperCase() === 'USD' ? 'USD' : 'MXN';
 }
@@ -66,6 +70,43 @@ function summarizePayableVendors(rows, view) {
         total_pending_orders_mxn: rows.reduce((sum, row) => sum + row.pending_order_count_mxn, 0),
         total_pending_orders_usd: rows.reduce((sum, row) => sum + row.pending_order_count_usd, 0),
         total_amount_pending: view === 'usd' ? totalUsd : totalMxn,
+        exchange_rate: null,
+        exchange_rate_date: null,
+        total_amount_pending_total_mxn: sumPayableTotals(rows),
+    };
+}
+function normalizeExchangeRate(value) {
+    if (value == null || value === '')
+        return null;
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0)
+        return null;
+    return Number(parsed.toFixed(4));
+}
+function payableTotalInMxn(amountMxn, amountUsd, exchangeRate) {
+    const mxn = roundMoney(amountMxn);
+    const usd = roundMoney(amountUsd);
+    if (usd <= 0)
+        return mxn;
+    const rate = normalizeExchangeRate(exchangeRate);
+    if (rate == null)
+        return null;
+    return roundMoney(mxn + usd * rate);
+}
+function applyPayableExchangeRate(rows, view, exchangeRate) {
+    const rate = normalizeExchangeRate(exchangeRate);
+    return rows.map((row) => ({
+        ...row,
+        amount_pending_total_mxn: payableTotalInMxn(view === 'usd' ? 0 : row.amount_pending_mxn, view === 'mxn' ? 0 : row.amount_pending_usd, rate),
+    }));
+}
+function summarizePayableWithRate(rows, view, exchangeRate, exchangeRateDate) {
+    const rated = applyPayableExchangeRate(rows, view, exchangeRate);
+    return {
+        ...summarizePayableVendors(rated, view),
+        exchange_rate: normalizeExchangeRate(exchangeRate),
+        exchange_rate_date: exchangeRateDate,
+        total_amount_pending_total_mxn: sumPayableTotals(rated),
     };
 }
 function toVendorRow(draft) {
@@ -98,7 +139,13 @@ function toVendorRow(draft) {
         amount_paid: mxnPaid,
         total_committed: mxnCommitted,
         progress_percentage: progressMxn,
+        amount_pending_total_mxn: null,
     };
+}
+function sumPayableTotals(rows) {
+    if (rows.some((row) => row.amount_pending_total_mxn == null))
+        return null;
+    return roundMoney(rows.reduce((sum, row) => sum + (row.amount_pending_total_mxn ?? 0), 0));
 }
 function payableProgress(pending, committed, creditLimit, applyCreditLimit) {
     if (applyCreditLimit && creditLimit && creditLimit > 0) {

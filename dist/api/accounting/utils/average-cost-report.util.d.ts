@@ -1,79 +1,100 @@
-export type AverageCostBasis = 'real' | 'purchase' | 'mixed';
-export type AverageCostReceiptInput = {
-    product_id: string;
-    sku: string;
-    name: string;
-    sat_clave: string | null;
-    received_original_quantity: number | string | null;
-    received_converted_quantity: number | string | null;
-    received_original_unit_total: number | string | null;
-    unit_total: number | string | null;
-    real_unit_cost_mxn: number | string | null;
-    payment_currency: string | null;
-    customs_exchange_rate: number | string | null;
-    pedimento_number: string | null;
-    customs_date: string | Date | null;
+export declare const SALES_COST_TYPE: {
+    readonly RECEIPT: 1;
+    readonly CASH_RETURN: 2;
+    readonly CANCEL_RECEIPT: 3;
+    readonly CREDIT_RECEIPT: 5;
+    readonly INVOICE: 6;
+    readonly CREDIT_NOTE: 7;
+    readonly CANCEL_INVOICE: 8;
+    readonly CANCEL_CREDIT_NOTE: 9;
+    readonly LAYAWAY: 18;
+    readonly ADVANCE: 19;
 };
-export type AverageCostPriceInput = {
-    product_id: string;
-    price: number | string | null;
-    price_list_name: string | null;
-    price_list_created_at: string | Date | null;
-    is_base: boolean | number | string | null;
+export declare const SALES_COST_STATUS: {
+    readonly CASH: 1;
+    readonly CREDIT: 2;
+    readonly CANCELLED: 3;
+    readonly PAID: 4;
+    readonly RETURN: 5;
 };
-export type AverageCostPedimentoInput = {
-    product_id: string;
-    number: string | null;
-    date: string | Date | null;
-    customs: string | null;
-    vendor: string | null;
-    raw: string | null;
+export declare const SALES_COST_TYPE_LABELS: Record<number, string>;
+export declare const SALES_COST_STATUS_LABELS: Record<number, string>;
+export type SalesCostOrderInput = {
+    id: string;
+    folio: string;
+    created_on: string;
+    cancelled_on: string | null;
+    cancelled: boolean;
+    payment_status: string;
+    is_credit: boolean;
+    customer_name: string;
+    subtotal: number;
+    discount: number;
+    tax: number;
+    total: number;
+    currency: string;
+    exchange_rate: number | null;
+    invoiced: boolean;
+    sale_cost: number;
+    reversal_cost: number;
 };
-export type AverageCostReportRow = {
-    product_id: string;
-    sku: string;
-    name: string;
-    sat_clave: string | null;
-    pedimentos: string[];
-    price: number | null;
-    price_list_name: string | null;
-    average_cost: number;
-    quantity: number;
-    total_cost: number;
-    margin_amount: number | null;
-    margin_percent: number | null;
-    cost_basis: AverageCostBasis;
-    receipt_count: number;
+export type SalesCostSideDocumentInput = {
+    id: string;
+    document: string;
+    customer_name: string;
+    stamped_on: string;
+    cancelled_on: string | null;
+    cancelled: boolean;
+    kind: 'advance' | 'credit_note';
+    subtotal: number;
+    total: number;
+    currency: string;
+    exchange_rate: number | null;
+    sales_order_id: string | null;
 };
-export type AverageCostReportSummary = {
-    product_count: number;
-    total_quantity: number;
-    total_cost: number;
-    real_cost_product_count: number;
+export type SalesCostReportRow = {
+    id: string;
+    sales_order_id: string | null;
+    customer_name: string;
+    document: string;
+    date: string;
+    type_code: number;
+    type_label: string;
+    status_code: number;
+    status_label: string;
+    amount: number;
+    discount: number;
+    tax: number;
+    sale_total: number;
+    cost_total: number;
+    currency: string;
+    reversal: boolean;
 };
-export declare function roundAverageCost(value: number, scale: number): number;
-export declare function isoDay(value: unknown): string | null;
-export declare function formatSlashDate(value: unknown): string | null;
-export declare function formatPedimentoLabel(entry: {
-    number?: string | null;
-    date?: string | Date | null;
-    customs?: string | null;
-    vendor?: string | null;
-    raw?: string | null;
-}): string | null;
-export declare function valuePurchaseReceipt(line: AverageCostReceiptInput): {
-    quantity: number;
-    unitCost: number;
-    usedRealCost: boolean;
-} | null;
-export declare function pickPrice1(options: AverageCostPriceInput[]): {
-    price: number;
-    price_list_name: string | null;
-} | null;
-export declare function buildAverageCostRows(input: {
-    receipts: AverageCostReceiptInput[];
-    prices: AverageCostPriceInput[];
-    pedimentos: AverageCostPedimentoInput[];
-}): AverageCostReportRow[];
-export declare function filterAverageCostRows(rows: AverageCostReportRow[], search?: string): AverageCostReportRow[];
-export declare function summarizeAverageCostRows(rows: AverageCostReportRow[]): AverageCostReportSummary;
+export type SalesCostReportSummary = {
+    document_count: number;
+    amount: number;
+    discount: number;
+    tax: number;
+    sale_total: number;
+    cost_total: number;
+    profit: number;
+    has_foreign_currency: boolean;
+};
+export declare function roundSalesCost(value: number, scale?: number): number;
+export declare function formatSalesCustomerName(input: {
+    walk_in_name?: string | null;
+    order_fiscal?: string | null;
+    customer_fiscal?: string | null;
+    company_name?: string | null;
+    name?: string | null;
+    lastname?: string | null;
+    receptor_nombre?: string | null;
+}): string;
+export declare function buildSalesCostRows(input: {
+    orders: SalesCostOrderInput[];
+    sideDocuments: SalesCostSideDocumentInput[];
+    dateFrom: string;
+    dateTo: string;
+}): SalesCostReportRow[];
+export declare function filterSalesCostRows(rows: SalesCostReportRow[], search?: string): SalesCostReportRow[];
+export declare function summarizeSalesCostRows(rows: SalesCostReportRow[]): SalesCostReportSummary;

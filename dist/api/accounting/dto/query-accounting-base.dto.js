@@ -82,6 +82,7 @@ class QueryAccountsReceivableDto {
     page = 1;
     limit = 20;
     search;
+    currency = AccountsPayableCurrencyView.ALL;
 }
 exports.QueryAccountsReceivableDto = QueryAccountsReceivableDto;
 __decorate([
@@ -103,6 +104,11 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], QueryAccountsReceivableDto.prototype, "search", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(AccountsPayableCurrencyView),
+    __metadata("design:type", String)
+], QueryAccountsReceivableDto.prototype, "currency", void 0);
 class QueryPosTerminalSalesDto extends QueryAccountingBaseDto {
     page = 1;
     limit = 20;

@@ -8,6 +8,7 @@ export interface BuildExcelOptions {
     sheetName: string;
     title: string;
     subtitle?: string;
+    banner?: string;
     columns: ExcelColumnDef[];
     rows: Record<string, unknown>[];
     headerColor?: string;

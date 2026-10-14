@@ -71,6 +71,12 @@ let AccountingController = class AccountingController {
     getAccountsReceivable(query, req) {
         return this.accountingService.getAccountsReceivable(req.user.tenant_id, query);
     }
+    async exportAccountsReceivableExcel(query, req, res) {
+        const { buffer, filename } = await this.accountingService.exportAccountsReceivableExcel(req.user.tenant_id, query);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(buffer);
+    }
     getAccountsReceivableDetail(razonSocial, billingBranchId, req) {
         return this.accountingService.getAccountsReceivableDetail(req.user.tenant_id, razonSocial, billingBranchId);
     }
@@ -212,13 +218,30 @@ __decorate([
 __decorate([
     (0, common_1.Get)('accounts-receivable'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }),
-    (0, swagger_1.ApiOperation)({ summary: 'Cuentas por cobrar agrupadas por razón social' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Cuentas por cobrar agrupadas por razón social',
+        description: 'currency=all muestra pesos y dólares. currency=mxn o usd deja solo esa moneda. El total en pesos usa el tipo de cambio del sistema.',
+    }),
     __param(0, (0, common_1.Query)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [query_accounting_base_dto_1.QueryAccountsReceivableDto, Object]),
     __metadata("design:returntype", void 0)
 ], AccountingController.prototype, "getAccountsReceivable", null);
+__decorate([
+    (0, common_1.Get)('accounts-receivable/export/excel'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Excel de cuentas por cobrar',
+        description: 'currency=all abre en la hoja Ambos y sigue con pesos y dólares. Arriba va el tipo de cambio del sistema.',
+    }),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Req)()),
+    __param(2, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [query_accounting_base_dto_1.QueryAccountsReceivableDto, Object, Object]),
+    __metadata("design:returntype", Promise)
+], AccountingController.prototype, "exportAccountsReceivableExcel", null);
 __decorate([
     (0, common_1.Get)('accounts-receivable/by-razon-social/:razonSocial/orders'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }),
@@ -238,8 +261,8 @@ __decorate([
     (0, common_1.Get)('average-cost-report'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }),
     (0, swagger_1.ApiOperation)({
-        summary: 'Artículos por costo promedio',
-        description: 'Agrupa ingresos de compra por artículo. El costo es el costo real en pesos cuando existe; si no, el costo de la compra. El margen es precio 1 menos costo, por unidad.',
+        summary: 'Reporte de ventas a costo promedio',
+        description: 'Documentos de venta de la sucursal y el periodo: cliente, documento, fecha, tipo, estatus, importe, descuento, impuesto, total de venta y costo del kardex. Una cancelación suma un renglón que resta impuesto, total y costo.',
     }),
     __param(0, (0, common_1.Query)()),
     __param(1, (0, common_1.Req)()),
@@ -250,7 +273,7 @@ __decorate([
 __decorate([
     (0, common_1.Get)('average-cost-report/export/excel'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }),
-    (0, swagger_1.ApiOperation)({ summary: 'Excel de artículos por costo promedio' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Excel de ventas a costo promedio' }),
     __param(0, (0, common_1.Query)()),
     __param(1, (0, common_1.Req)()),
     __param(2, (0, common_1.Res)()),

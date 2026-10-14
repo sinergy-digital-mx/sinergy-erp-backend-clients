@@ -57,9 +57,10 @@ async function buildStyledExcelWorkbook(sheets) {
     return Buffer.from(buffer);
 }
 function appendStyledWorksheet(workbook, options) {
-    const { sheetName, title, subtitle, columns, rows, headerColor = DEFAULT_HEADER_COLOR, titleColor = DEFAULT_TITLE_COLOR, } = options;
+    const { sheetName, title, subtitle, banner, columns, rows, headerColor = DEFAULT_HEADER_COLOR, titleColor = DEFAULT_TITLE_COLOR, } = options;
+    const frozenRows = 1 + (banner ? 1 : 0) + (subtitle ? 1 : 0) + 1;
     const worksheet = workbook.addWorksheet(sheetName, {
-        views: [{ state: 'frozen', ySplit: subtitle ? 3 : 2 }],
+        views: [{ state: 'frozen', ySplit: frozenRows }],
     });
     const colCount = columns.length;
     const titleRow = worksheet.addRow([title]);
@@ -73,9 +74,22 @@ function appendStyledWorksheet(workbook, options) {
     };
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
     titleRow.height = 28;
+    if (banner) {
+        const bannerRow = worksheet.addRow([banner]);
+        worksheet.mergeCells(bannerRow.number, 1, bannerRow.number, colCount);
+        const bannerCell = bannerRow.getCell(1);
+        bannerCell.font = { bold: true, size: 12, color: { argb: 'FF92400E' } };
+        bannerCell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFFEF3C7' },
+        };
+        bannerCell.alignment = { horizontal: 'left', vertical: 'middle' };
+        bannerRow.height = 24;
+    }
     if (subtitle) {
         const subRow = worksheet.addRow([subtitle]);
-        worksheet.mergeCells(2, 1, 2, colCount);
+        worksheet.mergeCells(subRow.number, 1, subRow.number, colCount);
         const subCell = subRow.getCell(1);
         subCell.font = { italic: true, size: 10, color: { argb: 'FF555555' } };
         subCell.fill = {

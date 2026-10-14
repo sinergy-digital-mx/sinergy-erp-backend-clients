@@ -26,6 +26,7 @@ export declare class QueryAccountsReceivableDto {
     page?: number;
     limit?: number;
     search?: string;
+    currency?: AccountsPayableCurrencyView;
 }
 export declare class QueryPosTerminalSalesDto extends QueryAccountingBaseDto {
     page?: number;

@@ -18,6 +18,7 @@ const purchase_order_batch_entity_1 = require("../../entities/purchase-orders/pu
 const user_entity_1 = require("../../entities/users/user.entity");
 const rbac_module_1 = require("../rbac/rbac.module");
 const pos_shifts_module_1 = require("../pos-shifts/pos-shifts.module");
+const exchange_rate_module_1 = require("../exchange-rate/exchange-rate.module");
 const accounting_controller_1 = require("./accounting.controller");
 const accounting_service_1 = require("./accounting.service");
 const average_cost_report_service_1 = require("./services/average-cost-report.service");
@@ -39,6 +40,7 @@ exports.AccountingModule = AccountingModule = __decorate([
             ]),
             rbac_module_1.RBACModule,
             pos_shifts_module_1.PosShiftsModule,
+            exchange_rate_module_1.ExchangeRateModule,
             customer_debt_ledger_module_1.CustomerDebtLedgerModule,
         ],
         controllers: [accounting_controller_1.AccountingController],

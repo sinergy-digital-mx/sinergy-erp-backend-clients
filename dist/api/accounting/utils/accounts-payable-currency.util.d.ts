@@ -31,6 +31,7 @@ export interface AccountsPayableVendorTotals {
     amount_paid: number;
     total_committed: number;
     progress_percentage: number;
+    amount_pending_total_mxn: number | null;
 }
 export interface AccountsPayableCurrencySummary {
     currency: PayableCurrencyView;
@@ -40,6 +41,9 @@ export interface AccountsPayableCurrencySummary {
     total_pending_orders_mxn: number;
     total_pending_orders_usd: number;
     total_amount_pending: number;
+    exchange_rate: number | null;
+    exchange_rate_date: string | null;
+    total_amount_pending_total_mxn: number | null;
 }
 export declare function normalizePayableCurrency(value: string | null | undefined): PayableCurrencyCode;
 export declare function parseCreditLimit(value: string | number | null | undefined): number | null;
@@ -47,3 +51,7 @@ export declare function aggregatePayableVendors(orders: PayableOrderInput[]): Ac
 export declare function filterPayableVendors(rows: AccountsPayableVendorTotals[], view: PayableCurrencyView): AccountsPayableVendorTotals[];
 export declare function sortPayableVendors(rows: AccountsPayableVendorTotals[], view: PayableCurrencyView): AccountsPayableVendorTotals[];
 export declare function summarizePayableVendors(rows: AccountsPayableVendorTotals[], view: PayableCurrencyView): AccountsPayableCurrencySummary;
+export declare function normalizeExchangeRate(value: number | string | null | undefined): number | null;
+export declare function payableTotalInMxn(amountMxn: number, amountUsd: number, exchangeRate: number | string | null | undefined): number | null;
+export declare function applyPayableExchangeRate(rows: AccountsPayableVendorTotals[], view: PayableCurrencyView, exchangeRate: number | string | null | undefined): AccountsPayableVendorTotals[];
+export declare function summarizePayableWithRate(rows: AccountsPayableVendorTotals[], view: PayableCurrencyView, exchangeRate: number | string | null | undefined, exchangeRateDate: string | null): AccountsPayableCurrencySummary;

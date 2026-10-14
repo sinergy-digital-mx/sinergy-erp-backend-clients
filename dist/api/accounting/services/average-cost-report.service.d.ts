@@ -1,12 +1,24 @@
 import { DataSource } from 'typeorm';
 import { QueryAverageCostReportDto } from '../dto/query-average-cost-report.dto';
-import { AverageCostReportRow } from '../utils/average-cost-report.util';
+import { SalesCostReportRow } from '../utils/average-cost-report.util';
 export declare class AverageCostReportService {
     private readonly dataSource;
     constructor(dataSource: DataSource);
     getReport(tenantId: string, filters: QueryAverageCostReportDto): Promise<{
-        summary: import("../utils/average-cost-report.util").AverageCostReportSummary;
-        data: AverageCostReportRow[];
+        summary: {
+            date_from: string;
+            date_to: string;
+            branch_label: string;
+            document_count: number;
+            amount: number;
+            discount: number;
+            tax: number;
+            sale_total: number;
+            cost_total: number;
+            profit: number;
+            has_foreign_currency: boolean;
+        };
+        data: SalesCostReportRow[];
         total: number;
         page: number;
         limit: number;
@@ -18,7 +30,13 @@ export declare class AverageCostReportService {
     }>;
     private excelRow;
     private collectRows;
-    private loadReceipts;
-    private loadPrices;
-    private loadPedimentos;
+    private loadOrders;
+    private loadCosts;
+    private loadInvoicedOrderIds;
+    private loadSideDocuments;
+    private toOrderInput;
+    private resolveRange;
+    private branchLabel;
+    private typeLegend;
+    private statusLegend;
 }

@@ -12,12 +12,37 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.QueryAverageCostReportDto = void 0;
 const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
+const query_accounting_base_dto_1 = require("./query-accounting-base.dto");
 class QueryAverageCostReportDto {
+    billing_branch_id;
+    period = query_accounting_base_dto_1.AccountingReportPeriod.MONTH;
+    date_from;
+    date_to;
     page = 1;
     limit = 20;
     search;
 }
 exports.QueryAverageCostReportDto = QueryAverageCostReportDto;
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], QueryAverageCostReportDto.prototype, "billing_branch_id", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(query_accounting_base_dto_1.AccountingReportPeriod),
+    __metadata("design:type", String)
+], QueryAverageCostReportDto.prototype, "period", void 0);
+__decorate([
+    (0, class_validator_1.ValidateIf)((dto) => dto.period === query_accounting_base_dto_1.AccountingReportPeriod.RANGE),
+    (0, class_validator_1.IsDateString)(),
+    __metadata("design:type", String)
+], QueryAverageCostReportDto.prototype, "date_from", void 0);
+__decorate([
+    (0, class_validator_1.ValidateIf)((dto) => dto.period === query_accounting_base_dto_1.AccountingReportPeriod.RANGE),
+    (0, class_validator_1.IsDateString)(),
+    __metadata("design:type", String)
+], QueryAverageCostReportDto.prototype, "date_to", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_transformer_1.Type)(() => Number),

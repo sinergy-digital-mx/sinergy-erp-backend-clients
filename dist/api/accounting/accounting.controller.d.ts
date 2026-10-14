@@ -342,30 +342,27 @@ export declare class AccountingController {
         }[];
     }>;
     getAccountsReceivable(query: QueryAccountsReceivableDto, req: any): Promise<{
-        summary: {
-            total_accounts: number;
-            total_amount_pending: number;
-        };
-        data: {
-            razon_social: string;
-            fiscal_rfc: string | null;
-            pending_order_count: number;
-            amount_pending: number;
-            customer_count: number;
-        }[];
+        summary: import("./utils/accounts-receivable-currency.util").AccountsReceivableCurrencySummary;
+        data: import("./utils/accounts-receivable-currency.util").AccountsReceivableAccountTotals[];
         total: number;
         page: number;
         limit: number;
         totalPages: number;
     }>;
+    exportAccountsReceivableExcel(query: QueryAccountsReceivableDto, req: any, res: any): Promise<void>;
     getAccountsReceivableDetail(razonSocial: string, billingBranchId: string | undefined, req: any): Promise<{
         razon_social: string;
         fiscal_rfc: string;
         pending_order_count: number;
+        pending_order_count_mxn: number;
+        pending_order_count_usd: number;
         amount_pending: number;
+        amount_pending_mxn: number;
+        amount_pending_usd: number;
         orders: {
             id: string;
             folio: string;
+            currency: import("./utils/accounts-payable-currency.util").PayableCurrencyCode;
             total: number;
             payment_status: string;
             general_status: string;
@@ -381,8 +378,20 @@ export declare class AccountingController {
         }[];
     }>;
     getAverageCostReport(query: QueryAverageCostReportDto, req: any): Promise<{
-        summary: import("./utils/average-cost-report.util").AverageCostReportSummary;
-        data: import("./utils/average-cost-report.util").AverageCostReportRow[];
+        summary: {
+            date_from: string;
+            date_to: string;
+            branch_label: string;
+            document_count: number;
+            amount: number;
+            discount: number;
+            tax: number;
+            sale_total: number;
+            cost_total: number;
+            profit: number;
+            has_foreign_currency: boolean;
+        };
+        data: import("./utils/average-cost-report.util").SalesCostReportRow[];
         total: number;
         page: number;
         limit: number;

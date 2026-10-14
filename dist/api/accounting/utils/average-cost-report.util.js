@@ -1,295 +1,259 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.roundAverageCost = roundAverageCost;
-exports.isoDay = isoDay;
-exports.formatSlashDate = formatSlashDate;
-exports.formatPedimentoLabel = formatPedimentoLabel;
-exports.valuePurchaseReceipt = valuePurchaseReceipt;
-exports.pickPrice1 = pickPrice1;
-exports.buildAverageCostRows = buildAverageCostRows;
-exports.filterAverageCostRows = filterAverageCostRows;
-exports.summarizeAverageCostRows = summarizeAverageCostRows;
-function roundAverageCost(value, scale) {
+exports.SALES_COST_STATUS_LABELS = exports.SALES_COST_TYPE_LABELS = exports.SALES_COST_STATUS = exports.SALES_COST_TYPE = void 0;
+exports.roundSalesCost = roundSalesCost;
+exports.formatSalesCustomerName = formatSalesCustomerName;
+exports.buildSalesCostRows = buildSalesCostRows;
+exports.filterSalesCostRows = filterSalesCostRows;
+exports.summarizeSalesCostRows = summarizeSalesCostRows;
+exports.SALES_COST_TYPE = {
+    RECEIPT: 1,
+    CASH_RETURN: 2,
+    CANCEL_RECEIPT: 3,
+    CREDIT_RECEIPT: 5,
+    INVOICE: 6,
+    CREDIT_NOTE: 7,
+    CANCEL_INVOICE: 8,
+    CANCEL_CREDIT_NOTE: 9,
+    LAYAWAY: 18,
+    ADVANCE: 19,
+};
+exports.SALES_COST_STATUS = {
+    CASH: 1,
+    CREDIT: 2,
+    CANCELLED: 3,
+    PAID: 4,
+    RETURN: 5,
+};
+exports.SALES_COST_TYPE_LABELS = {
+    1: 'Recibo',
+    2: 'Dev. efectivo',
+    3: 'Cancelación de recibo',
+    5: 'Recibo a crédito',
+    6: 'Factura',
+    7: 'Nota de crédito',
+    8: 'Cancelación de factura',
+    9: 'Cancelación de nota',
+    18: 'Apartado',
+    19: 'Abono o anticipo',
+};
+exports.SALES_COST_STATUS_LABELS = {
+    1: 'Contado',
+    2: 'Crédito',
+    3: 'Cancelado',
+    4: 'Pagado',
+    5: 'Devolución',
+};
+const WALK_IN_FISCAL = 'VENTA DE MOSTRADOR';
+function roundSalesCost(value, scale = 2) {
     const factor = 10 ** scale;
     return Math.round((value + Number.EPSILON) * factor) / factor;
 }
-function toNum(value) {
-    if (value == null || value === '') {
-        return null;
+function formatSalesCustomerName(input) {
+    const walkIn = input.walk_in_name?.trim();
+    if (walkIn) {
+        return walkIn.toUpperCase();
     }
-    const parsed = typeof value === 'number' ? value : Number(String(value).trim());
-    return Number.isFinite(parsed) ? parsed : null;
+    const fiscal = input.order_fiscal?.trim() || input.customer_fiscal?.trim() || '';
+    const company = input.company_name?.trim() || '';
+    const person = [input.name, input.lastname]
+        .map((part) => part?.trim())
+        .filter((part) => !!part)
+        .join(' ');
+    const receptor = input.receptor_nombre?.trim() || '';
+    const generic = normalizeName(fiscal) === normalizeName(WALK_IN_FISCAL) ||
+        normalizeName(person) === 'PUBLICO EN GENERAL' ||
+        normalizeName(company) === 'PUBLICO EN GENERAL';
+    if (generic) {
+        return 'PÚBLICO EN GENERAL';
+    }
+    return (fiscal || company || person || receptor || 'PÚBLICO EN GENERAL').toUpperCase();
 }
-function positive(value) {
-    const parsed = toNum(value);
-    if (parsed == null || parsed <= 0) {
-        return null;
-    }
-    return parsed;
-}
-function isoDay(value) {
-    if (value == null || value === '') {
-        return null;
-    }
-    if (value instanceof Date) {
-        if (Number.isNaN(value.getTime())) {
-            return null;
+function buildSalesCostRows(input) {
+    const rows = [];
+    for (const order of input.orders) {
+        if (inRange(order.created_on, input.dateFrom, input.dateTo)) {
+            rows.push(orderRow(order, false));
         }
-        const year = value.getUTCFullYear();
-        const month = String(value.getUTCMonth() + 1).padStart(2, '0');
-        const day = String(value.getUTCDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    }
-    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value).trim());
-    return match ? `${match[1]}-${match[2]}-${match[3]}` : null;
-}
-function formatSlashDate(value) {
-    const iso = isoDay(value);
-    return iso ? iso.replace(/-/g, '/') : null;
-}
-function formatPedimentoLabel(entry) {
-    const raw = entry.raw?.trim();
-    if (raw) {
-        return raw;
-    }
-    const number = entry.number?.trim() || null;
-    const date = formatSlashDate(entry.date);
-    const customs = entry.customs?.trim() || null;
-    const vendor = entry.vendor?.trim() || null;
-    const tail = customs && vendor ? `${customs}-${vendor}` : customs || vendor;
-    const parts = [number, date, tail].filter((part) => !!part);
-    return parts.length ? parts.join(' - ') : null;
-}
-function pedimentoKey(label) {
-    return label.replace(/\s+/g, ' ').trim().toUpperCase();
-}
-function samePedimento(left, right) {
-    if (pedimentoKey(left) === pedimentoKey(right)) {
-        return true;
-    }
-    const leftDigits = left.replace(/\D/g, '');
-    const rightDigits = right.replace(/\D/g, '');
-    if (!leftDigits || !rightDigits) {
-        return false;
-    }
-    if (leftDigits === rightDigits) {
-        return true;
-    }
-    const shorter = leftDigits.length < rightDigits.length ? leftDigits : rightDigits;
-    const longer = leftDigits.length < rightDigits.length ? rightDigits : leftDigits;
-    return shorter.length >= 7 && longer.includes(shorter);
-}
-function pushPedimento(bucket, label, date) {
-    if (!label) {
-        return;
-    }
-    const existing = bucket.pedimentos.find((item) => samePedimento(item.label, label));
-    if (existing) {
-        if (label.length > existing.label.length) {
-            existing.label = label;
-            existing.date = isoDay(date) ?? existing.date;
+        if (order.cancelled &&
+            order.cancelled_on &&
+            inRange(order.cancelled_on, input.dateFrom, input.dateTo)) {
+            rows.push(orderRow(order, true));
         }
-        return;
     }
-    bucket.pedimentos.push({ label, date: isoDay(date) });
-}
-function valuePurchaseReceipt(line) {
-    const original = positive(line.received_original_quantity);
-    const converted = positive(line.received_converted_quantity);
-    const quantity = converted ?? original;
-    if (quantity == null) {
-        return null;
-    }
-    const scale = original != null && converted != null ? original / converted : 1;
-    const real = toNum(line.real_unit_cost_mxn);
-    if (real != null) {
-        return {
-            quantity,
-            unitCost: roundAverageCost(real * scale, 4),
-            usedRealCost: true,
-        };
-    }
-    const vendor = toNum(line.received_original_unit_total) ?? toNum(line.unit_total);
-    if (vendor == null) {
-        return null;
-    }
-    const currency = (line.payment_currency ?? 'MXN').trim().toUpperCase();
-    let mxn = vendor;
-    if (currency === 'USD') {
-        const rate = toNum(line.customs_exchange_rate);
-        if (rate == null || rate <= 0) {
-            return null;
+    for (const document of input.sideDocuments) {
+        if (inRange(document.stamped_on, input.dateFrom, input.dateTo)) {
+            rows.push(sideRow(document, false));
         }
-        mxn = vendor * rate;
-    }
-    return {
-        quantity,
-        unitCost: roundAverageCost(mxn * scale, 4),
-        usedRealCost: false,
-    };
-}
-function isPrecio1Name(name) {
-    const normalized = (name ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
-    return normalized === 'precio 1' || normalized === 'precio1';
-}
-function isBaseUom(value) {
-    return value === true || value === 1 || value === '1';
-}
-function dateMillis(value) {
-    if (value == null || value === '') {
-        return Number.MAX_SAFE_INTEGER;
-    }
-    const parsed = value instanceof Date ? value.getTime() : Date.parse(String(value));
-    return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
-}
-function pickPrice1(options) {
-    const usable = options.filter((option) => toNum(option.price) != null);
-    if (!usable.length) {
-        return null;
-    }
-    const named = usable.filter((option) => isPrecio1Name(option.price_list_name));
-    const pool = named.length ? named : usable;
-    const sorted = [...pool].sort((left, right) => {
-        const baseDiff = Number(isBaseUom(right.is_base)) - Number(isBaseUom(left.is_base));
-        if (baseDiff !== 0) {
-            return baseDiff;
+        if (document.cancelled &&
+            document.cancelled_on &&
+            inRange(document.cancelled_on, input.dateFrom, input.dateTo)) {
+            rows.push(sideRow(document, true));
         }
-        return dateMillis(left.price_list_created_at) - dateMillis(right.price_list_created_at);
-    });
-    const chosen = sorted[0];
-    const price = toNum(chosen.price);
-    if (price == null) {
-        return null;
     }
-    return {
-        price: roundAverageCost(price, 2),
-        price_list_name: chosen.price_list_name?.trim() || null,
-    };
-}
-function margins(price, averageCost) {
-    if (price == null) {
-        return { margin_amount: null, margin_percent: null };
-    }
-    const marginAmount = roundAverageCost(price - averageCost, 2);
-    if (price <= 0) {
-        return { margin_amount: marginAmount, margin_percent: null };
-    }
-    return {
-        margin_amount: marginAmount,
-        margin_percent: roundAverageCost((marginAmount / price) * 100, 2),
-    };
-}
-function sortedPedimentos(bucket) {
-    return [...bucket.pedimentos]
-        .sort((left, right) => {
-        if (left.date && right.date && left.date !== right.date) {
+    rows.sort((left, right) => {
+        if (left.date !== right.date) {
             return left.date < right.date ? -1 : 1;
         }
-        if (left.date && !right.date) {
-            return -1;
+        const documentOrder = left.document.localeCompare(right.document, 'es', {
+            numeric: true,
+            sensitivity: 'base',
+        });
+        if (documentOrder !== 0) {
+            return documentOrder;
         }
-        if (!left.date && right.date) {
-            return 1;
+        if (left.reversal !== right.reversal) {
+            return left.reversal ? 1 : -1;
         }
-        return left.label.localeCompare(right.label, 'es');
-    })
-        .map((item) => item.label);
-}
-function buildAverageCostRows(input) {
-    const buckets = new Map();
-    for (const receipt of input.receipts) {
-        const valued = valuePurchaseReceipt(receipt);
-        if (!valued || !receipt.product_id) {
-            continue;
-        }
-        const bucket = buckets.get(receipt.product_id) ?? {
-            product_id: receipt.product_id,
-            sku: (receipt.sku ?? '').trim(),
-            name: (receipt.name ?? '').trim() || (receipt.sku ?? '').trim(),
-            sat_clave: receipt.sat_clave?.trim() || null,
-            quantity: 0,
-            totalCost: 0,
-            receiptCount: 0,
-            realCount: 0,
-            purchaseCount: 0,
-            pedimentos: [],
-        };
-        bucket.quantity += valued.quantity;
-        bucket.totalCost += valued.quantity * valued.unitCost;
-        bucket.receiptCount += 1;
-        if (valued.usedRealCost) {
-            bucket.realCount += 1;
-        }
-        else {
-            bucket.purchaseCount += 1;
-        }
-        pushPedimento(bucket, formatPedimentoLabel({
-            number: receipt.pedimento_number,
-            date: receipt.customs_date,
-        }), receipt.customs_date);
-        buckets.set(receipt.product_id, bucket);
-    }
-    for (const entry of input.pedimentos) {
-        const bucket = buckets.get(entry.product_id);
-        if (!bucket) {
-            continue;
-        }
-        pushPedimento(bucket, formatPedimentoLabel(entry), entry.date);
-    }
-    const pricesByProduct = new Map();
-    for (const price of input.prices) {
-        const list = pricesByProduct.get(price.product_id) ?? [];
-        list.push(price);
-        pricesByProduct.set(price.product_id, list);
-    }
-    const rows = [...buckets.values()].map((bucket) => {
-        const averageCost = roundAverageCost(bucket.totalCost / bucket.quantity, 2);
-        const quantity = roundAverageCost(bucket.quantity, 3);
-        const price = pickPrice1(pricesByProduct.get(bucket.product_id) ?? []);
-        const margin = margins(price?.price ?? null, averageCost);
-        const costBasis = bucket.realCount > 0 && bucket.purchaseCount > 0
-            ? 'mixed'
-            : bucket.realCount > 0
-                ? 'real'
-                : 'purchase';
-        return {
-            product_id: bucket.product_id,
-            sku: bucket.sku,
-            name: bucket.name,
-            sat_clave: bucket.sat_clave,
-            pedimentos: sortedPedimentos(bucket),
-            price: price?.price ?? null,
-            price_list_name: price?.price_list_name ?? null,
-            average_cost: averageCost,
-            quantity,
-            total_cost: roundAverageCost(quantity * averageCost, 2),
-            margin_amount: margin.margin_amount,
-            margin_percent: margin.margin_percent,
-            cost_basis: costBasis,
-            receipt_count: bucket.receiptCount,
-        };
+        return left.type_code - right.type_code;
     });
-    rows.sort((left, right) => left.sku.localeCompare(right.sku, 'es', { numeric: true, sensitivity: 'base' }));
     return rows;
 }
-function filterAverageCostRows(rows, search) {
+function filterSalesCostRows(rows, search) {
     const query = search?.trim().toLowerCase();
     if (!query) {
         return rows;
     }
     return rows.filter((row) => {
-        const haystack = [row.sku, row.name, row.sat_clave ?? '', ...row.pedimentos]
+        const haystack = [
+            row.customer_name,
+            row.document,
+            row.type_label,
+            String(row.type_code),
+            row.status_label,
+            String(row.status_code),
+        ]
             .join(' ')
             .toLowerCase();
         return haystack.includes(query);
     });
 }
-function summarizeAverageCostRows(rows) {
+function summarizeSalesCostRows(rows) {
+    const amount = sum(rows, 'amount');
+    const discount = sum(rows, 'discount');
+    const tax = sum(rows, 'tax');
+    const saleTotal = sum(rows, 'sale_total');
+    const costTotal = sum(rows, 'cost_total');
     return {
-        product_count: rows.length,
-        total_quantity: roundAverageCost(rows.reduce((sum, row) => sum + row.quantity, 0), 3),
-        total_cost: roundAverageCost(rows.reduce((sum, row) => sum + row.total_cost, 0), 2),
-        real_cost_product_count: rows.filter((row) => row.cost_basis !== 'purchase').length,
+        document_count: rows.length,
+        amount,
+        discount,
+        tax,
+        sale_total: saleTotal,
+        cost_total: costTotal,
+        profit: roundSalesCost(saleTotal - tax - costTotal),
+        has_foreign_currency: rows.some((row) => row.currency !== 'MXN'),
     };
+}
+function orderRow(order, reversal) {
+    const money = convertMoney(order.currency, order.exchange_rate);
+    const amount = money(order.subtotal);
+    const discount = money(order.discount);
+    const tax = money(order.tax);
+    const saleTotal = money(order.total);
+    const cost = roundSalesCost(reversal
+        ? -(order.reversal_cost > 0 ? order.reversal_cost : order.sale_cost)
+        : order.sale_cost);
+    const typeCode = reversal
+        ? order.invoiced
+            ? exports.SALES_COST_TYPE.CANCEL_INVOICE
+            : exports.SALES_COST_TYPE.CANCEL_RECEIPT
+        : order.invoiced
+            ? exports.SALES_COST_TYPE.INVOICE
+            : order.is_credit
+                ? exports.SALES_COST_TYPE.CREDIT_RECEIPT
+                : exports.SALES_COST_TYPE.RECEIPT;
+    const statusCode = reversal ? exports.SALES_COST_STATUS.CANCELLED : saleStatus(order);
+    return {
+        id: reversal ? `${order.id}:cancel` : order.id,
+        sales_order_id: order.id,
+        customer_name: order.customer_name,
+        document: order.folio,
+        date: reversal ? order.cancelled_on || order.created_on : order.created_on,
+        type_code: typeCode,
+        type_label: exports.SALES_COST_TYPE_LABELS[typeCode],
+        status_code: statusCode,
+        status_label: exports.SALES_COST_STATUS_LABELS[statusCode],
+        amount,
+        discount,
+        tax: reversal ? -tax : tax,
+        sale_total: reversal ? -saleTotal : saleTotal,
+        cost_total: cost,
+        currency: money.currency,
+        reversal,
+    };
+}
+function sideRow(document, reversal) {
+    const money = convertMoney(document.currency, document.exchange_rate);
+    const amount = money(document.subtotal);
+    const saleTotal = money(document.total);
+    const tax = roundSalesCost(saleTotal - amount);
+    const creditNote = document.kind === 'credit_note';
+    const sign = creditNote ? (reversal ? 1 : -1) : reversal ? -1 : 1;
+    const typeCode = creditNote
+        ? reversal
+            ? exports.SALES_COST_TYPE.CANCEL_CREDIT_NOTE
+            : exports.SALES_COST_TYPE.CREDIT_NOTE
+        : exports.SALES_COST_TYPE.ADVANCE;
+    const statusCode = reversal
+        ? exports.SALES_COST_STATUS.CANCELLED
+        : creditNote
+            ? exports.SALES_COST_STATUS.RETURN
+            : exports.SALES_COST_STATUS.CASH;
+    return {
+        id: reversal ? `${document.id}:cancel` : document.id,
+        sales_order_id: document.sales_order_id,
+        customer_name: document.customer_name,
+        document: document.document,
+        date: reversal ? document.cancelled_on || document.stamped_on : document.stamped_on,
+        type_code: typeCode,
+        type_label: exports.SALES_COST_TYPE_LABELS[typeCode],
+        status_code: statusCode,
+        status_label: exports.SALES_COST_STATUS_LABELS[statusCode],
+        amount: roundSalesCost(sign * amount),
+        discount: 0,
+        tax: roundSalesCost(sign * tax),
+        sale_total: roundSalesCost(sign * saleTotal),
+        cost_total: 0,
+        currency: money.currency,
+        reversal,
+    };
+}
+function saleStatus(order) {
+    if (order.is_credit && order.payment_status !== 'Pagado') {
+        return exports.SALES_COST_STATUS.CREDIT;
+    }
+    if (order.is_credit) {
+        return exports.SALES_COST_STATUS.PAID;
+    }
+    return exports.SALES_COST_STATUS.CASH;
+}
+function convertMoney(currency, exchangeRate) {
+    const code = (currency || 'MXN').trim().toUpperCase() || 'MXN';
+    const rate = exchangeRate != null && exchangeRate > 0 ? exchangeRate : null;
+    const reportCurrency = code === 'USD' && rate == null ? 'USD' : 'MXN';
+    const convert = ((value) => {
+        const amount = Number.isFinite(value) ? value : 0;
+        if (code === 'USD' && rate != null) {
+            return roundSalesCost(amount * rate);
+        }
+        return roundSalesCost(amount);
+    });
+    convert.currency = reportCurrency;
+    return convert;
+}
+function inRange(day, from, to) {
+    return !!day && day >= from && day <= to;
+}
+function sum(rows, key) {
+    return roundSalesCost(rows.reduce((total, row) => total + row[key], 0));
+}
+function normalizeName(value) {
+    return value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toUpperCase();
 }
 //# sourceMappingURL=average-cost-report.util.js.map
