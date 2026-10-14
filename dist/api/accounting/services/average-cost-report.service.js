@@ -15,7 +15,6 @@ const typeorm_1 = require("typeorm");
 const billing_branch_entity_1 = require("../../../entities/billing/billing-branch.entity");
 const customer_entity_1 = require("../../../entities/customers/customer.entity");
 const electronic_invoice_entity_1 = require("../../../entities/electronic-invoicing/electronic-invoice.entity");
-const inventory_stock_ledger_entity_1 = require("../../../entities/inventory/inventory-stock-ledger.entity");
 const quotation_entity_1 = require("../../../entities/quotations/quotation.entity");
 const warehouse_entity_1 = require("../../../entities/warehouse/warehouse.entity");
 const sales_order_entity_1 = require("../../../entities/sales-orders/sales-order.entity");
@@ -34,6 +33,8 @@ const EXCEL_COLUMNS = [
     { header: 'Impuesto', key: 'tax', width: 12, type: 'currency' },
     { header: 'Total venta', key: 'sale_total', width: 14, type: 'currency' },
     { header: 'Total costo', key: 'cost_total', width: 14, type: 'currency' },
+    { header: 'Margen', key: 'margin_amount', width: 14, type: 'currency' },
+    { header: 'Margen %', key: 'margin_percent', width: 12, type: 'percent' },
 ];
 const ACTIVE_STAMP = ['stamped', 'cancel_pending', 'cancelled', 'cancel_error'];
 let AverageCostReportService = class AverageCostReportService {
@@ -77,6 +78,7 @@ let AverageCostReportService = class AverageCostReportService {
                 `Documentos: ${summary.document_count}`,
                 `Total venta: ${summary.sale_total.toFixed(2)}`,
                 `Total costo: ${summary.cost_total.toFixed(2)}`,
+                `Margen: ${summary.margin_percent == null ? '—' : `${summary.margin_percent.toFixed(2)}%`}`,
                 this.typeLegend(),
                 this.statusLegend(),
             ]),
@@ -100,20 +102,23 @@ let AverageCostReportService = class AverageCostReportService {
             tax: row.tax,
             sale_total: row.sale_total,
             cost_total: row.cost_total,
+            margin_amount: row.margin_amount,
+            margin_percent: row.margin_percent,
         };
     }
     async collectRows(tenantId, filters, range) {
         const orders = await this.loadOrders(tenantId, filters.billing_branch_id, range);
         const orderIds = orders.map((order) => order.id);
-        const [costs, invoicedIds, sideDocuments] = await Promise.all([
+        const [costs, allocationCosts, invoicedIds, sideDocuments] = await Promise.all([
             this.loadCosts(tenantId, orderIds),
+            this.loadAllocationCosts(orderIds),
             this.loadInvoicedOrderIds(tenantId, orderIds),
             this.loadSideDocuments(tenantId, filters.billing_branch_id, range),
         ]);
         return (0, average_cost_report_util_1.buildSalesCostRows)({
             dateFrom: range.from,
             dateTo: range.to,
-            orders: orders.map((order) => this.toOrderInput(order, costs, invoicedIds)),
+            orders: orders.map((order) => this.toOrderInput(order, costs, allocationCosts, invoicedIds)),
             sideDocuments,
         });
     }
@@ -170,19 +175,47 @@ let AverageCostReportService = class AverageCostReportService {
             return costs;
         }
         for (const ids of chunk(orderIds, 500)) {
-            const rows = await this.dataSource
-                .getRepository(inventory_stock_ledger_entity_1.InventoryStockLedger)
-                .createQueryBuilder('ledger')
-                .select('ledger.reference_id', 'reference_id')
-                .addSelect("SUM(CASE WHEN ledger.movement_type = 'sale' THEN ABS(ledger.quantity_delta) * COALESCE(ledger.unit_cost_mxn, 0) ELSE 0 END)", 'sale_cost')
-                .addSelect("SUM(CASE WHEN ledger.movement_type = 'sale_reversal' THEN ABS(ledger.quantity_delta) * COALESCE(ledger.unit_cost_mxn, 0) ELSE 0 END)", 'reversal_cost')
-                .where('ledger.tenant_id = :tenantId', { tenantId })
-                .andWhere("ledger.reference_type = 'sales_order'")
-                .andWhere('ledger.reference_id IN (:...ids)', { ids })
-                .groupBy('ledger.reference_id')
-                .getRawMany();
+            const unitCost = `COALESCE(NULLIF(ledger.unit_cost_mxn, 0), ${LOT_UNIT_COST_SQL}, ${vendorAverageCostSql('ledger.product_id', 'ledger.uom_id')}, 0)`;
+            const rows = await this.dataSource.query(`
+        SELECT
+          ledger.reference_id AS reference_id,
+          SUM(CASE WHEN ledger.movement_type = 'sale' THEN ABS(ledger.quantity_delta) * ${unitCost} ELSE 0 END) AS sale_cost,
+          SUM(CASE WHEN ledger.movement_type = 'sale_reversal' THEN ABS(ledger.quantity_delta) * ${unitCost} ELSE 0 END) AS reversal_cost
+        FROM inv_s_stock_ledger ledger
+        LEFT JOIN inv_s_batches batch ON batch.id = ledger.inventory_batch_id
+        LEFT JOIN inv_s_purchase_order_batch_detail pod ON pod.id = batch.purchase_order_detail_id
+        LEFT JOIN inv_s_purchase_order_batch pob ON pob.id = batch.purchase_order_batch_id
+        WHERE ledger.tenant_id = ?
+          AND ledger.reference_type = 'sales_order'
+          AND ledger.reference_id IN (${ids.map(() => '?').join(', ')})
+        GROUP BY ledger.reference_id
+        `, [tenantId, ...ids]);
             for (const row of rows) {
                 costs.set(row.reference_id, row);
+            }
+        }
+        return costs;
+    }
+    async loadAllocationCosts(orderIds) {
+        const costs = new Map();
+        if (!orderIds.length) {
+            return costs;
+        }
+        for (const ids of chunk(orderIds, 500)) {
+            const rows = await this.dataSource.query(`
+        SELECT
+          detail.sales_order_id AS reference_id,
+          SUM(ABS(alloc.quantity_allocated) * COALESCE(${LOT_UNIT_COST_SQL}, ${vendorAverageCostSql('batch.product_id', 'batch.uom_id')}, 0)) AS sale_cost
+        FROM inv_s_sales_order_batch_allocations alloc
+        INNER JOIN inv_s_sales_order_details detail ON detail.id = alloc.sales_order_detail_id
+        INNER JOIN inv_s_batches batch ON batch.id = alloc.inventory_batch_id
+        LEFT JOIN inv_s_purchase_order_batch_detail pod ON pod.id = batch.purchase_order_detail_id
+        LEFT JOIN inv_s_purchase_order_batch pob ON pob.id = batch.purchase_order_batch_id
+        WHERE detail.sales_order_id IN (${ids.map(() => '?').join(', ')})
+        GROUP BY detail.sales_order_id
+        `, ids);
+            for (const row of rows) {
+                costs.set(row.reference_id, toNum(row.sale_cost));
             }
         }
         return costs;
@@ -307,8 +340,11 @@ let AverageCostReportService = class AverageCostReportService {
             ];
         });
     }
-    toOrderInput(order, costs, invoicedIds) {
+    toOrderInput(order, costs, allocationCosts, invoicedIds) {
         const cost = costs.get(order.id);
+        const ledgerSale = toNum(cost?.sale_cost);
+        const ledgerReversal = toNum(cost?.reversal_cost);
+        const allocationSale = allocationCosts.get(order.id) ?? 0;
         const cancelled = order.general_status === 'Cancelada';
         return {
             id: order.id,
@@ -333,8 +369,8 @@ let AverageCostReportService = class AverageCostReportService {
             currency: order.currency || 'MXN',
             exchange_rate: toNumOrNull(order.exchange_rate),
             invoiced: invoicedIds.has(order.id),
-            sale_cost: toNum(cost?.sale_cost),
-            reversal_cost: toNum(cost?.reversal_cost),
+            sale_cost: ledgerSale > 0 ? ledgerSale : allocationSale,
+            reversal_cost: ledgerReversal,
         };
     }
     resolveRange(filters) {
@@ -378,6 +414,41 @@ exports.AverageCostReportService = AverageCostReportService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [typeorm_1.DataSource])
 ], AverageCostReportService);
+function vendorAverageCostSql(productColumn, uomColumn) {
+    return `
+    (
+      SELECT AVG(pvc.cost)
+      FROM product_vendor_costs pvc
+      INNER JOIN product_uoms pu ON pu.id = pvc.product_uom_id
+      WHERE pvc.product_id = ${productColumn}
+        AND pu.uom_catalog_id = ${uomColumn}
+        AND pvc.cost > 0
+        AND UPPER(pvc.currency) = 'MXN'
+    )
+  `;
+}
+const LOT_UOM_SCALE_SQL = `
+  CASE
+    WHEN COALESCE(pod.received_original_quantity, 0) > 0
+     AND COALESCE(pod.received_converted_quantity, 0) > 0
+    THEN pod.received_original_quantity / pod.received_converted_quantity
+    ELSE 1
+  END
+`;
+const LOT_UNIT_COST_SQL = `
+  CASE
+    WHEN pod.real_unit_cost_mxn IS NOT NULL THEN pod.real_unit_cost_mxn * (${LOT_UOM_SCALE_SQL})
+    WHEN COALESCE(pod.received_original_unit_total, pod.unit_total) IS NULL THEN NULL
+    WHEN UPPER(COALESCE(pob.payment_currency, 'MXN')) = 'USD' THEN
+      CASE
+        WHEN COALESCE(pob.customs_exchange_rate, 0) <= 0 THEN NULL
+        ELSE COALESCE(pod.received_original_unit_total, pod.unit_total)
+          * (${LOT_UOM_SCALE_SQL})
+          * pob.customs_exchange_rate
+      END
+    ELSE COALESCE(pod.received_original_unit_total, pod.unit_total) * (${LOT_UOM_SCALE_SQL})
+  END
+`;
 function chunk(items, size) {
     const chunks = [];
     for (let index = 0; index < items.length; index += size) {

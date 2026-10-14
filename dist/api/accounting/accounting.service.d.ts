@@ -401,6 +401,9 @@ export declare class AccountingService {
     private receivableRazonSocial;
     private receivableExcelSheets;
     private receivableAmbosSheet;
+    private collectReceivableDetailLines;
+    private loadStampedInvoiceLabels;
+    private loadSalesPaymentLabels;
     private posBranchSql;
     private loadPosEnteredOrders;
     private walkInCustomerSql;
@@ -411,6 +414,8 @@ export declare class AccountingService {
     private payableExcelSheets;
     private payableAmbosSheet;
     private payableRateBanner;
+    private collectPayableDetailLines;
+    private ambosDetailSheet;
     private payableVendorLabel;
     private buildPurchaseOrderPaymentSummary;
     private buildPosCollectionsQuery;

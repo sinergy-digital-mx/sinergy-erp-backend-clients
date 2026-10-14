@@ -6,6 +6,7 @@ exports.formatSalesCustomerName = formatSalesCustomerName;
 exports.buildSalesCostRows = buildSalesCostRows;
 exports.filterSalesCostRows = filterSalesCostRows;
 exports.summarizeSalesCostRows = summarizeSalesCostRows;
+exports.salesLineMargin = salesLineMargin;
 exports.SALES_COST_TYPE = {
     RECEIPT: 1,
     CASH_RETURN: 2,
@@ -134,6 +135,8 @@ function summarizeSalesCostRows(rows) {
     const tax = sum(rows, 'tax');
     const saleTotal = sum(rows, 'sale_total');
     const costTotal = sum(rows, 'cost_total');
+    const profit = roundSalesCost(saleTotal - tax - costTotal);
+    const price = roundSalesCost(saleTotal - tax);
     return {
         document_count: rows.length,
         amount,
@@ -141,8 +144,17 @@ function summarizeSalesCostRows(rows) {
         tax,
         sale_total: saleTotal,
         cost_total: costTotal,
-        profit: roundSalesCost(saleTotal - tax - costTotal),
+        profit,
+        margin_percent: price === 0 ? null : roundSalesCost((profit / price) * 100),
         has_foreign_currency: rows.some((row) => row.currency !== 'MXN'),
+    };
+}
+function salesLineMargin(input) {
+    const price = roundSalesCost(input.sale_total - input.tax);
+    const marginAmount = roundSalesCost(price - input.cost_total);
+    return {
+        margin_amount: marginAmount,
+        margin_percent: price === 0 ? null : roundSalesCost((marginAmount / price) * 100),
     };
 }
 function orderRow(order, reversal) {
@@ -164,6 +176,8 @@ function orderRow(order, reversal) {
                 ? exports.SALES_COST_TYPE.CREDIT_RECEIPT
                 : exports.SALES_COST_TYPE.RECEIPT;
     const statusCode = reversal ? exports.SALES_COST_STATUS.CANCELLED : saleStatus(order);
+    const signedTax = reversal ? -tax : tax;
+    const signedSale = reversal ? -saleTotal : saleTotal;
     return {
         id: reversal ? `${order.id}:cancel` : order.id,
         sales_order_id: order.id,
@@ -176,9 +190,10 @@ function orderRow(order, reversal) {
         status_label: exports.SALES_COST_STATUS_LABELS[statusCode],
         amount,
         discount,
-        tax: reversal ? -tax : tax,
-        sale_total: reversal ? -saleTotal : saleTotal,
+        tax: signedTax,
+        sale_total: signedSale,
         cost_total: cost,
+        ...salesLineMargin({ sale_total: signedSale, tax: signedTax, cost_total: cost }),
         currency: money.currency,
         reversal,
     };
@@ -190,6 +205,9 @@ function sideRow(document, reversal) {
     const tax = roundSalesCost(saleTotal - amount);
     const creditNote = document.kind === 'credit_note';
     const sign = creditNote ? (reversal ? 1 : -1) : reversal ? -1 : 1;
+    const signedAmount = roundSalesCost(sign * amount);
+    const signedTax = roundSalesCost(sign * tax);
+    const signedSale = roundSalesCost(sign * saleTotal);
     const typeCode = creditNote
         ? reversal
             ? exports.SALES_COST_TYPE.CANCEL_CREDIT_NOTE
@@ -210,11 +228,12 @@ function sideRow(document, reversal) {
         type_label: exports.SALES_COST_TYPE_LABELS[typeCode],
         status_code: statusCode,
         status_label: exports.SALES_COST_STATUS_LABELS[statusCode],
-        amount: roundSalesCost(sign * amount),
+        amount: signedAmount,
         discount: 0,
-        tax: roundSalesCost(sign * tax),
-        sale_total: roundSalesCost(sign * saleTotal),
+        tax: signedTax,
+        sale_total: signedSale,
         cost_total: 0,
+        ...salesLineMargin({ sale_total: signedSale, tax: signedTax, cost_total: 0 }),
         currency: money.currency,
         reversal,
     };

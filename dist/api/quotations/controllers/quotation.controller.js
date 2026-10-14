@@ -95,7 +95,7 @@ let QuotationController = class QuotationController {
         };
     }
     convert(id, dto, req) {
-        return this.quotationService.convert(id, dto ?? {}, req.user.tenant_id, (0, request_user_util_1.resolveRequestUserId)(req), this.sellerAccess(req));
+        return this.quotationService.convert(id, dto ?? {}, req.user.tenant_id, (0, request_user_util_1.resolveRequestUserId)(req.user), this.sellerAccess(req));
     }
     collectionPreview(id, req) {
         return this.advanceInvoices.collectionPreview(id, req.user.tenant_id);

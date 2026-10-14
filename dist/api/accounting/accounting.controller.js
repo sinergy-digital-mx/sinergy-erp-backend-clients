@@ -195,7 +195,7 @@ __decorate([
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Excel de cuentas por pagar',
-        description: 'currency=all descarga dos hojas (pesos y dólares). mxn o usd descarga una sola lista.',
+        description: 'currency=all abre en Ambos, sigue con Ambos detallado (razón social, fecha, folio, factura, tipo de pago y moneda) y después pesos y dólares. mxn o usd descarga una sola lista.',
     }),
     __param(0, (0, common_1.Query)()),
     __param(1, (0, common_1.Req)()),
@@ -233,7 +233,7 @@ __decorate([
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Excel de cuentas por cobrar',
-        description: 'currency=all abre en la hoja Ambos y sigue con pesos y dólares. Arriba va el tipo de cambio del sistema.',
+        description: 'currency=all abre en Ambos, sigue con Ambos detallado (razón social, fecha, folio, factura, tipo de pago y moneda) y después pesos y dólares. Arriba va el tipo de cambio del sistema.',
     }),
     __param(0, (0, common_1.Query)()),
     __param(1, (0, common_1.Req)()),

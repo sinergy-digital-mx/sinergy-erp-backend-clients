@@ -67,6 +67,8 @@ export type SalesCostReportRow = {
     tax: number;
     sale_total: number;
     cost_total: number;
+    margin_amount: number;
+    margin_percent: number | null;
     currency: string;
     reversal: boolean;
 };
@@ -78,6 +80,7 @@ export type SalesCostReportSummary = {
     sale_total: number;
     cost_total: number;
     profit: number;
+    margin_percent: number | null;
     has_foreign_currency: boolean;
 };
 export declare function roundSalesCost(value: number, scale?: number): number;
@@ -98,3 +101,11 @@ export declare function buildSalesCostRows(input: {
 }): SalesCostReportRow[];
 export declare function filterSalesCostRows(rows: SalesCostReportRow[], search?: string): SalesCostReportRow[];
 export declare function summarizeSalesCostRows(rows: SalesCostReportRow[]): SalesCostReportSummary;
+export declare function salesLineMargin(input: {
+    sale_total: number;
+    tax: number;
+    cost_total: number;
+}): {
+    margin_amount: number;
+    margin_percent: number | null;
+};

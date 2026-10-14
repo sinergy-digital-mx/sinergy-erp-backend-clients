@@ -16,6 +16,7 @@ export declare class AverageCostReportService {
             sale_total: number;
             cost_total: number;
             profit: number;
+            margin_percent: number | null;
             has_foreign_currency: boolean;
         };
         data: SalesCostReportRow[];
@@ -32,6 +33,7 @@ export declare class AverageCostReportService {
     private collectRows;
     private loadOrders;
     private loadCosts;
+    private loadAllocationCosts;
     private loadInvoicedOrderIds;
     private loadSideDocuments;
     private toOrderInput;

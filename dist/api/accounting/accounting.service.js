@@ -28,6 +28,7 @@ const exchange_rate_service_1 = require("../exchange-rate/exchange-rate.service"
 const query_accounting_base_dto_1 = require("./dto/query-accounting-base.dto");
 const pos_sale_collection_mapper_1 = require("../pos-shifts/mappers/pos-sale-collection.mapper");
 const unclosed_shift_alert_1 = require("../pos-shifts/utils/unclosed-shift-alert");
+const sales_order_payment_entity_1 = require("../../entities/sales-orders/sales-order-payment.entity");
 const sales_order_payment_display_util_1 = require("../sales-orders/utils/sales-order-payment-display.util");
 const excel_export_util_1 = require("../../common/utils/excel-export.util");
 const accounts_payable_currency_util_1 = require("./utils/accounts-payable-currency.util");
@@ -495,7 +496,10 @@ let AccountingService = class AccountingService {
         const rows = await this.collectAccountsPayableVendors(tenantId, filters.search);
         const dailyRate = await this.resolvePayableExchangeRate(tenantId);
         const searchLabel = filters.search?.trim() ? `Búsqueda: ${filters.search.trim()}` : '';
-        const buffer = await (0, excel_export_util_1.buildStyledExcelWorkbook)(this.payableExcelSheets(rows, currency, searchLabel, dailyRate));
+        const detail = currency === query_accounting_base_dto_1.AccountsPayableCurrencyView.ALL
+            ? await this.collectPayableDetailLines(tenantId, filters.search)
+            : [];
+        const buffer = await (0, excel_export_util_1.buildStyledExcelWorkbook)(this.payableExcelSheets(rows, currency, searchLabel, dailyRate, detail));
         const day = (0, unclosed_shift_alert_1.getTodayDateString)();
         const suffix = currency === query_accounting_base_dto_1.AccountsPayableCurrencyView.ALL ? '' : `-${currency}`;
         return { buffer, filename: `cuentas-por-pagar${suffix}-${day}.xlsx` };
@@ -568,7 +572,10 @@ let AccountingService = class AccountingService {
         const rows = await this.collectAccountsReceivable(tenantId, filters);
         const dailyRate = await this.resolvePayableExchangeRate(tenantId);
         const searchLabel = filters.search?.trim() ? `Búsqueda: ${filters.search.trim()}` : '';
-        const buffer = await (0, excel_export_util_1.buildStyledExcelWorkbook)(this.receivableExcelSheets(rows, currency, searchLabel, dailyRate));
+        const detail = currency === query_accounting_base_dto_1.AccountsPayableCurrencyView.ALL
+            ? await this.collectReceivableDetailLines(tenantId, filters)
+            : [];
+        const buffer = await (0, excel_export_util_1.buildStyledExcelWorkbook)(this.receivableExcelSheets(rows, currency, searchLabel, dailyRate, detail));
         const day = (0, unclosed_shift_alert_1.getTodayDateString)();
         const suffix = currency === query_accounting_base_dto_1.AccountsPayableCurrencyView.ALL ? '' : `-${currency}`;
         return { buffer, filename: `cuentas-por-cobrar${suffix}-${day}.xlsx` };
@@ -680,11 +687,12 @@ let AccountingService = class AccountingService {
             [customer?.name, customer?.lastname].filter(Boolean).join(' ').trim() ||
             'Sin razón social');
     }
-    receivableExcelSheets(rows, currency, searchLabel, dailyRate) {
+    receivableExcelSheets(rows, currency, searchLabel, dailyRate, detail = []) {
         const banner = this.payableRateBanner(dailyRate);
         const sheets = [];
         if (currency === query_accounting_base_dto_1.AccountsPayableCurrencyView.ALL) {
             sheets.push(this.receivableAmbosSheet(rows, searchLabel, dailyRate, banner));
+            sheets.push(this.ambosDetailSheet('Cuentas por cobrar', 'Por cobrar', detail, searchLabel, banner));
         }
         const views = currency === query_accounting_base_dto_1.AccountsPayableCurrencyView.ALL
             ? [query_accounting_base_dto_1.AccountsPayableCurrencyView.MXN, query_accounting_base_dto_1.AccountsPayableCurrencyView.USD]
@@ -767,6 +775,100 @@ let AccountingService = class AccountingService {
                 },
             ],
         };
+    }
+    async collectReceivableDetailLines(tenantId, filters) {
+        const qb = this.salesOrderRepo
+            .createQueryBuilder('so')
+            .innerJoinAndSelect('so.customer', 'customer')
+            .innerJoin('so.warehouse', 'warehouse')
+            .where('so.tenant_id = :tenantId', { tenantId })
+            .andWhere('so.payment_status = :pending', { pending: 'Pendiente' })
+            .andWhere('so.general_status NOT IN (:...excluded)', {
+            excluded: ['Cancelada', 'En cola'],
+        })
+            .andWhere('(customer.fiscal_razon_social IS NULL OR customer.fiscal_razon_social != :walkInFiscal)', { walkInFiscal: WALK_IN_FISCAL_NAME })
+            .andWhere('customer.name != :walkInName', { walkInName: WALK_IN_DISPLAY_NAME });
+        if (filters.billing_branch_id) {
+            qb.andWhere('warehouse.billing_branch_id = :branchId', {
+                branchId: filters.billing_branch_id,
+            });
+        }
+        const orders = await qb.getMany();
+        const term = filters.search?.trim().toLowerCase();
+        const pending = orders.filter((order) => {
+            if (Number(order.total || 0) <= 0)
+                return false;
+            if (!term)
+                return true;
+            const razonSocial = this.receivableRazonSocial(order);
+            const fiscalRfc = order.customer?.fiscal_rfc ?? '';
+            return (razonSocial.toLowerCase().includes(term) || fiscalRfc.toLowerCase().includes(term));
+        });
+        const orderIds = pending.map((order) => order.id);
+        const [invoices, payments] = await Promise.all([
+            this.loadStampedInvoiceLabels(tenantId, orderIds),
+            this.loadSalesPaymentLabels(orderIds),
+        ]);
+        return sortCurrencyDetailLines(pending.map((order) => {
+            const methods = payments.get(order.id) ?? [];
+            const dated = toDetailDate(order.created_at);
+            return {
+                razon_social: this.receivableRazonSocial(order),
+                date: dated.display,
+                sort_date: dated.sort,
+                folio: order.folio?.trim() || '',
+                invoice: invoices.get(order.id) || 'Sin factura',
+                payment_type: methods.length ? methods.join(' + ') : order.is_credit ? 'Crédito' : 'Pendiente',
+                currency: (0, accounts_payable_currency_util_1.normalizePayableCurrency)(order.currency),
+                amount: Number(Number(order.total || 0).toFixed(2)),
+            };
+        }));
+    }
+    async loadStampedInvoiceLabels(tenantId, orderIds) {
+        const labels = new Map();
+        for (const ids of chunkIds(orderIds, 500)) {
+            const invoices = await this.electronicInvoiceRepo
+                .createQueryBuilder('ei')
+                .select(['ei.id', 'ei.source_id', 'ei.series', 'ei.folio', 'ei.uuid'])
+                .where('ei.tenant_id = :tenantId', { tenantId })
+                .andWhere('ei.source_module = :module', { module: 'sales_orders' })
+                .andWhere('ei.source_id IN (:...ids)', { ids })
+                .andWhere('ei.stamp_status IN (:...statuses)', {
+                statuses: ['stamped', 'cancel_pending'],
+            })
+                .getMany();
+            for (const invoice of invoices) {
+                const label = [invoice.series, invoice.folio].map((part) => part?.trim()).filter(Boolean).join('-') ||
+                    invoice.uuid?.trim() ||
+                    '';
+                if (!label)
+                    continue;
+                const list = labels.get(invoice.source_id) ?? [];
+                if (!list.includes(label))
+                    list.push(label);
+                labels.set(invoice.source_id, list);
+            }
+        }
+        return new Map([...labels.entries()].map(([id, list]) => [id, list.join(', ')]));
+    }
+    async loadSalesPaymentLabels(orderIds) {
+        const labels = new Map();
+        for (const ids of chunkIds(orderIds, 500)) {
+            const payments = await this.salesOrderRepo.manager
+                .getRepository(sales_order_payment_entity_1.SalesOrderPayment)
+                .createQueryBuilder('payment')
+                .select(['payment.id', 'payment.sales_order_id', 'payment.payment_method'])
+                .where('payment.sales_order_id IN (:...ids)', { ids })
+                .getMany();
+            for (const payment of payments) {
+                const label = sales_order_payment_display_util_1.SALES_ORDER_PAYMENT_METHOD_LABELS[payment.payment_method] ?? payment.payment_method;
+                const list = labels.get(payment.sales_order_id) ?? [];
+                if (label && !list.includes(label))
+                    list.push(label);
+                labels.set(payment.sales_order_id, list);
+            }
+        }
+        return labels;
     }
     posBranchSql() {
         return '(so.billing_branch_id = :branchId OR warehouse.billing_branch_id = :branchId)';
@@ -916,11 +1018,12 @@ let AccountingService = class AccountingService {
             exchange_rate_date: exchangeRateDate,
         };
     }
-    payableExcelSheets(rows, currency, searchLabel, dailyRate) {
+    payableExcelSheets(rows, currency, searchLabel, dailyRate, detail = []) {
         const banner = this.payableRateBanner(dailyRate);
         const sheets = [];
         if (currency === query_accounting_base_dto_1.AccountsPayableCurrencyView.ALL) {
             sheets.push(this.payableAmbosSheet(rows, searchLabel, dailyRate, banner));
+            sheets.push(this.ambosDetailSheet('Cuentas por pagar', 'Por pagar', detail, searchLabel, banner));
         }
         const views = currency === query_accounting_base_dto_1.AccountsPayableCurrencyView.ALL
             ? [query_accounting_base_dto_1.AccountsPayableCurrencyView.MXN, query_accounting_base_dto_1.AccountsPayableCurrencyView.USD]
@@ -1011,6 +1114,106 @@ let AccountingService = class AccountingService {
         return date
             ? `Tipo de cambio del sistema: ${formatted}  ·  ${date}`
             : `Tipo de cambio del sistema: ${formatted}`;
+    }
+    async collectPayableDetailLines(tenantId, search) {
+        const pendingOrders = await this.purchaseOrderRepo.find({
+            where: {
+                tenant_id: tenantId,
+                payment_status: 'Pendiente',
+            },
+            relations: ['vendor', 'payments'],
+        });
+        const term = search?.trim().toLowerCase();
+        const lines = [];
+        for (const order of pendingOrders) {
+            if (order.general_status === 'Cancelada')
+                continue;
+            const summary = this.buildPurchaseOrderPaymentSummary(order);
+            if (summary.amount_pending <= 0)
+                continue;
+            const vendor = order.vendor;
+            if (!vendor)
+                continue;
+            const razonSocial = vendor.razon_social?.trim() || vendor.name?.trim() || vendor.company_name?.trim() || '—';
+            if (term) {
+                const matches = vendor.name.toLowerCase().includes(term) ||
+                    (vendor.razon_social ?? '').toLowerCase().includes(term) ||
+                    (vendor.company_name ?? '').toLowerCase().includes(term);
+                if (!matches)
+                    continue;
+            }
+            const dated = toDetailDate(order.created_at);
+            const methods = [
+                ...new Set((order.payments ?? [])
+                    .map((payment) => payment.payment_method?.trim())
+                    .filter((method) => Boolean(method))),
+            ];
+            lines.push({
+                razon_social: razonSocial,
+                date: dated.display,
+                sort_date: dated.sort,
+                folio: order.folio?.trim() || '',
+                invoice: vendorInvoiceLabel(order),
+                payment_type: methods.length ? methods.join(' + ') : 'Pendiente',
+                currency: (0, accounts_payable_currency_util_1.normalizePayableCurrency)(order.payment_currency),
+                amount: summary.amount_pending,
+            });
+        }
+        return sortCurrencyDetailLines(lines);
+    }
+    ambosDetailSheet(titlePrefix, amountHeader, lines, searchLabel, banner) {
+        const totalMxn = roundPayableMoney(lines.filter((line) => line.currency === 'MXN').reduce((sum, line) => sum + line.amount, 0));
+        const totalUsd = roundPayableMoney(lines.filter((line) => line.currency === 'USD').reduce((sum, line) => sum + line.amount, 0));
+        return {
+            sheetName: 'Ambos detallado',
+            title: `${titlePrefix} — ambos detallado`,
+            banner,
+            subtitle: (0, excel_export_util_1.buildExportSubtitle)([
+                'Órdenes por razón social y fecha',
+                searchLabel,
+                `${lines.length} órdenes`,
+            ]),
+            headerColor: 'FF4338CA',
+            titleColor: 'FF312E81',
+            columns: [
+                { header: 'Razón social', key: 'razon_social', width: 36 },
+                { header: 'Fecha', key: 'date', width: 14 },
+                { header: 'Folio', key: 'folio', width: 16 },
+                { header: 'Factura', key: 'invoice', width: 24 },
+                { header: 'Tipo de pago', key: 'payment_type', width: 22 },
+                { header: 'Moneda', key: 'currency', width: 12 },
+                { header: amountHeader, key: 'amount', width: 18, type: 'currency' },
+            ],
+            rows: [
+                ...lines.map((line) => ({
+                    razon_social: line.razon_social,
+                    date: line.date,
+                    folio: line.folio,
+                    invoice: line.invoice,
+                    payment_type: line.payment_type,
+                    currency: line.currency,
+                    amount: line.amount,
+                })),
+                {
+                    razon_social: 'Total MXN',
+                    date: '',
+                    folio: '',
+                    invoice: '',
+                    payment_type: '',
+                    currency: 'MXN',
+                    amount: totalMxn,
+                },
+                {
+                    razon_social: 'Total USD',
+                    date: '',
+                    folio: '',
+                    invoice: '',
+                    payment_type: '',
+                    currency: 'USD',
+                    amount: totalUsd,
+                },
+            ],
+        };
     }
     payableVendorLabel(row) {
         return row.vendor_name?.trim() || row.razon_social?.trim() || row.company_name?.trim() || '—';
@@ -1216,5 +1419,48 @@ function formatPayableRateDate(value) {
     if (!match)
         return value;
     return `${match[3]}/${match[2]}/${match[1]}`;
+}
+function sortCurrencyDetailLines(lines) {
+    return [...lines].sort((left, right) => {
+        const byName = left.razon_social.localeCompare(right.razon_social, 'es', { sensitivity: 'base' });
+        if (byName !== 0)
+            return byName;
+        return left.sort_date.localeCompare(right.sort_date);
+    });
+}
+function toDetailDate(value) {
+    if (!value)
+        return { display: '', sort: '' };
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime()))
+        return { display: '', sort: '' };
+    return { display: (0, excel_export_util_1.formatExportDate)(date), sort: date.toISOString() };
+}
+function chunkIds(ids, size) {
+    if (!ids.length)
+        return [];
+    const chunks = [];
+    for (let index = 0; index < ids.length; index += size) {
+        chunks.push(ids.slice(index, index + size));
+    }
+    return chunks;
+}
+function vendorInvoiceLabel(order) {
+    let raw = order.vendor_invoice_numbers;
+    if (typeof raw === 'string' && raw.trim()) {
+        try {
+            raw = JSON.parse(raw);
+        }
+        catch {
+            raw = [raw];
+        }
+    }
+    const numbers = Array.isArray(raw)
+        ? raw.map((value) => String(value).trim()).filter(Boolean)
+        : [];
+    const unique = [...new Set(numbers)];
+    if (unique.length)
+        return unique.join(', ');
+    return order.vendor_invoice_number?.trim() || 'Sin factura';
 }
 //# sourceMappingURL=accounting.service.js.map

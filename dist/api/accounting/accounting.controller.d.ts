@@ -389,6 +389,7 @@ export declare class AccountingController {
             sale_total: number;
             cost_total: number;
             profit: number;
+            margin_percent: number | null;
             has_foreign_currency: boolean;
         };
         data: import("./utils/average-cost-report.util").SalesCostReportRow[];
