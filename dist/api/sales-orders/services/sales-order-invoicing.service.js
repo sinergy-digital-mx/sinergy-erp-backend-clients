@@ -190,8 +190,17 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
         };
     }
     async listInvoices(salesOrderId, tenantId) {
-        await this.getSalesOrderOrFail(salesOrderId, tenantId);
+        const order = await this.getSalesOrderOrFail(salesOrderId, tenantId);
         const invoices = await this.electronicInvoiceService.findBySource(tenantId, 'sales_orders', salesOrderId);
+        if (order.advance_invoice_id &&
+            !invoices.some((invoice) => invoice.id === order.advance_invoice_id)) {
+            const advance = await this.electronicInvoiceService
+                .findOne(order.advance_invoice_id, tenantId)
+                .catch(() => null);
+            if (advance) {
+                invoices.unshift(advance);
+            }
+        }
         for (const invoice of invoices) {
             await this.repairStoredStampDate(invoice);
         }
@@ -313,9 +322,9 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
         return invoice;
     }
     async cancelInvoice(salesOrderId, invoiceId, tenantId, userId, dto) {
-        await this.getSalesOrderOrFail(salesOrderId, tenantId);
+        const order = await this.getSalesOrderOrFail(salesOrderId, tenantId);
         const invoice = await this.electronicInvoiceService.findOne(invoiceId, tenantId);
-        if (invoice.source_module !== 'sales_orders' || invoice.source_id !== salesOrderId) {
+        if (!this.invoiceBelongsToOrder(order, invoice)) {
             throw new common_1.NotFoundException('La factura no pertenece a esta orden de venta');
         }
         await this.advanceCfdi.assertAdvanceCancellable(tenantId, invoice);
@@ -325,25 +334,25 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
         return cancelled;
     }
     async syncInvoiceSat(salesOrderId, invoiceId, tenantId, userId) {
-        await this.getSalesOrderOrFail(salesOrderId, tenantId);
+        const order = await this.getSalesOrderOrFail(salesOrderId, tenantId);
         const invoice = await this.electronicInvoiceService.findOne(invoiceId, tenantId);
-        if (invoice.source_module !== 'sales_orders' || invoice.source_id !== salesOrderId) {
+        if (!this.invoiceBelongsToOrder(order, invoice)) {
             throw new common_1.NotFoundException('La factura no pertenece a esta orden de venta');
         }
         return this.electronicInvoiceService.syncSatStatus(invoiceId, tenantId, userId, 'manual');
     }
     async getInvoicePdf(salesOrderId, invoiceId, tenantId, regenerate = false, preview = false) {
-        await this.getSalesOrderOrFail(salesOrderId, tenantId);
+        const order = await this.getSalesOrderOrFail(salesOrderId, tenantId);
         const invoice = await this.electronicInvoiceService.findOne(invoiceId, tenantId);
-        if (invoice.source_module !== 'sales_orders' || invoice.source_id !== salesOrderId) {
+        if (!this.invoiceBelongsToOrder(order, invoice)) {
             throw new common_1.NotFoundException('La factura no pertenece a esta orden de venta');
         }
         return this.electronicInvoiceService.getPdfDownload(invoiceId, tenantId, regenerate, preview);
     }
     async getInvoiceXml(salesOrderId, invoiceId, tenantId) {
-        await this.getSalesOrderOrFail(salesOrderId, tenantId);
+        const order = await this.getSalesOrderOrFail(salesOrderId, tenantId);
         const invoice = await this.electronicInvoiceService.findOne(invoiceId, tenantId);
-        if (invoice.source_module !== 'sales_orders' || invoice.source_id !== salesOrderId) {
+        if (!this.invoiceBelongsToOrder(order, invoice)) {
             throw new common_1.NotFoundException('La factura no pertenece a esta orden de venta');
         }
         return this.electronicInvoiceService.getXmlDownload(invoiceId, tenantId);
@@ -592,6 +601,16 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
     finkokEnvironment(invoice) {
         const value = invoice.metadata?.finkok_environment;
         return value === 'demo' || value === 'production' ? value : undefined;
+    }
+    invoiceBelongsToOrder(order, invoice) {
+        if (invoice.source_module === 'sales_orders' && invoice.source_id === order.id) {
+            return true;
+        }
+        if (order.advance_invoice_id && invoice.id === order.advance_invoice_id) {
+            return true;
+        }
+        return (!!order.advance_invoice_id &&
+            invoice.related_advance_invoice_id === order.advance_invoice_id);
     }
     async getSalesOrderOrFail(id, tenantId) {
         const order = await this.salesOrderRepo.findOne({

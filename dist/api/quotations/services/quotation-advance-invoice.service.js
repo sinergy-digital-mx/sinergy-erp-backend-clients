@@ -132,6 +132,14 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
         });
         return saved;
     }
+    async getPdf(id, invoiceId, tenantId, regenerate = false, preview = false) {
+        await this.assertOwnedInvoice(id, invoiceId, tenantId);
+        return this.electronicInvoiceService.getPdfDownload(invoiceId, tenantId, regenerate, preview);
+    }
+    async getXml(id, invoiceId, tenantId) {
+        await this.assertOwnedInvoice(id, invoiceId, tenantId);
+        return this.electronicInvoiceService.getXmlDownload(invoiceId, tenantId);
+    }
     async cancel(id, invoiceId, tenantId, userId, dto) {
         await this.requireQuotation(id, tenantId);
         const invoice = await this.electronicInvoiceService.findOne(invoiceId, tenantId);
@@ -157,6 +165,14 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
             return null;
         await this.salesOrderRepo.update({ id: salesOrderId, tenant_id: tenantId }, { advance_invoice_id: advance.id });
         return this.advancePayments.attachQuotationPaymentToOrder(tenantId, userId, quotationId, salesOrderId);
+    }
+    async assertOwnedInvoice(id, invoiceId, tenantId) {
+        await this.requireQuotation(id, tenantId);
+        const invoice = await this.electronicInvoiceService.findOne(invoiceId, tenantId);
+        if (invoice.source_module !== 'quotations' || invoice.source_id !== id) {
+            throw new common_1.NotFoundException('La factura no pertenece a esta cotización');
+        }
+        return invoice;
     }
     async requireQuotation(id, tenantId) {
         const quotation = await this.quotationRepo.findOne({

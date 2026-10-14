@@ -1426,6 +1426,8 @@ export declare class QuotationController {
     }>;
     listInvoices(id: string, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice[]>;
     stampAdvance(id: string, dto: StampAdvanceInvoiceDto, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
+    getAdvancePdf(id: string, invoiceId: string, regenerate: string | undefined, preview: string | undefined, req: any): Promise<import("../../electronic-invoicing/services/electronic-invoice-pdf.service").ElectronicInvoicePdfUploadResult>;
+    getAdvanceXml(id: string, invoiceId: string, req: any, res: any): Promise<void>;
     cancelAdvance(id: string, invoiceId: string, dto: CancelElectronicInvoiceDto, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     regenerateDocumentoOriginal(id: string, dto: RegenerateDocumentDto, req: any): Promise<{
         success: boolean;

@@ -20,6 +20,7 @@ export interface AdvanceDocumentContext {
 export interface AdvanceInvoiceSummary {
     id: string;
     uuid: string | null;
+    series: string | null;
     folio: string | null;
     subtotal: number;
     total: number;

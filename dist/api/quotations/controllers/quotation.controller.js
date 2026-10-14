@@ -106,6 +106,15 @@ let QuotationController = class QuotationController {
     stampAdvance(id, dto, req) {
         return this.advanceInvoices.stamp(id, req.user.tenant_id, req.user.id, dto);
     }
+    getAdvancePdf(id, invoiceId, regenerate, preview, req) {
+        return this.advanceInvoices.getPdf(id, invoiceId, req.user.tenant_id, regenerate === 'true' || regenerate === '1', preview === 'true' || preview === '1');
+    }
+    async getAdvanceXml(id, invoiceId, req, res) {
+        const { xml, fileName } = await this.advanceInvoices.getXml(id, invoiceId, req.user.tenant_id);
+        res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        res.send(xml);
+    }
     cancelAdvance(id, invoiceId, dto, req) {
         return this.advanceInvoices.cancel(id, invoiceId, req.user.tenant_id, req.user.id, dto);
     }
@@ -295,6 +304,29 @@ __decorate([
     __metadata("design:paramtypes", [String, stamp_advance_invoice_dto_1.StampAdvanceInvoiceDto, Object]),
     __metadata("design:returntype", void 0)
 ], QuotationController.prototype, "stampAdvance", null);
+__decorate([
+    (0, common_1.Get)(':id/invoices/:invoiceId/pdf'),
+    (0, swagger_1.ApiOperation)({ summary: 'PDF de la factura de anticipo de la cotización' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Param)('invoiceId')),
+    __param(2, (0, common_1.Query)('regenerate')),
+    __param(3, (0, common_1.Query)('preview')),
+    __param(4, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object, Object, Object]),
+    __metadata("design:returntype", void 0)
+], QuotationController.prototype, "getAdvancePdf", null);
+__decorate([
+    (0, common_1.Get)(':id/invoices/:invoiceId/xml'),
+    (0, swagger_1.ApiOperation)({ summary: 'XML de la factura de anticipo de la cotización' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Param)('invoiceId')),
+    __param(2, (0, common_1.Req)()),
+    __param(3, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], QuotationController.prototype, "getAdvanceXml", null);
 __decorate([
     (0, common_1.Post)(':id/invoices/:invoiceId/cancel'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),

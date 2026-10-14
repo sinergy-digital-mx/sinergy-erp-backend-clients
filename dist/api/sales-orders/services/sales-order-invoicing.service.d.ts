@@ -65,6 +65,7 @@ export declare class SalesOrderInvoicingService {
     private mapPaymentComplement;
     private readMetodoPago;
     private finkokEnvironment;
+    private invoiceBelongsToOrder;
     private getSalesOrderOrFail;
     private getSalesOrderWithRelations;
     stampAdvance(salesOrderId: string, tenantId: string, userId: string, dto: StampAdvanceInvoiceDto): Promise<ElectronicInvoice>;

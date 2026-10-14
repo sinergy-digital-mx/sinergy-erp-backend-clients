@@ -44,6 +44,7 @@ let AdvanceCfdiService = class AdvanceCfdiService {
         return {
             id: invoice.id,
             uuid: invoice.uuid,
+            series: invoice.series,
             folio: invoice.folio,
             subtotal: Number(invoice.subtotal),
             total: Number(invoice.total),

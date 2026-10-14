@@ -151,7 +151,11 @@ let SalesOrderInvoiceEmailService = class SalesOrderInvoiceEmailService {
             throw new common_1.NotFoundException('Orden de venta no encontrada');
         }
         const invoice = await this.electronicInvoiceService.findOne(invoiceId, tenantId);
-        if (invoice.source_module !== 'sales_orders' || invoice.source_id !== salesOrderId) {
+        const linkedAdvance = !!order.advance_invoice_id &&
+            (invoice.id === order.advance_invoice_id ||
+                invoice.related_advance_invoice_id === order.advance_invoice_id);
+        if ((invoice.source_module !== 'sales_orders' || invoice.source_id !== salesOrderId) &&
+            !linkedAdvance) {
             throw new common_1.NotFoundException('La factura no pertenece a esta orden de venta');
         }
         if (requireSendable && !this.isSendable(invoice)) {

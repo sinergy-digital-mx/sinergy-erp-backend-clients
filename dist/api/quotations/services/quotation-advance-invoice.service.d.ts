@@ -38,11 +38,17 @@ export declare class QuotationAdvanceInvoiceService {
     }>;
     list(id: string, tenantId: string): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice[]>;
     stamp(id: string, tenantId: string, userId: string, dto: StampAdvanceInvoiceDto): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
+    getPdf(id: string, invoiceId: string, tenantId: string, regenerate?: boolean, preview?: boolean): Promise<import("../../electronic-invoicing/services/electronic-invoice-pdf.service").ElectronicInvoicePdfUploadResult>;
+    getXml(id: string, invoiceId: string, tenantId: string): Promise<{
+        xml: string;
+        fileName: string;
+    }>;
     cancel(id: string, invoiceId: string, tenantId: string, userId: string, dto: CancelElectronicInvoiceDto): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     assertQuotationCancellable(quotation: Quotation): Promise<void>;
     attachToSalesOrder(tenantId: string, userId: string, quotationId: string, salesOrderId: string): Promise<{
         payment_status: string;
     } | null>;
+    private assertOwnedInvoice;
     private requireQuotation;
     private parties;
 }
