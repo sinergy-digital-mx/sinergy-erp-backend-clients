@@ -45,6 +45,7 @@ let PurchaseOrderBatch = class PurchaseOrderBatch {
     landed_increment_percentage;
     landed_merchandise_mxn;
     landed_extras_mxn;
+    landed_invoice_extras_mxn;
     requested_subtotal;
     requested_iva_total;
     requested_ieps_total;
@@ -177,6 +178,10 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'decimal', precision: 14, scale: 2, default: 0 }),
     __metadata("design:type", Number)
 ], PurchaseOrderBatch.prototype, "landed_extras_mxn", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'decimal', precision: 14, scale: 2, default: 0 }),
+    __metadata("design:type", Number)
+], PurchaseOrderBatch.prototype, "landed_invoice_extras_mxn", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'decimal', precision: 12, scale: 2, default: 0 }),
     __metadata("design:type", Number)

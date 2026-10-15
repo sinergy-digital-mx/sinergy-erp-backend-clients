@@ -464,6 +464,7 @@ let PurchaseOrderService = class PurchaseOrderService {
             concept: extra.concept,
             amount: Number(extra.amount),
             currency: extra.currency,
+            include_in_invoice: (0, purchase_order_real_cost_util_1.isInvoiceExtraFlag)(extra.include_in_invoice),
             sort_order: extra.sort_order,
         }));
         const hasRealCost = (0, purchase_order_real_cost_util_1.isRealCostEnabled)(po.customs_exchange_rate, extraCosts.length) ||
@@ -472,6 +473,7 @@ let PurchaseOrderService = class PurchaseOrderService {
         const landedCash = (0, purchase_order_real_cost_util_1.derivePersistedLandedCashTotals)({
             merchandise_mxn: po.landed_merchandise_mxn,
             extras_mxn: po.landed_extras_mxn,
+            invoice_extras_mxn: po.landed_invoice_extras_mxn,
             customs_exchange_rate: po.customs_exchange_rate,
         });
         return {
@@ -491,9 +493,16 @@ let PurchaseOrderService = class PurchaseOrderService {
             landed_increment_percentage: (0, purchase_order_real_cost_util_1.parseRealCostNumber)(po.landed_increment_percentage),
             landed_merchandise_mxn: (0, purchase_order_real_cost_util_1.parseRealCostNumber)(po.landed_merchandise_mxn),
             landed_extras_mxn: (0, purchase_order_real_cost_util_1.parseRealCostNumber)(po.landed_extras_mxn),
+            landed_invoice_extras_mxn: (0, purchase_order_real_cost_util_1.parseRealCostNumber)(po.landed_invoice_extras_mxn),
             landed_extras_usd: landedCash.extras_usd,
             landed_total_usd: landedCash.total_usd,
             landed_total_mxn: landedCash.total_mxn,
+            landed_contracted_mxn: landedCash.contracted_mxn,
+            landed_contracted_usd: landedCash.contracted_usd,
+            landed_invoice_mxn: landedCash.invoice_mxn,
+            landed_invoice_usd: landedCash.invoice_usd,
+            landed_operating_extras_mxn: landedCash.operating_extras_mxn,
+            landed_operating_extras_usd: landedCash.operating_extras_usd,
             razon_social: fiscal?.razon_social ?? null,
             sucursal: branch?.code ?? null,
             billing_branch_id: po.warehouse?.billing_branch_id ?? branch?.id ?? null,

@@ -9,6 +9,7 @@ export type RealCostLineInput = {
 export type RealCostExtraInput = {
     amount: number | string;
     currency: RealCostCurrency;
+    include_in_invoice?: boolean;
 };
 export type ComputeRealCostInput = {
     payment_currency: RealCostCurrency;
@@ -33,6 +34,13 @@ export type ComputeRealCostResult = {
     extras_amount: number;
     extras_mxn: number | null;
     extras_usd: number | null;
+    contracted_mxn: number | null;
+    contracted_usd: number | null;
+    invoice_extras_mxn: number | null;
+    invoice_mxn: number | null;
+    invoice_usd: number | null;
+    operating_extras_mxn: number | null;
+    operating_extras_usd: number | null;
     total_usd: number | null;
     total_mxn: number | null;
     lines: RealCostLineResult[];
@@ -41,7 +49,14 @@ export type PersistedLandedCashTotals = {
     extras_usd: number | null;
     total_usd: number | null;
     total_mxn: number;
+    contracted_mxn: number;
+    contracted_usd: number | null;
+    invoice_mxn: number;
+    invoice_usd: number | null;
+    operating_extras_mxn: number;
+    operating_extras_usd: number | null;
 };
+export declare function isInvoiceExtraFlag(value: unknown): boolean;
 export declare function parseRealCostNumber(value: unknown, fallback?: number): number;
 export declare function realCostLineQuantity(line: RealCostLineInput): number;
 export declare function parseCustomsExchangeRate(value: unknown): number | null;
@@ -54,6 +69,7 @@ export declare function assertExchangeRateIfNeeded(paymentCurrency: RealCostCurr
 export declare function derivePersistedLandedCashTotals(input: {
     merchandise_mxn: number | string | null | undefined;
     extras_mxn: number | string | null | undefined;
+    invoice_extras_mxn?: number | string | null | undefined;
     customs_exchange_rate: number | string | null | undefined;
 }): PersistedLandedCashTotals;
 export declare function computePurchaseOrderRealCost(input: ComputeRealCostInput): ComputeRealCostResult;

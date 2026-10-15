@@ -28,6 +28,7 @@ const EXCEL_COLUMNS = [
     { header: 'Fecha', key: 'date', width: 14 },
     { header: 'Tipo', key: 'type_code', width: 10, type: 'integer' },
     { header: 'Stat', key: 'status_code', width: 10, type: 'integer' },
+    { header: 'Moneda', key: 'currency_label', width: 14 },
     { header: 'Importe', key: 'amount', width: 14, type: 'currency' },
     { header: 'Descto', key: 'discount', width: 12, type: 'currency' },
     { header: 'Impuesto', key: 'tax', width: 12, type: 'currency' },
@@ -77,6 +78,7 @@ let AverageCostReportService = class AverageCostReportService {
                 periodLabel,
                 `Documentos: ${summary.document_count}`,
                 `Total venta: ${summary.sale_total.toFixed(2)}`,
+                'Importes convertidos a MXN',
                 `Total costo: ${summary.cost_total.toFixed(2)}`,
                 `Margen: ${summary.margin_percent == null ? '—' : `${summary.margin_percent.toFixed(2)}%`}`,
                 this.typeLegend(),
@@ -97,6 +99,7 @@ let AverageCostReportService = class AverageCostReportService {
             date: displayDay(row.date),
             type_code: row.type_code,
             status_code: row.status_code,
+            currency_label: (0, average_cost_report_util_1.salesCurrencyLabel)(row.source_currency, row.exchange_rate),
             amount: row.amount,
             discount: row.discount,
             tax: row.tax,
@@ -115,12 +118,49 @@ let AverageCostReportService = class AverageCostReportService {
             this.loadInvoicedOrderIds(tenantId, orderIds),
             this.loadSideDocuments(tenantId, filters.billing_branch_id, range),
         ]);
+        const orderInputs = orders.map((order) => this.toOrderInput(order, costs, allocationCosts, invoicedIds));
+        await this.applyMissingSaleRates(tenantId, orderInputs, sideDocuments);
         return (0, average_cost_report_util_1.buildSalesCostRows)({
             dateFrom: range.from,
             dateTo: range.to,
-            orders: orders.map((order) => this.toOrderInput(order, costs, allocationCosts, invoicedIds)),
+            orders: orderInputs,
             sideDocuments,
         });
+    }
+    async applyMissingSaleRates(tenantId, orders, sideDocuments) {
+        const missing = [
+            ...orders.filter((order) => needsDollarRate(order.currency, order.exchange_rate)).map((order) => order.created_on),
+            ...sideDocuments
+                .filter((document) => needsDollarRate(document.currency, document.exchange_rate))
+                .map((document) => document.stamped_on),
+        ].filter((day) => !!day);
+        if (!missing.length) {
+            return;
+        }
+        const until = missing.sort().at(-1);
+        const stored = await this.dataSource.query(`
+      SELECT rate_date, exchange_rate
+      FROM exchange_rates
+      WHERE tenant_id = ?
+        AND rate_date <= ?
+      ORDER BY rate_date ASC
+      `, [tenantId, until]);
+        const points = stored
+            .map((row) => ({
+            rate_date: sqlDay(row.rate_date) || '',
+            exchange_rate: toNum(row.exchange_rate),
+        }))
+            .filter((row) => row.rate_date && row.exchange_rate > 0);
+        for (const order of orders) {
+            if (needsDollarRate(order.currency, order.exchange_rate)) {
+                order.exchange_rate = (0, average_cost_report_util_1.rateOnOrBefore)(order.created_on, points);
+            }
+        }
+        for (const document of sideDocuments) {
+            if (needsDollarRate(document.currency, document.exchange_rate)) {
+                document.exchange_rate = (0, average_cost_report_util_1.rateOnOrBefore)(document.stamped_on, points);
+            }
+        }
     }
     loadOrders(tenantId, branchId, range) {
         const qb = this.dataSource
@@ -449,6 +489,9 @@ const LOT_UNIT_COST_SQL = `
     ELSE COALESCE(pod.received_original_unit_total, pod.unit_total) * (${LOT_UOM_SCALE_SQL})
   END
 `;
+function needsDollarRate(currency, exchangeRate) {
+    return (currency || '').trim().toUpperCase() === 'USD' && !(exchangeRate != null && exchangeRate > 0);
+}
 function chunk(items, size) {
     const chunks = [];
     for (let index = 0; index < items.length; index += size) {

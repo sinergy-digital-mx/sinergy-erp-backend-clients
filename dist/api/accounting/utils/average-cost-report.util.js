@@ -7,6 +7,8 @@ exports.buildSalesCostRows = buildSalesCostRows;
 exports.filterSalesCostRows = filterSalesCostRows;
 exports.summarizeSalesCostRows = summarizeSalesCostRows;
 exports.salesLineMargin = salesLineMargin;
+exports.rateOnOrBefore = rateOnOrBefore;
+exports.salesCurrencyLabel = salesCurrencyLabel;
 exports.SALES_COST_TYPE = {
     RECEIPT: 1,
     CASH_RETURN: 2,
@@ -194,6 +196,8 @@ function orderRow(order, reversal) {
         sale_total: signedSale,
         cost_total: cost,
         ...salesLineMargin({ sale_total: signedSale, tax: signedTax, cost_total: cost }),
+        source_currency: money.sourceCurrency,
+        exchange_rate: money.exchangeRate,
         currency: money.currency,
         reversal,
     };
@@ -234,6 +238,8 @@ function sideRow(document, reversal) {
         sale_total: signedSale,
         cost_total: 0,
         ...salesLineMargin({ sale_total: signedSale, tax: signedTax, cost_total: 0 }),
+        source_currency: money.sourceCurrency,
+        exchange_rate: money.exchangeRate,
         currency: money.currency,
         reversal,
     };
@@ -249,17 +255,41 @@ function saleStatus(order) {
 }
 function convertMoney(currency, exchangeRate) {
     const code = (currency || 'MXN').trim().toUpperCase() || 'MXN';
-    const rate = exchangeRate != null && exchangeRate > 0 ? exchangeRate : null;
-    const reportCurrency = code === 'USD' && rate == null ? 'USD' : 'MXN';
+    const sourceCurrency = code === 'USD' ? 'USD' : 'MXN';
+    const rate = sourceCurrency === 'USD' && exchangeRate != null && exchangeRate > 0 ? exchangeRate : null;
+    const converted = sourceCurrency !== 'USD' || rate != null;
     const convert = ((value) => {
         const amount = Number.isFinite(value) ? value : 0;
-        if (code === 'USD' && rate != null) {
+        if (sourceCurrency === 'USD' && rate != null) {
             return roundSalesCost(amount * rate);
         }
         return roundSalesCost(amount);
     });
-    convert.currency = reportCurrency;
+    convert.currency = converted ? 'MXN' : 'USD';
+    convert.sourceCurrency = sourceCurrency;
+    convert.exchangeRate = rate;
     return convert;
+}
+function rateOnOrBefore(day, points) {
+    const target = day.slice(0, 10);
+    let found = null;
+    const ordered = [...points].sort((left, right) => left.rate_date.localeCompare(right.rate_date));
+    for (const point of ordered) {
+        if (point.rate_date.slice(0, 10) <= target && point.exchange_rate > 0) {
+            found = point.exchange_rate;
+        }
+    }
+    return found;
+}
+function salesCurrencyLabel(sourceCurrency, exchangeRate) {
+    if (sourceCurrency === 'USD' && exchangeRate != null && exchangeRate > 0) {
+        return `USD ${formatExchangeRate(exchangeRate)}`;
+    }
+    return sourceCurrency === 'USD' ? 'USD' : 'MXN';
+}
+function formatExchangeRate(rate) {
+    const [whole, fraction = ''] = rate.toFixed(4).replace(/0+$/, '').replace(/\.$/, '').split('.');
+    return `${whole}.${(fraction || '').padEnd(2, '0').slice(0, 4)}`;
 }
 function inRange(day, from, to) {
     return !!day && day >= from && day <= to;

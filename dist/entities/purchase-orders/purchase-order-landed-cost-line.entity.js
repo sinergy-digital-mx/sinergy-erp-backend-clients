@@ -23,6 +23,7 @@ let PurchaseOrderLandedCostLine = class PurchaseOrderLandedCostLine {
     concept;
     amount;
     currency;
+    include_in_invoice;
     sort_order;
     creator;
     created_by;
@@ -72,6 +73,10 @@ __decorate([
     }),
     __metadata("design:type", String)
 ], PurchaseOrderLandedCostLine.prototype, "currency", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'tinyint', width: 1, default: 0 }),
+    __metadata("design:type", Boolean)
+], PurchaseOrderLandedCostLine.prototype, "include_in_invoice", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'int', default: 0 }),
     __metadata("design:type", Number)

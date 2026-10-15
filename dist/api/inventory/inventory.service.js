@@ -43,7 +43,10 @@ const product_search_rank_util_1 = require("./utils/product-search-rank.util");
 const inventory_batch_movements_service_1 = require("./services/inventory-batch-movements.service");
 const inventory_batch_movements_1 = require("./constants/inventory-batch-movements");
 const UNIT_COST_SQL = `(
-  COALESCE(pod.received_original_unit_total, pod.unit_total, 0)
+  CASE
+    WHEN pod.real_unit_cost_mxn IS NOT NULL THEN pod.real_unit_cost_mxn
+    ELSE COALESCE(pod.received_original_unit_total, pod.unit_total, 0)
+  END
   * CASE
       WHEN pod.received_converted_quantity IS NOT NULL
        AND pod.received_converted_quantity > 0

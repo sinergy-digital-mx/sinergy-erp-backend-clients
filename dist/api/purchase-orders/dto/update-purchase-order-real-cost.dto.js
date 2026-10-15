@@ -16,6 +16,7 @@ class PurchaseOrderExtraCostDto {
     concept;
     amount;
     currency;
+    include_in_invoice;
 }
 exports.PurchaseOrderExtraCostDto = PurchaseOrderExtraCostDto;
 __decorate([
@@ -33,6 +34,11 @@ __decorate([
     (0, class_validator_1.IsEnum)(['MXN', 'USD']),
     __metadata("design:type", String)
 ], PurchaseOrderExtraCostDto.prototype, "currency", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], PurchaseOrderExtraCostDto.prototype, "include_in_invoice", void 0);
 class PurchaseOrderRealCostLineIgiDto {
     line_item_id;
     igi_percentage;

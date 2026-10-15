@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.isInvoiceExtraFlag = isInvoiceExtraFlag;
 exports.parseRealCostNumber = parseRealCostNumber;
 exports.realCostLineQuantity = realCostLineQuantity;
 exports.parseCustomsExchangeRate = parseCustomsExchangeRate;
@@ -10,6 +11,9 @@ exports.computePurchaseOrderRealCost = computePurchaseOrderRealCost;
 exports.isRealCostEnabled = isRealCostEnabled;
 const common_1 = require("@nestjs/common");
 const purchase_order_line_breakdown_util_1 = require("./purchase-order-line-breakdown.util");
+function isInvoiceExtraFlag(value) {
+    return value === true || value === 1 || value === '1';
+}
 function parseRealCostNumber(value, fallback = 0) {
     if (value === undefined || value === null || value === '') {
         return fallback;
@@ -61,7 +65,10 @@ function sumConvertedExtras(extras, to, exchangeRate) {
 function derivePersistedLandedCashTotals(input) {
     const merchandiseMxn = (0, purchase_order_line_breakdown_util_1.roundPoMoney)(parseRealCostNumber(input.merchandise_mxn));
     const extrasMxn = (0, purchase_order_line_breakdown_util_1.roundPoMoney)(parseRealCostNumber(input.extras_mxn));
+    const invoiceExtrasMxn = Math.min((0, purchase_order_line_breakdown_util_1.roundPoMoney)(parseRealCostNumber(input.invoice_extras_mxn)), extrasMxn);
+    const operatingExtrasMxn = (0, purchase_order_line_breakdown_util_1.roundPoMoney)(extrasMxn - invoiceExtrasMxn);
     const totalMxn = (0, purchase_order_line_breakdown_util_1.roundPoMoney)(merchandiseMxn + extrasMxn);
+    const invoiceMxn = (0, purchase_order_line_breakdown_util_1.roundPoMoney)(merchandiseMxn + invoiceExtrasMxn);
     const rate = input.customs_exchange_rate == null || input.customs_exchange_rate === ''
         ? null
         : parseRealCostNumber(input.customs_exchange_rate, 0);
@@ -70,12 +77,24 @@ function derivePersistedLandedCashTotals(input) {
             extras_usd: null,
             total_usd: null,
             total_mxn: totalMxn,
+            contracted_mxn: merchandiseMxn,
+            contracted_usd: null,
+            invoice_mxn: invoiceMxn,
+            invoice_usd: null,
+            operating_extras_mxn: operatingExtrasMxn,
+            operating_extras_usd: null,
         };
     }
     return {
         extras_usd: (0, purchase_order_line_breakdown_util_1.roundPoMoney)(extrasMxn / rate),
         total_usd: (0, purchase_order_line_breakdown_util_1.roundPoMoney)(totalMxn / rate),
         total_mxn: totalMxn,
+        contracted_mxn: merchandiseMxn,
+        contracted_usd: (0, purchase_order_line_breakdown_util_1.roundPoMoney)(merchandiseMxn / rate),
+        invoice_mxn: invoiceMxn,
+        invoice_usd: (0, purchase_order_line_breakdown_util_1.roundPoMoney)(invoiceMxn / rate),
+        operating_extras_mxn: operatingExtrasMxn,
+        operating_extras_usd: (0, purchase_order_line_breakdown_util_1.roundPoMoney)(operatingExtrasMxn / rate),
     };
 }
 function computePurchaseOrderRealCost(input) {
@@ -118,9 +137,15 @@ function computePurchaseOrderRealCost(input) {
             real_unit_cost_mxn: hasRealCost && realMxn != null ? (0, purchase_order_line_breakdown_util_1.roundPoUnitCost)(realMxn) : null,
         };
     });
+    const invoiceExtras = extras.filter((extra) => extra.include_in_invoice === true);
+    const invoiceExtrasMxnRaw = sumConvertedExtras(invoiceExtras, 'MXN', exchangeRate);
     const extrasMxnResult = hasRealCost && (merchandiseMxn != null || extras.every((extra) => extra.currency === 'MXN'))
         ? (0, purchase_order_line_breakdown_util_1.roundPoMoney)(extrasMxn)
         : null;
+    const invoiceExtrasMxnResult = extrasMxnResult == null ? null : (0, purchase_order_line_breakdown_util_1.roundPoMoney)(Math.min(invoiceExtrasMxnRaw, extrasMxnResult));
+    const operatingExtrasMxnResult = extrasMxnResult == null || invoiceExtrasMxnResult == null
+        ? null
+        : (0, purchase_order_line_breakdown_util_1.roundPoMoney)(extrasMxnResult - invoiceExtrasMxnResult);
     const extrasUsdResult = extrasMxnResult != null && exchangeRate != null
         ? (0, purchase_order_line_breakdown_util_1.roundPoMoney)(extrasMxnResult / exchangeRate)
         : hasRealCost && extras.every((extra) => extra.currency === 'USD')
@@ -128,6 +153,15 @@ function computePurchaseOrderRealCost(input) {
             : null;
     const merchandiseMxnResult = merchandiseMxn == null ? null : (0, purchase_order_line_breakdown_util_1.roundPoMoney)(merchandiseMxn);
     const merchandiseUsdResult = merchandiseUsd == null ? null : (0, purchase_order_line_breakdown_util_1.roundPoMoney)(merchandiseUsd);
+    const invoiceMxnResult = merchandiseMxnResult == null || invoiceExtrasMxnResult == null
+        ? null
+        : (0, purchase_order_line_breakdown_util_1.roundPoMoney)(merchandiseMxnResult + invoiceExtrasMxnResult);
+    const operatingExtrasUsdResult = operatingExtrasMxnResult == null || exchangeRate == null
+        ? null
+        : (0, purchase_order_line_breakdown_util_1.roundPoMoney)(operatingExtrasMxnResult / exchangeRate);
+    const invoiceUsdResult = invoiceMxnResult == null || exchangeRate == null
+        ? null
+        : (0, purchase_order_line_breakdown_util_1.roundPoMoney)(invoiceMxnResult / exchangeRate);
     return {
         has_real_cost: hasRealCost,
         increment_ratio: incrementRatio,
@@ -137,6 +171,13 @@ function computePurchaseOrderRealCost(input) {
         extras_amount: (0, purchase_order_line_breakdown_util_1.roundPoMoney)(extrasAmount),
         extras_mxn: extrasMxnResult,
         extras_usd: extrasUsdResult,
+        contracted_mxn: merchandiseMxnResult,
+        contracted_usd: merchandiseUsdResult,
+        invoice_extras_mxn: invoiceExtrasMxnResult,
+        invoice_mxn: invoiceMxnResult,
+        invoice_usd: invoiceUsdResult,
+        operating_extras_mxn: operatingExtrasMxnResult,
+        operating_extras_usd: operatingExtrasUsdResult,
         total_usd: merchandiseUsdResult != null && extrasUsdResult != null
             ? (0, purchase_order_line_breakdown_util_1.roundPoMoney)(merchandiseUsdResult + extrasUsdResult)
             : null,

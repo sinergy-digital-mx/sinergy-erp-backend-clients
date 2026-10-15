@@ -2,6 +2,7 @@ export declare class PurchaseOrderExtraCostDto {
     concept: string;
     amount: number;
     currency: 'MXN' | 'USD';
+    include_in_invoice?: boolean;
 }
 export declare class PurchaseOrderRealCostLineIgiDto {
     line_item_id: string;

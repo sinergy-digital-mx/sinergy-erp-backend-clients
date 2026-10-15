@@ -69,6 +69,8 @@ export type SalesCostReportRow = {
     cost_total: number;
     margin_amount: number;
     margin_percent: number | null;
+    source_currency: string;
+    exchange_rate: number | null;
     currency: string;
     reversal: boolean;
 };
@@ -109,3 +111,8 @@ export declare function salesLineMargin(input: {
     margin_amount: number;
     margin_percent: number | null;
 };
+export declare function rateOnOrBefore(day: string, points: Array<{
+    rate_date: string;
+    exchange_rate: number;
+}>): number | null;
+export declare function salesCurrencyLabel(sourceCurrency: string, exchangeRate: number | null): string;

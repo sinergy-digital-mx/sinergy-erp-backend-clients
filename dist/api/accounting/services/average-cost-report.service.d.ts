@@ -31,6 +31,7 @@ export declare class AverageCostReportService {
     }>;
     private excelRow;
     private collectRows;
+    private applyMissingSaleRates;
     private loadOrders;
     private loadCosts;
     private loadAllocationCosts;

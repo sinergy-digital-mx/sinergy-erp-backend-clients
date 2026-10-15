@@ -32,6 +32,7 @@ export declare class PurchaseOrderBatch {
     landed_increment_percentage: number;
     landed_merchandise_mxn: number;
     landed_extras_mxn: number;
+    landed_invoice_extras_mxn: number;
     requested_subtotal: number;
     requested_iva_total: number;
     requested_ieps_total: number;

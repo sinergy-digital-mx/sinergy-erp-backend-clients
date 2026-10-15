@@ -50,6 +50,7 @@ let PurchaseOrderRealCostService = class PurchaseOrderRealCostService {
             concept: extra.concept.trim(),
             amount: extra.amount,
             currency: extra.currency,
+            include_in_invoice: extra.include_in_invoice === true,
         }));
         if (extras.some((extra) => !extra.concept)) {
             throw new common_1.BadRequestException('Cada gasto necesita un concepto');
@@ -84,6 +85,7 @@ let PurchaseOrderRealCostService = class PurchaseOrderRealCostService {
                 concept: extra.concept,
                 amount: extra.amount,
                 currency: extra.currency,
+                include_in_invoice: extra.include_in_invoice,
                 sort_order: index,
                 created_by: userId,
                 updated_by: userId,
@@ -145,6 +147,7 @@ let PurchaseOrderRealCostService = class PurchaseOrderRealCostService {
             extras: extras.map((extra) => ({
                 amount: extra.amount,
                 currency: extra.currency,
+                include_in_invoice: (0, purchase_order_real_cost_util_1.isInvoiceExtraFlag)(extra.include_in_invoice),
             })),
             lines: (purchaseOrder.line_items ?? []).map((line) => ({
                 id: line.id,
@@ -160,6 +163,7 @@ let PurchaseOrderRealCostService = class PurchaseOrderRealCostService {
             landed_increment_percentage: enabled ? computed.increment_percentage : 0,
             landed_merchandise_mxn: enabled ? computed.merchandise_mxn ?? 0 : 0,
             landed_extras_mxn: enabled ? computed.extras_mxn ?? 0 : 0,
+            landed_invoice_extras_mxn: enabled ? computed.invoice_extras_mxn ?? 0 : 0,
         });
         for (const line of purchaseOrder.line_items ?? []) {
             const result = computed.lines.find((item) => item.id === line.id);

@@ -10,6 +10,7 @@ export declare class PurchaseOrderLandedCostLine {
     concept: string;
     amount: number;
     currency: 'MXN' | 'USD';
+    include_in_invoice: boolean;
     sort_order: number;
     creator: User;
     created_by: string;
