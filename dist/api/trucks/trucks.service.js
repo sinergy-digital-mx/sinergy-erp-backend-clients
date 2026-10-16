@@ -20,6 +20,12 @@ const truck_entity_1 = require("../../entities/logistics/truck.entity");
 const shipping_entity_1 = require("../../entities/logistics/shipping.entity");
 const s3_service_1 = require("../../common/services/s3.service");
 const carta_porte_util_1 = require("../shippings/utils/carta-porte.util");
+function driverName(driver) {
+    if (!driver)
+        return null;
+    const name = [driver.first_name, driver.last_name].filter(Boolean).join(' ').trim();
+    return name || driver.email?.trim() || null;
+}
 function shippingDay(value) {
     if (!value)
         return null;
@@ -159,7 +165,7 @@ let TrucksService = class TrucksService {
                 truck_id: (0, typeorm_2.In)(withPhoto.map((truck) => truck.id)),
                 status: (0, typeorm_2.In)([...shipping_entity_1.ACTIVE_SHIPPING_STATUSES]),
             },
-            select: ['id', 'truck_id', 'status', 'shipping_date'],
+            relations: { driver: true },
         });
         const busy = new Map();
         for (const row of active) {
@@ -176,6 +182,7 @@ let TrucksService = class TrucksService {
                 active_shipping_id: shipping?.id ?? null,
                 active_shipping_status: shipping?.status ?? null,
                 active_shipping_date: shipping ? shippingDay(shipping.shipping_date) : null,
+                active_shipping_driver_name: shipping ? driverName(shipping.driver) : null,
             });
         });
     }
