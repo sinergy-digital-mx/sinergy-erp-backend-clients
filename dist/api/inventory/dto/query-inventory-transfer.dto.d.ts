@@ -1,4 +1,6 @@
+import { InventoryTransferStatus } from '../../../entities/inventory/inventory-transfer-status.enum';
 export declare class QueryInventoryTransferDto {
+    status?: InventoryTransferStatus;
     search?: string;
     product_id?: string;
     source_warehouse_id?: string;

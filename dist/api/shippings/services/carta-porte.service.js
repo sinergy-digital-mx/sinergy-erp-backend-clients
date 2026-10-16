@@ -103,6 +103,14 @@ let CartaPorteService = class CartaPorteService {
                 'stops.sales_order',
                 'stops.sales_order.customer',
                 'stops.customer_address',
+                'transfer_links',
+                'transfer_links.inventory_transfer',
+                'transfer_links.inventory_transfer.lines',
+                'transfer_links.inventory_transfer.lines.source_inventory_batch',
+                'transfer_links.inventory_transfer.lines.source_inventory_batch.product',
+                'transfer_links.inventory_transfer.destination_warehouse',
+                'transfer_links.inventory_transfer.destination_warehouse.billing_branch',
+                'transfer_links.inventory_transfer.destination_warehouse.billing_branch.fiscal_configuration',
             ],
             order: { stops: { stop_sequence: 'ASC' } },
         });
@@ -135,9 +143,12 @@ let CartaPorteService = class CartaPorteService {
             missing.push('El viaje no tiene kilómetros. Recalcula la ruta');
         }
         const stops = [...(shipping.stops ?? [])].sort((a, b) => (a.stop_sequence ?? 0) - (b.stop_sequence ?? 0));
-        if (!stops.length)
-            missing.push('El viaje no tiene paradas');
+        const links = shipping.transfer_links ?? [];
+        if (!stops.length && !links.length) {
+            missing.push('El viaje no tiene paradas ni transferencias');
+        }
         stops.forEach((stop, index) => this.collectStopMissing(stop, index, missing));
+        links.forEach((link) => this.collectTransferMissing(link, missing));
         return missing;
     }
     collectStopMissing(stop, index, missing) {
@@ -162,43 +173,107 @@ let CartaPorteService = class CartaPorteService {
             missing.push(`${label}: el código postal de entrega no tiene 5 dígitos`);
         }
     }
+    collectTransferMissing(link, missing) {
+        const transfer = link.inventory_transfer;
+        const label = transfer?.folio || 'transferencia';
+        const fiscal = transfer?.destination_warehouse?.billing_branch?.fiscal_configuration;
+        if (!fiscal?.rfc || !(0, carta_porte_util_1.isValidRfc)(fiscal.rfc)) {
+            missing.push(`${label}: la razón social destino no tiene RFC`);
+        }
+        if (!fiscal?.razon_social?.trim()) {
+            missing.push(`${label}: falta la razón social destino`);
+        }
+        const address = transferAddress(transfer);
+        if (!(address.street ?? '').trim())
+            missing.push(`${label}: falta la calle de destino`);
+        if (!(0, carta_porte_util_1.satStateCode)(address.state))
+            missing.push(`${label}: el estado de destino no es reconocible`);
+        if (!(0, carta_porte_util_1.postalCode)(address.postalCode)) {
+            missing.push(`${label}: el código postal de destino no tiene 5 dígitos`);
+        }
+    }
     async goodsOf(shipping, pesoBrutoKg, missing) {
         const orderIds = (shipping.stops ?? []).map((stop) => stop.sales_order_id);
-        if (!orderIds.length)
-            return [];
-        const details = await this.detailRepo.find({
-            where: { sales_order_id: (0, typeorm_2.In)(orderIds) },
-            relations: ['product'],
-        });
-        if (!details.length) {
-            missing.push('Las órdenes del viaje no tienen productos');
+        const details = orderIds.length
+            ? await this.detailRepo.find({
+                where: { sales_order_id: (0, typeorm_2.In)(orderIds) },
+                relations: ['product'],
+            })
+            : [];
+        const transferLines = (shipping.transfer_links ?? []).flatMap((link) => link.inventory_transfer?.lines ?? []);
+        if (!details.length && !transferLines.length) {
+            missing.push('El viaje no tiene productos');
             return [];
         }
-        const withoutClave = details.filter((line) => !(line.product?.sat_clave ?? '').trim());
-        if (withoutClave.length) {
-            const names = [...new Set(withoutClave.map((line) => line.product?.sku || line.product?.name))]
+        const orderMissing = details.filter((line) => !(line.product?.sat_clave ?? '').trim());
+        const transferMissing = transferLines.filter((line) => !(line.source_inventory_batch?.product?.sat_clave ?? '').trim());
+        if (orderMissing.length || transferMissing.length) {
+            const names = [
+                ...new Set([
+                    ...orderMissing.map((line) => line.product?.sku || line.product?.name),
+                    ...transferMissing.map((line) => line.source_inventory_batch?.product?.sku ||
+                        line.source_inventory_batch?.product?.name),
+                ]),
+            ]
                 .filter(Boolean)
                 .join(', ');
             missing.push(`Falta la clave SAT del producto: ${names}`);
             return [];
         }
-        const quantities = details.map((line) => Number(line.quantity) || 0);
+        const quantities = [
+            ...details.map((line) => Number(line.quantity) || 0),
+            ...transferLines.map((line) => Number(line.quantity) || 0),
+        ];
         const weights = (0, carta_porte_util_1.splitWeightKg)(pesoBrutoKg, quantities);
-        return details.map((line, index) => ({
+        const orderGoods = details.map((line, index) => ({
             satClave: line.product.sat_clave.trim(),
             description: (line.product.name || line.product.sku || 'Mercancía').trim(),
             quantity: Number(line.quantity) || 0,
             weightKg: weights[index],
         }));
+        const transferGoods = transferLines.map((line, index) => {
+            const product = line.source_inventory_batch.product;
+            return {
+                satClave: product.sat_clave.trim(),
+                description: (product.name || product.sku || 'Mercancía').trim(),
+                quantity: Number(line.quantity) || 0,
+                weightKg: weights[details.length + index],
+            };
+        });
+        return [...orderGoods, ...transferGoods];
     }
     toXmlInput(shipping) {
         const branch = shipping.origin_billing_branch;
         const fiscal = branch.fiscal_configuration;
         const stops = [...(shipping.stops ?? [])].sort((a, b) => (a.stop_sequence ?? 0) - (b.stop_sequence ?? 0));
+        const transferDestinations = uniqueTransferDestinations(shipping.transfer_links ?? []);
         const totalKm = Number(shipping.distance_km);
-        const shares = (0, carta_porte_util_1.splitWeightKg)(totalKm, stops.map(() => 1));
+        const shares = (0, carta_porte_util_1.splitWeightKg)(totalKm, [
+            ...stops.map(() => 1),
+            ...transferDestinations.map(() => 1),
+        ]);
         const truck = shipping.truck;
         const driver = shipping.driver;
+        const orderDestinations = stops.map((stop, index) => {
+            const customer = stop.sales_order.customer;
+            const address = stop.customer_address;
+            return {
+                rfc: (0, carta_porte_util_1.normalizeRfc)(customer.fiscal_rfc),
+                nombre: customerLabel(customer),
+                distanceKm: shares[index],
+                address: {
+                    street: address.street_address.trim(),
+                    stateCode: (0, carta_porte_util_1.satStateCode)(address.state),
+                    postalCode: (0, carta_porte_util_1.postalCode)(address.postal_code),
+                },
+            };
+        });
+        const transferXmlDestinations = transferDestinations.map((item, index) => ({
+            rfc: item.rfc,
+            nombre: item.nombre,
+            distanceKm: shares[stops.length + index],
+            address: item.address,
+        }));
         return {
             folio: shipping.id.replace(/-/g, '').slice(0, 8).toUpperCase(),
             fecha: cfdiFechaLocal(),
@@ -219,20 +294,7 @@ let CartaPorteService = class CartaPorteService {
                     postalCode: (0, carta_porte_util_1.postalCode)(branch.postal_code),
                 },
             },
-            destinations: stops.map((stop, index) => {
-                const customer = stop.sales_order.customer;
-                const address = stop.customer_address;
-                return {
-                    rfc: (0, carta_porte_util_1.normalizeRfc)(customer.fiscal_rfc),
-                    nombre: customerLabel(customer),
-                    distanceKm: shares[index],
-                    address: {
-                        street: address.street_address.trim(),
-                        stateCode: (0, carta_porte_util_1.satStateCode)(address.state),
-                        postalCode: (0, carta_porte_util_1.postalCode)(address.postal_code),
-                    },
-                };
-            }),
+            destinations: [...orderDestinations, ...transferXmlDestinations],
             vehicle: {
                 permSct: truck.permiso_sct.trim(),
                 numPermisoSct: truck.numero_permiso_sct.trim(),
@@ -272,6 +334,50 @@ function dateOnly(value) {
 function cfdiFechaLocal(now = new Date()) {
     const pad = (n) => String(n).padStart(2, '0');
     return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+}
+function transferAddress(transfer) {
+    const warehouse = transfer?.destination_warehouse;
+    const branch = warehouse?.billing_branch;
+    const warehouseScore = addressScore(warehouse?.street, warehouse?.state, warehouse?.zip_code);
+    const branchScore = addressScore(branch?.address, branch?.state, branch?.postal_code);
+    if (warehouseScore >= branchScore && warehouseScore > 0) {
+        return {
+            street: warehouse?.street ?? null,
+            state: warehouse?.state ?? null,
+            postalCode: warehouse?.zip_code ?? null,
+        };
+    }
+    return {
+        street: branch?.address ?? null,
+        state: branch?.state ?? null,
+        postalCode: branch?.postal_code ?? null,
+    };
+}
+function addressScore(street, state, postal) {
+    return [street?.trim(), (0, carta_porte_util_1.satStateCode)(state), (0, carta_porte_util_1.postalCode)(postal)].filter(Boolean).length;
+}
+function uniqueTransferDestinations(links) {
+    const seen = new Set();
+    const destinations = [];
+    for (const link of links) {
+        const transfer = link.inventory_transfer;
+        const warehouseId = transfer?.destination_warehouse_id;
+        if (!transfer || !warehouseId || seen.has(warehouseId))
+            continue;
+        seen.add(warehouseId);
+        const fiscal = transfer.destination_warehouse?.billing_branch?.fiscal_configuration;
+        const address = transferAddress(transfer);
+        destinations.push({
+            rfc: (0, carta_porte_util_1.normalizeRfc)(fiscal?.rfc),
+            nombre: (fiscal?.razon_social || transfer.destination_warehouse?.name || 'Destino').trim(),
+            address: {
+                street: (address.street ?? '').trim(),
+                stateCode: (0, carta_porte_util_1.satStateCode)(address.state) || '',
+                postalCode: (0, carta_porte_util_1.postalCode)(address.postalCode) || '',
+            },
+        });
+    }
+    return destinations;
 }
 function customerLabel(customer) {
     return (customer.fiscal_razon_social?.trim() ||

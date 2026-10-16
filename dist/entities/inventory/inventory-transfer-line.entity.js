@@ -20,6 +20,7 @@ let InventoryTransferLine = class InventoryTransferLine {
     source_inventory_batch;
     source_inventory_batch_id;
     quantity;
+    quantity_received;
     destination_inventory_batch;
     destination_inventory_batch_id;
     created_at;
@@ -55,13 +56,17 @@ __decorate([
     __metadata("design:type", Number)
 ], InventoryTransferLine.prototype, "quantity", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => inventory_batch_entity_1.InventoryBatch, { onDelete: 'RESTRICT', nullable: false }),
+    (0, typeorm_1.Column)({ type: 'decimal', precision: 12, scale: 3, nullable: true }),
+    __metadata("design:type", Object)
+], InventoryTransferLine.prototype, "quantity_received", void 0);
+__decorate([
+    (0, typeorm_1.ManyToOne)(() => inventory_batch_entity_1.InventoryBatch, { onDelete: 'RESTRICT', nullable: true }),
     (0, typeorm_1.JoinColumn)({ name: 'destination_inventory_batch_id' }),
-    __metadata("design:type", inventory_batch_entity_1.InventoryBatch)
+    __metadata("design:type", Object)
 ], InventoryTransferLine.prototype, "destination_inventory_batch", void 0);
 __decorate([
-    (0, typeorm_1.Column)(),
-    __metadata("design:type", String)
+    (0, typeorm_1.Column)({ type: 'varchar', length: '36', nullable: true }),
+    __metadata("design:type", Object)
 ], InventoryTransferLine.prototype, "destination_inventory_batch_id", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)({ type: 'timestamp' }),

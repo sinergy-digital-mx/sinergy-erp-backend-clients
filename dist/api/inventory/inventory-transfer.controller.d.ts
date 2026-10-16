@@ -1,6 +1,7 @@
 import { InventoryTransferService } from './services/inventory-transfer.service';
 import { InventoryTransferPdfService } from './services/inventory-transfer-pdf.service';
 import { CreateInventoryTransferDto } from './dto/create-inventory-transfer.dto';
+import { ReceiveInventoryTransferDto } from './dto/receive-inventory-transfer.dto';
 import { QueryInventoryTransferDto } from './dto/query-inventory-transfer.dto';
 import { TransferContextQueryDto } from './dto/transfer-context-query.dto';
 import { InventoryTransferListResponseDto, InventoryTransferResponseDto } from './dto/inventory-transfer-response.dto';
@@ -14,4 +15,6 @@ export declare class InventoryTransferController {
     downloadPdf(id: string, req: any, res: any): Promise<void>;
     findOne(id: string, req: any): Promise<InventoryTransferResponseDto>;
     create(dto: CreateInventoryTransferDto, req: any): Promise<InventoryTransferResponseDto>;
+    receive(id: string, dto: ReceiveInventoryTransferDto, req: any): Promise<InventoryTransferResponseDto>;
+    cancel(id: string, req: any): Promise<InventoryTransferResponseDto>;
 }

@@ -21,6 +21,7 @@ const uuid_1 = require("uuid");
 const inventory_transfer_entity_1 = require("../../../entities/inventory/inventory-transfer.entity");
 const inventory_transfer_line_entity_1 = require("../../../entities/inventory/inventory-transfer-line.entity");
 const inventory_transfer_status_enum_1 = require("../../../entities/inventory/inventory-transfer-status.enum");
+const shipping_inventory_transfer_entity_1 = require("../../../entities/logistics/shipping-inventory-transfer.entity");
 const inventory_batch_entity_1 = require("../../../entities/purchase-orders/inventory-batch.entity");
 const warehouse_entity_1 = require("../../../entities/warehouse/warehouse.entity");
 const batch_number_generator_service_1 = require("../../purchase-orders/services/batch-number-generator.service");
@@ -31,10 +32,12 @@ const inventory_stock_ledger_valuation_service_1 = require("./inventory-stock-le
 const inventory_stock_ledger_movement_type_enum_1 = require("../../../entities/inventory/inventory-stock-ledger-movement-type.enum");
 const inventory_measure_util_1 = require("../utils/inventory-measure.util");
 const fiscal_tax_policy_util_1 = require("../../billing/utils/fiscal-tax-policy.util");
+const inventory_transfer_reception_util_1 = require("../utils/inventory-transfer-reception.util");
 let InventoryTransferService = InventoryTransferService_1 = class InventoryTransferService {
     transferRepo;
     batchRepo;
     warehouseRepo;
+    shippingLinkRepo;
     folioService;
     batchNumberGenerator;
     inventoryService;
@@ -42,10 +45,11 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
     stockLedgerValuation;
     dataSource;
     logger = new common_1.Logger(InventoryTransferService_1.name);
-    constructor(transferRepo, batchRepo, warehouseRepo, folioService, batchNumberGenerator, inventoryService, stockLedger, stockLedgerValuation, dataSource) {
+    constructor(transferRepo, batchRepo, warehouseRepo, shippingLinkRepo, folioService, batchNumberGenerator, inventoryService, stockLedger, stockLedgerValuation, dataSource) {
         this.transferRepo = transferRepo;
         this.batchRepo = batchRepo;
         this.warehouseRepo = warehouseRepo;
+        this.shippingLinkRepo = shippingLinkRepo;
         this.folioService = folioService;
         this.batchNumberGenerator = batchNumberGenerator;
         this.inventoryService = inventoryService;
@@ -199,8 +203,11 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
                 source_warehouse_id: dto.source_warehouse_id,
                 destination_warehouse_id: dto.destination_warehouse_id,
                 total_quantity: parseFloat(totalRequested.toFixed(3)),
-                status: inventory_transfer_status_enum_1.InventoryTransferStatus.COMPLETED,
+                status: inventory_transfer_status_enum_1.InventoryTransferStatus.PENDING,
                 notes: dto.notes ?? null,
+                reception_notes: null,
+                received_at: null,
+                received_by: null,
                 created_by: userId,
             });
             await qr.manager.save(inventory_transfer_entity_1.InventoryTransfer, transfer);
@@ -220,34 +227,13 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
                 }
                 sourceBatch.available_quantity = parseFloat((available - requested).toFixed(3));
                 await qr.manager.save(inventory_batch_entity_1.InventoryBatch, sourceBatch);
-                const destBatchNumber = await this.batchNumberGenerator.generateBatchNumber(dto.destination_warehouse_id, tenantId, qr.manager);
-                const destinationBatch = qr.manager.create(inventory_batch_entity_1.InventoryBatch, {
-                    id: (0, uuid_1.v4)(),
-                    tenant_id: tenantId,
-                    batch_number: destBatchNumber,
-                    source_tag_identifier: sourceBatch.source_tag_identifier,
-                    measure: sourceBatch.measure,
-                    measure_uom_id: sourceBatch.measure_uom_id,
-                    photo: sourceBatch.photo,
-                    warehouse_id: dto.destination_warehouse_id,
-                    product_id: sourceBatch.product_id,
-                    uom_id: sourceBatch.uom_id,
-                    initial_quantity: requested,
-                    available_quantity: requested,
-                    purchase_order_batch_id: sourceBatch.purchase_order_batch_id,
-                    purchase_order_detail_id: sourceBatch.purchase_order_detail_id,
-                    pedimento_number: sourceBatch.pedimento_number,
-                    pedimento_entries: sourceBatch.pedimento_entries,
-                    transferred_from_batch_id: sourceBatch.id,
-                    created_by: userId,
-                });
-                await qr.manager.save(inventory_batch_entity_1.InventoryBatch, destinationBatch);
                 const line = qr.manager.create(inventory_transfer_line_entity_1.InventoryTransferLine, {
                     id: (0, uuid_1.v4)(),
                     inventory_transfer_id: transfer.id,
                     source_inventory_batch_id: sourceBatch.id,
                     quantity: requested,
-                    destination_inventory_batch_id: destinationBatch.id,
+                    quantity_received: null,
+                    destination_inventory_batch_id: null,
                 });
                 await qr.manager.save(inventory_transfer_line_entity_1.InventoryTransferLine, line);
                 const occurredAt = line.created_at ?? new Date();
@@ -268,25 +254,9 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
                     referenceFolio: folio,
                     createdBy: userId,
                 }, qr.manager);
-                await this.stockLedger.append({
-                    tenantId,
-                    productId: destinationBatch.product_id,
-                    warehouseId: destinationBatch.warehouse_id,
-                    uomId: destinationBatch.uom_id,
-                    inventoryBatchId: destinationBatch.id,
-                    movementType: inventory_stock_ledger_movement_type_enum_1.InventoryStockLedgerMovementType.TRANSFER_IN,
-                    quantityDelta: requested,
-                    unitCostMxn: valuation.unitCostMxn,
-                    unitSalePriceMxn: valuation.unitSalePriceMxn,
-                    occurredAt,
-                    referenceType: inventory_stock_ledger_service_1.STOCK_LEDGER_REFERENCE.INVENTORY_TRANSFER,
-                    referenceId: transfer.id,
-                    referenceFolio: folio,
-                    createdBy: userId,
-                }, qr.manager);
             }
             await qr.commitTransaction();
-            this.logger.log(`Transfer ${folio} created: ${totalRequested} units from ${dto.source_warehouse_id} to ${dto.destination_warehouse_id}`);
+            this.logger.log(`Transfer ${folio} held: ${totalRequested} units left ${dto.source_warehouse_id} pending reception at ${dto.destination_warehouse_id}`);
             return this.findById(transfer.id, tenantId);
         }
         catch (error) {
@@ -316,6 +286,9 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
             .leftJoinAndSelect('source_batch.measure_uom', 'line_measure_uom')
             .leftJoinAndSelect('lines.destination_inventory_batch', 'dest_batch')
             .where('transfer.tenant_id = :tenantId', { tenantId });
+        if (filters.status) {
+            query.andWhere('transfer.status = :status', { status: filters.status });
+        }
         if (filters.search) {
             query.andWhere(`(LOWER(transfer.folio) LIKE LOWER(:search)
           OR LOWER(COALESCE(product.name, '')) LIKE LOWER(:search)
@@ -374,6 +347,7 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
         const limit = filters.limit || 20;
         query.skip((page - 1) * limit).take(limit);
         const [data, total] = await query.getManyAndCount();
+        await this.attachShippingSummaries(data);
         return {
             data: data.map((t) => this.mapToResponseDto(t)),
             total,
@@ -405,7 +379,293 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
         if (!transfer) {
             throw new common_1.NotFoundException('Transferencia no encontrada');
         }
+        await this.attachShippingSummaries([transfer]);
         return this.mapToResponseDto(transfer);
+    }
+    async findPendingForShipping(tenantId, transferIds, originBranchId) {
+        const uniqueIds = [...new Set(transferIds)];
+        if (!uniqueIds.length)
+            return [];
+        const transfers = await this.transferRepo.find({
+            where: { id: (0, typeorm_2.In)(uniqueIds), tenant_id: tenantId },
+            relations: [
+                'source_warehouse',
+                'destination_warehouse',
+                'destination_warehouse.billing_branch',
+            ],
+        });
+        if (transfers.length !== uniqueIds.length) {
+            throw new common_1.NotFoundException('Una de las transferencias no existe');
+        }
+        const activeLinks = await this.shippingLinkRepo
+            .createQueryBuilder('link')
+            .innerJoin('link.shipping', 'shipping')
+            .where('link.inventory_transfer_id IN (:...ids)', { ids: uniqueIds })
+            .andWhere('link.tenant_id = :tenantId', { tenantId })
+            .andWhere("shipping.status <> 'Cancelado'")
+            .getMany();
+        const busy = new Set(activeLinks.map((link) => link.inventory_transfer_id));
+        for (const transfer of transfers) {
+            if (transfer.status !== inventory_transfer_status_enum_1.InventoryTransferStatus.PENDING) {
+                throw new common_1.BadRequestException(`La transferencia ${transfer.folio} no está pendiente`);
+            }
+            if (transfer.source_warehouse?.billing_branch_id !== originBranchId) {
+                throw new common_1.BadRequestException(`La transferencia ${transfer.folio} sale de otra sucursal`);
+            }
+            if (busy.has(transfer.id)) {
+                throw new common_1.BadRequestException(`La transferencia ${transfer.folio} ya está en un envío`);
+            }
+        }
+        return transfers;
+    }
+    async attachToShipping(manager, tenantId, shippingId, transferIds, originBranchId) {
+        const uniqueIds = [...new Set(transferIds)];
+        for (const transferId of uniqueIds) {
+            const transfer = await manager
+                .createQueryBuilder(inventory_transfer_entity_1.InventoryTransfer, 'transfer')
+                .where('transfer.id = :id', { id: transferId })
+                .andWhere('transfer.tenant_id = :tenantId', { tenantId })
+                .setLock('pessimistic_write')
+                .getOne();
+            if (!transfer) {
+                throw new common_1.NotFoundException('Transferencia no encontrada');
+            }
+            if (transfer.status !== inventory_transfer_status_enum_1.InventoryTransferStatus.PENDING) {
+                throw new common_1.BadRequestException(`La transferencia ${transfer.folio} no está pendiente`);
+            }
+            const source = await manager.findOne(warehouse_entity_1.Warehouse, {
+                where: { id: transfer.source_warehouse_id, tenant_id: tenantId },
+            });
+            if (source?.billing_branch_id !== originBranchId) {
+                throw new common_1.BadRequestException(`La transferencia ${transfer.folio} sale de otra sucursal`);
+            }
+            const active = await manager
+                .createQueryBuilder(shipping_inventory_transfer_entity_1.ShippingInventoryTransfer, 'link')
+                .innerJoin('link.shipping', 'shipping')
+                .where('link.inventory_transfer_id = :id', { id: transfer.id })
+                .andWhere("shipping.status <> 'Cancelado'")
+                .getOne();
+            if (active) {
+                throw new common_1.BadRequestException(`La transferencia ${transfer.folio} ya está en un envío`);
+            }
+            await manager.save(manager.create(shipping_inventory_transfer_entity_1.ShippingInventoryTransfer, {
+                id: (0, uuid_1.v4)(),
+                tenant_id: tenantId,
+                shipping_id: shippingId,
+                inventory_transfer_id: transfer.id,
+            }));
+            transfer.status = inventory_transfer_status_enum_1.InventoryTransferStatus.IN_TRANSIT;
+            await manager.save(inventory_transfer_entity_1.InventoryTransfer, transfer);
+        }
+    }
+    async assertReceivedBeforeClose(manager, tenantId, shippingId) {
+        const links = await manager.find(shipping_inventory_transfer_entity_1.ShippingInventoryTransfer, {
+            where: { shipping_id: shippingId, tenant_id: tenantId },
+            relations: ['inventory_transfer'],
+        });
+        const pending = links.filter((link) => !inventory_transfer_status_enum_1.RECEIVED_TRANSFER_STATUSES.includes(link.inventory_transfer?.status));
+        if (pending.length) {
+            const folios = pending
+                .map((link) => link.inventory_transfer?.folio)
+                .filter(Boolean)
+                .join(', ');
+            throw new common_1.BadRequestException(`Recibe la mercancía antes de cerrar el envío${folios ? `: ${folios}` : ''}`);
+        }
+    }
+    async releaseFromCancelledShipping(manager, tenantId, shippingId) {
+        const links = await manager.find(shipping_inventory_transfer_entity_1.ShippingInventoryTransfer, {
+            where: { shipping_id: shippingId, tenant_id: tenantId },
+            relations: ['inventory_transfer'],
+        });
+        for (const link of links) {
+            const transfer = link.inventory_transfer;
+            if (!transfer)
+                continue;
+            if (inventory_transfer_status_enum_1.RECEIVED_TRANSFER_STATUSES.includes(transfer.status)) {
+                throw new common_1.BadRequestException(`No se puede cancelar el envío: ${transfer.folio} ya fue recibida`);
+            }
+            if (transfer.status === inventory_transfer_status_enum_1.InventoryTransferStatus.IN_TRANSIT) {
+                transfer.status = inventory_transfer_status_enum_1.InventoryTransferStatus.PENDING;
+                await manager.save(inventory_transfer_entity_1.InventoryTransfer, transfer);
+            }
+        }
+    }
+    async receive(id, dto, tenantId, userId) {
+        const qr = this.dataSource.createQueryRunner();
+        await qr.connect();
+        await qr.startTransaction();
+        try {
+            const transfer = await qr.manager
+                .createQueryBuilder(inventory_transfer_entity_1.InventoryTransfer, 'transfer')
+                .where('transfer.id = :id', { id })
+                .andWhere('transfer.tenant_id = :tenantId', { tenantId })
+                .setLock('pessimistic_write')
+                .getOne();
+            if (!transfer) {
+                throw new common_1.NotFoundException('Transferencia no encontrada');
+            }
+            transfer.lines = await qr.manager.find(inventory_transfer_line_entity_1.InventoryTransferLine, {
+                where: { inventory_transfer_id: transfer.id },
+                relations: ['source_inventory_batch'],
+            });
+            if (transfer.status !== inventory_transfer_status_enum_1.InventoryTransferStatus.IN_TRANSIT) {
+                throw new common_1.BadRequestException('Solo se recibe una transferencia que ya tiene envío');
+            }
+            const link = await qr.manager
+                .createQueryBuilder(shipping_inventory_transfer_entity_1.ShippingInventoryTransfer, 'link')
+                .innerJoinAndSelect('link.shipping', 'shipping')
+                .where('link.inventory_transfer_id = :id', { id: transfer.id })
+                .andWhere("shipping.status <> 'Cancelado'")
+                .getOne();
+            if (!link?.shipping || link.shipping.status === 'Completado') {
+                throw new common_1.BadRequestException('El envío de esta transferencia no está abierto');
+            }
+            const lines = transfer.lines ?? [];
+            const incoming = new Map(dto.lines.map((line) => [line.id, line.quantity_received]));
+            if (incoming.size !== dto.lines.length) {
+                throw new common_1.BadRequestException('No se puede repetir la misma línea');
+            }
+            if (lines.length !== incoming.size || lines.some((line) => !incoming.has(line.id))) {
+                throw new common_1.BadRequestException('Hay que contar todas las líneas de la transferencia');
+            }
+            const comparisons = [];
+            for (const line of lines) {
+                const shipped = parseFloat(line.quantity?.toString() ?? '0');
+                const received = (0, inventory_transfer_reception_util_1.roundTransferQty)(incoming.get(line.id) ?? 0);
+                const error = (0, inventory_transfer_reception_util_1.receptionQuantityError)(shipped, received);
+                if (error) {
+                    throw new common_1.BadRequestException(error);
+                }
+                comparisons.push({ shipped, received });
+                const sourceBatch = line.source_inventory_batch;
+                if (!sourceBatch) {
+                    throw new common_1.NotFoundException('Lote origen no encontrado');
+                }
+                line.quantity_received = received;
+                if (received > 0) {
+                    const destBatchNumber = await this.batchNumberGenerator.generateBatchNumber(transfer.destination_warehouse_id, tenantId, qr.manager);
+                    const destinationBatch = qr.manager.create(inventory_batch_entity_1.InventoryBatch, {
+                        id: (0, uuid_1.v4)(),
+                        tenant_id: tenantId,
+                        batch_number: destBatchNumber,
+                        source_tag_identifier: sourceBatch.source_tag_identifier,
+                        measure: sourceBatch.measure,
+                        measure_uom_id: sourceBatch.measure_uom_id,
+                        photo: sourceBatch.photo,
+                        warehouse_id: transfer.destination_warehouse_id,
+                        product_id: sourceBatch.product_id,
+                        uom_id: sourceBatch.uom_id,
+                        initial_quantity: received,
+                        available_quantity: received,
+                        purchase_order_batch_id: sourceBatch.purchase_order_batch_id,
+                        purchase_order_detail_id: sourceBatch.purchase_order_detail_id,
+                        pedimento_number: sourceBatch.pedimento_number,
+                        pedimento_entries: sourceBatch.pedimento_entries,
+                        transferred_from_batch_id: sourceBatch.id,
+                        created_by: userId,
+                    });
+                    await qr.manager.save(inventory_batch_entity_1.InventoryBatch, destinationBatch);
+                    line.destination_inventory_batch_id = destinationBatch.id;
+                    const valuation = await this.stockLedgerValuation.resolveFromBatchId(tenantId, sourceBatch.id, qr.manager);
+                    await this.stockLedger.append({
+                        tenantId,
+                        productId: destinationBatch.product_id,
+                        warehouseId: destinationBatch.warehouse_id,
+                        uomId: destinationBatch.uom_id,
+                        inventoryBatchId: destinationBatch.id,
+                        movementType: inventory_stock_ledger_movement_type_enum_1.InventoryStockLedgerMovementType.TRANSFER_IN,
+                        quantityDelta: received,
+                        unitCostMxn: valuation.unitCostMxn,
+                        unitSalePriceMxn: valuation.unitSalePriceMxn,
+                        occurredAt: new Date(),
+                        referenceType: inventory_stock_ledger_service_1.STOCK_LEDGER_REFERENCE.INVENTORY_TRANSFER,
+                        referenceId: transfer.id,
+                        referenceFolio: transfer.folio,
+                        createdBy: userId,
+                    }, qr.manager);
+                }
+                await qr.manager.save(inventory_transfer_line_entity_1.InventoryTransferLine, line);
+            }
+            transfer.status = (0, inventory_transfer_reception_util_1.receptionStatus)(comparisons);
+            transfer.received_at = new Date();
+            transfer.received_by = userId;
+            transfer.reception_notes = dto.notes?.trim() || null;
+            await qr.manager.save(inventory_transfer_entity_1.InventoryTransfer, transfer);
+            await qr.commitTransaction();
+            return this.findById(transfer.id, tenantId);
+        }
+        catch (error) {
+            await qr.rollbackTransaction();
+            throw error;
+        }
+        finally {
+            await qr.release();
+        }
+    }
+    async cancel(id, tenantId, userId) {
+        const qr = this.dataSource.createQueryRunner();
+        await qr.connect();
+        await qr.startTransaction();
+        try {
+            const transfer = await qr.manager
+                .createQueryBuilder(inventory_transfer_entity_1.InventoryTransfer, 'transfer')
+                .where('transfer.id = :id', { id })
+                .andWhere('transfer.tenant_id = :tenantId', { tenantId })
+                .setLock('pessimistic_write')
+                .getOne();
+            if (!transfer) {
+                throw new common_1.NotFoundException('Transferencia no encontrada');
+            }
+            transfer.lines = await qr.manager.find(inventory_transfer_line_entity_1.InventoryTransferLine, {
+                where: { inventory_transfer_id: transfer.id },
+            });
+            if (transfer.status !== inventory_transfer_status_enum_1.InventoryTransferStatus.PENDING) {
+                throw new common_1.BadRequestException('Solo se puede cancelar una transferencia pendiente, sin envío');
+            }
+            for (const line of transfer.lines ?? []) {
+                const sourceBatch = await qr.manager
+                    .createQueryBuilder(inventory_batch_entity_1.InventoryBatch, 'batch')
+                    .where('batch.id = :id', { id: line.source_inventory_batch_id })
+                    .setLock('pessimistic_write')
+                    .getOne();
+                if (!sourceBatch) {
+                    throw new common_1.NotFoundException('Lote origen no encontrado');
+                }
+                const quantity = parseFloat(line.quantity?.toString() ?? '0');
+                const available = parseFloat(sourceBatch.available_quantity?.toString() ?? '0');
+                sourceBatch.available_quantity = parseFloat((available + quantity).toFixed(3));
+                await qr.manager.save(inventory_batch_entity_1.InventoryBatch, sourceBatch);
+                const valuation = await this.stockLedgerValuation.resolveFromBatchId(tenantId, sourceBatch.id, qr.manager);
+                await this.stockLedger.append({
+                    tenantId,
+                    productId: sourceBatch.product_id,
+                    warehouseId: sourceBatch.warehouse_id,
+                    uomId: sourceBatch.uom_id,
+                    inventoryBatchId: sourceBatch.id,
+                    movementType: inventory_stock_ledger_movement_type_enum_1.InventoryStockLedgerMovementType.TRANSFER_IN,
+                    quantityDelta: quantity,
+                    unitCostMxn: valuation.unitCostMxn,
+                    unitSalePriceMxn: valuation.unitSalePriceMxn,
+                    occurredAt: new Date(),
+                    referenceType: inventory_stock_ledger_service_1.STOCK_LEDGER_REFERENCE.INVENTORY_TRANSFER,
+                    referenceId: transfer.id,
+                    referenceFolio: transfer.folio,
+                    createdBy: userId,
+                    notes: 'Cancelación de transferencia pendiente',
+                }, qr.manager);
+            }
+            transfer.status = inventory_transfer_status_enum_1.InventoryTransferStatus.CANCELLED;
+            await qr.manager.save(inventory_transfer_entity_1.InventoryTransfer, transfer);
+            await qr.commitTransaction();
+            return this.findById(transfer.id, tenantId);
+        }
+        catch (error) {
+            await qr.rollbackTransaction();
+            throw error;
+        }
+        finally {
+            await qr.release();
+        }
     }
     mapToResponseDto(transfer) {
         const products = this.buildProductSummaries(transfer);
@@ -425,6 +685,11 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
             total_quantity: parseFloat(transfer.total_quantity?.toString() ?? '0').toFixed(3),
             status: transfer.status,
             notes: transfer.notes,
+            reception_notes: transfer.reception_notes ?? null,
+            received_at: transfer.received_at ?? null,
+            shipping_id: this.activeShipping(transfer)?.id ?? null,
+            shipping_status: this.activeShipping(transfer)?.status ?? null,
+            shipping_date: this.shippingDate(this.activeShipping(transfer)),
             created_by_user: {
                 id: transfer.created_by,
                 name: [transfer.created_by_user?.first_name, transfer.created_by_user?.last_name]
@@ -456,6 +721,9 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
             destination_batch_id: line.destination_inventory_batch_id,
             destination_batch_number: line.destination_inventory_batch?.batch_number ?? '',
             quantity: parseFloat(line.quantity?.toString() ?? '0').toFixed(3),
+            quantity_received: line.quantity_received == null
+                ? null
+                : parseFloat(line.quantity_received.toString()).toFixed(3),
             measure_label: measure.measure_label ?? null,
             created_at: line.created_at,
         };
@@ -508,6 +776,36 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
             quantity: group.quantity,
             lines_count: group.lines_count,
         }));
+    }
+    async attachShippingSummaries(transfers) {
+        if (!transfers.length)
+            return;
+        const links = await this.shippingLinkRepo.find({
+            where: { inventory_transfer_id: (0, typeorm_2.In)(transfers.map((transfer) => transfer.id)) },
+            relations: ['shipping'],
+        });
+        const byTransfer = new Map();
+        for (const link of links) {
+            const list = byTransfer.get(link.inventory_transfer_id) ?? [];
+            list.push(link);
+            byTransfer.set(link.inventory_transfer_id, list);
+        }
+        for (const transfer of transfers) {
+            transfer.shipping_links = byTransfer.get(transfer.id) ?? [];
+        }
+    }
+    activeShipping(transfer) {
+        const link = (transfer.shipping_links ?? []).find((item) => item.shipping && item.shipping.status !== 'Cancelado');
+        return link?.shipping ?? null;
+    }
+    shippingDate(shipping) {
+        if (!shipping?.shipping_date)
+            return null;
+        const value = shipping.shipping_date;
+        if (typeof value === 'string')
+            return value.slice(0, 10);
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
     }
     assertTransferFiscalScope(source, destination) {
         const sourceFiscalId = source.billing_branch?.fiscal_configuration?.id ??
@@ -566,7 +864,9 @@ exports.InventoryTransferService = InventoryTransferService = InventoryTransferS
     __param(0, (0, typeorm_1.InjectRepository)(inventory_transfer_entity_1.InventoryTransfer)),
     __param(1, (0, typeorm_1.InjectRepository)(inventory_batch_entity_1.InventoryBatch)),
     __param(2, (0, typeorm_1.InjectRepository)(warehouse_entity_1.Warehouse)),
+    __param(3, (0, typeorm_1.InjectRepository)(shipping_inventory_transfer_entity_1.ShippingInventoryTransfer)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
         inventory_transfer_folio_service_1.InventoryTransferFolioService,

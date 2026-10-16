@@ -18,6 +18,7 @@ const uom_catalog_entity_1 = require("../uom-catalog/uom-catalog.entity");
 const user_entity_1 = require("../users/user.entity");
 const inventory_transfer_status_enum_1 = require("./inventory-transfer-status.enum");
 const inventory_transfer_line_entity_1 = require("./inventory-transfer-line.entity");
+const shipping_inventory_transfer_entity_1 = require("../logistics/shipping-inventory-transfer.entity");
 let InventoryTransfer = class InventoryTransfer {
     id;
     tenant;
@@ -34,10 +35,14 @@ let InventoryTransfer = class InventoryTransfer {
     total_quantity;
     status;
     notes;
+    reception_notes;
+    received_at;
+    received_by;
     created_by_user;
     created_by;
     created_at;
     lines;
+    shipping_links;
 };
 exports.InventoryTransfer = InventoryTransfer;
 __decorate([
@@ -101,7 +106,7 @@ __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',
         enum: inventory_transfer_status_enum_1.InventoryTransferStatus,
-        default: inventory_transfer_status_enum_1.InventoryTransferStatus.COMPLETED,
+        default: inventory_transfer_status_enum_1.InventoryTransferStatus.PENDING,
     }),
     __metadata("design:type", String)
 ], InventoryTransfer.prototype, "status", void 0);
@@ -109,6 +114,18 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'text', nullable: true }),
     __metadata("design:type", Object)
 ], InventoryTransfer.prototype, "notes", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'text', nullable: true }),
+    __metadata("design:type", Object)
+], InventoryTransfer.prototype, "reception_notes", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'timestamp', nullable: true }),
+    __metadata("design:type", Object)
+], InventoryTransfer.prototype, "received_at", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 36, nullable: true }),
+    __metadata("design:type", Object)
+], InventoryTransfer.prototype, "received_by", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => user_entity_1.User, { onDelete: 'RESTRICT', nullable: false }),
     (0, typeorm_1.JoinColumn)({ name: 'created_by' }),
@@ -126,6 +143,10 @@ __decorate([
     (0, typeorm_1.OneToMany)(() => inventory_transfer_line_entity_1.InventoryTransferLine, (line) => line.inventory_transfer),
     __metadata("design:type", Array)
 ], InventoryTransfer.prototype, "lines", void 0);
+__decorate([
+    (0, typeorm_1.OneToMany)(() => shipping_inventory_transfer_entity_1.ShippingInventoryTransfer, (link) => link.inventory_transfer),
+    __metadata("design:type", Array)
+], InventoryTransfer.prototype, "shipping_links", void 0);
 exports.InventoryTransfer = InventoryTransfer = __decorate([
     (0, typeorm_1.Entity)('inv_s_inventory_transfers'),
     (0, typeorm_1.Index)('idx_transfer_tenant', ['tenant_id']),

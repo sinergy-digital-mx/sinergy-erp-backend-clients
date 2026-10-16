@@ -9,7 +9,8 @@ export declare class CreateShippingDto {
     truck_id: string;
     billing_branch_id: string;
     notes?: string;
-    orders: ShippingOrderItemDto[];
+    orders?: ShippingOrderItemDto[];
+    inventory_transfer_ids?: string[];
 }
 export declare class PreviewShippingDto {
     billing_branch_id: string;

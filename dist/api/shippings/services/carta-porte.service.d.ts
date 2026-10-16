@@ -14,6 +14,7 @@ export declare class CartaPorteService {
     private load;
     private collectMissing;
     private collectStopMissing;
+    private collectTransferMissing;
     private goodsOf;
     private toXmlInput;
 }

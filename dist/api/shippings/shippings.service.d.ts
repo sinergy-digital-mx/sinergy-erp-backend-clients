@@ -7,6 +7,7 @@ import { BillingBranch } from '../../entities/billing/billing-branch.entity';
 import { User } from '../../entities/users/user.entity';
 import { SalesOrder } from '../../entities/sales-orders/sales-order.entity';
 import { CustomerAddress } from '../../entities/customers/customer-address.entity';
+import { InventoryTransferService } from '../inventory/services/inventory-transfer.service';
 import { AddShippingStopsDto, CreateShippingDto, PreviewShippingDto, QueryAvailableShippingOrdersDto, QueryShippingDto, ResolveOrdersDto, UpdateShippingStatusDto } from './dto/shipping.dto';
 export interface CustomerAddressOption {
     id: number;
@@ -28,7 +29,8 @@ export declare class ShippingsService {
     private readonly soRepo;
     private readonly addressRepo;
     private readonly dataSource;
-    constructor(shippingRepo: Repository<Shipping>, stopRepo: Repository<ShippingStop>, truckRepo: Repository<Truck>, warehouseRepo: Repository<Warehouse>, branchRepo: Repository<BillingBranch>, userRepo: Repository<User>, soRepo: Repository<SalesOrder>, addressRepo: Repository<CustomerAddress>, dataSource: DataSource);
+    private readonly transfers;
+    constructor(shippingRepo: Repository<Shipping>, stopRepo: Repository<ShippingStop>, truckRepo: Repository<Truck>, warehouseRepo: Repository<Warehouse>, branchRepo: Repository<BillingBranch>, userRepo: Repository<User>, soRepo: Repository<SalesOrder>, addressRepo: Repository<CustomerAddress>, dataSource: DataSource, transfers: InventoryTransferService);
     preview(dto: PreviewShippingDto, tenantId: string): Promise<{
         origin: {
             label: string;
@@ -180,6 +182,8 @@ export declare class ShippingsService {
             stops_count: number;
         };
     }>;
+    private attachTransferView;
+    private distanceWithTransfers;
     private buildStopDistances;
     private resolveStops;
     private resolveAddressForOrder;

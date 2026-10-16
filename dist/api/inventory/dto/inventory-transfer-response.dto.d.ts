@@ -8,10 +8,11 @@ export declare class InventoryTransferLineResponseDto {
     source_inventory_batch_id: string;
     source_batch_id: string;
     source_batch_number: string;
-    destination_inventory_batch_id: string;
-    destination_batch_id: string;
+    destination_inventory_batch_id: string | null;
+    destination_batch_id: string | null;
     destination_batch_number: string;
     quantity: string;
+    quantity_received: string | null;
     measure_label: string | null;
     created_at: Date;
 }
@@ -56,6 +57,11 @@ export declare class InventoryTransferResponseDto {
     total_quantity: string;
     status: string;
     notes: string | null;
+    reception_notes: string | null;
+    received_at: Date | null;
+    shipping_id: string | null;
+    shipping_status: string | null;
+    shipping_date: string | null;
     created_by_user: InventoryTransferUserSummaryDto;
     created_at: Date;
     lines: InventoryTransferLineResponseDto[];

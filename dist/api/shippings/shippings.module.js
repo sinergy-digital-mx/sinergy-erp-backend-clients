@@ -25,6 +25,7 @@ const auth_module_1 = require("../auth/auth.module");
 const rbac_module_1 = require("../rbac/rbac.module");
 const shippings_controller_1 = require("./shippings.controller");
 const shippings_service_1 = require("./shippings.service");
+const inventory_module_1 = require("../inventory/inventory.module");
 let ShippingsModule = class ShippingsModule {
 };
 exports.ShippingsModule = ShippingsModule;
@@ -45,6 +46,7 @@ exports.ShippingsModule = ShippingsModule = __decorate([
             auth_module_1.AuthModule,
             rbac_module_1.RBACModule,
             electronic_invoicing_module_1.ElectronicInvoicingModule,
+            inventory_module_1.InventoryModule,
         ],
         controllers: [shippings_controller_1.ShippingsController],
         providers: [shippings_service_1.ShippingsService, carta_porte_service_1.CartaPorteService, carta_porte_pdf_service_1.CartaPortePdfService],

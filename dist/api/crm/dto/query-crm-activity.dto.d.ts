@@ -6,6 +6,7 @@ export declare enum CrmReportPeriod {
     YEAR = "year",
     RANGE = "range"
 }
+export declare const CRM_OUTCOME_NONE = "none";
 export declare enum CrmAttentionFilter {
     FOLLOW_UP_PENDING = "follow_up_pending",
     FOLLOW_UP_OVERDUE = "follow_up_overdue",
@@ -18,6 +19,7 @@ export declare class QueryCrmActivityDto {
     search?: string;
     type?: CustomerActivityType;
     status?: CustomerActivityStatus;
+    outcome?: string;
     user_id?: string;
     period?: CrmReportPeriod;
     date_from?: string;

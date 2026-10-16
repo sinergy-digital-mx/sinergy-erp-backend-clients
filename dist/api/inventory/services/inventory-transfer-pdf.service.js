@@ -696,6 +696,10 @@ let InventoryTransferPdfService = class InventoryTransferPdfService {
     }
     statusLabel(status) {
         const map = {
+            pending: 'Pendiente',
+            in_transit: 'En envío',
+            received: 'Recibida',
+            received_with_difference: 'Recibida con diferencia',
             completed: 'Completada',
             cancelled: 'Cancelada',
         };

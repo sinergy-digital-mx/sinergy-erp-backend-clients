@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.QueryCrmActivityDto = exports.CrmAttentionFilter = exports.CrmReportPeriod = void 0;
+exports.QueryCrmActivityDto = exports.CrmAttentionFilter = exports.CRM_OUTCOME_NONE = exports.CrmReportPeriod = void 0;
 const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
 const customer_activity_entity_1 = require("../../../entities/customers/customer-activity.entity");
@@ -21,6 +21,7 @@ var CrmReportPeriod;
     CrmReportPeriod["YEAR"] = "year";
     CrmReportPeriod["RANGE"] = "range";
 })(CrmReportPeriod || (exports.CrmReportPeriod = CrmReportPeriod = {}));
+exports.CRM_OUTCOME_NONE = 'none';
 var CrmAttentionFilter;
 (function (CrmAttentionFilter) {
     CrmAttentionFilter["FOLLOW_UP_PENDING"] = "follow_up_pending";
@@ -34,6 +35,7 @@ class QueryCrmActivityDto {
     search;
     type;
     status;
+    outcome;
     user_id;
     period = CrmReportPeriod.MONTH;
     date_from;
@@ -73,6 +75,12 @@ __decorate([
     (0, class_validator_1.IsEnum)(customer_activity_entity_1.CustomerActivityStatus),
     __metadata("design:type", String)
 ], QueryCrmActivityDto.prototype, "status", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(100),
+    __metadata("design:type", String)
+], QueryCrmActivityDto.prototype, "outcome", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),

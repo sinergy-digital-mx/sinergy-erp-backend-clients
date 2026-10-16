@@ -13,6 +13,7 @@ const inventory_batch_entity_1 = require("../../entities/purchase-orders/invento
 const product_entity_1 = require("../../entities/products/product.entity");
 const inventory_transfer_entity_1 = require("../../entities/inventory/inventory-transfer.entity");
 const inventory_transfer_line_entity_1 = require("../../entities/inventory/inventory-transfer-line.entity");
+const shipping_inventory_transfer_entity_1 = require("../../entities/logistics/shipping-inventory-transfer.entity");
 const inventory_audit_entity_1 = require("../../entities/inventory/inventory-audit.entity");
 const inventory_audit_line_entity_1 = require("../../entities/inventory/inventory-audit-line.entity");
 const sales_order_batch_allocation_entity_1 = require("../../entities/sales-orders/sales-order-batch-allocation.entity");
@@ -54,6 +55,7 @@ exports.InventoryModule = InventoryModule = __decorate([
                 product_entity_1.Product,
                 inventory_transfer_entity_1.InventoryTransfer,
                 inventory_transfer_line_entity_1.InventoryTransferLine,
+                shipping_inventory_transfer_entity_1.ShippingInventoryTransfer,
                 inventory_audit_entity_1.InventoryAudit,
                 inventory_audit_line_entity_1.InventoryAuditLine,
                 sales_order_batch_allocation_entity_1.SalesOrderBatchAllocation,

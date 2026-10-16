@@ -5,6 +5,7 @@ import { UoMCatalog } from '../uom-catalog/uom-catalog.entity';
 import { User } from '../users/user.entity';
 import { InventoryTransferStatus } from './inventory-transfer-status.enum';
 import { InventoryTransferLine } from './inventory-transfer-line.entity';
+import { ShippingInventoryTransfer } from '../logistics/shipping-inventory-transfer.entity';
 export declare class InventoryTransfer {
     id: string;
     tenant: RBACTenant;
@@ -21,8 +22,12 @@ export declare class InventoryTransfer {
     total_quantity: number;
     status: InventoryTransferStatus;
     notes: string | null;
+    reception_notes: string | null;
+    received_at: Date | null;
+    received_by: string | null;
     created_by_user: User;
     created_by: string;
     created_at: Date;
     lines: InventoryTransferLine[];
+    shipping_links: ShippingInventoryTransfer[];
 }

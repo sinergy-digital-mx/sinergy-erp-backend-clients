@@ -23,6 +23,7 @@ export declare class CrmInboxService {
     private filteredListQuery;
     private applyListFilters;
     private applySearchAndType;
+    private applyOutcome;
     private applyAttention;
     private resolveCrmAdmin;
     private resolveScopeUserId;

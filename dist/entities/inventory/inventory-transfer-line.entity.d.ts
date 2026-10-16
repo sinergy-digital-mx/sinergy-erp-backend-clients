@@ -7,7 +7,8 @@ export declare class InventoryTransferLine {
     source_inventory_batch: InventoryBatch;
     source_inventory_batch_id: string;
     quantity: number;
-    destination_inventory_batch: InventoryBatch;
-    destination_inventory_batch_id: string;
+    quantity_received: number | null;
+    destination_inventory_batch: InventoryBatch | null;
+    destination_inventory_batch_id: string | null;
     created_at: Date;
 }

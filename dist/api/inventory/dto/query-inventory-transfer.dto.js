@@ -13,7 +13,9 @@ exports.QueryInventoryTransferDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
+const inventory_transfer_status_enum_1 = require("../../../entities/inventory/inventory-transfer-status.enum");
 class QueryInventoryTransferDto {
+    status;
     search;
     product_id;
     source_warehouse_id;
@@ -30,6 +32,12 @@ class QueryInventoryTransferDto {
     sort_order = 'DESC';
 }
 exports.QueryInventoryTransferDto = QueryInventoryTransferDto;
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ enum: inventory_transfer_status_enum_1.InventoryTransferStatus }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(Object.values(inventory_transfer_status_enum_1.InventoryTransferStatus)),
+    __metadata("design:type", String)
+], QueryInventoryTransferDto.prototype, "status", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
     (0, class_validator_1.IsOptional)(),

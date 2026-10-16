@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Shipping = exports.ACTIVE_SHIPPING_STATUSES = exports.SHIPPING_STATUSES = void 0;
+exports.Shipping = exports.ACTIVE_SHIPPING_STATUSES = exports.SHIPPING_STATUSES = exports.SHIPPING_CARGO_KINDS = void 0;
 const typeorm_1 = require("typeorm");
 const tenant_entity_1 = require("../rbac/tenant.entity");
 const user_entity_1 = require("../users/user.entity");
@@ -17,6 +17,12 @@ const warehouse_entity_1 = require("../warehouse/warehouse.entity");
 const billing_branch_entity_1 = require("../billing/billing-branch.entity");
 const truck_entity_1 = require("./truck.entity");
 const shipping_stop_entity_1 = require("./shipping-stop.entity");
+const shipping_inventory_transfer_entity_1 = require("./shipping-inventory-transfer.entity");
+exports.SHIPPING_CARGO_KINDS = [
+    'order_delivery',
+    'inventory_transfer',
+    'mixed',
+];
 exports.SHIPPING_STATUSES = [
     'Creado',
     'En Ruta',
@@ -42,6 +48,7 @@ let Shipping = class Shipping {
     origin_warehouse;
     origin_warehouse_id;
     status;
+    cargo_kind;
     distance_km;
     notes;
     carta_porte_uuid;
@@ -51,6 +58,7 @@ let Shipping = class Shipping {
     carta_porte_error;
     carta_porte_peso_kg;
     stops;
+    transfer_links;
     created_at;
     updated_at;
 };
@@ -131,6 +139,10 @@ __decorate([
     __metadata("design:type", String)
 ], Shipping.prototype, "status", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 30, default: 'order_delivery' }),
+    __metadata("design:type", String)
+], Shipping.prototype, "cargo_kind", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'decimal', precision: 12, scale: 2, nullable: true }),
     __metadata("design:type", Object)
 ], Shipping.prototype, "distance_km", void 0);
@@ -166,6 +178,10 @@ __decorate([
     (0, typeorm_1.OneToMany)(() => shipping_stop_entity_1.ShippingStop, (stop) => stop.shipping),
     __metadata("design:type", Array)
 ], Shipping.prototype, "stops", void 0);
+__decorate([
+    (0, typeorm_1.OneToMany)(() => shipping_inventory_transfer_entity_1.ShippingInventoryTransfer, (link) => link.shipping),
+    __metadata("design:type", Array)
+], Shipping.prototype, "transfer_links", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)({ type: 'timestamp' }),
     __metadata("design:type", Date)

@@ -4,6 +4,9 @@ import { Warehouse } from '../warehouse/warehouse.entity';
 import { BillingBranch } from '../billing/billing-branch.entity';
 import { Truck } from './truck.entity';
 import { ShippingStop } from './shipping-stop.entity';
+import { ShippingInventoryTransfer } from './shipping-inventory-transfer.entity';
+export declare const SHIPPING_CARGO_KINDS: readonly ["order_delivery", "inventory_transfer", "mixed"];
+export type ShippingCargoKind = (typeof SHIPPING_CARGO_KINDS)[number];
 export declare const SHIPPING_STATUSES: readonly ["Creado", "En Ruta", "Completado", "Cancelado"];
 export type ShippingStatus = (typeof SHIPPING_STATUSES)[number];
 export declare const ACTIVE_SHIPPING_STATUSES: ShippingStatus[];
@@ -25,6 +28,7 @@ export declare class Shipping {
     origin_warehouse: Warehouse | null;
     origin_warehouse_id: string | null;
     status: ShippingStatus;
+    cargo_kind: ShippingCargoKind;
     distance_km: number | null;
     notes: string | null;
     carta_porte_uuid: string | null;
@@ -34,6 +38,7 @@ export declare class Shipping {
     carta_porte_error: string | null;
     carta_porte_peso_kg: number | null;
     stops: ShippingStop[];
+    transfer_links: ShippingInventoryTransfer[];
     created_at: Date;
     updated_at: Date;
 }

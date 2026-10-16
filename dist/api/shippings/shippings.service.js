@@ -25,6 +25,8 @@ const user_entity_1 = require("../../entities/users/user.entity");
 const sales_order_entity_1 = require("../../entities/sales-orders/sales-order.entity");
 const customer_address_entity_1 = require("../../entities/customers/customer-address.entity");
 const carta_porte_util_1 = require("./utils/carta-porte.util");
+const shipping_cargo_util_1 = require("./utils/shipping-cargo.util");
+const inventory_transfer_service_1 = require("../inventory/services/inventory-transfer.service");
 const geo_helper_1 = require("../../common/utils/geo.helper");
 const ELIGIBLE_SHIPPING_STATUSES = ['Surtida', 'Lista para entrega'];
 const ALLOWED_TRANSITIONS = {
@@ -46,7 +48,8 @@ let ShippingsService = class ShippingsService {
     soRepo;
     addressRepo;
     dataSource;
-    constructor(shippingRepo, stopRepo, truckRepo, warehouseRepo, branchRepo, userRepo, soRepo, addressRepo, dataSource) {
+    transfers;
+    constructor(shippingRepo, stopRepo, truckRepo, warehouseRepo, branchRepo, userRepo, soRepo, addressRepo, dataSource, transfers) {
         this.shippingRepo = shippingRepo;
         this.stopRepo = stopRepo;
         this.truckRepo = truckRepo;
@@ -56,6 +59,7 @@ let ShippingsService = class ShippingsService {
         this.soRepo = soRepo;
         this.addressRepo = addressRepo;
         this.dataSource = dataSource;
+        this.transfers = transfers;
     }
     async preview(dto, tenantId) {
         const origin = await this.getRouteOriginFromBranch(dto.billing_branch_id, tenantId);
@@ -64,14 +68,25 @@ let ShippingsService = class ShippingsService {
         return this.buildPreviewResponse(origin, resolved);
     }
     async create(dto, tenantId, userId) {
+        const orders = dto.orders ?? [];
+        const transferIds = [...new Set(dto.inventory_transfer_ids ?? [])];
+        if (!orders.length && !transferIds.length) {
+            throw new common_1.BadRequestException('El envío necesita órdenes de entrega, transferencias o ambas');
+        }
         const truck = await this.getActiveTruck(dto.truck_id, tenantId);
         const driver = await this.getDriver(dto.driver_id, tenantId);
         const origin = await this.getRouteOriginFromBranch(dto.billing_branch_id, tenantId);
-        let resolved = await this.resolveStops(dto.orders, origin, tenantId, {
-            validateAssignable: true,
-        });
-        resolved = this.sortStopsByDistanceFromOrigin(origin, resolved);
+        let resolved = [];
+        if (orders.length) {
+            resolved = await this.resolveStops(orders, origin, tenantId, {
+                validateAssignable: true,
+            });
+            resolved = this.sortStopsByDistanceFromOrigin(origin, resolved);
+        }
+        const stagedTransfers = await this.transfers.findPendingForShipping(tenantId, transferIds, dto.billing_branch_id);
         const distances = this.buildStopDistances(origin, resolved);
+        const distanceKm = this.distanceWithTransfers(origin, resolved, stagedTransfers, distances.totalKm);
+        const cargoKind = (0, shipping_cargo_util_1.resolveCargoKind)(orders.length, stagedTransfers.length);
         const qr = this.dataSource.createQueryRunner();
         await qr.connect();
         await qr.startTransaction();
@@ -86,10 +101,14 @@ let ShippingsService = class ShippingsService {
                 origin_billing_branch_id: origin.billing_branch_id,
                 origin_warehouse_id: null,
                 status: 'Creado',
-                distance_km: distances.totalKm,
+                cargo_kind: cargoKind,
+                distance_km: distanceKm,
                 notes: dto.notes ?? null,
             });
             const saved = await qr.manager.save(shipping);
+            if (stagedTransfers.length) {
+                await this.transfers.attachToShipping(qr.manager, tenantId, saved.id, stagedTransfers.map((transfer) => transfer.id), dto.billing_branch_id);
+            }
             for (const r of resolved) {
                 const dist = distances.byOrderId.get(r.sales_order.id) ?? null;
                 await qr.manager.save(qr.manager.create(shipping_stop_entity_1.ShippingStop, {
@@ -183,6 +202,9 @@ let ShippingsService = class ShippingsService {
                     'stops',
                     'stops.sales_order',
                     'stops.sales_order.customer',
+                    'transfer_links',
+                    'transfer_links.inventory_transfer',
+                    'transfer_links.inventory_transfer.destination_warehouse',
                 ],
                 order: { stops: { stop_sequence: 'ASC' } },
             });
@@ -190,7 +212,7 @@ let ShippingsService = class ShippingsService {
             data = ids
                 .map((id) => byId.get(id))
                 .filter((row) => !!row)
-                .map((row) => (0, carta_porte_util_1.decorateShippingCartaPorte)(row));
+                .map((row) => (0, carta_porte_util_1.decorateShippingCartaPorte)(this.attachTransferView(row)));
         }
         const totalPages = Math.ceil(total / limit) || 1;
         return {
@@ -309,6 +331,9 @@ let ShippingsService = class ShippingsService {
                 'stops.sales_order',
                 'stops.sales_order.customer',
                 'stops.customer_address',
+                'transfer_links',
+                'transfer_links.inventory_transfer',
+                'transfer_links.inventory_transfer.destination_warehouse',
             ],
             order: { stops: { stop_sequence: 'ASC' } },
         });
@@ -316,7 +341,7 @@ let ShippingsService = class ShippingsService {
             throw new common_1.NotFoundException('Envío no encontrado');
         }
         await this.attachCustomerAddresses(shipping, tenantId);
-        return (0, carta_porte_util_1.decorateShippingCartaPorte)(shipping);
+        return (0, carta_porte_util_1.decorateShippingCartaPorte)(this.attachTransferView(shipping));
     }
     async setStopAddress(shippingId, salesOrderId, addressId, tenantId) {
         const shipping = await this.shippingRepo.findOne({
@@ -401,7 +426,11 @@ let ShippingsService = class ShippingsService {
                     distance_from_previous_km: distances.byOrderId.get(stop.sales_order_id) ?? null,
                 });
             }
-            await qr.manager.update(shipping_entity_1.Shipping, { id: shipping.id }, { distance_km: distances.totalKm });
+            const transferCount = shipping.transfer_links?.length ?? 0;
+            await qr.manager.update(shipping_entity_1.Shipping, { id: shipping.id }, {
+                distance_km: distances.totalKm,
+                cargo_kind: (0, shipping_cargo_util_1.resolveCargoKind)(mergedResolved.length, transferCount),
+            });
             await qr.commitTransaction();
             return this.findOne(id, tenantId);
         }
@@ -467,6 +496,12 @@ let ShippingsService = class ShippingsService {
         await qr.connect();
         await qr.startTransaction();
         try {
+            if (next === 'Completado') {
+                await this.transfers.assertReceivedBeforeClose(qr.manager, tenantId, shipping.id);
+            }
+            if (next === 'Cancelado') {
+                await this.transfers.releaseFromCancelledShipping(qr.manager, tenantId, shipping.id);
+            }
             await qr.manager.update(shipping_entity_1.Shipping, { id: shipping.id }, { status: next, edited_by: userId });
             if (next === 'Cancelado') {
                 const stops = shipping.stops || [];
@@ -566,6 +601,46 @@ let ShippingsService = class ShippingsService {
                 stops_count: shipping.stops?.length ?? 0,
             },
         };
+    }
+    attachTransferView(shipping) {
+        const links = shipping.transfer_links ?? [];
+        Object.assign(shipping, {
+            transfers: links.map((link) => ({
+                id: link.inventory_transfer_id,
+                folio: link.inventory_transfer?.folio ?? '',
+                status: link.inventory_transfer?.status ?? null,
+                total_quantity: link.inventory_transfer?.total_quantity ?? null,
+                destination_warehouse_name: link.inventory_transfer?.destination_warehouse?.name ?? null,
+            })),
+        });
+        return shipping;
+    }
+    distanceWithTransfers(origin, stops, transfers, orderKm) {
+        const transferPoints = transfers
+            .map((transfer) => {
+            const warehouse = transfer.destination_warehouse;
+            const branch = warehouse?.billing_branch;
+            const latitude = warehouse?.latitude ?? branch?.latitude ?? null;
+            const longitude = warehouse?.longitude ?? branch?.longitude ?? null;
+            return {
+                latitude: latitude == null ? null : Number(latitude),
+                longitude: longitude == null ? null : Number(longitude),
+            };
+        })
+            .filter((point) => (0, geo_helper_1.hasValidGps)(point));
+        if (!transferPoints.length)
+            return orderKm;
+        return (0, geo_helper_1.routeDistanceKm)([
+            {
+                latitude: origin.latitude != null ? Number(origin.latitude) : null,
+                longitude: origin.longitude != null ? Number(origin.longitude) : null,
+            },
+            ...stops.map((stop) => ({
+                latitude: stop.delivery_latitude,
+                longitude: stop.delivery_longitude,
+            })),
+            ...transferPoints,
+        ]);
     }
     buildStopDistances(origin, stops) {
         const sorted = [...stops].sort((a, b) => a.stop_sequence - b.stop_sequence);
@@ -1040,6 +1115,7 @@ exports.ShippingsService = ShippingsService = __decorate([
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
-        typeorm_2.DataSource])
+        typeorm_2.DataSource,
+        inventory_transfer_service_1.InventoryTransferService])
 ], ShippingsService);
 //# sourceMappingURL=shippings.service.js.map

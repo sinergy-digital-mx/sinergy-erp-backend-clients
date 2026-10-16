@@ -21,6 +21,7 @@ const require_permissions_decorator_1 = require("../rbac/decorators/require-perm
 const inventory_transfer_service_1 = require("./services/inventory-transfer.service");
 const inventory_transfer_pdf_service_1 = require("./services/inventory-transfer-pdf.service");
 const create_inventory_transfer_dto_1 = require("./dto/create-inventory-transfer.dto");
+const receive_inventory_transfer_dto_1 = require("./dto/receive-inventory-transfer.dto");
 const query_inventory_transfer_dto_1 = require("./dto/query-inventory-transfer.dto");
 const transfer_context_query_dto_1 = require("./dto/transfer-context-query.dto");
 const inventory_transfer_response_dto_1 = require("./dto/inventory-transfer-response.dto");
@@ -50,6 +51,12 @@ let InventoryTransferController = class InventoryTransferController {
     }
     create(dto, req) {
         return this.transferService.create(dto, req.user.tenant_id, req.user.id);
+    }
+    receive(id, dto, req) {
+        return this.transferService.receive(id, dto, req.user.tenant_id, req.user.id);
+    }
+    cancel(id, req) {
+        return this.transferService.cancel(id, req.user.tenant_id, req.user.id);
     }
 };
 exports.InventoryTransferController = InventoryTransferController;
@@ -113,7 +120,7 @@ __decorate([
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Inventory', action: 'Transfer' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Crear transferencia de inventario',
-        description: 'Mueve uno o varios productos del almacén origen al destino en un solo folio. Cada línea toma cantidad de un lote. Requiere Inventory:Transfer.',
+        description: 'Aparta la cantidad en el almacén origen y deja la transferencia pendiente. El destino la recibe después del envío. Requiere Inventory:Transfer.',
     }),
     (0, swagger_1.ApiResponse)({ status: 201, type: inventory_transfer_response_dto_1.InventoryTransferResponseDto }),
     __param(0, (0, common_1.Body)()),
@@ -122,6 +129,33 @@ __decorate([
     __metadata("design:paramtypes", [create_inventory_transfer_dto_1.CreateInventoryTransferDto, Object]),
     __metadata("design:returntype", Promise)
 ], InventoryTransferController.prototype, "create", null);
+__decorate([
+    (0, common_1.Post)(':id/receive'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Inventory', action: 'Transfer' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Recibir transferencia',
+        description: 'El almacén destino cuenta cada línea. Si la cantidad difiere, la transferencia queda recibida con diferencia.',
+    }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, receive_inventory_transfer_dto_1.ReceiveInventoryTransferDto, Object]),
+    __metadata("design:returntype", Promise)
+], InventoryTransferController.prototype, "receive", null);
+__decorate([
+    (0, common_1.Post)(':id/cancel'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Inventory', action: 'Transfer' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Cancelar transferencia pendiente',
+        description: 'Devuelve el stock al almacén origen. No aplica si ya tiene envío.',
+    }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], InventoryTransferController.prototype, "cancel", null);
 exports.InventoryTransferController = InventoryTransferController = __decorate([
     (0, common_1.Controller)('tenant/inventory/transfers'),
     (0, swagger_1.ApiTags)('Inventory Transfers'),

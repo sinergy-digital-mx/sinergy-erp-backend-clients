@@ -25,6 +25,7 @@ class InventoryTransferLineResponseDto {
     destination_batch_id;
     destination_batch_number;
     quantity;
+    quantity_received;
     measure_label;
     created_at;
 }
@@ -66,12 +67,12 @@ __decorate([
     __metadata("design:type", String)
 ], InventoryTransferLineResponseDto.prototype, "source_batch_number", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)(),
-    __metadata("design:type", String)
+    (0, swagger_1.ApiProperty)({ nullable: true }),
+    __metadata("design:type", Object)
 ], InventoryTransferLineResponseDto.prototype, "destination_inventory_batch_id", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)(),
-    __metadata("design:type", String)
+    (0, swagger_1.ApiProperty)({ nullable: true }),
+    __metadata("design:type", Object)
 ], InventoryTransferLineResponseDto.prototype, "destination_batch_id", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)(),
@@ -81,6 +82,10 @@ __decorate([
     (0, swagger_1.ApiProperty)(),
     __metadata("design:type", String)
 ], InventoryTransferLineResponseDto.prototype, "quantity", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ nullable: true }),
+    __metadata("design:type", Object)
+], InventoryTransferLineResponseDto.prototype, "quantity_received", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ nullable: true }),
     __metadata("design:type", Object)
@@ -213,6 +218,11 @@ class InventoryTransferResponseDto {
     total_quantity;
     status;
     notes;
+    reception_notes;
+    received_at;
+    shipping_id;
+    shipping_status;
+    shipping_date;
     created_by_user;
     created_at;
     lines;
@@ -274,6 +284,26 @@ __decorate([
     (0, swagger_1.ApiProperty)({ nullable: true }),
     __metadata("design:type", Object)
 ], InventoryTransferResponseDto.prototype, "notes", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ nullable: true }),
+    __metadata("design:type", Object)
+], InventoryTransferResponseDto.prototype, "reception_notes", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ nullable: true }),
+    __metadata("design:type", Object)
+], InventoryTransferResponseDto.prototype, "received_at", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ nullable: true }),
+    __metadata("design:type", Object)
+], InventoryTransferResponseDto.prototype, "shipping_id", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ nullable: true }),
+    __metadata("design:type", Object)
+], InventoryTransferResponseDto.prototype, "shipping_status", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ nullable: true }),
+    __metadata("design:type", Object)
+], InventoryTransferResponseDto.prototype, "shipping_date", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ type: InventoryTransferUserSummaryDto }),
     __metadata("design:type", InventoryTransferUserSummaryDto)

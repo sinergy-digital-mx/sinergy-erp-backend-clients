@@ -94,7 +94,7 @@ export type PurchaseOrderLotTransferInput = {
     folio: string;
     quantity: number | string;
     source_inventory_batch_id: string;
-    destination_inventory_batch_id: string;
+    destination_inventory_batch_id: string | null;
     created_at: Date;
     created_by_name: string | null;
     source_warehouse_name: string | null;

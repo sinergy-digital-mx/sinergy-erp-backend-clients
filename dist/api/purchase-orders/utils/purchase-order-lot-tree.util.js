@@ -66,6 +66,8 @@ function buildPurchaseOrderLotTree(batches, lines, transfers) {
     for (const transfer of transfers) {
         outboundBySource.set(transfer.source_inventory_batch_id, roundQty((outboundBySource.get(transfer.source_inventory_batch_id) ?? 0) +
             toQty(transfer.quantity)));
+        if (!transfer.destination_inventory_batch_id)
+            continue;
         const inbound = inboundByDest.get(transfer.destination_inventory_batch_id) ?? [];
         inbound.push(transfer);
         inboundByDest.set(transfer.destination_inventory_batch_id, inbound);

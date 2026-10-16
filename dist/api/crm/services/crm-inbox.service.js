@@ -290,6 +290,7 @@ let CrmInboxService = class CrmInboxService {
         if (query.status) {
             qb.andWhere('activity.status = :status', { status: query.status });
         }
+        this.applyOutcome(qb, query.outcome);
         if (query.attention) {
             this.applyAttention(qb, query.attention);
         }
@@ -302,6 +303,17 @@ let CrmInboxService = class CrmInboxService {
         if (search) {
             qb.andWhere('(LOWER(COALESCE(activity.notes, \'\')) LIKE :search OR LOWER(COALESCE(activity.title, \'\')) LIKE :search OR LOWER(COALESCE(activity.description, \'\')) LIKE :search)', { search: `%${search.toLowerCase()}%` });
         }
+    }
+    applyOutcome(qb, outcome) {
+        const value = outcome?.trim();
+        if (!value) {
+            return;
+        }
+        if (value === query_crm_activity_dto_1.CRM_OUTCOME_NONE) {
+            qb.andWhere("(activity.outcome IS NULL OR activity.outcome = '')");
+            return;
+        }
+        qb.andWhere('activity.outcome = :outcome', { outcome: value });
     }
     applyAttention(qb, attention) {
         const now = new Date();

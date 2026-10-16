@@ -39,6 +39,7 @@ class CreateShippingDto {
     billing_branch_id;
     notes;
     orders;
+    inventory_transfer_ids;
 }
 exports.CreateShippingDto = CreateShippingDto;
 __decorate([
@@ -63,12 +64,18 @@ __decorate([
     __metadata("design:type", String)
 ], CreateShippingDto.prototype, "notes", void 0);
 __decorate([
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsArray)(),
-    (0, class_validator_1.ArrayMinSize)(1),
     (0, class_validator_1.ValidateNested)({ each: true }),
     (0, class_transformer_1.Type)(() => ShippingOrderItemDto),
     __metadata("design:type", Array)
 ], CreateShippingDto.prototype, "orders", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsUUID)('4', { each: true }),
+    __metadata("design:type", Array)
+], CreateShippingDto.prototype, "inventory_transfer_ids", void 0);
 class PreviewShippingDto {
     billing_branch_id;
     orders;

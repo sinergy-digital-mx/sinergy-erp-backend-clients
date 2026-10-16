@@ -20,6 +20,16 @@ const truck_entity_1 = require("../../entities/logistics/truck.entity");
 const shipping_entity_1 = require("../../entities/logistics/shipping.entity");
 const s3_service_1 = require("../../common/services/s3.service");
 const carta_porte_util_1 = require("../shippings/utils/carta-porte.util");
+function shippingDay(value) {
+    if (!value)
+        return null;
+    if (typeof value === 'string')
+        return value.slice(0, 10);
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
 let TrucksService = class TrucksService {
     repo;
     shippingRepo;
@@ -149,14 +159,23 @@ let TrucksService = class TrucksService {
                 truck_id: (0, typeorm_2.In)(withPhoto.map((truck) => truck.id)),
                 status: (0, typeorm_2.In)([...shipping_entity_1.ACTIVE_SHIPPING_STATUSES]),
             },
-            select: ['id', 'truck_id', 'status'],
+            select: ['id', 'truck_id', 'status', 'shipping_date'],
         });
-        const busy = new Map(active.map((row) => [row.truck_id, row]));
+        const busy = new Map();
+        for (const row of active) {
+            const current = busy.get(row.truck_id);
+            const rowDay = shippingDay(row.shipping_date);
+            const currentDay = current ? shippingDay(current.shipping_date) : null;
+            if (!current || (rowDay && currentDay && rowDay > currentDay)) {
+                busy.set(row.truck_id, row);
+            }
+        }
         return withPhoto.map((truck) => {
             const shipping = busy.get(truck.id);
             return Object.assign(truck, {
                 active_shipping_id: shipping?.id ?? null,
                 active_shipping_status: shipping?.status ?? null,
+                active_shipping_date: shipping ? shippingDay(shipping.shipping_date) : null,
             });
         });
     }
