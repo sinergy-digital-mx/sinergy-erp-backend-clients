@@ -160,7 +160,7 @@ let MadereriaInventoryImportService = MadereriaInventoryImportService_1 = class 
         return this.dataSource.transaction(async (manager) => {
             const vendor = await this.ensureImportVendor(manager, params.organizationId);
             const priceList = await this.ensurePriceList(manager, params.organizationId);
-            const piezaUomId = await this.ensurePiezaUom(manager, params.organizationId);
+            const uomCatalog = await this.ensureUomCatalog(manager, params.organizationId, params.rows);
             const result = {
                 warehouse_id: params.warehouse.id,
                 warehouse_name: params.warehouse.name,
@@ -171,6 +171,7 @@ let MadereriaInventoryImportService = MadereriaInventoryImportService_1 = class 
                 costs_updated: 0,
                 batches_created: 0,
                 sat_claves_saved: 0,
+                uoms_created: uomCatalog.created,
                 skipped: [],
                 errors: [],
             };
@@ -183,7 +184,8 @@ let MadereriaInventoryImportService = MadereriaInventoryImportService_1 = class 
                         warehouseId: params.warehouse.id,
                         vendorId: vendor.id,
                         priceListId: priceList.id,
-                        piezaUomId,
+                        uomCatalogId: this.resolveRowUomId(row, uomCatalog),
+                        piezaUomId: uomCatalog.piezaId,
                         row,
                         result,
                     });
@@ -236,7 +238,7 @@ let MadereriaInventoryImportService = MadereriaInventoryImportService_1 = class 
         let created = false;
         let product = await this.findProduct(manager, ctx.organizationId, row);
         if (!product) {
-            product = await this.createProduct(manager, ctx.organizationId, row, ctx.piezaUomId);
+            product = await this.createProduct(manager, ctx.organizationId, row);
             created = true;
             result.products_created.push({
                 sku: product.sku,
@@ -252,7 +254,7 @@ let MadereriaInventoryImportService = MadereriaInventoryImportService_1 = class 
             await manager.getRepository(product_entity_1.Product).save(product);
             result.sat_claves_saved += 1;
         }
-        const productUom = await this.ensureBaseUom(manager, product.id, ctx.piezaUomId);
+        const productUom = await this.ensureProductUom(manager, product.id, ctx.uomCatalogId, ctx.piezaUomId);
         if (row.price != null && row.price > 0) {
             const createdPrice = await this.ensurePriceIfMissing(manager, product.id, ctx.priceListId, productUom.id, row.price);
             if (createdPrice) {
@@ -321,9 +323,9 @@ let MadereriaInventoryImportService = MadereriaInventoryImportService_1 = class 
         }))
             .getOne();
     }
-    async createProduct(manager, organizationId, row, piezaUomId) {
+    async createProduct(manager, organizationId, row) {
         const productRepo = manager.getRepository(product_entity_1.Product);
-        const product = await productRepo.save(productRepo.create({
+        return productRepo.save(productRepo.create({
             tenant_id: organizationId,
             sku: row.sku.slice(0, 255),
             external_sku: null,
@@ -332,29 +334,31 @@ let MadereriaInventoryImportService = MadereriaInventoryImportService_1 = class 
             sat_clave: row.sat_clave,
             is_active: true,
         }));
-        const uomRepo = manager.getRepository(product_uom_entity_1.ProductUoM);
-        await uomRepo.save(uomRepo.create({
-            product_id: product.id,
-            uom_catalog_id: piezaUomId,
-            factor: 1,
-            is_base: true,
-            parent_uom_id: null,
-        }));
-        return product;
     }
-    async ensureBaseUom(manager, productId, piezaUomId) {
+    async ensureProductUom(manager, productId, uomCatalogId, piezaUomId) {
         const repo = manager.getRepository(product_uom_entity_1.ProductUoM);
-        const existing = await repo.findOne({
-            where: { product_id: productId, is_base: true },
-        });
-        if (existing) {
-            return existing;
+        const rows = await repo.find({ where: { product_id: productId } });
+        const match = rows.find((row) => row.uom_catalog_id === uomCatalogId);
+        if (match) {
+            if (!rows.some((row) => row.is_base)) {
+                match.is_base = true;
+                await repo.save(match);
+            }
+            return match;
+        }
+        const onlyDefaultPieza = rows.length === 1 &&
+            rows[0].uom_catalog_id === piezaUomId &&
+            uomCatalogId !== piezaUomId;
+        if (onlyDefaultPieza) {
+            rows[0].uom_catalog_id = uomCatalogId;
+            rows[0].is_base = true;
+            return repo.save(rows[0]);
         }
         return repo.save(repo.create({
             product_id: productId,
-            uom_catalog_id: piezaUomId,
+            uom_catalog_id: uomCatalogId,
             factor: 1,
-            is_base: true,
+            is_base: rows.length === 0,
             parent_uom_id: null,
         }));
     }
@@ -448,24 +452,65 @@ let MadereriaInventoryImportService = MadereriaInventoryImportService_1 = class 
             is_active: true,
         }));
     }
-    async ensurePiezaUom(manager, organizationId) {
-        const repo = manager.getRepository(uom_catalog_entity_1.UoMCatalog);
-        const existing = await repo
-            .createQueryBuilder('uom')
-            .where('uom.tenant_id = :organizationId', { organizationId })
-            .andWhere('UPPER(uom.name) IN (:...names)', {
-            names: ['PIEZA', 'PZA', 'PZ'],
-        })
-            .getOne();
-        if (existing) {
-            return existing.id;
+    resolveRowUomId(row, catalog) {
+        if (!row.uom) {
+            return catalog.piezaId;
         }
-        const created = await repo.save(repo.create({
-            tenant_id: organizationId,
-            name: madereria_inventory_import_constants_1.DEFAULT_UOM_NAME,
-            description: 'UoM por defecto para importación',
-        }));
-        return created.id;
+        return catalog.idsByKey.get((0, excel_inventory_parser_1.uomMatchKey)(row.uom)) ?? catalog.piezaId;
+    }
+    async ensureUomCatalog(manager, organizationId, rows) {
+        const repo = manager.getRepository(uom_catalog_entity_1.UoMCatalog);
+        const existing = await repo.find({ where: { tenant_id: organizationId } });
+        const idsByKey = new Map();
+        for (const uom of existing) {
+            const key = (0, excel_inventory_parser_1.uomMatchKey)(uom.name);
+            if (!idsByKey.has(key)) {
+                idsByKey.set(key, uom.id);
+            }
+        }
+        const created = [];
+        const needsPieza = rows.some((row) => {
+            if (!row.uom) {
+                return true;
+            }
+            const key = (0, excel_inventory_parser_1.uomMatchKey)(row.uom);
+            return key === 'PIEZA' || key === 'PZA' || key === 'PZ';
+        });
+        let resolvedPiezaId = idsByKey.get('PIEZA') ?? idsByKey.get('PZA') ?? idsByKey.get('PZ') ?? '';
+        if (needsPieza && !resolvedPiezaId) {
+            const saved = await repo.save(repo.create({
+                tenant_id: organizationId,
+                name: madereria_inventory_import_constants_1.DEFAULT_UOM_NAME,
+                description: 'Unidad creada por importación de inventario',
+            }));
+            resolvedPiezaId = saved.id;
+            created.push(saved.name);
+        }
+        if (resolvedPiezaId) {
+            idsByKey.set('PIEZA', resolvedPiezaId);
+            idsByKey.set('PZA', resolvedPiezaId);
+            idsByKey.set('PZ', resolvedPiezaId);
+        }
+        const seen = new Set(['PIEZA', 'PZA', 'PZ']);
+        for (const row of rows) {
+            if (!row.uom) {
+                continue;
+            }
+            const key = (0, excel_inventory_parser_1.uomMatchKey)(row.uom);
+            if (seen.has(key) || idsByKey.has(key)) {
+                seen.add(key);
+                continue;
+            }
+            seen.add(key);
+            const saved = await repo.save(repo.create({
+                tenant_id: organizationId,
+                name: row.uom,
+                description: 'Unidad creada por importación de inventario',
+            }));
+            idsByKey.set(key, saved.id);
+            created.push(saved.name);
+        }
+        return { idsByKey, piezaId: resolvedPiezaId, created };
     }
     calculateTotals(amount) {
         const subtotal = amount;

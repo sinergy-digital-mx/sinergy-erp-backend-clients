@@ -13,6 +13,7 @@ export type ImportInventoryJobResult = {
     costs_updated: number;
     batches_created: number;
     sat_claves_saved: number;
+    uoms_created: string[];
     skipped: Array<{
         sku: string;
         row_number: number;

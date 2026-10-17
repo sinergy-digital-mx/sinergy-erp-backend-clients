@@ -12,10 +12,13 @@ export type InventoryExcelRow = {
     alternate_sku: string | null;
     sat_clave: string | null;
     pedimentos: InventoryPedimentoEntry[];
+    uom: string | null;
     price: number | null;
     cost: number | null;
     quantity: number | null;
 };
+export declare function normalizeUomName(value: unknown): string | null;
+export declare function uomMatchKey(name: string): string;
 export declare function normalizeSatClave(value: unknown): string | null;
 export declare function parsePedimentoCell(value: unknown): InventoryPedimentoEntry[];
 export declare function selectPrimaryPedimento(entries: InventoryPedimentoEntry[]): InventoryPedimentoEntry | null;

@@ -26,6 +26,7 @@ const vendor_entity_1 = require("../../../entities/vendor/vendor.entity");
 const vendor_type_enum_1 = require("../../../entities/vendor/vendor-type.enum");
 const purchase_order_real_cost_service_1 = require("./purchase-order-real-cost.service");
 const purchase_order_real_cost_util_1 = require("../utils/purchase-order-real-cost.util");
+const purchase_order_payable_total_util_1 = require("../utils/purchase-order-payable-total.util");
 const purchase_order_vendor_invoice_util_1 = require("../utils/purchase-order-vendor-invoice.util");
 const unit_conversion_service_1 = require("./unit-conversion.service");
 const batch_number_generator_service_1 = require("./batch-number-generator.service");
@@ -683,11 +684,7 @@ let PurchaseOrderService = class PurchaseOrderService {
         return pedimentoNumber;
     }
     buildPaymentSummary(purchaseOrder, payments) {
-        const requestedTotal = Number(purchaseOrder.requested_total || 0);
-        const receivedTotal = Number(purchaseOrder.received_total || 0);
-        const total = purchaseOrder.general_status === 'Recibida'
-            ? (receivedTotal > 0 ? receivedTotal : requestedTotal)
-            : requestedTotal;
+        const total = (0, purchase_order_payable_total_util_1.resolvePurchaseOrderPayableTotal)(purchaseOrder);
         const amount_paid = payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
         const amount_pending = Math.max(total - amount_paid, 0);
         const payment_status = amount_pending <= 0 ? 'Pagado' : 'Pendiente';

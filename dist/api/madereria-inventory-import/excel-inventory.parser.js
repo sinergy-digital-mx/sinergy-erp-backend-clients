@@ -33,6 +33,8 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.normalizeUomName = normalizeUomName;
+exports.uomMatchKey = uomMatchKey;
 exports.normalizeSatClave = normalizeSatClave;
 exports.parsePedimentoCell = parsePedimentoCell;
 exports.selectPrimaryPedimento = selectPrimaryPedimento;
@@ -48,6 +50,11 @@ const HEADER_ALIASES = {
     CLAVE_SAT: 'sat_clave',
     'PEDIMENTO/FECHA/ADUANA/PROVEEDOR': 'pedimentos',
     PEDIMENTO: 'pedimentos',
+    UM: 'uom',
+    'U.M.': 'uom',
+    'U.M': 'uom',
+    'UNIDAD DE MEDIDA': 'uom',
+    UNIDAD: 'uom',
     PRECIO1: 'price',
     PRECIO: 'price',
     'COSTO PROM': 'cost',
@@ -97,6 +104,23 @@ function cleanSku(value) {
         }
     }
     return cleanText(value);
+}
+function normalizeUomName(value) {
+    const raw = cleanText(value);
+    if (!raw) {
+        return null;
+    }
+    const collapsed = raw.replace(/\s+/g, ' ').slice(0, 255);
+    const isUniformCase = collapsed === collapsed.toUpperCase() || collapsed === collapsed.toLowerCase();
+    if (!isUniformCase) {
+        return collapsed;
+    }
+    return collapsed
+        .toLocaleLowerCase('es-MX')
+        .replace(/(^|[\s/.-])([a-záéíóúüñ])/giu, (_match, separator, char) => separator + char.toLocaleUpperCase('es-MX'));
+}
+function uomMatchKey(name) {
+    return name.trim().replace(/\s+/g, ' ').toLocaleUpperCase('es-MX');
 }
 function normalizeSatClave(value) {
     const digits = typeof value === 'number' && Number.isFinite(value)
@@ -268,6 +292,7 @@ function parseMadereriaInventoryExcel(buffer) {
             pedimentos: columnIndex.pedimentos !== undefined
                 ? parsePedimentoCell(row[columnIndex.pedimentos])
                 : [],
+            uom: columnIndex.uom !== undefined ? normalizeUomName(row[columnIndex.uom]) : null,
             price: columnIndex.price !== undefined ? parseNumber(row[columnIndex.price]) : null,
             cost: columnIndex.cost !== undefined ? parseNumber(row[columnIndex.cost]) : null,
             quantity: columnIndex.quantity !== undefined ? parseNumber(row[columnIndex.quantity]) : null,

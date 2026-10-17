@@ -38,11 +38,12 @@ export declare class MadereriaInventoryImportService {
     private importRow;
     private findProduct;
     private createProduct;
-    private ensureBaseUom;
+    private ensureProductUom;
     private ensurePriceIfMissing;
     private upsertImportCost;
     private ensureImportVendor;
     private ensurePriceList;
-    private ensurePiezaUom;
+    private resolveRowUomId;
+    private ensureUomCatalog;
     private calculateTotals;
 }

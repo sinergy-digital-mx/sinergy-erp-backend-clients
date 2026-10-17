@@ -27,7 +27,7 @@ let UoMCatalogService = class UoMCatalogService {
             where: { tenant_id: tenantId, name: dto.name },
         });
         if (existing) {
-            throw new common_1.ConflictException(`UoM con nombre "${dto.name}" ya existe para este tenant`);
+            throw new common_1.ConflictException(`Ya existe una unidad de medida con el nombre "${dto.name}"`);
         }
         const uom = this.uomCatalogRepository.create({
             ...dto,
@@ -72,7 +72,7 @@ let UoMCatalogService = class UoMCatalogService {
                 where: { tenant_id: tenantId, name: dto.name },
             });
             if (existing) {
-                throw new common_1.ConflictException(`UoM con nombre "${dto.name}" ya existe para este tenant`);
+                throw new common_1.ConflictException(`Ya existe una unidad de medida con el nombre "${dto.name}"`);
             }
         }
         Object.assign(uom, dto);
@@ -80,7 +80,21 @@ let UoMCatalogService = class UoMCatalogService {
     }
     async remove(id, tenantId) {
         const uom = await this.findOne(id, tenantId);
-        await this.uomCatalogRepository.remove(uom);
+        try {
+            await this.uomCatalogRepository.remove(uom);
+        }
+        catch (error) {
+            if (this.isInUseError(error)) {
+                throw new common_1.ConflictException('No se puede eliminar: la unidad está asignada a productos o movimientos');
+            }
+            throw error;
+        }
+    }
+    isInUseError(error) {
+        if (!(error instanceof typeorm_2.QueryFailedError))
+            return false;
+        const driverError = error.driverError;
+        return driverError?.errno === 1451 || driverError?.code === 'ER_ROW_IS_REFERENCED_2';
     }
 };
 exports.UoMCatalogService = UoMCatalogService;

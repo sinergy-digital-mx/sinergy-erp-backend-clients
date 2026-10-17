@@ -12,4 +12,5 @@ export declare class UoMCatalogService {
     findOne(id: string, tenantId: string): Promise<UoMCatalog>;
     update(id: string, dto: UpdateUoMCatalogDto, tenantId: string): Promise<UoMCatalog>;
     remove(id: string, tenantId: string): Promise<void>;
+    private isInUseError;
 }
