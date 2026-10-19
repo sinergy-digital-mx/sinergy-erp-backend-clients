@@ -28,6 +28,7 @@ const customer_entity_1 = require("../../../entities/customers/customer.entity")
 const billing_branch_entity_1 = require("../../../entities/billing/billing-branch.entity");
 const warehouse_entity_1 = require("../../../entities/warehouse/warehouse.entity");
 const unit_amount_util_1 = require("../../../common/utils/unit-amount.util");
+const resolve_product_uom_util_1 = require("../../products/utils/resolve-product-uom.util");
 const fiscal_tax_policy_util_1 = require("../../billing/utils/fiscal-tax-policy.util");
 const quotation_folio_service_1 = require("./quotation-folio.service");
 const quotation_pdf_service_1 = require("./quotation-pdf.service");
@@ -465,7 +466,7 @@ let QuotationService = class QuotationService {
                 line.ieps_percentage = (0, fiscal_tax_policy_util_1.clampTaxPercentages)(0, Number(dto.ieps_percentage ?? line.ieps_percentage ?? 0), taxPolicy).iepsPercentage;
             }
             const productUomId = dto.product_uom_id || line.product_uom_id;
-            const productUomRow = await this.resolveProductUom(qr, line.product_id, productUomId);
+            const productUomRow = await this.resolveProductUom(qr, line.product_id, productUomId, tenantId);
             line.product_uom_id = productUomRow.id;
             const factor = productUomRow.factor || 1;
             line.quantity_base_uom = productUomRow.is_base
@@ -715,7 +716,7 @@ let QuotationService = class QuotationService {
         const taxPolicy = await (0, fiscal_tax_policy_util_1.loadFiscalTaxPolicy)(qr.manager, fiscalConfigurationId || '', tenantId);
         const saved = [];
         for (const item of lineItems) {
-            const productUomRow = await this.resolveProductUom(qr, item.product_id, item.product_uom_id);
+            const productUomRow = await this.resolveProductUom(qr, item.product_id, item.product_uom_id, tenantId);
             const discountAmounts = await this.resolveLineDiscountAmounts(tenantId, item, productUomRow.id);
             const line_subtotal = Number(item.quantity) * Number(item.unit_price);
             const line_discount = discountAmounts.line_discount;
@@ -798,20 +799,8 @@ let QuotationService = class QuotationService {
             ieps_total).toFixed(2));
         await qr.manager.save(quotation_entity_1.Quotation, quotation);
     }
-    async resolveProductUom(qr, productId, providedUomId) {
-        const [productUomRow] = await qr.manager.query(`SELECT pu.id, pu.factor, pu.is_base, pu.uom_catalog_id
-       FROM product_uoms pu
-       WHERE pu.id = ? AND pu.product_id = ?
-       LIMIT 1`, [providedUomId, productId]);
-        if (productUomRow)
-            return productUomRow;
-        const [byCatalog] = await qr.manager.query(`SELECT pu.id, pu.factor, pu.is_base, pu.uom_catalog_id
-       FROM product_uoms pu
-       WHERE pu.product_id = ? AND pu.uom_catalog_id = ?
-       LIMIT 1`, [productId, providedUomId]);
-        if (byCatalog)
-            return byCatalog;
-        throw new common_1.BadRequestException(`UOM no encontrado: ${providedUomId}`);
+    resolveProductUom(qr, productId, providedUomId, tenantId) {
+        return (0, resolve_product_uom_util_1.resolveProductUomForLine)(qr, productId, providedUomId, tenantId);
     }
     async resolveLineDiscountAmounts(tenantId, item, productUomId) {
         if (item.product_discount_id) {

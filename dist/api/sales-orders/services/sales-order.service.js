@@ -28,6 +28,7 @@ const product_item_kind_enum_1 = require("../../../entities/products/product-ite
 const sales_order_batch_allocation_entity_1 = require("../../../entities/sales-orders/sales-order-batch-allocation.entity");
 const sales_order_payment_entity_1 = require("../../../entities/sales-orders/sales-order-payment.entity");
 const sales_order_payment_document_entity_1 = require("../../../entities/sales-orders/sales-order-payment-document.entity");
+const resolve_product_uom_util_1 = require("../../products/utils/resolve-product-uom.util");
 const customer_purchase_trend_util_1 = require("../../customers/utils/customer-purchase-trend.util");
 const pos_sale_payment_method_enum_1 = require("../../../entities/pos/pos-sale-payment-method.enum");
 const user_entity_1 = require("../../../entities/users/user.entity");
@@ -223,31 +224,8 @@ let SalesOrderService = class SalesOrderService {
         const uploadResult = await this.pdfService.uploadPdfToS3(fullOrder, pdfBuffer, SalesOrderService_1.DOC_TYPE_NAME_ENTREGA);
         await this.documentsService.uploadDocument(salesOrderId, deliveryTypeId, `ENTREGA_${fullOrder.folio}_${language}.pdf`, uploadResult.s3Key, pdfBuffer.length, 'application/pdf', userId, language);
     }
-    async resolveProductUom(qr, productId, providedUomId) {
-        const [productUomRow] = await qr.manager.query(`SELECT pu.id, pu.factor, pu.is_base, pu.uom_catalog_id
-       FROM product_uoms pu
-       WHERE pu.id = ? AND pu.product_id = ?
-       LIMIT 1`, [providedUomId, productId]);
-        if (productUomRow) {
-            return this.normalizeProductUomRow(productUomRow);
-        }
-        const [productUomByCatalog] = await qr.manager.query(`SELECT pu.id, pu.factor, pu.is_base, pu.uom_catalog_id
-       FROM product_uoms pu
-       WHERE pu.product_id = ? AND pu.uom_catalog_id = ?
-       LIMIT 1`, [productId, providedUomId]);
-        if (productUomByCatalog) {
-            return this.normalizeProductUomRow(productUomByCatalog);
-        }
-        throw new common_1.BadRequestException(`UOM no encontrado: ${providedUomId}`);
-    }
-    normalizeProductUomRow(row) {
-        const factor = Number(row.factor);
-        return {
-            id: row.id,
-            factor: Number.isFinite(factor) && factor > 0 ? factor : 1,
-            is_base: row.is_base === true || row.is_base === 1 || row.is_base === '1',
-            uom_catalog_id: row.uom_catalog_id,
-        };
+    resolveProductUom(qr, productId, providedUomId, tenantId) {
+        return (0, resolve_product_uom_util_1.resolveProductUomForLine)(qr, productId, providedUomId, tenantId);
     }
     async resolveLineDiscountAmounts(tenantId, item, productUomId) {
         if (item.product_discount_id) {
@@ -371,7 +349,7 @@ let SalesOrderService = class SalesOrderService {
             let subtotal = 0, iva_total = 0, ieps_total = 0, discount_total = 0;
             const taxPolicy = await (0, fiscal_tax_policy_util_1.loadFiscalTaxPolicy)(qr.manager, dto.fiscal_configuration_id, tenantId);
             for (const item of dto.line_items) {
-                const productUomRow = await this.resolveProductUom(qr, item.product_id, item.product_uom_id);
+                const productUomRow = await this.resolveProductUom(qr, item.product_id, item.product_uom_id, tenantId);
                 const discountAmounts = fromQuotation
                     ? (0, quoted_pricing_util_1.quotedLineDiscountAmounts)(item)
                     : await this.resolveLineDiscountAmounts(tenantId, item, productUomRow.id);
@@ -1635,7 +1613,7 @@ let SalesOrderService = class SalesOrderService {
                 line.ieps_percentage = (0, fiscal_tax_policy_util_1.clampTaxPercentages)(0, Number(dto.ieps_percentage ?? line.ieps_percentage ?? 0), taxPolicy).iepsPercentage;
             }
             const productUomId = dto.product_uom_id || line.product_uom_id;
-            const productUomRow = await this.resolveProductUom(qr, line.product_id, productUomId);
+            const productUomRow = await this.resolveProductUom(qr, line.product_id, productUomId, tenantId);
             line.product_uom_id = productUomRow.id;
             const factor = productUomRow.factor || 1;
             line.quantity_base_uom = productUomRow.is_base
@@ -1794,7 +1772,7 @@ let SalesOrderService = class SalesOrderService {
         const taxPolicy = await (0, fiscal_tax_policy_util_1.loadFiscalTaxPolicy)(qr.manager, fiscalConfigurationId || '', tenantId);
         const saved = [];
         for (const item of lineItems) {
-            const productUomRow = await this.resolveProductUom(qr, item.product_id, item.product_uom_id);
+            const productUomRow = await this.resolveProductUom(qr, item.product_id, item.product_uom_id, tenantId);
             const discountAmounts = await this.resolveLineDiscountAmounts(tenantId, item, productUomRow.id);
             const line_subtotal = Number(item.quantity) * Number(item.unit_price);
             const line_discount = discountAmounts.line_discount;

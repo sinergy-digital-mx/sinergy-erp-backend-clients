@@ -78,7 +78,6 @@ export declare class SalesOrderService {
     private generateAndUploadPdf;
     private generateAndUploadDeliveryPdf;
     private resolveProductUom;
-    private normalizeProductUomRow;
     private resolveLineDiscountAmounts;
     private resolveGlobalDiscountAmounts;
     private computeOrderTotal;
