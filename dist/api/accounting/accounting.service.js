@@ -22,6 +22,7 @@ const pos_daily_shift_entity_1 = require("../../entities/pos/pos-daily-shift.ent
 const pos_daily_shift_status_enum_1 = require("../../entities/pos/pos-daily-shift-status.enum");
 const electronic_invoice_entity_1 = require("../../entities/electronic-invoicing/electronic-invoice.entity");
 const purchase_order_batch_entity_1 = require("../../entities/purchase-orders/purchase-order-batch.entity");
+const purchase_order_payable_total_util_1 = require("../purchase-orders/utils/purchase-order-payable-total.util");
 const user_entity_1 = require("../../entities/users/user.entity");
 const pos_shifts_service_1 = require("../pos-shifts/pos-shifts.service");
 const exchange_rate_service_1 = require("../exchange-rate/exchange-rate.service");
@@ -1219,11 +1220,7 @@ let AccountingService = class AccountingService {
         return row.vendor_name?.trim() || row.razon_social?.trim() || row.company_name?.trim() || '—';
     }
     buildPurchaseOrderPaymentSummary(order) {
-        const requestedTotal = Number(order.requested_total || 0);
-        const receivedTotal = Number(order.received_total || 0);
-        const total = order.general_status === 'Recibida'
-            ? (receivedTotal > 0 ? receivedTotal : requestedTotal)
-            : requestedTotal;
+        const total = (0, purchase_order_payable_total_util_1.resolvePurchaseOrderPayableTotal)(order);
         const amountPaid = (order.payments ?? []).reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
         const amountPending = Math.max(total - amountPaid, 0);
         return {

@@ -504,6 +504,7 @@ let PurchaseOrderService = class PurchaseOrderService {
             landed_invoice_usd: landedCash.invoice_usd,
             landed_operating_extras_mxn: landedCash.operating_extras_mxn,
             landed_operating_extras_usd: landedCash.operating_extras_usd,
+            payable_total: Number((0, purchase_order_payable_total_util_1.resolvePurchaseOrderPayableTotal)(po).toFixed(2)),
             razon_social: fiscal?.razon_social ?? null,
             sucursal: branch?.code ?? null,
             billing_branch_id: po.warehouse?.billing_branch_id ?? branch?.id ?? null,
