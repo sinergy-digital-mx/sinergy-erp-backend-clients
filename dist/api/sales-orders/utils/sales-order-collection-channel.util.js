@@ -113,6 +113,9 @@ function collectionChannelSourceLabel(source) {
     if (source === 'pos_cobranza') {
         return exports.SALES_ORDER_COLLECTION_CHANNEL_LABELS.pos_cobranza;
     }
+    if (source === 'advance') {
+        return 'Anticipo';
+    }
     if (source === 'manual') {
         return exports.SALES_ORDER_COLLECTION_CHANNEL_LABELS.manual;
     }
