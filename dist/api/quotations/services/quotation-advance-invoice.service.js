@@ -24,6 +24,9 @@ const advance_cfdi_util_1 = require("../../electronic-invoicing/utils/advance-cf
 const pos_shifts_service_1 = require("../../pos-shifts/pos-shifts.service");
 const advance_shift_payment_service_1 = require("../../pos-shifts/services/advance-shift-payment.service");
 const advance_payment_method_util_1 = require("../../pos-shifts/utils/advance-payment-method.util");
+const pos_sale_payment_method_enum_1 = require("../../../entities/pos/pos-sale-payment-method.enum");
+const fiscal_invoice_readiness_util_1 = require("../../customers/utils/fiscal-invoice-readiness.util");
+const advance_cfdi_util_2 = require("../../electronic-invoicing/utils/advance-cfdi.util");
 const pos_sale_collection_mapper_1 = require("../../pos-shifts/mappers/pos-sale-collection.mapper");
 const PUBLIC_RFC = 'XAXX010101000';
 const PUBLIC_NAME = 'PUBLICO EN GENERAL';
@@ -82,6 +85,56 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
     async list(id, tenantId) {
         await this.requireQuotation(id, tenantId);
         return this.electronicInvoiceService.findBySource(tenantId, 'quotations', id);
+    }
+    async collectFromPos(id, tenantId, userId, dto) {
+        if (dto.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CREDIT ||
+            dto.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.MIXED) {
+            throw new common_1.BadRequestException('El anticipo se cobra en efectivo, tarjeta, transferencia o cheque para entrar al corte');
+        }
+        const formaPago = (0, advance_payment_method_util_1.formaPagoFromPaymentMethod)(dto.payment_method);
+        if (!formaPago) {
+            throw new common_1.BadRequestException('El anticipo se cobra en efectivo, tarjeta, transferencia o cheque para entrar al corte');
+        }
+        const quotation = await this.requireQuotation(id, tenantId);
+        const requested = Number(quotation.advance_requested_total || 0);
+        if (requested <= 0) {
+            throw new common_1.BadRequestException('Esta cotización no tiene un anticipo por cobrar');
+        }
+        if (quotation.general_status !== 'Creada') {
+            throw new common_1.BadRequestException('La cotización ya no está pendiente de anticipo');
+        }
+        const readiness = (0, fiscal_invoice_readiness_util_1.getFiscalInvoiceReadiness)(quotation.customer);
+        if (!readiness.fiscal_ready_for_invoice) {
+            throw new common_1.BadRequestException('El cliente no tiene los datos fiscales para facturar el anticipo');
+        }
+        const existing = await this.advanceCfdi.findVigenteAdvance(tenantId, 'quotations', quotation.id);
+        if (existing) {
+            throw new common_1.BadRequestException('Ese anticipo ya fue cobrado y timbrado');
+        }
+        const payment = await this.posShiftsService.normalizeCollectPayment(tenantId, dto, requested);
+        const taxable = (0, advance_cfdi_util_2.taxableBaseOfDocument)(Number(quotation.subtotal), Number(quotation.discount_total), Number(quotation.global_discount_amount));
+        const iva = (0, advance_cfdi_util_2.inferIvaPercentage)(Number(quotation.iva_total), taxable);
+        const base = iva > 0 ? Number((requested / (1 + iva / 100)).toFixed(2)) : requested;
+        const person = String(quotation.customer?.fiscal_person_type ?? '').toLowerCase();
+        const rfc = String(quotation.customer?.fiscal_rfc ?? '').replace(/[\s-]/g, '');
+        const regimen = person === 'fisica' || rfc.length === 13 ? '612' : '601';
+        await this.stamp(id, tenantId, userId, {
+            base_amount: base,
+            iva_percentage: iva,
+            forma_pago: formaPago,
+            uso_cfdi: 'G03',
+            metodo_pago: 'PUE',
+            regimen_fiscal_receptor: regimen,
+        });
+        return {
+            folio: quotation.folio,
+            customer_name: quotation.customer?.fiscal_razon_social ||
+                quotation.customer?.name ||
+                null,
+            change_cash_mxn: payment.changeCashMxn,
+            change_cash_usd: payment.changeCashUsd,
+            usd_exchange_rate: payment.usdExchangeRate,
+        };
     }
     async stamp(id, tenantId, userId, dto) {
         const quotation = await this.requireQuotation(id, tenantId);

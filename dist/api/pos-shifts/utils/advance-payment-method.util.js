@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.paymentMethodFromFormaPago = paymentMethodFromFormaPago;
+exports.formaPagoFromPaymentMethod = formaPagoFromPaymentMethod;
 exports.advancePaymentMethodLabel = advancePaymentMethodLabel;
 const pos_sale_payment_method_enum_1 = require("../../../entities/pos/pos-sale-payment-method.enum");
 function paymentMethodFromFormaPago(formaPago) {
@@ -14,6 +15,20 @@ function paymentMethodFromFormaPago(formaPago) {
         case '04':
         case '28':
             return pos_sale_payment_method_enum_1.PosSalePaymentMethod.CARD;
+        default:
+            return null;
+    }
+}
+function formaPagoFromPaymentMethod(method) {
+    switch (method) {
+        case pos_sale_payment_method_enum_1.PosSalePaymentMethod.CASH:
+            return '01';
+        case pos_sale_payment_method_enum_1.PosSalePaymentMethod.CHECK:
+            return '02';
+        case pos_sale_payment_method_enum_1.PosSalePaymentMethod.TRANSFER:
+            return '03';
+        case pos_sale_payment_method_enum_1.PosSalePaymentMethod.CARD:
+            return '04';
         default:
             return null;
     }

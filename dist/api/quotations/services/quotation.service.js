@@ -34,6 +34,8 @@ const quotation_folio_service_1 = require("./quotation-folio.service");
 const quotation_pdf_service_1 = require("./quotation-pdf.service");
 const quotation_documents_service_1 = require("./quotation-documents.service");
 const quotation_advance_invoice_service_1 = require("./quotation-advance-invoice.service");
+const fiscal_configuration_entity_1 = require("../../../entities/billing/fiscal-configuration.entity");
+const fiscal_invoice_readiness_util_1 = require("../../customers/utils/fiscal-invoice-readiness.util");
 const pos_shifts_service_1 = require("../../pos-shifts/pos-shifts.service");
 const quotation_convert_util_1 = require("../utils/quotation-convert.util");
 const product_discount_service_1 = require("../../products/product-discount.service");
@@ -126,6 +128,9 @@ let QuotationService = class QuotationService {
             const saved = await qr.manager.save(quotation_entity_1.Quotation, quotation);
             await this.insertLineItems(qr, saved.id, dto.line_items, userId, tenantId, location.fiscalConfigurationId);
             await this.recomputeTotals(qr, saved, tenantId, dto.global_discount_id);
+            if (dto.advance_amount != null) {
+                await this.applyAdvanceRequest(qr, saved, tenantId, Number(dto.advance_amount));
+            }
             await qr.commitTransaction();
             this.generateAndUploadPdf(saved.id, tenantId, userId).catch((err) => {
                 this.logger.error('[PDF] Error generando PDF de cotización:', err);
@@ -767,6 +772,34 @@ let QuotationService = class QuotationService {
         const lineIeps = (taxable * Number(detail.ieps_percentage || 0)) / 100;
         detail.iva_unit = qty > 0 ? lineIva / qty : 0;
         detail.ieps_unit = qty > 0 ? lineIeps / qty : 0;
+    }
+    async applyAdvanceRequest(qr, quotation, tenantId, amount) {
+        const requested = Number(amount.toFixed(2));
+        const total = Number(quotation.total || 0);
+        if (requested <= 0 || requested - total > 0.01) {
+            throw new common_1.BadRequestException('El anticipo debe ser mayor a 0 y no puede pasar el total de la cotización');
+        }
+        const fiscal = await qr.manager.findOne(fiscal_configuration_entity_1.FiscalConfiguration, {
+            where: { id: quotation.fiscal_configuration_id, tenant_id: tenantId },
+        });
+        if (!fiscal?.advance_invoicing_enabled) {
+            throw new common_1.BadRequestException('Esta razón social no tiene activada la factura de anticipo');
+        }
+        const customer = await qr.manager.findOne(customer_entity_1.Customer, {
+            where: { id: quotation.customer_id, tenant_id: tenantId },
+        });
+        const readiness = (0, fiscal_invoice_readiness_util_1.getFiscalInvoiceReadiness)(customer);
+        if (!readiness.fiscal_ready_for_invoice) {
+            const labels = {
+                fiscal_rfc: 'RFC',
+                fiscal_razon_social: 'razón social',
+                fiscal_postal_code: 'código postal fiscal',
+            };
+            const missing = readiness.fiscal_missing_fields.map((field) => labels[field] ?? field);
+            throw new common_1.BadRequestException(`No se puede dejar anticipo: al cliente le falta ${missing.join(', ')} para facturar`);
+        }
+        quotation.advance_requested_total = requested;
+        await qr.manager.save(quotation_entity_1.Quotation, quotation);
     }
     async recomputeTotals(qr, quotation, tenantId, globalDiscountId) {
         const details = await qr.manager.find(quotation_detail_entity_1.QuotationDetail, {

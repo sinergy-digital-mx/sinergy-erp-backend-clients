@@ -7,6 +7,7 @@ import { PosSalePaymentMethod } from '../../entities/pos/pos-sale-payment-method
 import { User } from '../../entities/users/user.entity';
 import { UserBillingBranch } from '../../entities/users/user-billing-branch.entity';
 import { SalesOrder } from '../../entities/sales-orders/sales-order.entity';
+import { Quotation } from '../../entities/quotations/quotation.entity';
 import { SalesOrderPosStage } from '../../entities/sales-orders/sales-order-pos-stage.enum';
 import { Customer } from '../../entities/customers/customer.entity';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
@@ -27,6 +28,7 @@ export declare class PosShiftsService {
     private readonly userRepo;
     private readonly branchAssignmentRepo;
     private readonly salesOrderRepo;
+    private readonly quotationRepo;
     private readonly customerRepo;
     private readonly warehouseRepo;
     private readonly collectionRepo;
@@ -36,7 +38,7 @@ export declare class PosShiftsService {
     private readonly advanceShiftPayments;
     private readonly exchangeRateService;
     private readonly logger;
-    constructor(dailyShiftRepo: Repository<PosDailyShift>, partialShiftRepo: Repository<PosPartialShift>, userRepo: Repository<User>, branchAssignmentRepo: Repository<UserBillingBranch>, salesOrderRepo: Repository<SalesOrder>, customerRepo: Repository<Customer>, warehouseRepo: Repository<Warehouse>, collectionRepo: Repository<PosSaleCollection>, posReceiptService: SalesOrderPosReceiptService, salesOrderService: SalesOrderService, customerCreditService: CustomerCreditService, advanceShiftPayments: AdvanceShiftPaymentService, exchangeRateService: ExchangeRateService);
+    constructor(dailyShiftRepo: Repository<PosDailyShift>, partialShiftRepo: Repository<PosPartialShift>, userRepo: Repository<User>, branchAssignmentRepo: Repository<UserBillingBranch>, salesOrderRepo: Repository<SalesOrder>, quotationRepo: Repository<Quotation>, customerRepo: Repository<Customer>, warehouseRepo: Repository<Warehouse>, collectionRepo: Repository<PosSaleCollection>, posReceiptService: SalesOrderPosReceiptService, salesOrderService: SalesOrderService, customerCreditService: CustomerCreditService, advanceShiftPayments: AdvanceShiftPaymentService, exchangeRateService: ExchangeRateService);
     validateSellerCode(tenantId: string, terminalUserId: string, code: number, billingBranchId?: string): Promise<{
         seller: {
             id: string;
@@ -676,7 +678,8 @@ export declare class PosShiftsService {
         terminalUser: User;
     }>;
     resolveWalkInCustomerId(tenantId: string): Promise<number>;
-    getPendingSales(tenantId: string, terminalUserId: string, billingBranchId?: string): Promise<{
+    getPendingSales(tenantId: string, terminalUserId: string, billingBranchId?: string): Promise<({
+        kind: "sale";
         id: string;
         folio: string;
         quotation_folio: string | null;
@@ -710,7 +713,38 @@ export declare class PosShiftsService {
             last_name: string;
             pos_user_type: import("../../entities/users/pos-user-type.enum").PosUserType | null;
         } | null;
-    }[]>;
+    } | {
+        kind: "advance";
+        id: string;
+        folio: string;
+        quotation_folio: null;
+        total: number;
+        amount_pending: number;
+        subtotal: number;
+        created_at: Date;
+        notes: string | null;
+        walk_in_name: null;
+        walk_in_rfc: null;
+        fiscal_configuration_id: string;
+        customer: {
+            id: number;
+            name: string;
+            lastname: string;
+            company_name: string;
+            fiscal_razon_social: string;
+            display_name: string | null;
+            is_walk_in: boolean;
+            credit_enabled: boolean;
+        } | null;
+        seller_user: {
+            id: string;
+            first_name: string;
+            last_name: string;
+            pos_user_code: number | null;
+        } | null;
+        terminal_user: null;
+    })[]>;
+    private listPendingAdvanceQuotations;
     getCollectedSales(tenantId: string, terminalUserId: string, dailyShiftId?: string, billingBranchId?: string): Promise<{
         daily_shift: null;
         collected_sales: never[];
@@ -909,6 +943,23 @@ export declare class PosShiftsService {
     private uncollectedSaleSql;
     private requireSellerUser;
     private resolveCollectionCustomerId;
+    normalizeCollectPayment(tenantId: string, dto: CollectPosSaleDto, orderTotal: number): Promise<{
+        amountCashMxn: number;
+        amountCashUsd: number;
+        usdExchangeRate: number | null;
+        amountTransferMxn: number;
+        transferReference: string | null;
+        amountCardMxn: number;
+        amountCheckMxn: number;
+        checkReference: string | null;
+        amountCreditMxn: number;
+        cardReference: string | null;
+        cardPayments: import("./utils/pos-card-payments.util").PosCardPayment[];
+        receivedCashMxn: number;
+        receivedCashUsd: number;
+        changeCashMxn: number;
+        changeCashUsd: number;
+    }>;
     private validateAndNormalizePayment;
     private assertPaymentMethodShape;
     private assertCustomerCanUseCredit;

@@ -84,6 +84,7 @@ class CreateQuotationDto {
     fiscal_razon_social;
     notes;
     global_discount_id;
+    advance_amount;
     line_items;
 }
 exports.CreateQuotationDto = CreateQuotationDto;
@@ -157,6 +158,16 @@ __decorate([
     (0, class_validator_1.IsUUID)(),
     __metadata("design:type", String)
 ], CreateQuotationDto.prototype, "global_discount_id", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        description: 'Anticipo con IVA que caja debe cobrar. Parcial o total de la cotización. Exige datos fiscales del cliente.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0.01),
+    __metadata("design:type", Number)
+], CreateQuotationDto.prototype, "advance_amount", void 0);
 __decorate([
     (0, class_validator_1.IsArray)(),
     (0, class_validator_1.ValidateNested)({ each: true }),

@@ -45,6 +45,7 @@ let Quotation = class Quotation {
     global_discount_id;
     global_discount_amount;
     total;
+    advance_requested_total;
     creator;
     created_by;
     terminal_user;
@@ -174,6 +175,10 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'decimal', precision: 12, scale: 2, default: 0 }),
     __metadata("design:type", Number)
 ], Quotation.prototype, "total", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'decimal', precision: 12, scale: 2, nullable: true }),
+    __metadata("design:type", Object)
+], Quotation.prototype, "advance_requested_total", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => user_entity_1.User, { onDelete: 'SET NULL', nullable: true }),
     (0, typeorm_1.JoinColumn)({ name: 'created_by' }),

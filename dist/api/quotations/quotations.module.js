@@ -74,7 +74,7 @@ exports.QuotationsModule = QuotationsModule = __decorate([
             quotation_advance_invoice_service_1.QuotationAdvanceInvoiceService,
             s3_service_1.S3Service,
         ],
-        exports: [quotation_service_1.QuotationService],
+        exports: [quotation_service_1.QuotationService, quotation_advance_invoice_service_1.QuotationAdvanceInvoiceService],
     })
 ], QuotationsModule);
 //# sourceMappingURL=quotations.module.js.map

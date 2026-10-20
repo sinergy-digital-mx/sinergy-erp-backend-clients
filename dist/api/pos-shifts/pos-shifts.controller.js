@@ -19,6 +19,7 @@ const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const permission_guard_1 = require("../rbac/guards/permission.guard");
 const require_permissions_decorator_1 = require("../rbac/decorators/require-permissions.decorator");
 const pos_shifts_service_1 = require("./pos-shifts.service");
+const quotation_advance_invoice_service_1 = require("../quotations/services/quotation-advance-invoice.service");
 const validate_seller_code_dto_1 = require("./dto/validate-seller-code.dto");
 const open_daily_shift_dto_1 = require("./dto/open-daily-shift.dto");
 const create_partial_shift_dto_1 = require("./dto/create-partial-shift.dto");
@@ -30,8 +31,10 @@ const query_collected_sales_dto_1 = require("./dto/query-collected-sales.dto");
 const replace_pos_sale_cart_dto_1 = require("./dto/replace-pos-sale-cart.dto");
 let PosShiftsController = class PosShiftsController {
     posShiftsService;
-    constructor(posShiftsService) {
+    quotationAdvances;
+    constructor(posShiftsService, quotationAdvances) {
         this.posShiftsService = posShiftsService;
+        this.quotationAdvances = quotationAdvances;
     }
     async validateSellerCode(dto, req) {
         return this.posShiftsService.validateSellerCode(req.user.tenant_id, req.user.id, dto.code, dto.billing_branch_id);
@@ -83,6 +86,9 @@ let PosShiftsController = class PosShiftsController {
     }
     async collectSale(salesOrderId, dto, req) {
         return this.posShiftsService.collectSale(req.user.tenant_id, req.user.id, salesOrderId, dto);
+    }
+    async collectQuotationAdvance(quotationId, dto, req) {
+        return this.quotationAdvances.collectFromPos(quotationId, req.user.tenant_id, req.user.id, dto);
     }
     async returnSaleToVentas(salesOrderId, req) {
         return this.posShiftsService.returnSaleToVentas(req.user.tenant_id, req.user.id, salesOrderId);
@@ -190,8 +196,8 @@ __decorate([
     (0, common_1.Get)('pending-sales'),
     (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Read' }, { entityType: 'pos', action: 'Update' }),
     (0, swagger_1.ApiOperation)({
-        summary: 'Ventas pendientes de cobro',
-        description: 'Solo terminal COBRANZA. Órdenes Surtida + Pendiente de la sucursal.',
+        summary: 'Ventas y anticipos pendientes de cobro',
+        description: 'Solo terminal COBRANZA. Órdenes Surtida + Pendiente y cotizaciones con anticipo por cobrar de la sucursal.',
     }),
     __param(0, (0, common_1.Query)()),
     __param(1, (0, common_1.Req)()),
@@ -240,6 +246,21 @@ __decorate([
     __metadata("design:paramtypes", [String, collect_pos_sale_dto_1.CollectPosSaleDto, Object]),
     __metadata("design:returntype", Promise)
 ], PosShiftsController.prototype, "collectSale", null);
+__decorate([
+    (0, common_1.Post)('quotations/:quotationId/collect-advance'),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Update' }, { entityType: 'pos', action: 'Update' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Cobrar anticipo de una cotización',
+        description: 'Cobra el monto pedido en la cotización, lo mete al corte abierto y timbra la factura de anticipo.',
+    }),
+    (0, swagger_1.ApiBody)({ type: collect_pos_sale_dto_1.CollectPosSaleDto }),
+    __param(0, (0, common_1.Param)('quotationId')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, collect_pos_sale_dto_1.CollectPosSaleDto, Object]),
+    __metadata("design:returntype", Promise)
+], PosShiftsController.prototype, "collectQuotationAdvance", null);
 __decorate([
     (0, common_1.Post)('sales/:salesOrderId/return-to-sales'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'pos', action: 'ReturnToSales' }),
@@ -323,6 +344,8 @@ exports.PosShiftsController = PosShiftsController = __decorate([
     (0, common_1.Controller)('tenant/pos'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     (0, swagger_1.ApiBearerAuth)(),
-    __metadata("design:paramtypes", [pos_shifts_service_1.PosShiftsService])
+    __param(1, (0, common_1.Inject)((0, common_1.forwardRef)(() => quotation_advance_invoice_service_1.QuotationAdvanceInvoiceService))),
+    __metadata("design:paramtypes", [pos_shifts_service_1.PosShiftsService,
+        quotation_advance_invoice_service_1.QuotationAdvanceInvoiceService])
 ], PosShiftsController);
 //# sourceMappingURL=pos-shifts.controller.js.map

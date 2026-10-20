@@ -20,6 +20,7 @@ export declare class ElectronicInvoiceService {
     constructor(invoiceRepo: Repository<ElectronicInvoice>, syncLogRepo: Repository<ElectronicInvoiceSyncLog>, fiscalRepo: Repository<FiscalConfiguration>, finkokConfigService: FinkokProviderConfigurationService, finkokClient: FinkokSoapClient, pdfService: ElectronicInvoicePdfService);
     stamp(tenantId: string, userId: string, dto: StampElectronicInvoiceDto): Promise<ElectronicInvoice>;
     cancel(id: string, tenantId: string, userId: string, dto: CancelElectronicInvoiceDto): Promise<ElectronicInvoice>;
+    private syncAfterCancel;
     syncSatStatus(id: string, tenantId: string, userId: string | null, trigger?: 'manual' | 'scheduled' | 'batch'): Promise<ElectronicInvoice>;
     registerExisting(tenantId: string, userId: string, input: {
         fiscal_configuration_id: string;

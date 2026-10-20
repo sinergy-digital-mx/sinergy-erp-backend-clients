@@ -105,6 +105,7 @@ export declare class QuotationService {
             global_discount_id: string | null;
             global_discount_amount: number;
             total: number;
+            advance_requested_total: number | null;
             created_by: string;
             terminal_user_id: string | null;
             seller_user_id: string | null;
@@ -269,6 +270,7 @@ export declare class QuotationService {
             global_discount_id: string | null;
             global_discount_amount: number;
             total: number;
+            advance_requested_total: number | null;
             created_by: string;
             terminal_user_id: string | null;
             seller_user_id: string | null;
@@ -497,6 +499,7 @@ export declare class QuotationService {
             global_discount_id: string | null;
             global_discount_amount: number;
             total: number;
+            advance_requested_total: number | null;
             created_by: string;
             terminal_user_id: string | null;
             seller_user_id: string | null;
@@ -731,6 +734,7 @@ export declare class QuotationService {
                 global_discount_id: string | null;
                 global_discount_amount: number;
                 total: number;
+                advance_requested_total: number | null;
                 created_by: string;
                 terminal_user_id: string | null;
                 seller_user_id: string | null;
@@ -852,6 +856,7 @@ export declare class QuotationService {
     private loadForPdf;
     private insertLineItems;
     private applyQuotationLineAmounts;
+    private applyAdvanceRequest;
     private recomputeTotals;
     private resolveProductUom;
     private resolveLineDiscountAmounts;

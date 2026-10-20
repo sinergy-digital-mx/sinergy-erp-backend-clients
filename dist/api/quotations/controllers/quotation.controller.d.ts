@@ -152,6 +152,7 @@ export declare class QuotationController {
             global_discount_id: string | null;
             global_discount_amount: number;
             total: number;
+            advance_requested_total: number | null;
             created_by: string;
             terminal_user_id: string | null;
             seller_user_id: string | null;
@@ -381,6 +382,7 @@ export declare class QuotationController {
                 global_discount_id: string | null;
                 global_discount_amount: number;
                 total: number;
+                advance_requested_total: number | null;
                 created_by: string;
                 terminal_user_id: string | null;
                 seller_user_id: string | null;
@@ -591,6 +593,7 @@ export declare class QuotationController {
                 global_discount_id: string | null;
                 global_discount_amount: number;
                 total: number;
+                advance_requested_total: number | null;
                 created_by: string;
                 terminal_user_id: string | null;
                 seller_user_id: string | null;
@@ -801,6 +804,7 @@ export declare class QuotationController {
                 global_discount_id: string | null;
                 global_discount_amount: number;
                 total: number;
+                advance_requested_total: number | null;
                 created_by: string;
                 terminal_user_id: string | null;
                 seller_user_id: string | null;
@@ -937,6 +941,7 @@ export declare class QuotationController {
             global_discount_id: string | null;
             global_discount_amount: number;
             total: number;
+            advance_requested_total: number | null;
             created_by: string;
             terminal_user_id: string | null;
             seller_user_id: string | null;
@@ -1102,6 +1107,7 @@ export declare class QuotationController {
                 global_discount_id: string | null;
                 global_discount_amount: number;
                 total: number;
+                advance_requested_total: number | null;
                 created_by: string;
                 terminal_user_id: string | null;
                 seller_user_id: string | null;
@@ -1312,6 +1318,7 @@ export declare class QuotationController {
                 global_discount_id: string | null;
                 global_discount_amount: number;
                 total: number;
+                advance_requested_total: number | null;
                 created_by: string;
                 terminal_user_id: string | null;
                 seller_user_id: string | null;

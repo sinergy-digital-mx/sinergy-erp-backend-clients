@@ -20,5 +20,6 @@ export declare class CreateQuotationDto {
     fiscal_razon_social?: string;
     notes?: string;
     global_discount_id?: string;
+    advance_amount?: number;
     line_items: CreateQuotationLineItemDto[];
 }

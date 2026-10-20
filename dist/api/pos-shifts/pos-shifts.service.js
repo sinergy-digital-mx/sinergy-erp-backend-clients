@@ -28,6 +28,7 @@ const user_entity_1 = require("../../entities/users/user.entity");
 const user_billing_branch_entity_1 = require("../../entities/users/user-billing-branch.entity");
 const pos_user_type_enum_1 = require("../../entities/users/pos-user-type.enum");
 const sales_order_entity_1 = require("../../entities/sales-orders/sales-order.entity");
+const quotation_entity_1 = require("../../entities/quotations/quotation.entity");
 const sales_order_pos_stage_enum_1 = require("../../entities/sales-orders/sales-order-pos-stage.enum");
 const customer_entity_1 = require("../../entities/customers/customer.entity");
 const warehouse_entity_1 = require("../../entities/warehouse/warehouse.entity");
@@ -53,6 +54,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
     userRepo;
     branchAssignmentRepo;
     salesOrderRepo;
+    quotationRepo;
     customerRepo;
     warehouseRepo;
     collectionRepo;
@@ -62,12 +64,13 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
     advanceShiftPayments;
     exchangeRateService;
     logger = new common_1.Logger(PosShiftsService_1.name);
-    constructor(dailyShiftRepo, partialShiftRepo, userRepo, branchAssignmentRepo, salesOrderRepo, customerRepo, warehouseRepo, collectionRepo, posReceiptService, salesOrderService, customerCreditService, advanceShiftPayments, exchangeRateService) {
+    constructor(dailyShiftRepo, partialShiftRepo, userRepo, branchAssignmentRepo, salesOrderRepo, quotationRepo, customerRepo, warehouseRepo, collectionRepo, posReceiptService, salesOrderService, customerCreditService, advanceShiftPayments, exchangeRateService) {
         this.dailyShiftRepo = dailyShiftRepo;
         this.partialShiftRepo = partialShiftRepo;
         this.userRepo = userRepo;
         this.branchAssignmentRepo = branchAssignmentRepo;
         this.salesOrderRepo = salesOrderRepo;
+        this.quotationRepo = quotationRepo;
         this.customerRepo = customerRepo;
         this.warehouseRepo = warehouseRepo;
         this.collectionRepo = collectionRepo;
@@ -437,7 +440,8 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             customerId: order.customer_id,
             fiscalConfigurationId: order.fiscal_configuration_id,
         })));
-        return orders.map((order) => ({
+        const sales = orders.map((order) => ({
+            kind: 'sale',
             id: order.id,
             folio: order.folio,
             quotation_folio: order.converted_from_quotation_id
@@ -480,6 +484,67 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                     pos_user_type: order.terminal_user.pos_user_type,
                 }
                 : null,
+        }));
+        const advances = await this.listPendingAdvanceQuotations(tenantId, branchId);
+        return [...sales, ...advances].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    }
+    async listPendingAdvanceQuotations(tenantId, billingBranchId) {
+        const rows = await this.quotationRepo
+            .createQueryBuilder('q')
+            .leftJoinAndSelect('q.customer', 'customer')
+            .leftJoinAndSelect('q.seller_user', 'seller_user')
+            .where('q.tenant_id = :tenantId', { tenantId })
+            .andWhere('q.billing_branch_id = :billingBranchId', { billingBranchId })
+            .andWhere('q.general_status = :status', { status: 'Creada' })
+            .andWhere('q.advance_requested_total > 0')
+            .andWhere(`NOT EXISTS (
+          SELECT 1 FROM electronic_invoices inv
+          WHERE inv.tenant_id = q.tenant_id
+            AND inv.source_module = 'quotations'
+            AND inv.source_id = q.id
+            AND inv.invoice_role = 'advance'
+            AND (inv.sat_status IS NULL OR inv.sat_status <> 'Cancelado')
+            AND (
+              inv.sat_status = 'Vigente'
+              OR inv.stamp_status IN ('stamped', 'cancel_pending', 'cancel_error')
+            )
+        )`)
+            .orderBy('q.created_at', 'ASC')
+            .getMany();
+        return rows.map((quotation) => ({
+            kind: 'advance',
+            id: quotation.id,
+            folio: quotation.folio,
+            quotation_folio: null,
+            total: Number(quotation.total),
+            amount_pending: Number(quotation.advance_requested_total),
+            subtotal: Number(quotation.subtotal),
+            created_at: quotation.created_at,
+            notes: quotation.notes,
+            walk_in_name: null,
+            walk_in_rfc: null,
+            fiscal_configuration_id: quotation.fiscal_configuration_id,
+            customer: quotation.customer
+                ? {
+                    id: quotation.customer.id,
+                    name: quotation.customer.name,
+                    lastname: quotation.customer.lastname,
+                    company_name: quotation.customer.company_name,
+                    fiscal_razon_social: quotation.customer.fiscal_razon_social,
+                    display_name: (0, pos_sale_collection_mapper_1.formatCustomerDisplayName)(quotation.customer),
+                    is_walk_in: (0, pos_sale_collection_mapper_1.isWalkInCustomer)(quotation.customer),
+                    credit_enabled: false,
+                }
+                : null,
+            seller_user: quotation.seller_user
+                ? {
+                    id: quotation.seller_user.id,
+                    first_name: quotation.seller_user.first_name,
+                    last_name: quotation.seller_user.last_name,
+                    pos_user_code: quotation.seller_user.pos_user_code,
+                }
+                : null,
+            terminal_user: null,
         }));
     }
     async getCollectedSales(tenantId, terminalUserId, dailyShiftId, billingBranchId) {
@@ -817,6 +882,9 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             return customer.id;
         }
         return order.customer_id;
+    }
+    normalizeCollectPayment(tenantId, dto, orderTotal) {
+        return this.validateAndNormalizePayment(tenantId, dto, orderTotal);
     }
     async validateAndNormalizePayment(tenantId, dto, orderTotal) {
         const amountCashMxn = Number(dto.amount_cash_mxn ?? 0);
@@ -1634,12 +1702,14 @@ exports.PosShiftsService = PosShiftsService = PosShiftsService_1 = __decorate([
     __param(2, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
     __param(3, (0, typeorm_1.InjectRepository)(user_billing_branch_entity_1.UserBillingBranch)),
     __param(4, (0, typeorm_1.InjectRepository)(sales_order_entity_1.SalesOrder)),
-    __param(5, (0, typeorm_1.InjectRepository)(customer_entity_1.Customer)),
-    __param(6, (0, typeorm_1.InjectRepository)(warehouse_entity_1.Warehouse)),
-    __param(7, (0, typeorm_1.InjectRepository)(pos_sale_collection_entity_1.PosSaleCollection)),
-    __param(8, (0, common_1.Inject)((0, common_1.forwardRef)(() => sales_order_pos_receipt_service_1.SalesOrderPosReceiptService))),
-    __param(9, (0, common_1.Inject)((0, common_1.forwardRef)(() => sales_order_service_1.SalesOrderService))),
+    __param(5, (0, typeorm_1.InjectRepository)(quotation_entity_1.Quotation)),
+    __param(6, (0, typeorm_1.InjectRepository)(customer_entity_1.Customer)),
+    __param(7, (0, typeorm_1.InjectRepository)(warehouse_entity_1.Warehouse)),
+    __param(8, (0, typeorm_1.InjectRepository)(pos_sale_collection_entity_1.PosSaleCollection)),
+    __param(9, (0, common_1.Inject)((0, common_1.forwardRef)(() => sales_order_pos_receipt_service_1.SalesOrderPosReceiptService))),
+    __param(10, (0, common_1.Inject)((0, common_1.forwardRef)(() => sales_order_service_1.SalesOrderService))),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,

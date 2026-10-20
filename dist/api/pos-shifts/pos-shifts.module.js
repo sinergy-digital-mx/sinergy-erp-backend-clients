@@ -15,6 +15,7 @@ const pos_partial_shift_denomination_entity_1 = require("../../entities/pos/pos-
 const user_entity_1 = require("../../entities/users/user.entity");
 const user_billing_branch_entity_1 = require("../../entities/users/user-billing-branch.entity");
 const sales_order_entity_1 = require("../../entities/sales-orders/sales-order.entity");
+const quotation_entity_1 = require("../../entities/quotations/quotation.entity");
 const pos_sale_collection_entity_1 = require("../../entities/pos/pos-sale-collection.entity");
 const advance_shift_payment_entity_1 = require("../../entities/pos/advance-shift-payment.entity");
 const sales_order_payment_entity_1 = require("../../entities/sales-orders/sales-order-payment.entity");
@@ -24,6 +25,7 @@ const customer_entity_1 = require("../../entities/customers/customer.entity");
 const warehouse_entity_1 = require("../../entities/warehouse/warehouse.entity");
 const rbac_module_1 = require("../rbac/rbac.module");
 const sales_orders_module_1 = require("../sales-orders/sales-orders.module");
+const quotations_module_1 = require("../quotations/quotations.module");
 const customers_module_1 = require("../customers/customers.module");
 const pos_shifts_service_1 = require("./pos-shifts.service");
 const pos_shifts_controller_1 = require("./pos-shifts.controller");
@@ -40,6 +42,7 @@ exports.PosShiftsModule = PosShiftsModule = __decorate([
                 user_entity_1.User,
                 user_billing_branch_entity_1.UserBillingBranch,
                 sales_order_entity_1.SalesOrder,
+                quotation_entity_1.Quotation,
                 customer_entity_1.Customer,
                 pos_sale_collection_entity_1.PosSaleCollection,
                 advance_shift_payment_entity_1.AdvanceShiftPayment,
@@ -48,6 +51,7 @@ exports.PosShiftsModule = PosShiftsModule = __decorate([
             ]),
             rbac_module_1.RBACModule,
             (0, common_1.forwardRef)(() => sales_orders_module_1.SalesOrdersModule),
+            (0, common_1.forwardRef)(() => quotations_module_1.QuotationsModule),
             customers_module_1.CustomersModule,
             exchange_rate_module_1.ExchangeRateModule,
         ],

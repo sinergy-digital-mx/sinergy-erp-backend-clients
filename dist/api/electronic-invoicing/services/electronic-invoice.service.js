@@ -26,6 +26,7 @@ const electronic_invoice_pdf_service_1 = require("./electronic-invoice-pdf.servi
 const cfdi_xml_parser_1 = require("../utils/cfdi-xml.parser");
 const cfdi_regimen_person_util_1 = require("../utils/cfdi-regimen-person.util");
 const finkok_error_message_util_1 = require("../utils/finkok-error-message.util");
+const cfdi_cancel_status_util_1 = require("../utils/cfdi-cancel-status.util");
 let ElectronicInvoiceService = ElectronicInvoiceService_1 = class ElectronicInvoiceService {
     invoiceRepo;
     syncLogRepo;
@@ -155,20 +156,33 @@ let ElectronicInvoiceService = ElectronicInvoiceService_1 = class ElectronicInvo
         const folio = result.folios[0];
         invoice.cancel_sat_status_code = folio?.estatusUuid ?? null;
         invoice.cancel_acuse_xml = result.acuse ?? null;
-        invoice.stamp_status =
-            folio?.estatusUuid === '201' ? 'cancel_pending' : 'cancelled';
+        if (folio?.estatusCancelacion) {
+            invoice.sat_estatus_cancelacion = folio.estatusCancelacion;
+        }
+        invoice.stamp_status = (0, cfdi_cancel_status_util_1.resolveStampStatusAfterCancelRequest)(folio?.estatusUuid, invoice.sat_estatus_cancelacion);
         invoice.stamp_error_message = null;
         await this.syncLogRepo.save(this.syncLogRepo.create({
             tenant_id: tenantId,
             electronic_invoice_id: invoice.id,
             trigger_type: 'manual',
             previous_sat_status: invoice.sat_status,
-            new_sat_status: invoice.stamp_status === 'cancelled' ? 'Cancelado' : invoice.sat_status,
+            new_sat_status: invoice.sat_status,
             raw_response: { cancel: result },
             success: result.success ? 1 : 0,
             triggered_by: userId,
         }));
-        return this.invoiceRepo.save(invoice);
+        const saved = await this.invoiceRepo.save(invoice);
+        return this.syncAfterCancel(saved.id, tenantId, userId);
+    }
+    async syncAfterCancel(id, tenantId, userId) {
+        try {
+            return await this.syncSatStatus(id, tenantId, userId, 'manual');
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            this.logger.warn(`Sync SAT después de cancelar ${id} falló: ${message}`);
+            return this.getByIdOrFail(id, tenantId);
+        }
     }
     async syncSatStatus(id, tenantId, userId, trigger = 'manual') {
         const invoice = await this.getByIdOrFail(id, tenantId);
@@ -187,9 +201,7 @@ let ElectronicInvoiceService = ElectronicInvoiceService_1 = class ElectronicInvo
         invoice.sat_estatus_cancelacion = result.estatusCancelacion ?? null;
         invoice.sat_codigo_estatus = result.codigoEstatus ?? null;
         invoice.sat_last_sync_at = new Date();
-        if (newSatStatus === 'Cancelado') {
-            invoice.stamp_status = 'cancelled';
-        }
+        invoice.stamp_status = (0, cfdi_cancel_status_util_1.resolveStampStatusAfterSatConsult)(invoice.stamp_status, newSatStatus, invoice.sat_estatus_cancelacion);
         await this.syncLogRepo.save(this.syncLogRepo.create({
             tenant_id: tenantId,
             electronic_invoice_id: invoice.id,

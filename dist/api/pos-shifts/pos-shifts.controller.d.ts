@@ -1,4 +1,5 @@
 import { PosShiftsService } from './pos-shifts.service';
+import { QuotationAdvanceInvoiceService } from '../quotations/services/quotation-advance-invoice.service';
 import { ValidateSellerCodeDto } from './dto/validate-seller-code.dto';
 import { OpenDailyShiftDto } from './dto/open-daily-shift.dto';
 import { CreatePartialShiftDto } from './dto/create-partial-shift.dto';
@@ -10,7 +11,8 @@ import { QueryCollectedSalesDto } from './dto/query-collected-sales.dto';
 import { ReplacePosSaleCartDto } from './dto/replace-pos-sale-cart.dto';
 export declare class PosShiftsController {
     private readonly posShiftsService;
-    constructor(posShiftsService: PosShiftsService);
+    private readonly quotationAdvances;
+    constructor(posShiftsService: PosShiftsService, quotationAdvances: QuotationAdvanceInvoiceService);
     validateSellerCode(dto: ValidateSellerCodeDto, req: any): Promise<{
         seller: {
             id: string;
@@ -638,7 +640,8 @@ export declare class PosShiftsController {
         };
     }>;
     getPendingSales(query: QueryPosBranchDto, req: any): Promise<{
-        pending_sales: {
+        pending_sales: ({
+            kind: "sale";
             id: string;
             folio: string;
             quotation_folio: string | null;
@@ -672,7 +675,37 @@ export declare class PosShiftsController {
                 last_name: string;
                 pos_user_type: import("../../entities/users/pos-user-type.enum").PosUserType | null;
             } | null;
-        }[];
+        } | {
+            kind: "advance";
+            id: string;
+            folio: string;
+            quotation_folio: null;
+            total: number;
+            amount_pending: number;
+            subtotal: number;
+            created_at: Date;
+            notes: string | null;
+            walk_in_name: null;
+            walk_in_rfc: null;
+            fiscal_configuration_id: string;
+            customer: {
+                id: number;
+                name: string;
+                lastname: string;
+                company_name: string;
+                fiscal_razon_social: string;
+                display_name: string | null;
+                is_walk_in: boolean;
+                credit_enabled: boolean;
+            } | null;
+            seller_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+            } | null;
+            terminal_user: null;
+        })[];
     }>;
     getSalesInProgress(query: QueryPosBranchDto, req: any): Promise<{
         sales_in_progress: {
@@ -927,6 +960,13 @@ export declare class PosShiftsController {
             amount_collected: number;
             amount_on_credit: number;
         };
+    }>;
+    collectQuotationAdvance(quotationId: string, dto: CollectPosSaleDto, req: any): Promise<{
+        folio: string;
+        customer_name: string | null;
+        change_cash_mxn: number;
+        change_cash_usd: number;
+        usd_exchange_rate: number | null;
     }>;
     returnSaleToVentas(salesOrderId: string, req: any): Promise<{
         message: string;

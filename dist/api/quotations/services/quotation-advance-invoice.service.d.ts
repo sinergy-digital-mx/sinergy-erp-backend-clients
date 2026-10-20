@@ -7,6 +7,8 @@ import { AdvanceCfdiService } from '../../electronic-invoicing/services/advance-
 import { ElectronicInvoiceService } from '../../electronic-invoicing/services/electronic-invoice.service';
 import { PosShiftsService } from '../../pos-shifts/pos-shifts.service';
 import { AdvanceShiftPaymentService } from '../../pos-shifts/services/advance-shift-payment.service';
+import { CollectPosSaleDto } from '../../pos-shifts/dto/collect-pos-sale.dto';
+import { PosSalePaymentMethod } from '../../../entities/pos/pos-sale-payment-method.enum';
 export declare class QuotationAdvanceInvoiceService {
     private readonly quotationRepo;
     private readonly salesOrderRepo;
@@ -31,12 +33,19 @@ export declare class QuotationAdvanceInvoiceService {
         blocksEdit: boolean;
         payment: {
             amount_mxn: number;
-            payment_method: import("../../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
+            payment_method: PosSalePaymentMethod;
             payment_method_label: string;
             shift_date: string;
         } | null;
     }>;
     list(id: string, tenantId: string): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice[]>;
+    collectFromPos(id: string, tenantId: string, userId: string, dto: CollectPosSaleDto): Promise<{
+        folio: string;
+        customer_name: string | null;
+        change_cash_mxn: number;
+        change_cash_usd: number;
+        usd_exchange_rate: number | null;
+    }>;
     stamp(id: string, tenantId: string, userId: string, dto: StampAdvanceInvoiceDto): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     getPdf(id: string, invoiceId: string, tenantId: string, regenerate?: boolean, preview?: boolean): Promise<import("../../electronic-invoicing/services/electronic-invoice-pdf.service").ElectronicInvoicePdfUploadResult>;
     getXml(id: string, invoiceId: string, tenantId: string): Promise<{
