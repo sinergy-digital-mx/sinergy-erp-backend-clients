@@ -52,6 +52,7 @@ const warehouse_control_module_1 = require("./api/warehouse-control/warehouse-co
 const madereria_inventory_import_module_1 = require("./api/madereria-inventory-import/madereria-inventory-import.module");
 const self_invoice_module_1 = require("./api/self-invoice/self-invoice.module");
 const service_subscriptions_module_1 = require("./api/service-subscriptions/service-subscriptions.module");
+const whatsapp_module_1 = require("./api/whatsapp/whatsapp.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -101,6 +102,7 @@ exports.AppModule = AppModule = __decorate([
             madereria_inventory_import_module_1.MadereriaInventoryImportModule,
             self_invoice_module_1.SelfInvoiceModule,
             service_subscriptions_module_1.ServiceSubscriptionsModule,
+            whatsapp_module_1.WhatsappModule,
         ],
         providers: [],
     })

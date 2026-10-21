@@ -6,7 +6,7 @@ const app_module_1 = require("./app.module");
 require("dotenv/config");
 const swagger_setup_1 = require("./config/swagger/swagger.setup");
 async function bootstrap() {
-    const app = await core_1.NestFactory.create(app_module_1.AppModule);
+    const app = await core_1.NestFactory.create(app_module_1.AppModule, { rawBody: true });
     const httpServer = app.getHttpAdapter().getInstance();
     if (httpServer?.use) {
         httpServer.use((req, _res, next) => {

@@ -1,0 +1,22 @@
+export declare const WHATSAPP_MODULE_CODE = "whatsapp";
+export declare const WHATSAPP_ENTITY_CODE = "whatsapp";
+export declare const WHATSAPP_MODULE_NAME = "WhatsApp";
+export declare const WAHA_SESSION_STATUS: {
+    readonly STOPPED: "STOPPED";
+    readonly STARTING: "STARTING";
+    readonly SCAN_QR_CODE: "SCAN_QR_CODE";
+    readonly WORKING: "WORKING";
+    readonly FAILED: "FAILED";
+};
+export type WhatsappConnectionState = 'not_configured' | 'disconnected' | 'starting' | 'waiting_qr' | 'connected' | 'failed';
+export type WhatsappMessageStatus = 'queued' | 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+export declare const WHATSAPP_MESSAGE_TYPES: readonly ["text", "file"];
+export type WhatsappMessageType = (typeof WHATSAPP_MESSAGE_TYPES)[number];
+export declare const WAHA_WEBHOOK_EVENTS: string[];
+export declare const WAHA_WEBHOOK_PATH = "/api/webhooks/whatsapp/waha";
+export declare const WHATSAPP_TEXT_MAX_LENGTH = 4096;
+export declare const DEFAULT_COUNTRY_CODE = "52";
+export declare const DEFAULT_DAILY_LIMIT = 1000;
+export declare const DEFAULT_MIN_DELAY_MS = 2000;
+export declare const DEFAULT_MAX_DELAY_MS = 5000;
+export declare const WAHA_CORE_SESSION_NAME = "default";
