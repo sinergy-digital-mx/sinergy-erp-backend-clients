@@ -113,8 +113,6 @@ let ServiceSubscriptionBillingService = ServiceSubscriptionBillingService_1 = cl
         if ((0, service_subscription_months_util_1.isCurrentMonth)(month)) {
             return this.stampPeriod(subscription, period, userId);
         }
-        period.invoice_error =
-            'La orden quedó en ese mes. Tímbrala desde la orden: el SAT no acepta facturar meses anteriores con la fecha de hoy.';
         return this.periodRepo.save(period);
     }
     async stampPeriod(subscription, period, userId) {

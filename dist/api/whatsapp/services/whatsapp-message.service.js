@@ -218,7 +218,7 @@ let WhatsappMessageService = WhatsappMessageService_1 = class WhatsappMessageSer
         try {
             const check = await this.waha.checkNumberExists(message.session_name, message.to_phone);
             if (!check?.numberExists) {
-                await this.fail(message, 'El número no tiene WhatsApp.');
+                await this.fail(message, 'El número no tiene WhatsApp. Si es de otro país, escríbelo con su código (por ejemplo +1 para Estados Unidos).');
                 return;
             }
             const chatId = check.chatId || `${message.to_phone}@c.us`;
