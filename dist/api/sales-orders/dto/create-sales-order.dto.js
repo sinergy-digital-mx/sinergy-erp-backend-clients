@@ -21,6 +21,7 @@ class CreateSalesOrderLineItemDto {
     discount_percentage = 0;
     discount_unit;
     product_discount_id;
+    custom_description;
     iva_percentage = 0;
     ieps_percentage = 0;
 }
@@ -72,6 +73,18 @@ __decorate([
     (0, class_validator_1.IsUUID)(),
     __metadata("design:type", String)
 ], CreateSalesOrderLineItemDto.prototype, "product_discount_id", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        description: 'Concepto libre de la línea. Si se envía, se muestra y se factura en lugar del nombre del producto.',
+        example: 'Desarrollo de software septiembre',
+    }),
+    (0, class_transformer_1.Transform)(({ value }) => typeof value === 'string' ? value.trim() || undefined : value),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(255),
+    __metadata("design:type", String)
+], CreateSalesOrderLineItemDto.prototype, "custom_description", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsNumber)(),

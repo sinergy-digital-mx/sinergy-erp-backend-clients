@@ -29,6 +29,7 @@ const sales_order_batch_allocation_entity_1 = require("../../../entities/sales-o
 const sales_order_payment_entity_1 = require("../../../entities/sales-orders/sales-order-payment.entity");
 const sales_order_payment_document_entity_1 = require("../../../entities/sales-orders/sales-order-payment-document.entity");
 const resolve_product_uom_util_1 = require("../../products/utils/resolve-product-uom.util");
+const sales_order_clone_util_1 = require("../utils/sales-order-clone.util");
 const customer_purchase_trend_util_1 = require("../../customers/utils/customer-purchase-trend.util");
 const pos_sale_payment_method_enum_1 = require("../../../entities/pos/pos-sale-payment-method.enum");
 const user_entity_1 = require("../../../entities/users/user.entity");
@@ -375,6 +376,7 @@ let SalesOrderService = class SalesOrderService {
                     sales_order_id: savedSO.id,
                     product_id: item.product_id,
                     product_uom_id: productUomRow.id,
+                    custom_description: item.custom_description?.trim() || null,
                     quantity: item.quantity,
                     quantity_base_uom: qty_base,
                     base_uom_id: baseUomRow.uom_catalog_id,
@@ -1468,6 +1470,7 @@ let SalesOrderService = class SalesOrderService {
             if (existingAllocations.length) {
                 await this.fulfillmentService.releaseAllocations(existingAllocations, qr.manager);
             }
+            (0, sales_order_clone_util_1.carryOverCustomDescriptions)(existing.line_items ?? [], dto.line_items);
             await qr.manager.delete(sales_order_detail_entity_1.SalesOrderDetail, { sales_order_id: id });
             const so = await qr.manager.findOne(sales_order_entity_1.SalesOrder, { where: { id, tenant_id: tenantId } });
             if (!so) {
@@ -1533,6 +1536,23 @@ let SalesOrderService = class SalesOrderService {
         finally {
             await qr.release();
         }
+    }
+    async cloneOrder(id, dto, tenantId, userId) {
+        const source = await this.findOne(id, tenantId);
+        if (source.sales_order_type !== 'MANUAL') {
+            throw new common_1.BadRequestException('Solo se pueden clonar órdenes manuales');
+        }
+        const today = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'America/Mexico_City',
+        }).format(new Date());
+        let createDto;
+        try {
+            createDto = (0, sales_order_clone_util_1.buildCloneSalesOrderDto)(source, dto, today);
+        }
+        catch (err) {
+            throw new common_1.BadRequestException(err.message);
+        }
+        return this.create(createDto, tenantId, userId);
     }
     async addLineItem(orderId, dto, tenantId, userId) {
         const qr = this.dataSource.createQueryRunner();
@@ -1796,6 +1816,7 @@ let SalesOrderService = class SalesOrderService {
                 sales_order_id: salesOrderId,
                 product_id: item.product_id,
                 product_uom_id: productUomRow.id,
+                custom_description: item.custom_description?.trim() || null,
                 quantity: item.quantity,
                 quantity_base_uom: qty_base,
                 base_uom_id: baseUomRow.uom_catalog_id,

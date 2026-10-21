@@ -227,7 +227,7 @@ let ServiceSubscriptionBillingService = ServiceSubscriptionBillingService_1 = cl
                 usoCfdi: subscription.uso_cfdi.toUpperCase(),
             },
             lines: (order.line_items ?? []).map((line) => ({
-                description: line.product?.name ?? subscription.title,
+                description: line.custom_description?.trim() || line.product?.name || subscription.title,
                 quantity: Number(line.quantity) || 0,
                 unitPrice: Number(line.unit_price) || 0,
                 discountUnit: Number(line.discount_unit) || 0,

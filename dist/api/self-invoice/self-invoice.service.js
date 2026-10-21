@@ -144,7 +144,7 @@ let SelfInvoiceService = SelfInvoiceService_1 = class SelfInvoiceService {
                 usoCfdi: dto.uso_cfdi.toUpperCase(),
             },
             lines: (order.line_items ?? []).map((line) => ({
-                description: line.product?.name ?? 'PRODUCTO',
+                description: line.custom_description?.trim() || line.product?.name || 'PRODUCTO',
                 quantity: Number(line.quantity) || 0,
                 unitPrice: Number(line.unit_price) || 0,
                 discountUnit: Number(line.discount_unit) || 0,

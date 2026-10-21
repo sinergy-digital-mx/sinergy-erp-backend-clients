@@ -25,6 +25,7 @@ let SalesOrderDetail = class SalesOrderDetail {
     product_id;
     product_uom;
     product_uom_id;
+    custom_description;
     quantity;
     quantity_base_uom;
     base_uom;
@@ -79,6 +80,10 @@ __decorate([
     (0, typeorm_1.Column)(),
     __metadata("design:type", String)
 ], SalesOrderDetail.prototype, "product_uom_id", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 255, nullable: true }),
+    __metadata("design:type", Object)
+], SalesOrderDetail.prototype, "custom_description", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'decimal', precision: 12, scale: 3 }),
     __metadata("design:type", Number)

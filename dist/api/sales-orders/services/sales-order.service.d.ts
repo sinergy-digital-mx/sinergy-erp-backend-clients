@@ -9,6 +9,7 @@ import { SalesOrderBatchAllocation } from '../../../entities/sales-orders/sales-
 import { SalesOrderPayment } from '../../../entities/sales-orders/sales-order-payment.entity';
 import { SalesOrderPaymentDocument } from '../../../entities/sales-orders/sales-order-payment-document.entity';
 import { CreateSalesOrderDto, CreateSalesOrderLineItemDto } from '../dto/create-sales-order.dto';
+import { CloneSalesOrderDto } from '../dto/clone-sales-order.dto';
 import { UpdateSalesOrderLineItemDto } from '../dto/update-sales-order-line-item.dto';
 import { QuerySalesOrderDto } from '../dto/query-sales-order.dto';
 import { FulfillSalesOrderDto } from '../dto/fulfill-sales-order.dto';
@@ -679,6 +680,7 @@ export declare class SalesOrderService {
                 product_id: string;
                 product_uom: import("../../../entities/products").ProductUoM;
                 product_uom_id: string;
+                custom_description: string | null;
                 quantity: number;
                 quantity_base_uom: number;
                 base_uom: import("../../../entities/uom-catalog/uom-catalog.entity").UoMCatalog;
@@ -979,6 +981,7 @@ export declare class SalesOrderService {
     private getCancelBlockedReason;
     getPosReturnBlockedReason(order: SalesOrder, tenantId: string): Promise<string | null>;
     replace(id: string, dto: CreateSalesOrderDto, tenantId: string, userId: string): Promise<SalesOrder>;
+    cloneOrder(id: string, dto: CloneSalesOrderDto, tenantId: string, userId: string): Promise<SalesOrder>;
     addLineItem(orderId: string, dto: CreateSalesOrderLineItemDto, tenantId: string, userId: string): Promise<void>;
     updateLineItem(orderId: string, lineItemId: string, dto: UpdateSalesOrderLineItemDto, tenantId: string, userId: string): Promise<void>;
     removeLineItem(orderId: string, lineItemId: string, tenantId: string, userId: string): Promise<void>;

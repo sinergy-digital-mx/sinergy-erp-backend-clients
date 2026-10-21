@@ -55,6 +55,7 @@ const document_language_enum_1 = require("../../../common/enums/document-languag
 const invoice_month_deadline_util_1 = require("../utils/invoice-month-deadline.util");
 const sales_order_pdf_labels_1 = require("./sales-order-pdf-labels");
 const fiscal_tax_policy_util_1 = require("../../billing/utils/fiscal-tax-policy.util");
+const sales_order_line_name_util_1 = require("../utils/sales-order-line-name.util");
 const COLORS = {
     primary: '#1E3A5F',
     primarySoft: '#E8EEF5',
@@ -324,7 +325,7 @@ let SalesOrderPdfService = class SalesOrderPdfService {
             tableBody.push([
                 {
                     stack: [
-                        { text: item.product?.name || 'N/A', fontSize: 9, bold: true, color: COLORS.text },
+                        { text: (0, sales_order_line_name_util_1.lineConceptName)(item, 'N/A'), fontSize: 9, bold: true, color: COLORS.text },
                         {
                             text: `${labels.unitPrefix}: ${uomName}`,
                             fontSize: 7.5,

@@ -60,6 +60,9 @@ let SalesOrderController = class SalesOrderController {
     async create(dto, req) {
         return this.salesOrderService.create(dto, req.user.tenant_id, req.user.id);
     }
+    async clone(id, dto, req) {
+        return this.salesOrderService.cloneOrder(id, dto, req.user.tenant_id, req.user.id);
+    }
     async replace(id, dto, req) {
         return this.salesOrderService.replace(id, dto, req.user.tenant_id, req.user.id);
     }
@@ -323,6 +326,20 @@ __decorate([
     __metadata("design:paramtypes", [dto_1.CreateSalesOrderDto, Object]),
     __metadata("design:returntype", Promise)
 ], SalesOrderController.prototype, "create", null);
+__decorate([
+    (0, common_1.Post)(':id/clone'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Clonar una orden manual',
+        description: 'Crea una venta nueva con los mismos datos. Solo cambian los conceptos y precios indicados en `lines`.',
+    }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, dto_1.CloneSalesOrderDto, Object]),
+    __metadata("design:returntype", Promise)
+], SalesOrderController.prototype, "clone", null);
 __decorate([
     (0, common_1.Put)(':id'),
     (0, swagger_1.ApiOperation)({ summary: 'Replace/edit a sales order while it is Creada' }),

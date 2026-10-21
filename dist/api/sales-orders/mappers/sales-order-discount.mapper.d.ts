@@ -45,6 +45,7 @@ export declare function mapLineItemWithDiscount(item: SalesOrderDetail): {
     product_id: string;
     product_uom: import("../../../entities/products").ProductUoM;
     product_uom_id: string;
+    custom_description: string | null;
     quantity: number;
     quantity_base_uom: number;
     base_uom: import("../../../entities/uom-catalog/uom-catalog.entity").UoMCatalog;

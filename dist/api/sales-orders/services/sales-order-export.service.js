@@ -188,7 +188,7 @@ let SalesOrderExportService = class SalesOrderExportService {
                     d.sales_order?.warehouse?.billing_branch?.code ??
                     '',
                 product_sku: d.product?.sku ?? '',
-                product_name: d.product?.name ?? '',
+                product_name: d.custom_description?.trim() || d.product?.name || '',
                 uom_name: d.product_uom?.uom?.name ?? '',
                 quantity: qty,
                 unit_price: unitPrice,

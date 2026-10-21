@@ -6,6 +6,7 @@ export declare class CreateSalesOrderLineItemDto {
     discount_percentage?: number;
     discount_unit?: number;
     product_discount_id?: string;
+    custom_description?: string;
     iva_percentage?: number;
     ieps_percentage?: number;
 }

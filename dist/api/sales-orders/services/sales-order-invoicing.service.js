@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SalesOrderInvoicingService = void 0;
 const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
+const sales_order_line_name_util_1 = require("../utils/sales-order-line-name.util");
 const typeorm_2 = require("typeorm");
 const sales_order_entity_1 = require("../../../entities/sales-orders/sales-order.entity");
 const sales_order_payment_entity_1 = require("../../../entities/sales-orders/sales-order-payment.entity");
@@ -707,7 +708,7 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
                 iepsPercentage: Number(line.ieps_percentage) || 0,
                 unitCode: unit.code,
                 unitName: unit.name,
-                description: line.product?.name || 'Producto',
+                description: (0, sales_order_line_name_util_1.lineConceptName)(line),
             };
         });
         return this.advanceCfdi.applyToSalesOrder(tenantId, userId, {

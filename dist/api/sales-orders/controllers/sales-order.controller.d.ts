@@ -12,7 +12,7 @@ import { StampPaymentComplementDto } from '../dto/stamp-payment-complement.dto';
 import { ApplyAdvanceInvoiceDto } from '../../electronic-invoicing/dto/apply-advance-invoice.dto';
 import { InventoryService } from '../../inventory/inventory.service';
 import { SalesOrderProductsPickerService } from '../services/sales-order-products-picker.service';
-import { CreateSalesOrderDto, CreateSalesOrderLineItemDto, UpdateSalesOrderLineItemDto, QuerySalesOrderDto, QuerySalesOrderProductsSummaryDto, FulfillSalesOrderDto, RegenerateDocumentDto, UpdateSalesOrderNotesDto, QuerySalesOrderHeaderExportDto, QuerySalesOrderDetailExportDto, CreateSalesOrderPaymentDto, UpdateSalesOrderSellerDto, UpdateSalesOrderAssignedSellerDto, SendSalesOrderInvoiceEmailDto, UpdateInvoiceEmailTemplateDto } from '../dto';
+import { CreateSalesOrderDto, CreateSalesOrderLineItemDto, CloneSalesOrderDto, UpdateSalesOrderLineItemDto, QuerySalesOrderDto, QuerySalesOrderProductsSummaryDto, FulfillSalesOrderDto, RegenerateDocumentDto, UpdateSalesOrderNotesDto, QuerySalesOrderHeaderExportDto, QuerySalesOrderDetailExportDto, CreateSalesOrderPaymentDto, UpdateSalesOrderSellerDto, UpdateSalesOrderAssignedSellerDto, SendSalesOrderInvoiceEmailDto, UpdateInvoiceEmailTemplateDto } from '../dto';
 export declare class SalesOrderController {
     private readonly salesOrderService;
     private readonly documentsService;
@@ -33,6 +33,7 @@ export declare class SalesOrderController {
         currency: string;
     }>;
     create(dto: CreateSalesOrderDto, req: any): Promise<import("../../../entities/sales-orders").SalesOrder>;
+    clone(id: string, dto: CloneSalesOrderDto, req: any): Promise<import("../../../entities/sales-orders").SalesOrder>;
     replace(id: string, dto: CreateSalesOrderDto, req: any): Promise<import("../../../entities/sales-orders").SalesOrder>;
     addLineItem(id: string, dto: CreateSalesOrderLineItemDto, req: any): Promise<{
         from: string;
