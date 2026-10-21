@@ -27,11 +27,20 @@ export declare class WhatsappMessageService implements OnApplicationBootstrap {
     private readonly waha;
     private readonly logger;
     private readonly chains;
-    private readonly fileUrls;
+    private readonly files;
     constructor(messageRepo: Repository<WhatsappMessage>, sessions: WhatsappSessionService, waha: WahaClientService);
     onApplicationBootstrap(): void;
     sendText(tenantId: string, userId: string, dto: SendWhatsappTextDto): Promise<WhatsappMessageView>;
     sendFile(tenantId: string, userId: string, dto: SendWhatsappFileDto): Promise<WhatsappMessageView>;
+    sendBuffer(tenantId: string, userId: string, input: {
+        phone: string;
+        data: Buffer;
+        file_name: string;
+        mimetype: string;
+        caption?: string | null;
+        reference_type?: string | null;
+        reference_id?: string | null;
+    }): Promise<WhatsappMessageView>;
     list(tenantId: string, query: QueryWhatsappMessagesDto): Promise<{
         data: WhatsappMessageView[];
         total: number;

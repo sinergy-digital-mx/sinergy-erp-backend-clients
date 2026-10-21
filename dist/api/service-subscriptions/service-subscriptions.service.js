@@ -38,6 +38,8 @@ const mailer_configuration_service_1 = require("../mailer-configuration/services
 const electronic_invoice_pdf_service_1 = require("../electronic-invoicing/services/electronic-invoice-pdf.service");
 const service_subscription_summary_email_util_1 = require("./utils/service-subscription-summary-email.util");
 const service_subscription_summary_pdf_util_1 = require("./utils/service-subscription-summary-pdf.util");
+const service_subscription_reminder_image_util_1 = require("./utils/service-subscription-reminder-image.util");
+const whatsapp_message_service_1 = require("../whatsapp/services/whatsapp-message.service");
 const service_subscription_months_util_1 = require("./utils/service-subscription-months.util");
 let ServiceSubscriptionsService = class ServiceSubscriptionsService {
     subscriptionRepo;
@@ -50,7 +52,8 @@ let ServiceSubscriptionsService = class ServiceSubscriptionsService {
     billing;
     invoicePdf;
     mailerConfigurationService;
-    constructor(subscriptionRepo, periodRepo, customerRepo, productRepo, productUomRepo, branchRepo, salesOrderRepo, billing, invoicePdf, mailerConfigurationService) {
+    whatsapp;
+    constructor(subscriptionRepo, periodRepo, customerRepo, productRepo, productUomRepo, branchRepo, salesOrderRepo, billing, invoicePdf, mailerConfigurationService, whatsapp) {
         this.subscriptionRepo = subscriptionRepo;
         this.periodRepo = periodRepo;
         this.customerRepo = customerRepo;
@@ -61,6 +64,7 @@ let ServiceSubscriptionsService = class ServiceSubscriptionsService {
         this.billing = billing;
         this.invoicePdf = invoicePdf;
         this.mailerConfigurationService = mailerConfigurationService;
+        this.whatsapp = whatsapp;
     }
     async list(tenantId, query) {
         this.assertVexia(tenantId);
@@ -165,25 +169,7 @@ let ServiceSubscriptionsService = class ServiceSubscriptionsService {
     async buildSummaryInput(tenantId, subscription) {
         const months = [];
         for (const period of subscription.periods ?? []) {
-            const invoice = period.sales_order_id
-                ? await this.billing.findVigenteInvoice(tenantId, period.sales_order_id)
-                : null;
-            const folio = [invoice?.series, invoice?.folio].filter(Boolean).join('-');
-            const payment = period.sales_order?.payment_status;
-            months.push({
-                label: (0, service_subscription_months_util_1.formatPeriodLabel)(String(period.period_month)),
-                amount: Number(period.amount),
-                orderFolio: period.sales_order?.folio ?? null,
-                invoiceFolio: invoice ? folio || null : null,
-                invoiceUuid: invoice?.uuid ?? null,
-                invoiceTotal: invoice ? Number(invoice.total) : null,
-                stampStatus: invoice ? (0, service_subscription_summary_email_util_1.stampStatusLabel)(invoice.stamp_status) : null,
-                satStatus: invoice?.sat_status ?? null,
-                stampedAt: invoice?.stamped_at
-                    ? new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(invoice.stamped_at))
-                    : null,
-                paid: period.sales_order ? payment === 'Pagado' : null,
-            });
+            months.push((await this.buildMonthSummary(tenantId, period)).month);
         }
         return {
             title: subscription.title,
@@ -196,6 +182,109 @@ let ServiceSubscriptionsService = class ServiceSubscriptionsService {
             ivaPercentage: Number(subscription.iva_percentage),
             months,
         };
+    }
+    async buildMonthSummary(tenantId, period) {
+        const invoice = period.sales_order_id
+            ? await this.billing.findVigenteInvoice(tenantId, period.sales_order_id)
+            : null;
+        const folio = [invoice?.series, invoice?.folio].filter(Boolean).join('-');
+        const payment = period.sales_order?.payment_status;
+        const month = {
+            label: (0, service_subscription_months_util_1.formatPeriodLabel)(String(period.period_month)),
+            amount: Number(period.amount),
+            orderFolio: period.sales_order?.folio ?? null,
+            invoiceFolio: invoice ? folio || null : null,
+            invoiceUuid: invoice?.uuid ?? null,
+            invoiceTotal: invoice ? Number(invoice.total) : null,
+            stampStatus: invoice ? (0, service_subscription_summary_email_util_1.stampStatusLabel)(invoice.stamp_status) : null,
+            satStatus: invoice?.sat_status ?? null,
+            stampedAt: invoice?.stamped_at
+                ? new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(invoice.stamped_at))
+                : null,
+            paid: period.sales_order ? payment === 'Pagado' : null,
+        };
+        return { month, invoice };
+    }
+    async sendPaymentReminder(tenantId, userId, id, periodId, dto) {
+        this.assertVexia(tenantId);
+        const subscription = await this.loadSubscription(tenantId, id);
+        const period = this.findPeriod(subscription, periodId);
+        if (!period.sales_order_id) {
+            throw new common_1.BadRequestException('Este mes aún no tiene orden. Genera la orden antes de enviar el recordatorio.');
+        }
+        const phone = (dto.phone || this.customerWhatsappPhone(subscription.customer)).trim();
+        if (!phone) {
+            throw new common_1.BadRequestException('Indica un teléfono. El cliente no tiene uno registrado.');
+        }
+        await this.billing.syncPeriodInvoices(subscription);
+        const { month, invoice } = await this.buildMonthSummary(tenantId, period);
+        if (month.paid) {
+            throw new common_1.BadRequestException('Este mes ya está pagado.');
+        }
+        const ivaPercentage = Number(subscription.iva_percentage);
+        const input = {
+            title: subscription.title,
+            customerName: this.customerName(subscription.customer),
+            issuerName: subscription.fiscal_configuration?.razon_social || 'Razón social',
+            issuerRfc: subscription.fiscal_configuration?.rfc ?? null,
+            monthlyAmount: Number(subscription.monthly_amount),
+            ivaPercentage,
+            totalDue: month.invoiceTotal ?? Math.round(month.amount * (1 + ivaPercentage / 100) * 100) / 100,
+            month,
+        };
+        const caption = (0, service_subscription_reminder_image_util_1.buildPaymentReminderCaption)(input);
+        const reference = { reference_type: 'service_subscription_period', reference_id: period.id };
+        const image = (0, service_subscription_reminder_image_util_1.renderPaymentReminderImage)(input);
+        const first = image
+            ? await this.whatsapp.sendBuffer(tenantId, userId, {
+                phone,
+                data: image,
+                file_name: `recordatorio-${month.label.replace(/\s+/g, '-')}.png`,
+                mimetype: 'image/png',
+                caption,
+                ...reference,
+            })
+            : await this.whatsapp.sendText(tenantId, userId, { phone, text: caption, ...reference });
+        let invoiceAttached = false;
+        if (invoice?.pdf_stamped_s3_key) {
+            try {
+                const pdf = await this.invoicePdf.getPdfBuffer(invoice);
+                await this.whatsapp.sendBuffer(tenantId, userId, {
+                    phone,
+                    data: pdf.buffer,
+                    file_name: pdf.fileName,
+                    mimetype: 'application/pdf',
+                    caption: month.invoiceFolio ? `Factura ${month.invoiceFolio}` : 'Factura',
+                    ...reference,
+                });
+                invoiceAttached = true;
+            }
+            catch (error) {
+                if (error instanceof common_1.HttpException && error.getStatus() === common_1.HttpStatus.TOO_MANY_REQUESTS)
+                    throw error;
+            }
+        }
+        return {
+            sent_to: first.to_phone,
+            image_sent: !!image,
+            invoice_attached: invoiceAttached,
+        };
+    }
+    customerWhatsappPhone(customer) {
+        if (!customer)
+            return '';
+        const candidates = [
+            [customer.phone, customer.phone_code],
+            [customer.additional_phone, customer.additional_phone_code],
+        ];
+        for (const [phone, code] of candidates) {
+            const digits = String(phone ?? '').replace(/\D/g, '');
+            if (!digits)
+                continue;
+            const codeDigits = String(code ?? '').replace(/\D/g, '');
+            return digits.length <= 10 && codeDigits ? `${codeDigits}${digits}` : digits;
+        }
+        return '';
     }
     async sendViaResend(tenantId, toEmail, subject, html, attachments = []) {
         let config;
@@ -539,6 +628,7 @@ let ServiceSubscriptionsService = class ServiceSubscriptionsService {
             }),
             fiscal_configuration_id: subscription.fiscal_configuration_id,
             customer_email: subscription.customer?.email ?? null,
+            customer_phone: this.customerWhatsappPhone(subscription.customer) || null,
             billing_branch_id: subscription.billing_branch_id,
             billing_branch_code: subscription.billing_branch?.code ?? null,
             product_id: subscription.product_id,
@@ -557,6 +647,7 @@ let ServiceSubscriptionsService = class ServiceSubscriptionsService {
                 status: period.status,
                 sales_order_id: period.sales_order_id,
                 sales_order_folio: period.sales_order?.folio ?? null,
+                paid: period.sales_order ? period.sales_order.payment_status === 'Pagado' : null,
                 electronic_invoice_id: period.electronic_invoice_id,
                 linked_manually: period.linked_manually,
                 invoice_error: period.invoice_error,
@@ -588,6 +679,7 @@ exports.ServiceSubscriptionsService = ServiceSubscriptionsService = __decorate([
         typeorm_2.Repository,
         service_subscription_billing_service_1.ServiceSubscriptionBillingService,
         electronic_invoice_pdf_service_1.ElectronicInvoicePdfService,
-        mailer_configuration_service_1.MailerConfigurationService])
+        mailer_configuration_service_1.MailerConfigurationService,
+        whatsapp_message_service_1.WhatsappMessageService])
 ], ServiceSubscriptionsService);
 //# sourceMappingURL=service-subscriptions.service.js.map

@@ -25,6 +25,7 @@ const update_service_subscription_dto_1 = require("./dto/update-service-subscrip
 const query_service_subscription_dto_1 = require("./dto/query-service-subscription.dto");
 const link_service_subscription_period_dto_1 = require("./dto/link-service-subscription-period.dto");
 const renew_service_subscription_dto_1 = require("./dto/renew-service-subscription.dto");
+const send_payment_reminder_dto_1 = require("./dto/send-payment-reminder.dto");
 let ServiceSubscriptionsController = class ServiceSubscriptionsController {
     service;
     constructor(service) {
@@ -46,6 +47,9 @@ let ServiceSubscriptionsController = class ServiceSubscriptionsController {
     }
     summaryEmail(id, body, req) {
         return this.service.sendSummaryEmail(req.user.tenant_id, id, body?.to_email);
+    }
+    whatsappReminder(id, periodId, dto, req) {
+        return this.service.sendPaymentReminder(req.user.tenant_id, req.user.id, id, periodId, dto);
     }
     getOne(id, req) {
         return this.service.getOne(req.user.tenant_id, id);
@@ -129,6 +133,20 @@ __decorate([
     __metadata("design:paramtypes", [String, Object, Object]),
     __metadata("design:returntype", void 0)
 ], ServiceSubscriptionsController.prototype, "summaryEmail", null);
+__decorate([
+    (0, common_1.Post)(':id/periods/:periodId/whatsapp-reminder'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: service_subscription_constants_1.SERVICE_SUBSCRIPTION_ENTITY, action: 'Update' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Enviar por WhatsApp el recordatorio de pago del mes (foto con el detalle y la factura en PDF)',
+    }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Param)('periodId')),
+    __param(2, (0, common_1.Body)()),
+    __param(3, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, send_payment_reminder_dto_1.SendPaymentReminderDto, Object]),
+    __metadata("design:returntype", void 0)
+], ServiceSubscriptionsController.prototype, "whatsappReminder", null);
 __decorate([
     (0, common_1.Get)(':id'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: service_subscription_constants_1.SERVICE_SUBSCRIPTION_ENTITY, action: 'Read' }),

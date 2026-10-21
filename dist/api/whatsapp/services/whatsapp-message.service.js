@@ -31,7 +31,7 @@ let WhatsappMessageService = WhatsappMessageService_1 = class WhatsappMessageSer
     waha;
     logger = new common_1.Logger(WhatsappMessageService_1.name);
     chains = new Map();
-    fileUrls = new Map();
+    files = new Map();
     constructor(messageRepo, sessions, waha) {
         this.messageRepo = messageRepo;
         this.sessions = sessions;
@@ -67,6 +67,18 @@ let WhatsappMessageService = WhatsappMessageService_1 = class WhatsappMessageSer
             file_mimetype: dto.mimetype ?? null,
             reference_type: dto.reference_type,
             reference_id: dto.reference_id,
+        });
+    }
+    sendBuffer(tenantId, userId, input) {
+        return this.enqueue(tenantId, userId, {
+            type: 'file',
+            phone: input.phone,
+            body: input.caption?.trim() || null,
+            file_data: input.data.toString('base64'),
+            file_name: input.file_name,
+            file_mimetype: input.mimetype,
+            reference_type: input.reference_type,
+            reference_id: input.reference_id,
         });
     }
     async list(tenantId, query) {
@@ -152,7 +164,9 @@ let WhatsappMessageService = WhatsappMessageService_1 = class WhatsappMessageSer
             created_by: userId,
         }));
         if (input.file_url)
-            this.fileUrls.set(saved.id, input.file_url);
+            this.files.set(saved.id, { url: input.file_url });
+        else if (input.file_data)
+            this.files.set(saved.id, { data: input.file_data });
         this.schedule(session.session_name, saved.id);
         return this.toView(saved);
     }
@@ -210,16 +224,20 @@ let WhatsappMessageService = WhatsappMessageService_1 = class WhatsappMessageSer
             const chatId = check.chatId || `${message.to_phone}@c.us`;
             let result;
             if (message.type === 'file') {
-                const url = this.fileUrls.get(message.id);
-                if (!url) {
+                const source = this.files.get(message.id);
+                if (!source) {
                     await this.fail(message, 'No se pudo recuperar el archivo. Vuelve a enviarlo.');
                     return;
                 }
-                result = await this.waha.sendFile(message.session_name, chatId, {
-                    url,
+                const payload = {
+                    ...source,
                     ...(message.file_name ? { filename: message.file_name } : {}),
                     ...(message.file_mimetype ? { mimetype: message.file_mimetype } : {}),
-                }, message.body ?? undefined);
+                };
+                const asImage = (message.file_mimetype ?? '').startsWith('image/');
+                result = asImage
+                    ? await this.waha.sendImage(message.session_name, chatId, payload, message.body ?? undefined)
+                    : await this.waha.sendFile(message.session_name, chatId, payload, message.body ?? undefined);
             }
             else {
                 await this.simulateTyping(message.session_name, chatId, message.body?.length ?? 0);
@@ -240,7 +258,7 @@ let WhatsappMessageService = WhatsappMessageService_1 = class WhatsappMessageSer
             await this.fail(message, (0, whatsapp_errors_1.friendlyWahaMessage)(error));
         }
         finally {
-            this.fileUrls.delete(message.id);
+            this.files.delete(message.id);
         }
     }
     async simulateTyping(session, chatId, length) {

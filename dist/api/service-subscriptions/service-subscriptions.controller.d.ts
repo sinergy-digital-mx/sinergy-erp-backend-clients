@@ -5,6 +5,7 @@ import { UpdateServiceSubscriptionDto } from './dto/update-service-subscription.
 import { QueryServiceSubscriptionDto } from './dto/query-service-subscription.dto';
 import { LinkServiceSubscriptionPeriodDto } from './dto/link-service-subscription-period.dto';
 import { RenewServiceSubscriptionDto } from './dto/renew-service-subscription.dto';
+import { SendPaymentReminderDto } from './dto/send-payment-reminder.dto';
 export declare class ServiceSubscriptionsController {
     private readonly service;
     constructor(service: ServiceSubscriptionsService);
@@ -35,6 +36,7 @@ export declare class ServiceSubscriptionsController {
     create(dto: CreateServiceSubscriptionDto, req: any): Promise<{
         fiscal_configuration_id: string;
         customer_email: string;
+        customer_phone: string | null;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -53,6 +55,7 @@ export declare class ServiceSubscriptionsController {
             status: import("../../entities/service-subscriptions/service-subscription-period-status.enum").ServiceSubscriptionPeriodStatus;
             sales_order_id: string | null;
             sales_order_folio: string | null;
+            paid: boolean | null;
             electronic_invoice_id: string | null;
             linked_manually: boolean;
             invoice_error: string | null;
@@ -90,9 +93,15 @@ export declare class ServiceSubscriptionsController {
         sent_to: string;
         pdf_count: number;
     }>;
+    whatsappReminder(id: string, periodId: string, dto: SendPaymentReminderDto, req: any): Promise<{
+        sent_to: string;
+        image_sent: boolean;
+        invoice_attached: boolean;
+    }>;
     getOne(id: string, req: any): Promise<{
         fiscal_configuration_id: string;
         customer_email: string;
+        customer_phone: string | null;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -111,6 +120,7 @@ export declare class ServiceSubscriptionsController {
             status: import("../../entities/service-subscriptions/service-subscription-period-status.enum").ServiceSubscriptionPeriodStatus;
             sales_order_id: string | null;
             sales_order_folio: string | null;
+            paid: boolean | null;
             electronic_invoice_id: string | null;
             linked_manually: boolean;
             invoice_error: string | null;
@@ -135,6 +145,7 @@ export declare class ServiceSubscriptionsController {
     update(id: string, dto: UpdateServiceSubscriptionDto, req: any): Promise<{
         fiscal_configuration_id: string;
         customer_email: string;
+        customer_phone: string | null;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -153,6 +164,7 @@ export declare class ServiceSubscriptionsController {
             status: import("../../entities/service-subscriptions/service-subscription-period-status.enum").ServiceSubscriptionPeriodStatus;
             sales_order_id: string | null;
             sales_order_folio: string | null;
+            paid: boolean | null;
             electronic_invoice_id: string | null;
             linked_manually: boolean;
             invoice_error: string | null;
@@ -177,6 +189,7 @@ export declare class ServiceSubscriptionsController {
     cancel(id: string, req: any): Promise<{
         fiscal_configuration_id: string;
         customer_email: string;
+        customer_phone: string | null;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -195,6 +208,7 @@ export declare class ServiceSubscriptionsController {
             status: import("../../entities/service-subscriptions/service-subscription-period-status.enum").ServiceSubscriptionPeriodStatus;
             sales_order_id: string | null;
             sales_order_folio: string | null;
+            paid: boolean | null;
             electronic_invoice_id: string | null;
             linked_manually: boolean;
             invoice_error: string | null;
@@ -219,6 +233,7 @@ export declare class ServiceSubscriptionsController {
     renew(id: string, dto: RenewServiceSubscriptionDto, req: any): Promise<{
         fiscal_configuration_id: string;
         customer_email: string;
+        customer_phone: string | null;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -237,6 +252,7 @@ export declare class ServiceSubscriptionsController {
             status: import("../../entities/service-subscriptions/service-subscription-period-status.enum").ServiceSubscriptionPeriodStatus;
             sales_order_id: string | null;
             sales_order_folio: string | null;
+            paid: boolean | null;
             electronic_invoice_id: string | null;
             linked_manually: boolean;
             invoice_error: string | null;
@@ -261,6 +277,7 @@ export declare class ServiceSubscriptionsController {
     generate(id: string, periodId: string, req: any): Promise<{
         fiscal_configuration_id: string;
         customer_email: string;
+        customer_phone: string | null;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -279,6 +296,7 @@ export declare class ServiceSubscriptionsController {
             status: import("../../entities/service-subscriptions/service-subscription-period-status.enum").ServiceSubscriptionPeriodStatus;
             sales_order_id: string | null;
             sales_order_folio: string | null;
+            paid: boolean | null;
             electronic_invoice_id: string | null;
             linked_manually: boolean;
             invoice_error: string | null;
@@ -303,6 +321,7 @@ export declare class ServiceSubscriptionsController {
     invoice(id: string, periodId: string, req: any): Promise<{
         fiscal_configuration_id: string;
         customer_email: string;
+        customer_phone: string | null;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -321,6 +340,7 @@ export declare class ServiceSubscriptionsController {
             status: import("../../entities/service-subscriptions/service-subscription-period-status.enum").ServiceSubscriptionPeriodStatus;
             sales_order_id: string | null;
             sales_order_folio: string | null;
+            paid: boolean | null;
             electronic_invoice_id: string | null;
             linked_manually: boolean;
             invoice_error: string | null;
@@ -345,6 +365,7 @@ export declare class ServiceSubscriptionsController {
     link(id: string, periodId: string, dto: LinkServiceSubscriptionPeriodDto, req: any): Promise<{
         fiscal_configuration_id: string;
         customer_email: string;
+        customer_phone: string | null;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -363,6 +384,7 @@ export declare class ServiceSubscriptionsController {
             status: import("../../entities/service-subscriptions/service-subscription-period-status.enum").ServiceSubscriptionPeriodStatus;
             sales_order_id: string | null;
             sales_order_folio: string | null;
+            paid: boolean | null;
             electronic_invoice_id: string | null;
             linked_manually: boolean;
             invoice_error: string | null;
@@ -387,6 +409,7 @@ export declare class ServiceSubscriptionsController {
     skip(id: string, periodId: string, req: any): Promise<{
         fiscal_configuration_id: string;
         customer_email: string;
+        customer_phone: string | null;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -405,6 +428,7 @@ export declare class ServiceSubscriptionsController {
             status: import("../../entities/service-subscriptions/service-subscription-period-status.enum").ServiceSubscriptionPeriodStatus;
             sales_order_id: string | null;
             sales_order_folio: string | null;
+            paid: boolean | null;
             electronic_invoice_id: string | null;
             linked_manually: boolean;
             invoice_error: string | null;
@@ -429,6 +453,7 @@ export declare class ServiceSubscriptionsController {
     unlink(id: string, periodId: string, req: any): Promise<{
         fiscal_configuration_id: string;
         customer_email: string;
+        customer_phone: string | null;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -447,6 +472,7 @@ export declare class ServiceSubscriptionsController {
             status: import("../../entities/service-subscriptions/service-subscription-period-status.enum").ServiceSubscriptionPeriodStatus;
             sales_order_id: string | null;
             sales_order_folio: string | null;
+            paid: boolean | null;
             electronic_invoice_id: string | null;
             linked_manually: boolean;
             invoice_error: string | null;

@@ -16,6 +16,8 @@ import { RenewServiceSubscriptionDto } from './dto/renew-service-subscription.dt
 import { ServiceSubscriptionBillingService } from './service-subscription-billing.service';
 import { MailerConfigurationService } from '../mailer-configuration/services/mailer-configuration.service';
 import { ElectronicInvoicePdfService } from '../electronic-invoicing/services/electronic-invoice-pdf.service';
+import { SendPaymentReminderDto } from './dto/send-payment-reminder.dto';
+import { WhatsappMessageService } from '../whatsapp/services/whatsapp-message.service';
 export declare class ServiceSubscriptionsService {
     private readonly subscriptionRepo;
     private readonly periodRepo;
@@ -27,7 +29,8 @@ export declare class ServiceSubscriptionsService {
     private readonly billing;
     private readonly invoicePdf;
     private readonly mailerConfigurationService;
-    constructor(subscriptionRepo: Repository<ServiceSubscription>, periodRepo: Repository<ServiceSubscriptionPeriod>, customerRepo: Repository<Customer>, productRepo: Repository<Product>, productUomRepo: Repository<ProductUoM>, branchRepo: Repository<BillingBranch>, salesOrderRepo: Repository<SalesOrder>, billing: ServiceSubscriptionBillingService, invoicePdf: ElectronicInvoicePdfService, mailerConfigurationService: MailerConfigurationService);
+    private readonly whatsapp;
+    constructor(subscriptionRepo: Repository<ServiceSubscription>, periodRepo: Repository<ServiceSubscriptionPeriod>, customerRepo: Repository<Customer>, productRepo: Repository<Product>, productUomRepo: Repository<ProductUoM>, branchRepo: Repository<BillingBranch>, salesOrderRepo: Repository<SalesOrder>, billing: ServiceSubscriptionBillingService, invoicePdf: ElectronicInvoicePdfService, mailerConfigurationService: MailerConfigurationService, whatsapp: WhatsappMessageService);
     list(tenantId: string, query: QueryServiceSubscriptionDto): Promise<{
         data: {
             id: string;
@@ -70,10 +73,18 @@ export declare class ServiceSubscriptionsService {
         fileName: string;
     }>;
     private buildSummaryInput;
+    private buildMonthSummary;
+    sendPaymentReminder(tenantId: string, userId: string, id: string, periodId: string, dto: SendPaymentReminderDto): Promise<{
+        sent_to: string;
+        image_sent: boolean;
+        invoice_attached: boolean;
+    }>;
+    private customerWhatsappPhone;
     private sendViaResend;
     getOne(tenantId: string, id: string): Promise<{
         fiscal_configuration_id: string;
         customer_email: string;
+        customer_phone: string | null;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -92,6 +103,7 @@ export declare class ServiceSubscriptionsService {
             status: ServiceSubscriptionPeriodStatus;
             sales_order_id: string | null;
             sales_order_folio: string | null;
+            paid: boolean | null;
             electronic_invoice_id: string | null;
             linked_manually: boolean;
             invoice_error: string | null;
@@ -116,6 +128,7 @@ export declare class ServiceSubscriptionsService {
     create(tenantId: string, userId: string, dto: CreateServiceSubscriptionDto): Promise<{
         fiscal_configuration_id: string;
         customer_email: string;
+        customer_phone: string | null;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -134,6 +147,7 @@ export declare class ServiceSubscriptionsService {
             status: ServiceSubscriptionPeriodStatus;
             sales_order_id: string | null;
             sales_order_folio: string | null;
+            paid: boolean | null;
             electronic_invoice_id: string | null;
             linked_manually: boolean;
             invoice_error: string | null;
@@ -158,6 +172,7 @@ export declare class ServiceSubscriptionsService {
     update(tenantId: string, id: string, dto: UpdateServiceSubscriptionDto): Promise<{
         fiscal_configuration_id: string;
         customer_email: string;
+        customer_phone: string | null;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -176,6 +191,7 @@ export declare class ServiceSubscriptionsService {
             status: ServiceSubscriptionPeriodStatus;
             sales_order_id: string | null;
             sales_order_folio: string | null;
+            paid: boolean | null;
             electronic_invoice_id: string | null;
             linked_manually: boolean;
             invoice_error: string | null;
@@ -200,6 +216,7 @@ export declare class ServiceSubscriptionsService {
     cancel(tenantId: string, id: string): Promise<{
         fiscal_configuration_id: string;
         customer_email: string;
+        customer_phone: string | null;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -218,6 +235,7 @@ export declare class ServiceSubscriptionsService {
             status: ServiceSubscriptionPeriodStatus;
             sales_order_id: string | null;
             sales_order_folio: string | null;
+            paid: boolean | null;
             electronic_invoice_id: string | null;
             linked_manually: boolean;
             invoice_error: string | null;
@@ -242,6 +260,7 @@ export declare class ServiceSubscriptionsService {
     renew(tenantId: string, userId: string, id: string, dto: RenewServiceSubscriptionDto): Promise<{
         fiscal_configuration_id: string;
         customer_email: string;
+        customer_phone: string | null;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -260,6 +279,7 @@ export declare class ServiceSubscriptionsService {
             status: ServiceSubscriptionPeriodStatus;
             sales_order_id: string | null;
             sales_order_folio: string | null;
+            paid: boolean | null;
             electronic_invoice_id: string | null;
             linked_manually: boolean;
             invoice_error: string | null;
@@ -284,6 +304,7 @@ export declare class ServiceSubscriptionsService {
     generate(tenantId: string, userId: string, id: string, periodId: string): Promise<{
         fiscal_configuration_id: string;
         customer_email: string;
+        customer_phone: string | null;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -302,6 +323,7 @@ export declare class ServiceSubscriptionsService {
             status: ServiceSubscriptionPeriodStatus;
             sales_order_id: string | null;
             sales_order_folio: string | null;
+            paid: boolean | null;
             electronic_invoice_id: string | null;
             linked_manually: boolean;
             invoice_error: string | null;
@@ -326,6 +348,7 @@ export declare class ServiceSubscriptionsService {
     invoice(tenantId: string, userId: string, id: string, periodId: string): Promise<{
         fiscal_configuration_id: string;
         customer_email: string;
+        customer_phone: string | null;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -344,6 +367,7 @@ export declare class ServiceSubscriptionsService {
             status: ServiceSubscriptionPeriodStatus;
             sales_order_id: string | null;
             sales_order_folio: string | null;
+            paid: boolean | null;
             electronic_invoice_id: string | null;
             linked_manually: boolean;
             invoice_error: string | null;
@@ -368,6 +392,7 @@ export declare class ServiceSubscriptionsService {
     link(tenantId: string, id: string, periodId: string, dto: LinkServiceSubscriptionPeriodDto): Promise<{
         fiscal_configuration_id: string;
         customer_email: string;
+        customer_phone: string | null;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -386,6 +411,7 @@ export declare class ServiceSubscriptionsService {
             status: ServiceSubscriptionPeriodStatus;
             sales_order_id: string | null;
             sales_order_folio: string | null;
+            paid: boolean | null;
             electronic_invoice_id: string | null;
             linked_manually: boolean;
             invoice_error: string | null;
@@ -410,6 +436,7 @@ export declare class ServiceSubscriptionsService {
     skip(tenantId: string, id: string, periodId: string): Promise<{
         fiscal_configuration_id: string;
         customer_email: string;
+        customer_phone: string | null;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -428,6 +455,7 @@ export declare class ServiceSubscriptionsService {
             status: ServiceSubscriptionPeriodStatus;
             sales_order_id: string | null;
             sales_order_folio: string | null;
+            paid: boolean | null;
             electronic_invoice_id: string | null;
             linked_manually: boolean;
             invoice_error: string | null;
@@ -452,6 +480,7 @@ export declare class ServiceSubscriptionsService {
     unlink(tenantId: string, id: string, periodId: string): Promise<{
         fiscal_configuration_id: string;
         customer_email: string;
+        customer_phone: string | null;
         billing_branch_id: string;
         billing_branch_code: string;
         product_id: string;
@@ -470,6 +499,7 @@ export declare class ServiceSubscriptionsService {
             status: ServiceSubscriptionPeriodStatus;
             sales_order_id: string | null;
             sales_order_folio: string | null;
+            paid: boolean | null;
             electronic_invoice_id: string | null;
             linked_manually: boolean;
             invoice_error: string | null;

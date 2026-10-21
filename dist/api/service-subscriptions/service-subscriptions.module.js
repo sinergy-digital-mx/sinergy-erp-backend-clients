@@ -20,6 +20,7 @@ const sales_orders_module_1 = require("../sales-orders/sales-orders.module");
 const electronic_invoicing_module_1 = require("../electronic-invoicing/electronic-invoicing.module");
 const mailer_configuration_module_1 = require("../mailer-configuration/mailer-configuration.module");
 const rbac_module_1 = require("../rbac/rbac.module");
+const whatsapp_module_1 = require("../whatsapp/whatsapp.module");
 const service_subscriptions_controller_1 = require("./service-subscriptions.controller");
 const service_subscriptions_service_1 = require("./service-subscriptions.service");
 const service_subscription_billing_service_1 = require("./service-subscription-billing.service");
@@ -43,6 +44,7 @@ exports.ServiceSubscriptionsModule = ServiceSubscriptionsModule = __decorate([
             electronic_invoicing_module_1.ElectronicInvoicingModule,
             mailer_configuration_module_1.MailerConfigurationModule,
             rbac_module_1.RBACModule,
+            whatsapp_module_1.WhatsappModule,
         ],
         controllers: [service_subscriptions_controller_1.ServiceSubscriptionsController],
         providers: [

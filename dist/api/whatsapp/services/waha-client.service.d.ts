@@ -19,6 +19,12 @@ export interface WahaServerVersion {
     engine?: string;
     tier?: string;
 }
+export interface WahaFilePayload {
+    url?: string;
+    data?: string;
+    filename?: string;
+    mimetype?: string;
+}
 export interface WahaSessionConfig {
     webhooks?: Array<Record<string, unknown>>;
     metadata?: Record<string, string>;
@@ -48,11 +54,8 @@ export declare class WahaClientService {
     startTyping(session: string, chatId: string): Promise<void>;
     stopTyping(session: string, chatId: string): Promise<void>;
     sendText(session: string, chatId: string, text: string): Promise<unknown>;
-    sendFile(session: string, chatId: string, file: {
-        url: string;
-        filename?: string;
-        mimetype?: string;
-    }, caption?: string): Promise<unknown>;
+    sendFile(session: string, chatId: string, file: WahaFilePayload, caption?: string): Promise<unknown>;
+    sendImage(session: string, chatId: string, file: WahaFilePayload, caption?: string): Promise<unknown>;
     private baseUrl;
     private request;
     private raw;

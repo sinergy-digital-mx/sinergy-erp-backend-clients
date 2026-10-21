@@ -99,6 +99,14 @@ let WahaClientService = WahaClientService_1 = class WahaClientService {
             ...(caption ? { caption } : {}),
         });
     }
+    sendImage(session, chatId, file, caption) {
+        return this.request('POST', '/api/sendImage', {
+            session,
+            chatId,
+            file,
+            ...(caption ? { caption } : {}),
+        });
+    }
     baseUrl() {
         return (process.env.WAHA_BASE_URL ?? '').trim().replace(/\/+$/, '');
     }
