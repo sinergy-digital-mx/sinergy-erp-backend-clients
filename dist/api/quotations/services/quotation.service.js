@@ -129,7 +129,10 @@ let QuotationService = class QuotationService {
             await this.insertLineItems(qr, saved.id, dto.line_items, userId, tenantId, location.fiscalConfigurationId);
             await this.recomputeTotals(qr, saved, tenantId, dto.global_discount_id);
             if (dto.advance_amount != null) {
-                await this.applyAdvanceRequest(qr, saved, tenantId, Number(dto.advance_amount));
+                await this.applyAdvanceRequest(qr, saved, tenantId, Number(dto.advance_amount), {
+                    usoCfdi: dto.advance_uso_cfdi,
+                    metodoPago: dto.advance_metodo_pago,
+                });
             }
             await qr.commitTransaction();
             this.generateAndUploadPdf(saved.id, tenantId, userId).catch((err) => {
@@ -773,7 +776,11 @@ let QuotationService = class QuotationService {
         detail.iva_unit = qty > 0 ? lineIva / qty : 0;
         detail.ieps_unit = qty > 0 ? lineIeps / qty : 0;
     }
-    async applyAdvanceRequest(qr, quotation, tenantId, amount) {
+    async applyAdvanceRequest(qr, quotation, tenantId, amount, cfdi = {}) {
+        const usoCfdi = cfdi.usoCfdi?.trim().toUpperCase() || null;
+        if (usoCfdi && !/^[A-Z]\d{2}$/.test(usoCfdi)) {
+            throw new common_1.BadRequestException('El uso CFDI del anticipo no es válido');
+        }
         const requested = Number(amount.toFixed(2));
         const total = Number(quotation.total || 0);
         if (requested <= 0 || requested - total > 0.01) {
@@ -799,6 +806,8 @@ let QuotationService = class QuotationService {
             throw new common_1.BadRequestException(`No se puede dejar anticipo: al cliente le falta ${missing.join(', ')} para facturar`);
         }
         quotation.advance_requested_total = requested;
+        quotation.advance_uso_cfdi = usoCfdi;
+        quotation.advance_metodo_pago = cfdi.metodoPago ?? null;
         await qr.manager.save(quotation_entity_1.Quotation, quotation);
     }
     async recomputeTotals(qr, quotation, tenantId, globalDiscountId) {

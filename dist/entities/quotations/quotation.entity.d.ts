@@ -33,6 +33,8 @@ export declare class Quotation {
     global_discount_amount: number;
     total: number;
     advance_requested_total: number | null;
+    advance_uso_cfdi: string | null;
+    advance_metodo_pago: 'PUE' | 'PPD' | null;
     creator: User;
     created_by: string;
     terminal_user: User | null;

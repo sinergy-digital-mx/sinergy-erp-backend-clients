@@ -85,6 +85,8 @@ class CreateQuotationDto {
     notes;
     global_discount_id;
     advance_amount;
+    advance_uso_cfdi;
+    advance_metodo_pago;
     line_items;
 }
 exports.CreateQuotationDto = CreateQuotationDto;
@@ -168,6 +170,26 @@ __decorate([
     (0, class_validator_1.Min)(0.01),
     __metadata("design:type", Number)
 ], CreateQuotationDto.prototype, "advance_amount", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        description: 'Uso CFDI del anticipo (catálogo SAT). Solo con advance_amount. Si se omite, caja timbra con G03.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(4),
+    __metadata("design:type", String)
+], CreateQuotationDto.prototype, "advance_uso_cfdi", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        enum: ['PUE', 'PPD'],
+        description: 'Método de pago del CFDI de anticipo. Solo con advance_amount. Si se omite, PUE.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['PUE', 'PPD']),
+    __metadata("design:type", String)
+], CreateQuotationDto.prototype, "advance_metodo_pago", void 0);
 __decorate([
     (0, class_validator_1.IsArray)(),
     (0, class_validator_1.ValidateNested)({ each: true }),

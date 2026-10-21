@@ -720,6 +720,8 @@ export declare class PosShiftsService {
         quotation_folio: null;
         total: number;
         amount_pending: number;
+        advance_uso_cfdi: string;
+        advance_metodo_pago: "PUE" | "PPD";
         subtotal: number;
         created_at: Date;
         notes: string | null;

@@ -21,5 +21,7 @@ export declare class CreateQuotationDto {
     notes?: string;
     global_discount_id?: string;
     advance_amount?: number;
+    advance_uso_cfdi?: string;
+    advance_metodo_pago?: 'PUE' | 'PPD';
     line_items: CreateQuotationLineItemDto[];
 }

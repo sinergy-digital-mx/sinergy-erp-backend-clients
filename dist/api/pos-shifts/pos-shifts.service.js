@@ -518,6 +518,8 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             quotation_folio: null,
             total: Number(quotation.total),
             amount_pending: Number(quotation.advance_requested_total),
+            advance_uso_cfdi: quotation.advance_uso_cfdi ?? 'G03',
+            advance_metodo_pago: quotation.advance_metodo_pago ?? 'PUE',
             subtotal: Number(quotation.subtotal),
             created_at: quotation.created_at,
             notes: quotation.notes,

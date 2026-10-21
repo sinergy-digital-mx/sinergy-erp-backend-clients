@@ -122,8 +122,8 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
             base_amount: base,
             iva_percentage: iva,
             forma_pago: formaPago,
-            uso_cfdi: 'G03',
-            metodo_pago: 'PUE',
+            uso_cfdi: quotation.advance_uso_cfdi || 'G03',
+            metodo_pago: quotation.advance_metodo_pago || 'PUE',
             regimen_fiscal_receptor: regimen,
         });
         return {
