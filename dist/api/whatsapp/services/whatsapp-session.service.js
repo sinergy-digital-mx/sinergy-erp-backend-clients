@@ -181,7 +181,7 @@ let WhatsappSessionService = WhatsappSessionService_1 = class WhatsappSessionSer
         if (this.modeCache && this.modeCache.expiresAt > Date.now())
             return this.modeCache.mode;
         const version = await this.waha.serverVersion();
-        const mode = String(version?.tier ?? '').toUpperCase() === 'CORE' ? 'single' : 'multi';
+        const mode = (0, whatsapp_util_1.supportsMultipleSessions)(version) ? 'multi' : 'single';
         this.modeCache = { mode, expiresAt: Date.now() + TIER_CACHE_MS };
         return mode;
     }

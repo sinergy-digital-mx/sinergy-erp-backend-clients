@@ -9,4 +9,8 @@ export declare function extractWahaMessageId(payload: unknown): string | null;
 export declare function deriveWebhookKey(secret: string, sessionName: string): string;
 export declare function verifyWebhookHmac(rawBody: Buffer | string, key: string, receivedHmac: string | undefined, algorithm?: string): boolean;
 export declare function isSafePublicHttpsUrl(value: string): boolean;
+export declare function supportsMultipleSessions(version?: {
+    version?: string;
+    tier?: string;
+} | null): boolean;
 export declare function randomDelay(minMs: number, maxMs: number): number;

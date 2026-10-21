@@ -43,6 +43,7 @@ exports.extractWahaMessageId = extractWahaMessageId;
 exports.deriveWebhookKey = deriveWebhookKey;
 exports.verifyWebhookHmac = verifyWebhookHmac;
 exports.isSafePublicHttpsUrl = isSafePublicHttpsUrl;
+exports.supportsMultipleSessions = supportsMultipleSessions;
 exports.randomDelay = randomDelay;
 const crypto = __importStar(require("crypto"));
 const whatsapp_constants_1 = require("../whatsapp.constants");
@@ -175,6 +176,16 @@ function isSafePublicHttpsUrl(value) {
     if (host.startsWith('['))
         return false;
     return true;
+}
+function supportsMultipleSessions(version) {
+    if (String(version?.tier ?? '').toUpperCase() === 'PLUS')
+        return true;
+    const match = /^(\d{4})\.(\d+)/.exec(String(version?.version ?? ''));
+    if (!match)
+        return false;
+    const year = Number(match[1]);
+    const minor = Number(match[2]);
+    return year > 2026 || (year === 2026 && minor >= 6);
 }
 function randomDelay(minMs, maxMs) {
     const min = Math.max(0, Math.min(minMs, maxMs));
