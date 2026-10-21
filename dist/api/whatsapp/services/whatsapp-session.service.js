@@ -169,6 +169,15 @@ let WhatsappSessionService = WhatsappSessionService_1 = class WhatsappSessionSer
         const row = await this.findBySessionName(sessionName);
         if (!row)
             return;
+        try {
+            const live = await this.fetchSession(sessionName);
+            if (live) {
+                await this.applySession(row, live);
+                return;
+            }
+        }
+        catch {
+        }
         await this.applySession(row, { name: sessionName, status, me });
     }
     async markUnavailable(sessionName, reason) {
@@ -277,9 +286,10 @@ let WhatsappSessionService = WhatsappSessionService_1 = class WhatsappSessionSer
                 row.phone_number = null;
                 row.push_name = null;
             }
-            if (session.status === whatsapp_constants_1.WAHA_SESSION_STATUS.FAILED) {
-                row.last_error = 'La sesión de WhatsApp falló. Vuelve a conectar.';
-            }
+            row.last_error =
+                session.status === whatsapp_constants_1.WAHA_SESSION_STATUS.FAILED
+                    ? 'La sesión de WhatsApp falló. Vuelve a conectar.'
+                    : null;
         }
         await this.sessionRepo.save(row);
     }
