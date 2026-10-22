@@ -18,6 +18,7 @@ const warehouse_entity_1 = require("../warehouse/warehouse.entity");
 const customer_entity_1 = require("../customers/customer.entity");
 const user_entity_1 = require("../users/user.entity");
 const global_discount_entity_1 = require("../global-discounts/global-discount.entity");
+const sales_order_pos_stage_enum_1 = require("../sales-orders/sales-order-pos-stage.enum");
 const quotation_detail_entity_1 = require("./quotation-detail.entity");
 let Quotation = class Quotation {
     id;
@@ -48,6 +49,7 @@ let Quotation = class Quotation {
     advance_requested_total;
     advance_uso_cfdi;
     advance_metodo_pago;
+    pos_stage;
     creator;
     created_by;
     terminal_user;
@@ -189,6 +191,15 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 3, nullable: true }),
     __metadata("design:type", Object)
 ], Quotation.prototype, "advance_metodo_pago", void 0);
+__decorate([
+    (0, typeorm_1.Column)({
+        type: 'enum',
+        enum: sales_order_pos_stage_enum_1.SalesOrderPosStage,
+        nullable: true,
+        default: null,
+    }),
+    __metadata("design:type", Object)
+], Quotation.prototype, "pos_stage", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => user_entity_1.User, { onDelete: 'SET NULL', nullable: true }),
     (0, typeorm_1.JoinColumn)({ name: 'created_by' }),

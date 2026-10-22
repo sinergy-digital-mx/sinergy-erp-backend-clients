@@ -6,6 +6,7 @@ import { QueryQuotationDto } from '../dto/query-quotation.dto';
 import { UpdateQuotationNotesDto } from '../dto/update-quotation-notes.dto';
 import { UpdateQuotationLineItemDto } from '../dto/update-quotation-line-item.dto';
 import { ConvertQuotationDto } from '../dto/convert-quotation.dto';
+import { SalesOrderPosStage } from '../../../entities/sales-orders/sales-order-pos-stage.enum';
 import { User } from '../../../entities/users/user.entity';
 import { UserBillingBranch } from '../../../entities/users/user-billing-branch.entity';
 import { Customer } from '../../../entities/customers/customer.entity';
@@ -108,6 +109,7 @@ export declare class QuotationService {
             advance_requested_total: number | null;
             advance_uso_cfdi: string | null;
             advance_metodo_pago: "PUE" | "PPD" | null;
+            pos_stage: SalesOrderPosStage | null;
             created_by: string;
             terminal_user_id: string | null;
             seller_user_id: string | null;
@@ -221,6 +223,8 @@ export declare class QuotationService {
             can_edit_lines: boolean;
             can_edit_notes: boolean;
             can_send: boolean;
+            amount_paid: number;
+            amount_pending: number;
             advance_invoicing_enabled: boolean;
             can_stamp_advance: boolean;
             advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
@@ -275,6 +279,7 @@ export declare class QuotationService {
             advance_requested_total: number | null;
             advance_uso_cfdi: string | null;
             advance_metodo_pago: "PUE" | "PPD" | null;
+            pos_stage: SalesOrderPosStage | null;
             created_by: string;
             terminal_user_id: string | null;
             seller_user_id: string | null;
@@ -452,6 +457,8 @@ export declare class QuotationService {
             can_edit_lines: boolean;
             can_edit_notes: boolean;
             can_send: boolean;
+            amount_paid: number;
+            amount_pending: number;
             advance_invoicing_enabled: boolean;
             can_stamp_advance: boolean;
             advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
@@ -506,6 +513,7 @@ export declare class QuotationService {
             advance_requested_total: number | null;
             advance_uso_cfdi: string | null;
             advance_metodo_pago: "PUE" | "PPD" | null;
+            pos_stage: SalesOrderPosStage | null;
             created_by: string;
             terminal_user_id: string | null;
             seller_user_id: string | null;
@@ -689,6 +697,8 @@ export declare class QuotationService {
                 can_edit_lines: boolean;
                 can_edit_notes: boolean;
                 can_send: boolean;
+                amount_paid: number;
+                amount_pending: number;
                 advance_invoicing_enabled: boolean;
                 can_stamp_advance: boolean;
                 advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
@@ -743,6 +753,7 @@ export declare class QuotationService {
                 advance_requested_total: number | null;
                 advance_uso_cfdi: string | null;
                 advance_metodo_pago: "PUE" | "PPD" | null;
+                pos_stage: SalesOrderPosStage | null;
                 created_by: string;
                 terminal_user_id: string | null;
                 seller_user_id: string | null;
@@ -865,6 +876,10 @@ export declare class QuotationService {
     private insertLineItems;
     private applyQuotationLineAmounts;
     private applyAdvanceRequest;
+    requestAdvanceFromPos(id: string, tenantId: string, amount: number, cfdi?: {
+        usoCfdi?: string;
+        metodoPago?: 'PUE' | 'PPD';
+    }): Promise<Quotation>;
     private recomputeTotals;
     private resolveProductUom;
     private resolveLineDiscountAmounts;

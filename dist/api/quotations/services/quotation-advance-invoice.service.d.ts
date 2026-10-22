@@ -46,7 +46,13 @@ export declare class QuotationAdvanceInvoiceService {
         change_cash_usd: number;
         usd_exchange_rate: number | null;
     }>;
-    stamp(id: string, tenantId: string, userId: string, dto: StampAdvanceInvoiceDto): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
+    stamp(id: string, tenantId: string, userId: string, dto: StampAdvanceInvoiceDto, collected?: {
+        paymentMethod: PosSalePaymentMethod;
+        amountCashMxn?: number;
+        amountTransferMxn?: number;
+        amountCardMxn?: number;
+        amountCheckMxn?: number;
+    }): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     getPdf(id: string, invoiceId: string, tenantId: string, regenerate?: boolean, preview?: boolean): Promise<import("../../electronic-invoicing/services/electronic-invoice-pdf.service").ElectronicInvoicePdfUploadResult>;
     getXml(id: string, invoiceId: string, tenantId: string): Promise<{
         xml: string;

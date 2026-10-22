@@ -20,7 +20,6 @@ const uuid_1 = require("uuid");
 const advance_shift_payment_entity_1 = require("../../../entities/pos/advance-shift-payment.entity");
 const pos_daily_shift_entity_1 = require("../../../entities/pos/pos-daily-shift.entity");
 const pos_daily_shift_status_enum_1 = require("../../../entities/pos/pos-daily-shift-status.enum");
-const pos_sale_payment_method_enum_1 = require("../../../entities/pos/pos-sale-payment-method.enum");
 const sales_order_entity_1 = require("../../../entities/sales-orders/sales-order.entity");
 const sales_order_payment_entity_1 = require("../../../entities/sales-orders/sales-order-payment.entity");
 const advance_payment_method_util_1 = require("../utils/advance-payment-method.util");
@@ -49,6 +48,12 @@ let AdvanceShiftPaymentService = class AdvanceShiftPaymentService {
             }
             return existing;
         }
+        const splits = (0, advance_payment_method_util_1.advanceShiftAmountSplits)(input.paymentMethod, amount, {
+            cashMxn: input.amountCashMxn,
+            transferMxn: input.amountTransferMxn,
+            cardMxn: input.amountCardMxn,
+            checkMxn: input.amountCheckMxn,
+        });
         const row = this.paymentRepo.create({
             id: existing?.id ?? (0, uuid_1.v4)(),
             tenant_id: input.tenantId,
@@ -58,6 +63,10 @@ let AdvanceShiftPaymentService = class AdvanceShiftPaymentService {
             pos_daily_shift_id: input.shiftId,
             payment_method: input.paymentMethod,
             amount_mxn: amount,
+            amount_cash_mxn: splits.cashMxn,
+            amount_transfer_mxn: splits.transferMxn,
+            amount_card_mxn: splits.cardMxn,
+            amount_check_mxn: splits.checkMxn,
             document_folio: input.documentFolio,
             collected_by_user_id: input.userId,
             sales_order_payment_id: null,
@@ -133,15 +142,16 @@ let AdvanceShiftPaymentService = class AdvanceShiftPaymentService {
         });
         const totals = { cash_mxn: 0, card_mxn: 0, transfer_mxn: 0, check_mxn: 0 };
         for (const row of rows) {
-            const amount = Number(row.amount_mxn || 0);
-            if (row.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CASH)
-                totals.cash_mxn += amount;
-            else if (row.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CARD)
-                totals.card_mxn += amount;
-            else if (row.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.TRANSFER)
-                totals.transfer_mxn += amount;
-            else if (row.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CHECK)
-                totals.check_mxn += amount;
+            const splits = (0, advance_payment_method_util_1.advanceShiftAmountSplits)(row.payment_method, Number(row.amount_mxn || 0), {
+                cashMxn: Number(row.amount_cash_mxn || 0),
+                transferMxn: Number(row.amount_transfer_mxn || 0),
+                cardMxn: Number(row.amount_card_mxn || 0),
+                checkMxn: Number(row.amount_check_mxn || 0),
+            });
+            totals.cash_mxn += splits.cashMxn;
+            totals.card_mxn += splits.cardMxn;
+            totals.transfer_mxn += splits.transferMxn;
+            totals.check_mxn += splits.checkMxn;
         }
         return {
             cash_mxn: roundMoney(totals.cash_mxn),

@@ -14,6 +14,10 @@ export interface RecordAdvanceShiftPaymentInput {
     documentFolio: string;
     quotationId?: string | null;
     salesOrderId?: string | null;
+    amountCashMxn?: number;
+    amountTransferMxn?: number;
+    amountCardMxn?: number;
+    amountCheckMxn?: number;
 }
 export declare class AdvanceShiftPaymentService {
     private readonly paymentRepo;

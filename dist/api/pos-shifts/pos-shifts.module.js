@@ -27,6 +27,7 @@ const rbac_module_1 = require("../rbac/rbac.module");
 const sales_orders_module_1 = require("../sales-orders/sales-orders.module");
 const quotations_module_1 = require("../quotations/quotations.module");
 const customers_module_1 = require("../customers/customers.module");
+const electronic_invoicing_module_1 = require("../electronic-invoicing/electronic-invoicing.module");
 const pos_shifts_service_1 = require("./pos-shifts.service");
 const pos_shifts_controller_1 = require("./pos-shifts.controller");
 let PosShiftsModule = class PosShiftsModule {
@@ -54,6 +55,7 @@ exports.PosShiftsModule = PosShiftsModule = __decorate([
             (0, common_1.forwardRef)(() => quotations_module_1.QuotationsModule),
             customers_module_1.CustomersModule,
             exchange_rate_module_1.ExchangeRateModule,
+            electronic_invoicing_module_1.ElectronicInvoicingModule,
         ],
         controllers: [pos_shifts_controller_1.PosShiftsController],
         providers: [pos_shifts_service_1.PosShiftsService, advance_shift_payment_service_1.AdvanceShiftPaymentService],

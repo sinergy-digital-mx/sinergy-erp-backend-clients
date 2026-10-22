@@ -46,6 +46,9 @@ const customer_credit_util_1 = require("../customers/utils/customer-credit.util"
 const advance_shift_payment_service_1 = require("./services/advance-shift-payment.service");
 const exchange_rate_service_1 = require("../exchange-rate/exchange-rate.service");
 const fiscal_invoice_readiness_util_1 = require("../customers/utils/fiscal-invoice-readiness.util");
+const quotation_service_1 = require("../quotations/services/quotation.service");
+const advance_cfdi_service_1 = require("../electronic-invoicing/services/advance-cfdi.service");
+const quotation_advance_pos_util_1 = require("./utils/quotation-advance-pos.util");
 const WALK_IN_FISCAL_NAME = 'VENTA DE MOSTRADOR';
 const WALK_IN_DISPLAY_NAME = 'Público en General';
 let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
@@ -60,11 +63,13 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
     collectionRepo;
     posReceiptService;
     salesOrderService;
+    quotationService;
+    advanceCfdi;
     customerCreditService;
     advanceShiftPayments;
     exchangeRateService;
     logger = new common_1.Logger(PosShiftsService_1.name);
-    constructor(dailyShiftRepo, partialShiftRepo, userRepo, branchAssignmentRepo, salesOrderRepo, quotationRepo, customerRepo, warehouseRepo, collectionRepo, posReceiptService, salesOrderService, customerCreditService, advanceShiftPayments, exchangeRateService) {
+    constructor(dailyShiftRepo, partialShiftRepo, userRepo, branchAssignmentRepo, salesOrderRepo, quotationRepo, customerRepo, warehouseRepo, collectionRepo, posReceiptService, salesOrderService, quotationService, advanceCfdi, customerCreditService, advanceShiftPayments, exchangeRateService) {
         this.dailyShiftRepo = dailyShiftRepo;
         this.partialShiftRepo = partialShiftRepo;
         this.userRepo = userRepo;
@@ -76,6 +81,8 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         this.collectionRepo = collectionRepo;
         this.posReceiptService = posReceiptService;
         this.salesOrderService = salesOrderService;
+        this.quotationService = quotationService;
+        this.advanceCfdi = advanceCfdi;
         this.customerCreditService = customerCreditService;
         this.advanceShiftPayments = advanceShiftPayments;
         this.exchangeRateService = exchangeRateService;
@@ -497,6 +504,9 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             .andWhere('q.billing_branch_id = :billingBranchId', { billingBranchId })
             .andWhere('q.general_status = :status', { status: 'Creada' })
             .andWhere('q.advance_requested_total > 0')
+            .andWhere('(q.pos_stage IS NULL OR q.pos_stage = :posStage)', {
+            posStage: sales_order_pos_stage_enum_1.SalesOrderPosStage.Caja,
+        })
             .andWhere(`NOT EXISTS (
           SELECT 1 FROM electronic_invoices inv
           WHERE inv.tenant_id = q.tenant_id
@@ -1195,6 +1205,34 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             sales_order: this.mapPosTicketSummary(order),
         };
     }
+    async returnQuotationToVentas(tenantId, terminalUserId, quotationId) {
+        const cajaUser = await this.requireCobranzaTerminal(tenantId, terminalUserId);
+        const quotation = await this.quotationRepo.findOne({
+            where: { id: quotationId, tenant_id: tenantId },
+            relations: ['customer', 'seller_user', 'warehouse'],
+        });
+        if (!quotation) {
+            throw new common_1.NotFoundException('Cotización no encontrada');
+        }
+        await this.assertQuotationBelongsToTerminalBranch(quotation, cajaUser);
+        const vigente = await this.advanceCfdi.findVigenteAdvance(tenantId, 'quotations', quotation.id);
+        const blocked = (0, quotation_advance_pos_util_1.getQuotationReturnToSalesBlockedReason)({
+            generalStatus: quotation.general_status,
+            advanceRequestedTotal: quotation.advance_requested_total,
+            posStage: quotation.pos_stage,
+            hasVigenteAdvance: Boolean(vigente),
+        });
+        if (blocked) {
+            throw new common_1.BadRequestException(blocked);
+        }
+        quotation.pos_stage = sales_order_pos_stage_enum_1.SalesOrderPosStage.Ventas;
+        quotation.updated_by = terminalUserId;
+        await this.quotationRepo.save(quotation);
+        return {
+            message: 'El anticipo se regresó a ventas',
+            quotation: this.mapQuotationTicketSummary(quotation),
+        };
+    }
     async getSalesInProgress(tenantId, terminalUserId, billingBranchId) {
         const terminalUser = await this.requireVentasTerminal(tenantId, terminalUserId);
         const branchId = await this.resolveAccessibleBranchId(terminalUser, billingBranchId);
@@ -1219,7 +1257,31 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             .orderBy('so.updated_at', 'DESC')
             .addOrderBy('line_items.created_at', 'ASC')
             .getMany();
-        return orders.map((order) => this.mapPosTicketForVentas(order));
+        const quotations = await this.quotationRepo
+            .createQueryBuilder('q')
+            .leftJoinAndSelect('q.seller_user', 'seller_user')
+            .leftJoinAndSelect('q.terminal_user', 'terminal_user')
+            .leftJoinAndSelect('q.customer', 'customer')
+            .leftJoinAndSelect('q.global_discount', 'global_discount')
+            .leftJoinAndSelect('q.line_items', 'line_items')
+            .leftJoinAndSelect('line_items.product', 'product')
+            .leftJoinAndSelect('line_items.product_uom', 'product_uom')
+            .leftJoinAndSelect('product_uom.uom', 'uom')
+            .leftJoinAndSelect('line_items.product_discount', 'product_discount')
+            .leftJoin('q.warehouse', 'warehouse')
+            .where('q.tenant_id = :tenantId', { tenantId })
+            .andWhere('q.quotation_type = :type', { type: 'POS' })
+            .andWhere('q.pos_stage = :posStage', { posStage: sales_order_pos_stage_enum_1.SalesOrderPosStage.Ventas })
+            .andWhere('q.general_status = :status', { status: 'Creada' })
+            .andWhere('(q.billing_branch_id = :branchId OR warehouse.billing_branch_id = :branchId)', { branchId })
+            .orderBy('q.updated_at', 'DESC')
+            .addOrderBy('line_items.created_at', 'ASC')
+            .getMany();
+        return [
+            ...orders.map((order) => this.mapPosTicketForVentas(order)),
+            ...quotations.map((quotation) => this.mapQuotationTicketForVentas(quotation)),
+        ].sort((a, b) => new Date(b.updated_at ?? b.created_at ?? 0).getTime() -
+            new Date(a.updated_at ?? a.created_at ?? 0).getTime());
     }
     async replaceSaleCart(tenantId, terminalUserId, salesOrderId, dto) {
         const terminalUser = await this.requireVentasTerminal(tenantId, terminalUserId);
@@ -1276,6 +1338,58 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             sales_order: this.mapPosTicketSummary(order),
         };
     }
+    async sendQuotationToCaja(tenantId, terminalUserId, quotationId, dto = {}) {
+        const terminalUser = await this.requireVentasTerminal(tenantId, terminalUserId);
+        const quotation = await this.quotationRepo.findOne({
+            where: { id: quotationId, tenant_id: tenantId },
+            relations: ['warehouse', 'seller_user', 'customer'],
+        });
+        if (!quotation) {
+            throw new common_1.NotFoundException('Cotización no encontrada');
+        }
+        await this.assertQuotationBelongsToTerminalBranch(quotation, terminalUser);
+        const vigente = await this.advanceCfdi.findVigenteAdvance(tenantId, 'quotations', quotation.id);
+        const blocked = (0, quotation_advance_pos_util_1.getQuotationSendToCajaBlockedReason)({
+            generalStatus: quotation.general_status,
+            posStage: quotation.pos_stage,
+            hasVigenteAdvance: Boolean(vigente),
+        });
+        if (blocked) {
+            throw new common_1.BadRequestException(blocked);
+        }
+        if (dto.line_items?.length) {
+            const deliveryDate = this.toIsoDate(quotation.expected_delivery_date);
+            await this.quotationService.replace(quotation.id, {
+                fiscal_configuration_id: quotation.fiscal_configuration_id,
+                warehouse_id: dto.warehouse_id ?? quotation.warehouse_id ?? undefined,
+                customer_id: dto.customer_id ?? quotation.customer_id,
+                expected_delivery_date: deliveryDate,
+                quotation_type: 'POS',
+                seller_user_id: quotation.seller_user_id ?? undefined,
+                notes: dto.notes ?? quotation.notes ?? undefined,
+                global_discount_id: dto.global_discount_id,
+                line_items: dto.line_items,
+            }, tenantId, terminalUserId);
+        }
+        const advanceAmount = dto.advance_amount ?? Number(quotation.advance_requested_total ?? 0);
+        if (advanceAmount > 0) {
+            await this.quotationService.requestAdvanceFromPos(quotation.id, tenantId, advanceAmount, {
+                usoCfdi: dto.advance_uso_cfdi ?? quotation.advance_uso_cfdi ?? undefined,
+                metodoPago: dto.advance_metodo_pago ?? quotation.advance_metodo_pago ?? undefined,
+            });
+        }
+        else {
+            throw new common_1.BadRequestException('El anticipo debe ser mayor a 0 para enviarlo otra vez a caja');
+        }
+        const updated = await this.quotationRepo.findOne({
+            where: { id: quotation.id, tenant_id: tenantId },
+            relations: ['customer', 'seller_user'],
+        });
+        return {
+            message: 'Anticipo enviado a caja',
+            quotation: this.mapQuotationTicketSummary(updated ?? quotation),
+        };
+    }
     async assertOrderBelongsToTerminalBranch(order, terminalUser) {
         const orderBranch = order.billing_branch_id || order.warehouse?.billing_branch_id || null;
         if (!orderBranch) {
@@ -1286,8 +1400,26 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             throw new common_1.BadRequestException('La orden no pertenece a una sucursal asignada a esta terminal');
         }
     }
+    async assertQuotationBelongsToTerminalBranch(quotation, terminalUser) {
+        const quotationBranch = quotation.billing_branch_id || quotation.warehouse?.billing_branch_id || null;
+        if (!quotationBranch) {
+            return;
+        }
+        const canAccess = await this.userCanAccessBranch(terminalUser, quotationBranch);
+        if (!canAccess) {
+            throw new common_1.BadRequestException('La cotización no pertenece a una sucursal asignada a esta terminal');
+        }
+    }
+    toIsoDate(value) {
+        if (value instanceof Date && !Number.isNaN(value.getTime())) {
+            return value.toISOString().slice(0, 10);
+        }
+        const raw = String(value ?? '').slice(0, 10);
+        return raw || new Date().toISOString().slice(0, 10);
+    }
     mapPosTicketSummary(order) {
         return {
+            kind: 'sale',
             id: order.id,
             folio: order.folio,
             total: Number(order.total),
@@ -1320,6 +1452,83 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                     pos_user_code: order.seller_user.pos_user_code,
                 }
                 : null,
+        };
+    }
+    mapQuotationTicketSummary(quotation) {
+        return {
+            kind: 'advance',
+            id: quotation.id,
+            folio: quotation.folio,
+            total: Number(quotation.total),
+            subtotal: Number(quotation.subtotal),
+            amount_pending: Number(quotation.advance_requested_total ?? 0),
+            advance_uso_cfdi: quotation.advance_uso_cfdi ?? 'G03',
+            advance_metodo_pago: quotation.advance_metodo_pago ?? 'PUE',
+            created_at: quotation.created_at,
+            updated_at: quotation.updated_at,
+            general_status: quotation.general_status,
+            pos_stage: quotation.pos_stage,
+            notes: quotation.notes,
+            fiscal_configuration_id: quotation.fiscal_configuration_id,
+            customer: quotation.customer
+                ? {
+                    id: quotation.customer.id,
+                    name: quotation.customer.name,
+                    lastname: quotation.customer.lastname,
+                    company_name: quotation.customer.company_name,
+                    fiscal_razon_social: quotation.customer.fiscal_razon_social,
+                    display_name: (0, pos_sale_collection_mapper_1.formatCustomerDisplayName)(quotation.customer),
+                    is_walk_in: (0, pos_sale_collection_mapper_1.isWalkInCustomer)(quotation.customer),
+                }
+                : null,
+            seller_user: quotation.seller_user
+                ? {
+                    id: quotation.seller_user.id,
+                    first_name: quotation.seller_user.first_name,
+                    last_name: quotation.seller_user.last_name,
+                    pos_user_code: quotation.seller_user.pos_user_code,
+                }
+                : null,
+        };
+    }
+    mapQuotationTicketForVentas(quotation) {
+        return {
+            ...this.mapQuotationTicketSummary(quotation),
+            customer_id: quotation.customer_id,
+            global_discount_id: quotation.global_discount_id,
+            global_discount: quotation.global_discount
+                ? {
+                    id: quotation.global_discount.id,
+                    name: quotation.global_discount.name,
+                    discount_type: quotation.global_discount.discount_type,
+                    value: Number(quotation.global_discount.value),
+                    is_active: quotation.global_discount.is_active,
+                }
+                : null,
+            line_items: (quotation.line_items ?? []).map((line) => ({
+                id: line.id,
+                product_id: line.product_id,
+                product_name: line.product?.name ?? '',
+                product_sku: line.product?.sku ?? '',
+                product_uom_id: line.product_uom_id,
+                uom_id: line.base_uom_id ?? line.product_uom_id,
+                uom_name: line.product_uom?.uom?.name ?? line.base_uom?.name ?? '',
+                quantity: Number(line.quantity),
+                unit_price: Number(line.unit_price),
+                iva_percentage: Number(line.iva_percentage ?? 0),
+                ieps_percentage: Number(line.ieps_percentage ?? 0),
+                discount_percentage: Number(line.discount_percentage ?? 0),
+                product_discount_id: line.product_discount_id,
+                selected_discount: line.product_discount
+                    ? {
+                        id: line.product_discount.id,
+                        name: line.product_discount.name,
+                        discount_type: line.product_discount.discount_type,
+                        value: Number(line.product_discount.value),
+                        product_uom_id: line.product_discount.product_uom_id ?? null,
+                    }
+                    : null,
+            })),
         };
     }
     mapPosTicketForVentas(order) {
@@ -1710,6 +1919,7 @@ exports.PosShiftsService = PosShiftsService = PosShiftsService_1 = __decorate([
     __param(8, (0, typeorm_1.InjectRepository)(pos_sale_collection_entity_1.PosSaleCollection)),
     __param(9, (0, common_1.Inject)((0, common_1.forwardRef)(() => sales_order_pos_receipt_service_1.SalesOrderPosReceiptService))),
     __param(10, (0, common_1.Inject)((0, common_1.forwardRef)(() => sales_order_service_1.SalesOrderService))),
+    __param(11, (0, common_1.Inject)((0, common_1.forwardRef)(() => quotation_service_1.QuotationService))),
     __metadata("design:paramtypes", [typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
@@ -1721,6 +1931,8 @@ exports.PosShiftsService = PosShiftsService = PosShiftsService_1 = __decorate([
         typeorm_2.Repository,
         sales_order_pos_receipt_service_1.SalesOrderPosReceiptService,
         sales_order_service_1.SalesOrderService,
+        quotation_service_1.QuotationService,
+        advance_cfdi_service_1.AdvanceCfdiService,
         customer_credit_service_1.CustomerCreditService,
         advance_shift_payment_service_1.AdvanceShiftPaymentService,
         exchange_rate_service_1.ExchangeRateService])

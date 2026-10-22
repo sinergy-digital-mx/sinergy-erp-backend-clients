@@ -25,6 +25,10 @@ let AdvanceShiftPayment = class AdvanceShiftPayment {
     pos_daily_shift;
     payment_method;
     amount_mxn;
+    amount_cash_mxn;
+    amount_transfer_mxn;
+    amount_card_mxn;
+    amount_check_mxn;
     document_folio;
     collected_by_user_id;
     sales_order_payment_id;
@@ -74,6 +78,22 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'decimal', precision: 12, scale: 2 }),
     __metadata("design:type", Number)
 ], AdvanceShiftPayment.prototype, "amount_mxn", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'decimal', precision: 12, scale: 2, default: 0 }),
+    __metadata("design:type", Number)
+], AdvanceShiftPayment.prototype, "amount_cash_mxn", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'decimal', precision: 12, scale: 2, default: 0 }),
+    __metadata("design:type", Number)
+], AdvanceShiftPayment.prototype, "amount_transfer_mxn", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'decimal', precision: 12, scale: 2, default: 0 }),
+    __metadata("design:type", Number)
+], AdvanceShiftPayment.prototype, "amount_card_mxn", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'decimal', precision: 12, scale: 2, default: 0 }),
+    __metadata("design:type", Number)
+], AdvanceShiftPayment.prototype, "amount_check_mxn", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 40 }),
     __metadata("design:type", String)

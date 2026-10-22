@@ -22,12 +22,14 @@ const advance_cfdi_service_1 = require("../../electronic-invoicing/services/adva
 const electronic_invoice_service_1 = require("../../electronic-invoicing/services/electronic-invoice.service");
 const advance_cfdi_util_1 = require("../../electronic-invoicing/utils/advance-cfdi.util");
 const pos_shifts_service_1 = require("../../pos-shifts/pos-shifts.service");
+const sales_order_pos_stage_enum_1 = require("../../../entities/sales-orders/sales-order-pos-stage.enum");
 const advance_shift_payment_service_1 = require("../../pos-shifts/services/advance-shift-payment.service");
 const advance_payment_method_util_1 = require("../../pos-shifts/utils/advance-payment-method.util");
 const pos_sale_payment_method_enum_1 = require("../../../entities/pos/pos-sale-payment-method.enum");
 const fiscal_invoice_readiness_util_1 = require("../../customers/utils/fiscal-invoice-readiness.util");
 const advance_cfdi_util_2 = require("../../electronic-invoicing/utils/advance-cfdi.util");
 const pos_sale_collection_mapper_1 = require("../../pos-shifts/mappers/pos-sale-collection.mapper");
+const cfdi_regimen_person_util_1 = require("../../electronic-invoicing/utils/cfdi-regimen-person.util");
 const PUBLIC_RFC = 'XAXX010101000';
 const PUBLIC_NAME = 'PUBLICO EN GENERAL';
 let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
@@ -87,21 +89,23 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
         return this.electronicInvoiceService.findBySource(tenantId, 'quotations', id);
     }
     async collectFromPos(id, tenantId, userId, dto) {
-        if (dto.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CREDIT ||
-            dto.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.MIXED) {
-            throw new common_1.BadRequestException('El anticipo se cobra en efectivo, tarjeta, transferencia o cheque para entrar al corte');
+        if (dto.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CREDIT) {
+            throw new common_1.BadRequestException('El anticipo no se cobra a crédito');
         }
-        const formaPago = (0, advance_payment_method_util_1.formaPagoFromPaymentMethod)(dto.payment_method);
-        if (!formaPago) {
-            throw new common_1.BadRequestException('El anticipo se cobra en efectivo, tarjeta, transferencia o cheque para entrar al corte');
+        let quotation = await this.requireQuotation(id, tenantId);
+        if (dto.customer_id && Number(dto.customer_id) !== Number(quotation.customer_id)) {
+            await this.quotationRepo.update({ id: quotation.id, tenant_id: tenantId }, { customer_id: dto.customer_id });
+            quotation = await this.requireQuotation(id, tenantId);
         }
-        const quotation = await this.requireQuotation(id, tenantId);
         const requested = Number(quotation.advance_requested_total || 0);
         if (requested <= 0) {
             throw new common_1.BadRequestException('Esta cotización no tiene un anticipo por cobrar');
         }
         if (quotation.general_status !== 'Creada') {
             throw new common_1.BadRequestException('La cotización ya no está pendiente de anticipo');
+        }
+        if (!(0, sales_order_pos_stage_enum_1.isPosStageInCaja)(quotation.pos_stage)) {
+            throw new common_1.BadRequestException('La cotización está en ventas. Debe enviarse a caja antes de cobrar');
         }
         const readiness = (0, fiscal_invoice_readiness_util_1.getFiscalInvoiceReadiness)(quotation.customer);
         if (!readiness.fiscal_ready_for_invoice) {
@@ -112,12 +116,21 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
             throw new common_1.BadRequestException('Ese anticipo ya fue cobrado y timbrado');
         }
         const payment = await this.posShiftsService.normalizeCollectPayment(tenantId, dto, requested);
+        const cashMxn = Number((payment.amountCashMxn +
+            payment.amountCashUsd * (payment.usdExchangeRate ?? 0)).toFixed(2));
+        const formaPago = (0, advance_payment_method_util_1.formaPagoFromAdvancePayment)(dto.payment_method, {
+            cashMxn,
+            transferMxn: payment.amountTransferMxn,
+            cardMxn: payment.amountCardMxn,
+            checkMxn: payment.amountCheckMxn,
+        });
+        if (!formaPago) {
+            throw new common_1.BadRequestException('El anticipo se cobra en efectivo, tarjeta, transferencia, cheque o mixto');
+        }
         const taxable = (0, advance_cfdi_util_2.taxableBaseOfDocument)(Number(quotation.subtotal), Number(quotation.discount_total), Number(quotation.global_discount_amount));
         const iva = (0, advance_cfdi_util_2.inferIvaPercentage)(Number(quotation.iva_total), taxable);
         const base = iva > 0 ? Number((requested / (1 + iva / 100)).toFixed(2)) : requested;
-        const person = String(quotation.customer?.fiscal_person_type ?? '').toLowerCase();
-        const rfc = String(quotation.customer?.fiscal_rfc ?? '').replace(/[\s-]/g, '');
-        const regimen = person === 'fisica' || rfc.length === 13 ? '612' : '601';
+        const regimen = (0, cfdi_regimen_person_util_1.inferReceptorRegimen)(quotation.customer?.fiscal_rfc, quotation.customer?.fiscal_person_type);
         await this.stamp(id, tenantId, userId, {
             base_amount: base,
             iva_percentage: iva,
@@ -125,6 +138,12 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
             uso_cfdi: quotation.advance_uso_cfdi || 'G03',
             metodo_pago: quotation.advance_metodo_pago || 'PUE',
             regimen_fiscal_receptor: regimen,
+        }, {
+            paymentMethod: dto.payment_method,
+            amountCashMxn: cashMxn,
+            amountTransferMxn: payment.amountTransferMxn,
+            amountCardMxn: payment.amountCardMxn,
+            amountCheckMxn: payment.amountCheckMxn,
         });
         return {
             folio: quotation.folio,
@@ -136,7 +155,7 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
             usd_exchange_rate: payment.usdExchangeRate,
         };
     }
-    async stamp(id, tenantId, userId, dto) {
+    async stamp(id, tenantId, userId, dto, collected) {
         const quotation = await this.requireQuotation(id, tenantId);
         if (!quotation.fiscal_configuration?.advance_invoicing_enabled) {
             throw new common_1.BadRequestException('Esta razón social no tiene activada la factura de anticipo');
@@ -150,8 +169,11 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
             throw new common_1.BadRequestException('La cotización no tiene sucursal');
         }
         const formaPago = dto.forma_pago ?? '01';
-        const paymentMethod = (0, advance_payment_method_util_1.paymentMethodFromFormaPago)(formaPago);
-        if (!paymentMethod) {
+        const paymentMethod = collected?.paymentMethod ?? (0, advance_payment_method_util_1.paymentMethodFromFormaPago)(formaPago);
+        if (!paymentMethod || paymentMethod === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CREDIT) {
+            throw new common_1.BadRequestException('La forma de pago del anticipo debe ser efectivo (01), cheque (02), transferencia (03), tarjeta (04 o 28) o mixto');
+        }
+        if (paymentMethod === pos_sale_payment_method_enum_1.PosSalePaymentMethod.MIXED && !collected) {
             throw new common_1.BadRequestException('La forma de pago del anticipo debe ser efectivo (01), cheque (02), transferencia (03) o tarjeta (04 o 28)');
         }
         const caja = await this.posShiftsService.resolveBranchCajaShift(tenantId, branchId);
@@ -180,6 +202,10 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
             invoiceId: saved.id,
             amountMxn: Number(saved.total),
             paymentMethod,
+            amountCashMxn: collected?.amountCashMxn,
+            amountTransferMxn: collected?.amountTransferMxn,
+            amountCardMxn: collected?.amountCardMxn,
+            amountCheckMxn: collected?.amountCheckMxn,
             documentFolio: quotation.folio,
             quotationId: quotation.id,
         });
@@ -269,7 +295,7 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
                 nombre: generic
                     ? PUBLIC_NAME
                     : customer.fiscal_razon_social || customer.name || PUBLIC_NAME,
-                regimen: '601',
+                regimen: (0, cfdi_regimen_person_util_1.inferReceptorRegimen)(rfc, customer?.fiscal_person_type),
                 postalCode: domicilio,
             },
         };

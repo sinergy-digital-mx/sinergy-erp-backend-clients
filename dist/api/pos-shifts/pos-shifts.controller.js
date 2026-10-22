@@ -29,6 +29,7 @@ const close_daily_shift_dto_1 = require("./dto/close-daily-shift.dto");
 const collect_pos_sale_dto_1 = require("./dto/collect-pos-sale.dto");
 const query_collected_sales_dto_1 = require("./dto/query-collected-sales.dto");
 const replace_pos_sale_cart_dto_1 = require("./dto/replace-pos-sale-cart.dto");
+const send_quotation_to_caja_dto_1 = require("./dto/send-quotation-to-caja.dto");
 let PosShiftsController = class PosShiftsController {
     posShiftsService;
     quotationAdvances;
@@ -93,11 +94,17 @@ let PosShiftsController = class PosShiftsController {
     async returnSaleToVentas(salesOrderId, req) {
         return this.posShiftsService.returnSaleToVentas(req.user.tenant_id, req.user.id, salesOrderId);
     }
+    async returnQuotationToVentas(quotationId, req) {
+        return this.posShiftsService.returnQuotationToVentas(req.user.tenant_id, req.user.id, quotationId);
+    }
     async replaceSaleCart(salesOrderId, dto, req) {
         return this.posShiftsService.replaceSaleCart(req.user.tenant_id, req.user.id, salesOrderId, dto);
     }
     async sendSaleToCaja(salesOrderId, req) {
         return this.posShiftsService.sendSaleToCaja(req.user.tenant_id, req.user.id, salesOrderId);
+    }
+    async sendQuotationToCaja(quotationId, dto, req) {
+        return this.posShiftsService.sendQuotationToCaja(req.user.tenant_id, req.user.id, quotationId, dto);
     }
     async getSaleCollection(salesOrderId, req) {
         return this.posShiftsService.getSaleCollection(req.user.tenant_id, salesOrderId);
@@ -275,6 +282,19 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], PosShiftsController.prototype, "returnSaleToVentas", null);
 __decorate([
+    (0, common_1.Post)('quotations/:quotationId/return-to-sales'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'pos', action: 'ReturnToSales' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Regresar anticipo de caja a ventas',
+        description: 'Solo terminal de caja. La cotización sale de por cobrar para que Ventas corrija y la reenvíe.',
+    }),
+    __param(0, (0, common_1.Param)('quotationId')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], PosShiftsController.prototype, "returnQuotationToVentas", null);
+__decorate([
     (0, common_1.Put)('sales/:salesOrderId/cart'),
     (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Read' }, { entityType: 'pos', action: 'Read' }, { entityType: 'pos', action: 'Create' }, { entityType: 'pos', action: 'Update' }),
     (0, swagger_1.ApiOperation)({
@@ -302,6 +322,21 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], PosShiftsController.prototype, "sendSaleToCaja", null);
+__decorate([
+    (0, common_1.Post)('quotations/:quotationId/send-to-caja'),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Read' }, { entityType: 'pos', action: 'Read' }, { entityType: 'pos', action: 'Create' }, { entityType: 'pos', action: 'Update' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Reenviar anticipo de cotización a caja',
+        description: 'Solo terminal VENTAS y pos_stage=ventas. Puede corregir productos y el monto del anticipo.',
+    }),
+    (0, swagger_1.ApiBody)({ type: send_quotation_to_caja_dto_1.SendQuotationToCajaDto }),
+    __param(0, (0, common_1.Param)('quotationId')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, send_quotation_to_caja_dto_1.SendQuotationToCajaDto, Object]),
+    __metadata("design:returntype", Promise)
+], PosShiftsController.prototype, "sendQuotationToCaja", null);
 __decorate([
     (0, common_1.Get)('sales/:salesOrderId/collection'),
     (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Read' }, { entityType: 'pos', action: 'Read' }, { entityType: 'pos', action: 'Create' }, { entityType: 'pos', action: 'Update' }),

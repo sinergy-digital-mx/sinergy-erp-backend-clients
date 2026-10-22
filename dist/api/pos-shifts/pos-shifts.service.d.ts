@@ -22,6 +22,9 @@ import { SalesOrderService } from '../sales-orders/services/sales-order.service'
 import { CustomerCreditService } from '../customers/services/customer-credit.service';
 import { AdvanceShiftPaymentService } from './services/advance-shift-payment.service';
 import { ExchangeRateService } from '../exchange-rate/exchange-rate.service';
+import { QuotationService } from '../quotations/services/quotation.service';
+import { AdvanceCfdiService } from '../electronic-invoicing/services/advance-cfdi.service';
+import { SendQuotationToCajaDto } from './dto/send-quotation-to-caja.dto';
 export declare class PosShiftsService {
     private readonly dailyShiftRepo;
     private readonly partialShiftRepo;
@@ -34,11 +37,13 @@ export declare class PosShiftsService {
     private readonly collectionRepo;
     private readonly posReceiptService;
     private readonly salesOrderService;
+    private readonly quotationService;
+    private readonly advanceCfdi;
     private readonly customerCreditService;
     private readonly advanceShiftPayments;
     private readonly exchangeRateService;
     private readonly logger;
-    constructor(dailyShiftRepo: Repository<PosDailyShift>, partialShiftRepo: Repository<PosPartialShift>, userRepo: Repository<User>, branchAssignmentRepo: Repository<UserBillingBranch>, salesOrderRepo: Repository<SalesOrder>, quotationRepo: Repository<Quotation>, customerRepo: Repository<Customer>, warehouseRepo: Repository<Warehouse>, collectionRepo: Repository<PosSaleCollection>, posReceiptService: SalesOrderPosReceiptService, salesOrderService: SalesOrderService, customerCreditService: CustomerCreditService, advanceShiftPayments: AdvanceShiftPaymentService, exchangeRateService: ExchangeRateService);
+    constructor(dailyShiftRepo: Repository<PosDailyShift>, partialShiftRepo: Repository<PosPartialShift>, userRepo: Repository<User>, branchAssignmentRepo: Repository<UserBillingBranch>, salesOrderRepo: Repository<SalesOrder>, quotationRepo: Repository<Quotation>, customerRepo: Repository<Customer>, warehouseRepo: Repository<Warehouse>, collectionRepo: Repository<PosSaleCollection>, posReceiptService: SalesOrderPosReceiptService, salesOrderService: SalesOrderService, quotationService: QuotationService, advanceCfdi: AdvanceCfdiService, customerCreditService: CustomerCreditService, advanceShiftPayments: AdvanceShiftPaymentService, exchangeRateService: ExchangeRateService);
     validateSellerCode(tenantId: string, terminalUserId: string, code: number, billingBranchId?: string): Promise<{
         seller: {
             id: string;
@@ -1019,6 +1024,7 @@ export declare class PosShiftsService {
     returnSaleToVentas(tenantId: string, terminalUserId: string, salesOrderId: string): Promise<{
         message: string;
         sales_order: {
+            kind: "sale";
             id: string;
             folio: string;
             total: number;
@@ -1049,7 +1055,41 @@ export declare class PosShiftsService {
             } | null;
         };
     }>;
-    getSalesInProgress(tenantId: string, terminalUserId: string, billingBranchId?: string): Promise<{
+    returnQuotationToVentas(tenantId: string, terminalUserId: string, quotationId: string): Promise<{
+        message: string;
+        quotation: {
+            kind: "advance";
+            id: string;
+            folio: string;
+            total: number;
+            subtotal: number;
+            amount_pending: number;
+            advance_uso_cfdi: string;
+            advance_metodo_pago: "PUE" | "PPD";
+            created_at: Date;
+            updated_at: Date;
+            general_status: string;
+            pos_stage: SalesOrderPosStage | null;
+            notes: string | null;
+            fiscal_configuration_id: string;
+            customer: {
+                id: number;
+                name: string;
+                lastname: string;
+                company_name: string;
+                fiscal_razon_social: string;
+                display_name: string | null;
+                is_walk_in: boolean;
+            } | null;
+            seller_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+            } | null;
+        };
+    }>;
+    getSalesInProgress(tenantId: string, terminalUserId: string, billingBranchId?: string): Promise<({
         customer_id: number;
         global_discount_id: string | null;
         global_discount: {
@@ -1081,6 +1121,7 @@ export declare class PosShiftsService {
                 product_uom_id: string | null;
             } | null;
         }[];
+        kind: "sale";
         id: string;
         folio: string;
         total: number;
@@ -1109,7 +1150,68 @@ export declare class PosShiftsService {
             last_name: string;
             pos_user_code: number | null;
         } | null;
-    }[]>;
+    } | {
+        customer_id: number;
+        global_discount_id: string | null;
+        global_discount: {
+            id: string;
+            name: string;
+            discount_type: import("../../entities/global-discounts/global-discount.entity").GlobalDiscountType;
+            value: number;
+            is_active: boolean;
+        } | null;
+        line_items: {
+            id: string;
+            product_id: string;
+            product_name: string;
+            product_sku: string;
+            product_uom_id: string;
+            uom_id: string;
+            uom_name: string;
+            quantity: number;
+            unit_price: number;
+            iva_percentage: number;
+            ieps_percentage: number;
+            discount_percentage: number;
+            product_discount_id: string | null;
+            selected_discount: {
+                id: string;
+                name: string;
+                discount_type: import("../../entities/products").ProductDiscountType;
+                value: number;
+                product_uom_id: string | null;
+            } | null;
+        }[];
+        kind: "advance";
+        id: string;
+        folio: string;
+        total: number;
+        subtotal: number;
+        amount_pending: number;
+        advance_uso_cfdi: string;
+        advance_metodo_pago: "PUE" | "PPD";
+        created_at: Date;
+        updated_at: Date;
+        general_status: string;
+        pos_stage: SalesOrderPosStage | null;
+        notes: string | null;
+        fiscal_configuration_id: string;
+        customer: {
+            id: number;
+            name: string;
+            lastname: string;
+            company_name: string;
+            fiscal_razon_social: string;
+            display_name: string | null;
+            is_walk_in: boolean;
+        } | null;
+        seller_user: {
+            id: string;
+            first_name: string;
+            last_name: string;
+            pos_user_code: number | null;
+        } | null;
+    })[]>;
     replaceSaleCart(tenantId: string, terminalUserId: string, salesOrderId: string, dto: ReplacePosSaleCartDto): Promise<{
         customer_id: number;
         global_discount_id: string | null;
@@ -1142,6 +1244,7 @@ export declare class PosShiftsService {
                 product_uom_id: string | null;
             } | null;
         }[];
+        kind: "sale";
         id: string;
         folio: string;
         total: number;
@@ -1174,6 +1277,7 @@ export declare class PosShiftsService {
     sendSaleToCaja(tenantId: string, terminalUserId: string, salesOrderId: string): Promise<{
         message: string;
         sales_order: {
+            kind: "sale";
             id: string;
             folio: string;
             total: number;
@@ -1204,8 +1308,46 @@ export declare class PosShiftsService {
             } | null;
         };
     }>;
+    sendQuotationToCaja(tenantId: string, terminalUserId: string, quotationId: string, dto?: SendQuotationToCajaDto): Promise<{
+        message: string;
+        quotation: {
+            kind: "advance";
+            id: string;
+            folio: string;
+            total: number;
+            subtotal: number;
+            amount_pending: number;
+            advance_uso_cfdi: string;
+            advance_metodo_pago: "PUE" | "PPD";
+            created_at: Date;
+            updated_at: Date;
+            general_status: string;
+            pos_stage: SalesOrderPosStage | null;
+            notes: string | null;
+            fiscal_configuration_id: string;
+            customer: {
+                id: number;
+                name: string;
+                lastname: string;
+                company_name: string;
+                fiscal_razon_social: string;
+                display_name: string | null;
+                is_walk_in: boolean;
+            } | null;
+            seller_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+            } | null;
+        };
+    }>;
     private assertOrderBelongsToTerminalBranch;
+    private assertQuotationBelongsToTerminalBranch;
+    private toIsoDate;
     private mapPosTicketSummary;
+    private mapQuotationTicketSummary;
+    private mapQuotationTicketForVentas;
     private mapPosTicketForVentas;
     private requireCobranzaTerminal;
     private requireVentasTerminal;

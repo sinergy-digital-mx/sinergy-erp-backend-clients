@@ -9,6 +9,7 @@ import { CloseDailyShiftDto } from './dto/close-daily-shift.dto';
 import { CollectPosSaleDto } from './dto/collect-pos-sale.dto';
 import { QueryCollectedSalesDto } from './dto/query-collected-sales.dto';
 import { ReplacePosSaleCartDto } from './dto/replace-pos-sale-cart.dto';
+import { SendQuotationToCajaDto } from './dto/send-quotation-to-caja.dto';
 export declare class PosShiftsController {
     private readonly posShiftsService;
     private readonly quotationAdvances;
@@ -710,7 +711,7 @@ export declare class PosShiftsController {
         })[];
     }>;
     getSalesInProgress(query: QueryPosBranchDto, req: any): Promise<{
-        sales_in_progress: {
+        sales_in_progress: ({
             customer_id: number;
             global_discount_id: string | null;
             global_discount: {
@@ -742,6 +743,7 @@ export declare class PosShiftsController {
                     product_uom_id: string | null;
                 } | null;
             }[];
+            kind: "sale";
             id: string;
             folio: string;
             total: number;
@@ -770,7 +772,68 @@ export declare class PosShiftsController {
                 last_name: string;
                 pos_user_code: number | null;
             } | null;
-        }[];
+        } | {
+            customer_id: number;
+            global_discount_id: string | null;
+            global_discount: {
+                id: string;
+                name: string;
+                discount_type: import("../../entities/global-discounts/global-discount.entity").GlobalDiscountType;
+                value: number;
+                is_active: boolean;
+            } | null;
+            line_items: {
+                id: string;
+                product_id: string;
+                product_name: string;
+                product_sku: string;
+                product_uom_id: string;
+                uom_id: string;
+                uom_name: string;
+                quantity: number;
+                unit_price: number;
+                iva_percentage: number;
+                ieps_percentage: number;
+                discount_percentage: number;
+                product_discount_id: string | null;
+                selected_discount: {
+                    id: string;
+                    name: string;
+                    discount_type: import("../../entities/products").ProductDiscountType;
+                    value: number;
+                    product_uom_id: string | null;
+                } | null;
+            }[];
+            kind: "advance";
+            id: string;
+            folio: string;
+            total: number;
+            subtotal: number;
+            amount_pending: number;
+            advance_uso_cfdi: string;
+            advance_metodo_pago: "PUE" | "PPD";
+            created_at: Date;
+            updated_at: Date;
+            general_status: string;
+            pos_stage: import("../../entities/sales-orders").SalesOrderPosStage | null;
+            notes: string | null;
+            fiscal_configuration_id: string;
+            customer: {
+                id: number;
+                name: string;
+                lastname: string;
+                company_name: string;
+                fiscal_razon_social: string;
+                display_name: string | null;
+                is_walk_in: boolean;
+            } | null;
+            seller_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+            } | null;
+        })[];
     }>;
     getCollectedSales(query: QueryCollectedSalesDto, req: any): Promise<{
         daily_shift: null;
@@ -973,6 +1036,7 @@ export declare class PosShiftsController {
     returnSaleToVentas(salesOrderId: string, req: any): Promise<{
         message: string;
         sales_order: {
+            kind: "sale";
             id: string;
             folio: string;
             total: number;
@@ -985,6 +1049,40 @@ export declare class PosShiftsController {
             notes: string | null;
             walk_in_name: string | null;
             walk_in_rfc: string | null;
+            fiscal_configuration_id: string;
+            customer: {
+                id: number;
+                name: string;
+                lastname: string;
+                company_name: string;
+                fiscal_razon_social: string;
+                display_name: string | null;
+                is_walk_in: boolean;
+            } | null;
+            seller_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+            } | null;
+        };
+    }>;
+    returnQuotationToVentas(quotationId: string, req: any): Promise<{
+        message: string;
+        quotation: {
+            kind: "advance";
+            id: string;
+            folio: string;
+            total: number;
+            subtotal: number;
+            amount_pending: number;
+            advance_uso_cfdi: string;
+            advance_metodo_pago: "PUE" | "PPD";
+            created_at: Date;
+            updated_at: Date;
+            general_status: string;
+            pos_stage: import("../../entities/sales-orders").SalesOrderPosStage | null;
+            notes: string | null;
             fiscal_configuration_id: string;
             customer: {
                 id: number;
@@ -1035,6 +1133,7 @@ export declare class PosShiftsController {
                 product_uom_id: string | null;
             } | null;
         }[];
+        kind: "sale";
         id: string;
         folio: string;
         total: number;
@@ -1067,6 +1166,7 @@ export declare class PosShiftsController {
     sendSaleToCaja(salesOrderId: string, req: any): Promise<{
         message: string;
         sales_order: {
+            kind: "sale";
             id: string;
             folio: string;
             total: number;
@@ -1079,6 +1179,40 @@ export declare class PosShiftsController {
             notes: string | null;
             walk_in_name: string | null;
             walk_in_rfc: string | null;
+            fiscal_configuration_id: string;
+            customer: {
+                id: number;
+                name: string;
+                lastname: string;
+                company_name: string;
+                fiscal_razon_social: string;
+                display_name: string | null;
+                is_walk_in: boolean;
+            } | null;
+            seller_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+            } | null;
+        };
+    }>;
+    sendQuotationToCaja(quotationId: string, dto: SendQuotationToCajaDto, req: any): Promise<{
+        message: string;
+        quotation: {
+            kind: "advance";
+            id: string;
+            folio: string;
+            total: number;
+            subtotal: number;
+            amount_pending: number;
+            advance_uso_cfdi: string;
+            advance_metodo_pago: "PUE" | "PPD";
+            created_at: Date;
+            updated_at: Date;
+            general_status: string;
+            pos_stage: import("../../entities/sales-orders").SalesOrderPosStage | null;
+            notes: string | null;
             fiscal_configuration_id: string;
             customer: {
                 id: number;

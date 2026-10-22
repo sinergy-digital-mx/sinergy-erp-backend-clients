@@ -12,6 +12,10 @@ export declare class AdvanceShiftPayment {
     pos_daily_shift: PosDailyShift;
     payment_method: PosSalePaymentMethod;
     amount_mxn: number;
+    amount_cash_mxn: number;
+    amount_transfer_mxn: number;
+    amount_card_mxn: number;
+    amount_check_mxn: number;
     document_folio: string;
     collected_by_user_id: string;
     sales_order_payment_id: string | null;

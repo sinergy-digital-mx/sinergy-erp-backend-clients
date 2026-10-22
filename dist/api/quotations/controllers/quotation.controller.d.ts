@@ -101,6 +101,8 @@ export declare class QuotationController {
             can_edit_lines: boolean;
             can_edit_notes: boolean;
             can_send: boolean;
+            amount_paid: number;
+            amount_pending: number;
             advance_invoicing_enabled: boolean;
             can_stamp_advance: boolean;
             advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
@@ -155,6 +157,7 @@ export declare class QuotationController {
             advance_requested_total: number | null;
             advance_uso_cfdi: string | null;
             advance_metodo_pago: "PUE" | "PPD" | null;
+            pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
             created_by: string;
             terminal_user_id: string | null;
             seller_user_id: string | null;
@@ -333,6 +336,8 @@ export declare class QuotationController {
                 can_edit_lines: boolean;
                 can_edit_notes: boolean;
                 can_send: boolean;
+                amount_paid: number;
+                amount_pending: number;
                 advance_invoicing_enabled: boolean;
                 can_stamp_advance: boolean;
                 advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
@@ -387,6 +392,7 @@ export declare class QuotationController {
                 advance_requested_total: number | null;
                 advance_uso_cfdi: string | null;
                 advance_metodo_pago: "PUE" | "PPD" | null;
+                pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
                 created_by: string;
                 terminal_user_id: string | null;
                 seller_user_id: string | null;
@@ -546,6 +552,8 @@ export declare class QuotationController {
                 can_edit_lines: boolean;
                 can_edit_notes: boolean;
                 can_send: boolean;
+                amount_paid: number;
+                amount_pending: number;
                 advance_invoicing_enabled: boolean;
                 can_stamp_advance: boolean;
                 advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
@@ -600,6 +608,7 @@ export declare class QuotationController {
                 advance_requested_total: number | null;
                 advance_uso_cfdi: string | null;
                 advance_metodo_pago: "PUE" | "PPD" | null;
+                pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
                 created_by: string;
                 terminal_user_id: string | null;
                 seller_user_id: string | null;
@@ -759,6 +768,8 @@ export declare class QuotationController {
                 can_edit_lines: boolean;
                 can_edit_notes: boolean;
                 can_send: boolean;
+                amount_paid: number;
+                amount_pending: number;
                 advance_invoicing_enabled: boolean;
                 can_stamp_advance: boolean;
                 advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
@@ -813,6 +824,7 @@ export declare class QuotationController {
                 advance_requested_total: number | null;
                 advance_uso_cfdi: string | null;
                 advance_metodo_pago: "PUE" | "PPD" | null;
+                pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
                 created_by: string;
                 terminal_user_id: string | null;
                 seller_user_id: string | null;
@@ -952,6 +964,7 @@ export declare class QuotationController {
             advance_requested_total: number | null;
             advance_uso_cfdi: string | null;
             advance_metodo_pago: "PUE" | "PPD" | null;
+            pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
             created_by: string;
             terminal_user_id: string | null;
             seller_user_id: string | null;
@@ -1066,6 +1079,8 @@ export declare class QuotationController {
                 can_edit_lines: boolean;
                 can_edit_notes: boolean;
                 can_send: boolean;
+                amount_paid: number;
+                amount_pending: number;
                 advance_invoicing_enabled: boolean;
                 can_stamp_advance: boolean;
                 advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
@@ -1120,6 +1135,7 @@ export declare class QuotationController {
                 advance_requested_total: number | null;
                 advance_uso_cfdi: string | null;
                 advance_metodo_pago: "PUE" | "PPD" | null;
+                pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
                 created_by: string;
                 terminal_user_id: string | null;
                 seller_user_id: string | null;
@@ -1279,6 +1295,8 @@ export declare class QuotationController {
                 can_edit_lines: boolean;
                 can_edit_notes: boolean;
                 can_send: boolean;
+                amount_paid: number;
+                amount_pending: number;
                 advance_invoicing_enabled: boolean;
                 can_stamp_advance: boolean;
                 advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
@@ -1333,6 +1351,7 @@ export declare class QuotationController {
                 advance_requested_total: number | null;
                 advance_uso_cfdi: string | null;
                 advance_metodo_pago: "PUE" | "PPD" | null;
+                pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
                 created_by: string;
                 terminal_user_id: string | null;
                 seller_user_id: string | null;

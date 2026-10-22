@@ -22,6 +22,7 @@ const quotation_entity_1 = require("../../../entities/quotations/quotation.entit
 const quotation_detail_entity_1 = require("../../../entities/quotations/quotation-detail.entity");
 const product_item_kind_enum_1 = require("../../../entities/products/product-item-kind.enum");
 const sales_order_sale_scope_enum_1 = require("../../../entities/sales-orders/sales-order-sale-scope.enum");
+const sales_order_pos_stage_enum_1 = require("../../../entities/sales-orders/sales-order-pos-stage.enum");
 const user_entity_1 = require("../../../entities/users/user.entity");
 const user_billing_branch_entity_1 = require("../../../entities/users/user-billing-branch.entity");
 const customer_entity_1 = require("../../../entities/customers/customer.entity");
@@ -152,6 +153,10 @@ let QuotationService = class QuotationService {
         const existing = await this.findOne(id, tenantId, access);
         if (existing.general_status !== 'Creada') {
             throw new common_1.BadRequestException(`No se puede editar una cotización con estado: ${existing.general_status}`);
+        }
+        if (existing.pos_stage === sales_order_pos_stage_enum_1.SalesOrderPosStage.Caja &&
+            Number(existing.advance_requested_total ?? 0) > 0) {
+            throw new common_1.BadRequestException('La cotización está en caja. Hay que regresarla a ventas antes de editar.');
         }
         const isPos = (dto.quotation_type || existing.quotation_type) === 'POS';
         const location = await this.resolveLocation(tenantId, {
@@ -350,6 +355,9 @@ let QuotationService = class QuotationService {
         const customerSummary = (0, pos_sale_collection_mapper_1.mapPosCustomer)(quotation.customer);
         const appliedLineDiscounts = (0, quotation_discount_mapper_1.mapAppliedLineDiscountsFromQuotation)(quotation);
         const discountSummary = (0, quotation_discount_mapper_1.mapOrderDiscountSummary)(quotation);
+        const quotationTotal = Number(Number(quotation.total || 0).toFixed(2));
+        const amountPaid = Number(Number(advance.payment?.amount_mxn ?? advance.summary?.total ?? 0).toFixed(2));
+        const amountPending = Number(Math.max(0, quotationTotal - amountPaid).toFixed(2));
         const header = {
             ...this.mapLocation(quotation),
             customer_display_name: customerSummary?.display_name ?? (0, pos_sale_collection_mapper_1.formatCustomerDisplayName)(quotation.customer),
@@ -369,6 +377,8 @@ let QuotationService = class QuotationService {
             can_edit_lines: quotation.general_status === 'Creada' && !advance.blocksEdit,
             can_edit_notes: quotation.general_status !== 'Cancelada',
             can_send: quotation.general_status !== 'Cancelada',
+            amount_paid: amountPaid,
+            amount_pending: amountPending,
             advance_invoicing_enabled: advance.enabled,
             can_stamp_advance: advance.canStamp,
             advance_invoice: advance.summary,
@@ -808,7 +818,31 @@ let QuotationService = class QuotationService {
         quotation.advance_requested_total = requested;
         quotation.advance_uso_cfdi = usoCfdi;
         quotation.advance_metodo_pago = cfdi.metodoPago ?? null;
+        quotation.pos_stage = sales_order_pos_stage_enum_1.SalesOrderPosStage.Caja;
         await qr.manager.save(quotation_entity_1.Quotation, quotation);
+    }
+    async requestAdvanceFromPos(id, tenantId, amount, cfdi = {}) {
+        const qr = this.dataSource.createQueryRunner();
+        await qr.connect();
+        await qr.startTransaction();
+        try {
+            const quotation = await qr.manager.findOne(quotation_entity_1.Quotation, {
+                where: { id, tenant_id: tenantId },
+            });
+            if (!quotation) {
+                throw new common_1.NotFoundException(`Cotización no encontrada: ${id}`);
+            }
+            await this.applyAdvanceRequest(qr, quotation, tenantId, amount, cfdi);
+            await qr.commitTransaction();
+            return quotation;
+        }
+        catch (err) {
+            await qr.rollbackTransaction();
+            throw err;
+        }
+        finally {
+            await qr.release();
+        }
     }
     async recomputeTotals(qr, quotation, tenantId, globalDiscountId) {
         const details = await qr.manager.find(quotation_detail_entity_1.QuotationDetail, {

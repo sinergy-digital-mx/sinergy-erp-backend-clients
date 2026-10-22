@@ -5,6 +5,7 @@ import { Warehouse } from '../warehouse/warehouse.entity';
 import { Customer } from '../customers/customer.entity';
 import { User } from '../users/user.entity';
 import { GlobalDiscount } from '../global-discounts/global-discount.entity';
+import { SalesOrderPosStage } from '../sales-orders/sales-order-pos-stage.enum';
 import { QuotationDetail } from './quotation-detail.entity';
 export declare class Quotation {
     id: string;
@@ -35,6 +36,7 @@ export declare class Quotation {
     advance_requested_total: number | null;
     advance_uso_cfdi: string | null;
     advance_metodo_pago: 'PUE' | 'PPD' | null;
+    pos_stage: SalesOrderPosStage | null;
     creator: User;
     created_by: string;
     terminal_user: User | null;
