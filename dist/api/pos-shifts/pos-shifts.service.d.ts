@@ -1212,6 +1212,7 @@ export declare class PosShiftsService {
             pos_user_code: number | null;
         } | null;
     })[]>;
+    private listQuotationTicketsInVentas;
     replaceSaleCart(tenantId: string, terminalUserId: string, salesOrderId: string, dto: ReplacePosSaleCartDto): Promise<{
         customer_id: number;
         global_discount_id: string | null;
