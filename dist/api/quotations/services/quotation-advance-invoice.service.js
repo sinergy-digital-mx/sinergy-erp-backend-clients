@@ -306,6 +306,7 @@ exports.QuotationAdvanceInvoiceService = QuotationAdvanceInvoiceService = __deco
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(quotation_entity_1.Quotation)),
     __param(1, (0, typeorm_1.InjectRepository)(sales_order_entity_1.SalesOrder)),
+    __param(4, (0, common_1.Inject)((0, common_1.forwardRef)(() => pos_shifts_service_1.PosShiftsService))),
     __metadata("design:paramtypes", [typeorm_2.Repository,
         typeorm_2.Repository,
         advance_cfdi_service_1.AdvanceCfdiService,
