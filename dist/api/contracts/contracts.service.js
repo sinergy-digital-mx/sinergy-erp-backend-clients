@@ -54,9 +54,12 @@ let ContractsService = class ContractsService {
         await this.assertFiscalConfiguration(tenantId, dto.fiscal_configuration_id);
         const contract = this.contractRepo.create({
             ...dto,
-            interest_rate: dto.interest_rate != null
-                ? (0, late_interest_util_1.normalizeInterestRatePercent)(dto.interest_rate)
-                : dto.interest_rate,
+            interest_rate: dto.interest_rate == null
+                ? late_interest_util_1.DEFAULT_LATE_INTEREST_RATE_PERCENT
+                : (0, late_interest_util_1.normalizeInterestRatePercent)(dto.interest_rate),
+            payment_due_day: dto.payment_due_day == null
+                ? late_interest_util_1.DEFAULT_LATE_INTEREST_GRACE_DAYS
+                : Number(dto.payment_due_day),
             ...downPaymentConfig,
             down_payment_target: financed ? downPaymentTarget : null,
             down_payment: downPaymentApplied,

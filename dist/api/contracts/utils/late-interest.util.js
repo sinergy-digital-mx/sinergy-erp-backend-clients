@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.DEFAULT_LATE_INTEREST_GRACE_DAYS = exports.DEFAULT_LATE_INTEREST_RATE_PERCENT = void 0;
 exports.normalizeInterestRatePercent = normalizeInterestRatePercent;
 exports.normalizeGraceDays = normalizeGraceDays;
 exports.resolveLateInterestConfig = resolveLateInterestConfig;
@@ -8,6 +9,8 @@ exports.isLateInterestEligible = isLateInterestEligible;
 exports.computeSuggestedLateInterest = computeSuggestedLateInterest;
 exports.resolveLateInterest = resolveLateInterest;
 const contract_payment_settlement_util_1 = require("./contract-payment-settlement.util");
+exports.DEFAULT_LATE_INTEREST_RATE_PERCENT = 10;
+exports.DEFAULT_LATE_INTEREST_GRACE_DAYS = 6;
 function normalizeInterestRatePercent(raw) {
     const value = Number(raw);
     if (!Number.isFinite(value) || value <= 0)

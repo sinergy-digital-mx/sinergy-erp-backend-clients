@@ -1,3 +1,5 @@
+export declare const DEFAULT_LATE_INTEREST_RATE_PERCENT = 10;
+export declare const DEFAULT_LATE_INTEREST_GRACE_DAYS = 6;
 export interface LateInterestConfig {
     ratePercent: number;
     graceDays: number;
