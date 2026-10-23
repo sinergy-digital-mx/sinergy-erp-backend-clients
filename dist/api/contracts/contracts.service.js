@@ -17,8 +17,10 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const contract_entity_1 = require("../../entities/contracts/contract.entity");
+const fiscal_configuration_entity_1 = require("../../entities/billing/fiscal-configuration.entity");
 const contract_financial_util_1 = require("./contract-financial.util");
 const contract_list_filters_util_1 = require("./contract-list-filters.util");
+const contract_list_insight_util_1 = require("./contract-list-insight.util");
 const contract_currency_util_1 = require("./contract-currency.util");
 let ContractsService = class ContractsService {
     contractRepo;
@@ -48,6 +50,7 @@ let ContractsService = class ContractsService {
             : Number(dto.total_price);
         const contractListPrice = dto.list_price != null ? Number(dto.list_price) : propertyListPrice;
         const currency = (0, contract_currency_util_1.normalizeContractCurrency)(dto.currency, propertyRows[0]?.currency || contract_currency_util_1.DEFAULT_CONTRACT_CURRENCY);
+        await this.assertFiscalConfiguration(tenantId, dto.fiscal_configuration_id);
         const contract = this.contractRepo.create({
             ...dto,
             ...downPaymentConfig,
@@ -174,41 +177,29 @@ let ContractsService = class ContractsService {
         (0, contract_list_filters_util_1.applyContractListFilters)(countQuery, filters);
         const total = await countQuery.getCount();
         const pages = Math.ceil(total / limit);
-        const contractIds = contracts.map(c => c.id);
-        const nextPaymentsQuery = `
-      SELECT p.*
-      FROM contract_payments p
-      INNER JOIN (
-        SELECT contract_id, MIN(due_date) as next_due_date
-        FROM contract_payments
-        WHERE contract_id IN (${contractIds.map(() => '?').join(',')})
-          AND tenant_id = ?
-          AND status IN ('pendiente', 'parcial', 'vencido')
-        GROUP BY contract_id
-      ) next_p ON p.contract_id = next_p.contract_id AND p.due_date = next_p.next_due_date
-      WHERE p.tenant_id = ?
-        AND p.status IN ('pendiente', 'parcial', 'vencido')
-      ORDER BY p.is_overdue DESC, p.due_date ASC
-    `;
-        const nextPayments = await this.contractRepo.manager.query(nextPaymentsQuery, [...contractIds, tenantId, tenantId]);
-        const nextPaymentMap = new Map();
-        nextPayments.forEach(payment => {
-            nextPaymentMap.set(payment.contract_id, {
-                next_payment_date: payment.due_date,
-                next_payment_status: payment.status,
-                next_payment_number: payment.payment_number,
-                next_payment_amount: payment.status === 'parcial'
-                    ? Number(payment.amount_pending)
-                    : Number(payment.amount),
-            });
-        });
-        const paidByContract = await this.fetchMonthlyPaidTotalsByContract(tenantId, contractIds);
-        const data = contracts.map(contract => {
+        const contractIds = contracts.map((c) => c.id);
+        const [paidByContract, paymentInsight] = await Promise.all([
+            this.fetchMonthlyPaidTotalsByContract(tenantId, contractIds),
+            (0, contract_list_insight_util_1.loadListPaymentInsightMaps)(this.contractRepo.manager, tenantId, contractIds),
+        ]);
+        const dataWithOverdue = contracts.map((contract) => {
             const totalPrice = Number(contract.total_price) || 0;
             const monthlyPaid = paidByContract.get(contract.id) ?? 0;
             const financials = (0, contract_financial_util_1.resolveContractFinancials)(contract, monthlyPaid);
             const financedAmount = (0, contract_financial_util_1.computeFinancedAmount)(totalPrice, contract);
             const monthlyPayment = (0, contract_financial_util_1.computeMonthlyPayment)(totalPrice, contract, Number(contract.payment_months) || 0);
+            const insight = (0, contract_list_insight_util_1.resolveListPaymentInsight)({
+                downPaymentFinanced: !!contract.down_payment_financed,
+                unpaidDownPaymentCount: paymentInsight.unpaidDownCount.get(contract.id) || 0,
+                downPaymentApplied: financials.down_payment_applied,
+                downPaymentTarget: contract.down_payment_target != null
+                    ? Number(contract.down_payment_target)
+                    : null,
+                contractNext: paymentInsight.contractNext.get(contract.id) || null,
+                downPaymentNext: paymentInsight.downPaymentNext.get(contract.id) || null,
+            });
+            const overduePaymentsCount = paymentInsight.overdueContractCount.get(contract.id) || 0;
+            const overdueDownPaymentCount = paymentInsight.overdueDownCount.get(contract.id) || 0;
             return {
                 ...contract,
                 currency: (0, contract_currency_util_1.resolveStoredContractCurrency)(contract.currency),
@@ -220,31 +211,18 @@ let ContractsService = class ContractsService {
                 total_paid_from_payments: financials.total_paid_from_payments,
                 remaining_balance: financials.remaining_balance,
                 monthly_payment: monthlyPayment,
-                next_payment_date: nextPaymentMap.get(contract.id)?.next_payment_date || null,
-                next_payment_status: nextPaymentMap.get(contract.id)?.next_payment_status || null,
-                next_payment_number: nextPaymentMap.get(contract.id)?.next_payment_number || null,
-                next_payment_amount: nextPaymentMap.get(contract.id)?.next_payment_amount || null,
+                payment_phase: insight.payment_phase,
+                next_payment_kind: insight.next_payment_kind,
+                next_payment_is_last_down_payment: insight.next_payment_is_last_down_payment,
+                next_payment_date: insight.next_payment?.due_date || null,
+                next_payment_status: insight.next_payment?.status || null,
+                next_payment_number: insight.next_payment?.payment_number || null,
+                next_payment_amount: insight.next_payment?.amount ?? null,
+                overdue_payments_count: overduePaymentsCount,
+                overdue_down_payment_count: overdueDownPaymentCount,
+                has_overdue: overduePaymentsCount + overdueDownPaymentCount > 0,
             };
         });
-        const overdueCountsQuery = `
-      SELECT contract_id, COUNT(*) as overdue_count
-      FROM contract_payments
-      WHERE contract_id IN (${contractIds.map(() => '?').join(',')})
-        AND tenant_id = ?
-        AND payment_date < CURDATE()
-        AND status IN ('pendiente', 'parcial')
-      GROUP BY contract_id
-    `;
-        const overdueCounts = await this.contractRepo.manager.query(overdueCountsQuery, [...contractIds, tenantId]);
-        const overdueCountMap = new Map();
-        overdueCounts.forEach(row => {
-            overdueCountMap.set(row.contract_id, row.overdue_count);
-        });
-        const dataWithOverdue = data.map(contract => ({
-            ...contract,
-            overdue_payments_count: overdueCountMap.get(contract.id) || 0,
-            has_overdue: (overdueCountMap.get(contract.id) || 0) > 0,
-        }));
         return {
             data: dataWithOverdue,
             pagination: {
@@ -258,7 +236,7 @@ let ContractsService = class ContractsService {
     async findOne(tenantId, id) {
         const contract = await this.contractRepo.findOne({
             where: { id, tenant_id: tenantId },
-            relations: ['customer', 'property', 'seller'],
+            relations: ['customer', 'property', 'seller', 'fiscal_configuration'],
         });
         if (!contract) {
             return null;
@@ -314,6 +292,8 @@ let ContractsService = class ContractsService {
             property: contract.property,
             seller_id: contract.seller_id,
             seller: sellerInfo,
+            fiscal_configuration_id: contract.fiscal_configuration_id,
+            fiscal_configuration: this.toFiscalSummary(contract.fiscal_configuration),
             contract_number: contract.contract_number,
             contract_date: contract.contract_date,
             total_price: contract.total_price,
@@ -454,6 +434,9 @@ let ContractsService = class ContractsService {
         if (dto.currency != null) {
             dto.currency = (0, contract_currency_util_1.normalizeContractCurrency)(dto.currency);
         }
+        if (dto.fiscal_configuration_id) {
+            await this.assertFiscalConfiguration(tenantId, dto.fiscal_configuration_id);
+        }
         const financed = dto.down_payment_financed !== undefined
             ? dto.down_payment_financed
             : contract.down_payment_financed;
@@ -592,18 +575,13 @@ let ContractsService = class ContractsService {
             .addSelect('SUM(c.remaining_balance)', 'pending_value')
             .addSelect('SUM(c.total_price - c.remaining_balance)', 'paid_value')
             .getRawOne();
-        const overdueQuery = baseQuery()
-            .leftJoin('contract_payments', 'p', 'p.contract_id = c.id AND p.payment_date < CURDATE() AND p.status IN (:...overduePaymentStatuses)', { overduePaymentStatuses: ['pendiente', 'parcial'] })
-            .andWhere('c.status = :overdueContractStatus', { overdueContractStatus: 'activo' })
-            .andWhere('p.id IS NOT NULL')
-            .select('COUNT(DISTINCT c.id)', 'contracts_count')
-            .addSelect('COUNT(p.id)', 'payments_count')
-            .addSelect('SUM(CASE WHEN p.status = "parcial" THEN p.amount_pending ELSE p.amount END)', 'value');
-        const overdueStats = await overdueQuery.getRawOne();
-        const currencyRows = await baseQuery()
-            .select('UPPER(TRIM(c.currency))', 'currency')
-            .distinct(true)
-            .getRawMany();
+        const [overdue, currencyRows] = await Promise.all([
+            (0, contract_list_insight_util_1.loadFilteredOverdueStats)(baseQuery),
+            baseQuery()
+                .select('UPPER(TRIM(c.currency))', 'currency')
+                .distinct(true)
+                .getRawMany(),
+        ]);
         const currencies = Array.from(new Set(currencyRows
             .map((row) => (0, contract_currency_util_1.resolveStoredContractCurrency)(row.currency))
             .filter(Boolean)));
@@ -625,11 +603,7 @@ let ContractsService = class ContractsService {
                 paid: parseFloat(activeStats.paid_value) || 0,
                 remaining: parseFloat(activeStats.pending_value) || 0,
             },
-            overdue: {
-                contracts_count: parseInt(overdueStats.contracts_count) || 0,
-                payments_count: parseInt(overdueStats.payments_count) || 0,
-                value: parseFloat(overdueStats.value) || 0,
-            },
+            overdue,
         };
     }
     buildDownPaymentConfig(dto) {
@@ -662,6 +636,26 @@ let ContractsService = class ContractsService {
             down_payment_monthly_amount: null,
             down_payment_first_payment_date: firstPaymentDate,
             down_payment_payment_day: paymentDay,
+        };
+    }
+    async assertFiscalConfiguration(tenantId, fiscalId) {
+        if (!fiscalId) {
+            throw new common_1.BadRequestException('Selecciona la razón social que emite el contrato.');
+        }
+        const fiscal = await this.contractRepo.manager.findOne(fiscal_configuration_entity_1.FiscalConfiguration, {
+            where: { id: fiscalId, tenant_id: tenantId },
+        });
+        if (!fiscal) {
+            throw new common_1.BadRequestException('No se encontró la razón social.');
+        }
+    }
+    toFiscalSummary(fiscal) {
+        if (!fiscal)
+            return null;
+        return {
+            id: fiscal.id,
+            razon_social: fiscal.razon_social,
+            rfc: fiscal.rfc,
         };
     }
 };

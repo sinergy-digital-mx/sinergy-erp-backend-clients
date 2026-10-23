@@ -21,6 +21,7 @@ const contract_entity_1 = require("../../../entities/contracts/contract.entity")
 const contract_downpayment_payment_entity_1 = require("../../../entities/contracts/contract-downpayment-payment.entity");
 const contract_financial_util_1 = require("../contract-financial.util");
 const contract_currency_util_1 = require("../contract-currency.util");
+const contract_payment_settlement_util_1 = require("../utils/contract-payment-settlement.util");
 let PaymentsService = class PaymentsService {
     paymentRepo;
     contractRepo;
@@ -168,15 +169,7 @@ let PaymentsService = class PaymentsService {
             }
             return sum;
         }, 0);
-        const overdueAmount = payments.reduce((sum, p) => {
-            if (!p.is_overdue || p.status === 'cancelado' || p.status === 'pagado') {
-                return sum;
-            }
-            if (p.status === 'parcial') {
-                return sum + Number(p.amount_pending || 0);
-            }
-            return sum + Number(p.amount_pending ?? p.amount ?? 0);
-        }, 0);
+        const overdueAmount = (0, contract_payment_settlement_util_1.sumActiveOverdueAmount)(payments);
         const paidOrPartialCount = payments.filter((p) => p.status === 'pagado' || p.status === 'parcial').length;
         const stats = {
             currency: (0, contract_currency_util_1.resolveStoredContractCurrency)(contract.currency),
@@ -187,7 +180,7 @@ let PaymentsService = class PaymentsService {
             pending_count: payments.filter(p => p.status === 'pendiente' && !p.is_overdue).length,
             pending_overdue_count: payments.filter(p => p.status === 'pendiente' && p.is_overdue).length,
             pending_full_payments: pendingFullPayments,
-            overdue_count: payments.filter(p => p.is_overdue).length,
+            overdue_count: (0, contract_payment_settlement_util_1.countActiveOverduePayments)(payments),
             overdue_amount: Math.round(overdueAmount * 100) / 100,
             cancelled_count: payments.filter(p => p.status === 'cancelado').length,
             total_paid: financials.total_paid,
@@ -250,18 +243,9 @@ let PaymentsService = class PaymentsService {
         });
         const currentAmountPaid = Number(payment.amount_paid) || 0;
         const totalAmount = Number(payment.amount) || 0;
-        const newAmountPaid = currentAmountPaid + paymentAmount;
-        const newAmountPending = Math.max(0, totalAmount - newAmountPaid);
-        let newStatus;
-        if (newAmountPaid >= totalAmount) {
-            newStatus = 'pagado';
-        }
-        else if (newAmountPaid > 0) {
-            newStatus = 'parcial';
-        }
-        else {
-            newStatus = 'pendiente';
-        }
+        const settled = (0, contract_payment_settlement_util_1.settlePaymentAmounts)(totalAmount, currentAmountPaid + paymentAmount);
+        const newAmountPaid = settled.amount_paid;
+        const newStatus = settled.status;
         if (newStatus === 'parcial' && existingPartialPayments.length > 0) {
             const isUpdatingSamePayment = existingPartialPayments.some(p => p.id === payment.id);
             if (!isUpdatingSamePayment) {
@@ -271,8 +255,7 @@ let PaymentsService = class PaymentsService {
             }
         }
         payment.amount_paid = newAmountPaid;
-        payment.amount_pending = newAmountPending;
-        payment.status = newStatus;
+        (0, contract_payment_settlement_util_1.applyPaymentSettlement)(payment);
         payment.paid_date = new Date(paymentDate);
         payment.payment_method = paymentMethod;
         if (!payment.first_partial_payment_date && newAmountPaid > 0) {
@@ -316,16 +299,8 @@ let PaymentsService = class PaymentsService {
             }
             const oldAmountPaid = Number(payment.amount_paid) || 0;
             const difference = newAmountPaid - oldAmountPaid;
-            let newStatus;
-            if (newAmountPaid >= expectedAmount) {
-                newStatus = 'pagado';
-            }
-            else if (newAmountPaid > 0) {
-                newStatus = 'parcial';
-            }
-            else {
-                newStatus = 'pendiente';
-            }
+            const settled = (0, contract_payment_settlement_util_1.settlePaymentAmounts)(expectedAmount, newAmountPaid);
+            const newStatus = settled.status;
             if (newStatus === 'parcial' && payment.status !== 'parcial') {
                 const existingPartialPayments = await this.paymentRepo.find({
                     where: {
@@ -341,8 +316,7 @@ let PaymentsService = class PaymentsService {
                 }
             }
             payment.amount_paid = newAmountPaid;
-            payment.amount_pending = Math.max(0, expectedAmount - newAmountPaid);
-            payment.status = newStatus;
+            (0, contract_payment_settlement_util_1.applyPaymentSettlement)(payment);
             if (!isNaN(difference) && difference !== 0) {
                 const contract = await this.contractRepo.findOne({
                     where: { id: payment.contract_id },
@@ -390,6 +364,7 @@ let PaymentsService = class PaymentsService {
             }
         }
         payment.status = 'cancelado';
+        payment.is_overdue = false;
         payment.notes = payment.notes ? `${payment.notes}\nPago cancelado el ${new Date().toISOString().split('T')[0]}` : `Pago cancelado el ${new Date().toISOString().split('T')[0]}`;
         return this.paymentRepo.save(payment);
     }
@@ -418,10 +393,8 @@ let PaymentsService = class PaymentsService {
             throw new common_1.BadRequestException('Cannot reset cancelled payment');
         }
         const previousAmountPaid = Number(payment.amount_paid) || 0;
-        const expectedAmount = Number(payment.amount) || 0;
         payment.amount_paid = 0;
-        payment.amount_pending = expectedAmount;
-        payment.status = 'pendiente';
+        (0, contract_payment_settlement_util_1.applyPaymentSettlement)(payment);
         payment.paid_date = null;
         payment.first_partial_payment_date = null;
         const resetNote = `Pago reseteado el ${new Date().toISOString().split('T')[0]} (se devolvió ${previousAmountPaid} al balance)`;
@@ -626,28 +599,16 @@ let PaymentsService = class PaymentsService {
             select: ['status', 'amount', 'amount_paid'],
         });
         const totalPaid = paymentRows.reduce((sum, row) => {
-            if (row.status === 'pagado') {
-                return sum + Number(row.amount || 0);
+            if (row.status === 'cancelado') {
+                return sum;
             }
-            if (row.status === 'parcial') {
-                return sum + Number(row.amount_paid || 0);
-            }
-            return sum;
+            const settled = (0, contract_payment_settlement_util_1.settlePaymentAmounts)(Number(row.amount || 0), Number(row.amount_paid || 0));
+            return sum + (settled.status === 'pagado' ? settled.amount : settled.amount_paid);
         }, 0);
-        if (!contract.down_payment_financed) {
-            return false;
-        }
         const downPaymentTarget = contract.down_payment_target != null
             ? Number(contract.down_payment_target)
             : null;
-        if (downPaymentTarget == null || downPaymentTarget <= 0) {
-            return true;
-        }
-        if (totalPaid < downPaymentTarget) {
-            return true;
-        }
-        const pendingOrPartial = paymentRows.filter((row) => row.status === 'pendiente' || row.status === 'parcial').length;
-        return pendingOrPartial > 0;
+        return !(0, contract_payment_settlement_util_1.isDownPaymentTargetMet)(downPaymentTarget, totalPaid);
     }
 };
 exports.PaymentsService = PaymentsService;

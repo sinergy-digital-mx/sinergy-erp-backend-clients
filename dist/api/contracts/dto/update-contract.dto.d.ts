@@ -12,6 +12,7 @@ export declare class UpdateContractDto {
     seller_id?: string;
     lead_id?: number | null;
     lead_group_id?: string | null;
+    fiscal_configuration_id?: string | null;
     list_price?: number;
     currency?: 'USD' | 'MXN';
     status?: string;

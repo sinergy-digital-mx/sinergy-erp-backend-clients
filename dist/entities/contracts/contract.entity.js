@@ -17,6 +17,7 @@ const tenant_entity_1 = require("../rbac/tenant.entity");
 const user_entity_1 = require("../users/user.entity");
 const lead_entity_1 = require("../leads/lead.entity");
 const lead_group_entity_1 = require("../leads/lead-group.entity");
+const fiscal_configuration_entity_1 = require("../billing/fiscal-configuration.entity");
 let Contract = class Contract {
     id;
     tenant;
@@ -31,6 +32,8 @@ let Contract = class Contract {
     lead_id;
     lead_group;
     lead_group_id;
+    fiscal_configuration;
+    fiscal_configuration_id;
     contract_number;
     contract_date;
     total_price;
@@ -114,6 +117,15 @@ __decorate([
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", Object)
 ], Contract.prototype, "lead_group_id", void 0);
+__decorate([
+    (0, typeorm_1.ManyToOne)(() => fiscal_configuration_entity_1.FiscalConfiguration, { onDelete: 'SET NULL', nullable: true }),
+    (0, typeorm_1.JoinColumn)({ name: 'fiscal_configuration_id' }),
+    __metadata("design:type", Object)
+], Contract.prototype, "fiscal_configuration", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", Object)
+], Contract.prototype, "fiscal_configuration_id", void 0);
 __decorate([
     (0, typeorm_1.Column)({ length: 50 }),
     __metadata("design:type", String)

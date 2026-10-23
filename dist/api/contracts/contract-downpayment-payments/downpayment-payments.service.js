@@ -20,6 +20,7 @@ const contract_entity_1 = require("../../../entities/contracts/contract.entity")
 const contract_downpayment_payment_entity_1 = require("../../../entities/contracts/contract-downpayment-payment.entity");
 const contract_financial_util_1 = require("../contract-financial.util");
 const contract_currency_util_1 = require("../contract-currency.util");
+const contract_payment_settlement_util_1 = require("../utils/contract-payment-settlement.util");
 let DownpaymentPaymentsService = class DownpaymentPaymentsService {
     downpaymentRepo;
     contractRepo;
@@ -39,8 +40,7 @@ let DownpaymentPaymentsService = class DownpaymentPaymentsService {
         if (dto.record_as_paid) {
             const paymentDate = dto.payment_date ?? dto.due_date;
             payment.amount_paid = amount;
-            payment.amount_pending = 0;
-            payment.status = 'pagado';
+            (0, contract_payment_settlement_util_1.applyPaymentSettlement)(payment);
             payment.paid_date = new Date(paymentDate);
             payment.payment_method = dto.payment_method ?? 'efectivo';
             payment.first_partial_payment_date = new Date(paymentDate);
@@ -151,7 +151,8 @@ let DownpaymentPaymentsService = class DownpaymentPaymentsService {
             .andWhere('p.contract_id = :contractId', { contractId })
             .orderBy('CAST(p.payment_number AS UNSIGNED)', 'ASC')
             .getMany();
-        return payments.map((payment) => ({
+        const healed = await this.healSettledDownpayments(payments);
+        return healed.map((payment) => ({
             ...payment,
             currency,
         }));
@@ -168,7 +169,6 @@ let DownpaymentPaymentsService = class DownpaymentPaymentsService {
             .filter((p) => p.status !== 'cancelado')
             .reduce((sum, p) => sum + Number(p.amount || 0), 0);
         const downPaymentTarget = (0, contract_financial_util_1.resolveEffectiveDownPaymentTarget)(savedTarget, scheduledTotal);
-        const downPaymentApplied = contract ? Number(contract.down_payment) || 0 : 0;
         const totalPaid = payments.reduce((sum, p) => {
             if (p.status === 'pagado')
                 return sum + Number(p.amount || 0);
@@ -176,6 +176,11 @@ let DownpaymentPaymentsService = class DownpaymentPaymentsService {
                 return sum + Number(p.amount_paid || 0);
             return sum;
         }, 0);
+        const downPaymentApplied = payments.length
+            ? Math.round(totalPaid * 100) / 100
+            : contract
+                ? Number(contract.down_payment) || 0
+                : 0;
         const totalPending = payments.reduce((sum, p) => {
             if (p.status === 'pendiente' || p.status === 'parcial') {
                 return sum + Number(p.amount_pending || 0);
@@ -189,15 +194,14 @@ let DownpaymentPaymentsService = class DownpaymentPaymentsService {
             paid_count: payments.filter((p) => p.status === 'pagado').length,
             pending_count: payments.filter((p) => p.status === 'pendiente').length,
             partial_count: payments.filter((p) => p.status === 'parcial').length,
-            overdue_count: payments.filter((p) => p.is_overdue).length,
+            overdue_count: (0, contract_payment_settlement_util_1.countActiveOverduePayments)(payments),
+            overdue_amount: (0, contract_payment_settlement_util_1.sumActiveOverdueAmount)(payments),
             cancelled_count: payments.filter((p) => p.status === 'cancelado').length,
             down_payment_target: downPaymentTarget,
             down_payment_target_defined: downPaymentTarget != null && downPaymentTarget > 0,
             down_payment_applied: Math.round(downPaymentApplied * 100) / 100,
             down_payment_remaining: (0, contract_financial_util_1.computeDownPaymentRemaining)(downPaymentTarget, downPaymentApplied),
-            downpayment_financing_complete: downPaymentTarget != null &&
-                downPaymentTarget > 0 &&
-                downPaymentApplied >= downPaymentTarget,
+            downpayment_financing_complete: (0, contract_payment_settlement_util_1.isDownPaymentTargetMet)(downPaymentTarget, downPaymentApplied),
             total_paid: Math.round(totalPaid * 100) / 100,
             total_pending: Math.round(totalPending * 100) / 100,
             total_expected: Math.round(totalExpected * 100) / 100,
@@ -222,23 +226,15 @@ let DownpaymentPaymentsService = class DownpaymentPaymentsService {
             throw new common_1.BadRequestException('Amount must be a valid number greater than 0');
         }
         const currentAmountPaid = Number(payment.amount_paid) || 0;
-        const totalAmount = Number(payment.amount) || 0;
-        const newAmountPaid = currentAmountPaid + paymentAmount;
-        const newAmountPending = Math.max(0, totalAmount - newAmountPaid);
-        let newStatus = 'pendiente';
-        if (newAmountPaid >= totalAmount)
-            newStatus = 'pagado';
-        else if (newAmountPaid > 0)
-            newStatus = 'parcial';
-        if (newStatus === 'parcial') {
+        const settled = (0, contract_payment_settlement_util_1.settlePaymentAmounts)(payment.amount, currentAmountPaid + paymentAmount);
+        if (settled.status === 'parcial') {
             await this.ensureNoOtherPartialPayment(tenantId, contractId, payment.id);
         }
-        payment.amount_paid = newAmountPaid;
-        payment.amount_pending = newAmountPending;
-        payment.status = newStatus;
+        payment.amount_paid = settled.amount_paid;
+        (0, contract_payment_settlement_util_1.applyPaymentSettlement)(payment);
         payment.paid_date = new Date(paymentDate);
         payment.payment_method = paymentMethod;
-        if (!payment.first_partial_payment_date && newAmountPaid > 0) {
+        if (!payment.first_partial_payment_date && settled.amount_paid > 0) {
             payment.first_partial_payment_date = new Date(paymentDate);
         }
         const history = `Pago de enganche ${paymentAmount} el ${paymentDate} (${paymentMethod}${referenceNumber ? `, Ref: ${referenceNumber}` : ''})`;
@@ -315,16 +311,6 @@ let DownpaymentPaymentsService = class DownpaymentPaymentsService {
                 throw new common_1.BadRequestException(`El monto no puede ser menor a lo ya pagado ($${amountPaid.toFixed(2)})`);
             }
             payment.amount = newAmount;
-            payment.amount_pending = Math.round((newAmount - amountPaid) * 100) / 100;
-            if (amountPaid >= newAmount) {
-                payment.status = 'pagado';
-            }
-            else if (amountPaid > 0) {
-                payment.status = 'parcial';
-            }
-            else {
-                payment.status = 'pendiente';
-            }
         }
         if (updates.amount_paid !== undefined) {
             const newAmountPaid = Number(updates.amount_paid) || 0;
@@ -335,20 +321,15 @@ let DownpaymentPaymentsService = class DownpaymentPaymentsService {
             if (newAmountPaid > totalAmount) {
                 throw new common_1.BadRequestException(`El monto pagado no puede superar el monto de la cuota ($${totalAmount.toFixed(2)})`);
             }
-            let newStatus = 'pendiente';
-            if (newAmountPaid >= totalAmount)
-                newStatus = 'pagado';
-            else if (newAmountPaid > 0)
-                newStatus = 'parcial';
-            if (newStatus === 'parcial' && payment.status !== 'parcial') {
-                await this.ensureNoOtherPartialPayment(tenantId, contractId, payment.id);
-            }
             payment.amount_paid = newAmountPaid;
-            payment.amount_pending = Math.max(0, totalAmount - newAmountPaid);
-            payment.status = newStatus;
         }
         if (updates.due_date)
             payment.due_date = new Date(updates.due_date);
+        const settled = (0, contract_payment_settlement_util_1.settlePaymentAmounts)(payment.amount, payment.amount_paid);
+        if (settled.status === 'parcial' && payment.status !== 'parcial') {
+            await this.ensureNoOtherPartialPayment(tenantId, contractId, payment.id);
+        }
+        (0, contract_payment_settlement_util_1.applyPaymentSettlement)(payment);
         if (updates.paid_date)
             payment.paid_date = new Date(updates.paid_date);
         if (updates.payment_method !== undefined)
@@ -367,6 +348,7 @@ let DownpaymentPaymentsService = class DownpaymentPaymentsService {
             throw new common_1.BadRequestException('Payment is already cancelled');
         }
         payment.status = 'cancelado';
+        payment.is_overdue = false;
         const note = `Pago cancelado el ${new Date().toISOString().split('T')[0]}`;
         payment.notes = payment.notes ? `${payment.notes}\n${note}` : note;
         const saved = await this.downpaymentRepo.save(payment);
@@ -378,11 +360,9 @@ let DownpaymentPaymentsService = class DownpaymentPaymentsService {
         if (payment.status === 'cancelado') {
             throw new common_1.BadRequestException('Cannot reset cancelled payment');
         }
-        const totalAmount = Number(payment.amount) || 0;
         const previousAmountPaid = Number(payment.amount_paid) || 0;
         payment.amount_paid = 0;
-        payment.amount_pending = totalAmount;
-        payment.status = 'pendiente';
+        (0, contract_payment_settlement_util_1.applyPaymentSettlement)(payment);
         payment.paid_date = null;
         payment.first_partial_payment_date = null;
         payment.payment_method = null;
@@ -414,23 +394,8 @@ let DownpaymentPaymentsService = class DownpaymentPaymentsService {
         return result.affected || 0;
     }
     async hasPendingDownpaymentPayments(tenantId, contractId) {
-        const count = await this.downpaymentRepo.count({
-            where: {
-                tenant_id: tenantId,
-                contract_id: contractId,
-                status: 'pendiente',
-            },
-        });
-        if (count > 0)
-            return true;
-        const partialCount = await this.downpaymentRepo.count({
-            where: {
-                tenant_id: tenantId,
-                contract_id: contractId,
-                status: 'parcial',
-            },
-        });
-        return partialCount > 0;
+        const stats = await this.getDownpaymentPaymentStats(tenantId, contractId);
+        return !stats.downpayment_financing_complete;
     }
     getDownPaymentTarget(contract) {
         if (contract.down_payment_financed) {
@@ -463,6 +428,31 @@ let DownpaymentPaymentsService = class DownpaymentPaymentsService {
             remaining_balance: snapshot.remaining_balance,
             monthly_payment: snapshot.monthly_payment,
         });
+    }
+    async healSettledDownpayments(payments) {
+        const dirty = [];
+        for (const payment of payments) {
+            const before = {
+                status: payment.status,
+                amount_paid: Number(payment.amount_paid),
+                amount_pending: Number(payment.amount_pending),
+                is_overdue: Boolean(payment.is_overdue),
+            };
+            (0, contract_payment_settlement_util_1.applyPaymentSettlement)(payment);
+            if ((0, contract_payment_settlement_util_1.paymentSettlementChanged)(before, payment)) {
+                dirty.push(payment);
+            }
+        }
+        if (dirty.length === 0) {
+            return payments;
+        }
+        const saved = await this.downpaymentRepo.save(dirty);
+        const savedById = new Map(saved.map((row) => [row.id, row]));
+        const healed = payments.map((payment) => savedById.get(payment.id) ?? payment);
+        if (healed[0]?.tenant_id && healed[0]?.contract_id) {
+            await this.syncContractDownPaymentApplied(healed[0].tenant_id, healed[0].contract_id);
+        }
+        return healed;
     }
     async getFinancedContractOrThrow(tenantId, contractId) {
         const contract = await this.contractRepo.findOne({

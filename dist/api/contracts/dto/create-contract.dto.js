@@ -18,6 +18,7 @@ class CreateContractDto {
     seller_id;
     lead_id;
     lead_group_id;
+    fiscal_configuration_id;
     list_price;
     contract_number;
     contract_date;
@@ -58,6 +59,10 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateContractDto.prototype, "lead_group_id", void 0);
+__decorate([
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], CreateContractDto.prototype, "fiscal_configuration_id", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsNumber)(),

@@ -67,9 +67,9 @@ let PaymentsController = class PaymentsController {
         }
         return this.paymentsService.previewPaymentSchedule(tenantId, contractId, startDate);
     }
-    getReceiptTemplate() {
+    getReceiptTemplate(contractId) {
         const organizationId = this.requireOrganizationId();
-        return this.paymentReceiptService.getTemplate(organizationId);
+        return this.paymentReceiptService.getTemplate(organizationId, contractId);
     }
     updateReceiptTemplate(body) {
         const organizationId = this.requireOrganizationId();
@@ -210,8 +210,9 @@ __decorate([
 __decorate([
     (0, common_1.Get)('receipt-template'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Contract', action: 'Read' }),
+    __param(0, (0, common_1.Param)('contractId')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], PaymentsController.prototype, "getReceiptTemplate", null);
 __decorate([

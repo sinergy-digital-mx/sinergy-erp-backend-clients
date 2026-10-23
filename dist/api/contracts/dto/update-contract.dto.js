@@ -26,6 +26,7 @@ class UpdateContractDto {
     seller_id;
     lead_id;
     lead_group_id;
+    fiscal_configuration_id;
     list_price;
     currency;
     status;
@@ -106,6 +107,12 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", Object)
 ], UpdateContractDto.prototype, "lead_group_id", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => (value === '' ? null : value)),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", Object)
+], UpdateContractDto.prototype, "fiscal_configuration_id", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsNumber)(),

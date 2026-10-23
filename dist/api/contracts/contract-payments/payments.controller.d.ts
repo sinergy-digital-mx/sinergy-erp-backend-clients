@@ -13,7 +13,7 @@ export declare class PaymentsController {
     getPayments(contractId: string, req: any): Promise<any[]>;
     getStats(contractId: string, req: any): Promise<any>;
     previewSchedule(contractId: string, startDate: string | undefined): Promise<import("./payments.service").PaymentSchedulePreview>;
-    getReceiptTemplate(): Promise<{
+    getReceiptTemplate(contractId: string): Promise<{
         id: string;
         subject: string;
         body_html: string;

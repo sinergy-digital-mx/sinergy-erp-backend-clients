@@ -22,6 +22,7 @@ const typeorm_2 = require("typeorm");
 const axios_1 = __importDefault(require("axios"));
 const pdfmake_1 = __importDefault(require("pdfmake"));
 const payment_entity_1 = require("../../../entities/contracts/payment.entity");
+const contract_entity_1 = require("../../../entities/contracts/contract.entity");
 const contract_downpayment_payment_entity_1 = require("../../../entities/contracts/contract-downpayment-payment.entity");
 const s3_service_1 = require("../../../common/services/s3.service");
 const email_template_entity_1 = require("../../../entities/email-templates/email-template.entity");
@@ -29,6 +30,7 @@ const fiscal_configuration_entity_1 = require("../../../entities/billing/fiscal-
 const tenant_entity_1 = require("../../../entities/rbac/tenant.entity");
 const mailer_configuration_service_1 = require("../../mailer-configuration/services/mailer-configuration.service");
 const contract_currency_util_1 = require("../contract-currency.util");
+const payment_receipt_fiscal_util_1 = require("../utils/payment-receipt-fiscal.util");
 const payment_receipt_template_1 = require("./payment-receipt.template");
 const fonts = {
     Roboto: {
@@ -55,11 +57,17 @@ let PaymentReceiptService = class PaymentReceiptService {
         this.mailerConfigurationService = mailerConfigurationService;
         this.s3Service = s3Service;
     }
-    async getTemplate(organizationId) {
+    async getTemplate(organizationId, contractId) {
         const template = await this.ensureTemplate(organizationId);
         const sample = this.sampleValues();
         const options = await this.fiscalOptions(organizationId);
-        const effective = await this.resolveFiscal(organizationId);
+        const contractFiscalId = contractId
+            ? (await this.paymentRepo.manager.findOne(contract_entity_1.Contract, {
+                where: { id: contractId, tenant_id: organizationId },
+                select: ['id', 'fiscal_configuration_id'],
+            }))?.fiscal_configuration_id
+            : null;
+        const effective = await this.resolveFiscal(organizationId, contractFiscalId);
         return {
             id: template.id,
             subject: template.subject,
@@ -175,7 +183,7 @@ let PaymentReceiptService = class PaymentReceiptService {
         return { ...payment, kind, payment_date: 'payment_date' in payment ? payment.payment_date : payment.paid_date };
     }
     async buildValues(organizationId, payment, extraMessage) {
-        const fiscal = await this.resolveFiscal(organizationId);
+        const fiscal = await this.resolveFiscal(organizationId, payment.contract?.fiscal_configuration_id);
         const organization = await this.tenantRepo.findOne({ where: { id: organizationId } });
         const currency = (0, contract_currency_util_1.resolveStoredContractCurrency)(payment.contract?.currency);
         const customer = payment.contract?.customer;
@@ -410,17 +418,29 @@ let PaymentReceiptService = class PaymentReceiptService {
             logo_url: row.logo ? await this.s3Service.getSignedUrl(row.logo, 900).catch(() => null) : null,
         })));
     }
-    async resolveFiscal(organizationId) {
-        const template = await this.templateRepo.findOne({
-            where: { tenant_id: organizationId, name: payment_receipt_template_1.PAYMENT_RECEIPT_TEMPLATE_NAME },
-        });
-        const selected = template ? this.readFiscalId(template) : null;
-        if (selected) {
-            const match = await this.fiscalRepo.findOne({ where: { id: selected, tenant_id: organizationId } });
+    async resolveFiscal(organizationId, contractFiscalId) {
+        const contractId = (0, payment_receipt_fiscal_util_1.resolveReceiptFiscalId)({ contractFiscalId });
+        if (contractId) {
+            const match = await this.fiscalRepo.findOne({
+                where: { id: contractId, tenant_id: organizationId },
+            });
             if (match)
                 return match;
         }
-        const branded = await this.fiscalRepo.findOne({ where: { tenant_id: organizationId, use_as_system_logo: true } });
+        const template = await this.templateRepo.findOne({
+            where: { tenant_id: organizationId, name: payment_receipt_template_1.PAYMENT_RECEIPT_TEMPLATE_NAME },
+        });
+        const templateFiscalId = template ? this.readFiscalId(template) : null;
+        if (templateFiscalId) {
+            const match = await this.fiscalRepo.findOne({
+                where: { id: templateFiscalId, tenant_id: organizationId },
+            });
+            if (match)
+                return match;
+        }
+        const branded = await this.fiscalRepo.findOne({
+            where: { tenant_id: organizationId, use_as_system_logo: true },
+        });
         return branded || this.fiscalRepo.findOne({ where: { tenant_id: organizationId } });
     }
     async loadLogo(key) {

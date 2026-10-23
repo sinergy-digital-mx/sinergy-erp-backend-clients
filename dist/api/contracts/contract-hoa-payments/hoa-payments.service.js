@@ -19,6 +19,7 @@ const typeorm_2 = require("typeorm");
 const contract_entity_1 = require("../../../entities/contracts/contract.entity");
 const contract_hoa_payment_entity_1 = require("../../../entities/contracts/contract-hoa-payment.entity");
 const contract_currency_util_1 = require("../contract-currency.util");
+const contract_payment_settlement_util_1 = require("../utils/contract-payment-settlement.util");
 let HoaPaymentsService = class HoaPaymentsService {
     hoaPaymentRepo;
     contractRepo;
@@ -120,7 +121,7 @@ let HoaPaymentsService = class HoaPaymentsService {
             paid_count: payments.filter((p) => p.status === 'pagado').length,
             pending_count: payments.filter((p) => p.status === 'pendiente').length,
             partial_count: payments.filter((p) => p.status === 'parcial').length,
-            overdue_count: payments.filter((p) => p.is_overdue).length,
+            overdue_count: payments.filter((p) => p.is_overdue && (p.status === 'pendiente' || p.status === 'parcial')).length,
             cancelled_count: payments.filter((p) => p.status === 'cancelado').length,
             total_paid: Math.round(totalPaid * 100) / 100,
             total_pending: Math.round(totalPending * 100) / 100,
@@ -163,6 +164,7 @@ let HoaPaymentsService = class HoaPaymentsService {
         payment.amount_paid = newAmountPaid;
         payment.amount_pending = newAmountPending;
         payment.status = newStatus;
+        (0, contract_payment_settlement_util_1.applyPaymentSettlement)(payment);
         payment.paid_date = new Date(dto.payment_date);
         payment.payment_method = dto.payment_method;
         if (!payment.first_partial_payment_date && newAmountPaid > 0) {
@@ -200,6 +202,7 @@ let HoaPaymentsService = class HoaPaymentsService {
             payment.amount_paid = newAmountPaid;
             payment.amount_pending = newAmountPending;
             payment.status = newStatus;
+            (0, contract_payment_settlement_util_1.applyPaymentSettlement)(payment);
         }
         if (dto.due_date) {
             payment.due_date = new Date(dto.due_date);
@@ -223,6 +226,7 @@ let HoaPaymentsService = class HoaPaymentsService {
             throw new common_1.BadRequestException('El pago HOA ya está cancelado');
         }
         payment.status = 'cancelado';
+        payment.is_overdue = false;
         const cancelNote = `Pago HOA cancelado el ${new Date().toISOString().split('T')[0]}`;
         payment.notes = payment.notes ? `${payment.notes}\n${cancelNote}` : cancelNote;
         return this.hoaPaymentRepo.save(payment);
@@ -233,10 +237,8 @@ let HoaPaymentsService = class HoaPaymentsService {
             throw new common_1.BadRequestException('No se puede resetear un pago cancelado');
         }
         const previousAmountPaid = Number(payment.amount_paid) || 0;
-        const totalAmount = Number(payment.amount) || 0;
         payment.amount_paid = 0;
-        payment.amount_pending = totalAmount;
-        payment.status = 'pendiente';
+        (0, contract_payment_settlement_util_1.applyPaymentSettlement)(payment);
         payment.paid_date = null;
         payment.first_partial_payment_date = null;
         payment.payment_method = null;

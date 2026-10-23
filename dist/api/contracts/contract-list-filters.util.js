@@ -34,6 +34,12 @@ function applyContractListFilters(query, filters) {
         WHERE overdue_filter_p.contract_id = c.id
           AND overdue_filter_p.is_overdue = true
           AND overdue_filter_p.status IN ('pendiente', 'parcial')
+      )
+      OR EXISTS (
+        SELECT 1 FROM contract_downpayment_payments overdue_filter_d
+        WHERE overdue_filter_d.contract_id = c.id
+          AND overdue_filter_d.is_overdue = true
+          AND overdue_filter_d.status IN ('pendiente', 'parcial')
       )`);
     }
     if (filters.search) {

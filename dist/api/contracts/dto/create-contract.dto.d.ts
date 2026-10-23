@@ -4,6 +4,7 @@ export declare class CreateContractDto {
     seller_id?: string;
     lead_id?: number;
     lead_group_id?: string;
+    fiscal_configuration_id: string;
     list_price?: number;
     contract_number?: string;
     contract_date: Date;

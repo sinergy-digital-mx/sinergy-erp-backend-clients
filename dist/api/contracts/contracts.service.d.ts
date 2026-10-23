@@ -18,4 +18,6 @@ export declare class ContractsService {
     remove(tenantId: string, id: string): Promise<void>;
     getContractStats(tenantId: string, filters?: ContractListFilters): Promise<any>;
     private buildDownPaymentConfig;
+    private assertFiscalConfiguration;
+    private toFiscalSummary;
 }

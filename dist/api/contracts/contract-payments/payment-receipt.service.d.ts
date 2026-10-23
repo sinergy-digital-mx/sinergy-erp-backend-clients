@@ -16,7 +16,7 @@ export declare class PaymentReceiptService {
     private readonly mailerConfigurationService;
     private readonly s3Service;
     constructor(paymentRepo: Repository<Payment>, downpaymentRepo: Repository<ContractDownpaymentPayment>, templateRepo: Repository<EmailTemplate>, fiscalRepo: Repository<FiscalConfiguration>, tenantRepo: Repository<RBACTenant>, mailerConfigurationService: MailerConfigurationService, s3Service: S3Service);
-    getTemplate(organizationId: string): Promise<{
+    getTemplate(organizationId: string, contractId?: string): Promise<{
         id: string;
         subject: string;
         body_html: string;

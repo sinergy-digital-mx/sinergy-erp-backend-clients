@@ -4,6 +4,7 @@ import { RBACTenant } from '../rbac/tenant.entity';
 import { User } from '../users/user.entity';
 import { Lead } from '../leads/lead.entity';
 import { LeadGroup } from '../leads/lead-group.entity';
+import { FiscalConfiguration } from '../billing/fiscal-configuration.entity';
 export declare class Contract {
     id: string;
     tenant: RBACTenant;
@@ -18,6 +19,8 @@ export declare class Contract {
     lead_id: number | null;
     lead_group: LeadGroup | null;
     lead_group_id: string | null;
+    fiscal_configuration: FiscalConfiguration | null;
+    fiscal_configuration_id: string | null;
     contract_number: string;
     contract_date: Date;
     total_price: number;
