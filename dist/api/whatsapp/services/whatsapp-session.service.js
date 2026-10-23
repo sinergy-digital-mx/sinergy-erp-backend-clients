@@ -160,6 +160,16 @@ let WhatsappSessionService = WhatsappSessionService_1 = class WhatsappSessionSer
         }
         return row;
     }
+    async listGroups(tenantId) {
+        const row = await this.requireConnected(tenantId);
+        try {
+            const raw = await this.waha.getGroups(row.session_name);
+            return { data: (0, whatsapp_util_1.mapWahaGroups)(raw) };
+        }
+        catch (error) {
+            throw (0, whatsapp_errors_1.toHttpException)(error);
+        }
+    }
     findBySessionName(sessionName) {
         return this.sessionRepo.findOne({ where: { session_name: sessionName } });
     }

@@ -54,7 +54,7 @@ __decorate([
     __metadata("design:type", String)
 ], WhatsappMessage.prototype, "session_name", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'varchar', length: 32 }),
+    (0, typeorm_1.Column)({ type: 'varchar', length: 80 }),
     __metadata("design:type", String)
 ], WhatsappMessage.prototype, "to_phone", void 0);
 __decorate([

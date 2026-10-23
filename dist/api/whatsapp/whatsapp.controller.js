@@ -54,6 +54,9 @@ let WhatsappController = class WhatsappController {
         await this.sessions.remove(this.tenantId());
         return { ok: true };
     }
+    groups() {
+        return this.sessions.listGroups(this.tenantId());
+    }
     sendText(dto) {
         return this.messages.sendText(this.tenantId(), this.userId(), dto);
     }
@@ -141,6 +144,14 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], WhatsappController.prototype, "remove", null);
+__decorate([
+    (0, common_1.Get)('groups'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: whatsapp_constants_1.WHATSAPP_ENTITY_CODE, action: 'Read' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Grupos de WhatsApp de la sesión conectada' }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], WhatsappController.prototype, "groups", null);
 __decorate([
     (0, common_1.Post)('messages/text'),
     (0, common_1.HttpCode)(202),

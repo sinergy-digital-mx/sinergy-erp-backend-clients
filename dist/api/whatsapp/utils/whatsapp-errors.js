@@ -14,6 +14,9 @@ function friendlyWahaMessage(error) {
     }
     if (error.status === 503)
         return error.message;
+    if (error.status === 429) {
+        return 'WhatsApp limitó la consulta. Espera un momento e inténtalo de nuevo.';
+    }
     if (error.isSessionUnavailable)
         return exports.WHATSAPP_NOT_CONNECTED_MESSAGE;
     return 'No se pudo comunicar con WhatsApp.';

@@ -22,6 +22,7 @@ const contract_financial_util_1 = require("./contract-financial.util");
 const contract_list_filters_util_1 = require("./contract-list-filters.util");
 const contract_list_insight_util_1 = require("./contract-list-insight.util");
 const contract_currency_util_1 = require("./contract-currency.util");
+const late_interest_util_1 = require("./utils/late-interest.util");
 let ContractsService = class ContractsService {
     contractRepo;
     constructor(contractRepo) {
@@ -53,6 +54,9 @@ let ContractsService = class ContractsService {
         await this.assertFiscalConfiguration(tenantId, dto.fiscal_configuration_id);
         const contract = this.contractRepo.create({
             ...dto,
+            interest_rate: dto.interest_rate != null
+                ? (0, late_interest_util_1.normalizeInterestRatePercent)(dto.interest_rate)
+                : dto.interest_rate,
             ...downPaymentConfig,
             down_payment_target: financed ? downPaymentTarget : null,
             down_payment: downPaymentApplied,
@@ -319,7 +323,7 @@ let ContractsService = class ContractsService {
             financed_amount: enriched.financed_amount,
             first_payment_date: contract.first_payment_date,
             payment_due_day: contract.payment_due_day,
-            interest_rate: contract.interest_rate,
+            interest_rate: (0, late_interest_util_1.normalizeInterestRatePercent)(contract.interest_rate) || null,
             currency: (0, contract_currency_util_1.resolveStoredContractCurrency)(contract.currency),
             status: contract.status,
             notes: contract.notes,
@@ -433,6 +437,9 @@ let ContractsService = class ContractsService {
         }
         if (dto.currency != null) {
             dto.currency = (0, contract_currency_util_1.normalizeContractCurrency)(dto.currency);
+        }
+        if (dto.interest_rate != null) {
+            dto.interest_rate = (0, late_interest_util_1.normalizeInterestRatePercent)(dto.interest_rate);
         }
         if (dto.fiscal_configuration_id) {
             await this.assertFiscalConfiguration(tenantId, dto.fiscal_configuration_id);

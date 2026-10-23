@@ -9,6 +9,8 @@ export declare class UpdateContractDto {
     down_payment_payment_day?: number;
     payment_months?: number;
     first_payment_date?: Date;
+    interest_rate?: number | null;
+    payment_due_day?: number | null;
     seller_id?: string;
     lead_id?: number | null;
     lead_group_id?: string | null;

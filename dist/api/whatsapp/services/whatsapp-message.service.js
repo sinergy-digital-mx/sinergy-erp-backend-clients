@@ -49,6 +49,7 @@ let WhatsappMessageService = WhatsappMessageService_1 = class WhatsappMessageSer
         return this.enqueue(tenantId, userId, {
             type: 'text',
             phone: dto.phone,
+            group_id: dto.group_id,
             body: text,
             reference_type: dto.reference_type,
             reference_id: dto.reference_id,
@@ -61,6 +62,7 @@ let WhatsappMessageService = WhatsappMessageService_1 = class WhatsappMessageSer
         return this.enqueue(tenantId, userId, {
             type: 'file',
             phone: dto.phone,
+            group_id: dto.group_id,
             body: dto.caption?.trim() || null,
             file_url: dto.file_url,
             file_name: dto.file_name?.trim() || null,
@@ -73,6 +75,7 @@ let WhatsappMessageService = WhatsappMessageService_1 = class WhatsappMessageSer
         return this.enqueue(tenantId, userId, {
             type: 'file',
             phone: input.phone,
+            group_id: input.group_id,
             body: input.caption?.trim() || null,
             file_data: input.data.toString('base64'),
             file_name: input.file_name,
@@ -146,14 +149,13 @@ let WhatsappMessageService = WhatsappMessageService_1 = class WhatsappMessageSer
     }
     async enqueue(tenantId, userId, input) {
         const session = await this.sessions.requireConnected(tenantId);
-        const phone = (0, whatsapp_util_1.normalizeWhatsappPhone)(input.phone, process.env.WHATSAPP_DEFAULT_COUNTRY_CODE?.trim() || undefined);
-        if (!phone)
-            throw new common_1.BadRequestException('El número de teléfono no es válido.');
+        const destination = this.resolveDestination(input);
         await this.assertDailyLimit(tenantId);
         const saved = await this.messageRepo.save(this.messageRepo.create({
             tenant_id: tenantId,
             session_name: session.session_name,
-            to_phone: phone,
+            to_phone: destination.to,
+            chat_id: destination.chatId,
             type: input.type,
             body: input.body ?? null,
             file_name: input.file_name ?? null,
@@ -216,12 +218,9 @@ let WhatsappMessageService = WhatsappMessageService_1 = class WhatsappMessageSer
             return;
         }
         try {
-            const check = await this.waha.checkNumberExists(message.session_name, message.to_phone);
-            if (!check?.numberExists) {
-                await this.fail(message, 'El número no tiene WhatsApp. Si es de otro país, escríbelo con su código (por ejemplo +1 para Estados Unidos).');
+            const chatId = await this.resolveChatId(message);
+            if (!chatId)
                 return;
-            }
-            const chatId = check.chatId || `${message.to_phone}@c.us`;
             let result;
             if (message.type === 'file') {
                 const source = this.files.get(message.id);
@@ -302,10 +301,43 @@ let WhatsappMessageService = WhatsappMessageService_1 = class WhatsappMessageSer
         if (pending.length)
             this.logger.log(`Reencoladas ${pending.length} mensajes de WhatsApp.`);
     }
+    resolveDestination(input) {
+        const groupId = input.group_id?.trim() ? (0, whatsapp_util_1.normalizeWhatsappGroupId)(input.group_id) : null;
+        if (input.group_id?.trim() && !groupId) {
+            throw new common_1.BadRequestException('El identificador del grupo no es válido.');
+        }
+        if (groupId)
+            return { to: groupId, chatId: groupId };
+        const phone = (0, whatsapp_util_1.normalizeWhatsappPhone)(input.phone ?? '', process.env.WHATSAPP_DEFAULT_COUNTRY_CODE?.trim() || undefined);
+        if (!phone) {
+            throw new common_1.BadRequestException(input.phone?.trim()
+                ? 'El número de teléfono no es válido.'
+                : 'Indica un teléfono o un grupo.');
+        }
+        return { to: phone, chatId: null };
+    }
+    async resolveChatId(message) {
+        if ((0, whatsapp_util_1.isWhatsappGroupId)(message.chat_id) || (0, whatsapp_util_1.isWhatsappGroupId)(message.to_phone)) {
+            const groupId = (0, whatsapp_util_1.normalizeWhatsappGroupId)(message.chat_id || message.to_phone);
+            if (!groupId) {
+                await this.fail(message, 'El identificador del grupo no es válido.');
+                return null;
+            }
+            return groupId;
+        }
+        const check = await this.waha.checkNumberExists(message.session_name, message.to_phone);
+        if (!check?.numberExists) {
+            await this.fail(message, 'El número no tiene WhatsApp. Si es de otro país, escríbelo con su código (por ejemplo +1 para Estados Unidos).');
+            return null;
+        }
+        return check.chatId || `${message.to_phone}@c.us`;
+    }
     toView(row) {
         return {
             id: row.id,
             to_phone: row.to_phone,
+            chat_id: row.chat_id,
+            destination: (0, whatsapp_util_1.isWhatsappGroupId)(row.chat_id || row.to_phone) ? 'group' : 'phone',
             type: row.type,
             body: row.body,
             file_name: row.file_name,

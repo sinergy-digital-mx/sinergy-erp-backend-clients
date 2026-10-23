@@ -1,5 +1,6 @@
 declare class SendWhatsappBaseDto {
-    phone: string;
+    phone?: string;
+    group_id?: string;
     reference_type?: string;
     reference_id?: string;
 }

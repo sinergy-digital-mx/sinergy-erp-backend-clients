@@ -14,6 +14,7 @@ const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 class SendPaymentReminderDto {
     phone;
+    group_id;
 }
 exports.SendPaymentReminderDto = SendPaymentReminderDto;
 __decorate([
@@ -26,4 +27,14 @@ __decorate([
     (0, class_validator_1.MaxLength)(32),
     __metadata("design:type", String)
 ], SendPaymentReminderDto.prototype, "phone", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Id del grupo de WhatsApp (`120363…@g.us`). Si viene, se ignora el teléfono.',
+        example: '120363025246125738@g.us',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(80),
+    __metadata("design:type", String)
+], SendPaymentReminderDto.prototype, "group_id", void 0);
 //# sourceMappingURL=send-payment-reminder.dto.js.map

@@ -8,6 +8,8 @@ import { WhatsappSessionService } from './whatsapp-session.service';
 export interface WhatsappMessageView {
     id: string;
     to_phone: string;
+    chat_id: string | null;
+    destination: 'phone' | 'group';
     type: string;
     body: string | null;
     file_name: string | null;
@@ -33,7 +35,8 @@ export declare class WhatsappMessageService implements OnApplicationBootstrap {
     sendText(tenantId: string, userId: string, dto: SendWhatsappTextDto): Promise<WhatsappMessageView>;
     sendFile(tenantId: string, userId: string, dto: SendWhatsappFileDto): Promise<WhatsappMessageView>;
     sendBuffer(tenantId: string, userId: string, input: {
-        phone: string;
+        phone?: string;
+        group_id?: string;
         data: Buffer;
         file_name: string;
         mimetype: string;
@@ -59,5 +62,7 @@ export declare class WhatsappMessageService implements OnApplicationBootstrap {
     private simulateTyping;
     private fail;
     private recover;
+    private resolveDestination;
+    private resolveChatId;
     private toView;
 }

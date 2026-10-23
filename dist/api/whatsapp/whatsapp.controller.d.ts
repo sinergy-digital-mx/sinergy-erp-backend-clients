@@ -20,6 +20,9 @@ export declare class WhatsappController {
     remove(): Promise<{
         ok: boolean;
     }>;
+    groups(): Promise<{
+        data: import("./utils/whatsapp.util").WhatsappGroupView[];
+    }>;
     sendText(dto: SendWhatsappTextDto): Promise<import("./services/whatsapp-message.service").WhatsappMessageView>;
     sendFile(dto: SendWhatsappFileDto): Promise<import("./services/whatsapp-message.service").WhatsappMessageView>;
     list(query: QueryWhatsappMessagesDto): Promise<{

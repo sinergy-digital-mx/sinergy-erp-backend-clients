@@ -3,6 +3,7 @@ import { PaymentsService } from './payments.service';
 import { PaymentReceiptService } from './payment-receipt.service';
 import { RecordPartialPaymentDto } from '../dto/record-partial-payment.dto';
 import { GenerateContractPaymentsDto } from './dto/generate-contract-payments.dto';
+import { UpdateLateInterestDto } from './dto/update-late-interest.dto';
 export declare class PaymentsController {
     private paymentsService;
     private paymentReceiptService;
@@ -277,6 +278,7 @@ export declare class PaymentsController {
     }, req: any): Promise<import("../../../entities/contracts/payment.entity").Payment>;
     recordPayment(contractId: string, paymentId: string, dto: RecordPartialPaymentDto, req: any): Promise<import("../../../entities/contracts/payment.entity").Payment>;
     cancelPayment(contractId: string, paymentId: string, req: any): Promise<import("../../../entities/contracts/payment.entity").Payment>;
+    updateLateInterest(contractId: string, paymentId: string, dto: UpdateLateInterestDto): Promise<any>;
     resetPayment(contractId: string, paymentId: string, req: any): Promise<import("../../../entities/contracts/payment.entity").Payment>;
     deletePayment(contractId: string, paymentId: string, req: any): Promise<{
         message: string;

@@ -51,6 +51,7 @@ export declare class WahaClientService {
         numberExists: boolean;
         chatId?: string | null;
     }>;
+    getGroups(session: string): Promise<unknown>;
     startTyping(session: string, chatId: string): Promise<void>;
     stopTyping(session: string, chatId: string): Promise<void>;
     sendText(session: string, chatId: string, text: string): Promise<unknown>;

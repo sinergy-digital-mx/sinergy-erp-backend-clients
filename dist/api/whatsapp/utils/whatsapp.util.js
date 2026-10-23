@@ -36,6 +36,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildSessionName = buildSessionName;
 exports.normalizeWhatsappPhone = normalizeWhatsappPhone;
 exports.phoneFromWahaId = phoneFromWahaId;
+exports.isWhatsappGroupId = isWhatsappGroupId;
+exports.normalizeWhatsappGroupId = normalizeWhatsappGroupId;
+exports.mapWahaGroups = mapWahaGroups;
 exports.toConnectionState = toConnectionState;
 exports.ackToMessageStatus = ackToMessageStatus;
 exports.shouldAdvanceStatus = shouldAdvanceStatus;
@@ -70,6 +73,69 @@ function phoneFromWahaId(id) {
         return null;
     const phone = id.split('@')[0]?.split(':')[0];
     return phone ? phone : null;
+}
+function isWhatsappGroupId(value) {
+    return typeof value === 'string' && /@g\.us$/i.test(value.trim());
+}
+function normalizeWhatsappGroupId(raw) {
+    const value = String(raw ?? '').trim();
+    if (!value)
+        return null;
+    const withSuffix = value.includes('@') ? value : `${value}@g.us`;
+    const at = withSuffix.lastIndexOf('@');
+    const user = withSuffix.slice(0, at);
+    const server = withSuffix.slice(at + 1);
+    if (!user || user.length < 8 || user.length > 40)
+        return null;
+    if (!/^[A-Za-z0-9._-]+$/.test(user))
+        return null;
+    if (server.toLowerCase() !== 'g.us')
+        return null;
+    return `${user}@g.us`;
+}
+function mapWahaGroups(payload) {
+    const rows = Array.isArray(payload)
+        ? payload
+        : Array.isArray(asRecord(payload)?.data)
+            ? asRecord(payload)?.data
+            : [];
+    const seen = new Set();
+    const groups = [];
+    for (const row of rows) {
+        const id = extractGroupId(row);
+        if (!id || seen.has(id))
+            continue;
+        seen.add(id);
+        const rec = asRecord(row);
+        const name = pickTrimmed(rec?.name) ||
+            pickTrimmed(rec?.subject) ||
+            pickTrimmed(rec?.Name) ||
+            id;
+        const description = pickTrimmed(rec?.description) || pickTrimmed(rec?.desc) || null;
+        groups.push({ id, name, description });
+    }
+    groups.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    return groups;
+}
+function extractGroupId(row) {
+    if (typeof row === 'string')
+        return normalizeWhatsappGroupId(row);
+    const rec = asRecord(row);
+    if (!rec)
+        return null;
+    if (typeof rec.id === 'string')
+        return normalizeWhatsappGroupId(rec.id);
+    const nested = asRecord(rec.id);
+    if (typeof nested?._serialized === 'string')
+        return normalizeWhatsappGroupId(nested._serialized);
+    if (typeof nested?.user === 'string')
+        return normalizeWhatsappGroupId(String(nested.user));
+    if (typeof rec.gid === 'string')
+        return normalizeWhatsappGroupId(rec.gid);
+    return null;
+}
+function pickTrimmed(value) {
+    return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 function toConnectionState(status) {
     switch (status) {

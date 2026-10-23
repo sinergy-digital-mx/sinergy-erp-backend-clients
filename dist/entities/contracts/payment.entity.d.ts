@@ -17,6 +17,8 @@ export declare class Payment {
     payment_method: string;
     status: string;
     is_overdue: boolean;
+    late_interest_amount: number | null;
+    late_interest_waived: boolean;
     notes: string;
     metadata: Record<string, any>;
     created_at: Date;

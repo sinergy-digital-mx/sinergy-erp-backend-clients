@@ -212,10 +212,7 @@ let ServiceSubscriptionsService = class ServiceSubscriptionsService {
         if (!period.sales_order_id) {
             throw new common_1.BadRequestException('Este mes aún no tiene orden. Genera la orden antes de enviar el recordatorio.');
         }
-        const phone = (dto.phone || this.customerWhatsappPhone(subscription.customer)).trim();
-        if (!phone) {
-            throw new common_1.BadRequestException('Indica un teléfono. El cliente no tiene uno registrado.');
-        }
+        const dest = this.reminderDestination(dto, subscription.customer);
         await this.billing.syncPeriodInvoices(subscription);
         const { month, invoice } = await this.buildMonthSummary(tenantId, period);
         if (month.paid) {
@@ -237,20 +234,20 @@ let ServiceSubscriptionsService = class ServiceSubscriptionsService {
         const image = (0, service_subscription_reminder_image_util_1.renderPaymentReminderImage)(input);
         const first = image
             ? await this.whatsapp.sendBuffer(tenantId, userId, {
-                phone,
+                ...dest,
                 data: image,
                 file_name: `recordatorio-${month.label.replace(/\s+/g, '-')}.png`,
                 mimetype: 'image/png',
                 caption,
                 ...reference,
             })
-            : await this.whatsapp.sendText(tenantId, userId, { phone, text: caption, ...reference });
+            : await this.whatsapp.sendText(tenantId, userId, { ...dest, text: caption, ...reference });
         let invoiceAttached = false;
         if (invoice?.pdf_stamped_s3_key) {
             try {
                 const pdf = await this.invoicePdf.getPdfBuffer(invoice);
                 await this.whatsapp.sendBuffer(tenantId, userId, {
-                    phone,
+                    ...dest,
                     data: pdf.buffer,
                     file_name: pdf.fileName,
                     mimetype: 'application/pdf',
@@ -269,6 +266,15 @@ let ServiceSubscriptionsService = class ServiceSubscriptionsService {
             image_sent: !!image,
             invoice_attached: invoiceAttached,
         };
+    }
+    reminderDestination(dto, customer) {
+        if (dto.group_id?.trim())
+            return { group_id: dto.group_id.trim() };
+        const phone = (dto.phone || this.customerWhatsappPhone(customer)).trim();
+        if (!phone) {
+            throw new common_1.BadRequestException('Indica un teléfono o un grupo. El cliente no tiene uno registrado.');
+        }
+        return { phone };
     }
     customerWhatsappPhone(customer) {
         if (!customer)

@@ -1,6 +1,7 @@
 import { Repository } from 'typeorm';
 import { WhatsappSession } from '../../../entities/whatsapp/whatsapp-session.entity';
 import { WhatsappConnectionState } from '../whatsapp.constants';
+import { WhatsappGroupView } from '../utils/whatsapp.util';
 import { WahaClientService } from './waha-client.service';
 export interface WhatsappSessionView {
     configured: boolean;
@@ -32,6 +33,9 @@ export declare class WhatsappSessionService {
     logout(tenantId: string, userId: string): Promise<WhatsappSessionView>;
     remove(tenantId: string): Promise<void>;
     requireConnected(tenantId: string): Promise<WhatsappSession>;
+    listGroups(tenantId: string): Promise<{
+        data: WhatsappGroupView[];
+    }>;
     findBySessionName(sessionName: string): Promise<WhatsappSession | null>;
     applyWebhookStatus(sessionName: string, status: string | undefined, me?: {
         id?: string;

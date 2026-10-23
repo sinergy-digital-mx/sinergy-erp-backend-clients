@@ -17,6 +17,8 @@ export declare class CreateContractDto {
     down_payment_payment_day?: number;
     payment_months: number;
     first_payment_date: Date;
+    interest_rate?: number | null;
+    payment_due_day?: number | null;
     currency?: 'USD' | 'MXN';
     notes?: string;
     metadata?: Record<string, any>;

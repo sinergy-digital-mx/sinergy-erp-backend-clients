@@ -15,15 +15,22 @@ const class_validator_1 = require("class-validator");
 const whatsapp_constants_1 = require("../whatsapp.constants");
 class SendWhatsappBaseDto {
     phone;
+    group_id;
     reference_type;
     reference_id;
 }
 __decorate([
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
-    (0, class_validator_1.IsNotEmpty)(),
     (0, class_validator_1.MaxLength)(32),
     __metadata("design:type", String)
 ], SendWhatsappBaseDto.prototype, "phone", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(80),
+    __metadata("design:type", String)
+], SendWhatsappBaseDto.prototype, "group_id", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),

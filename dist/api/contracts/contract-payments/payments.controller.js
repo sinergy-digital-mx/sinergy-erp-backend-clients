@@ -23,6 +23,7 @@ const payments_service_1 = require("./payments.service");
 const payment_receipt_service_1 = require("./payment-receipt.service");
 const record_partial_payment_dto_1 = require("../dto/record-partial-payment.dto");
 const generate_contract_payments_dto_1 = require("./dto/generate-contract-payments.dto");
+const update_late_interest_dto_1 = require("./dto/update-late-interest.dto");
 let PaymentsController = class PaymentsController {
     paymentsService;
     paymentReceiptService;
@@ -124,6 +125,13 @@ let PaymentsController = class PaymentsController {
             throw new Error('Tenant context is required');
         }
         return this.paymentsService.cancelPayment(tenantId, paymentId);
+    }
+    async updateLateInterest(contractId, paymentId, dto) {
+        const tenantId = this.tenantContext.getCurrentTenantId();
+        if (!tenantId) {
+            throw new Error('Tenant context is required');
+        }
+        return this.paymentsService.updateLateInterest(tenantId, paymentId, dto);
     }
     async resetPayment(contractId, paymentId, req) {
         const tenantId = this.tenantContext.getCurrentTenantId();
@@ -304,6 +312,16 @@ __decorate([
     __metadata("design:paramtypes", [String, String, Object]),
     __metadata("design:returntype", Promise)
 ], PaymentsController.prototype, "cancelPayment", null);
+__decorate([
+    (0, common_1.Patch)(':paymentId/late-interest'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Contract', action: 'Update' }),
+    __param(0, (0, common_1.Param)('contractId')),
+    __param(1, (0, common_1.Param)('paymentId')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, update_late_interest_dto_1.UpdateLateInterestDto]),
+    __metadata("design:returntype", Promise)
+], PaymentsController.prototype, "updateLateInterest", null);
 __decorate([
     (0, common_1.Post)(':paymentId/reset'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Contract', action: 'Update' }),

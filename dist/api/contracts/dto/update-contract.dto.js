@@ -23,6 +23,8 @@ class UpdateContractDto {
     down_payment_payment_day;
     payment_months;
     first_payment_date;
+    interest_rate;
+    payment_due_day;
     seller_id;
     lead_id;
     lead_group_id;
@@ -92,6 +94,22 @@ __decorate([
     (0, class_transformer_1.Type)(() => Date),
     __metadata("design:type", Date)
 ], UpdateContractDto.prototype, "first_payment_date", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => (value === '' ? null : value)),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    (0, class_validator_1.Max)(100),
+    __metadata("design:type", Object)
+], UpdateContractDto.prototype, "interest_rate", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => (value === '' ? null : value)),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    (0, class_validator_1.Max)(365),
+    __metadata("design:type", Object)
+], UpdateContractDto.prototype, "payment_due_day", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsUUID)(),

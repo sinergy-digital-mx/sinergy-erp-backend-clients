@@ -79,6 +79,7 @@ export declare class ServiceSubscriptionsService {
         image_sent: boolean;
         invoice_attached: boolean;
     }>;
+    private reminderDestination;
     private customerWhatsappPhone;
     private sendViaResend;
     getOne(tenantId: string, id: string): Promise<{

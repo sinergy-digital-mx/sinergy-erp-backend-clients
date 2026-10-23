@@ -30,6 +30,8 @@ let Payment = class Payment {
     payment_method;
     status;
     is_overdue;
+    late_interest_amount;
+    late_interest_waived;
     notes;
     metadata;
     created_at;
@@ -106,6 +108,14 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'boolean', default: false }),
     __metadata("design:type", Boolean)
 ], Payment.prototype, "is_overdue", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'decimal', precision: 15, scale: 2, nullable: true }),
+    __metadata("design:type", Object)
+], Payment.prototype, "late_interest_amount", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], Payment.prototype, "late_interest_waived", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'text', nullable: true }),
     __metadata("design:type", String)

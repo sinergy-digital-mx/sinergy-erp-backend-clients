@@ -36,8 +36,8 @@ export declare class Contract {
     payment_months: number;
     monthly_payment: number;
     first_payment_date: Date;
-    payment_due_day: number;
-    interest_rate: number;
+    payment_due_day: number | null;
+    interest_rate: number | null;
     currency: string;
     status: string;
     notes: string;

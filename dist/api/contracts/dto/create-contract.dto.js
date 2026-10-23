@@ -31,6 +31,8 @@ class CreateContractDto {
     down_payment_payment_day;
     payment_months;
     first_payment_date;
+    interest_rate;
+    payment_due_day;
     currency;
     notes;
     metadata;
@@ -127,6 +129,22 @@ __decorate([
     (0, class_transformer_1.Type)(() => Date),
     __metadata("design:type", Date)
 ], CreateContractDto.prototype, "first_payment_date", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => (value === '' ? null : value)),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    (0, class_validator_1.Max)(100),
+    __metadata("design:type", Object)
+], CreateContractDto.prototype, "interest_rate", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => (value === '' ? null : value)),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    (0, class_validator_1.Max)(365),
+    __metadata("design:type", Object)
+], CreateContractDto.prototype, "payment_due_day", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_transformer_1.Transform)(({ value }) => typeof value === 'string' ? value.trim().toUpperCase() : value),

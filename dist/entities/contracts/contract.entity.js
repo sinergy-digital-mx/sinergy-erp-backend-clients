@@ -188,11 +188,11 @@ __decorate([
 ], Contract.prototype, "first_payment_date", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'int', nullable: true }),
-    __metadata("design:type", Number)
+    __metadata("design:type", Object)
 ], Contract.prototype, "payment_due_day", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'decimal', precision: 5, scale: 2, nullable: true }),
-    __metadata("design:type", Number)
+    __metadata("design:type", Object)
 ], Contract.prototype, "interest_rate", void 0);
 __decorate([
     (0, typeorm_1.Column)({ length: 10, default: 'USD' }),

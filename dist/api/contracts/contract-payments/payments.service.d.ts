@@ -3,6 +3,7 @@ import { Payment } from '../../../entities/contracts/payment.entity';
 import { Contract } from '../../../entities/contracts/contract.entity';
 import { ContractDownpaymentPayment } from '../../../entities/contracts/contract-downpayment-payment.entity';
 import { GenerateContractPaymentsDto } from './dto/generate-contract-payments.dto';
+import { UpdateLateInterestDto } from './dto/update-late-interest.dto';
 export interface PaymentSchedulePreview {
     start_date: string;
     end_date: string;
@@ -40,6 +41,7 @@ export declare class PaymentsService {
         reference_number?: string;
         notes?: string;
     }): Promise<Payment>;
+    updateLateInterest(tenantId: string, paymentId: string, dto: UpdateLateInterestDto): Promise<any>;
     cancelPayment(tenantId: string, paymentId: string): Promise<Payment>;
     deletePayment(tenantId: string, paymentId: string): Promise<void>;
     resetPayment(tenantId: string, paymentId: string): Promise<Payment>;

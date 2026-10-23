@@ -22,6 +22,7 @@ const contract_downpayment_payment_entity_1 = require("../../../entities/contrac
 const contract_financial_util_1 = require("../contract-financial.util");
 const contract_currency_util_1 = require("../contract-currency.util");
 const contract_payment_settlement_util_1 = require("../utils/contract-payment-settlement.util");
+const late_interest_util_1 = require("../utils/late-interest.util");
 let PaymentsService = class PaymentsService {
     paymentRepo;
     contractRepo;
@@ -112,15 +113,18 @@ let PaymentsService = class PaymentsService {
             .select([
             'p.id', 'p.payment_number', 'p.status', 'p.is_overdue',
             'p.amount', 'p.amount_paid', 'p.amount_pending',
-            'p.due_date', 'p.paid_date', 'p.payment_method', 'p.notes'
+            'p.due_date', 'p.paid_date', 'p.payment_method', 'p.notes',
+            'p.late_interest_amount', 'p.late_interest_waived',
         ])
             .where('p.tenant_id = :tenantId', { tenantId })
             .andWhere('p.contract_id = :contractId', { contractId })
             .orderBy('CAST(p.payment_number AS UNSIGNED)', 'ASC')
             .getMany();
+        const interestConfig = (0, late_interest_util_1.resolveLateInterestConfig)(contract);
         return payments.map((payment) => ({
             ...payment,
             currency,
+            ...(0, late_interest_util_1.resolveLateInterest)(payment, interestConfig),
         }));
     }
     async getPayment(tenantId, paymentId) {
@@ -171,6 +175,14 @@ let PaymentsService = class PaymentsService {
         }, 0);
         const overdueAmount = (0, contract_payment_settlement_util_1.sumActiveOverdueAmount)(payments);
         const paidOrPartialCount = payments.filter((p) => p.status === 'pagado' || p.status === 'parcial').length;
+        const interestConfig = (0, late_interest_util_1.resolveLateInterestConfig)(contract);
+        const lateInterestPayments = payments
+            .filter((p) => Number(p.late_interest_amount || 0) > 0)
+            .map((p) => ({
+            payment_number: Number(p.payment_number),
+            amount: Math.round(Number(p.late_interest_amount) * 100) / 100,
+        }));
+        const lateInterestPendingAmount = Math.round(lateInterestPayments.reduce((sum, row) => sum + row.amount, 0) * 100) / 100;
         const stats = {
             currency: (0, contract_currency_util_1.resolveStoredContractCurrency)(contract.currency),
             total_payments: payments.length,
@@ -207,6 +219,12 @@ let PaymentsService = class PaymentsService {
                     ? `Hay ${paidOrPartialCount} pago(s) pagado(s) o parcial(es). Debes revertirlos antes de regenerar.`
                     : null,
             schedule: this.resolveScheduleFromPayments(contract, payments),
+            late_interest_rate_percent: interestConfig.ratePercent,
+            late_interest_grace_days: interestConfig.graceDays,
+            late_interest_pending_amount: lateInterestPendingAmount,
+            late_interest_pending_count: lateInterestPayments.length,
+            late_interest_payments: lateInterestPayments,
+            total_pending_with_interest: Math.round((Math.round(totalPendingFromFinanced * 100) / 100 + lateInterestPendingAmount) * 100) / 100,
             partial_payment: partialPayment ? {
                 id: partialPayment.id,
                 installment_number: parseInt(partialPayment.payment_number),
@@ -345,6 +363,38 @@ let PaymentsService = class PaymentsService {
         const updateNote = `Actualizado el ${new Date().toISOString().split('T')[0]}`;
         payment.notes = payment.notes ? `${payment.notes}\n${updateNote}` : updateNote;
         return this.paymentRepo.save(payment);
+    }
+    async updateLateInterest(tenantId, paymentId, dto) {
+        const payment = await this.getPayment(tenantId, paymentId);
+        if (!payment) {
+            throw new common_1.NotFoundException('Payment not found');
+        }
+        if (payment.status === 'cancelado') {
+            throw new common_1.BadRequestException('No se puede editar el interés de un pago cancelado');
+        }
+        if (dto.waived === true || dto.amount === 0) {
+            payment.late_interest_waived = true;
+            payment.late_interest_amount = 0;
+        }
+        else if (dto.amount === null) {
+            payment.late_interest_waived = false;
+            payment.late_interest_amount = null;
+        }
+        else if (dto.amount != null) {
+            payment.late_interest_waived = false;
+            payment.late_interest_amount = Math.round(Number(dto.amount) * 100) / 100;
+        }
+        else if (dto.waived === false) {
+            payment.late_interest_waived = false;
+            payment.late_interest_amount = null;
+        }
+        const saved = await this.paymentRepo.save(payment);
+        const contract = await this.getContractOrThrow(tenantId, saved.contract_id);
+        return {
+            ...saved,
+            currency: (0, contract_currency_util_1.resolveStoredContractCurrency)(contract.currency),
+            ...(0, late_interest_util_1.resolveLateInterest)(saved, (0, late_interest_util_1.resolveLateInterestConfig)(contract)),
+        };
     }
     async cancelPayment(tenantId, paymentId) {
         const payment = await this.getPayment(tenantId, paymentId);
