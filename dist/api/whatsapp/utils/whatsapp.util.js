@@ -39,6 +39,7 @@ exports.phoneFromWahaId = phoneFromWahaId;
 exports.isWhatsappGroupId = isWhatsappGroupId;
 exports.normalizeWhatsappGroupId = normalizeWhatsappGroupId;
 exports.mapWahaGroups = mapWahaGroups;
+exports.describeWahaPayload = describeWahaPayload;
 exports.toConnectionState = toConnectionState;
 exports.ackToMessageStatus = ackToMessageStatus;
 exports.shouldAdvanceStatus = shouldAdvanceStatus;
@@ -94,14 +95,9 @@ function normalizeWhatsappGroupId(raw) {
     return `${user}@g.us`;
 }
 function mapWahaGroups(payload) {
-    const rows = Array.isArray(payload)
-        ? payload
-        : Array.isArray(asRecord(payload)?.data)
-            ? asRecord(payload)?.data
-            : [];
     const seen = new Set();
     const groups = [];
-    for (const row of rows) {
+    for (const row of wahaCollectionRows(payload)) {
         const id = extractGroupId(row);
         if (!id || seen.has(id))
             continue;
@@ -117,22 +113,79 @@ function mapWahaGroups(payload) {
     groups.sort((a, b) => a.name.localeCompare(b.name, 'es'));
     return groups;
 }
+function describeWahaPayload(payload) {
+    if (payload == null)
+        return 'null';
+    if (Array.isArray(payload))
+        return `array(${payload.length})`;
+    const rec = asRecord(payload);
+    if (!rec)
+        return typeof payload;
+    const keys = Object.keys(rec);
+    return `object(keys=${keys.length}, sample=${keys.slice(0, 3).join(',')})`;
+}
+function wahaCollectionRows(payload) {
+    if (Array.isArray(payload))
+        return payload;
+    const rec = asRecord(payload);
+    if (!rec)
+        return [];
+    for (const key of ['data', 'groups', 'chats']) {
+        const nested = rec[key];
+        if (Array.isArray(nested))
+            return nested;
+        const nestedRec = asRecord(nested);
+        if (nestedRec && looksLikeGroupMap(nestedRec))
+            return rowsFromGroupMap(nestedRec);
+    }
+    if (looksLikeGroupMap(rec))
+        return rowsFromGroupMap(rec);
+    if (extractGroupId(rec))
+        return [rec];
+    return [];
+}
+function looksLikeGroupMap(rec) {
+    return Object.keys(rec).some((key) => isWhatsappGroupId(key) ||
+        !!extractGroupId(rec[key]) ||
+        isWhatsappGroupId(String(asRecord(rec[key])?.id ?? '')));
+}
+function rowsFromGroupMap(rec) {
+    return Object.entries(rec).map(([key, value]) => {
+        const nested = asRecord(value);
+        if (nested)
+            return nested.id ? nested : { ...nested, id: key };
+        return { id: key };
+    });
+}
 function extractGroupId(row) {
     if (typeof row === 'string')
-        return normalizeWhatsappGroupId(row);
+        return idIfGroup(row);
     const rec = asRecord(row);
     if (!rec)
         return null;
-    if (typeof rec.id === 'string')
-        return normalizeWhatsappGroupId(rec.id);
-    const nested = asRecord(rec.id);
-    if (typeof nested?._serialized === 'string')
-        return normalizeWhatsappGroupId(nested._serialized);
-    if (typeof nested?.user === 'string')
-        return normalizeWhatsappGroupId(String(nested.user));
-    if (typeof rec.gid === 'string')
-        return normalizeWhatsappGroupId(rec.gid);
+    for (const key of ['id', 'jid', 'JID', 'gid', 'chatId', 'chat_id']) {
+        const value = rec[key];
+        if (typeof value === 'string') {
+            const id = idIfGroup(value);
+            if (id)
+                return id;
+        }
+        const nested = asRecord(value);
+        if (typeof nested?._serialized === 'string') {
+            const id = idIfGroup(nested._serialized);
+            if (id)
+                return id;
+        }
+        if (typeof nested?.user === 'string' && String(nested.server ?? '') === 'g.us') {
+            const id = normalizeWhatsappGroupId(String(nested.user));
+            if (id)
+                return id;
+        }
+    }
     return null;
+}
+function idIfGroup(value) {
+    return value.includes('@') ? normalizeWhatsappGroupId(value) : null;
 }
 function pickTrimmed(value) {
     return typeof value === 'string' && value.trim() ? value.trim() : null;

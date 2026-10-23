@@ -36,6 +36,7 @@ export declare class WhatsappSessionService {
     listGroups(tenantId: string): Promise<{
         data: WhatsappGroupView[];
     }>;
+    private fetchChatPages;
     findBySessionName(sessionName: string): Promise<WhatsappSession | null>;
     applyWebhookStatus(sessionName: string, status: string | undefined, me?: {
         id?: string;

@@ -10,6 +10,7 @@ export interface WhatsappGroupView {
     description: string | null;
 }
 export declare function mapWahaGroups(payload: unknown): WhatsappGroupView[];
+export declare function describeWahaPayload(payload: unknown): string;
 export declare function toConnectionState(status?: string | null): WhatsappConnectionState;
 export declare function ackToMessageStatus(ack: number | string | null | undefined, ackName?: string | null): WhatsappMessageStatus | null;
 export declare function shouldAdvanceStatus(current: WhatsappMessageStatus, next: WhatsappMessageStatus): boolean;

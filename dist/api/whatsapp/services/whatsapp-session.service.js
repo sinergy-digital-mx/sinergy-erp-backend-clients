@@ -163,12 +163,44 @@ let WhatsappSessionService = WhatsappSessionService_1 = class WhatsappSessionSer
     async listGroups(tenantId) {
         const row = await this.requireConnected(tenantId);
         try {
-            const raw = await this.waha.getGroups(row.session_name);
-            return { data: (0, whatsapp_util_1.mapWahaGroups)(raw) };
+            let fromGroups = [];
+            try {
+                const raw = await this.waha.getGroups(row.session_name);
+                fromGroups = (0, whatsapp_util_1.mapWahaGroups)(raw);
+                if (!fromGroups.length) {
+                    this.logger.warn(`WAHA /groups no trajo grupos parseables (${(0, whatsapp_util_1.describeWahaPayload)(raw)}). Se intenta /chats.`);
+                }
+            }
+            catch (error) {
+                this.logger.warn(`WAHA /groups falló (${error instanceof Error ? error.message : 'error'}). Se intenta /chats.`);
+            }
+            if (fromGroups.length)
+                return { data: fromGroups };
+            const chats = await this.fetchChatPages(row.session_name);
+            return { data: (0, whatsapp_util_1.mapWahaGroups)(chats) };
         }
         catch (error) {
             throw (0, whatsapp_errors_1.toHttpException)(error);
         }
+    }
+    async fetchChatPages(sessionName) {
+        const pageSize = 200;
+        const maxPages = 10;
+        const rows = [];
+        for (let page = 0; page < maxPages; page += 1) {
+            const raw = await this.waha.getChats(sessionName, pageSize, page * pageSize);
+            if (Array.isArray(raw)) {
+                if (!raw.length)
+                    break;
+                rows.push(...raw);
+                if (raw.length < pageSize)
+                    break;
+                continue;
+            }
+            rows.push(...(0, whatsapp_util_1.mapWahaGroups)(raw));
+            break;
+        }
+        return rows;
     }
     findBySessionName(sessionName) {
         return this.sessionRepo.findOne({ where: { session_name: sessionName } });

@@ -86,6 +86,13 @@ let WahaClientService = WahaClientService_1 = class WahaClientService {
         const query = new URLSearchParams({ exclude: 'participants' });
         return this.request('GET', `/api/${encodeURIComponent(session)}/groups?${query.toString()}`);
     }
+    getChats(session, limit = 200, offset = 0) {
+        const query = new URLSearchParams({
+            limit: String(limit),
+            offset: String(offset),
+        });
+        return this.request('GET', `/api/${encodeURIComponent(session)}/chats?${query.toString()}`);
+    }
     async startTyping(session, chatId) {
         await this.request('POST', '/api/startTyping', { session, chatId });
     }
