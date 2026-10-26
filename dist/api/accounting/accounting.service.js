@@ -22,6 +22,8 @@ const pos_daily_shift_entity_1 = require("../../entities/pos/pos-daily-shift.ent
 const pos_daily_shift_status_enum_1 = require("../../entities/pos/pos-daily-shift-status.enum");
 const electronic_invoice_entity_1 = require("../../entities/electronic-invoicing/electronic-invoice.entity");
 const purchase_order_batch_entity_1 = require("../../entities/purchase-orders/purchase-order-batch.entity");
+const vendor_entity_1 = require("../../entities/vendor/vendor.entity");
+const vendor_credit_ledger_service_1 = require("../vendor/services/vendor-credit-ledger.service");
 const purchase_order_payable_total_util_1 = require("../purchase-orders/utils/purchase-order-payable-total.util");
 const user_entity_1 = require("../../entities/users/user.entity");
 const pos_shifts_service_1 = require("../pos-shifts/pos-shifts.service");
@@ -42,18 +44,22 @@ let AccountingService = class AccountingService {
     dailyShiftRepo;
     electronicInvoiceRepo;
     purchaseOrderRepo;
+    vendorRepo;
     userRepo;
     posShiftsService;
     exchangeRateService;
-    constructor(salesOrderRepo, collectionRepo, dailyShiftRepo, electronicInvoiceRepo, purchaseOrderRepo, userRepo, posShiftsService, exchangeRateService) {
+    vendorCreditLedger;
+    constructor(salesOrderRepo, collectionRepo, dailyShiftRepo, electronicInvoiceRepo, purchaseOrderRepo, vendorRepo, userRepo, posShiftsService, exchangeRateService, vendorCreditLedger) {
         this.salesOrderRepo = salesOrderRepo;
         this.collectionRepo = collectionRepo;
         this.dailyShiftRepo = dailyShiftRepo;
         this.electronicInvoiceRepo = electronicInvoiceRepo;
         this.purchaseOrderRepo = purchaseOrderRepo;
+        this.vendorRepo = vendorRepo;
         this.userRepo = userRepo;
         this.posShiftsService = posShiftsService;
         this.exchangeRateService = exchangeRateService;
+        this.vendorCreditLedger = vendorCreditLedger;
     }
     async getPosSummary(tenantId, filters) {
         const period = filters.period ?? query_accounting_base_dto_1.AccountingReportPeriod.MONTH;
@@ -533,20 +539,23 @@ let AccountingService = class AccountingService {
             };
         })
             .filter((po) => po.amount_pending > 0);
-        if (!pendingOrders.length) {
-            throw new common_1.NotFoundException('No hay cuentas por pagar para este proveedor');
+        const vendor = orders[0]?.vendor ?? await this.vendorRepo.findOne({
+            where: { id: vendorId, tenant_id: tenantId },
+        });
+        if (!vendor) {
+            throw new common_1.NotFoundException('Proveedor no encontrado');
         }
-        const vendor = orders[0]?.vendor;
+        const credit = await this.vendorCreditLedger.balancesForVendor(tenantId, vendorId);
         return {
-            vendor: vendor
-                ? {
-                    id: vendor.id,
-                    name: vendor.name,
-                    razon_social: vendor.razon_social,
-                    company_name: vendor.company_name,
-                    credit_limit: vendor.credit_limit ? Number(vendor.credit_limit) : null,
-                }
-                : null,
+            vendor: {
+                id: vendor.id,
+                name: vendor.name,
+                razon_social: vendor.razon_social,
+                company_name: vendor.company_name,
+                credit_limit: vendor.credit_limit ? Number(vendor.credit_limit) : null,
+            },
+            credit_balance_mxn: credit.mxn,
+            credit_balance_usd: credit.usd,
             orders: pendingOrders,
         };
     }
@@ -1005,7 +1014,48 @@ let AccountingService = class AccountingService {
                 amount_paid: summary.amount_paid,
             });
         }
-        return (0, accounts_payable_currency_util_1.aggregatePayableVendors)(inputs);
+        const pending = (0, accounts_payable_currency_util_1.aggregatePayableVendors)(inputs);
+        const creditRows = await this.vendorCreditLedger.balancesByVendor(tenantId);
+        if (!creditRows.length)
+            return pending;
+        const missingIds = creditRows
+            .map((row) => row.vendor_id)
+            .filter((id) => !pending.some((row) => row.vendor_id === id));
+        const extraVendors = missingIds.length
+            ? await this.vendorRepo.find({
+                where: { tenant_id: tenantId, id: (0, typeorm_2.In)(missingIds) },
+            })
+            : [];
+        const extraById = new Map(extraVendors.map((vendor) => [vendor.id, vendor]));
+        return (0, accounts_payable_currency_util_1.mergeVendorCredits)(pending, creditRows.map((row) => {
+            const fromPending = pending.find((item) => item.vendor_id === row.vendor_id);
+            const vendor = extraById.get(row.vendor_id);
+            if (term && !fromPending && vendor) {
+                const matches = vendor.name.toLowerCase().includes(term) ||
+                    (vendor.razon_social ?? '').toLowerCase().includes(term) ||
+                    (vendor.company_name ?? '').toLowerCase().includes(term);
+                if (!matches) {
+                    return {
+                        vendor_id: row.vendor_id,
+                        vendor_name: vendor.name,
+                        razon_social: vendor.razon_social,
+                        company_name: vendor.company_name,
+                        credit_limit: (0, accounts_payable_currency_util_1.parseCreditLimit)(vendor.credit_limit),
+                        credit_balance_mxn: 0,
+                        credit_balance_usd: 0,
+                    };
+                }
+            }
+            return {
+                vendor_id: row.vendor_id,
+                vendor_name: fromPending?.vendor_name ?? vendor?.name ?? 'Proveedor',
+                razon_social: fromPending?.razon_social ?? vendor?.razon_social ?? null,
+                company_name: fromPending?.company_name ?? vendor?.company_name ?? null,
+                credit_limit: fromPending?.credit_limit ?? (0, accounts_payable_currency_util_1.parseCreditLimit)(vendor?.credit_limit),
+                credit_balance_mxn: row.mxn,
+                credit_balance_usd: row.usd,
+            };
+        }));
     }
     async resolvePayableExchangeRate(tenantId) {
         const row = await this.exchangeRateService.getDailyRate(tenantId);
@@ -1047,6 +1097,7 @@ let AccountingService = class AccountingService {
                     { header: 'Proveedor', key: 'vendor', width: 36 },
                     { header: 'OC pendientes', key: 'pending_orders', width: 16, type: 'integer' },
                     { header: 'Monto adeudado', key: 'amount_pending', width: 18, type: 'currency' },
+                    { header: 'Saldo a favor', key: 'credit_balance', width: 16, type: 'currency' },
                     { header: 'Total en pesos', key: 'amount_total_mxn', width: 18, type: 'currency' },
                     { header: 'Progreso', key: 'progress', width: 14, type: 'percent' },
                 ],
@@ -1054,6 +1105,7 @@ let AccountingService = class AccountingService {
                     vendor: this.payableVendorLabel(row),
                     pending_orders: isUsd ? row.pending_order_count_usd : row.pending_order_count_mxn,
                     amount_pending: isUsd ? row.amount_pending_usd : row.amount_pending_mxn,
+                    credit_balance: isUsd ? row.credit_balance_usd : row.credit_balance_mxn,
                     amount_total_mxn: (0, accounts_payable_currency_util_1.payableTotalInMxn)(isUsd ? 0 : row.amount_pending_mxn, isUsd ? row.amount_pending_usd : 0, dailyRate.exchange_rate),
                     progress: isUsd ? row.progress_percentage_usd : row.progress_percentage_mxn,
                 })),
@@ -1067,12 +1119,16 @@ let AccountingService = class AccountingService {
             vendor: this.payableVendorLabel(row),
             orders_mxn: row.pending_order_count_mxn,
             amount_mxn: row.amount_pending_mxn,
+            credit_mxn: row.credit_balance_mxn,
             orders_usd: row.pending_order_count_usd,
             amount_usd: row.amount_pending_usd,
+            credit_usd: row.credit_balance_usd,
             amount_total_mxn: (0, accounts_payable_currency_util_1.payableTotalInMxn)(row.amount_pending_mxn, row.amount_pending_usd, dailyRate.exchange_rate),
         }));
         const totalMxn = roundPayableMoney(data.reduce((sum, row) => sum + row.amount_mxn, 0));
         const totalUsd = roundPayableMoney(data.reduce((sum, row) => sum + row.amount_usd, 0));
+        const totalCreditMxn = roundPayableMoney(data.reduce((sum, row) => sum + row.credit_mxn, 0));
+        const totalCreditUsd = roundPayableMoney(data.reduce((sum, row) => sum + row.credit_usd, 0));
         const totalInMxn = (0, accounts_payable_currency_util_1.payableTotalInMxn)(totalMxn, totalUsd, dailyRate.exchange_rate);
         return {
             sheetName: 'Ambos',
@@ -1089,8 +1145,10 @@ let AccountingService = class AccountingService {
                 { header: 'Proveedor', key: 'vendor', width: 36 },
                 { header: 'OC pesos', key: 'orders_mxn', width: 12, type: 'integer' },
                 { header: 'Adeudado en pesos', key: 'amount_mxn', width: 20, type: 'currency' },
+                { header: 'A favor pesos', key: 'credit_mxn', width: 16, type: 'currency' },
                 { header: 'OC dólares', key: 'orders_usd', width: 14, type: 'integer' },
                 { header: 'Adeudado en dólares', key: 'amount_usd', width: 20, type: 'currency' },
+                { header: 'A favor dólares', key: 'credit_usd', width: 16, type: 'currency' },
                 { header: 'Total en pesos', key: 'amount_total_mxn', width: 20, type: 'currency' },
             ],
             rows: [
@@ -1099,8 +1157,10 @@ let AccountingService = class AccountingService {
                     vendor: 'Total',
                     orders_mxn: data.reduce((sum, row) => sum + row.orders_mxn, 0),
                     amount_mxn: totalMxn,
+                    credit_mxn: totalCreditMxn,
                     orders_usd: data.reduce((sum, row) => sum + row.orders_usd, 0),
                     amount_usd: totalUsd,
+                    credit_usd: totalCreditUsd,
                     amount_total_mxn: totalInMxn,
                 },
             ],
@@ -1390,15 +1450,18 @@ exports.AccountingService = AccountingService = __decorate([
     __param(2, (0, typeorm_1.InjectRepository)(pos_daily_shift_entity_1.PosDailyShift)),
     __param(3, (0, typeorm_1.InjectRepository)(electronic_invoice_entity_1.ElectronicInvoice)),
     __param(4, (0, typeorm_1.InjectRepository)(purchase_order_batch_entity_1.PurchaseOrderBatch)),
-    __param(5, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
+    __param(5, (0, typeorm_1.InjectRepository)(vendor_entity_1.Vendor)),
+    __param(6, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
+        typeorm_2.Repository,
         pos_shifts_service_1.PosShiftsService,
-        exchange_rate_service_1.ExchangeRateService])
+        exchange_rate_service_1.ExchangeRateService,
+        vendor_credit_ledger_service_1.VendorCreditLedgerService])
 ], AccountingService);
 function roundPayableMoney(value) {
     return Number(value.toFixed(2));

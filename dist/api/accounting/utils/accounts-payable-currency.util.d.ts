@@ -32,6 +32,17 @@ export interface AccountsPayableVendorTotals {
     total_committed: number;
     progress_percentage: number;
     amount_pending_total_mxn: number | null;
+    credit_balance_mxn: number;
+    credit_balance_usd: number;
+}
+export interface VendorCreditInput {
+    vendor_id: string;
+    vendor_name: string;
+    razon_social: string | null;
+    company_name: string | null;
+    credit_limit: number | null;
+    credit_balance_mxn: number;
+    credit_balance_usd: number;
 }
 export interface AccountsPayableCurrencySummary {
     currency: PayableCurrencyView;
@@ -44,10 +55,13 @@ export interface AccountsPayableCurrencySummary {
     exchange_rate: number | null;
     exchange_rate_date: string | null;
     total_amount_pending_total_mxn: number | null;
+    total_credit_balance_mxn: number;
+    total_credit_balance_usd: number;
 }
 export declare function normalizePayableCurrency(value: string | null | undefined): PayableCurrencyCode;
 export declare function parseCreditLimit(value: string | number | null | undefined): number | null;
 export declare function aggregatePayableVendors(orders: PayableOrderInput[]): AccountsPayableVendorTotals[];
+export declare function mergeVendorCredits(rows: AccountsPayableVendorTotals[], credits: VendorCreditInput[]): AccountsPayableVendorTotals[];
 export declare function filterPayableVendors(rows: AccountsPayableVendorTotals[], view: PayableCurrencyView): AccountsPayableVendorTotals[];
 export declare function sortPayableVendors(rows: AccountsPayableVendorTotals[], view: PayableCurrencyView): AccountsPayableVendorTotals[];
 export declare function summarizePayableVendors(rows: AccountsPayableVendorTotals[], view: PayableCurrencyView): AccountsPayableCurrencySummary;

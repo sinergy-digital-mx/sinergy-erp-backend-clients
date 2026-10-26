@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.normalizePayableCurrency = normalizePayableCurrency;
 exports.parseCreditLimit = parseCreditLimit;
 exports.aggregatePayableVendors = aggregatePayableVendors;
+exports.mergeVendorCredits = mergeVendorCredits;
 exports.filterPayableVendors = filterPayableVendors;
 exports.sortPayableVendors = sortPayableVendors;
 exports.summarizePayableVendors = summarizePayableVendors;
@@ -42,12 +43,44 @@ function aggregatePayableVendors(orders) {
     }
     return Array.from(vendorMap.values()).map((draft) => toVendorRow(draft));
 }
+function mergeVendorCredits(rows, credits) {
+    const map = new Map(rows.map((row) => [row.vendor_id, { ...row }]));
+    for (const credit of credits) {
+        const current = map.get(credit.vendor_id);
+        if (current) {
+            current.credit_balance_mxn = roundMoney(credit.credit_balance_mxn);
+            current.credit_balance_usd = roundMoney(credit.credit_balance_usd);
+            map.set(credit.vendor_id, current);
+            continue;
+        }
+        if (credit.credit_balance_mxn <= 0 && credit.credit_balance_usd <= 0)
+            continue;
+        map.set(credit.vendor_id, toVendorRow({
+            vendor_id: credit.vendor_id,
+            vendor_name: credit.vendor_name,
+            razon_social: credit.razon_social,
+            company_name: credit.company_name,
+            credit_limit: parseCreditLimit(credit.credit_limit),
+            mxn: emptyBucket(),
+            usd: emptyBucket(),
+        }, {
+            mxn: roundMoney(credit.credit_balance_mxn),
+            usd: roundMoney(credit.credit_balance_usd),
+        }));
+    }
+    return Array.from(map.values());
+}
 function filterPayableVendors(rows, view) {
-    if (view === 'mxn')
-        return rows.filter((row) => row.amount_pending_mxn > 0);
-    if (view === 'usd')
-        return rows.filter((row) => row.amount_pending_usd > 0);
-    return rows.filter((row) => row.amount_pending_mxn > 0 || row.amount_pending_usd > 0);
+    if (view === 'mxn') {
+        return rows.filter((row) => row.amount_pending_mxn > 0 || row.credit_balance_mxn > 0);
+    }
+    if (view === 'usd') {
+        return rows.filter((row) => row.amount_pending_usd > 0 || row.credit_balance_usd > 0);
+    }
+    return rows.filter((row) => row.amount_pending_mxn > 0 ||
+        row.amount_pending_usd > 0 ||
+        row.credit_balance_mxn > 0 ||
+        row.credit_balance_usd > 0);
 }
 function sortPayableVendors(rows, view) {
     return [...rows].sort((a, b) => {
@@ -73,6 +106,8 @@ function summarizePayableVendors(rows, view) {
         exchange_rate: null,
         exchange_rate_date: null,
         total_amount_pending_total_mxn: sumPayableTotals(rows),
+        total_credit_balance_mxn: roundMoney(rows.reduce((sum, row) => sum + row.credit_balance_mxn, 0)),
+        total_credit_balance_usd: roundMoney(rows.reduce((sum, row) => sum + row.credit_balance_usd, 0)),
     };
 }
 function normalizeExchangeRate(value) {
@@ -109,7 +144,7 @@ function summarizePayableWithRate(rows, view, exchangeRate, exchangeRateDate) {
         total_amount_pending_total_mxn: sumPayableTotals(rated),
     };
 }
-function toVendorRow(draft) {
+function toVendorRow(draft, credit = { mxn: 0, usd: 0 }) {
     const mxnPending = roundMoney(draft.mxn.amount_pending);
     const mxnPaid = roundMoney(draft.mxn.amount_paid);
     const mxnCommitted = roundMoney(draft.mxn.total_committed);
@@ -140,6 +175,8 @@ function toVendorRow(draft) {
         total_committed: mxnCommitted,
         progress_percentage: progressMxn,
         amount_pending_total_mxn: null,
+        credit_balance_mxn: roundMoney(credit.mxn),
+        credit_balance_usd: roundMoney(credit.usd),
     };
 }
 function sumPayableTotals(rows) {

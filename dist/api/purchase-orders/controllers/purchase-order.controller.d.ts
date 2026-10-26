@@ -36,13 +36,18 @@ export declare class PurchaseOrderController {
         total: number;
     }>;
     createPayment(id: string, dto: CreatePurchaseOrderPaymentDto, req: any): Promise<{
-        payment: import("../../../entities/purchase-orders").PurchaseOrderPayment;
+        payment: import("../../../entities/purchase-orders").PurchaseOrderPayment | null;
         summary: {
             amount_paid: number;
             amount_pending: number;
             payment_status: string;
             currency: string;
         };
+        credit_created: {
+            amount: number;
+            currency: string;
+            balance_after: number;
+        } | null;
     }>;
     deletePayment(id: string, paymentId: string, req: any): Promise<{
         success: true;

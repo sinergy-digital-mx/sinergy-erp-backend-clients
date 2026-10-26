@@ -15,6 +15,7 @@ import { UpdatePurchaseOrderPedimentoDto } from '../dto/update-purchase-order-pe
 import { UpdatePurchaseOrderVendorInvoiceDto } from '../dto/update-purchase-order-vendor-invoice.dto';
 import { UpdatePurchaseOrderRealCostDto } from '../dto/update-purchase-order-real-cost.dto';
 import { PurchaseOrderRealCostService } from './purchase-order-real-cost.service';
+import { VendorCreditLedgerService } from '../../vendor/services/vendor-credit-ledger.service';
 import { UnitConversionService } from './unit-conversion.service';
 import { BatchNumberGeneratorService } from './batch-number-generator.service';
 import { FolioGeneratorService } from './folio-generator.service';
@@ -65,10 +66,11 @@ export declare class PurchaseOrderService {
     private readonly activityService;
     private readonly realCostService;
     private readonly reversalService;
+    private readonly vendorCreditLedger;
     private readonly dataSource;
     private static readonly DOC_TYPE_DOCUMENTO_ORIGINAL;
     private static readonly DOC_TYPE_RECEPCION;
-    constructor(purchaseOrderBatchRepository: Repository<PurchaseOrderBatch>, purchaseOrderDetailRepository: Repository<PurchaseOrderBatchDetail>, inventoryBatchRepository: Repository<InventoryBatch>, purchaseOrderPaymentRepository: Repository<PurchaseOrderPayment>, warehouseRepository: Repository<Warehouse>, vendorRepository: Repository<Vendor>, unitConversionService: UnitConversionService, batchNumberGenerator: BatchNumberGeneratorService, folioGenerator: FolioGeneratorService, pdfService: PurchaseOrderPdfService, documentsService: PurchaseOrderDocumentsService, lotsService: PurchaseOrderLotsService, activityService: PurchaseOrderActivityService, realCostService: PurchaseOrderRealCostService, reversalService: PurchaseOrderReversalService, dataSource: DataSource);
+    constructor(purchaseOrderBatchRepository: Repository<PurchaseOrderBatch>, purchaseOrderDetailRepository: Repository<PurchaseOrderBatchDetail>, inventoryBatchRepository: Repository<InventoryBatch>, purchaseOrderPaymentRepository: Repository<PurchaseOrderPayment>, warehouseRepository: Repository<Warehouse>, vendorRepository: Repository<Vendor>, unitConversionService: UnitConversionService, batchNumberGenerator: BatchNumberGeneratorService, folioGenerator: FolioGeneratorService, pdfService: PurchaseOrderPdfService, documentsService: PurchaseOrderDocumentsService, lotsService: PurchaseOrderLotsService, activityService: PurchaseOrderActivityService, realCostService: PurchaseOrderRealCostService, reversalService: PurchaseOrderReversalService, vendorCreditLedger: VendorCreditLedgerService, dataSource: DataSource);
     private deleteDocumentsByType;
     private normalizeCurrency;
     private throwMixedCurrency;
@@ -111,13 +113,18 @@ export declare class PurchaseOrderService {
     }>;
     private getPaymentsForOrder;
     createPayment(purchaseOrderId: string, dto: CreatePurchaseOrderPaymentDto, tenantId: string, userId: string): Promise<{
-        payment: PurchaseOrderPayment;
+        payment: PurchaseOrderPayment | null;
         summary: {
             amount_paid: number;
             amount_pending: number;
             payment_status: string;
             currency: string;
         };
+        credit_created: {
+            amount: number;
+            currency: string;
+            balance_after: number;
+        } | null;
     }>;
     deletePayment(purchaseOrderId: string, paymentId: string, tenantId: string, userId: string): Promise<{
         success: true;

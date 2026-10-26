@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const vendor_service_1 = require("./vendor.service");
 const vendors_export_service_1 = require("./services/vendors-export.service");
+const vendor_credit_ledger_service_1 = require("./services/vendor-credit-ledger.service");
 const create_vendor_dto_1 = require("./dto/create-vendor.dto");
 const update_vendor_dto_1 = require("./dto/update-vendor.dto");
 const query_vendor_dto_1 = require("./dto/query-vendor.dto");
@@ -29,9 +30,11 @@ const require_permissions_decorator_1 = require("../rbac/decorators/require-perm
 let VendorController = class VendorController {
     service;
     exportService;
-    constructor(service, exportService) {
+    creditLedger;
+    constructor(service, exportService, creditLedger) {
         this.service = service;
         this.exportService = exportService;
+        this.creditLedger = creditLedger;
     }
     create(dto, req) {
         return this.service.create(dto, req.user.tenantId);
@@ -47,6 +50,9 @@ let VendorController = class VendorController {
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename="${this.exportService.getFilename()}"`);
         res.send(buffer);
+    }
+    getAccounts(id, req) {
+        return this.creditLedger.describeAccounts(req.user.tenantId, id);
     }
     findOne(id, req) {
         return this.service.findOne(id, req.user.tenantId);
@@ -121,6 +127,18 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], VendorController.prototype, "exportExcel", null);
 __decorate([
+    (0, common_1.Get)(':id/accounts'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'vendors', action: 'Read' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Dashboard de adeudo y saldo a favor del proveedor' }),
+    (0, swagger_1.ApiParam)({ name: 'id', type: 'string', description: 'Vendor ID' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Totales por moneda y kardex' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], VendorController.prototype, "getAccounts", null);
+__decorate([
     (0, common_1.Get)(':id'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'vendors', action: 'Read' }),
     (0, swagger_1.ApiOperation)({ summary: 'Get a specific vendor by ID' }),
@@ -177,6 +195,7 @@ exports.VendorController = VendorController = __decorate([
     (0, swagger_1.ApiTags)('Vendors'),
     (0, swagger_1.ApiBearerAuth)(),
     __metadata("design:paramtypes", [vendor_service_1.VendorService,
-        vendors_export_service_1.VendorsExportService])
+        vendors_export_service_1.VendorsExportService,
+        vendor_credit_ledger_service_1.VendorCreditLedgerService])
 ], VendorController);
 //# sourceMappingURL=vendor.controller.js.map

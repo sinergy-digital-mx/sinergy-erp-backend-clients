@@ -13,19 +13,22 @@ const vendor_controller_1 = require("./vendor.controller");
 const vendor_service_1 = require("./vendor.service");
 const vendors_export_service_1 = require("./services/vendors-export.service");
 const vendor_entity_1 = require("../../entities/vendor/vendor.entity");
+const vendor_credit_ledger_entity_1 = require("../../entities/vendor/vendor-credit-ledger.entity");
+const purchase_order_batch_entity_1 = require("../../entities/purchase-orders/purchase-order-batch.entity");
 const rbac_module_1 = require("../rbac/rbac.module");
+const vendor_credit_ledger_service_1 = require("./services/vendor-credit-ledger.service");
 let VendorModule = class VendorModule {
 };
 exports.VendorModule = VendorModule;
 exports.VendorModule = VendorModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            typeorm_1.TypeOrmModule.forFeature([vendor_entity_1.Vendor]),
+            typeorm_1.TypeOrmModule.forFeature([vendor_entity_1.Vendor, vendor_credit_ledger_entity_1.VendorCreditLedger, purchase_order_batch_entity_1.PurchaseOrderBatch]),
             rbac_module_1.RBACModule,
         ],
-        providers: [vendor_service_1.VendorService, vendors_export_service_1.VendorsExportService],
+        providers: [vendor_service_1.VendorService, vendors_export_service_1.VendorsExportService, vendor_credit_ledger_service_1.VendorCreditLedgerService],
         controllers: [vendor_controller_1.VendorController],
-        exports: [vendor_service_1.VendorService],
+        exports: [vendor_service_1.VendorService, vendor_credit_ledger_service_1.VendorCreditLedgerService],
     })
 ], VendorModule);
 //# sourceMappingURL=vendor.module.js.map

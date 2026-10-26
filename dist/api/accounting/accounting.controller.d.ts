@@ -327,7 +327,9 @@ export declare class AccountingController {
             razon_social: string | null;
             company_name: string | null;
             credit_limit: number | null;
-        } | null;
+        };
+        credit_balance_mxn: number;
+        credit_balance_usd: number;
         orders: {
             id: string;
             folio: string;

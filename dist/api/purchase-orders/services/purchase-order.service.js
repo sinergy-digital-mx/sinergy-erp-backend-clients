@@ -27,6 +27,8 @@ const vendor_type_enum_1 = require("../../../entities/vendor/vendor-type.enum");
 const purchase_order_real_cost_service_1 = require("./purchase-order-real-cost.service");
 const purchase_order_real_cost_util_1 = require("../utils/purchase-order-real-cost.util");
 const purchase_order_payable_total_util_1 = require("../utils/purchase-order-payable-total.util");
+const vendor_credit_ledger_service_1 = require("../../vendor/services/vendor-credit-ledger.service");
+const vendor_credit_ledger_util_1 = require("../../vendor/utils/vendor-credit-ledger.util");
 const purchase_order_vendor_invoice_util_1 = require("../utils/purchase-order-vendor-invoice.util");
 const unit_conversion_service_1 = require("./unit-conversion.service");
 const batch_number_generator_service_1 = require("./batch-number-generator.service");
@@ -59,10 +61,11 @@ let PurchaseOrderService = class PurchaseOrderService {
     activityService;
     realCostService;
     reversalService;
+    vendorCreditLedger;
     dataSource;
     static DOC_TYPE_DOCUMENTO_ORIGINAL = 1;
     static DOC_TYPE_RECEPCION = 4;
-    constructor(purchaseOrderBatchRepository, purchaseOrderDetailRepository, inventoryBatchRepository, purchaseOrderPaymentRepository, warehouseRepository, vendorRepository, unitConversionService, batchNumberGenerator, folioGenerator, pdfService, documentsService, lotsService, activityService, realCostService, reversalService, dataSource) {
+    constructor(purchaseOrderBatchRepository, purchaseOrderDetailRepository, inventoryBatchRepository, purchaseOrderPaymentRepository, warehouseRepository, vendorRepository, unitConversionService, batchNumberGenerator, folioGenerator, pdfService, documentsService, lotsService, activityService, realCostService, reversalService, vendorCreditLedger, dataSource) {
         this.purchaseOrderBatchRepository = purchaseOrderBatchRepository;
         this.purchaseOrderDetailRepository = purchaseOrderDetailRepository;
         this.inventoryBatchRepository = inventoryBatchRepository;
@@ -78,6 +81,7 @@ let PurchaseOrderService = class PurchaseOrderService {
         this.activityService = activityService;
         this.realCostService = realCostService;
         this.reversalService = reversalService;
+        this.vendorCreditLedger = vendorCreditLedger;
         this.dataSource = dataSource;
     }
     async deleteDocumentsByType(purchaseOrderId, documentTypeId) {
@@ -726,27 +730,41 @@ let PurchaseOrderService = class PurchaseOrderService {
             },
         });
         const currentSummary = this.buildPaymentSummary(purchaseOrder, existingPayments);
-        if (dto.amount > currentSummary.amount_pending) {
-            throw new common_1.BadRequestException(`El monto excede el saldo pendiente (${currentSummary.amount_pending.toFixed(2)} ${currentSummary.currency})`);
+        const split = (0, vendor_credit_ledger_util_1.splitVendorPayment)(Number(dto.amount), currentSummary.amount_pending);
+        const currency = (0, vendor_credit_ledger_util_1.normalizeVendorCreditCurrency)(dto.currency);
+        let payment = null;
+        if (split.applied > 0) {
+            payment = this.purchaseOrderPaymentRepository.create({
+                tenant_id: tenantId,
+                purchase_order_batch_id: purchaseOrderId,
+                payment_date: new Date(dto.payment_date),
+                amount: split.applied,
+                currency: dto.currency,
+                payment_method: dto.payment_method,
+                reference_number: dto.reference_number,
+                notes: dto.notes,
+                created_by: userId,
+            });
+            await this.purchaseOrderPaymentRepository.save(payment);
         }
-        const payment = this.purchaseOrderPaymentRepository.create({
-            tenant_id: tenantId,
-            purchase_order_batch_id: purchaseOrderId,
-            payment_date: new Date(dto.payment_date),
-            amount: dto.amount,
-            currency: dto.currency,
-            payment_method: dto.payment_method,
-            reference_number: dto.reference_number,
-            notes: dto.notes,
-            created_by: userId,
-        });
-        await this.purchaseOrderPaymentRepository.save(payment);
-        const updatedPayments = [...existingPayments, payment];
+        const updatedPayments = payment ? [...existingPayments, payment] : existingPayments;
         const updatedSummary = this.buildPaymentSummary(purchaseOrder, updatedPayments);
         purchaseOrder.payment_status = updatedSummary.payment_status;
         purchaseOrder.updated_by = userId;
         await this.purchaseOrderBatchRepository.save(purchaseOrder);
-        return { payment, summary: updatedSummary };
+        const creditCreated = await this.vendorCreditLedger.recordCredit({
+            tenantId,
+            vendorId: purchaseOrder.vendor_id,
+            userId,
+            amount: split.credit,
+            currency,
+            purchaseOrderId: purchaseOrder.id,
+            purchaseOrderPaymentId: payment?.id ?? null,
+            notes: purchaseOrder.folio
+                ? `Excedente de ${purchaseOrder.folio}`
+                : 'Excedente de pago',
+        });
+        return { payment, summary: updatedSummary, credit_created: creditCreated };
     }
     async deletePayment(purchaseOrderId, paymentId, tenantId, userId) {
         const purchaseOrder = await this.findOne(purchaseOrderId, tenantId);
@@ -760,7 +778,9 @@ let PurchaseOrderService = class PurchaseOrderService {
         if (!payment) {
             throw new common_1.NotFoundException(`Pago no encontrado: ${paymentId}`);
         }
+        await this.vendorCreditLedger.assertPaymentVoidable(tenantId, paymentId);
         await this.purchaseOrderPaymentRepository.remove(payment);
+        await this.vendorCreditLedger.voidByPayment(tenantId, userId, paymentId);
         const paymentData = await this.getPaymentsForOrder(purchaseOrder);
         purchaseOrder.payment_status = paymentData.summary.payment_status;
         purchaseOrder.updated_by = userId;
@@ -1421,6 +1441,7 @@ exports.PurchaseOrderService = PurchaseOrderService = PurchaseOrderService_1 = _
         purchase_order_activity_service_1.PurchaseOrderActivityService,
         purchase_order_real_cost_service_1.PurchaseOrderRealCostService,
         purchase_order_reversal_service_1.PurchaseOrderReversalService,
+        vendor_credit_ledger_service_1.VendorCreditLedgerService,
         typeorm_2.DataSource])
 ], PurchaseOrderService);
 //# sourceMappingURL=purchase-order.service.js.map

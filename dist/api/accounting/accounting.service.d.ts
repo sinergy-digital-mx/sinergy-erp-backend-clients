@@ -5,6 +5,8 @@ import { PosDailyShift } from '../../entities/pos/pos-daily-shift.entity';
 import { PosDailyShiftStatus } from '../../entities/pos/pos-daily-shift-status.enum';
 import { ElectronicInvoice } from '../../entities/electronic-invoicing/electronic-invoice.entity';
 import { PurchaseOrderBatch } from '../../entities/purchase-orders/purchase-order-batch.entity';
+import { Vendor } from '../../entities/vendor/vendor.entity';
+import { VendorCreditLedgerService } from '../vendor/services/vendor-credit-ledger.service';
 import { User } from '../../entities/users/user.entity';
 import { PosShiftsService } from '../pos-shifts/pos-shifts.service';
 import { ExchangeRateService } from '../exchange-rate/exchange-rate.service';
@@ -18,10 +20,12 @@ export declare class AccountingService {
     private readonly dailyShiftRepo;
     private readonly electronicInvoiceRepo;
     private readonly purchaseOrderRepo;
+    private readonly vendorRepo;
     private readonly userRepo;
     private readonly posShiftsService;
     private readonly exchangeRateService;
-    constructor(salesOrderRepo: Repository<SalesOrder>, collectionRepo: Repository<PosSaleCollection>, dailyShiftRepo: Repository<PosDailyShift>, electronicInvoiceRepo: Repository<ElectronicInvoice>, purchaseOrderRepo: Repository<PurchaseOrderBatch>, userRepo: Repository<User>, posShiftsService: PosShiftsService, exchangeRateService: ExchangeRateService);
+    private readonly vendorCreditLedger;
+    constructor(salesOrderRepo: Repository<SalesOrder>, collectionRepo: Repository<PosSaleCollection>, dailyShiftRepo: Repository<PosDailyShift>, electronicInvoiceRepo: Repository<ElectronicInvoice>, purchaseOrderRepo: Repository<PurchaseOrderBatch>, vendorRepo: Repository<Vendor>, userRepo: Repository<User>, posShiftsService: PosShiftsService, exchangeRateService: ExchangeRateService, vendorCreditLedger: VendorCreditLedgerService);
     getPosSummary(tenantId: string, filters: QueryAccountingBaseDto): Promise<{
         filters_applied: {
             billing_branch_id: string;
@@ -344,7 +348,9 @@ export declare class AccountingService {
             razon_social: string | null;
             company_name: string | null;
             credit_limit: number | null;
-        } | null;
+        };
+        credit_balance_mxn: number;
+        credit_balance_usd: number;
         orders: {
             id: string;
             folio: string;

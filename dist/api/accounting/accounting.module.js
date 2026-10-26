@@ -15,6 +15,8 @@ const pos_daily_shift_entity_1 = require("../../entities/pos/pos-daily-shift.ent
 const pos_partial_shift_entity_1 = require("../../entities/pos/pos-partial-shift.entity");
 const electronic_invoice_entity_1 = require("../../entities/electronic-invoicing/electronic-invoice.entity");
 const purchase_order_batch_entity_1 = require("../../entities/purchase-orders/purchase-order-batch.entity");
+const vendor_entity_1 = require("../../entities/vendor/vendor.entity");
+const vendor_module_1 = require("../vendor/vendor.module");
 const user_entity_1 = require("../../entities/users/user.entity");
 const rbac_module_1 = require("../rbac/rbac.module");
 const pos_shifts_module_1 = require("../pos-shifts/pos-shifts.module");
@@ -36,9 +38,11 @@ exports.AccountingModule = AccountingModule = __decorate([
                 pos_partial_shift_entity_1.PosPartialShift,
                 electronic_invoice_entity_1.ElectronicInvoice,
                 purchase_order_batch_entity_1.PurchaseOrderBatch,
+                vendor_entity_1.Vendor,
                 user_entity_1.User,
             ]),
             rbac_module_1.RBACModule,
+            vendor_module_1.VendorModule,
             pos_shifts_module_1.PosShiftsModule,
             exchange_rate_module_1.ExchangeRateModule,
             customer_debt_ledger_module_1.CustomerDebtLedgerModule,
