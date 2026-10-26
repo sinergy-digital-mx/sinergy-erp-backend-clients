@@ -11,7 +11,6 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-var SystemVersionsService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SystemVersionsService = exports.SYSTEM_VERSIONS_MODULE_CODE = void 0;
 const common_1 = require("@nestjs/common");
@@ -21,32 +20,15 @@ const system_version_entity_1 = require("../../entities/system-versions/system-v
 const releases_generated_1 = require("./data/releases.generated");
 const release_notes_util_1 = require("./utils/release-notes.util");
 exports.SYSTEM_VERSIONS_MODULE_CODE = 'system-versions';
-let SystemVersionsService = SystemVersionsService_1 = class SystemVersionsService {
+let SystemVersionsService = class SystemVersionsService {
     versions;
-    logger = new common_1.Logger(SystemVersionsService_1.name);
+    syncedTenants = new Set();
     constructor(versions) {
         this.versions = versions;
     }
-    async onModuleInit() {
-        try {
-            const tenants = await this.versions.query(`
-          SELECT tm.tenant_id AS tenant_id
-          FROM tenant_modules tm
-          INNER JOIN modules m ON m.id = tm.module_id
-          WHERE m.code = ? AND tm.is_enabled = 1
-        `, [exports.SYSTEM_VERSIONS_MODULE_CODE]);
-            for (const tenant of tenants) {
-                await this.syncTenant(tenant.tenant_id);
-            }
-        }
-        catch (error) {
-            const message = error instanceof Error ? error.message : 'error desconocido';
-            this.logger.warn(`No se sincronizaron las versiones: ${message}`);
-        }
-    }
     async findAll(tenantId, query) {
         await this.assertModuleEnabled(tenantId);
-        await this.syncTenant(tenantId);
+        await this.ensureCatalogOnce(tenantId);
         let page = Number(query?.page) || 1;
         let limit = Number(query?.limit) || 20;
         if (page < 1)
@@ -97,11 +79,23 @@ let SystemVersionsService = SystemVersionsService_1 = class SystemVersionsServic
             throw new common_1.ForbiddenException('El módulo de versiones no está habilitado para esta organización');
         }
     }
-    async syncTenant(tenantId) {
-        for (const release of this.catalogReleases()) {
-            await this.insertRelease(tenantId, release);
+    async ensureCatalogOnce(tenantId) {
+        if (this.syncedTenants.has(tenantId)) {
+            return;
         }
-        await this.copyPeerReleases(tenantId);
+        const releases = this.catalogReleases();
+        if (!releases.length) {
+            this.syncedTenants.add(tenantId);
+            return;
+        }
+        const existing = await this.versions.query(`SELECT release_key FROM system_versions WHERE tenant_id = ?`, [tenantId]);
+        const owned = new Set(existing.map((row) => row.release_key));
+        for (const release of releases) {
+            if (!owned.has(release.releaseKey)) {
+                await this.insertRelease(tenantId, release);
+            }
+        }
+        this.syncedTenants.add(tenantId);
     }
     catalogReleases() {
         return releases_generated_1.SYSTEM_VERSION_RELEASES.map((release) => ({
@@ -146,33 +140,6 @@ let SystemVersionsService = SystemVersionsService_1 = class SystemVersionsServic
             }
         }
     }
-    async copyPeerReleases(tenantId) {
-        try {
-            await this.versions.query(`
-          INSERT INTO system_versions (
-            id, tenant_id, release_key, version, build_id, channel, title, changes, released_at, created_at, updated_at
-          )
-          SELECT
-            UUID(), ?, src.release_key, src.version, src.build_id, src.channel,
-            src.title, src.changes, src.released_at, NOW(), NOW()
-          FROM system_versions src
-          INNER JOIN (
-            SELECT release_key, MIN(id) AS id
-            FROM system_versions
-            GROUP BY release_key
-          ) picked ON picked.id = src.id
-          WHERE NOT EXISTS (
-            SELECT 1 FROM system_versions existing
-            WHERE existing.tenant_id = ? AND existing.release_key = src.release_key
-          )
-        `, [tenantId, tenantId]);
-        }
-        catch (error) {
-            if (!this.isDuplicate(error)) {
-                throw error;
-            }
-        }
-    }
     toItem(row) {
         const released = row.released_at instanceof Date
             ? row.released_at.toISOString()
@@ -204,7 +171,7 @@ let SystemVersionsService = SystemVersionsService_1 = class SystemVersionsServic
     }
 };
 exports.SystemVersionsService = SystemVersionsService;
-exports.SystemVersionsService = SystemVersionsService = SystemVersionsService_1 = __decorate([
+exports.SystemVersionsService = SystemVersionsService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(system_version_entity_1.SystemVersion)),
     __metadata("design:paramtypes", [typeorm_2.Repository])

@@ -1,4 +1,3 @@
-import { OnModuleInit } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { SystemVersion } from '../../entities/system-versions/system-version.entity';
 import { QuerySystemVersionsDto } from './dto/query-system-versions.dto';
@@ -22,18 +21,16 @@ export interface PaginatedSystemVersions {
     hasNext: boolean;
     hasPrev: boolean;
 }
-export declare class SystemVersionsService implements OnModuleInit {
+export declare class SystemVersionsService {
     private readonly versions;
-    private readonly logger;
+    private readonly syncedTenants;
     constructor(versions: Repository<SystemVersion>);
-    onModuleInit(): Promise<void>;
     findAll(tenantId: string, query: QuerySystemVersionsDto): Promise<PaginatedSystemVersions>;
     findLatest(tenantId: string): Promise<SystemVersionItem | null>;
     private assertModuleEnabled;
-    private syncTenant;
+    private ensureCatalogOnce;
     private catalogReleases;
     private insertRelease;
-    private copyPeerReleases;
     private toItem;
     private readChanges;
     private isDuplicate;

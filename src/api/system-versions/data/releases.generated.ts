@@ -121,5 +121,23 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-10-26T23:10:21.841Z"
+  },
+  {
+    "releaseKey": "full:0.0.72:0.0.72-1793056670849",
+    "version": "0.0.72",
+    "buildId": "0.0.72-1793056670849",
+    "channel": "full",
+    "title": "Versión 0.0.72",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "Cambios en clientes"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en versiones"
+      }
+    ],
+    "releasedAt": "2026-10-26T23:17:50.849Z"
   }
 ];
