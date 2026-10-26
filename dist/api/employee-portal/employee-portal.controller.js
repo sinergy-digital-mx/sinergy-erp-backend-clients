@@ -50,6 +50,12 @@ let EmployeePortalController = class EmployeePortalController {
     cancelMyLeaveRequest(requestId) {
         return this.service.cancelMyLeaveRequest(this.getTenantId(), this.getUserId(), requestId);
     }
+    uploadMyLeaveDocument(requestId, file) {
+        return this.service.addMyLeaveDocument(this.getTenantId(), this.getUserId(), requestId, file);
+    }
+    removeMyLeaveDocument(requestId, documentId) {
+        return this.service.removeMyLeaveDocument(this.getTenantId(), this.getUserId(), requestId, documentId);
+    }
     getTenantId() {
         const tenantId = this.tenantContext.getCurrentTenantId();
         if (!tenantId) {
@@ -123,6 +129,31 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], EmployeePortalController.prototype, "cancelMyLeaveRequest", null);
+__decorate([
+    (0, common_1.Post)('me/leave-requests/:requestId/documents'),
+    (0, require_permissions_decorator_1.RequirePermission)(employee_portal_constants_1.EMPLOYEE_PORTAL_ENTITY_CODE, 'RequestLeave'),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', { limits: { fileSize: 10 * 1024 * 1024 } })),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
+    (0, swagger_1.ApiOperation)({ summary: 'Adjuntar un comprobante a mi incapacidad médica' }),
+    (0, swagger_1.ApiParam)({ name: 'requestId', type: 'string' }),
+    __param(0, (0, common_1.Param)('requestId')),
+    __param(1, (0, common_1.UploadedFile)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], EmployeePortalController.prototype, "uploadMyLeaveDocument", null);
+__decorate([
+    (0, common_1.Delete)('me/leave-requests/:requestId/documents/:documentId'),
+    (0, require_permissions_decorator_1.RequirePermission)(employee_portal_constants_1.EMPLOYEE_PORTAL_ENTITY_CODE, 'RequestLeave'),
+    (0, swagger_1.ApiOperation)({ summary: 'Quitar un comprobante de mi incapacidad médica' }),
+    (0, swagger_1.ApiParam)({ name: 'requestId', type: 'string' }),
+    (0, swagger_1.ApiParam)({ name: 'documentId', type: 'string' }),
+    __param(0, (0, common_1.Param)('requestId')),
+    __param(1, (0, common_1.Param)('documentId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], EmployeePortalController.prototype, "removeMyLeaveDocument", null);
 exports.EmployeePortalController = EmployeePortalController = __decorate([
     (0, swagger_1.ApiTags)('Employee Portal'),
     (0, swagger_1.ApiBearerAuth)(),

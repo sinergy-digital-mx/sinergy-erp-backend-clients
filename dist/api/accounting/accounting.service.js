@@ -33,6 +33,7 @@ const pos_sale_collection_mapper_1 = require("../pos-shifts/mappers/pos-sale-col
 const unclosed_shift_alert_1 = require("../pos-shifts/utils/unclosed-shift-alert");
 const sales_order_payment_entity_1 = require("../../entities/sales-orders/sales-order-payment.entity");
 const sales_order_payment_display_util_1 = require("../sales-orders/utils/sales-order-payment-display.util");
+const pos_collection_payment_totals_util_1 = require("./utils/pos-collection-payment-totals.util");
 const excel_export_util_1 = require("../../common/utils/excel-export.util");
 const accounts_payable_currency_util_1 = require("./utils/accounts-payable-currency.util");
 const accounts_receivable_currency_util_1 = require("./utils/accounts-receivable-currency.util");
@@ -313,6 +314,7 @@ let AccountingService = class AccountingService {
                 amount_collected: summary.amount_collected,
                 walk_in_count: summary.walk_in_count,
                 invoiced_count: summary.invoiced_count,
+                by_payment_method: summary.by_payment_method,
             },
             filtered_amount: filtered.amount_collected,
             data: collections.map((collection) => this.mapPosCollectionRow(collection, stampedOrderIds)),
@@ -1306,6 +1308,7 @@ let AccountingService = class AccountingService {
     async aggregatePosCollections(tenantId, filters, periodFrom, periodTo, dateBasis, customerType, search) {
         const walkInSql = this.walkInCustomerSql('customer');
         const stampedSql = this.stampedInvoiceExistsSql('so');
+        const cashMxnSql = 'COALESCE(collection.amount_cash_mxn, 0) + COALESCE(collection.amount_cash_usd, 0) * COALESCE(collection.usd_exchange_rate, 0)';
         const qb = this.collectionRepo
             .createQueryBuilder('collection')
             .innerJoin('collection.sales_order', 'so')
@@ -1314,7 +1317,15 @@ let AccountingService = class AccountingService {
             .select('COUNT(collection.id)', 'orders_collected')
             .addSelect('COALESCE(SUM(collection.order_total_mxn), 0)', 'amount_collected')
             .addSelect(`SUM(CASE WHEN ${walkInSql} AND NOT ${stampedSql} THEN 1 ELSE 0 END)`, 'walk_in_count')
-            .addSelect(`SUM(CASE WHEN ${stampedSql} THEN 1 ELSE 0 END)`, 'invoiced_count');
+            .addSelect(`SUM(CASE WHEN ${stampedSql} THEN 1 ELSE 0 END)`, 'invoiced_count')
+            .addSelect(`SUM(CASE WHEN (${cashMxnSql}) > 0 THEN 1 ELSE 0 END)`, 'cash_orders')
+            .addSelect(`COALESCE(SUM(${cashMxnSql}), 0)`, 'cash_amount')
+            .addSelect('SUM(CASE WHEN COALESCE(collection.amount_transfer_mxn, 0) > 0 THEN 1 ELSE 0 END)', 'transfer_orders')
+            .addSelect('COALESCE(SUM(collection.amount_transfer_mxn), 0)', 'transfer_amount')
+            .addSelect('SUM(CASE WHEN COALESCE(collection.amount_card_mxn, 0) > 0 THEN 1 ELSE 0 END)', 'card_orders')
+            .addSelect('COALESCE(SUM(collection.amount_card_mxn), 0)', 'card_amount')
+            .addSelect('SUM(CASE WHEN COALESCE(collection.amount_check_mxn, 0) > 0 THEN 1 ELSE 0 END)', 'check_orders')
+            .addSelect('COALESCE(SUM(collection.amount_check_mxn), 0)', 'check_amount');
         this.applyPosCollectionScope(qb, tenantId, filters.billing_branch_id, periodFrom, periodTo, dateBasis, customerType, search);
         qb.setParameter('walkInFiscal', WALK_IN_FISCAL_NAME).setParameter('walkInName', WALK_IN_DISPLAY_NAME);
         const row = await qb.getRawOne();
@@ -1323,6 +1334,9 @@ let AccountingService = class AccountingService {
             amount_collected: Number(Number(row?.amount_collected || 0).toFixed(2)),
             walk_in_count: Number(row?.walk_in_count || 0),
             invoiced_count: Number(row?.invoiced_count || 0),
+            by_payment_method: row
+                ? (0, pos_collection_payment_totals_util_1.buildPaymentMethodTotals)(row)
+                : (0, pos_collection_payment_totals_util_1.emptyPaymentMethodTotals)(),
         };
     }
     applyPosCollectionScope(qb, tenantId, branchId, periodFrom, periodTo, dateBasis, customerType, search) {

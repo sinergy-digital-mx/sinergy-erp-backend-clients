@@ -12,6 +12,7 @@ import { PosShiftsService } from '../pos-shifts/pos-shifts.service';
 import { ExchangeRateService } from '../exchange-rate/exchange-rate.service';
 import { AccountingReportPeriod, PosCollectionCustomerType, PosCollectionDateBasis, QueryAccountsPayableDto, QueryAccountsReceivableDto, QueryAccountingBaseDto, QueryPosCollectionsDto, QueryPosTerminalSalesDto } from './dto/query-accounting-base.dto';
 import { PosSalePaymentMethod } from '../../entities/pos/pos-sale-payment-method.enum';
+import { PosCollectionPaymentMethodTotals } from './utils/pos-collection-payment-totals.util';
 import { AccountsPayableVendorTotals } from './utils/accounts-payable-currency.util';
 import { AccountsReceivableAccountTotals } from './utils/accounts-receivable-currency.util';
 export declare class AccountingService {
@@ -127,6 +128,7 @@ export declare class AccountingService {
             amount_collected: number;
             walk_in_count: number;
             invoiced_count: number;
+            by_payment_method: PosCollectionPaymentMethodTotals;
         };
         filtered_amount: number;
         data: {

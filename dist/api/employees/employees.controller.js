@@ -99,6 +99,14 @@ let EmployeesController = class EmployeesController {
         }
         return this.leaveService.cancel(scope.tenantId, requestId, ownEmployeeId);
     }
+    async uploadLeaveDocument(requestId, file) {
+        const ownerEmployeeId = await this.ownerEmployeeIdUnlessCanManage();
+        return this.leaveService.addDocument(this.getTenantId(), requestId, file, this.tenantContext.getCurrentUserId(), ownerEmployeeId);
+    }
+    async removeLeaveDocument(requestId, documentId) {
+        const ownerEmployeeId = await this.ownerEmployeeIdUnlessCanManage();
+        return this.leaveService.removeDocument(this.getTenantId(), requestId, documentId, ownerEmployeeId);
+    }
     getTenantId() {
         const tenantId = this.tenantContext.getCurrentTenantId();
         if (!tenantId) {
@@ -113,6 +121,21 @@ let EmployeesController = class EmployeesController {
             ? await this.permissionService.hasPermission(userId, tenantId, employees_constants_1.EMPLOYEES_ENTITY_CODE, 'Read')
             : false;
         return { tenantId, userId, seeAll };
+    }
+    async ownerEmployeeIdUnlessCanManage() {
+        const scope = await this.getScope();
+        if (!scope.userId) {
+            return '00000000-0000-0000-0000-000000000000';
+        }
+        const [canUpdate, canManage] = await Promise.all([
+            this.permissionService.hasPermission(scope.userId, scope.tenantId, employees_constants_1.EMPLOYEES_ENTITY_CODE, 'Update'),
+            this.permissionService.hasPermission(scope.userId, scope.tenantId, employees_constants_1.EMPLOYEES_ENTITY_CODE, 'ManageLeave'),
+        ]);
+        if (canUpdate || canManage) {
+            return undefined;
+        }
+        const own = await this.employeesService.findEntityByUser(scope.tenantId, scope.userId);
+        return own?.id ?? '00000000-0000-0000-0000-000000000000';
     }
 };
 exports.EmployeesController = EmployeesController;
@@ -253,6 +276,31 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], EmployeesController.prototype, "cancelLeaveRequest", null);
+__decorate([
+    (0, common_1.Post)('leave-requests/:requestId/documents'),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: employees_constants_1.EMPLOYEES_ENTITY_CODE, action: 'Update' }, { entityType: employees_constants_1.EMPLOYEES_ENTITY_CODE, action: 'ManageLeave' }, { entityType: employees_constants_1.EMPLOYEES_ENTITY_CODE, action: 'ViewOwn' }),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file', { limits: { fileSize: 10 * 1024 * 1024 } })),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
+    (0, swagger_1.ApiOperation)({ summary: 'Adjuntar un comprobante médico a una incapacidad' }),
+    (0, swagger_1.ApiParam)({ name: 'requestId', type: 'string' }),
+    __param(0, (0, common_1.Param)('requestId')),
+    __param(1, (0, common_1.UploadedFile)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], EmployeesController.prototype, "uploadLeaveDocument", null);
+__decorate([
+    (0, common_1.Delete)('leave-requests/:requestId/documents/:documentId'),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: employees_constants_1.EMPLOYEES_ENTITY_CODE, action: 'Update' }, { entityType: employees_constants_1.EMPLOYEES_ENTITY_CODE, action: 'ManageLeave' }, { entityType: employees_constants_1.EMPLOYEES_ENTITY_CODE, action: 'ViewOwn' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Quitar un comprobante médico de una incapacidad' }),
+    (0, swagger_1.ApiParam)({ name: 'requestId', type: 'string' }),
+    (0, swagger_1.ApiParam)({ name: 'documentId', type: 'string' }),
+    __param(0, (0, common_1.Param)('requestId')),
+    __param(1, (0, common_1.Param)('documentId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], EmployeesController.prototype, "removeLeaveDocument", null);
 exports.EmployeesController = EmployeesController = __decorate([
     (0, swagger_1.ApiTags)('Employees'),
     (0, swagger_1.ApiBearerAuth)(),

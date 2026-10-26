@@ -5,7 +5,7 @@ export declare class S3Service {
     uploadFile(tenantId: string, entityId: number | string, documentType: string, file: Buffer, fileName: string, mimeType: string): Promise<string>;
     uploadEntityFile(tenantId: string, entityType: string, entityId: number | string, documentType: string, file: Buffer, fileName: string, mimeType: string): Promise<string>;
     private toSafePathSegment;
-    getSignedUrl(s3Key: string, expiresIn?: number): Promise<string>;
+    getSignedUrl(s3Key: string, expiresIn?: number, downloadName?: string): Promise<string>;
     getFileBuffer(s3Key: string): Promise<Buffer>;
     getFile(s3Key: string): Promise<{
         buffer: Buffer;

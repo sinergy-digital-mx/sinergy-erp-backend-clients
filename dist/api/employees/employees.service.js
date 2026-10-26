@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EmployeesService = void 0;
 exports.mapLeaveRequest = mapLeaveRequest;
+exports.presentLeaveRequest = presentLeaveRequest;
 const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
@@ -26,6 +27,7 @@ const leave_type_enum_1 = require("../../entities/employees/leave-type.enum");
 const leave_status_enum_1 = require("../../entities/employees/leave-status.enum");
 const s3_service_1 = require("../../common/services/s3.service");
 const mexican_labor_law_1 = require("./utils/mexican-labor-law");
+const sick_leave_year_util_1 = require("./utils/sick-leave-year.util");
 let EmployeesService = class EmployeesService {
     employeeRepo;
     leaveRepo;
@@ -293,9 +295,12 @@ let EmployeesService = class EmployeesService {
         if (opts.withRequests) {
             const requests = await this.leaveRepo.find({
                 where: { employee_id: employee.id },
+                relations: { documents: true },
                 order: { created_at: 'DESC' },
             });
-            return { ...base, leave_requests: requests.map(mapLeaveRequest) };
+            const leaveRequests = await Promise.all(requests.map((request) => presentLeaveRequest(request, this.s3Service)));
+            const sickLeave = (0, sick_leave_year_util_1.summarizeSickLeaveYear)(requests.filter((request) => request.type === leave_type_enum_1.LeaveType.SICK_LEAVE), (0, sick_leave_year_util_1.calendarYearInMexico)());
+            return { ...base, sick_leave: sickLeave, leave_requests: leaveRequests };
         }
         return base;
     }
@@ -352,6 +357,25 @@ function mapLeaveRequest(request) {
         created_by: request.created_by,
         created_at: request.created_at,
         updated_at: request.updated_at,
+    };
+}
+const MEDICAL_URL_TTL_SECONDS = 6 * 60 * 60;
+async function presentLeaveRequest(request, s3) {
+    const documents = [...(request.documents ?? [])].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    return {
+        ...mapLeaveRequest(request),
+        documents: await Promise.all(documents.map(async (document) => ({
+            id: document.id,
+            file_name: document.file_name,
+            mime_type: document.mime_type,
+            file_size: document.file_size != null ? Number(document.file_size) : null,
+            url: document.s3_key
+                ? await s3
+                    .getSignedUrl(document.s3_key, MEDICAL_URL_TTL_SECONDS, document.file_name)
+                    .catch(() => null)
+                : null,
+            created_at: document.created_at,
+        }))),
     };
 }
 //# sourceMappingURL=employees.service.js.map

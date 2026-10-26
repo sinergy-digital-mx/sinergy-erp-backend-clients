@@ -13,6 +13,7 @@ exports.EmployeeLeaveRequest = void 0;
 const typeorm_1 = require("typeorm");
 const tenant_entity_1 = require("../rbac/tenant.entity");
 const employee_entity_1 = require("./employee.entity");
+const employee_leave_document_entity_1 = require("./employee-leave-document.entity");
 const leave_type_enum_1 = require("./leave-type.enum");
 const leave_status_enum_1 = require("./leave-status.enum");
 let EmployeeLeaveRequest = class EmployeeLeaveRequest {
@@ -32,6 +33,7 @@ let EmployeeLeaveRequest = class EmployeeLeaveRequest {
     reviewed_by;
     reviewed_at;
     review_notes;
+    documents;
     created_at;
     updated_at;
 };
@@ -105,6 +107,10 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 500, nullable: true }),
     __metadata("design:type", Object)
 ], EmployeeLeaveRequest.prototype, "review_notes", void 0);
+__decorate([
+    (0, typeorm_1.OneToMany)(() => employee_leave_document_entity_1.EmployeeLeaveDocument, (document) => document.leave_request),
+    __metadata("design:type", Array)
+], EmployeeLeaveRequest.prototype, "documents", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)({ type: 'timestamp' }),
     __metadata("design:type", Date)

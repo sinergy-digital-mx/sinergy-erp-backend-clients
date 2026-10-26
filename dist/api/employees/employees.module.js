@@ -11,6 +11,7 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const employee_entity_1 = require("../../entities/employees/employee.entity");
 const employee_leave_request_entity_1 = require("../../entities/employees/employee-leave-request.entity");
+const employee_leave_document_entity_1 = require("../../entities/employees/employee-leave-document.entity");
 const user_entity_1 = require("../../entities/users/user.entity");
 const rbac_module_1 = require("../rbac/rbac.module");
 const s3_service_1 = require("../../common/services/s3.service");
@@ -23,7 +24,12 @@ exports.EmployeesModule = EmployeesModule;
 exports.EmployeesModule = EmployeesModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            typeorm_1.TypeOrmModule.forFeature([employee_entity_1.Employee, employee_leave_request_entity_1.EmployeeLeaveRequest, user_entity_1.User]),
+            typeorm_1.TypeOrmModule.forFeature([
+                employee_entity_1.Employee,
+                employee_leave_request_entity_1.EmployeeLeaveRequest,
+                employee_leave_document_entity_1.EmployeeLeaveDocument,
+                user_entity_1.User,
+            ]),
             rbac_module_1.RBACModule,
         ],
         controllers: [employees_controller_1.EmployeesController],

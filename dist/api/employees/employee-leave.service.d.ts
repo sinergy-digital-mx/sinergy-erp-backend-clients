@@ -1,19 +1,32 @@
 import { Repository } from 'typeorm';
 import { Employee } from '../../entities/employees/employee.entity';
 import { EmployeeLeaveRequest } from '../../entities/employees/employee-leave-request.entity';
+import { EmployeeLeaveDocument } from '../../entities/employees/employee-leave-document.entity';
 import { LeaveType } from '../../entities/employees/leave-type.enum';
 import { LeaveStatus } from '../../entities/employees/leave-status.enum';
+import { S3Service } from '../../common/services/s3.service';
 import { CreateLeaveRequestDto } from './dto/create-leave-request.dto';
 import { ReviewLeaveRequestDto } from './dto/review-leave-request.dto';
 import { QueryLeaveRequestDto } from './dto/query-leave-request.dto';
 import { EmployeesService } from './employees.service';
 import { UpdateLeaveRequestDto } from './dto/update-leave-request.dto';
+import { UploadLike } from './utils/medical-certificate.util';
 export declare class EmployeeLeaveService {
     private readonly leaveRepo;
     private readonly employeeRepo;
+    private readonly documentRepo;
     private readonly employeesService;
-    constructor(leaveRepo: Repository<EmployeeLeaveRequest>, employeeRepo: Repository<Employee>, employeesService: EmployeesService);
+    private readonly s3Service;
+    constructor(leaveRepo: Repository<EmployeeLeaveRequest>, employeeRepo: Repository<Employee>, documentRepo: Repository<EmployeeLeaveDocument>, employeesService: EmployeesService, s3Service: S3Service);
     create(tenantId: string, employeeId: string, dto: CreateLeaveRequestDto, createdBy: string | null): Promise<{
+        documents: {
+            id: string;
+            file_name: string;
+            mime_type: string | null;
+            file_size: number | null;
+            url: string | null;
+            created_at: Date;
+        }[];
         id: string;
         employee_id: string;
         type: LeaveType;
@@ -39,6 +52,14 @@ export declare class EmployeeLeaveService {
                 last_name: string;
                 email: string | null;
             } | null;
+            documents: {
+                id: string;
+                file_name: string;
+                mime_type: string | null;
+                file_size: number | null;
+                url: string | null;
+                created_at: Date;
+            }[];
             id: string;
             employee_id: string;
             type: LeaveType;
@@ -71,6 +92,14 @@ export declare class EmployeeLeaveService {
                 last_name: string;
                 email: string | null;
             } | null;
+            documents: {
+                id: string;
+                file_name: string;
+                mime_type: string | null;
+                file_size: number | null;
+                url: string | null;
+                created_at: Date;
+            }[];
             id: string;
             employee_id: string;
             type: LeaveType;
@@ -97,6 +126,14 @@ export declare class EmployeeLeaveService {
     private paginate;
     findOne(tenantId: string, id: string): Promise<EmployeeLeaveRequest>;
     review(tenantId: string, id: string, dto: ReviewLeaveRequestDto, reviewerId: string | null): Promise<{
+        documents: {
+            id: string;
+            file_name: string;
+            mime_type: string | null;
+            file_size: number | null;
+            url: string | null;
+            created_at: Date;
+        }[];
         id: string;
         employee_id: string;
         type: LeaveType;
@@ -114,6 +151,14 @@ export declare class EmployeeLeaveService {
         updated_at: Date;
     }>;
     cancel(tenantId: string, id: string, requesterEmployeeId?: string): Promise<{
+        documents: {
+            id: string;
+            file_name: string;
+            mime_type: string | null;
+            file_size: number | null;
+            url: string | null;
+            created_at: Date;
+        }[];
         id: string;
         employee_id: string;
         type: LeaveType;
@@ -131,6 +176,14 @@ export declare class EmployeeLeaveService {
         updated_at: Date;
     }>;
     update(tenantId: string, id: string, dto: UpdateLeaveRequestDto): Promise<{
+        documents: {
+            id: string;
+            file_name: string;
+            mime_type: string | null;
+            file_size: number | null;
+            url: string | null;
+            created_at: Date;
+        }[];
         id: string;
         employee_id: string;
         type: LeaveType;
@@ -147,5 +200,58 @@ export declare class EmployeeLeaveService {
         created_at: Date;
         updated_at: Date;
     }>;
+    addDocument(tenantId: string, requestId: string, file: UploadLike | null | undefined, uploadedBy: string | null, ownerEmployeeId?: string): Promise<{
+        documents: {
+            id: string;
+            file_name: string;
+            mime_type: string | null;
+            file_size: number | null;
+            url: string | null;
+            created_at: Date;
+        }[];
+        id: string;
+        employee_id: string;
+        type: LeaveType;
+        start_date: string;
+        end_date: string;
+        days: number;
+        reason: string | null;
+        status: LeaveStatus;
+        is_paid: boolean;
+        reviewed_by: string | null;
+        reviewed_at: Date | null;
+        review_notes: string | null;
+        created_by: string | null;
+        created_at: Date;
+        updated_at: Date;
+    }>;
+    removeDocument(tenantId: string, requestId: string, documentId: string, ownerEmployeeId?: string): Promise<{
+        documents: {
+            id: string;
+            file_name: string;
+            mime_type: string | null;
+            file_size: number | null;
+            url: string | null;
+            created_at: Date;
+        }[];
+        id: string;
+        employee_id: string;
+        type: LeaveType;
+        start_date: string;
+        end_date: string;
+        days: number;
+        reason: string | null;
+        status: LeaveStatus;
+        is_paid: boolean;
+        reviewed_by: string | null;
+        reviewed_at: Date | null;
+        review_notes: string | null;
+        created_by: string | null;
+        created_at: Date;
+        updated_at: Date;
+    }>;
+    private assertSickLeaveOpen;
+    private attachDocuments;
+    private present;
     private resolveDays;
 }

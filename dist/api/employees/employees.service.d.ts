@@ -55,7 +55,16 @@ export declare class EmployeesService {
         created_at: Date;
         updated_at: Date;
     } | {
+        sick_leave: import("./utils/sick-leave-year.util").SickLeaveYearSummary;
         leave_requests: {
+            documents: {
+                id: string;
+                file_name: string;
+                mime_type: string | null;
+                file_size: number | null;
+                url: string | null;
+                created_at: Date;
+            }[];
             id: string;
             employee_id: string;
             type: LeaveType;
@@ -154,7 +163,16 @@ export declare class EmployeesService {
             created_at: Date;
             updated_at: Date;
         } | {
+            sick_leave: import("./utils/sick-leave-year.util").SickLeaveYearSummary;
             leave_requests: {
+                documents: {
+                    id: string;
+                    file_name: string;
+                    mime_type: string | null;
+                    file_size: number | null;
+                    url: string | null;
+                    created_at: Date;
+                }[];
                 id: string;
                 employee_id: string;
                 type: LeaveType;
@@ -256,7 +274,16 @@ export declare class EmployeesService {
         created_at: Date;
         updated_at: Date;
     } | {
+        sick_leave: import("./utils/sick-leave-year.util").SickLeaveYearSummary;
         leave_requests: {
+            documents: {
+                id: string;
+                file_name: string;
+                mime_type: string | null;
+                file_size: number | null;
+                url: string | null;
+                created_at: Date;
+            }[];
             id: string;
             employee_id: string;
             type: LeaveType;
@@ -354,7 +381,16 @@ export declare class EmployeesService {
         created_at: Date;
         updated_at: Date;
     } | {
+        sick_leave: import("./utils/sick-leave-year.util").SickLeaveYearSummary;
         leave_requests: {
+            documents: {
+                id: string;
+                file_name: string;
+                mime_type: string | null;
+                file_size: number | null;
+                url: string | null;
+                created_at: Date;
+            }[];
             id: string;
             employee_id: string;
             type: LeaveType;
@@ -447,7 +483,16 @@ export declare class EmployeesService {
         created_at: Date;
         updated_at: Date;
     } | {
+        sick_leave: import("./utils/sick-leave-year.util").SickLeaveYearSummary;
         leave_requests: {
+            documents: {
+                id: string;
+                file_name: string;
+                mime_type: string | null;
+                file_size: number | null;
+                url: string | null;
+                created_at: Date;
+            }[];
             id: string;
             employee_id: string;
             type: LeaveType;
@@ -543,7 +588,16 @@ export declare class EmployeesService {
         created_at: Date;
         updated_at: Date;
     } | {
+        sick_leave: import("./utils/sick-leave-year.util").SickLeaveYearSummary;
         leave_requests: {
+            documents: {
+                id: string;
+                file_name: string;
+                mime_type: string | null;
+                file_size: number | null;
+                url: string | null;
+                created_at: Date;
+            }[];
             id: string;
             employee_id: string;
             type: LeaveType;
@@ -616,3 +670,28 @@ export declare function mapLeaveRequest(request: EmployeeLeaveRequest): {
     created_at: Date;
     updated_at: Date;
 };
+export declare function presentLeaveRequest(request: EmployeeLeaveRequest, s3: S3Service): Promise<{
+    documents: {
+        id: string;
+        file_name: string;
+        mime_type: string | null;
+        file_size: number | null;
+        url: string | null;
+        created_at: Date;
+    }[];
+    id: string;
+    employee_id: string;
+    type: LeaveType;
+    start_date: string;
+    end_date: string;
+    days: number;
+    reason: string | null;
+    status: LeaveStatus;
+    is_paid: boolean;
+    reviewed_by: string | null;
+    reviewed_at: Date | null;
+    review_notes: string | null;
+    created_by: string | null;
+    created_at: Date;
+    updated_at: Date;
+}>;

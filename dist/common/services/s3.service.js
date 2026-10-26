@@ -67,11 +67,14 @@ let S3Service = class S3Service {
             .replace(/[^a-z0-9_-]+/g, '_')
             .replace(/^_+|_+$/g, '') || 'unknown';
     }
-    async getSignedUrl(s3Key, expiresIn = 3600) {
+    async getSignedUrl(s3Key, expiresIn = 3600, downloadName) {
         try {
             const command = new client_s3_1.GetObjectCommand({
                 Bucket: this.bucketName,
                 Key: s3Key,
+                ...(downloadName
+                    ? { ResponseContentDisposition: contentDispositionInline(downloadName) }
+                    : {}),
             });
             return (0, s3_request_presigner_1.getSignedUrl)(this.s3Client, command, { expiresIn });
         }
@@ -139,4 +142,8 @@ exports.S3Service = S3Service = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [])
 ], S3Service);
+function contentDispositionInline(fileName) {
+    const ascii = fileName.replace(/[^\w.\- ]+/g, '_').slice(0, 180) || 'comprobante';
+    return `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
+}
 //# sourceMappingURL=s3.service.js.map

@@ -22,6 +22,7 @@ const contract_number_util_1 = require("../contracts/contract-number.util");
 const measurement_unit_entity_1 = require("../../entities/properties/measurement-unit.entity");
 const customer_groups_service_1 = require("../customers/customer-groups.service");
 const property_pricing_util_1 = require("./utils/property-pricing.util");
+const property_lot_lookup_util_1 = require("./utils/property-lot-lookup.util");
 const contract_currency_util_1 = require("../contracts/contract-currency.util");
 let PropertiesService = class PropertiesService {
     propertyRepo;
@@ -115,6 +116,35 @@ let PropertiesService = class PropertiesService {
         const totalPages = Math.ceil(total / limit);
         return {
             data,
+            total,
+            page,
+            limit,
+            totalPages,
+            hasNext: page < totalPages,
+            hasPrev: page > 1,
+        };
+    }
+    async findLotLookup(tenantId, filters = {}, page = 1, limit = 20) {
+        if (page < 1)
+            page = 1;
+        if (limit < 1)
+            limit = 1;
+        if (limit > 100)
+            limit = 100;
+        const skip = (page - 1) * limit;
+        const query = this.propertyRepo
+            .createQueryBuilder('p')
+            .where('p.tenant_id = :tenantId', { tenantId });
+        this.applyPropertyListFilters(query, filters, { lotFieldsOnly: true });
+        const total = await query.getCount();
+        const properties = await query
+            .orderBy('p.code', 'ASC')
+            .skip(skip)
+            .take(limit)
+            .getMany();
+        const totalPages = Math.ceil(total / limit);
+        return {
+            data: properties.map((property) => (0, property_lot_lookup_util_1.toPropertyLotLookup)(property)),
             total,
             page,
             limit,
@@ -305,7 +335,7 @@ let PropertiesService = class PropertiesService {
             avg_price_per_m2: area > 0 ? (0, property_pricing_util_1.roundMoney)(value / area) : 0,
         };
     }
-    applyPropertyListFilters(query, filters) {
+    applyPropertyListFilters(query, filters, options) {
         if (filters.group_id) {
             query.andWhere('p.group_id = :group_id', { group_id: filters.group_id });
         }
@@ -313,11 +343,14 @@ let PropertiesService = class PropertiesService {
             query.andWhere('p.status = :status', { status: filters.status });
         }
         if (filters.search) {
-            query.andWhere(`(
+            const lotMatch = `
           LOWER(p.code) LIKE LOWER(:search)
           OR LOWER(p.name) LIKE LOWER(:search)
           OR LOWER(p.block) LIKE LOWER(:search)
-          OR LOWER(p.lot_number) LIKE LOWER(:search)
+          OR LOWER(p.lot_number) LIKE LOWER(:search)`;
+            const extendedMatch = options?.lotFieldsOnly
+                ? ''
+                : `
           OR LOWER(p.cadastral_key) LIKE LOWER(:search)
           OR LOWER(p.location) LIKE LOWER(:search)
           OR LOWER(p.description) LIKE LOWER(:search)
@@ -330,8 +363,8 @@ let PropertiesService = class PropertiesService {
                 OR LOWER(s_cust.lastname) LIKE LOWER(:search)
                 OR LOWER(CONCAT(s_cust.name, ' ', s_cust.lastname)) LIKE LOWER(:search)
               )
-          )
-        )`, { search: `%${filters.search}%` });
+          )`;
+            query.andWhere(`(${lotMatch}${extendedMatch})`, { search: `%${filters.search}%` });
         }
     }
     resolvePricing(params) {

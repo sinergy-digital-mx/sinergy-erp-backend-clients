@@ -18,6 +18,7 @@ export declare class PropertiesService {
     constructor(propertyRepo: Repository<Property>, contractRepo: Repository<Contract>, measurementUnitRepo: Repository<MeasurementUnit>, customerGroupsService: CustomerGroupsService);
     create(tenantId: string, dto: CreatePropertyDto): Promise<Property>;
     findAll(tenantId: string, filters?: PropertyListFilters, page?: number, limit?: number): Promise<any>;
+    findLotLookup(tenantId: string, filters?: PropertyListFilters, page?: number, limit?: number): Promise<any>;
     findOne(tenantId: string, id: string): Promise<Property | null>;
     findByCode(tenantId: string, code: string): Promise<Property | null>;
     update(tenantId: string, id: string, dto: UpdatePropertyDto): Promise<Property>;

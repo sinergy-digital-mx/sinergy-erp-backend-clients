@@ -110,6 +110,7 @@ export declare class AccountingController {
             amount_collected: number;
             walk_in_count: number;
             invoiced_count: number;
+            by_payment_method: import("./utils/pos-collection-payment-totals.util").PosCollectionPaymentMethodTotals;
         };
         filtered_amount: number;
         data: {

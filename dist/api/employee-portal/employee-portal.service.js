@@ -109,6 +109,14 @@ let EmployeePortalService = class EmployeePortalService {
         const employee = await this.resolveEmployee(tenantId, userId);
         return this.leaveService.cancel(tenantId, requestId, employee.id);
     }
+    async addMyLeaveDocument(tenantId, userId, requestId, file) {
+        const employee = await this.resolveEmployee(tenantId, userId);
+        return this.leaveService.addDocument(tenantId, requestId, file, userId, employee.id);
+    }
+    async removeMyLeaveDocument(tenantId, userId, requestId, documentId) {
+        const employee = await this.resolveEmployee(tenantId, userId);
+        return this.leaveService.removeDocument(tenantId, requestId, documentId, employee.id);
+    }
 };
 exports.EmployeePortalService = EmployeePortalService;
 exports.EmployeePortalService = EmployeePortalService = __decorate([

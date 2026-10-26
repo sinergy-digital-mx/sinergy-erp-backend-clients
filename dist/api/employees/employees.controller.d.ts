@@ -53,7 +53,16 @@ export declare class EmployeesController {
         created_at: Date;
         updated_at: Date;
     } | {
+        sick_leave: import("./utils/sick-leave-year.util").SickLeaveYearSummary;
         leave_requests: {
+            documents: {
+                id: string;
+                file_name: string;
+                mime_type: string | null;
+                file_size: number | null;
+                url: string | null;
+                created_at: Date;
+            }[];
             id: string;
             employee_id: string;
             type: import("../../entities/employees/leave-type.enum").LeaveType;
@@ -146,7 +155,16 @@ export declare class EmployeesController {
             created_at: Date;
             updated_at: Date;
         } | {
+            sick_leave: import("./utils/sick-leave-year.util").SickLeaveYearSummary;
             leave_requests: {
+                documents: {
+                    id: string;
+                    file_name: string;
+                    mime_type: string | null;
+                    file_size: number | null;
+                    url: string | null;
+                    created_at: Date;
+                }[];
                 id: string;
                 employee_id: string;
                 type: import("../../entities/employees/leave-type.enum").LeaveType;
@@ -245,7 +263,16 @@ export declare class EmployeesController {
         created_at: Date;
         updated_at: Date;
     } | {
+        sick_leave: import("./utils/sick-leave-year.util").SickLeaveYearSummary;
         leave_requests: {
+            documents: {
+                id: string;
+                file_name: string;
+                mime_type: string | null;
+                file_size: number | null;
+                url: string | null;
+                created_at: Date;
+            }[];
             id: string;
             employee_id: string;
             type: import("../../entities/employees/leave-type.enum").LeaveType;
@@ -337,7 +364,16 @@ export declare class EmployeesController {
         created_at: Date;
         updated_at: Date;
     } | {
+        sick_leave: import("./utils/sick-leave-year.util").SickLeaveYearSummary;
         leave_requests: {
+            documents: {
+                id: string;
+                file_name: string;
+                mime_type: string | null;
+                file_size: number | null;
+                url: string | null;
+                created_at: Date;
+            }[];
             id: string;
             employee_id: string;
             type: import("../../entities/employees/leave-type.enum").LeaveType;
@@ -432,7 +468,16 @@ export declare class EmployeesController {
         created_at: Date;
         updated_at: Date;
     } | {
+        sick_leave: import("./utils/sick-leave-year.util").SickLeaveYearSummary;
         leave_requests: {
+            documents: {
+                id: string;
+                file_name: string;
+                mime_type: string | null;
+                file_size: number | null;
+                url: string | null;
+                created_at: Date;
+            }[];
             id: string;
             employee_id: string;
             type: import("../../entities/employees/leave-type.enum").LeaveType;
@@ -495,6 +540,14 @@ export declare class EmployeesController {
                 last_name: string;
                 email: string | null;
             } | null;
+            documents: {
+                id: string;
+                file_name: string;
+                mime_type: string | null;
+                file_size: number | null;
+                url: string | null;
+                created_at: Date;
+            }[];
             id: string;
             employee_id: string;
             type: import("../../entities/employees/leave-type.enum").LeaveType;
@@ -527,6 +580,14 @@ export declare class EmployeesController {
                 last_name: string;
                 email: string | null;
             } | null;
+            documents: {
+                id: string;
+                file_name: string;
+                mime_type: string | null;
+                file_size: number | null;
+                url: string | null;
+                created_at: Date;
+            }[];
             id: string;
             employee_id: string;
             type: import("../../entities/employees/leave-type.enum").LeaveType;
@@ -551,6 +612,14 @@ export declare class EmployeesController {
         hasPrev: boolean;
     }>;
     createLeaveRequest(id: string, dto: CreateLeaveRequestDto): Promise<{
+        documents: {
+            id: string;
+            file_name: string;
+            mime_type: string | null;
+            file_size: number | null;
+            url: string | null;
+            created_at: Date;
+        }[];
         id: string;
         employee_id: string;
         type: import("../../entities/employees/leave-type.enum").LeaveType;
@@ -568,6 +637,14 @@ export declare class EmployeesController {
         updated_at: Date;
     }>;
     updateLeaveRequest(requestId: string, dto: UpdateLeaveRequestDto): Promise<{
+        documents: {
+            id: string;
+            file_name: string;
+            mime_type: string | null;
+            file_size: number | null;
+            url: string | null;
+            created_at: Date;
+        }[];
         id: string;
         employee_id: string;
         type: import("../../entities/employees/leave-type.enum").LeaveType;
@@ -585,6 +662,14 @@ export declare class EmployeesController {
         updated_at: Date;
     }>;
     reviewLeaveRequest(requestId: string, dto: ReviewLeaveRequestDto): Promise<{
+        documents: {
+            id: string;
+            file_name: string;
+            mime_type: string | null;
+            file_size: number | null;
+            url: string | null;
+            created_at: Date;
+        }[];
         id: string;
         employee_id: string;
         type: import("../../entities/employees/leave-type.enum").LeaveType;
@@ -602,6 +687,64 @@ export declare class EmployeesController {
         updated_at: Date;
     }>;
     cancelLeaveRequest(requestId: string): Promise<{
+        documents: {
+            id: string;
+            file_name: string;
+            mime_type: string | null;
+            file_size: number | null;
+            url: string | null;
+            created_at: Date;
+        }[];
+        id: string;
+        employee_id: string;
+        type: import("../../entities/employees/leave-type.enum").LeaveType;
+        start_date: string;
+        end_date: string;
+        days: number;
+        reason: string | null;
+        status: import("../../entities/employees/leave-status.enum").LeaveStatus;
+        is_paid: boolean;
+        reviewed_by: string | null;
+        reviewed_at: Date | null;
+        review_notes: string | null;
+        created_by: string | null;
+        created_at: Date;
+        updated_at: Date;
+    }>;
+    uploadLeaveDocument(requestId: string, file: any): Promise<{
+        documents: {
+            id: string;
+            file_name: string;
+            mime_type: string | null;
+            file_size: number | null;
+            url: string | null;
+            created_at: Date;
+        }[];
+        id: string;
+        employee_id: string;
+        type: import("../../entities/employees/leave-type.enum").LeaveType;
+        start_date: string;
+        end_date: string;
+        days: number;
+        reason: string | null;
+        status: import("../../entities/employees/leave-status.enum").LeaveStatus;
+        is_paid: boolean;
+        reviewed_by: string | null;
+        reviewed_at: Date | null;
+        review_notes: string | null;
+        created_by: string | null;
+        created_at: Date;
+        updated_at: Date;
+    }>;
+    removeLeaveDocument(requestId: string, documentId: string): Promise<{
+        documents: {
+            id: string;
+            file_name: string;
+            mime_type: string | null;
+            file_size: number | null;
+            url: string | null;
+            created_at: Date;
+        }[];
         id: string;
         employee_id: string;
         type: import("../../entities/employees/leave-type.enum").LeaveType;
@@ -620,4 +763,5 @@ export declare class EmployeesController {
     }>;
     private getTenantId;
     private getScope;
+    private ownerEmployeeIdUnlessCanManage;
 }

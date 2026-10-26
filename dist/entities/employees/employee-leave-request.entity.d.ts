@@ -1,5 +1,6 @@
 import { RBACTenant } from '../rbac/tenant.entity';
 import { Employee } from './employee.entity';
+import { EmployeeLeaveDocument } from './employee-leave-document.entity';
 import { LeaveType } from './leave-type.enum';
 import { LeaveStatus } from './leave-status.enum';
 export declare class EmployeeLeaveRequest {
@@ -19,6 +20,7 @@ export declare class EmployeeLeaveRequest {
     reviewed_by: string | null;
     reviewed_at: Date | null;
     review_notes: string | null;
+    documents?: EmployeeLeaveDocument[];
     created_at: Date;
     updated_at: Date;
 }

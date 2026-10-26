@@ -12,26 +12,35 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PropertiesController = void 0;
+exports.PropertiesController = exports.PROPERTY_LIST_PERMISSIONS = void 0;
 const common_1 = require("@nestjs/common");
 const platform_express_1 = require("@nestjs/platform-express");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const permission_guard_1 = require("../rbac/guards/permission.guard");
 const require_permissions_decorator_1 = require("../rbac/decorators/require-permissions.decorator");
+const permission_service_1 = require("../rbac/services/permission.service");
 const tenant_context_service_1 = require("../rbac/services/tenant-context.service");
 const properties_service_1 = require("./properties.service");
 const property_import_service_1 = require("./property-import.service");
 const create_property_dto_1 = require("./dto/create-property.dto");
 const update_property_dto_1 = require("./dto/update-property.dto");
 const query_properties_dto_1 = require("./dto/query-properties.dto");
+exports.PROPERTY_LIST_PERMISSIONS = [
+    { entityType: 'Property', action: 'Read' },
+    { entityType: 'DivinoReservationFormat', action: 'Read' },
+    { entityType: 'DivinoReservationFormat', action: 'Create' },
+    { entityType: 'DivinoReservationFormat', action: 'Update' },
+];
 let PropertiesController = class PropertiesController {
     propertiesService;
     propertyImportService;
     tenantContext;
-    constructor(propertiesService, propertyImportService, tenantContext) {
+    permissionService;
+    constructor(propertiesService, propertyImportService, tenantContext, permissionService) {
         this.propertiesService = propertiesService;
         this.propertyImportService = propertyImportService;
         this.tenantContext = tenantContext;
+        this.permissionService = permissionService;
     }
     async create(req, dto) {
         const tenantId = this.tenantContext.getCurrentTenantId();
@@ -75,7 +84,15 @@ let PropertiesController = class PropertiesController {
         }
         const pageNum = query.page ?? 1;
         const limitNum = query.limit ?? 20;
-        return this.propertiesService.findAll(tenantId, this.toPropertyFilters(query), pageNum, limitNum);
+        const filters = this.toPropertyFilters(query);
+        const userId = req.user?.id ?? this.tenantContext.getCurrentUserId();
+        const fullAccess = userId
+            ? await this.permissionService.hasPermission(userId, tenantId, 'Property', 'Read')
+            : false;
+        if (!fullAccess) {
+            return this.propertiesService.findLotLookup(tenantId, filters, pageNum, limitNum);
+        }
+        return this.propertiesService.findAll(tenantId, filters, pageNum, limitNum);
     }
     async findOne(id, req) {
         const tenantId = this.tenantContext.getCurrentTenantId();
@@ -169,7 +186,7 @@ __decorate([
 ], PropertiesController.prototype, "importProperties", null);
 __decorate([
     (0, common_1.Get)(),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Property', action: 'Read' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)(...exports.PROPERTY_LIST_PERMISSIONS),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Query)()),
     __metadata("design:type", Function),
@@ -209,6 +226,7 @@ exports.PropertiesController = PropertiesController = __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     __metadata("design:paramtypes", [properties_service_1.PropertiesService,
         property_import_service_1.PropertyImportService,
-        tenant_context_service_1.TenantContextService])
+        tenant_context_service_1.TenantContextService,
+        permission_service_1.PermissionService])
 ], PropertiesController);
 //# sourceMappingURL=properties.controller.js.map

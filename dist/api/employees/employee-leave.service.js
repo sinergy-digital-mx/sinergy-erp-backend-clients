@@ -18,18 +18,25 @@ const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const employee_entity_1 = require("../../entities/employees/employee.entity");
 const employee_leave_request_entity_1 = require("../../entities/employees/employee-leave-request.entity");
+const employee_leave_document_entity_1 = require("../../entities/employees/employee-leave-document.entity");
 const leave_type_enum_1 = require("../../entities/employees/leave-type.enum");
 const leave_status_enum_1 = require("../../entities/employees/leave-status.enum");
+const s3_service_1 = require("../../common/services/s3.service");
 const employees_service_1 = require("./employees.service");
 const mexican_labor_law_1 = require("./utils/mexican-labor-law");
+const medical_certificate_util_1 = require("./utils/medical-certificate.util");
 let EmployeeLeaveService = class EmployeeLeaveService {
     leaveRepo;
     employeeRepo;
+    documentRepo;
     employeesService;
-    constructor(leaveRepo, employeeRepo, employeesService) {
+    s3Service;
+    constructor(leaveRepo, employeeRepo, documentRepo, employeesService, s3Service) {
         this.leaveRepo = leaveRepo;
         this.employeeRepo = employeeRepo;
+        this.documentRepo = documentRepo;
         this.employeesService = employeesService;
+        this.s3Service = s3Service;
     }
     async create(tenantId, employeeId, dto, createdBy) {
         const employee = await this.employeeRepo.findOne({
@@ -69,7 +76,7 @@ let EmployeeLeaveService = class EmployeeLeaveService {
             created_by: createdBy,
         });
         const saved = await this.leaveRepo.save(request);
-        return (0, employees_service_1.mapLeaveRequest)(saved);
+        return this.present(saved);
     }
     async findAll(tenantId, query) {
         return this.paginate(tenantId, query);
@@ -111,8 +118,9 @@ let EmployeeLeaveService = class EmployeeLeaveService {
         qb.orderBy('lr.created_at', 'DESC');
         const total = await qb.getCount();
         const rows = await qb.skip(skip).take(limit).getMany();
-        const data = rows.map((r) => ({
-            ...(0, employees_service_1.mapLeaveRequest)(r),
+        await this.attachDocuments(rows);
+        const data = await Promise.all(rows.map(async (r) => ({
+            ...(await this.present(r)),
             employee: r.employee
                 ? {
                     id: r.employee.id,
@@ -122,7 +130,7 @@ let EmployeeLeaveService = class EmployeeLeaveService {
                     email: r.employee.user?.email ?? null,
                 }
                 : null,
-        }));
+        })));
         const totalPages = Math.ceil(total / limit) || 1;
         return {
             data,
@@ -157,7 +165,7 @@ let EmployeeLeaveService = class EmployeeLeaveService {
         request.reviewed_by = reviewerId;
         request.reviewed_at = new Date();
         const saved = await this.leaveRepo.save(request);
-        return (0, employees_service_1.mapLeaveRequest)(saved);
+        return this.present(saved);
     }
     async cancel(tenantId, id, requesterEmployeeId) {
         const request = await this.findOne(tenantId, id);
@@ -170,7 +178,7 @@ let EmployeeLeaveService = class EmployeeLeaveService {
         }
         request.status = leave_status_enum_1.LeaveStatus.CANCELLED;
         const saved = await this.leaveRepo.save(request);
-        return (0, employees_service_1.mapLeaveRequest)(saved);
+        return this.present(saved);
     }
     async update(tenantId, id, dto) {
         const request = await this.findOne(tenantId, id);
@@ -221,7 +229,99 @@ let EmployeeLeaveService = class EmployeeLeaveService {
             request.is_paid = dto.is_paid;
         }
         const saved = await this.leaveRepo.save(request);
-        return (0, employees_service_1.mapLeaveRequest)(saved);
+        return this.present(saved);
+    }
+    async addDocument(tenantId, requestId, file, uploadedBy, ownerEmployeeId) {
+        const request = await this.findOne(tenantId, requestId);
+        this.assertSickLeaveOpen(request, ownerEmployeeId);
+        try {
+            (0, medical_certificate_util_1.assertMedicalCertificateFile)(file);
+        }
+        catch (err) {
+            throw new common_1.BadRequestException(err instanceof Error ? err.message : 'Archivo inválido');
+        }
+        const current = await this.documentRepo.count({
+            where: { leave_request_id: request.id, tenant_id: tenantId },
+        });
+        if (current >= medical_certificate_util_1.MEDICAL_CERTIFICATE_MAX_FILES) {
+            throw new common_1.BadRequestException(`Esta solicitud ya tiene el máximo de ${medical_certificate_util_1.MEDICAL_CERTIFICATE_MAX_FILES} comprobantes`);
+        }
+        const safeName = (0, medical_certificate_util_1.sanitizeUploadFileName)(file?.originalname);
+        const s3Key = await this.s3Service.uploadEntityFile(tenantId, 'employee-leave', request.id, 'medical-certificate', file.buffer, safeName, file?.mimetype || 'application/octet-stream');
+        const document = this.documentRepo.create({
+            tenant_id: tenantId,
+            leave_request_id: request.id,
+            employee_id: request.employee_id,
+            file_name: safeName,
+            s3_key: s3Key,
+            mime_type: file?.mimetype || null,
+            file_size: Number(file?.size ?? file?.buffer?.length ?? 0) || null,
+            uploaded_by: uploadedBy,
+        });
+        try {
+            await this.documentRepo.save(document);
+        }
+        catch (err) {
+            await this.s3Service.deleteFile(s3Key).catch(() => undefined);
+            throw err;
+        }
+        delete request.documents;
+        return this.present(request);
+    }
+    async removeDocument(tenantId, requestId, documentId, ownerEmployeeId) {
+        const request = await this.findOne(tenantId, requestId);
+        this.assertSickLeaveOpen(request, ownerEmployeeId);
+        const document = await this.documentRepo.findOne({
+            where: { id: documentId, leave_request_id: request.id, tenant_id: tenantId },
+        });
+        if (!document) {
+            throw new common_1.NotFoundException('Comprobante no encontrado');
+        }
+        await this.documentRepo.remove(document);
+        if (document.s3_key) {
+            await this.s3Service.deleteFile(document.s3_key).catch(() => undefined);
+        }
+        delete request.documents;
+        return this.present(request);
+    }
+    assertSickLeaveOpen(request, ownerEmployeeId) {
+        if (ownerEmployeeId && request.employee_id !== ownerEmployeeId) {
+            throw new common_1.ForbiddenException('No puedes modificar comprobantes de otro empleado');
+        }
+        if (request.type !== leave_type_enum_1.LeaveType.SICK_LEAVE) {
+            throw new common_1.BadRequestException('Los comprobantes médicos solo aplican a incapacidad médica');
+        }
+        if (request.status === leave_status_enum_1.LeaveStatus.CANCELLED ||
+            request.status === leave_status_enum_1.LeaveStatus.REJECTED) {
+            throw new common_1.BadRequestException('No se pueden modificar comprobantes de una solicitud cancelada o rechazada');
+        }
+    }
+    async attachDocuments(rows) {
+        if (!rows.length) {
+            return;
+        }
+        const docs = await this.documentRepo.find({
+            where: { leave_request_id: (0, typeorm_2.In)(rows.map((row) => row.id)) },
+            order: { created_at: 'ASC' },
+        });
+        const grouped = new Map();
+        for (const doc of docs) {
+            const list = grouped.get(doc.leave_request_id) ?? [];
+            list.push(doc);
+            grouped.set(doc.leave_request_id, list);
+        }
+        for (const row of rows) {
+            row.documents = grouped.get(row.id) ?? [];
+        }
+    }
+    async present(request) {
+        if (!request.documents) {
+            request.documents = await this.documentRepo.find({
+                where: { leave_request_id: request.id, tenant_id: request.tenant_id },
+                order: { created_at: 'ASC' },
+            });
+        }
+        return (0, employees_service_1.presentLeaveRequest)(request, this.s3Service);
     }
     resolveDays(params) {
         try {
@@ -237,8 +337,11 @@ exports.EmployeeLeaveService = EmployeeLeaveService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(employee_leave_request_entity_1.EmployeeLeaveRequest)),
     __param(1, (0, typeorm_1.InjectRepository)(employee_entity_1.Employee)),
+    __param(2, (0, typeorm_1.InjectRepository)(employee_leave_document_entity_1.EmployeeLeaveDocument)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
         typeorm_2.Repository,
-        employees_service_1.EmployeesService])
+        typeorm_2.Repository,
+        employees_service_1.EmployeesService,
+        s3_service_1.S3Service])
 ], EmployeeLeaveService);
 //# sourceMappingURL=employee-leave.service.js.map
