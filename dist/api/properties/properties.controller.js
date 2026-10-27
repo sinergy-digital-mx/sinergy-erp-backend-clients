@@ -75,7 +75,10 @@ let PropertiesController = class PropertiesController {
     }
     async importProperties(file, groupId) {
         const organizationId = this.requireOrganizationId();
-        return this.propertyImportService.importWorkbook(organizationId, file, groupId);
+        return this.propertyImportService.startImportJob(organizationId, file, groupId);
+    }
+    getImportJob(jobId) {
+        return this.propertyImportService.getJobStatus(jobId, this.requireOrganizationId());
     }
     async findAll(req, query) {
         const tenantId = this.tenantContext.getCurrentTenantId();
@@ -184,6 +187,14 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], PropertiesController.prototype, "importProperties", null);
+__decorate([
+    (0, common_1.Get)('import/jobs/:jobId'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Property', action: 'Create' }),
+    __param(0, (0, common_1.Param)('jobId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], PropertiesController.prototype, "getImportJob", null);
 __decorate([
     (0, common_1.Get)(),
     (0, require_permissions_decorator_1.RequireAnyPermissions)(...exports.PROPERTY_LIST_PERMISSIONS),

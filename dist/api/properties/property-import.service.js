@@ -11,10 +11,12 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var PropertyImportService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PropertyImportService = void 0;
 const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
+const crypto_1 = require("crypto");
 const typeorm_2 = require("typeorm");
 const property_entity_1 = require("../../entities/properties/property.entity");
 const measurement_unit_entity_1 = require("../../entities/properties/measurement-unit.entity");
@@ -22,11 +24,13 @@ const customer_groups_service_1 = require("../customers/customer-groups.service"
 const contract_currency_util_1 = require("../contracts/contract-currency.util");
 const property_pricing_util_1 = require("./utils/property-pricing.util");
 const property_import_util_1 = require("./utils/property-import.util");
-let PropertyImportService = class PropertyImportService {
+const property_import_job_store_1 = require("./property-import-job.store");
+let PropertyImportService = PropertyImportService_1 = class PropertyImportService {
     propertyRepo;
     measurementUnitRepo;
     customerGroupsService;
     dataSource;
+    logger = new common_1.Logger(PropertyImportService_1.name);
     constructor(propertyRepo, measurementUnitRepo, customerGroupsService, dataSource) {
         this.propertyRepo = propertyRepo;
         this.measurementUnitRepo = measurementUnitRepo;
@@ -44,7 +48,38 @@ let PropertyImportService = class PropertyImportService {
         });
         return { buffer, filename: 'plantilla-lotes.xlsx' };
     }
+    async startImportJob(organizationId, file, groupId) {
+        const ready = await this.resolveReadyRows(organizationId, file, groupId);
+        const job = (0, property_import_job_store_1.createPropertyImportJob)({
+            id: (0, crypto_1.randomUUID)(),
+            organizationId,
+            total: ready.length,
+        });
+        setImmediate(() => {
+            this.runImportJob(job.id, organizationId, ready).catch((error) => {
+                this.logger.error(`Import job ${job.id} failed`, error);
+                (0, property_import_job_store_1.updatePropertyImportJob)(job.id, {
+                    status: 'failed',
+                    message: 'Error al importar',
+                    error: this.toErrorMessage(error),
+                });
+            });
+        });
+        return job;
+    }
+    getJobStatus(jobId, organizationId) {
+        const job = (0, property_import_job_store_1.getPropertyImportJob)(jobId, organizationId);
+        if (!job) {
+            throw new common_1.NotFoundException('No encontramos este trabajo de importación.');
+        }
+        return job;
+    }
     async importWorkbook(organizationId, file, groupId) {
+        const ready = await this.resolveReadyRows(organizationId, file, groupId);
+        await this.persistRows(organizationId, ready);
+        return { created: ready.length };
+    }
+    async resolveReadyRows(organizationId, file, groupId) {
         if (!file?.buffer?.length) {
             throw new common_1.BadRequestException('Adjunta la plantilla de lotes en Excel.');
         }
@@ -80,8 +115,45 @@ let PropertyImportService = class PropertyImportService {
         if (!resolved.ready.length) {
             throw new common_1.BadRequestException('El archivo no tiene lotes para importar.');
         }
+        return resolved.ready;
+    }
+    async runImportJob(jobId, organizationId, ready) {
+        (0, property_import_job_store_1.updatePropertyImportJob)(jobId, {
+            status: 'processing',
+            processed: 0,
+            message: `Importando 0 de ${ready.length}`,
+        });
+        try {
+            await this.persistRows(organizationId, ready, (processed, total, code) => {
+                (0, property_import_job_store_1.updatePropertyImportJob)(jobId, {
+                    status: 'processing',
+                    processed,
+                    total,
+                    current_code: code,
+                    message: `Importando ${processed} de ${total}`,
+                });
+            });
+            (0, property_import_job_store_1.updatePropertyImportJob)(jobId, {
+                status: 'completed',
+                processed: ready.length,
+                current_code: null,
+                message: ready.length === 1 ? 'Se creó 1 lote.' : `Se crearon ${ready.length} lotes.`,
+                result: { created: ready.length },
+                error: null,
+            });
+        }
+        catch (error) {
+            (0, property_import_job_store_1.updatePropertyImportJob)(jobId, {
+                status: 'failed',
+                message: 'Error al importar',
+                error: this.toErrorMessage(error),
+            });
+        }
+    }
+    async persistRows(organizationId, ready, onProgress) {
         await this.dataSource.transaction(async (manager) => {
-            for (const dto of resolved.ready) {
+            let processed = 0;
+            for (const dto of ready) {
                 const pricing = (0, property_pricing_util_1.resolvePropertyPricing)({
                     totalArea: dto.total_area,
                     totalPrice: dto.total_price,
@@ -112,9 +184,23 @@ let PropertyImportService = class PropertyImportService {
                     }
                     throw error;
                 }
+                processed += 1;
+                onProgress?.(processed, ready.length, dto.code);
             }
         });
-        return { created: resolved.ready.length };
+    }
+    toErrorMessage(error) {
+        if (error instanceof common_1.HttpException) {
+            const response = error.getResponse();
+            if (typeof response === 'string') {
+                return response;
+            }
+            if (response && typeof response === 'object' && 'message' in response) {
+                const message = response.message;
+                return Array.isArray(message) ? message.join(', ') : String(message);
+            }
+        }
+        return error instanceof Error ? error.message : 'No se pudieron importar los lotes.';
     }
     async findExistingCodes(organizationId) {
         const rows = await this.propertyRepo
@@ -126,7 +212,7 @@ let PropertyImportService = class PropertyImportService {
     }
 };
 exports.PropertyImportService = PropertyImportService;
-exports.PropertyImportService = PropertyImportService = __decorate([
+exports.PropertyImportService = PropertyImportService = PropertyImportService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(property_entity_1.Property)),
     __param(1, (0, typeorm_1.InjectRepository)(measurement_unit_entity_1.MeasurementUnit)),
