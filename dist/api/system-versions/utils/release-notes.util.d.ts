@@ -18,6 +18,7 @@ export declare function selectReleaseSubjects(subjects: string[], limit?: number
 export declare function shouldIgnoreReleasePath(filePath: string): boolean;
 export declare function summarizeChangedPaths(filePaths: string[], limit?: number): string[];
 export declare function changesFromSubjects(subjects: string[], scope: ReleaseScope, limit?: number): ReleaseChange[];
+export declare function filterChangesForModules(changes: ReleaseChange[], enabledModuleCodes: Iterable<string>): ReleaseChange[];
 export declare function sanitizeReleaseChanges(changes: unknown, limit?: number): ReleaseChange[];
 export declare function mergeReleaseChanges(groups: ReleaseChange[][]): ReleaseChange[];
 export declare function toSqlDateTime(value?: string | null): string;

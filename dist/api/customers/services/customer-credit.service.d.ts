@@ -4,6 +4,7 @@ import { CustomerCredit } from '../../../entities/customers/customer-credit.enti
 import { FiscalConfiguration } from '../../../entities/billing/fiscal-configuration.entity';
 import { SalesOrder } from '../../../entities/sales-orders/sales-order.entity';
 import { SalesOrderPayment } from '../../../entities/sales-orders/sales-order-payment.entity';
+import { ElectronicInvoice } from '../../../entities/electronic-invoicing/electronic-invoice.entity';
 import { UpsertCustomerCreditItemDto } from '../dto/upsert-customer-credit.dto';
 import { CustomerCreditFiscalSnapshot, CustomerCreditSnapshot } from '../utils/customer-credit.util';
 export declare class CustomerCreditService {
@@ -11,7 +12,8 @@ export declare class CustomerCreditService {
     private readonly fiscalRepo;
     private readonly salesOrderRepo;
     private readonly paymentRepo;
-    constructor(creditRepo: Repository<CustomerCredit>, fiscalRepo: Repository<FiscalConfiguration>, salesOrderRepo: Repository<SalesOrder>, paymentRepo: Repository<SalesOrderPayment>);
+    private readonly invoiceRepo;
+    constructor(creditRepo: Repository<CustomerCredit>, fiscalRepo: Repository<FiscalConfiguration>, salesOrderRepo: Repository<SalesOrder>, paymentRepo: Repository<SalesOrderPayment>, invoiceRepo: Repository<ElectronicInvoice>);
     listForCustomer(customer: Customer): Promise<CustomerCreditFiscalSnapshot[]>;
     consumeExceedWaiver(tenantId: string, customerId: number, fiscalConfigurationId: string): Promise<void>;
     getSnapshotForFiscal(customer: Customer, fiscalConfigurationId: string): Promise<CustomerCreditSnapshot>;

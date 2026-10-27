@@ -5,6 +5,7 @@ exports.selectReleaseSubjects = selectReleaseSubjects;
 exports.shouldIgnoreReleasePath = shouldIgnoreReleasePath;
 exports.summarizeChangedPaths = summarizeChangedPaths;
 exports.changesFromSubjects = changesFromSubjects;
+exports.filterChangesForModules = filterChangesForModules;
 exports.sanitizeReleaseChanges = sanitizeReleaseChanges;
 exports.mergeReleaseChanges = mergeReleaseChanges;
 exports.toSqlDateTime = toSqlDateTime;
@@ -131,6 +132,56 @@ function changesFromSubjects(subjects, scope, limit = 40) {
         return [{ scope: safeScope, message: exports.FALLBACK_RELEASE_MESSAGE }];
     }
     return selected.map((message) => ({ scope: safeScope, message }));
+}
+const RELEASE_MESSAGE_MODULES = {
+    'cambios en versiones': ['system-versions'],
+    'cambios en clientes': ['customers'],
+    'cambios en empleados': ['employees', 'employee_portal'],
+    'cambios en accesos y permisos': ['roles', 'users'],
+    'cambios en configuración': ['settings'],
+    'cambios en contabilidad': ['accounting'],
+    'cambios en facturación': ['billing'],
+    'cambios en contratos': ['contracts', 'contract_documents'],
+    'cambios en crm': ['leads'],
+    'cambios en divino': ['divino_dashboard', 'divino_reservation_formats'],
+    'cambios en facturación electrónica': ['electronic_invoicing'],
+    'cambios en tipo de cambio': ['exchange-rate'],
+    'cambios en inventario': ['inventory', 'madereria_inventory_import'],
+    'cambios en ventas': ['sales_orders', 'pos', 'pos-shifts', 'pos-configuration', 'global_discounts'],
+    'cambios en productos': ['products', 'categories', 'subcategories'],
+    'cambios en inmuebles': ['properties'],
+    'cambios en compras': ['purchase_orders', 'purchase_order_real_cost'],
+    'cambios en cotizaciones': ['quotations'],
+    'cambios en autofactura': ['electronic_invoicing', 'sales_orders'],
+    'cambios en logística': ['gps_tracking', 'shippings', 'trucks'],
+    'cambios en unidades de medida': ['uom_catalog'],
+    'cambios en usuarios': ['users'],
+    'cambios en proveedores': ['vendors'],
+    'cambios en almacenes': ['warehouses', 'warehouse_control'],
+    'cambios en suscripciones': ['service_subscriptions'],
+    'cambios en whatsapp': ['whatsapp'],
+    'cambios en metas': ['goals'],
+    'cambios en correo': ['mailer_configurations', 'email-templates', 'resend_configuration'],
+    'cambios en pagos': ['payments'],
+    'cambios en actividades': ['activities', 'customer_activities'],
+    'cambios en categorías': ['categories'],
+    'cambios en subcategorías': ['subcategories'],
+    'cambios en reporte de ventas': ['zona_norte_custom_report', 'customer_sales_report'],
+};
+function filterChangesForModules(changes, enabledModuleCodes) {
+    const enabled = new Set([...enabledModuleCodes]
+        .map((code) => String(code ?? '').trim().toLowerCase())
+        .filter(Boolean));
+    return sanitizeReleaseChanges(changes).filter((change) => {
+        if (change.message === exports.FALLBACK_RELEASE_MESSAGE) {
+            return true;
+        }
+        const modules = RELEASE_MESSAGE_MODULES[change.message.toLowerCase()];
+        if (!modules?.length) {
+            return false;
+        }
+        return modules.some((code) => enabled.has(code));
+    });
 }
 function sanitizeReleaseChanges(changes, limit = 80) {
     if (!Array.isArray(changes)) {

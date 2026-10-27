@@ -33,6 +33,7 @@ const pos_sale_collection_mapper_1 = require("../pos-shifts/mappers/pos-sale-col
 const unclosed_shift_alert_1 = require("../pos-shifts/utils/unclosed-shift-alert");
 const sales_order_payment_entity_1 = require("../../entities/sales-orders/sales-order-payment.entity");
 const sales_order_payment_display_util_1 = require("../sales-orders/utils/sales-order-payment-display.util");
+const credit_note_util_1 = require("../sales-orders/utils/credit-note.util");
 const pos_collection_payment_totals_util_1 = require("./utils/pos-collection-payment-totals.util");
 const excel_export_util_1 = require("../../common/utils/excel-export.util");
 const accounts_payable_currency_util_1 = require("./utils/accounts-payable-currency.util");
@@ -667,10 +668,12 @@ let AccountingService = class AccountingService {
             });
         }
         const orders = await qb.getMany();
+        const appliedByOrder = await this.creditNoteAppliedByOrder(tenantId, orders);
         const term = filters.search?.trim().toLowerCase();
         const inputs = [];
         for (const order of orders) {
-            const amountPending = Number(order.total || 0);
+            const gross = Number(order.total || 0);
+            const amountPending = (0, credit_note_util_1.roundCreditMoney)(Math.max(0, gross - (appliedByOrder.get(order.id) ?? 0)));
             if (amountPending <= 0)
                 continue;
             const razonSocial = this.receivableRazonSocial(order);
@@ -690,6 +693,43 @@ let AccountingService = class AccountingService {
             });
         }
         return (0, accounts_receivable_currency_util_1.aggregateReceivableAccounts)(inputs);
+    }
+    async creditNoteAppliedByOrder(tenantId, orders) {
+        const applied = new Map();
+        if (!orders.length)
+            return applied;
+        const ids = orders.map((order) => order.id);
+        const placeholders = ids.map(() => '?').join(',');
+        const payments = await this.salesOrderRepo.manager.query(`
+        SELECT sales_order_id, COALESCE(SUM(amount), 0) AS paid
+        FROM inv_s_sales_order_payments
+        WHERE tenant_id = ? AND sales_order_id IN (${placeholders})
+        GROUP BY sales_order_id
+        `, [tenantId, ...ids]);
+        const invoices = await this.electronicInvoiceRepo.find({
+            where: {
+                tenant_id: tenantId,
+                source_module: 'sales_orders',
+                source_id: (0, typeorm_2.In)(ids),
+                invoice_role: 'credit_note',
+            },
+        });
+        const paidByOrder = new Map(payments.map((row) => [row.sales_order_id, Number(row.paid || 0)]));
+        const notesByOrder = new Map();
+        for (const invoice of invoices) {
+            if (!(0, credit_note_util_1.isInvoiceVigente)(invoice))
+                continue;
+            notesByOrder.set(invoice.source_id, (0, credit_note_util_1.roundCreditMoney)((notesByOrder.get(invoice.source_id) ?? 0) + Number(invoice.total || 0)));
+        }
+        for (const order of orders) {
+            const effect = (0, credit_note_util_1.splitCreditNoteEffect)({
+                orderTotal: Number(order.total || 0),
+                amountPaid: paidByOrder.get(order.id) ?? 0,
+                creditNotesTotal: notesByOrder.get(order.id) ?? 0,
+            });
+            applied.set(order.id, effect.appliedToPending);
+        }
+        return applied;
     }
     receivableRazonSocial(order) {
         const customer = order.customer;

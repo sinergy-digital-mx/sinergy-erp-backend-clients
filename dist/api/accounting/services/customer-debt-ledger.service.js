@@ -123,6 +123,69 @@ let CustomerDebtLedgerService = class CustomerDebtLedgerService {
             });
         });
     }
+    async captureCreditNote(input) {
+        const amount = (0, customer_debt_ledger_util_1.roundDebtMoney)(input.amount);
+        if (amount <= 0)
+            return;
+        const snapshot = await this.loadOrder(input.tenantId, input.salesOrderId);
+        if (!snapshot || (0, customer_debt_ledger_util_1.isWalkInDebtCustomer)(snapshot))
+            return;
+        const hasCharge = await this.hasSourceKey(input.tenantId, (0, customer_debt_ledger_util_1.chargeSourceKey)(snapshot.id));
+        if (!hasCharge)
+            return;
+        await this.dataSource.transaction(async (manager) => {
+            await this.lockCustomer(manager, snapshot.tenant_id, snapshot.customer_id);
+            const sourceKey = (0, customer_debt_ledger_util_1.creditNoteSourceKey)(input.invoiceId);
+            if (await this.sourceExists(manager, snapshot.tenant_id, sourceKey))
+                return;
+            const orderBalance = await this.latestOrderBalance(manager, snapshot.tenant_id, snapshot.id);
+            const reducible = (0, customer_debt_ledger_util_1.roundDebtMoney)(Math.min(amount, orderBalance));
+            if (reducible <= 0)
+                return;
+            await this.insertMovement(manager, snapshot, {
+                sourceKey,
+                movementType: customer_debt_ledger_movement_type_enum_1.CustomerDebtLedgerMovementType.CREDIT_NOTE,
+                amountDelta: -reducible,
+                occurredAt: new Date(),
+                source: 'credit_note',
+                referenceNumber: input.invoiceId,
+                userId: input.userId,
+            });
+        });
+    }
+    async reverseCreditNote(input) {
+        const originalKey = (0, customer_debt_ledger_util_1.creditNoteSourceKey)(input.invoiceId);
+        const hasOriginal = await this.hasSourceKey(input.tenantId, originalKey);
+        if (!hasOriginal)
+            return;
+        const snapshot = await this.loadOrder(input.tenantId, input.salesOrderId);
+        if (!snapshot)
+            return;
+        await this.dataSource.transaction(async (manager) => {
+            await this.lockCustomer(manager, snapshot.tenant_id, snapshot.customer_id);
+            const reversalKey = (0, customer_debt_ledger_util_1.creditNoteReversalSourceKey)(input.invoiceId);
+            if (await this.sourceExists(manager, snapshot.tenant_id, reversalKey))
+                return;
+            const rows = await manager.query(`
+        SELECT amount_delta
+        FROM acc_customer_debt_ledger
+        WHERE tenant_id = ? AND source_key = ?
+        LIMIT 1
+        `, [snapshot.tenant_id, originalKey]);
+            const posted = (0, customer_debt_ledger_util_1.roundDebtMoney)(Math.abs(Number(rows?.[0]?.amount_delta || 0)));
+            if (posted <= 0)
+                return;
+            await this.insertMovement(manager, snapshot, {
+                sourceKey: reversalKey,
+                movementType: customer_debt_ledger_movement_type_enum_1.CustomerDebtLedgerMovementType.CREDIT_NOTE_REVERSAL,
+                amountDelta: posted,
+                occurredAt: new Date(),
+                source: 'credit_note',
+                referenceNumber: input.invoiceId,
+                userId: input.userId,
+            });
+        });
+    }
     canCapture(snapshot) {
         if ((0, customer_debt_ledger_util_1.isWalkInDebtCustomer)(snapshot))
             return false;

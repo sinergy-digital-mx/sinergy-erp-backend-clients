@@ -25,6 +25,13 @@ export interface AdvanceConceptInput {
     tipoComprobante: 'I' | 'E';
     descripcion: string;
     relatedUuid?: string | null;
+    relationType?: string;
+    currency?: string;
+    exchangeRate?: number | null;
+    satClave?: string;
+    unitCode?: string;
+    unitName?: string;
+    identification?: string;
 }
 export interface MerchandiseLineInput {
     satClave: string;

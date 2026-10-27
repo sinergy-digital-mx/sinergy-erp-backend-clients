@@ -7,6 +7,7 @@ import { SalesOrderInvoiceEmailService } from '../services/sales-order-invoice-e
 import { ShippingsService } from '../../shippings/shippings.service';
 import { CancelElectronicInvoiceDto } from '../../electronic-invoicing/dto/cancel-electronic-invoice.dto';
 import { StampSalesOrderInvoiceDto } from '../dto/stamp-sales-order-invoice.dto';
+import { StampSalesOrderCreditNoteDto } from '../dto/stamp-sales-order-credit-note.dto';
 import { StampAdvanceInvoiceDto } from '../../electronic-invoicing/dto/stamp-advance-invoice.dto';
 import { StampPaymentComplementDto } from '../dto/stamp-payment-complement.dto';
 import { ApplyAdvanceInvoiceDto } from '../../electronic-invoicing/dto/apply-advance-invoice.dto';
@@ -173,6 +174,8 @@ export declare class SalesOrderController {
                     payment_status: string;
                     currency: string;
                     order_total: number;
+                    credit_notes_total: number;
+                    customer_credit: number;
                 };
                 applied_line_discounts: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedLineDiscountDto[];
                 applied_global_discount: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedGlobalDiscountDto | null;
@@ -475,6 +478,8 @@ export declare class SalesOrderController {
                 payment_status: string;
                 currency: string;
                 order_total: number;
+                credit_notes_total: number;
+                customer_credit: number;
             };
             discount_summary: {
                 line_discount_total: number;
@@ -645,6 +650,8 @@ export declare class SalesOrderController {
                     payment_status: string;
                     currency: string;
                     order_total: number;
+                    credit_notes_total: number;
+                    customer_credit: number;
                 };
                 applied_line_discounts: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedLineDiscountDto[];
                 applied_global_discount: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedGlobalDiscountDto | null;
@@ -947,6 +954,8 @@ export declare class SalesOrderController {
                 payment_status: string;
                 currency: string;
                 order_total: number;
+                credit_notes_total: number;
+                customer_credit: number;
             };
             discount_summary: {
                 line_discount_total: number;
@@ -1117,6 +1126,8 @@ export declare class SalesOrderController {
                     payment_status: string;
                     currency: string;
                     order_total: number;
+                    credit_notes_total: number;
+                    customer_credit: number;
                 };
                 applied_line_discounts: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedLineDiscountDto[];
                 applied_global_discount: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedGlobalDiscountDto | null;
@@ -1419,6 +1430,8 @@ export declare class SalesOrderController {
                 payment_status: string;
                 currency: string;
                 order_total: number;
+                credit_notes_total: number;
+                customer_credit: number;
             };
             discount_summary: {
                 line_discount_total: number;
@@ -1590,6 +1603,8 @@ export declare class SalesOrderController {
                     payment_status: string;
                     currency: string;
                     order_total: number;
+                    credit_notes_total: number;
+                    customer_credit: number;
                 };
                 applied_line_discounts: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedLineDiscountDto[];
                 applied_global_discount: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedGlobalDiscountDto | null;
@@ -1892,6 +1907,8 @@ export declare class SalesOrderController {
                 payment_status: string;
                 currency: string;
                 order_total: number;
+                credit_notes_total: number;
+                customer_credit: number;
             };
             discount_summary: {
                 line_discount_total: number;
@@ -2062,6 +2079,8 @@ export declare class SalesOrderController {
                     payment_status: string;
                     currency: string;
                     order_total: number;
+                    credit_notes_total: number;
+                    customer_credit: number;
                 };
                 applied_line_discounts: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedLineDiscountDto[];
                 applied_global_discount: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedGlobalDiscountDto | null;
@@ -2364,6 +2383,8 @@ export declare class SalesOrderController {
                 payment_status: string;
                 currency: string;
                 order_total: number;
+                credit_notes_total: number;
+                customer_credit: number;
             };
             discount_summary: {
                 line_discount_total: number;
@@ -2429,6 +2450,8 @@ export declare class SalesOrderController {
             payment_status: string;
             currency: string;
             order_total: number;
+            credit_notes_total: number;
+            customer_credit: number;
         };
     }>;
     createPayment(id: string, dto: CreateSalesOrderPaymentDto, req: any): Promise<{
@@ -2464,6 +2487,8 @@ export declare class SalesOrderController {
             payment_status: string;
             currency: string;
             order_total: number;
+            credit_notes_total: number;
+            customer_credit: number;
         };
     }>;
     deletePayment(id: string, paymentId: string, req: any): Promise<{
@@ -2475,6 +2500,8 @@ export declare class SalesOrderController {
             payment_status: string;
             currency: string;
             order_total: number;
+            credit_notes_total: number;
+            customer_credit: number;
         };
     }>;
     getPaymentDocuments(id: string, paymentId: string, req: any): Promise<{
@@ -2535,6 +2562,7 @@ export declare class SalesOrderController {
         merchandise: import("../../../entities/electronic-invoicing").ElectronicInvoice;
         application: import("../../../entities/electronic-invoicing").ElectronicInvoice;
     }>;
+    stampCreditNote(id: string, invoiceId: string, dto: StampSalesOrderCreditNoteDto, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     cancelInvoice(id: string, invoiceId: string, dto: CancelElectronicInvoiceDto, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     syncInvoiceSat(id: string, invoiceId: string, req: any): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     getInvoicePdf(id: string, invoiceId: string, regenerate: string | undefined, preview: string | undefined, req: any): Promise<import("../../electronic-invoicing/services/electronic-invoice-pdf.service").ElectronicInvoicePdfUploadResult>;
@@ -3072,6 +3100,8 @@ export declare class SalesOrderController {
                     payment_status: string;
                     currency: string;
                     order_total: number;
+                    credit_notes_total: number;
+                    customer_credit: number;
                 };
                 applied_line_discounts: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedLineDiscountDto[];
                 applied_global_discount: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedGlobalDiscountDto | null;
@@ -3374,6 +3404,8 @@ export declare class SalesOrderController {
                 payment_status: string;
                 currency: string;
                 order_total: number;
+                credit_notes_total: number;
+                customer_credit: number;
             };
             discount_summary: {
                 line_discount_total: number;

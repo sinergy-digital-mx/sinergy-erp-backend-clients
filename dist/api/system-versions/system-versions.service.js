@@ -17,18 +17,15 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const system_version_entity_1 = require("../../entities/system-versions/system-version.entity");
-const releases_generated_1 = require("./data/releases.generated");
 const release_notes_util_1 = require("./utils/release-notes.util");
 exports.SYSTEM_VERSIONS_MODULE_CODE = 'system-versions';
 let SystemVersionsService = class SystemVersionsService {
     versions;
-    syncedTenants = new Set();
     constructor(versions) {
         this.versions = versions;
     }
     async findAll(tenantId, query) {
         await this.assertModuleEnabled(tenantId);
-        await this.ensureCatalogOnce(tenantId);
         let page = Number(query?.page) || 1;
         let limit = Number(query?.limit) || 20;
         if (page < 1)
@@ -37,22 +34,34 @@ let SystemVersionsService = class SystemVersionsService {
             limit = 1;
         if (limit > 50)
             limit = 50;
-        const qb = this.versions
-            .createQueryBuilder('sv')
-            .where('sv.tenant_id = :tenantId', { tenantId });
-        const search = query?.search?.trim();
+        const search = query?.search?.trim().toLowerCase() ?? '';
+        const [rows, enabledModules] = await Promise.all([
+            this.versions.query(`
+          SELECT sv.id, sv.version, sv.build_id, sv.channel, sv.title, sv.changes, sv.released_at
+          FROM system_versions sv
+          WHERE sv.tenant_id = ?
+          ORDER BY sv.released_at DESC, sv.created_at DESC
+          LIMIT 200
+        `, [tenantId]),
+            this.enabledModuleCodes(tenantId),
+        ]);
+        let items = rows
+            .map((row) => this.toItem(row))
+            .map((item) => ({
+            ...item,
+            changes: (0, release_notes_util_1.filterChangesForModules)(item.changes, enabledModules),
+        }))
+            .filter((item) => item.changes.length > 0);
         if (search) {
-            qb.andWhere(`(sv.version LIKE :search OR sv.title LIKE :search OR CAST(sv.changes AS CHAR) LIKE :search)`, { search: `%${search}%` });
+            items = items.filter((item) => item.version.toLowerCase().includes(search)
+                || item.title.toLowerCase().includes(search)
+                || item.changes.some((change) => change.message.toLowerCase().includes(search)));
         }
-        qb.orderBy('sv.released_at', 'DESC').addOrderBy('sv.created_at', 'DESC');
-        const total = await qb.getCount();
-        const rows = await qb
-            .skip((page - 1) * limit)
-            .take(limit)
-            .getMany();
+        const total = items.length;
         const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
+        const pageItems = items.slice((page - 1) * limit, page * limit);
         return {
-            data: rows.map((row) => this.toItem(row)),
+            data: pageItems,
             total,
             page,
             limit,
@@ -79,66 +88,15 @@ let SystemVersionsService = class SystemVersionsService {
             throw new common_1.ForbiddenException('El módulo de versiones no está habilitado para esta organización');
         }
     }
-    async ensureCatalogOnce(tenantId) {
-        if (this.syncedTenants.has(tenantId)) {
-            return;
-        }
-        const releases = this.catalogReleases();
-        if (!releases.length) {
-            this.syncedTenants.add(tenantId);
-            return;
-        }
-        const existing = await this.versions.query(`SELECT release_key FROM system_versions WHERE tenant_id = ?`, [tenantId]);
-        const owned = new Set(existing.map((row) => row.release_key));
-        for (const release of releases) {
-            if (!owned.has(release.releaseKey)) {
-                await this.insertRelease(tenantId, release);
-            }
-        }
-        this.syncedTenants.add(tenantId);
-    }
-    catalogReleases() {
-        return releases_generated_1.SYSTEM_VERSION_RELEASES.map((release) => ({
-            releaseKey: release.releaseKey,
-            version: release.version,
-            buildId: release.buildId,
-            channel: release.channel,
-            title: release.title,
-            changes: (0, release_notes_util_1.sanitizeReleaseChanges)(release.changes),
-            releasedAt: release.releasedAt,
-        }));
-    }
-    async insertRelease(tenantId, release) {
-        const changes = (0, release_notes_util_1.sanitizeReleaseChanges)(release.changes);
-        try {
-            await this.versions.query(`
-          INSERT INTO system_versions (
-            id, tenant_id, release_key, version, build_id, channel, title, changes, released_at, created_at, updated_at
-          )
-          SELECT UUID(), ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW()
-          FROM DUAL
-          WHERE NOT EXISTS (
-            SELECT 1 FROM system_versions
-            WHERE tenant_id = ? AND release_key = ?
-          )
-        `, [
-                tenantId,
-                release.releaseKey,
-                release.version,
-                release.buildId,
-                release.channel,
-                release.title.slice(0, 180),
-                JSON.stringify(changes),
-                (0, release_notes_util_1.toSqlDateTime)(release.releasedAt),
-                tenantId,
-                release.releaseKey,
-            ]);
-        }
-        catch (error) {
-            if (!this.isDuplicate(error)) {
-                throw error;
-            }
-        }
+    async enabledModuleCodes(tenantId) {
+        const rows = await this.versions.query(`
+        SELECT m.code AS code
+        FROM tenant_modules tm
+        INNER JOIN modules m ON m.id = tm.module_id
+        WHERE tm.tenant_id = ?
+          AND tm.is_enabled = 1
+      `, [tenantId]);
+        return rows.map((row) => row.code);
     }
     toItem(row) {
         const released = row.released_at instanceof Date
@@ -164,10 +122,6 @@ let SystemVersionsService = class SystemVersionsService {
             }
         }
         return (0, release_notes_util_1.sanitizeReleaseChanges)(value);
-    }
-    isDuplicate(error) {
-        const dbError = error;
-        return dbError?.code === 'ER_DUP_ENTRY' || dbError?.errno === 1062;
     }
 };
 exports.SystemVersionsService = SystemVersionsService;

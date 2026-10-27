@@ -252,7 +252,8 @@ let CustomerDebtFlowService = class CustomerDebtFlowService {
         const delta = (0, customer_debt_ledger_util_1.roundDebtMoney)(Number(row.amount_delta || 0));
         const type = row.movement_type;
         const isCharge = type === customer_debt_ledger_movement_type_enum_1.CustomerDebtLedgerMovementType.CHARGE ||
-            type === customer_debt_ledger_movement_type_enum_1.CustomerDebtLedgerMovementType.PAYMENT_REVERSAL;
+            type === customer_debt_ledger_movement_type_enum_1.CustomerDebtLedgerMovementType.PAYMENT_REVERSAL ||
+            type === customer_debt_ledger_movement_type_enum_1.CustomerDebtLedgerMovementType.CREDIT_NOTE_REVERSAL;
         const due = row.due_date ? String(row.due_date).slice(0, 10) : null;
         return {
             id: row.id,

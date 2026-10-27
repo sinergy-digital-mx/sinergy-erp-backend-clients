@@ -107,6 +107,8 @@ let ElectronicInvoiceService = ElectronicInvoiceService_1 = class ElectronicInvo
             sat_sync_enabled: 1,
             invoice_role: dto.invoice_role ?? 'standard',
             related_advance_invoice_id: dto.related_advance_invoice_id ?? null,
+            related_invoice_id: dto.related_invoice_id ?? null,
+            relation_type: dto.relation_type ?? null,
             metadata: {
                 ...(dto.metadata ?? {}),
                 finkok_environment: credentials.environment,

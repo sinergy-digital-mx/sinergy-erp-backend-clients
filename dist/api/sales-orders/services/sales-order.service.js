@@ -59,6 +59,7 @@ const pos_sale_collection_entity_1 = require("../../../entities/pos/pos-sale-col
 const pos_sale_collection_mapper_1 = require("../../pos-shifts/mappers/pos-sale-collection.mapper");
 const walk_in_ticket_util_1 = require("../../pos-shifts/utils/walk-in-ticket.util");
 const electronic_invoice_service_1 = require("../../electronic-invoicing/services/electronic-invoice.service");
+const credit_note_util_1 = require("../utils/credit-note.util");
 const electronic_invoice_entity_1 = require("../../../entities/electronic-invoicing/electronic-invoice.entity");
 const sales_order_document_entity_1 = require("../../../entities/sales-orders/sales-order-document.entity");
 const sales_order_downloads_util_1 = require("../utils/sales-order-downloads.util");
@@ -918,9 +919,10 @@ let SalesOrderService = class SalesOrderService {
         const existing = await this.paymentRepo.find({
             where: { sales_order_id: salesOrderId, tenant_id: tenantId },
         });
-        const currentSummary = this.buildPaymentSummary(order, existing);
+        const creditNotesTotal = await this.vigenteCreditNotesTotal(order);
+        const currentSummary = this.buildPaymentSummary(order, existing, creditNotesTotal);
         if (dto.amount > currentSummary.amount_pending + 0.001) {
-            throw new common_1.BadRequestException(`El monto excede el saldo pendiente (${currentSummary.amount_pending.toFixed(2)} MXN)`);
+            throw new common_1.BadRequestException(`El monto excede el saldo pendiente (${currentSummary.amount_pending.toFixed(2)} ${currentSummary.currency})`);
         }
         const payment = this.paymentRepo.create({
             id: (0, uuid_1.v4)(),
@@ -944,7 +946,7 @@ let SalesOrderService = class SalesOrderService {
             source,
         }), `abono ${payment.id}`);
         const updatedPayments = [...existing, payment];
-        const summary = this.buildPaymentSummary(order, updatedPayments);
+        const summary = this.buildPaymentSummary(order, updatedPayments, creditNotesTotal);
         order.payment_status = summary.payment_status;
         order.updated_by = userId;
         if (summary.payment_status === 'Pagado' && source === 'manual') {
@@ -1126,9 +1128,10 @@ let SalesOrderService = class SalesOrderService {
             order: { payment_date: 'DESC', created_at: 'DESC' },
         });
         const mapped = await Promise.all(payments.map((p) => this.mapPaymentWithDocuments(p)));
+        const creditNotesTotal = await this.vigenteCreditNotesTotal(order);
         return {
             payments: mapped,
-            summary: this.buildPaymentSummary(order, payments),
+            summary: this.buildPaymentSummary(order, payments, creditNotesTotal),
         };
     }
     async assertPosSellerUser(userId, tenantId, notFoundMessage) {
@@ -1192,16 +1195,28 @@ let SalesOrderService = class SalesOrderService {
                 : null,
         };
     }
-    buildPaymentSummary(order, payments) {
+    async vigenteCreditNotesTotal(order) {
+        const invoices = await this.electronicInvoiceService.findBySource(order.tenant_id, 'sales_orders', order.id);
+        return (0, credit_note_util_1.sumVigenteCommercialCreditNotes)(invoices);
+    }
+    buildPaymentSummary(order, payments, creditNotesTotal = 0) {
         const orderTotal = Number(order.total || 0);
         const amountPaid = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-        const amountPending = Math.max(Number((orderTotal - amountPaid).toFixed(2)), 0);
+        const cashPending = Math.max(Number((orderTotal - amountPaid).toFixed(2)), 0);
+        const effect = (0, credit_note_util_1.splitCreditNoteEffect)({
+            orderTotal,
+            amountPaid,
+            creditNotesTotal,
+        });
+        const currency = order.currency === 'USD' ? 'USD' : 'MXN';
         return {
             amount_paid: Number(amountPaid.toFixed(2)),
-            amount_pending: amountPending,
-            payment_status: amountPending <= 0 ? 'Pagado' : 'Pendiente',
-            currency: 'MXN',
+            amount_pending: effect.pendingAfter,
+            payment_status: cashPending <= 0 ? 'Pagado' : 'Pendiente',
+            currency,
             order_total: Number(orderTotal.toFixed(2)),
+            credit_notes_total: Number(Number(creditNotesTotal || 0).toFixed(2)),
+            customer_credit: effect.customerCredit,
         };
     }
     async mapPaymentWithDocuments(payment) {
@@ -1409,12 +1424,20 @@ let SalesOrderService = class SalesOrderService {
             }
         }
         const vigentes = await this.electronicInvoiceService.findVigenteBySource(tenantId, 'sales_orders', so.id);
-        if (!vigentes.length) {
+        const blockers = vigentes.filter((invoice) => {
+            const tipo = (invoice.tipo_comprobante || 'I').toUpperCase();
+            if (tipo !== 'I')
+                return false;
+            if (!(0, credit_note_util_1.isCreditableIncomeInvoice)(invoice))
+                return true;
+            return !(0, credit_note_util_1.isIncomeCoveredByCreditNotes)(invoice, vigentes);
+        });
+        if (!blockers.length) {
             return null;
         }
-        const first = vigentes[0];
+        const first = blockers[0];
         const uuidLabel = first.uuid ? ` (UUID ${first.uuid})` : '';
-        return `No se puede cancelar la orden: tiene una factura CFDI vigente${uuidLabel}. Cancela la factura primero.`;
+        return `No se puede cancelar la orden: tiene una factura CFDI vigente${uuidLabel}. Cancela la factura primero o cubre el total con una nota de crédito.`;
     }
     async getPosReturnBlockedReason(order, tenantId) {
         if (order.sales_order_type !== 'POS') {

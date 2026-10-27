@@ -34,6 +34,7 @@ const customer_address_entity_1 = require("../../entities/customers/customer-add
 const sales_order_entity_1 = require("../../entities/sales-orders/sales-order.entity");
 const sales_order_detail_entity_1 = require("../../entities/sales-orders/sales-order-detail.entity");
 const sales_order_payment_entity_1 = require("../../entities/sales-orders/sales-order-payment.entity");
+const electronic_invoice_entity_1 = require("../../entities/electronic-invoicing/electronic-invoice.entity");
 const product_entity_1 = require("../../entities/products/product.entity");
 const s3_service_1 = require("../../common/services/s3.service");
 const rbac_module_1 = require("../rbac/rbac.module");
@@ -63,6 +64,7 @@ exports.CustomersModule = CustomersModule = __decorate([
                 sales_order_entity_1.SalesOrder,
                 sales_order_detail_entity_1.SalesOrderDetail,
                 sales_order_payment_entity_1.SalesOrderPayment,
+                electronic_invoice_entity_1.ElectronicInvoice,
                 product_entity_1.Product,
             ]),
             rbac_module_1.RBACModule,

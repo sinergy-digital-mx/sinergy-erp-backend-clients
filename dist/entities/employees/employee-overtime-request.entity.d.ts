@@ -1,0 +1,32 @@
+import { RBACTenant } from '../rbac/tenant.entity';
+import { Employee } from './employee.entity';
+import { OvertimeStatus } from './overtime-status.enum';
+export declare class EmployeeOvertimeRequest {
+    id: string;
+    tenant: RBACTenant;
+    tenant_id: string;
+    employee: Employee;
+    employee_id: string;
+    work_date: string;
+    start_time: string;
+    end_time: string;
+    requested_hours: number;
+    reason: string;
+    notes: string | null;
+    status: OvertimeStatus;
+    approved_hours: number | null;
+    hourly_rate: number | null;
+    double_hours: number | null;
+    excess_hours: number | null;
+    amount: number | null;
+    paid_amount: number | null;
+    payment_detail: Record<string, unknown> | null;
+    created_by: string | null;
+    reviewed_by: string | null;
+    reviewed_at: Date | null;
+    review_notes: string | null;
+    paid_by: string | null;
+    paid_at: Date | null;
+    created_at: Date;
+    updated_at: Date;
+}

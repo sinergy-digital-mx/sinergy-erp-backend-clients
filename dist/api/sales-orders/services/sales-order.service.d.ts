@@ -435,6 +435,8 @@ export declare class SalesOrderService {
                 payment_status: string;
                 currency: string;
                 order_total: number;
+                credit_notes_total: number;
+                customer_credit: number;
             };
             applied_line_discounts: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedLineDiscountDto[];
             applied_global_discount: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedGlobalDiscountDto | null;
@@ -834,6 +836,8 @@ export declare class SalesOrderService {
             payment_status: string;
             currency: string;
             order_total: number;
+            credit_notes_total: number;
+            customer_credit: number;
         };
         applied_line_discounts: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedLineDiscountDto[];
         applied_global_discount: import("../mappers/sales-order-discount.mapper").SalesOrderAppliedGlobalDiscountDto | null;
@@ -879,6 +883,8 @@ export declare class SalesOrderService {
             payment_status: string;
             currency: string;
             order_total: number;
+            credit_notes_total: number;
+            customer_credit: number;
         };
     }>;
     createPayment(salesOrderId: string, dto: CreateSalesOrderPaymentDto, tenantId: string, userId: string, source?: 'manual' | 'pos_cobranza'): Promise<{
@@ -914,6 +920,8 @@ export declare class SalesOrderService {
             payment_status: string;
             currency: string;
             order_total: number;
+            credit_notes_total: number;
+            customer_credit: number;
         };
     }>;
     deletePayment(salesOrderId: string, paymentId: string, tenantId: string, userId: string): Promise<{
@@ -925,6 +933,8 @@ export declare class SalesOrderService {
             payment_status: string;
             currency: string;
             order_total: number;
+            credit_notes_total: number;
+            customer_credit: number;
         };
     }>;
     uploadPaymentDocument(salesOrderId: string, paymentId: string, tenantId: string, userId: string, file: {
@@ -968,6 +978,7 @@ export declare class SalesOrderService {
     private assertPosSellerUser;
     private resolveAssignedSellerUserId;
     private mapOrderLocation;
+    private vigenteCreditNotesTotal;
     private buildPaymentSummary;
     private mapPaymentWithDocuments;
     private mapPaymentDocument;

@@ -18,6 +18,8 @@ exports.chargeSourceKey = chargeSourceKey;
 exports.paymentSourceKey = paymentSourceKey;
 exports.chargeReversalSourceKey = chargeReversalSourceKey;
 exports.paymentReversalSourceKey = paymentReversalSourceKey;
+exports.creditNoteSourceKey = creditNoteSourceKey;
+exports.creditNoteReversalSourceKey = creditNoteReversalSourceKey;
 const customer_debt_ledger_movement_type_enum_1 = require("../../../entities/accounting/customer-debt-ledger-movement-type.enum");
 const sales_order_payment_display_util_1 = require("../../sales-orders/utils/sales-order-payment-display.util");
 const WALK_IN_FISCAL_NAME = 'VENTA DE MOSTRADOR';
@@ -27,6 +29,8 @@ const MOVEMENT_RANK = {
     [customer_debt_ledger_movement_type_enum_1.CustomerDebtLedgerMovementType.PAYMENT]: 1,
     [customer_debt_ledger_movement_type_enum_1.CustomerDebtLedgerMovementType.CHARGE_REVERSAL]: 2,
     [customer_debt_ledger_movement_type_enum_1.CustomerDebtLedgerMovementType.PAYMENT_REVERSAL]: 3,
+    [customer_debt_ledger_movement_type_enum_1.CustomerDebtLedgerMovementType.CREDIT_NOTE]: 4,
+    [customer_debt_ledger_movement_type_enum_1.CustomerDebtLedgerMovementType.CREDIT_NOTE_REVERSAL]: 5,
 };
 function roundDebtMoney(value) {
     return Math.round((value + Number.EPSILON) * 100) / 100;
@@ -99,6 +103,10 @@ function debtMovementLabel(type) {
             return 'Cancelación';
         case customer_debt_ledger_movement_type_enum_1.CustomerDebtLedgerMovementType.PAYMENT_REVERSAL:
             return 'Reversa de abono';
+        case customer_debt_ledger_movement_type_enum_1.CustomerDebtLedgerMovementType.CREDIT_NOTE:
+            return 'Nota de crédito';
+        case customer_debt_ledger_movement_type_enum_1.CustomerDebtLedgerMovementType.CREDIT_NOTE_REVERSAL:
+            return 'Reversa de nota de crédito';
         default:
             return 'Saldo inicial';
     }
@@ -120,6 +128,12 @@ function debtMovementDescription(input) {
     }
     if (input.movementType === customer_debt_ledger_movement_type_enum_1.CustomerDebtLedgerMovementType.CHARGE_REVERSAL) {
         return `Se canceló el saldo pendiente de ${folio}.`;
+    }
+    if (input.movementType === customer_debt_ledger_movement_type_enum_1.CustomerDebtLedgerMovementType.CREDIT_NOTE) {
+        return `Nota de crédito sobre ${folio}.`;
+    }
+    if (input.movementType === customer_debt_ledger_movement_type_enum_1.CustomerDebtLedgerMovementType.CREDIT_NOTE_REVERSAL) {
+        return `Se canceló la nota de crédito de ${folio}.`;
     }
     return `Se revirtió un abono de ${folio}.`;
 }
@@ -202,5 +216,11 @@ function chargeReversalSourceKey(salesOrderId) {
 }
 function paymentReversalSourceKey(paymentId) {
     return `payment_reversal:${paymentId}`;
+}
+function creditNoteSourceKey(invoiceId) {
+    return `credit_note:${invoiceId}`;
+}
+function creditNoteReversalSourceKey(invoiceId) {
+    return `credit_note_reversal:${invoiceId}`;
 }
 //# sourceMappingURL=customer-debt-ledger.util.js.map

@@ -16,6 +16,7 @@ const user_entity_1 = require("../users/user.entity");
 const employee_status_enum_1 = require("./employee-status.enum");
 const employee_payment_frequency_enum_1 = require("./employee-payment-frequency.enum");
 const employee_leave_request_entity_1 = require("./employee-leave-request.entity");
+const employee_overtime_request_entity_1 = require("./employee-overtime-request.entity");
 let Employee = class Employee {
     id;
     tenant;
@@ -41,6 +42,7 @@ let Employee = class Employee {
     termination_date;
     metadata;
     leave_requests;
+    overtime_requests;
     created_at;
     updated_at;
 };
@@ -151,6 +153,10 @@ __decorate([
     (0, typeorm_1.OneToMany)(() => employee_leave_request_entity_1.EmployeeLeaveRequest, (request) => request.employee),
     __metadata("design:type", Array)
 ], Employee.prototype, "leave_requests", void 0);
+__decorate([
+    (0, typeorm_1.OneToMany)(() => employee_overtime_request_entity_1.EmployeeOvertimeRequest, (request) => request.employee),
+    __metadata("design:type", Array)
+], Employee.prototype, "overtime_requests", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)({ type: 'timestamp' }),
     __metadata("design:type", Date)

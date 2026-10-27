@@ -406,6 +406,7 @@ export declare class AccountingService {
         }[];
     }>;
     private collectAccountsReceivable;
+    private creditNoteAppliedByOrder;
     private receivableRazonSocial;
     private receivableExcelSheets;
     private receivableAmbosSheet;

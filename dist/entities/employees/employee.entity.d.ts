@@ -3,6 +3,7 @@ import { User } from '../users/user.entity';
 import { EmployeeStatus } from './employee-status.enum';
 import { EmployeePaymentFrequency } from './employee-payment-frequency.enum';
 import { EmployeeLeaveRequest } from './employee-leave-request.entity';
+import { EmployeeOvertimeRequest } from './employee-overtime-request.entity';
 export declare class Employee {
     id: string;
     tenant: RBACTenant;
@@ -28,6 +29,7 @@ export declare class Employee {
     termination_date: string | null;
     metadata: Record<string, any> | null;
     leave_requests: EmployeeLeaveRequest[];
+    overtime_requests: EmployeeOvertimeRequest[];
     created_at: Date;
     updated_at: Date;
 }

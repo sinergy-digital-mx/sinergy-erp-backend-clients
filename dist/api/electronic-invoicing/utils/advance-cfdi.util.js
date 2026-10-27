@@ -55,12 +55,13 @@ function inferIvaPercentage(ivaTotal, taxableBase) {
 function taxableBaseOfDocument(subtotal, discountTotal, globalDiscount) {
     return fromCents(Math.max(cents(subtotal) - cents(discountTotal) - cents(globalDiscount), 0));
 }
-function relacionXml(uuid) {
+function relacionXml(uuid, relationType = exports.ADVANCE_RELATION_TYPE) {
     const value = uuid?.trim();
     if (!value)
         return '';
+    const type = (relationType || exports.ADVANCE_RELATION_TYPE).trim() || exports.ADVANCE_RELATION_TYPE;
     return `
-  <cfdi:CfdiRelacionados TipoRelacion="${exports.ADVANCE_RELATION_TYPE}">
+  <cfdi:CfdiRelacionados TipoRelacion="${escapeXml(type)}">
     <cfdi:CfdiRelacionado UUID="${escapeXml(value)}"/>
   </cfdi:CfdiRelacionados>`;
 }
@@ -68,8 +69,11 @@ function comprobanteShell(params) {
     const series = params.series?.trim();
     const serieAttr = series ? ` Serie="${escapeXml(series)}"` : '';
     const discountAttr = params.discount > 0 ? ` Descuento="${money(params.discount)}"` : '';
+    const currency = (params.currency || 'MXN').trim().toUpperCase() || 'MXN';
+    const rate = Number(params.exchangeRate || 0);
+    const tipoCambioAttr = currency !== 'MXN' && rate > 0 ? ` TipoCambio="${rate.toFixed(6)}"` : '';
     return `<?xml version="1.0" encoding="UTF-8"?>
-<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0"${serieAttr} Folio="${escapeXml(params.folio)}" Fecha="${advanceCfdiFecha()}" SubTotal="${money(params.subtotal)}"${discountAttr} Total="${money(params.total)}" Moneda="MXN" TipoDeComprobante="${params.tipo}" Exportacion="01" MetodoPago="${escapeXml(params.metodoPago)}" FormaPago="${escapeXml(params.formaPago)}" LugarExpedicion="${escapeXml(params.emisor.postalCode)}">${relacionXml(params.relatedUuid)}
+<cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sat.gob.mx/cfd/4 http://www.sat.gob.mx/sitio_internet/cfd/4/cfdv40.xsd" Version="4.0"${serieAttr} Folio="${escapeXml(params.folio)}" Fecha="${advanceCfdiFecha()}" SubTotal="${money(params.subtotal)}"${discountAttr} Total="${money(params.total)}" Moneda="${escapeXml(currency)}"${tipoCambioAttr} TipoDeComprobante="${params.tipo}" Exportacion="01" MetodoPago="${escapeXml(params.metodoPago)}" FormaPago="${escapeXml(params.formaPago)}" LugarExpedicion="${escapeXml(params.emisor.postalCode)}">${relacionXml(params.relatedUuid, params.relationType)}
   <cfdi:Emisor Rfc="${escapeXml(params.emisor.rfc)}" Nombre="${escapeXml(params.emisor.nombre)}" RegimenFiscal="${escapeXml(params.emisor.regimen)}"/>
   <cfdi:Receptor Rfc="${escapeXml(params.receptor.rfc)}" Nombre="${escapeXml(params.receptor.nombre)}" DomicilioFiscalReceptor="${escapeXml(params.receptor.postalCode)}" RegimenFiscalReceptor="${escapeXml(params.receptor.regimen)}" UsoCFDI="${escapeXml(params.usoCfdi)}"/>
   <cfdi:Conceptos>${params.conceptosXml}
@@ -168,8 +172,15 @@ function buildAdvanceConceptCfdi(input) {
     const taxTotal = fromCents(tax.taxes.reduce((sum, row) => sum + cents(row.importe), 0));
     const total = fromCents(cents(base) + cents(taxTotal));
     const objeto = tax.taxes.length ? '02' : '01';
+    const clave = (input.satClave || exports.ADVANCE_SAT_CLAVE).trim() || exports.ADVANCE_SAT_CLAVE;
+    const unitCode = (input.unitCode || exports.ADVANCE_UNIT_CODE).trim() || exports.ADVANCE_UNIT_CODE;
+    const unitName = (input.unitName || exports.ADVANCE_UNIT_NAME).trim() || exports.ADVANCE_UNIT_NAME;
+    const identification = (input.identification || exports.ADVANCE_IDENTIFICATION).trim();
+    const identificationAttr = identification
+        ? ` NoIdentificacion="${escapeXml(identification)}"`
+        : '';
     const concepto = `
-    <cfdi:Concepto ClaveProdServ="${exports.ADVANCE_SAT_CLAVE}" NoIdentificacion="${exports.ADVANCE_IDENTIFICATION}" Cantidad="1.000000" ClaveUnidad="${exports.ADVANCE_UNIT_CODE}" Unidad="${exports.ADVANCE_UNIT_NAME}" Descripcion="${escapeXml(input.descripcion)}" ValorUnitario="${money(base)}" Importe="${money(base)}" ObjetoImp="${objeto}">${tax.xml}
+    <cfdi:Concepto ClaveProdServ="${escapeXml(clave)}"${identificationAttr} Cantidad="1.000000" ClaveUnidad="${escapeXml(unitCode)}" Unidad="${escapeXml(unitName)}" Descripcion="${escapeXml(input.descripcion)}" ValorUnitario="${money(base)}" Importe="${money(base)}" ObjetoImp="${objeto}">${tax.xml}
     </cfdi:Concepto>`;
     return {
         xml: comprobanteShell({
@@ -185,6 +196,9 @@ function buildAdvanceConceptCfdi(input) {
             receptor: input.receptor,
             usoCfdi: input.usoCfdi,
             relatedUuid: input.relatedUuid,
+            relationType: input.relationType,
+            currency: input.currency,
+            exchangeRate: input.exchangeRate,
             conceptosXml: concepto,
             impuestosXml: groupedTaxesXml(tax.taxes),
         }),

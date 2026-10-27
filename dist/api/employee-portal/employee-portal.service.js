@@ -53,14 +53,17 @@ const bcrypt = __importStar(require("bcrypt"));
 const user_entity_1 = require("../../entities/users/user.entity");
 const employees_service_1 = require("../employees/employees.service");
 const employee_leave_service_1 = require("../employees/employee-leave.service");
+const employee_overtime_service_1 = require("../employees/employee-overtime.service");
 let EmployeePortalService = class EmployeePortalService {
     userRepo;
     employeesService;
     leaveService;
-    constructor(userRepo, employeesService, leaveService) {
+    overtimeService;
+    constructor(userRepo, employeesService, leaveService, overtimeService) {
         this.userRepo = userRepo;
         this.employeesService = employeesService;
         this.leaveService = leaveService;
+        this.overtimeService = overtimeService;
     }
     async resolveEmployee(tenantId, userId) {
         const employee = await this.employeesService.findEntityByUser(tenantId, userId);
@@ -117,6 +120,18 @@ let EmployeePortalService = class EmployeePortalService {
         const employee = await this.resolveEmployee(tenantId, userId);
         return this.leaveService.removeDocument(tenantId, requestId, documentId, employee.id);
     }
+    async getMyOvertimeRequests(tenantId, userId, query) {
+        const employee = await this.resolveEmployee(tenantId, userId);
+        return this.overtimeService.findAllByEmployee(tenantId, employee.id, query);
+    }
+    async createMyOvertimeRequest(tenantId, userId, dto) {
+        const employee = await this.resolveEmployee(tenantId, userId);
+        return this.overtimeService.create(tenantId, employee.id, dto, userId);
+    }
+    async updateMyOvertimeRequest(tenantId, userId, requestId, dto) {
+        const employee = await this.resolveEmployee(tenantId, userId);
+        return this.overtimeService.update(tenantId, requestId, dto, employee.id);
+    }
 };
 exports.EmployeePortalService = EmployeePortalService;
 exports.EmployeePortalService = EmployeePortalService = __decorate([
@@ -124,6 +139,7 @@ exports.EmployeePortalService = EmployeePortalService = __decorate([
     __param(0, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
         employees_service_1.EmployeesService,
-        employee_leave_service_1.EmployeeLeaveService])
+        employee_leave_service_1.EmployeeLeaveService,
+        employee_overtime_service_1.EmployeeOvertimeService])
 ], EmployeePortalService);
 //# sourceMappingURL=employee-portal.service.js.map

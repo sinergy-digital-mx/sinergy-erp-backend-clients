@@ -26,6 +26,19 @@ export declare class CustomerDebtLedgerService {
         salesOrderId: string;
         userId: string | null;
     }): Promise<void>;
+    captureCreditNote(input: {
+        tenantId: string;
+        salesOrderId: string;
+        invoiceId: string;
+        amount: number;
+        userId: string | null;
+    }): Promise<void>;
+    reverseCreditNote(input: {
+        tenantId: string;
+        salesOrderId: string;
+        invoiceId: string;
+        userId: string | null;
+    }): Promise<void>;
     private canCapture;
     private append;
     private insertMovement;

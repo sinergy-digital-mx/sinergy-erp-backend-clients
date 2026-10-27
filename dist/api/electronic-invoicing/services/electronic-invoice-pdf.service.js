@@ -668,7 +668,11 @@ let ElectronicInvoicePdfService = ElectronicInvoicePdfService_1 = class Electron
                 widths: ['*'],
                 body: [
                     [{
-                            text: cfdi.tipoComprobante === 'P' ? 'COMPROBANTE DE PAGO' : 'FACTURA',
+                            text: cfdi.tipoComprobante === 'P'
+                                ? 'COMPROBANTE DE PAGO'
+                                : cfdi.tipoComprobante === 'E'
+                                    ? 'NOTA DE CRÉDITO'
+                                    : 'FACTURA',
                             style: 'facturaTitle',
                             alignment: 'center',
                             margin: [0, 6, 0, 6],

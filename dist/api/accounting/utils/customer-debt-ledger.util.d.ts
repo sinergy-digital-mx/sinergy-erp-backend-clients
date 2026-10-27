@@ -46,3 +46,5 @@ export declare function chargeSourceKey(salesOrderId: string): string;
 export declare function paymentSourceKey(paymentId: string): string;
 export declare function chargeReversalSourceKey(salesOrderId: string): string;
 export declare function paymentReversalSourceKey(paymentId: string): string;
+export declare function creditNoteSourceKey(invoiceId: string): string;
+export declare function creditNoteReversalSourceKey(invoiceId: string): string;

@@ -15,6 +15,8 @@ export declare class StampElectronicInvoiceDto {
     certificate_serial?: string;
     environment?: 'demo' | 'production';
     metadata?: Record<string, unknown>;
-    invoice_role?: 'standard' | 'advance' | 'merchandise' | 'advance_application';
+    invoice_role?: 'standard' | 'advance' | 'merchandise' | 'advance_application' | 'credit_note';
     related_advance_invoice_id?: string;
+    related_invoice_id?: string;
+    relation_type?: string;
 }

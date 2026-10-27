@@ -27,6 +27,7 @@ const sales_order_invoice_email_service_1 = require("../services/sales-order-inv
 const shippings_service_1 = require("../../shippings/shippings.service");
 const cancel_electronic_invoice_dto_1 = require("../../electronic-invoicing/dto/cancel-electronic-invoice.dto");
 const stamp_sales_order_invoice_dto_1 = require("../dto/stamp-sales-order-invoice.dto");
+const stamp_sales_order_credit_note_dto_1 = require("../dto/stamp-sales-order-credit-note.dto");
 const stamp_advance_invoice_dto_1 = require("../../electronic-invoicing/dto/stamp-advance-invoice.dto");
 const stamp_payment_complement_dto_1 = require("../dto/stamp-payment-complement.dto");
 const apply_advance_invoice_dto_1 = require("../../electronic-invoicing/dto/apply-advance-invoice.dto");
@@ -150,6 +151,9 @@ let SalesOrderController = class SalesOrderController {
     }
     async applyAdvance(id, dto, req) {
         return this.invoicingService.applyAdvance(id, req.user.tenant_id, req.user.id, dto);
+    }
+    async stampCreditNote(id, invoiceId, dto, req) {
+        return this.invoicingService.stampCreditNote(id, invoiceId, req.user.tenant_id, req.user.id, dto);
     }
     async cancelInvoice(id, invoiceId, dto, req) {
         return this.invoicingService.cancelInvoice(id, invoiceId, req.user.tenant_id, req.user.id, dto);
@@ -614,6 +618,21 @@ __decorate([
     __metadata("design:paramtypes", [String, apply_advance_invoice_dto_1.ApplyAdvanceInvoiceDto, Object]),
     __metadata("design:returntype", Promise)
 ], SalesOrderController.prototype, "applyAdvance", null);
+__decorate([
+    (0, common_1.Post)(':id/invoices/:invoiceId/credit-note'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Timbrar nota de crédito sobre una factura de la orden',
+        description: 'CFDI de egreso relacionado con TipoRelacion 01 al UUID de la factura de ingreso. Puede ser parcial (diferencia) o por el total. Si la orden está cancelada, esta nota sí se puede timbrar.',
+    }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Param)('invoiceId')),
+    __param(2, (0, common_1.Body)()),
+    __param(3, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, stamp_sales_order_credit_note_dto_1.StampSalesOrderCreditNoteDto, Object]),
+    __metadata("design:returntype", Promise)
+], SalesOrderController.prototype, "stampCreditNote", null);
 __decorate([
     (0, common_1.Post)(':id/invoices/:invoiceId/cancel'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),

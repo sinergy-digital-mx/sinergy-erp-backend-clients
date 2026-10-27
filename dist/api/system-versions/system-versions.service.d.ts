@@ -23,15 +23,11 @@ export interface PaginatedSystemVersions {
 }
 export declare class SystemVersionsService {
     private readonly versions;
-    private readonly syncedTenants;
     constructor(versions: Repository<SystemVersion>);
     findAll(tenantId: string, query: QuerySystemVersionsDto): Promise<PaginatedSystemVersions>;
     findLatest(tenantId: string): Promise<SystemVersionItem | null>;
     private assertModuleEnabled;
-    private ensureCatalogOnce;
-    private catalogReleases;
-    private insertRelease;
+    private enabledModuleCodes;
     private toItem;
     private readChanges;
-    private isDuplicate;
 }

@@ -24,6 +24,9 @@ const employee_portal_service_1 = require("./employee-portal.service");
 const update_my_profile_dto_1 = require("./dto/update-my-profile.dto");
 const create_leave_request_dto_1 = require("../employees/dto/create-leave-request.dto");
 const query_leave_request_dto_1 = require("../employees/dto/query-leave-request.dto");
+const create_overtime_request_dto_1 = require("../employees/dto/create-overtime-request.dto");
+const query_overtime_request_dto_1 = require("../employees/dto/query-overtime-request.dto");
+const update_overtime_request_dto_1 = require("../employees/dto/update-overtime-request.dto");
 const employee_portal_constants_1 = require("./employee-portal.constants");
 let EmployeePortalController = class EmployeePortalController {
     service;
@@ -55,6 +58,15 @@ let EmployeePortalController = class EmployeePortalController {
     }
     removeMyLeaveDocument(requestId, documentId) {
         return this.service.removeMyLeaveDocument(this.getTenantId(), this.getUserId(), requestId, documentId);
+    }
+    getMyOvertimeRequests(query) {
+        return this.service.getMyOvertimeRequests(this.getTenantId(), this.getUserId(), query);
+    }
+    createMyOvertimeRequest(dto) {
+        return this.service.createMyOvertimeRequest(this.getTenantId(), this.getUserId(), dto);
+    }
+    updateMyOvertimeRequest(requestId, dto) {
+        return this.service.updateMyOvertimeRequest(this.getTenantId(), this.getUserId(), requestId, dto);
     }
     getTenantId() {
         const tenantId = this.tenantContext.getCurrentTenantId();
@@ -154,6 +166,35 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", void 0)
 ], EmployeePortalController.prototype, "removeMyLeaveDocument", null);
+__decorate([
+    (0, common_1.Get)('me/overtime-requests'),
+    (0, require_permissions_decorator_1.RequirePermission)(employee_portal_constants_1.EMPLOYEE_PORTAL_ENTITY_CODE, 'Read'),
+    (0, swagger_1.ApiOperation)({ summary: 'Ver mis solicitudes de horas extras' }),
+    __param(0, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [query_overtime_request_dto_1.QueryOvertimeRequestDto]),
+    __metadata("design:returntype", void 0)
+], EmployeePortalController.prototype, "getMyOvertimeRequests", null);
+__decorate([
+    (0, common_1.Post)('me/overtime-requests'),
+    (0, require_permissions_decorator_1.RequirePermission)(employee_portal_constants_1.EMPLOYEE_PORTAL_ENTITY_CODE, 'RequestLeave'),
+    (0, swagger_1.ApiOperation)({ summary: 'Solicitar horas extras' }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [create_overtime_request_dto_1.CreateOvertimeRequestDto]),
+    __metadata("design:returntype", void 0)
+], EmployeePortalController.prototype, "createMyOvertimeRequest", null);
+__decorate([
+    (0, common_1.Put)('me/overtime-requests/:requestId'),
+    (0, require_permissions_decorator_1.RequirePermission)(employee_portal_constants_1.EMPLOYEE_PORTAL_ENTITY_CODE, 'RequestLeave'),
+    (0, swagger_1.ApiOperation)({ summary: 'Corregir una de mis solicitudes de horas extras pendientes' }),
+    (0, swagger_1.ApiParam)({ name: 'requestId', type: 'string' }),
+    __param(0, (0, common_1.Param)('requestId')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, update_overtime_request_dto_1.UpdateOvertimeRequestDto]),
+    __metadata("design:returntype", void 0)
+], EmployeePortalController.prototype, "updateMyOvertimeRequest", null);
 exports.EmployeePortalController = EmployeePortalController = __decorate([
     (0, swagger_1.ApiTags)('Employee Portal'),
     (0, swagger_1.ApiBearerAuth)(),

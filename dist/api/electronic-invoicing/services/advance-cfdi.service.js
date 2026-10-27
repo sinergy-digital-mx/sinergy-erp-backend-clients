@@ -50,7 +50,7 @@ let AdvanceCfdiService = class AdvanceCfdiService {
             total: Number(invoice.total),
             stamp_status: invoice.stamp_status,
             sat_status: invoice.sat_status,
-            invoice_role: invoice.invoice_role,
+            invoice_role: advanceInvoiceRole(invoice.invoice_role),
             applied: !!merchandise && !!application,
             merchandise_invoice_id: merchandise?.id ?? null,
             application_invoice_id: application?.id ?? null,
@@ -227,4 +227,10 @@ exports.AdvanceCfdiService = AdvanceCfdiService = __decorate([
     __metadata("design:paramtypes", [typeorm_2.Repository,
         electronic_invoice_service_1.ElectronicInvoiceService])
 ], AdvanceCfdiService);
+function advanceInvoiceRole(role) {
+    if (role === 'merchandise' || role === 'advance_application' || role === 'standard') {
+        return role;
+    }
+    return 'advance';
+}
 //# sourceMappingURL=advance-cfdi.service.js.map

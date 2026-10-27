@@ -18,7 +18,7 @@ exports.EMPLOYEES_ACTION_DESCRIPTIONS = {
     Read: 'Ver todos los empleados, su salario y sus solicitudes',
     Update: 'Actualizar datos de empleados y registrar solicitudes a su nombre',
     Delete: 'Eliminar empleados',
-    ManageLeave: 'Aprobar o rechazar vacaciones y ausencias de todos',
-    ViewOwn: 'Ver solo mi expediente, mi salario y solicitar mis vacaciones',
+    ManageLeave: 'Aprobar o rechazar vacaciones, ausencias y horas extras',
+    ViewOwn: 'Ver solo mi expediente, mi salario y solicitar vacaciones u horas extras',
 };
 //# sourceMappingURL=employees.constants.js.map

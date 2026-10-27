@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var SalesOrderInvoicingService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SalesOrderInvoicingService = void 0;
 const common_1 = require("@nestjs/common");
@@ -32,7 +33,11 @@ const cfdi_xml_parser_1 = require("../../electronic-invoicing/utils/cfdi-xml.par
 const payment_cfdi_util_1 = require("../../electronic-invoicing/utils/payment-cfdi.util");
 const cfdi_stamp_date_util_1 = require("../../electronic-invoicing/utils/cfdi-stamp-date.util");
 const sales_order_currency_util_1 = require("../utils/sales-order-currency.util");
-let SalesOrderInvoicingService = class SalesOrderInvoicingService {
+const customer_debt_ledger_service_1 = require("../../accounting/services/customer-debt-ledger.service");
+const customer_credit_ledger_service_1 = require("../../accounting/services/customer-credit-ledger.service");
+const credit_note_cfdi_util_1 = require("../utils/credit-note-cfdi.util");
+const credit_note_util_1 = require("../utils/credit-note.util");
+let SalesOrderInvoicingService = SalesOrderInvoicingService_1 = class SalesOrderInvoicingService {
     salesOrderRepo;
     paymentRepo;
     customerRepo;
@@ -40,8 +45,11 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
     advanceCfdi;
     posShiftsService;
     advancePayments;
+    debtLedger;
+    creditLedger;
     periodRepo;
-    constructor(salesOrderRepo, paymentRepo, customerRepo, electronicInvoiceService, advanceCfdi, posShiftsService, advancePayments, periodRepo) {
+    logger = new common_1.Logger(SalesOrderInvoicingService_1.name);
+    constructor(salesOrderRepo, paymentRepo, customerRepo, electronicInvoiceService, advanceCfdi, posShiftsService, advancePayments, debtLedger, creditLedger, periodRepo) {
         this.salesOrderRepo = salesOrderRepo;
         this.paymentRepo = paymentRepo;
         this.customerRepo = customerRepo;
@@ -49,6 +57,8 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
         this.advanceCfdi = advanceCfdi;
         this.posShiftsService = posShiftsService;
         this.advancePayments = advancePayments;
+        this.debtLedger = debtLedger;
+        this.creditLedger = creditLedger;
         this.periodRepo = periodRepo;
     }
     async registerExistingInvoice(salesOrderId, tenantId, userId, files, typedUuid) {
@@ -322,6 +332,122 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
         });
         return invoice;
     }
+    async stampCreditNote(salesOrderId, invoiceId, tenantId, userId, dto) {
+        const order = await this.getSalesOrderOrFail(salesOrderId, tenantId);
+        const income = await this.electronicInvoiceService.findOne(invoiceId, tenantId);
+        if (!this.invoiceBelongsToOrder(order, income)) {
+            throw new common_1.NotFoundException('La factura no pertenece a esta orden de venta');
+        }
+        if (!(0, credit_note_util_1.isCreditableIncomeInvoice)(income) || !this.electronicInvoiceService.isCfdiVigente(income)) {
+            throw new common_1.BadRequestException('Solo se puede emitir una nota de crédito sobre una factura de ingreso vigente');
+        }
+        if (!income.uuid) {
+            throw new common_1.BadRequestException('La factura no tiene UUID para relacionar la nota de crédito');
+        }
+        const xmlSource = income.xml_stamped || income.xml_unsigned;
+        if (!xmlSource) {
+            throw new common_1.BadRequestException('La factura no tiene XML para armar la nota de crédito');
+        }
+        let parsed;
+        try {
+            parsed = (0, cfdi_xml_parser_1.parseCfdiXmlForPdf)(xmlSource);
+        }
+        catch {
+            throw new common_1.BadRequestException('El XML de la factura no se pudo leer');
+        }
+        if (!parsed.emisor.rfc || !parsed.receptor.rfc || !parsed.emisor.regimenFiscal || !parsed.receptor.regimenFiscalReceptor) {
+            throw new common_1.BadRequestException('El XML de la factura no trae los datos fiscales para la nota');
+        }
+        if (!parsed.lugarExpedicion || !parsed.receptor.domicilioFiscalReceptor) {
+            throw new common_1.BadRequestException('El XML de la factura no trae el código postal de expedición o del receptor');
+        }
+        const siblings = await this.electronicInvoiceService.findBySource(tenantId, 'sales_orders', salesOrderId);
+        const previousOnInvoice = (0, credit_note_util_1.sumVigenteCommercialCreditNotes)(siblings, income.id);
+        const previousOnOrder = (0, credit_note_util_1.sumVigenteCommercialCreditNotes)(siblings);
+        const available = (0, credit_note_util_1.remainingCreditable)(Number(income.total), previousOnInvoice);
+        const amount = (0, credit_note_util_1.roundCreditMoney)(dto.amount);
+        if (amount > available + 0.009) {
+            throw new common_1.BadRequestException(`El importe supera lo disponible de la factura (${available.toFixed(2)})`);
+        }
+        const paid = await this.sumOrderPayments(tenantId, salesOrderId);
+        const effect = (0, credit_note_util_1.creditNoteIncrement)({
+            orderTotal: Number(order.total || 0),
+            amountPaid: paid,
+            previousNotesTotal: previousOnOrder,
+            noteTotal: amount,
+        });
+        const tax = Number(parsed.totalImpuestosTrasladados) || 0;
+        const taxableBase = Math.max(0, Number(parsed.subTotal || income.subtotal) - Number(parsed.descuento || 0));
+        const ivaPercentage = (0, advance_cfdi_util_1.inferIvaPercentage)(tax, taxableBase);
+        const concept = parsed.conceptos[0];
+        const currency = (income.currency || parsed.moneda || order.currency || 'MXN').toUpperCase();
+        const reason = dto.reason.trim().replace(/\s+/g, ' ');
+        const folio = (0, credit_note_util_1.nextCreditNoteFolio)(order.folio, siblings.map((row) => row.folio));
+        let built;
+        try {
+            built = (0, credit_note_cfdi_util_1.buildSalesCreditNoteCfdi)({
+                series: income.series,
+                folio,
+                totalAmount: amount,
+                ivaPercentage,
+                usoCfdi: (dto.uso_cfdi || 'G02').trim() || 'G02',
+                formaPago: (parsed.formaPago || '15').trim() || '15',
+                emisor: {
+                    rfc: parsed.emisor.rfc,
+                    nombre: parsed.emisor.nombre,
+                    regimen: parsed.emisor.regimenFiscal,
+                    postalCode: parsed.lugarExpedicion,
+                },
+                receptor: {
+                    rfc: parsed.receptor.rfc,
+                    nombre: parsed.receptor.nombre,
+                    regimen: parsed.receptor.regimenFiscalReceptor,
+                    postalCode: parsed.receptor.domicilioFiscalReceptor,
+                },
+                descripcion: reason,
+                relatedUuid: income.uuid,
+                satClave: concept?.claveProdServ,
+                unitCode: concept?.claveUnidad,
+                unitName: concept?.unidad,
+                currency,
+                exchangeRate: currency === 'USD' ? Number(order.exchange_rate || 0) : null,
+            });
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : 'No se pudo armar la nota de crédito';
+            throw new common_1.BadRequestException(message);
+        }
+        const stamped = await this.electronicInvoiceService.stamp(tenantId, userId, {
+            fiscal_configuration_id: income.fiscal_configuration_id,
+            source_module: 'sales_orders',
+            source_id: salesOrderId,
+            xml: built.xml,
+            rfc_receptor: parsed.receptor.rfc,
+            receptor_nombre: parsed.receptor.nombre,
+            subtotal: built.subtotal,
+            total: built.total,
+            series: income.series ?? undefined,
+            folio,
+            tipo_comprobante: 'E',
+            currency,
+            environment: dto.environment ?? this.finkokEnvironment(income),
+            invoice_role: 'credit_note',
+            related_invoice_id: income.id,
+            relation_type: credit_note_util_1.CREDIT_NOTE_RELATION_TYPE,
+            metadata: {
+                invoice_role: 'credit_note',
+                related_uuid: income.uuid,
+                relation_type: credit_note_util_1.CREDIT_NOTE_RELATION_TYPE,
+                related_invoice_id: income.id,
+                applied_to_pending: effect.appliedToPending,
+                customer_credit: effect.customerCredit,
+                reason,
+                sales_order_folio: order.folio,
+            },
+        });
+        await this.postCreditNoteEffect(order, stamped.id, effect, reason, currency, userId);
+        return stamped;
+    }
     async cancelInvoice(salesOrderId, invoiceId, tenantId, userId, dto) {
         const order = await this.getSalesOrderOrFail(salesOrderId, tenantId);
         const invoice = await this.electronicInvoiceService.findOne(invoiceId, tenantId);
@@ -332,6 +458,7 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
         await this.advancePayments.assertVoidable(tenantId, invoiceId);
         const cancelled = await this.electronicInvoiceService.cancel(invoiceId, tenantId, userId, dto);
         await this.advancePayments.voidByInvoice(tenantId, userId, invoiceId);
+        await this.settleCancelledCreditNote(order, cancelled, userId);
         return cancelled;
     }
     async syncInvoiceSat(salesOrderId, invoiceId, tenantId, userId) {
@@ -340,7 +467,9 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
         if (!this.invoiceBelongsToOrder(order, invoice)) {
             throw new common_1.NotFoundException('La factura no pertenece a esta orden de venta');
         }
-        return this.electronicInvoiceService.syncSatStatus(invoiceId, tenantId, userId, 'manual');
+        const synced = await this.electronicInvoiceService.syncSatStatus(invoiceId, tenantId, userId, 'manual');
+        await this.settleCancelledCreditNote(order, synced, userId);
+        return synced;
     }
     async getInvoicePdf(salesOrderId, invoiceId, tenantId, regenerate = false, preview = false) {
         const order = await this.getSalesOrderOrFail(salesOrderId, tenantId);
@@ -548,6 +677,66 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
         catch (error) {
             const message = error instanceof Error ? error.message : 'No se pudo armar el CEP';
             return { status: { ...empty, reason: message }, stamp: null };
+        }
+    }
+    async sumOrderPayments(tenantId, salesOrderId) {
+        const row = await this.paymentRepo
+            .createQueryBuilder('payment')
+            .select('COALESCE(SUM(payment.amount), 0)', 'paid')
+            .where('payment.tenant_id = :tenantId', { tenantId })
+            .andWhere('payment.sales_order_id = :salesOrderId', { salesOrderId })
+            .getRawOne();
+        return Number(row?.paid || 0);
+    }
+    async postCreditNoteEffect(order, invoiceId, effect, reason, currency, userId) {
+        try {
+            await this.debtLedger.captureCreditNote({
+                tenantId: order.tenant_id,
+                salesOrderId: order.id,
+                invoiceId,
+                amount: effect.appliedToPending,
+                userId,
+            });
+            if (order.fiscal_configuration_id) {
+                await this.creditLedger.recordCredit({
+                    tenantId: order.tenant_id,
+                    customerId: order.customer_id,
+                    fiscalConfigurationId: order.fiscal_configuration_id,
+                    currency,
+                    amount: effect.customerCredit,
+                    salesOrderId: order.id,
+                    electronicInvoiceId: invoiceId,
+                    notes: reason,
+                    userId,
+                });
+            }
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            this.logger.error(`Nota de crédito timbrada sin reflejar el saldo (${invoiceId}): ${message}`);
+        }
+    }
+    async settleCancelledCreditNote(order, invoice, userId) {
+        if (invoice.invoice_role !== 'credit_note')
+            return;
+        if (this.electronicInvoiceService.isCfdiVigente(invoice))
+            return;
+        try {
+            await this.debtLedger.reverseCreditNote({
+                tenantId: order.tenant_id,
+                salesOrderId: order.id,
+                invoiceId: invoice.id,
+                userId,
+            });
+            await this.creditLedger.reverseCredit({
+                tenantId: order.tenant_id,
+                electronicInvoiceId: invoice.id,
+                userId,
+            });
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            this.logger.error(`No se revirtió el saldo de la nota ${invoice.id}: ${message}`);
         }
     }
     pickIncomeInvoice(invoices) {
@@ -782,12 +971,12 @@ let SalesOrderInvoicingService = class SalesOrderInvoicingService {
     }
 };
 exports.SalesOrderInvoicingService = SalesOrderInvoicingService;
-exports.SalesOrderInvoicingService = SalesOrderInvoicingService = __decorate([
+exports.SalesOrderInvoicingService = SalesOrderInvoicingService = SalesOrderInvoicingService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(sales_order_entity_1.SalesOrder)),
     __param(1, (0, typeorm_1.InjectRepository)(sales_order_payment_entity_1.SalesOrderPayment)),
     __param(2, (0, typeorm_1.InjectRepository)(customer_entity_1.Customer)),
-    __param(7, (0, typeorm_1.InjectRepository)(service_subscription_period_entity_1.ServiceSubscriptionPeriod)),
+    __param(9, (0, typeorm_1.InjectRepository)(service_subscription_period_entity_1.ServiceSubscriptionPeriod)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
@@ -795,6 +984,8 @@ exports.SalesOrderInvoicingService = SalesOrderInvoicingService = __decorate([
         advance_cfdi_service_1.AdvanceCfdiService,
         pos_shifts_service_1.PosShiftsService,
         advance_shift_payment_service_1.AdvanceShiftPaymentService,
+        customer_debt_ledger_service_1.CustomerDebtLedgerService,
+        customer_credit_ledger_service_1.CustomerCreditLedgerService,
         typeorm_2.Repository])
 ], SalesOrderInvoicingService);
 const UUID_PATTERN = /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/;

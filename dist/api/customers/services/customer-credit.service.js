@@ -21,6 +21,8 @@ const customer_credit_entity_1 = require("../../../entities/customers/customer-c
 const fiscal_configuration_entity_1 = require("../../../entities/billing/fiscal-configuration.entity");
 const sales_order_entity_1 = require("../../../entities/sales-orders/sales-order.entity");
 const sales_order_payment_entity_1 = require("../../../entities/sales-orders/sales-order-payment.entity");
+const electronic_invoice_entity_1 = require("../../../entities/electronic-invoicing/electronic-invoice.entity");
+const credit_note_util_1 = require("../../sales-orders/utils/credit-note.util");
 const pos_sale_collection_mapper_1 = require("../../pos-shifts/mappers/pos-sale-collection.mapper");
 const customer_credit_util_1 = require("../utils/customer-credit.util");
 let CustomerCreditService = class CustomerCreditService {
@@ -28,11 +30,13 @@ let CustomerCreditService = class CustomerCreditService {
     fiscalRepo;
     salesOrderRepo;
     paymentRepo;
-    constructor(creditRepo, fiscalRepo, salesOrderRepo, paymentRepo) {
+    invoiceRepo;
+    constructor(creditRepo, fiscalRepo, salesOrderRepo, paymentRepo, invoiceRepo) {
         this.creditRepo = creditRepo;
         this.fiscalRepo = fiscalRepo;
         this.salesOrderRepo = salesOrderRepo;
         this.paymentRepo = paymentRepo;
+        this.invoiceRepo = invoiceRepo;
     }
     async listForCustomer(customer) {
         const fiscales = await this.fiscalRepo.find({
@@ -230,10 +234,28 @@ let CustomerCreditService = class CustomerCreditService {
             .groupBy('p.sales_order_id')
             .getRawMany();
         const paidByOrder = new Map(paidRows.map((row) => [row.sales_order_id, Number(row.paid || 0)]));
+        const noteRows = await this.invoiceRepo.find({
+            where: {
+                tenant_id: tenantId,
+                source_module: 'sales_orders',
+                source_id: (0, typeorm_2.In)(openOrders.map((order) => order.id)),
+                invoice_role: 'credit_note',
+            },
+        });
+        const notesByOrder = new Map();
+        for (const invoice of noteRows) {
+            if (!(0, credit_note_util_1.isInvoiceVigente)(invoice))
+                continue;
+            notesByOrder.set(invoice.source_id, (0, credit_note_util_1.roundCreditMoney)((notesByOrder.get(invoice.source_id) ?? 0) + Number(invoice.total || 0)));
+        }
         for (const order of openOrders) {
-            const pending = Math.max(Number(order.total || 0) - (paidByOrder.get(order.id) ?? 0), 0);
+            const effect = (0, credit_note_util_1.splitCreditNoteEffect)({
+                orderTotal: Number(order.total || 0),
+                amountPaid: paidByOrder.get(order.id) ?? 0,
+                creditNotesTotal: notesByOrder.get(order.id) ?? 0,
+            });
             const key = order.fiscal_configuration_id;
-            usedByFiscal.set(key, Number(((usedByFiscal.get(key) ?? 0) + pending).toFixed(2)));
+            usedByFiscal.set(key, Number(((usedByFiscal.get(key) ?? 0) + effect.pendingAfter).toFixed(2)));
         }
         return usedByFiscal;
     }
@@ -245,7 +267,9 @@ exports.CustomerCreditService = CustomerCreditService = __decorate([
     __param(1, (0, typeorm_1.InjectRepository)(fiscal_configuration_entity_1.FiscalConfiguration)),
     __param(2, (0, typeorm_1.InjectRepository)(sales_order_entity_1.SalesOrder)),
     __param(3, (0, typeorm_1.InjectRepository)(sales_order_payment_entity_1.SalesOrderPayment)),
+    __param(4, (0, typeorm_1.InjectRepository)(electronic_invoice_entity_1.ElectronicInvoice)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository])

@@ -24,6 +24,8 @@ let ElectronicInvoice = class ElectronicInvoice {
     source_id;
     invoice_role;
     related_advance_invoice_id;
+    related_invoice_id;
+    relation_type;
     uuid;
     series;
     folio;
@@ -99,6 +101,14 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 36, nullable: true }),
     __metadata("design:type", Object)
 ], ElectronicInvoice.prototype, "related_advance_invoice_id", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 36, nullable: true }),
+    __metadata("design:type", Object)
+], ElectronicInvoice.prototype, "related_invoice_id", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 2, nullable: true }),
+    __metadata("design:type", Object)
+], ElectronicInvoice.prototype, "relation_type", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 36, nullable: true }),
     __metadata("design:type", Object)

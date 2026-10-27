@@ -6,6 +6,7 @@ import { ElectronicInvoiceService } from '../../electronic-invoicing/services/el
 import { AdvanceCfdiService } from '../../electronic-invoicing/services/advance-cfdi.service';
 import { CancelElectronicInvoiceDto } from '../../electronic-invoicing/dto/cancel-electronic-invoice.dto';
 import { StampSalesOrderInvoiceDto } from '../dto/stamp-sales-order-invoice.dto';
+import { StampSalesOrderCreditNoteDto } from '../dto/stamp-sales-order-credit-note.dto';
 import { StampAdvanceInvoiceDto } from '../../electronic-invoicing/dto/stamp-advance-invoice.dto';
 import { ApplyAdvanceInvoiceDto } from '../../electronic-invoicing/dto/apply-advance-invoice.dto';
 import { PosShiftsService } from '../../pos-shifts/pos-shifts.service';
@@ -13,6 +14,8 @@ import { AdvanceShiftPaymentService } from '../../pos-shifts/services/advance-sh
 import { ServiceSubscriptionPeriod } from '../../../entities/service-subscriptions/service-subscription-period.entity';
 import { ElectronicInvoice } from '../../../entities/electronic-invoicing/electronic-invoice.entity';
 import { FinkokEnvironment } from '../../../entities/electronic-invoicing/finkok-provider-configuration.entity';
+import { CustomerDebtLedgerService } from '../../accounting/services/customer-debt-ledger.service';
+import { CustomerCreditLedgerService } from '../../accounting/services/customer-credit-ledger.service';
 export declare class SalesOrderInvoicingService {
     private readonly salesOrderRepo;
     private readonly paymentRepo;
@@ -21,8 +24,11 @@ export declare class SalesOrderInvoicingService {
     private readonly advanceCfdi;
     private readonly posShiftsService;
     private readonly advancePayments;
+    private readonly debtLedger;
+    private readonly creditLedger;
     private readonly periodRepo;
-    constructor(salesOrderRepo: Repository<SalesOrder>, paymentRepo: Repository<SalesOrderPayment>, customerRepo: Repository<Customer>, electronicInvoiceService: ElectronicInvoiceService, advanceCfdi: AdvanceCfdiService, posShiftsService: PosShiftsService, advancePayments: AdvanceShiftPaymentService, periodRepo: Repository<ServiceSubscriptionPeriod>);
+    private readonly logger;
+    constructor(salesOrderRepo: Repository<SalesOrder>, paymentRepo: Repository<SalesOrderPayment>, customerRepo: Repository<Customer>, electronicInvoiceService: ElectronicInvoiceService, advanceCfdi: AdvanceCfdiService, posShiftsService: PosShiftsService, advancePayments: AdvanceShiftPaymentService, debtLedger: CustomerDebtLedgerService, creditLedger: CustomerCreditLedgerService, periodRepo: Repository<ServiceSubscriptionPeriod>);
     registerExistingInvoice(salesOrderId: string, tenantId: string, userId: string, files: {
         xml?: {
             buffer: Buffer;
@@ -51,6 +57,7 @@ export declare class SalesOrderInvoicingService {
     stampPaymentComplement(salesOrderId: string, tenantId: string, userId: string, environment?: FinkokEnvironment): Promise<ElectronicInvoice>;
     private repairStoredStampDate;
     stampInvoice(salesOrderId: string, tenantId: string, userId: string, dto: StampSalesOrderInvoiceDto): Promise<ElectronicInvoice>;
+    stampCreditNote(salesOrderId: string, invoiceId: string, tenantId: string, userId: string, dto: StampSalesOrderCreditNoteDto): Promise<ElectronicInvoice>;
     cancelInvoice(salesOrderId: string, invoiceId: string, tenantId: string, userId: string, dto: CancelElectronicInvoiceDto): Promise<ElectronicInvoice>;
     syncInvoiceSat(salesOrderId: string, invoiceId: string, tenantId: string, userId: string): Promise<ElectronicInvoice>;
     getInvoicePdf(salesOrderId: string, invoiceId: string, tenantId: string, regenerate?: boolean, preview?: boolean): Promise<import("../../electronic-invoicing/services/electronic-invoice-pdf.service").ElectronicInvoicePdfUploadResult>;
@@ -60,6 +67,9 @@ export declare class SalesOrderInvoicingService {
     }>;
     private buildXmlPlaceholder;
     private preparePaymentComplement;
+    private sumOrderPayments;
+    private postCreditNoteEffect;
+    private settleCancelledCreditNote;
     private pickIncomeInvoice;
     private pickPaymentComplement;
     private mapPaymentComplement;
