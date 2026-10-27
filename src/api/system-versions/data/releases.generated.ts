@@ -187,5 +187,19 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-10-27T23:20:32.189Z"
+  },
+  {
+    "releaseKey": "full:0.0.75:0.0.75-1793144333888",
+    "version": "0.0.75",
+    "buildId": "0.0.75-1793144333888",
+    "channel": "full",
+    "title": "Versión 0.0.75",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "Cambios en inmuebles"
+      }
+    ],
+    "releasedAt": "2026-10-27T23:38:53.888Z"
   }
 ];
