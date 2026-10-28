@@ -8,7 +8,7 @@ import { User } from '../../entities/users/user.entity';
 import { SalesOrder } from '../../entities/sales-orders/sales-order.entity';
 import { CustomerAddress } from '../../entities/customers/customer-address.entity';
 import { InventoryTransferService } from '../inventory/services/inventory-transfer.service';
-import { AddShippingStopsDto, CreateShippingDto, PreviewShippingDto, QueryAvailableShippingOrdersDto, QueryShippingDto, ResolveOrdersDto, UpdateShippingStatusDto } from './dto/shipping.dto';
+import { AddShippingStopsDto, CreateShippingDto, PreviewShippingDto, QueryAvailableShippingOrdersDto, QueryShippingDto, ResolveOrdersDto, UpdateShippingCrewDto, UpdateShippingStatusDto } from './dto/shipping.dto';
 export interface CustomerAddressOption {
     id: number;
     type: string | null;
@@ -147,6 +147,7 @@ export declare class ShippingsService {
     setStopAddress(shippingId: string, salesOrderId: string, addressId: number, tenantId: string): Promise<Shipping>;
     addStops(id: string, dto: AddShippingStopsDto, tenantId: string): Promise<Shipping>;
     recalculateDistance(id: string, tenantId: string): Promise<Shipping>;
+    updateCrew(id: string, dto: UpdateShippingCrewDto, tenantId: string): Promise<Shipping>;
     updateStatus(id: string, dto: UpdateShippingStatusDto, tenantId: string, userId: string): Promise<Shipping>;
     resolveOrders(dto: ResolveOrdersDto, tenantId: string): Promise<{
         orders: {

@@ -17,6 +17,15 @@
       "status": "shipped",
       "version": "0.0.77",
       "shippedAt": "2026-10-28T10:59:19-07:00"
+    },
+    {
+      "id": "20261028-110949",
+      "at": "2026-10-28T11:09:49-07:00",
+      "scope": "both",
+      "message": "En el alta y en un viaje existente, chofer y camión indican si la carta porte está completa y se pueden editar al elegirlos; se crearon 5 choferes y 5 camiones de prueba.",
+      "status": "shipped",
+      "version": "0.0.78",
+      "shippedAt": "2026-10-28T11:13:39-07:00"
     }
   ]
 }

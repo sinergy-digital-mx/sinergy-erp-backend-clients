@@ -237,5 +237,23 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-10-28T17:58:09.823Z"
+  },
+  {
+    "releaseKey": "full:0.0.78:0.0.78-1793211169275",
+    "version": "0.0.78",
+    "buildId": "0.0.78-1793211169275",
+    "channel": "full",
+    "title": "Versión 0.0.78",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "Cambios en inventario"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en logística"
+      }
+    ],
+    "releasedAt": "2026-10-28T18:12:49.275Z"
   }
 ];

@@ -68,6 +68,9 @@ let ShippingsController = class ShippingsController {
     recalculate(id, req) {
         return this.service.recalculateDistance(id, req.user.tenant_id);
     }
+    updateCrew(id, dto, req) {
+        return this.service.updateCrew(id, dto, req.user.tenant_id);
+    }
     updateStatus(id, dto, req) {
         return this.service.updateStatus(id, dto, req.user.tenant_id, req.user.id);
     }
@@ -196,6 +199,19 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], ShippingsController.prototype, "recalculate", null);
+__decorate([
+    (0, common_1.Patch)(':id/crew'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Shipping', action: 'Update' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Cambiar chofer y camión de un viaje creado o en ruta',
+    }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, shipping_dto_1.UpdateShippingCrewDto, Object]),
+    __metadata("design:returntype", void 0)
+], ShippingsController.prototype, "updateCrew", null);
 __decorate([
     (0, common_1.Patch)(':id/status'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Shipping', action: 'Update' }),

@@ -485,6 +485,60 @@ let ShippingsService = class ShippingsService {
             await qr.release();
         }
     }
+    async updateCrew(id, dto, tenantId) {
+        const current = await this.shippingRepo.findOne({
+            where: { id, tenant_id: tenantId },
+        });
+        if (!current)
+            throw new common_1.NotFoundException('Envío no encontrado');
+        if (current.status !== 'Creado' && current.status !== 'En Ruta') {
+            throw new common_1.BadRequestException('Solo se puede cambiar el chofer y el camión mientras el viaje está creado o en ruta');
+        }
+        if (current.carta_porte_uuid && current.carta_porte_environment !== 'demo') {
+            throw new common_1.BadRequestException('Este viaje ya tiene carta porte timbrada. No se puede cambiar el chofer ni el camión.');
+        }
+        const driver = await this.getDriver(dto.driver_id, tenantId);
+        if (!(0, carta_porte_util_1.isDriverFlag)(driver.is_driver)) {
+            throw new common_1.BadRequestException('El usuario no está marcado como chofer');
+        }
+        const statusCode = driver.status?.code?.toLowerCase();
+        if (statusCode === 'inactive' || statusCode === 'deleted') {
+            throw new common_1.BadRequestException('El chofer está inactivo');
+        }
+        const truck = await this.getActiveTruck(dto.truck_id, tenantId);
+        const changed = driver.id !== current.driver_id || truck.id !== current.truck_id;
+        const qr = this.dataSource.createQueryRunner();
+        await qr.connect();
+        await qr.startTransaction();
+        try {
+            if (truck.id !== current.truck_id) {
+                await this.assertTruckAvailable(qr.manager, tenantId, truck, current.id);
+            }
+            const patch = {
+                driver_id: driver.id,
+                truck_id: truck.id,
+            };
+            if (changed && current.carta_porte_environment === 'demo') {
+                patch.carta_porte_uuid = null;
+                patch.carta_porte_idccp = null;
+                patch.carta_porte_xml = null;
+                patch.carta_porte_stamped_at = null;
+                patch.carta_porte_error = null;
+                patch.carta_porte_peso_kg = null;
+                patch.carta_porte_environment = null;
+            }
+            await qr.manager.update(shipping_entity_1.Shipping, { id, tenant_id: tenantId }, patch);
+            await qr.commitTransaction();
+        }
+        catch (error) {
+            await qr.rollbackTransaction();
+            throw error;
+        }
+        finally {
+            await qr.release();
+        }
+        return this.findOne(id, tenantId);
+    }
     async updateStatus(id, dto, tenantId, userId) {
         const shipping = await this.findOne(id, tenantId);
         const next = dto.status;
@@ -1061,16 +1115,19 @@ let ShippingsService = class ShippingsService {
         }
         throw new common_1.BadRequestException('El envío no tiene sucursal de origen');
     }
-    async assertTruckAvailable(manager, tenantId, truck) {
-        const busy = await manager
+    async assertTruckAvailable(manager, tenantId, truck, exceptShippingId) {
+        const busyQuery = manager
             .createQueryBuilder(shipping_entity_1.Shipping, 'shipping')
             .setLock('pessimistic_write')
             .where('shipping.tenant_id = :tenantId', { tenantId })
             .andWhere('shipping.truck_id = :truckId', { truckId: truck.id })
             .andWhere('shipping.status IN (:...statuses)', {
             statuses: [...shipping_entity_1.ACTIVE_SHIPPING_STATUSES],
-        })
-            .getOne();
+        });
+        if (exceptShippingId) {
+            busyQuery.andWhere('shipping.id != :exceptShippingId', { exceptShippingId });
+        }
+        const busy = await busyQuery.getOne();
         if (busy) {
             const label = [truck.name, truck.placa].filter(Boolean).join(' · ');
             throw new common_1.ConflictException(`La unidad ${label} ya está en un envío activo. Complétalo o cancélalo para volver a usarla.`);

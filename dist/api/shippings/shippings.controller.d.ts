@@ -1,7 +1,7 @@
 import { ShippingsService } from './shippings.service';
 import { CartaPorteService } from './services/carta-porte.service';
 import { CartaPortePdfService } from './services/carta-porte-pdf.service';
-import { AddShippingStopsDto, CreateShippingDto, PreviewShippingDto, QueryAvailableShippingOrdersDto, QueryShippingDto, ResolveOrdersDto, SetShippingStopAddressDto, StampCartaPorteDto, UpdateShippingStatusDto } from './dto/shipping.dto';
+import { AddShippingStopsDto, CreateShippingDto, PreviewShippingDto, QueryAvailableShippingOrdersDto, QueryShippingDto, ResolveOrdersDto, SetShippingStopAddressDto, StampCartaPorteDto, UpdateShippingCrewDto, UpdateShippingStatusDto } from './dto/shipping.dto';
 export declare class ShippingsController {
     private readonly service;
     private readonly cartaPorte;
@@ -139,5 +139,6 @@ export declare class ShippingsController {
     setStopAddress(id: string, salesOrderId: string, dto: SetShippingStopAddressDto, req: any): Promise<import("../../entities/logistics/shipping.entity").Shipping>;
     addStops(id: string, dto: AddShippingStopsDto, req: any): Promise<import("../../entities/logistics/shipping.entity").Shipping>;
     recalculate(id: string, req: any): Promise<import("../../entities/logistics/shipping.entity").Shipping>;
+    updateCrew(id: string, dto: UpdateShippingCrewDto, req: any): Promise<import("../../entities/logistics/shipping.entity").Shipping>;
     updateStatus(id: string, dto: UpdateShippingStatusDto, req: any): Promise<import("../../entities/logistics/shipping.entity").Shipping>;
 }

@@ -46,6 +46,10 @@ export declare class QueryAvailableShippingOrdersDto {
     page?: number;
     limit?: number;
 }
+export declare class UpdateShippingCrewDto {
+    driver_id: string;
+    truck_id: string;
+}
 export declare class StampCartaPorteDto {
     peso_bruto_kg: number;
     environment?: 'demo' | 'production';
