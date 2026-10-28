@@ -37,19 +37,23 @@ let PropertyImportService = PropertyImportService_1 = class PropertyImportServic
         this.customerGroupsService = customerGroupsService;
         this.dataSource = dataSource;
     }
-    async exportTemplate(_organizationId) {
-        const units = await this.measurementUnitRepo.find({ order: { system: 'ASC', name: 'ASC' } });
+    async exportTemplate(organizationId) {
+        const [units, groups] = await Promise.all([
+            this.measurementUnitRepo.find({ order: { system: 'ASC', name: 'ASC' } }),
+            this.customerGroupsService.findOptions(organizationId),
+        ]);
         const buffer = await (0, property_import_util_1.buildPropertyImportTemplate)({
             units: units.map((unit) => ({
                 code: unit.code,
                 name: unit.name,
                 symbol: unit.symbol,
             })),
+            groups: groups.map((group) => ({ name: group.name })),
         });
         return { buffer, filename: 'plantilla-lotes.xlsx' };
     }
-    async startImportJob(organizationId, file, groupId) {
-        const ready = await this.resolveReadyRows(organizationId, file, groupId);
+    async startImportJob(organizationId, file) {
+        const ready = await this.resolveReadyRows(organizationId, file);
         const job = (0, property_import_job_store_1.createPropertyImportJob)({
             id: (0, crypto_1.randomUUID)(),
             organizationId,
@@ -74,12 +78,12 @@ let PropertyImportService = PropertyImportService_1 = class PropertyImportServic
         }
         return job;
     }
-    async importWorkbook(organizationId, file, groupId) {
-        const ready = await this.resolveReadyRows(organizationId, file, groupId);
+    async importWorkbook(organizationId, file) {
+        const ready = await this.resolveReadyRows(organizationId, file);
         await this.persistRows(organizationId, ready);
         return { created: ready.length };
     }
-    async resolveReadyRows(organizationId, file, groupId) {
+    async resolveReadyRows(organizationId, file) {
         if (!file?.buffer?.length) {
             throw new common_1.BadRequestException('Adjunta la plantilla de lotes en Excel.');
         }
@@ -87,17 +91,14 @@ let PropertyImportService = PropertyImportService_1 = class PropertyImportServic
         if (!name.endsWith('.xlsx') && !name.endsWith('.xls')) {
             throw new common_1.BadRequestException('El archivo debe ser Excel (.xlsx).');
         }
-        const group = await this.customerGroupsService.assertBelongsToOrganization(groupId, organizationId);
-        if (!group) {
-            throw new common_1.BadRequestException('Selecciona el grupo de cliente.');
-        }
         const parsed = (0, property_import_util_1.parsePropertyImportWorkbook)(file.buffer);
-        const [units, existing] = await Promise.all([
+        const [units, groups, existing] = await Promise.all([
             this.measurementUnitRepo.find(),
+            this.customerGroupsService.findOptions(organizationId),
             this.findExistingCodes(organizationId),
         ]);
         const resolved = (0, property_import_util_1.resolvePropertyImportRows)(parsed.rows, {
-            groupId: group,
+            groups: groups.map((group) => ({ id: group.id, name: group.name })),
             units: units.map((unit) => ({
                 id: unit.id,
                 code: unit.code,

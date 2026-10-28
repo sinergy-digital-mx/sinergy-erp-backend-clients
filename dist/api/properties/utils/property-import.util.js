@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PROPERTY_IMPORT_HEADERS = exports.PROPERTY_IMPORT_EXAMPLE_NAME = exports.PROPERTY_IMPORT_MAX_ROWS = exports.PROPERTY_IMPORT_SHEET = void 0;
+exports.PROPERTY_IMPORT_GROUPS_SHEET = exports.PROPERTY_IMPORT_HEADERS = exports.PROPERTY_IMPORT_EXAMPLE_NAME = exports.PROPERTY_IMPORT_MAX_ROWS = exports.PROPERTY_IMPORT_SHEET = void 0;
 exports.foldText = foldText;
 exports.buildPropertyImportCode = buildPropertyImportCode;
 exports.buildPropertyImportTemplate = buildPropertyImportTemplate;
@@ -47,6 +47,7 @@ exports.PROPERTY_IMPORT_MAX_ROWS = 500;
 exports.PROPERTY_IMPORT_EXAMPLE_NAME = 'Lote ejemplo';
 exports.PROPERTY_IMPORT_HEADERS = [
     'nombre',
+    'grupo',
     'area',
     'unidad',
     'manzana',
@@ -59,8 +60,13 @@ exports.PROPERTY_IMPORT_HEADERS = [
     'moneda',
     'estado',
 ];
+exports.PROPERTY_IMPORT_GROUPS_SHEET = 'Grupos';
 const HEADER_ALIASES = {
     nombre: 'name',
+    grupo: 'group',
+    grupo_cliente: 'group',
+    grupo_de_cliente: 'group',
+    group: 'group',
     area: 'area',
     unidad: 'unit',
     manzana: 'block',
@@ -117,6 +123,7 @@ async function buildPropertyImportTemplate(catalogs) {
     sheet.addRow([...exports.PROPERTY_IMPORT_HEADERS]);
     sheet.addRow([
         exports.PROPERTY_IMPORT_EXAMPLE_NAME,
+        catalogs.groups[0]?.name ?? '',
         250,
         catalogs.units[0]?.symbol ?? 'm²',
         'A',
@@ -134,6 +141,27 @@ async function buildPropertyImportTemplate(catalogs) {
     sheet.columns.forEach((column) => {
         column.width = 18;
     });
+    sheet.getColumn(2).width = 28;
+    const groupsSheet = workbook.addWorksheet(exports.PROPERTY_IMPORT_GROUPS_SHEET);
+    groupsSheet.addRow(['nombre']);
+    groupsSheet.getRow(1).font = { bold: true };
+    for (const group of catalogs.groups) {
+        groupsSheet.addRow([group.name]);
+    }
+    groupsSheet.columns.forEach((column) => {
+        column.width = 36;
+    });
+    const lastGroupRow = Math.max(2, catalogs.groups.length + 1);
+    for (let row = 2; row <= exports.PROPERTY_IMPORT_MAX_ROWS + 2; row += 1) {
+        sheet.getCell(row, 2).dataValidation = {
+            type: 'list',
+            allowBlank: false,
+            formulae: [`=${exports.PROPERTY_IMPORT_GROUPS_SHEET}!$A$2:$A$${lastGroupRow}`],
+            showErrorMessage: true,
+            errorTitle: 'Grupo',
+            error: 'Elige un grupo de la hoja Grupos.',
+        };
+    }
     const unitsSheet = workbook.addWorksheet('Unidades');
     unitsSheet.addRow(['simbolo', 'nombre', 'codigo']);
     unitsSheet.getRow(1).font = { bold: true };
@@ -162,7 +190,7 @@ function parsePropertyImportWorkbook(buffer) {
         return { rows: [], errors: [{ row: 1, message: 'La hoja de lotes está vacía.' }] };
     }
     const headers = (matrix[0] ?? []).map((cell) => HEADER_ALIASES[headerKey(cell)]).filter(Boolean);
-    const required = ['name', 'area', 'unit', 'block', 'lot_number'];
+    const required = ['name', 'group', 'area', 'unit', 'block', 'lot_number'];
     const missing = required.filter((key) => !headers.includes(key));
     if (missing.length) {
         return {
@@ -170,7 +198,7 @@ function parsePropertyImportWorkbook(buffer) {
             errors: [
                 {
                     row: 1,
-                    message: 'La primera fila debe ser la plantilla (nombre, area, unidad, manzana, numero_lote). Descárgala de nuevo.',
+                    message: 'La primera fila debe ser la plantilla (nombre, grupo, area, unidad, manzana, numero_lote). Descárgala de nuevo.',
                 },
             ],
         };
@@ -219,21 +247,29 @@ function resolvePropertyImportRows(rows, catalogs, parseErrors = []) {
             }
         }
     }
+    const groups = new Map();
+    for (const group of catalogs.groups) {
+        const key = foldText(group.name);
+        if (key && !groups.has(key)) {
+            groups.set(key, group.id);
+        }
+    }
     for (const row of rows) {
-        const rowErrors = validateRow(row, units, catalogs.existingCodes, seenCodes);
+        const rowErrors = validateRow(row, units, groups, catalogs.existingCodes, seenCodes);
         if (rowErrors.length) {
             errors.push(...rowErrors);
             continue;
         }
-        ready.push(toDto(row, catalogs.groupId, units));
+        ready.push(toDto(row, groups, units));
     }
     errors.sort((left, right) => left.row - right.row || left.message.localeCompare(right.message));
     return { ready: errors.length ? [] : ready, errors };
 }
-function validateRow(row, units, existingCodes, seenCodes) {
+function validateRow(row, units, groups, existingCodes, seenCodes) {
     const errors = [];
     const fail = (message) => errors.push({ row: row.row, message });
     const name = cellText(row.values.name);
+    const groupLabel = cellText(row.values.group);
     const unitLabel = cellText(row.values.unit);
     const area = parseNumber(row.values.area);
     const pricePerM2 = parseNumber(row.values.price_per_m2);
@@ -249,6 +285,11 @@ function validateRow(row, units, existingCodes, seenCodes) {
         fail('El nombre es obligatorio.');
     else if (name.length > 150)
         fail('El nombre admite máximo 150 caracteres.');
+    if (!groupLabel)
+        fail('El grupo es obligatorio. Cópialo de la hoja Grupos.');
+    else if (!groups.has(foldText(groupLabel))) {
+        fail(`No existe el grupo "${groupLabel}". Copia el nombre de la hoja Grupos.`);
+    }
     if (!block)
         fail('La manzana es obligatoria.');
     else if (block.length > 50)
@@ -311,7 +352,7 @@ function validateRow(row, units, existingCodes, seenCodes) {
     }
     return errors;
 }
-function toDto(row, groupId, units) {
+function toDto(row, groups, units) {
     const area = parseNumber(row.values.area);
     const pricePerM2 = parseNumber(row.values.price_per_m2);
     const totalPrice = parseNumber(row.values.total_price);
@@ -322,7 +363,7 @@ function toDto(row, groupId, units) {
     const dto = {
         code: buildPropertyImportCode(block, lotNumber),
         name: cellText(row.values.name),
-        group_id: groupId,
+        group_id: groups.get(foldText(cellText(row.values.group))),
         total_area: area,
         measurement_unit_id: units.get(foldText(cellText(row.values.unit))),
         block,

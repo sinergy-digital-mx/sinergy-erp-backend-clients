@@ -192,5 +192,23 @@
       }
     ],
     "releasedAt": "2026-10-27T23:38:53.888Z"
+  },
+  {
+    "releaseKey": "full:0.0.76:0.0.76-1793158770484",
+    "version": "0.0.76",
+    "buildId": "0.0.76-1793158770484",
+    "channel": "full",
+    "title": "Versión 0.0.76",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "Cambios en versiones"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en inmuebles"
+      }
+    ],
+    "releasedAt": "2026-10-28T03:39:30.484Z"
   }
 ]

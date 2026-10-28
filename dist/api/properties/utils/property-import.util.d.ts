@@ -2,13 +2,17 @@ import { CreatePropertyDto } from '../dto/create-property.dto';
 export declare const PROPERTY_IMPORT_SHEET = "Lotes";
 export declare const PROPERTY_IMPORT_MAX_ROWS = 500;
 export declare const PROPERTY_IMPORT_EXAMPLE_NAME = "Lote ejemplo";
-export declare const PROPERTY_IMPORT_HEADERS: readonly ["nombre", "area", "unidad", "manzana", "numero_lote", "clave_catastral", "ubicacion", "descripcion", "precio_m2", "precio_total", "moneda", "estado"];
+export declare const PROPERTY_IMPORT_HEADERS: readonly ["nombre", "grupo", "area", "unidad", "manzana", "numero_lote", "clave_catastral", "ubicacion", "descripcion", "precio_m2", "precio_total", "moneda", "estado"];
+export declare const PROPERTY_IMPORT_GROUPS_SHEET = "Grupos";
 export interface PropertyImportRowError {
     row: number;
     message: string;
 }
 export interface PropertyImportCatalogs {
-    groupId: string;
+    groups: {
+        id: string;
+        name: string;
+    }[];
     units: {
         id: string;
         code: string;
@@ -28,6 +32,9 @@ export declare function buildPropertyImportTemplate(catalogs: {
         code: string;
         name: string;
         symbol: string;
+    }[];
+    groups: {
+        name: string;
     }[];
 }): Promise<Buffer>;
 export declare function parsePropertyImportWorkbook(buffer: Buffer): {

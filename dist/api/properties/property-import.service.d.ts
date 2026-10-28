@@ -10,13 +10,13 @@ export declare class PropertyImportService {
     private readonly dataSource;
     private readonly logger;
     constructor(propertyRepo: Repository<Property>, measurementUnitRepo: Repository<MeasurementUnit>, customerGroupsService: CustomerGroupsService, dataSource: DataSource);
-    exportTemplate(_organizationId: string): Promise<{
+    exportTemplate(organizationId: string): Promise<{
         buffer: Buffer;
         filename: string;
     }>;
-    startImportJob(organizationId: string, file?: Express.Multer.File, groupId?: string): Promise<PropertyImportJob>;
+    startImportJob(organizationId: string, file?: Express.Multer.File): Promise<PropertyImportJob>;
     getJobStatus(jobId: string, organizationId: string): PropertyImportJob;
-    importWorkbook(organizationId: string, file?: Express.Multer.File, groupId?: string): Promise<{
+    importWorkbook(organizationId: string, file?: Express.Multer.File): Promise<{
         created: number;
     }>;
     private resolveReadyRows;
