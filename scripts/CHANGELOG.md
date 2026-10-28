@@ -10,6 +10,10 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.79 · 2026-10-28
+
+- aplicación y servidor · Junto a Editar, chofer y camión muestran palomita o aviso de carta porte en el cursor, y se creó un envío de prueba con la orden OSV-000315 de Rodolfo Sinergy.
+
 ### Versión 0.0.78 · 2026-10-28
 
 - aplicación y servidor · En el alta y en un viaje existente, chofer y camión indican si la carta porte está completa y se pueden editar al elegirlos; se crearon 5 choferes y 5 camiones de prueba.

@@ -26,6 +26,15 @@
       "status": "shipped",
       "version": "0.0.78",
       "shippedAt": "2026-10-28T11:13:39-07:00"
+    },
+    {
+      "id": "20261028-112524",
+      "at": "2026-10-28T11:25:24-07:00",
+      "scope": "both",
+      "message": "Junto a Editar, chofer y camión muestran palomita o aviso de carta porte en el cursor, y se creó un envío de prueba con la orden OSV-000315 de Rodolfo Sinergy.",
+      "status": "shipped",
+      "version": "0.0.79",
+      "shippedAt": "2026-10-28T11:27:09-07:00"
     }
   ]
 }
