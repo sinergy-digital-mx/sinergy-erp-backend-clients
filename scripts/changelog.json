@@ -8,6 +8,15 @@
       "status": "shipped",
       "version": "0.0.76",
       "shippedAt": "2026-10-27T20:40:57-07:00"
+    },
+    {
+      "id": "20261028-103515",
+      "at": "2026-10-28T10:35:15-07:00",
+      "scope": "both",
+      "message": "En la carta porte del envío se puede timbrar en demo para ver el PDF de prueba, y esa timbrada se puede reemplazar después por producción.",
+      "status": "shipped",
+      "version": "0.0.77",
+      "shippedAt": "2026-10-28T10:59:19-07:00"
     }
   ]
 }

@@ -34,12 +34,12 @@ let CartaPorteService = class CartaPorteService {
         this.finkokConfig = finkokConfig;
         this.finkok = finkok;
     }
-    async stamp(id, tenantId, pesoBrutoKg) {
+    async stamp(id, tenantId, pesoBrutoKg, environment) {
         const shipping = await this.load(id, tenantId);
         if (shipping.status === 'Cancelado') {
             throw new common_1.BadRequestException('Un viaje cancelado no genera carta porte');
         }
-        if (shipping.carta_porte_uuid) {
+        if (shipping.carta_porte_uuid && shipping.carta_porte_environment !== 'demo') {
             throw new common_1.BadRequestException('Este viaje ya tiene carta porte timbrada');
         }
         if (!Number.isFinite(pesoBrutoKg) || pesoBrutoKg <= 0) {
@@ -55,7 +55,7 @@ let CartaPorteService = class CartaPorteService {
             throw new common_1.BadRequestException('La razón emisora debe estar registrada en Finkok antes de timbrar la carta porte.');
         }
         const built = (0, carta_porte_xml_util_1.buildCartaPorteXml)({ ...this.toXmlInput(shipping), goods });
-        const credentials = await this.finkokConfig.getCredentials(tenantId);
+        const credentials = await this.finkokConfig.getCredentials(tenantId, environment);
         let result;
         try {
             result = await this.finkok.signStamp(credentials, built.xml);
@@ -81,6 +81,7 @@ let CartaPorteService = class CartaPorteService {
         shipping.carta_porte_stamped_at = new Date();
         shipping.carta_porte_error = null;
         shipping.carta_porte_peso_kg = pesoBrutoKg;
+        shipping.carta_porte_environment = credentials.environment;
         await this.shippingRepo.save(shipping);
         return (0, carta_porte_util_1.decorateShippingCartaPorte)(shipping);
     }

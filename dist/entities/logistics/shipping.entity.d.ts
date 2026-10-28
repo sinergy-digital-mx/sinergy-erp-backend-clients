@@ -37,6 +37,7 @@ export declare class Shipping {
     carta_porte_stamped_at: Date | null;
     carta_porte_error: string | null;
     carta_porte_peso_kg: number | null;
+    carta_porte_environment: 'demo' | 'production' | null;
     stops: ShippingStop[];
     transfer_links: ShippingInventoryTransfer[];
     created_at: Date;

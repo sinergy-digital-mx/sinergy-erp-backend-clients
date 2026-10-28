@@ -230,6 +230,7 @@ __decorate([
 ], QueryAvailableShippingOrdersDto.prototype, "limit", void 0);
 class StampCartaPorteDto {
     peso_bruto_kg;
+    environment;
 }
 exports.StampCartaPorteDto = StampCartaPorteDto;
 __decorate([
@@ -238,4 +239,9 @@ __decorate([
     (0, class_validator_1.Min)(0.001),
     __metadata("design:type", Number)
 ], StampCartaPorteDto.prototype, "peso_bruto_kg", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(['demo', 'production']),
+    __metadata("design:type", String)
+], StampCartaPorteDto.prototype, "environment", void 0);
 //# sourceMappingURL=shipping.dto.js.map

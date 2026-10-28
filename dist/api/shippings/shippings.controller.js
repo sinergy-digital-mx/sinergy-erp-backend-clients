@@ -50,7 +50,7 @@ let ShippingsController = class ShippingsController {
         return this.service.findOne(id, req.user.tenant_id);
     }
     stampCartaPorte(id, dto, req) {
-        return this.cartaPorte.stamp(id, req.user.tenant_id, dto.peso_bruto_kg);
+        return this.cartaPorte.stamp(id, req.user.tenant_id, dto.peso_bruto_kg, dto.environment);
     }
     async downloadCartaPortePdf(id, req, res) {
         const { buffer, filename } = await this.cartaPortePdf.generate(id, req.user.tenant_id);
@@ -140,7 +140,7 @@ __decorate([
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Shipping', action: 'Update' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Timbrar carta porte del viaje',
-        description: 'CFDI de traslado con complemento Carta Porte 3.1. Finkok lo sella y timbra con sign_stamp.',
+        description: 'CFDI de traslado con complemento Carta Porte 3.1. environment demo timbra en Finkok Demo para ver el PDF. Una carta porte de producción no se vuelve a timbrar.',
     }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),

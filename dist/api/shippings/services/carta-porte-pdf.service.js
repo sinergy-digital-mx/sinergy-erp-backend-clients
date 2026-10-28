@@ -81,6 +81,9 @@ let CartaPortePdfService = class CartaPortePdfService {
             content: [
                 { text: 'Carta porte', style: 'title' },
                 { text: 'CFDI de traslado con complemento Carta Porte 3.1', style: 'muted' },
+                ...(shipping.carta_porte_environment === 'demo'
+                    ? [{ text: 'Timbrada en Finkok Demo. No tiene validez fiscal.', style: 'demo' }]
+                    : []),
                 {
                     margin: [0, 12, 0, 0],
                     table: {
@@ -93,6 +96,7 @@ let CartaPortePdfService = class CartaPortePdfService {
                             ['Salida', dateOnly(shipping.shipping_date)],
                             ['Kilómetros', shipping.distance_km != null ? String(shipping.distance_km) : '—'],
                             ['Peso bruto (kg)', shipping.carta_porte_peso_kg != null ? String(shipping.carta_porte_peso_kg) : '—'],
+                            ['Ambiente', environmentLabel(shipping.carta_porte_environment)],
                         ],
                     },
                     layout: 'lightHorizontalLines',
@@ -126,6 +130,7 @@ let CartaPortePdfService = class CartaPortePdfService {
             styles: {
                 title: { fontSize: 18, bold: true, color: '#111827' },
                 muted: { fontSize: 10, color: '#6b7280', margin: [0, 2, 0, 0] },
+                demo: { fontSize: 10, bold: true, color: '#9a3412', margin: [0, 6, 0, 0] },
                 section: { fontSize: 12, bold: true, margin: [0, 14, 0, 6] },
             },
             defaultStyle: { fontSize: 10, color: '#111827' },
@@ -145,6 +150,13 @@ exports.CartaPortePdfService = CartaPortePdfService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [carta_porte_service_1.CartaPorteService])
 ], CartaPortePdfService);
+function environmentLabel(value) {
+    if (value === 'demo')
+        return 'Demo';
+    if (value === 'production')
+        return 'Producción';
+    return '—';
+}
 function dateOnly(value) {
     if (!value)
         return '—';

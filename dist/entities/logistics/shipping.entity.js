@@ -57,6 +57,7 @@ let Shipping = class Shipping {
     carta_porte_stamped_at;
     carta_porte_error;
     carta_porte_peso_kg;
+    carta_porte_environment;
     stops;
     transfer_links;
     created_at;
@@ -174,6 +175,10 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'decimal', precision: 12, scale: 3, nullable: true }),
     __metadata("design:type", Object)
 ], Shipping.prototype, "carta_porte_peso_kg", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 20, nullable: true }),
+    __metadata("design:type", Object)
+], Shipping.prototype, "carta_porte_environment", void 0);
 __decorate([
     (0, typeorm_1.OneToMany)(() => shipping_stop_entity_1.ShippingStop, (stop) => stop.shipping),
     __metadata("design:type", Array)

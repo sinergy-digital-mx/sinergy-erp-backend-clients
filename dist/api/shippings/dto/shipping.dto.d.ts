@@ -48,4 +48,5 @@ export declare class QueryAvailableShippingOrdersDto {
 }
 export declare class StampCartaPorteDto {
     peso_bruto_kg: number;
+    environment?: 'demo' | 'production';
 }
