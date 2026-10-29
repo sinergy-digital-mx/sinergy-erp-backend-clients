@@ -1,5 +1,6 @@
 import { EmployeeStatus } from '../../../entities/employees/employee-status.enum';
 import { EmployeePaymentFrequency } from '../../../entities/employees/employee-payment-frequency.enum';
+import { UpsertWorkScheduleDto } from './upsert-work-schedule.dto';
 export declare class EmployeeProfileDto {
     employee_code?: string;
     rfc?: string;
@@ -17,4 +18,5 @@ export declare class EmployeeProfileDto {
     status?: EmployeeStatus;
     termination_date?: string;
     vacation_carryover_days?: number;
+    work_schedule?: UpsertWorkScheduleDto;
 }

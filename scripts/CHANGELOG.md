@@ -10,6 +10,10 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.82 · 2026-10-29
+
+- aplicación y servidor · Horario laboral en Editar usuario (tab Empleado) y botón Editar en el expediente para el admin
+
 ### Versión 0.0.81 · 2026-10-29
 
 - aplicación y servidor · Importar lotes: se quita la columna ubicacion; el grupo de cada fila es la ubicación

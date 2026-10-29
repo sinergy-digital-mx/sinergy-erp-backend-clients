@@ -71,6 +71,15 @@
       "status": "shipped",
       "version": "0.0.81",
       "shippedAt": "2026-10-29T11:51:24-07:00"
+    },
+    {
+      "id": "20261029-115842",
+      "at": "2026-10-29T11:58:42-07:00",
+      "scope": "both",
+      "message": "Horario laboral en Editar usuario (tab Empleado) y botón Editar en el expediente para el admin",
+      "status": "shipped",
+      "version": "0.0.82",
+      "shippedAt": "2026-10-29T12:08:48-07:00"
     }
   ]
 }

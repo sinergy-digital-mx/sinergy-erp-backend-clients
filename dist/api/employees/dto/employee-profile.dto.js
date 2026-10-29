@@ -11,9 +11,11 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EmployeeProfileDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
+const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
 const employee_status_enum_1 = require("../../../entities/employees/employee-status.enum");
 const employee_payment_frequency_enum_1 = require("../../../entities/employees/employee-payment-frequency.enum");
+const upsert_work_schedule_dto_1 = require("./upsert-work-schedule.dto");
 function isEmpty(value) {
     return value === null || value === undefined || value === '';
 }
@@ -34,6 +36,7 @@ class EmployeeProfileDto {
     status;
     termination_date;
     vacation_carryover_days;
+    work_schedule;
 }
 exports.EmployeeProfileDto = EmployeeProfileDto;
 __decorate([
@@ -151,4 +154,11 @@ __decorate([
     (0, class_validator_1.Min)(0, { message: 'Los días de arrastre no pueden ser negativos' }),
     __metadata("design:type", Number)
 ], EmployeeProfileDto.prototype, "vacation_carryover_days", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false, type: upsert_work_schedule_dto_1.UpsertWorkScheduleDto }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.ValidateNested)(),
+    (0, class_transformer_1.Type)(() => upsert_work_schedule_dto_1.UpsertWorkScheduleDto),
+    __metadata("design:type", upsert_work_schedule_dto_1.UpsertWorkScheduleDto)
+], EmployeeProfileDto.prototype, "work_schedule", void 0);
 //# sourceMappingURL=employee-profile.dto.js.map

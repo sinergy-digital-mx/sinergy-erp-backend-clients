@@ -303,6 +303,24 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-10-29T18:50:13.714Z"
+    },
+    {
+        "releaseKey": "full:0.0.82:0.0.82-1793300882385",
+        "version": "0.0.82",
+        "buildId": "0.0.82-1793300882385",
+        "channel": "full",
+        "title": "Versión 0.0.82",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "Cambios en empleados"
+            },
+            {
+                "scope": "frontend",
+                "message": "Cambios en accesos y permisos"
+            }
+        ],
+        "releasedAt": "2026-10-29T19:08:02.385Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map

@@ -106,6 +106,13 @@ let EmployeesService = class EmployeesService {
         if (employee.vacation_carryover_days == null) {
             employee.vacation_carryover_days = 0;
         }
+        if (profile.work_schedule !== undefined && profile.work_schedule !== null) {
+            const resolved = (0, work_schedule_util_1.resolveWorkSchedule)(profile.work_schedule);
+            if (!resolved.ok) {
+                throw new common_1.BadRequestException(resolved.message);
+            }
+            employee.work_schedule = resolved.schedule;
+        }
     }
     async findAll(tenantId, query, scope) {
         let page = Number(query?.page) || 1;
