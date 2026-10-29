@@ -7,6 +7,11 @@ export declare const PROPERTY_IMPORT_GROUPS_SHEET = "Grupos";
 export interface PropertyImportRowError {
     row: number;
     message: string;
+    code?: string;
+}
+export interface PropertyImportReadyRow {
+    row: number;
+    dto: CreatePropertyDto;
 }
 export interface PropertyImportCatalogs {
     groups: {
@@ -42,7 +47,7 @@ export declare function parsePropertyImportWorkbook(buffer: Buffer): {
     errors: PropertyImportRowError[];
 };
 export declare function resolvePropertyImportRows(rows: RawImportRow[], catalogs: PropertyImportCatalogs, parseErrors?: PropertyImportRowError[]): {
-    ready: CreatePropertyDto[];
+    ready: PropertyImportReadyRow[];
     errors: PropertyImportRowError[];
 };
 export {};

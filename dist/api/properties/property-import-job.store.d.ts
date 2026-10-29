@@ -1,6 +1,12 @@
 export type PropertyImportJobStatus = 'queued' | 'processing' | 'completed' | 'failed';
+export type PropertyImportSkippedRow = {
+    row: number;
+    message: string;
+    code?: string;
+};
 export type PropertyImportJobResult = {
     created: number;
+    skipped: PropertyImportSkippedRow[];
 };
 export type PropertyImportJob = {
     id: string;

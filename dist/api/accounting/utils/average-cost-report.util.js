@@ -183,6 +183,7 @@ function orderRow(order, reversal) {
     return {
         id: reversal ? `${order.id}:cancel` : order.id,
         sales_order_id: order.id,
+        quotation_id: null,
         customer_name: order.customer_name,
         document: order.folio,
         date: reversal ? order.cancelled_on || order.created_on : order.created_on,
@@ -225,6 +226,7 @@ function sideRow(document, reversal) {
     return {
         id: reversal ? `${document.id}:cancel` : document.id,
         sales_order_id: document.sales_order_id,
+        quotation_id: document.quotation_id,
         customer_name: document.customer_name,
         document: document.document,
         date: reversal ? document.cancelled_on || document.stamped_on : document.stamped_on,

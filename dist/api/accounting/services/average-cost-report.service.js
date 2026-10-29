@@ -376,6 +376,7 @@ let AverageCostReportService = class AverageCostReportService {
                     currency: row.currency || 'MXN',
                     exchange_rate: fromQuote ? null : toNumOrNull(row.order_exchange_rate),
                     sales_order_id: row.source_module === 'sales_orders' ? row.source_id : null,
+                    quotation_id: row.source_module === 'quotations' ? row.source_id : null,
                 },
             ];
         });

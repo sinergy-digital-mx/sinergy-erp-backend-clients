@@ -273,5 +273,23 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-10-28T18:26:23.139Z"
+  },
+  {
+    "releaseKey": "full:0.0.80:0.0.80-1793243061825",
+    "version": "0.0.80",
+    "buildId": "0.0.80-1793243061825",
+    "channel": "full",
+    "title": "Versión 0.0.80",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "Cambios en contabilidad"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en inmuebles"
+      }
+    ],
+    "releasedAt": "2026-10-29T03:04:21.825Z"
   }
 ];

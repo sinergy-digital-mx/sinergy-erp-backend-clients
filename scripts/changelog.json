@@ -35,6 +35,24 @@
       "status": "shipped",
       "version": "0.0.79",
       "shippedAt": "2026-10-28T11:27:09-07:00"
+    },
+    {
+      "id": "20261028-112836",
+      "at": "2026-10-28T11:28:36-07:00",
+      "scope": "both",
+      "message": "En el reporte de ventas a costo promedio, el folio de una cotización abre la cotización igual que el folio de una orden abre la orden.",
+      "status": "shipped",
+      "version": "0.0.80",
+      "shippedAt": "2026-10-28T20:05:29-07:00"
+    },
+    {
+      "id": "20261028-195616",
+      "at": "2026-10-28T19:56:16-07:00",
+      "scope": "both",
+      "message": "Importar lotes: omite filas duplicadas o inválidas, importa el resto y deja lista copiable de las que no entraron",
+      "status": "shipped",
+      "version": "0.0.80",
+      "shippedAt": "2026-10-28T20:05:29-07:00"
     }
   ]
 }

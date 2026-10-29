@@ -51,10 +51,12 @@ export type SalesCostSideDocumentInput = {
     currency: string;
     exchange_rate: number | null;
     sales_order_id: string | null;
+    quotation_id: string | null;
 };
 export type SalesCostReportRow = {
     id: string;
     sales_order_id: string | null;
+    quotation_id: string | null;
     customer_name: string;
     document: string;
     date: string;

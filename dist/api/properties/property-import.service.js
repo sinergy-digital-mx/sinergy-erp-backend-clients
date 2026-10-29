@@ -29,13 +29,11 @@ let PropertyImportService = PropertyImportService_1 = class PropertyImportServic
     propertyRepo;
     measurementUnitRepo;
     customerGroupsService;
-    dataSource;
     logger = new common_1.Logger(PropertyImportService_1.name);
-    constructor(propertyRepo, measurementUnitRepo, customerGroupsService, dataSource) {
+    constructor(propertyRepo, measurementUnitRepo, customerGroupsService) {
         this.propertyRepo = propertyRepo;
         this.measurementUnitRepo = measurementUnitRepo;
         this.customerGroupsService = customerGroupsService;
-        this.dataSource = dataSource;
     }
     async exportTemplate(organizationId) {
         const [units, groups] = await Promise.all([
@@ -53,14 +51,18 @@ let PropertyImportService = PropertyImportService_1 = class PropertyImportServic
         return { buffer, filename: 'plantilla-lotes.xlsx' };
     }
     async startImportJob(organizationId, file) {
-        const ready = await this.resolveReadyRows(organizationId, file);
+        const { ready, skipped } = await this.resolveReadyRows(organizationId, file);
         const job = (0, property_import_job_store_1.createPropertyImportJob)({
             id: (0, crypto_1.randomUUID)(),
             organizationId,
             total: ready.length,
         });
+        if (!ready.length) {
+            this.completeJob(job.id, 0, skipped);
+            return (0, property_import_job_store_1.getPropertyImportJob)(job.id, organizationId) ?? job;
+        }
         setImmediate(() => {
-            this.runImportJob(job.id, organizationId, ready).catch((error) => {
+            this.runImportJob(job.id, organizationId, ready, skipped).catch((error) => {
                 this.logger.error(`Import job ${job.id} failed`, error);
                 (0, property_import_job_store_1.updatePropertyImportJob)(job.id, {
                     status: 'failed',
@@ -79,9 +81,10 @@ let PropertyImportService = PropertyImportService_1 = class PropertyImportServic
         return job;
     }
     async importWorkbook(organizationId, file) {
-        const ready = await this.resolveReadyRows(organizationId, file);
-        await this.persistRows(organizationId, ready);
-        return { created: ready.length };
+        const { ready, skipped } = await this.resolveReadyRows(organizationId, file);
+        const persistSkipped = await this.persistRows(organizationId, ready);
+        const allSkipped = [...skipped, ...persistSkipped];
+        return { created: ready.length - persistSkipped.length, skipped: allSkipped };
     }
     async resolveReadyRows(organizationId, file) {
         if (!file?.buffer?.length) {
@@ -92,6 +95,9 @@ let PropertyImportService = PropertyImportService_1 = class PropertyImportServic
             throw new common_1.BadRequestException('El archivo debe ser Excel (.xlsx).');
         }
         const parsed = (0, property_import_util_1.parsePropertyImportWorkbook)(file.buffer);
+        if (!parsed.rows.length) {
+            throw new common_1.BadRequestException(parsed.errors[0]?.message || 'El archivo no tiene lotes para importar.');
+        }
         const [units, groups, existing] = await Promise.all([
             this.measurementUnitRepo.find(),
             this.customerGroupsService.findOptions(organizationId),
@@ -107,25 +113,19 @@ let PropertyImportService = PropertyImportService_1 = class PropertyImportServic
             })),
             existingCodes: existing,
         }, parsed.errors);
-        if (resolved.errors.length) {
-            throw new common_1.BadRequestException({
-                message: 'No se importó ningún lote. Corrige el archivo y vuelve a subirlo.',
-                errors: resolved.errors,
-            });
-        }
-        if (!resolved.ready.length) {
+        if (!resolved.ready.length && !resolved.errors.length) {
             throw new common_1.BadRequestException('El archivo no tiene lotes para importar.');
         }
-        return resolved.ready;
+        return { ready: resolved.ready, skipped: resolved.errors };
     }
-    async runImportJob(jobId, organizationId, ready) {
+    async runImportJob(jobId, organizationId, ready, skipped) {
         (0, property_import_job_store_1.updatePropertyImportJob)(jobId, {
             status: 'processing',
             processed: 0,
             message: `Importando 0 de ${ready.length}`,
         });
         try {
-            await this.persistRows(organizationId, ready, (processed, total, code) => {
+            const persistSkipped = await this.persistRows(organizationId, ready, (processed, total, code) => {
                 (0, property_import_job_store_1.updatePropertyImportJob)(jobId, {
                     status: 'processing',
                     processed,
@@ -134,14 +134,7 @@ let PropertyImportService = PropertyImportService_1 = class PropertyImportServic
                     message: `Importando ${processed} de ${total}`,
                 });
             });
-            (0, property_import_job_store_1.updatePropertyImportJob)(jobId, {
-                status: 'completed',
-                processed: ready.length,
-                current_code: null,
-                message: ready.length === 1 ? 'Se creó 1 lote.' : `Se crearon ${ready.length} lotes.`,
-                result: { created: ready.length },
-                error: null,
-            });
+            this.completeJob(jobId, ready.length - persistSkipped.length, [...skipped, ...persistSkipped]);
         }
         catch (error) {
             (0, property_import_job_store_1.updatePropertyImportJob)(jobId, {
@@ -151,17 +144,29 @@ let PropertyImportService = PropertyImportService_1 = class PropertyImportServic
             });
         }
     }
+    completeJob(jobId, created, skipped) {
+        const ordered = [...skipped].sort((left, right) => left.row - right.row || left.message.localeCompare(right.message));
+        (0, property_import_job_store_1.updatePropertyImportJob)(jobId, {
+            status: 'completed',
+            current_code: null,
+            message: this.summaryMessage(created, ordered.length),
+            result: { created, skipped: ordered },
+            error: null,
+        });
+    }
     async persistRows(organizationId, ready, onProgress) {
-        await this.dataSource.transaction(async (manager) => {
-            let processed = 0;
-            for (const dto of ready) {
-                const pricing = (0, property_pricing_util_1.resolvePropertyPricing)({
-                    totalArea: dto.total_area,
-                    totalPrice: dto.total_price,
-                    pricePerM2: dto.price_per_m2,
-                    isCreate: true,
-                });
-                const property = manager.create(property_entity_1.Property, {
+        const skipped = [];
+        let processed = 0;
+        for (const item of ready) {
+            const dto = item.dto;
+            const pricing = (0, property_pricing_util_1.resolvePropertyPricing)({
+                totalArea: dto.total_area,
+                totalPrice: dto.total_price,
+                pricePerM2: dto.price_per_m2,
+                isCreate: true,
+            });
+            try {
+                const entity = this.propertyRepo.create({
                     ...dto,
                     tenant_id: organizationId,
                     currency: (0, contract_currency_util_1.normalizeContractCurrency)(dto.currency, contract_currency_util_1.DEFAULT_CONTRACT_CURRENCY),
@@ -170,25 +175,44 @@ let PropertyImportService = PropertyImportService_1 = class PropertyImportServic
                     price_per_m2: pricing.price_per_m2,
                     status: dto.status || 'disponible',
                 });
-                try {
-                    await manager.save(property);
+                await this.propertyRepo.save(entity);
+            }
+            catch (error) {
+                if (this.isDuplicateCodeError(error)) {
+                    skipped.push({
+                        row: item.row,
+                        code: dto.code,
+                        message: `Ya existe un lote con el código "${dto.code}".`,
+                    });
                 }
-                catch (error) {
-                    if (error instanceof typeorm_2.QueryFailedError) {
-                        const driverErr = error.driverError;
-                        const isDup = driverErr?.code === 'ER_DUP_ENTRY' ||
-                            driverErr?.errno === 1062 ||
-                            /Duplicate entry/i.test(error.message);
-                        if (isDup) {
-                            throw new common_1.BadRequestException(`Ya existe un lote con el código "${dto.code}". No se importó ningún lote.`);
-                        }
-                    }
+                else {
                     throw error;
                 }
-                processed += 1;
-                onProgress?.(processed, ready.length, dto.code);
             }
-        });
+            processed += 1;
+            onProgress?.(processed, ready.length, dto.code);
+        }
+        return skipped;
+    }
+    isDuplicateCodeError(error) {
+        if (!(error instanceof typeorm_2.QueryFailedError)) {
+            return false;
+        }
+        const driverErr = error.driverError;
+        return (driverErr?.code === 'ER_DUP_ENTRY' ||
+            driverErr?.errno === 1062 ||
+            /Duplicate entry/i.test(error.message));
+    }
+    summaryMessage(created, skipped) {
+        const createdText = created === 1 ? 'Se creó 1 lote.' : `Se crearon ${created} lotes.`;
+        if (!skipped) {
+            return created === 0 ? 'No se importó ningún lote.' : createdText;
+        }
+        const skippedText = skipped === 1 ? '1 no se importó.' : `${skipped} no se importaron.`;
+        if (!created) {
+            return `No se importó ningún lote. ${skippedText}`;
+        }
+        return `${createdText} ${skippedText}`;
     }
     toErrorMessage(error) {
         if (error instanceof common_1.HttpException) {
@@ -219,7 +243,6 @@ exports.PropertyImportService = PropertyImportService = PropertyImportService_1 
     __param(1, (0, typeorm_1.InjectRepository)(measurement_unit_entity_1.MeasurementUnit)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
         typeorm_2.Repository,
-        customer_groups_service_1.CustomerGroupsService,
-        typeorm_2.DataSource])
+        customer_groups_service_1.CustomerGroupsService])
 ], PropertyImportService);
 //# sourceMappingURL=property-import.service.js.map

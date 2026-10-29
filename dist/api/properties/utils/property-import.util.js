@@ -260,14 +260,16 @@ function resolvePropertyImportRows(rows, catalogs, parseErrors = []) {
             errors.push(...rowErrors);
             continue;
         }
-        ready.push(toDto(row, groups, units));
+        ready.push({ row: row.row, dto: toDto(row, groups, units) });
     }
     errors.sort((left, right) => left.row - right.row || left.message.localeCompare(right.message));
-    return { ready: errors.length ? [] : ready, errors };
+    return { ready, errors };
 }
 function validateRow(row, units, groups, existingCodes, seenCodes) {
     const errors = [];
-    const fail = (message) => errors.push({ row: row.row, message });
+    const fail = (message, code) => {
+        errors.push(code ? { row: row.row, message, code } : { row: row.row, message });
+    };
     const name = cellText(row.values.name);
     const groupLabel = cellText(row.values.group);
     const unitLabel = cellText(row.values.unit);
@@ -299,13 +301,13 @@ function validateRow(row, units, groups, existingCodes, seenCodes) {
     else if (lotNumber.length > 50)
         fail('El número de lote admite máximo 50 caracteres.');
     if (code.length > 50)
-        fail('El código generado admite máximo 50 caracteres.');
+        fail('El código generado admite máximo 50 caracteres.', code);
     else if (code) {
         const folded = foldText(code);
         if (seenCodes.has(folded))
-            fail(`El código "${code}" está repetido en el archivo.`);
+            fail(`El código "${code}" está repetido en el archivo.`, code);
         else if (existingCodes.has(folded))
-            fail(`Ya existe un lote con el código "${code}".`);
+            fail(`Ya existe un lote con el código "${code}".`, code);
         else
             seenCodes.add(folded);
     }
