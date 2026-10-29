@@ -27,6 +27,7 @@ const query_leave_request_dto_1 = require("../employees/dto/query-leave-request.
 const create_overtime_request_dto_1 = require("../employees/dto/create-overtime-request.dto");
 const query_overtime_request_dto_1 = require("../employees/dto/query-overtime-request.dto");
 const update_overtime_request_dto_1 = require("../employees/dto/update-overtime-request.dto");
+const upsert_work_schedule_dto_1 = require("../employees/dto/upsert-work-schedule.dto");
 const employee_portal_constants_1 = require("./employee-portal.constants");
 let EmployeePortalController = class EmployeePortalController {
     service;
@@ -64,6 +65,9 @@ let EmployeePortalController = class EmployeePortalController {
     }
     createMyOvertimeRequest(dto) {
         return this.service.createMyOvertimeRequest(this.getTenantId(), this.getUserId(), dto);
+    }
+    upsertMyWorkSchedule(dto) {
+        return this.service.upsertMyWorkSchedule(this.getTenantId(), this.getUserId(), dto);
     }
     updateMyOvertimeRequest(requestId, dto) {
         return this.service.updateMyOvertimeRequest(this.getTenantId(), this.getUserId(), requestId, dto);
@@ -184,6 +188,15 @@ __decorate([
     __metadata("design:paramtypes", [create_overtime_request_dto_1.CreateOvertimeRequestDto]),
     __metadata("design:returntype", void 0)
 ], EmployeePortalController.prototype, "createMyOvertimeRequest", null);
+__decorate([
+    (0, common_1.Put)('me/work-schedule'),
+    (0, require_permissions_decorator_1.RequirePermission)(employee_portal_constants_1.EMPLOYEE_PORTAL_ENTITY_CODE, 'Update'),
+    (0, swagger_1.ApiOperation)({ summary: 'Guardar mi horario laboral semanal' }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [upsert_work_schedule_dto_1.UpsertWorkScheduleDto]),
+    __metadata("design:returntype", void 0)
+], EmployeePortalController.prototype, "upsertMyWorkSchedule", null);
 __decorate([
     (0, common_1.Put)('me/overtime-requests/:requestId'),
     (0, require_permissions_decorator_1.RequirePermission)(employee_portal_constants_1.EMPLOYEE_PORTAL_ENTITY_CODE, 'RequestLeave'),

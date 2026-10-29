@@ -27,6 +27,7 @@ export declare class Employee {
     photo_s3_key: string | null;
     status: EmployeeStatus;
     termination_date: string | null;
+    work_schedule: Record<string, any> | null;
     metadata: Record<string, any> | null;
     leave_requests: EmployeeLeaveRequest[];
     overtime_requests: EmployeeOvertimeRequest[];

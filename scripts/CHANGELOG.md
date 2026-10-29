@@ -10,6 +10,11 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.81 · 2026-10-29
+
+- aplicación y servidor · Importar lotes: se quita la columna ubicacion; el grupo de cada fila es la ubicación
+- aplicación y servidor · Portal de empleado: horario laboral semanal (lun-dom) que el empleado y RH pueden guardar
+
 ### Versión 0.0.80 · 2026-10-28
 
 - aplicación y servidor · En el reporte de ventas a costo promedio, el folio de una cotización abre la cotización igual que el folio de una orden abre la orden.

@@ -53,6 +53,24 @@
       "status": "shipped",
       "version": "0.0.80",
       "shippedAt": "2026-10-28T20:05:29-07:00"
+    },
+    {
+      "id": "20261028-214945",
+      "at": "2026-10-28T21:49:45-07:00",
+      "scope": "both",
+      "message": "Importar lotes: se quita la columna ubicacion; el grupo de cada fila es la ubicación",
+      "status": "shipped",
+      "version": "0.0.81",
+      "shippedAt": "2026-10-29T11:51:24-07:00"
+    },
+    {
+      "id": "20261029-114724",
+      "at": "2026-10-29T11:47:24-07:00",
+      "scope": "both",
+      "message": "Portal de empleado: horario laboral semanal (lun-dom) que el empleado y RH pueden guardar",
+      "status": "shipped",
+      "version": "0.0.81",
+      "shippedAt": "2026-10-29T11:51:24-07:00"
     }
   ]
 }

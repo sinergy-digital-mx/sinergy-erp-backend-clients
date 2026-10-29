@@ -25,6 +25,7 @@ const employees_service_1 = require("./employees.service");
 const employee_leave_service_1 = require("./employee-leave.service");
 const create_employee_dto_1 = require("./dto/create-employee.dto");
 const update_employee_dto_1 = require("./dto/update-employee.dto");
+const upsert_work_schedule_dto_1 = require("./dto/upsert-work-schedule.dto");
 const query_employee_dto_1 = require("./dto/query-employee.dto");
 const create_leave_request_dto_1 = require("./dto/create-leave-request.dto");
 const review_leave_request_dto_1 = require("./dto/review-leave-request.dto");
@@ -62,6 +63,9 @@ let EmployeesController = class EmployeesController {
     }
     uploadPhoto(id, file) {
         return this.employeesService.uploadPhoto(this.getTenantId(), id, file);
+    }
+    upsertWorkSchedule(id, dto) {
+        return this.employeesService.upsertWorkSchedule(this.getTenantId(), id, dto);
     }
     findAllLeaveRequests(query) {
         return this.leaveService.findAll(this.getTenantId(), query);
@@ -207,6 +211,17 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], EmployeesController.prototype, "uploadPhoto", null);
+__decorate([
+    (0, common_1.Put)(':id/work-schedule'),
+    (0, require_permissions_decorator_1.RequirePermission)(employees_constants_1.EMPLOYEES_ENTITY_CODE, 'Update'),
+    (0, swagger_1.ApiOperation)({ summary: 'Guardar el horario laboral semanal del empleado' }),
+    (0, swagger_1.ApiParam)({ name: 'id', type: 'string' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, upsert_work_schedule_dto_1.UpsertWorkScheduleDto]),
+    __metadata("design:returntype", void 0)
+], EmployeesController.prototype, "upsertWorkSchedule", null);
 __decorate([
     (0, common_1.Get)('leave-requests/all'),
     (0, require_permissions_decorator_1.RequirePermission)(employees_constants_1.EMPLOYEES_ENTITY_CODE, 'Read'),

@@ -132,6 +132,10 @@ let EmployeePortalService = class EmployeePortalService {
         const employee = await this.resolveEmployee(tenantId, userId);
         return this.overtimeService.update(tenantId, requestId, dto, employee.id);
     }
+    async upsertMyWorkSchedule(tenantId, userId, dto) {
+        const employee = await this.resolveEmployee(tenantId, userId);
+        return this.employeesService.upsertWorkSchedule(tenantId, employee.id, dto);
+    }
 };
 exports.EmployeePortalService = EmployeePortalService;
 exports.EmployeePortalService = EmployeePortalService = __decorate([

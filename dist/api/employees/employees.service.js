@@ -26,6 +26,7 @@ const employee_payment_frequency_enum_1 = require("../../entities/employees/empl
 const leave_type_enum_1 = require("../../entities/employees/leave-type.enum");
 const leave_status_enum_1 = require("../../entities/employees/leave-status.enum");
 const s3_service_1 = require("../../common/services/s3.service");
+const work_schedule_util_1 = require("./utils/work-schedule.util");
 const mexican_labor_law_1 = require("./utils/mexican-labor-law");
 const sick_leave_year_util_1 = require("./utils/sick-leave-year.util");
 let EmployeesService = class EmployeesService {
@@ -201,6 +202,21 @@ let EmployeesService = class EmployeesService {
         await this.employeeRepo.save(employee);
         return this.findOne(tenantId, id);
     }
+    async upsertWorkSchedule(tenantId, id, dto) {
+        const employee = await this.employeeRepo.findOne({
+            where: { id, tenant_id: tenantId },
+        });
+        if (!employee) {
+            throw new common_1.NotFoundException('Empleado no encontrado');
+        }
+        const resolved = (0, work_schedule_util_1.resolveWorkSchedule)(dto);
+        if (!resolved.ok) {
+            throw new common_1.BadRequestException(resolved.message);
+        }
+        employee.work_schedule = resolved.schedule;
+        await this.employeeRepo.save(employee);
+        return this.findOne(tenantId, id);
+    }
     async remove(tenantId, id) {
         const employee = await this.employeeRepo.findOne({
             where: { id, tenant_id: tenantId },
@@ -285,6 +301,7 @@ let EmployeesService = class EmployeesService {
             termination_date: employee.termination_date,
             photo_url: photoUrl,
             has_photo: Boolean(employee.photo_s3_key),
+            work_schedule: (0, work_schedule_util_1.presentWorkSchedule)(employee.work_schedule),
             years_of_service: years,
             vacation,
             payroll,

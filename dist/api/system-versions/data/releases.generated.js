@@ -285,6 +285,24 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-10-29T03:04:21.825Z"
+    },
+    {
+        "releaseKey": "full:0.0.81:0.0.81-1793299813714",
+        "version": "0.0.81",
+        "buildId": "0.0.81-1793299813714",
+        "channel": "full",
+        "title": "Versión 0.0.81",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "Cambios en empleados"
+            },
+            {
+                "scope": "frontend",
+                "message": "Cambios en inmuebles"
+            }
+        ],
+        "releasedAt": "2026-10-29T18:50:13.714Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map

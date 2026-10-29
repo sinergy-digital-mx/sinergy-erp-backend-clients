@@ -40,6 +40,7 @@ let Employee = class Employee {
     photo_s3_key;
     status;
     termination_date;
+    work_schedule;
     metadata;
     leave_requests;
     overtime_requests;
@@ -145,6 +146,10 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'date', nullable: true }),
     __metadata("design:type", Object)
 ], Employee.prototype, "termination_date", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'json', nullable: true }),
+    __metadata("design:type", Object)
+], Employee.prototype, "work_schedule", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'json', nullable: true }),
     __metadata("design:type", Object)

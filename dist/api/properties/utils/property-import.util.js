@@ -53,7 +53,6 @@ exports.PROPERTY_IMPORT_HEADERS = [
     'manzana',
     'numero_lote',
     'clave_catastral',
-    'ubicacion',
     'descripcion',
     'precio_m2',
     'precio_total',
@@ -73,7 +72,6 @@ const HEADER_ALIASES = {
     numero_lote: 'lot_number',
     numero_de_lote: 'lot_number',
     clave_catastral: 'cadastral_key',
-    ubicacion: 'location',
     descripcion: 'description',
     precio_m2: 'price_per_m2',
     precio_por_m2: 'price_per_m2',
@@ -128,7 +126,6 @@ async function buildPropertyImportTemplate(catalogs) {
         catalogs.units[0]?.symbol ?? 'm²',
         'A',
         '1',
-        '',
         '',
         '',
         120,
@@ -281,7 +278,6 @@ function validateRow(row, units, groups, existingCodes, seenCodes) {
     const block = cellText(row.values.block);
     const lotNumber = cellText(row.values.lot_number);
     const cadastralKey = cellText(row.values.cadastral_key);
-    const location = cellText(row.values.location);
     const code = block && lotNumber ? buildPropertyImportCode(block, lotNumber) : '';
     if (!name)
         fail('El nombre es obligatorio.');
@@ -322,8 +318,6 @@ function validateRow(row, units, groups, existingCodes, seenCodes) {
     }
     if (cadastralKey.length > 100)
         fail('La clave catastral admite máximo 100 caracteres.');
-    if (location.length > 255)
-        fail('La ubicación admite máximo 255 caracteres.');
     if (pricePerM2 === 'invalid')
         fail('El precio por m² no es un número.');
     if (totalPrice === 'invalid')
@@ -372,7 +366,6 @@ function toDto(row, groups, units) {
         lot_number: lotNumber,
     };
     const cadastralKey = cellText(row.values.cadastral_key);
-    const location = cellText(row.values.location);
     const description = cellText(row.values.description);
     if (block)
         dto.block = block;
@@ -380,8 +373,6 @@ function toDto(row, groups, units) {
         dto.lot_number = lotNumber;
     if (cadastralKey)
         dto.cadastral_key = cadastralKey;
-    if (location)
-        dto.location = location;
     if (description)
         dto.description = description;
     if (typeof pricePerM2 === 'number')
