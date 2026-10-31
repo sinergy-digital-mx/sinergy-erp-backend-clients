@@ -327,5 +327,27 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-10-29T19:08:02.385Z"
+  },
+  {
+    "releaseKey": "full:0.0.83:0.0.83-1793472852652",
+    "version": "0.0.83",
+    "buildId": "0.0.83-1793472852652",
+    "channel": "full",
+    "title": "Versión 0.0.83",
+    "changes": [
+      {
+        "scope": "backend",
+        "message": "Cambios en facturación electrónica"
+      },
+      {
+        "scope": "backend",
+        "message": "Cambios en empleados"
+      },
+      {
+        "scope": "backend",
+        "message": "Cambios en ventas"
+      }
+    ],
+    "releasedAt": "2026-10-31T18:54:12.652Z"
   }
 ];

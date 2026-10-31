@@ -308,7 +308,7 @@ let EmployeesService = class EmployeesService {
             termination_date: employee.termination_date,
             photo_url: photoUrl,
             has_photo: Boolean(employee.photo_s3_key),
-            work_schedule: (0, work_schedule_util_1.presentWorkSchedule)(employee.work_schedule),
+            work_schedule: (0, work_schedule_util_1.presentWorkSchedule)(employee.work_schedule ?? null),
             years_of_service: years,
             vacation,
             payroll,

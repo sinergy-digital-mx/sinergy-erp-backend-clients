@@ -80,6 +80,24 @@
       "status": "shipped",
       "version": "0.0.82",
       "shippedAt": "2026-10-29T12:08:48-07:00"
+    },
+    {
+      "id": "20261029-121314",
+      "at": "2026-10-29T12:13:14-07:00",
+      "scope": "backend",
+      "message": "Listado de empleados: se aplicó la columna work_schedule que faltaba y tiraba 500",
+      "status": "shipped",
+      "version": "0.0.83",
+      "shippedAt": "2026-10-31T11:55:26-07:00"
+    },
+    {
+      "id": "20261031-115350",
+      "at": "2026-10-31T11:53:50-07:00",
+      "scope": "backend",
+      "message": "El PDF de la factura de OV no imprimía el IVA: el parser leía Impuestos del concepto en vez del comprobante; PDFs viejos se regeneran con ?regenerate=true",
+      "status": "shipped",
+      "version": "0.0.83",
+      "shippedAt": "2026-10-31T11:55:26-07:00"
     }
   ]
 }

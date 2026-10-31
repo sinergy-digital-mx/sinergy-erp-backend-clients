@@ -10,6 +10,11 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.83 · 2026-10-31
+
+- servidor · Listado de empleados: se aplicó la columna work_schedule que faltaba y tiraba 500
+- servidor · El PDF de la factura de OV no imprimía el IVA: el parser leía Impuestos del concepto en vez del comprobante; PDFs viejos se regeneran con ?regenerate=true
+
 ### Versión 0.0.82 · 2026-10-29
 
 - aplicación y servidor · Horario laboral en Editar usuario (tab Empleado) y botón Editar en el expediente para el admin

@@ -44,11 +44,19 @@ function draftWorkSchedule() {
     };
 }
 function presentWorkSchedule(raw) {
-    if (!raw || typeof raw !== 'object') {
+    try {
+        const parsed = typeof raw === 'string'
+            ? JSON.parse(raw)
+            : raw;
+        if (!parsed || typeof parsed !== 'object') {
+            return null;
+        }
+        const resolved = resolveWorkSchedule(parsed);
+        return resolved.ok ? resolved.schedule : null;
+    }
+    catch {
         return null;
     }
-    const resolved = resolveWorkSchedule(raw);
-    return resolved.ok ? resolved.schedule : null;
 }
 function resolveWorkSchedule(raw) {
     const source = raw && typeof raw === 'object' ? raw : {};
