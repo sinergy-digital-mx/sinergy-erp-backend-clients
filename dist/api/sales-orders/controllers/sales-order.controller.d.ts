@@ -13,7 +13,7 @@ import { StampPaymentComplementDto } from '../dto/stamp-payment-complement.dto';
 import { ApplyAdvanceInvoiceDto } from '../../electronic-invoicing/dto/apply-advance-invoice.dto';
 import { InventoryService } from '../../inventory/inventory.service';
 import { SalesOrderProductsPickerService } from '../services/sales-order-products-picker.service';
-import { CreateSalesOrderDto, CreateSalesOrderLineItemDto, CloneSalesOrderDto, UpdateSalesOrderLineItemDto, QuerySalesOrderDto, QuerySalesOrderProductsSummaryDto, FulfillSalesOrderDto, RegenerateDocumentDto, UpdateSalesOrderNotesDto, QuerySalesOrderHeaderExportDto, QuerySalesOrderDetailExportDto, CreateSalesOrderPaymentDto, UpdateSalesOrderSellerDto, UpdateSalesOrderAssignedSellerDto, SendSalesOrderInvoiceEmailDto, UpdateInvoiceEmailTemplateDto } from '../dto';
+import { CreateSalesOrderDto, CreateSalesOrderLineItemDto, CloneSalesOrderDto, UpdateSalesOrderLineItemDto, QuerySalesOrderDto, QuerySalesOrderProductsSummaryDto, FulfillSalesOrderDto, RegenerateDocumentDto, UpdateSalesOrderNotesDto, UpdateSalesOrderForShippingDto, QuerySalesOrderHeaderExportDto, QuerySalesOrderDetailExportDto, CreateSalesOrderPaymentDto, UpdateSalesOrderSellerDto, UpdateSalesOrderAssignedSellerDto, SendSalesOrderInvoiceEmailDto, UpdateInvoiceEmailTemplateDto } from '../dto';
 export declare class SalesOrderController {
     private readonly salesOrderService;
     private readonly documentsService;
@@ -380,6 +380,7 @@ export declare class SalesOrderController {
                 advance_invoice_id: string | null;
                 sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
                 requires_selection_assembly: boolean;
+                for_shipping: boolean;
                 corroborator: import("../../../entities/users/user.entity").User | null;
                 corroborated_by: string | null;
                 corroborated_at: Date | null;
@@ -870,6 +871,7 @@ export declare class SalesOrderController {
                 advance_invoice_id: string | null;
                 sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
                 requires_selection_assembly: boolean;
+                for_shipping: boolean;
                 corroborator: import("../../../entities/users/user.entity").User | null;
                 corroborated_by: string | null;
                 corroborated_at: Date | null;
@@ -1360,6 +1362,7 @@ export declare class SalesOrderController {
                 advance_invoice_id: string | null;
                 sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
                 requires_selection_assembly: boolean;
+                for_shipping: boolean;
                 corroborator: import("../../../entities/users/user.entity").User | null;
                 corroborated_by: string | null;
                 corroborated_at: Date | null;
@@ -1507,6 +1510,7 @@ export declare class SalesOrderController {
         };
     }>;
     updateNotes(id: string, dto: UpdateSalesOrderNotesDto, req: any): Promise<import("../../../entities/sales-orders").SalesOrder>;
+    updateForShipping(id: string, dto: UpdateSalesOrderForShippingDto, req: any): Promise<import("../../../entities/sales-orders").SalesOrder>;
     updateSeller(id: string, dto: UpdateSalesOrderSellerDto, req: any): Promise<{
         from: string;
         to: string;
@@ -1851,6 +1855,7 @@ export declare class SalesOrderController {
                 advance_invoice_id: string | null;
                 sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
                 requires_selection_assembly: boolean;
+                for_shipping: boolean;
                 corroborator: import("../../../entities/users/user.entity").User | null;
                 corroborated_by: string | null;
                 corroborated_at: Date | null;
@@ -2341,6 +2346,7 @@ export declare class SalesOrderController {
                 advance_invoice_id: string | null;
                 sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
                 requires_selection_assembly: boolean;
+                for_shipping: boolean;
                 corroborator: import("../../../entities/users/user.entity").User | null;
                 corroborated_by: string | null;
                 corroborated_at: Date | null;
@@ -2786,6 +2792,7 @@ export declare class SalesOrderController {
             advance_invoice_id: string | null;
             sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
             requires_selection_assembly: boolean;
+            for_shipping: boolean;
             corroborator: import("../../../entities/users/user.entity").User | null;
             corroborated_by: string | null;
             corroborated_at: Date | null;
@@ -2875,6 +2882,7 @@ export declare class SalesOrderController {
             advance_invoice_id: string | null;
             sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
             requires_selection_assembly: boolean;
+            for_shipping: boolean;
             corroborator: import("../../../entities/users/user.entity").User | null;
             corroborated_by: string | null;
             corroborated_at: Date | null;
@@ -3376,6 +3384,7 @@ export declare class SalesOrderController {
                 advance_invoice_id: string | null;
                 sale_scope: import("../../../entities/sales-orders").SalesOrderSaleScope;
                 requires_selection_assembly: boolean;
+                for_shipping: boolean;
                 corroborator: import("../../../entities/users/user.entity").User | null;
                 corroborated_by: string | null;
                 corroborated_at: Date | null;

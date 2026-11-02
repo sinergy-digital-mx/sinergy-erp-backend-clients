@@ -42,6 +42,9 @@ export declare class AccountingService {
             amount_collected: number;
             orders_pending: number;
             amount_pending: number;
+            orders_for_shipping: number;
+            amount_for_shipping: number;
+            orders_for_shipping_pending: number;
         };
         entered_orders: {
             id: string;
@@ -49,6 +52,7 @@ export declare class AccountingService {
             created_at: string;
             total: number;
             payment_status: string | null;
+            for_shipping: boolean;
             sales_order_type: string | null;
             channel: string;
             terminal_name: string | null;
@@ -155,6 +159,7 @@ export declare class AccountingService {
             payment_status: string;
             general_status: string;
             created_at: Date;
+            payment_date: string | null;
             collected_at: Date;
             shift_date: string | null;
             billing_branch: {
@@ -169,6 +174,7 @@ export declare class AccountingService {
             has_stamped_invoice: boolean;
             walk_in_name: string | null;
             walk_in_rfc: string | null;
+            for_shipping: boolean;
         }[];
         total: number;
         page: number;
@@ -416,10 +422,12 @@ export declare class AccountingService {
     private collectReceivableDetailLines;
     private loadStampedInvoiceLabels;
     private loadSalesPaymentLabels;
+    private isForShippingFlag;
     private posBranchSql;
     private loadPosEnteredOrders;
     private walkInCustomerSql;
     private stampedInvoiceExistsSql;
+    private loadSalesOrderPaymentDates;
     private getStampedInvoiceOrderIds;
     private collectAccountsPayableVendors;
     private resolvePayableExchangeRate;

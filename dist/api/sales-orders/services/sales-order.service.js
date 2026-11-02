@@ -338,6 +338,7 @@ let SalesOrderService = class SalesOrderService {
                 currency: documentCurrency.currency,
                 exchange_rate: documentCurrency.exchangeRate,
                 requires_selection_assembly: requiresSelectionAssembly,
+                for_shipping: !!dto.for_shipping,
                 created_by: userId,
                 terminal_user_id: isPosSale ? userId : null,
                 seller_user_id: sellerUserId,
@@ -521,6 +522,7 @@ let SalesOrderService = class SalesOrderService {
                 global_discount_id: so.global_discount_id,
                 updated_by: userId,
                 ...walkInTicket,
+                ...(dto.for_shipping !== undefined ? { for_shipping: !!dto.for_shipping } : {}),
             });
             await this.recomputeTotals(qr, so.id, tenantId, userId);
             await this.fulfillOrderLines(qr, so.id, this.allocationScope(so), savedDetails, userId, undefined, true);
@@ -1276,6 +1278,16 @@ let SalesOrderService = class SalesOrderService {
         });
         return this.findOne(id, tenantId);
     }
+    async updateForShipping(id, forShipping, tenantId, userId) {
+        const so = await this.findOne(id, tenantId);
+        if (so.general_status === 'Cancelada') {
+            throw new common_1.BadRequestException('No se puede cambiar el envío de una orden cancelada');
+        }
+        so.for_shipping = !!forShipping;
+        so.updated_by = userId;
+        await this.soRepo.save(so);
+        return this.findOne(id, tenantId);
+    }
     async updateSeller(id, sellerUserId, tenantId, userId) {
         const so = await this.soRepo.findOne({
             where: { id, tenant_id: tenantId },
@@ -1519,6 +1531,9 @@ let SalesOrderService = class SalesOrderService {
             const lineKinds = await this.loadProductKinds(qr, dto.line_items.map((item) => item.product_id));
             this.assertLineItemsMatchSaleScope(dto.line_items, saleScope, lineKinds);
             const hasGoodsLines = [...lineKinds.values()].some((kind) => kind === product_item_kind_enum_1.ProductItemKind.Goods);
+            if (dto.for_shipping !== undefined) {
+                so.for_shipping = !!dto.for_shipping;
+            }
             if (dto.requires_selection_assembly !== undefined && so.sales_order_type === 'MANUAL') {
                 so.requires_selection_assembly =
                     saleScope !== sales_order_sale_scope_enum_1.SalesOrderSaleScope.Services &&

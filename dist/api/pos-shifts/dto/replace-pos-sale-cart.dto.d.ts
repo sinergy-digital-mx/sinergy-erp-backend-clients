@@ -5,4 +5,5 @@ export declare class ReplacePosSaleCartDto {
     global_discount_id?: string;
     walk_in_name?: string;
     walk_in_rfc?: string;
+    for_shipping?: boolean;
 }

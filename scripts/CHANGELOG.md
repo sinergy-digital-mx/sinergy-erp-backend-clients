@@ -10,6 +10,11 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.88 · 2026-11-02
+
+- aplicación y servidor · En el reporte de punto de venta de cobranza, la fecha de pago del abono queda aparte de la fecha de cobro en caja, en la tabla y en el Excel.
+- aplicación y servidor · Se pidió marcar órdenes de venta como para envío al crearlas en el alta, el listado y el punto de venta, y poder agregarlo después en caja o en el detalle. El reporte de puntos de venta en cobranza muestra la marca y un total de envío.
+
 ### Versión 0.0.86 · 2026-11-02
 
 - aplicación y servidor · El historial de versiones se arma en memoria con el catálogo y los módulos de cada organización, sin copiar filas, y la pantalla usa un cargador centrado.

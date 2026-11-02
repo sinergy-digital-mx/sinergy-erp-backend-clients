@@ -114,6 +114,7 @@ class CreateSalesOrderDto {
     walk_in_name;
     walk_in_rfc;
     requires_selection_assembly;
+    for_shipping;
     sale_scope;
     global_discount_id;
     line_items;
@@ -246,6 +247,16 @@ __decorate([
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], CreateSalesOrderDto.prototype, "requires_selection_assembly", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        default: false,
+        description: 'Si true, la orden queda marcada para envío. No la asigna a una ruta. Aplica a MANUAL y POS.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], CreateSalesOrderDto.prototype, "for_shipping", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
         required: false,

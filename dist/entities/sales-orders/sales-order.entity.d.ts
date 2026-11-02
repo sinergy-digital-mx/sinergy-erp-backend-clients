@@ -38,6 +38,7 @@ export declare class SalesOrder {
     advance_invoice_id: string | null;
     sale_scope: SalesOrderSaleScope;
     requires_selection_assembly: boolean;
+    for_shipping: boolean;
     corroborator: User | null;
     corroborated_by: string | null;
     corroborated_at: Date | null;

@@ -51,6 +51,7 @@ let SalesOrder = class SalesOrder {
     advance_invoice_id;
     sale_scope;
     requires_selection_assembly;
+    for_shipping;
     corroborator;
     corroborated_by;
     corroborated_at;
@@ -220,6 +221,10 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'boolean', default: false }),
     __metadata("design:type", Boolean)
 ], SalesOrder.prototype, "requires_selection_assembly", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], SalesOrder.prototype, "for_shipping", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => user_entity_1.User, { onDelete: 'SET NULL', nullable: true }),
     (0, typeorm_1.JoinColumn)({ name: 'corroborated_by' }),

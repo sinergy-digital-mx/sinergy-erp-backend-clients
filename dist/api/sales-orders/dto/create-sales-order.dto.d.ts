@@ -27,6 +27,7 @@ export declare class CreateSalesOrderDto {
     walk_in_name?: string;
     walk_in_rfc?: string;
     requires_selection_assembly?: boolean;
+    for_shipping?: boolean;
     sale_scope?: 'inventory' | 'services' | 'combined';
     global_discount_id?: string;
     line_items: CreateSalesOrderLineItemDto[];

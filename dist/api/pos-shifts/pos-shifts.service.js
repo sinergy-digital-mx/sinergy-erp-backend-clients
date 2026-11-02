@@ -466,6 +466,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             notes: order.notes,
             walk_in_name: order.walk_in_name,
             walk_in_rfc: order.walk_in_rfc,
+            for_shipping: !!order.for_shipping,
             fiscal_configuration_id: order.fiscal_configuration_id,
             customer: order.customer
                 ? {
@@ -1188,6 +1189,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                     created_at: order.created_at,
                     walk_in_name: order.walk_in_name,
                     walk_in_rfc: order.walk_in_rfc,
+                    for_shipping: !!order.for_shipping,
                     seller_user: order.seller_user
                         ? {
                             id: order.seller_user.id,
@@ -1539,6 +1541,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             notes: order.notes,
             walk_in_name: order.walk_in_name,
             walk_in_rfc: order.walk_in_rfc,
+            for_shipping: !!order.for_shipping,
             fiscal_configuration_id: order.fiscal_configuration_id,
             customer: order.customer
                 ? {

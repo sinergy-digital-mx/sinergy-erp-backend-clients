@@ -92,6 +92,7 @@ export declare class SalesOrderService {
         global_discount_id?: string | null;
         walk_in_name?: string | null;
         walk_in_rfc?: string | null;
+        for_shipping?: boolean;
     }, tenantId: string, userId: string): Promise<SalesOrder>;
     findAll(tenantId: string, filters: QuerySalesOrderDto): Promise<{
         data: ({
@@ -165,6 +166,7 @@ export declare class SalesOrderService {
             advance_invoice_id: string | null;
             sale_scope: SalesOrderSaleScope;
             requires_selection_assembly: boolean;
+            for_shipping: boolean;
             corroborator: User | null;
             corroborated_by: string | null;
             corroborated_at: Date | null;
@@ -254,6 +256,7 @@ export declare class SalesOrderService {
             advance_invoice_id: string | null;
             sale_scope: SalesOrderSaleScope;
             requires_selection_assembly: boolean;
+            for_shipping: boolean;
             corroborator: User | null;
             corroborated_by: string | null;
             corroborated_at: Date | null;
@@ -641,6 +644,7 @@ export declare class SalesOrderService {
             advance_invoice_id: string | null;
             sale_scope: SalesOrderSaleScope;
             requires_selection_assembly: boolean;
+            for_shipping: boolean;
             corroborator: User | null;
             corroborated_by: string | null;
             corroborated_at: Date | null;
@@ -737,6 +741,7 @@ export declare class SalesOrderService {
             advance_invoice_id: string | null;
             sale_scope: SalesOrderSaleScope;
             requires_selection_assembly: boolean;
+            for_shipping: boolean;
             corroborator: User | null;
             corroborated_by: string | null;
             corroborated_at: Date | null;
@@ -997,6 +1002,7 @@ export declare class SalesOrderService {
     private mapPaymentWithDocuments;
     private mapPaymentDocument;
     updateNotes(id: string, dto: UpdateSalesOrderNotesDto, tenantId: string, userId: string): Promise<SalesOrder>;
+    updateForShipping(id: string, forShipping: boolean, tenantId: string, userId: string): Promise<SalesOrder>;
     updateSeller(id: string, sellerUserId: string, tenantId: string, userId: string): Promise<void>;
     updateAssignedSeller(id: string, assignedSellerUserId: string, tenantId: string, userId: string): Promise<void>;
     fulfill(id: string, dto: FulfillSalesOrderDto, tenantId: string, userId: string): Promise<SalesOrder>;

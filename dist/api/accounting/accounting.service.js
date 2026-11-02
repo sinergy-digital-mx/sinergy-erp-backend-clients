@@ -136,6 +136,9 @@ let AccountingService = class AccountingService {
         const amountEntered = enteredOrders.reduce((sum, order) => sum + order.total, 0);
         const pendingOrders = enteredOrders.filter((order) => order.payment_status === 'Pendiente');
         const amountPending = pendingOrders.reduce((sum, order) => sum + order.total, 0);
+        const shippingOrders = enteredOrders.filter((order) => order.for_shipping);
+        const shippingPending = shippingOrders.filter((order) => order.payment_status === 'Pendiente');
+        const amountShipping = shippingOrders.reduce((sum, order) => sum + order.total, 0);
         const walkInCount = Number(collectionRows?.walk_in_count || 0);
         const invoicedCount = Number(collectionRows?.invoiced_count || 0);
         const dailyShiftsCount = Number(shiftStats?.daily_shifts_count || 0);
@@ -176,6 +179,9 @@ let AccountingService = class AccountingService {
                 amount_collected: Number(amountCollected.toFixed(2)),
                 orders_pending: pendingOrders.length,
                 amount_pending: Number(amountPending.toFixed(2)),
+                orders_for_shipping: shippingOrders.length,
+                amount_for_shipping: Number(amountShipping.toFixed(2)),
+                orders_for_shipping_pending: shippingPending.length,
             },
             entered_orders: enteredOrders,
             sales_terminals: salesTerminals,
@@ -294,9 +300,13 @@ let AccountingService = class AccountingService {
             .skip((page - 1) * limit)
             .take(limit);
         const collections = await qb.getMany();
-        const stampedOrderIds = await this.getStampedInvoiceOrderIds(tenantId, collections
+        const orderIds = collections
             .map((collection) => collection.sales_order_id)
-            .filter((id) => Boolean(id)));
+            .filter((id) => Boolean(id));
+        const [stampedOrderIds, paymentDates] = await Promise.all([
+            this.getStampedInvoiceOrderIds(tenantId, orderIds),
+            this.loadSalesOrderPaymentDates(tenantId, orderIds),
+        ]);
         return {
             terminal_user_id: cobranzaTerminal?.id ?? null,
             terminal_name: cobranzaTerminal
@@ -319,7 +329,7 @@ let AccountingService = class AccountingService {
                 by_payment_method: summary.by_payment_method,
             },
             filtered_amount: filtered.amount_collected,
-            data: collections.map((collection) => this.mapPosCollectionRow(collection, stampedOrderIds)),
+            data: collections.map((collection) => this.mapPosCollectionRow(collection, stampedOrderIds, paymentDates)),
             total,
             page,
             limit,
@@ -334,11 +344,15 @@ let AccountingService = class AccountingService {
         const qb = this.buildPosCollectionsQuery(tenantId, filters, shiftFrom, shiftTo, customerType, dateBasis);
         qb.orderBy('collection.created_at', 'DESC');
         const collections = await qb.getMany();
-        const stampedOrderIds = await this.getStampedInvoiceOrderIds(tenantId, collections
+        const orderIds = collections
             .map((collection) => collection.sales_order_id)
-            .filter((id) => Boolean(id)));
+            .filter((id) => Boolean(id));
+        const [stampedOrderIds, paymentDates] = await Promise.all([
+            this.getStampedInvoiceOrderIds(tenantId, orderIds),
+            this.loadSalesOrderPaymentDates(tenantId, orderIds),
+        ]);
         const rows = collections.map((collection) => {
-            const mapped = this.mapPosCollectionRow(collection, stampedOrderIds);
+            const mapped = this.mapPosCollectionRow(collection, stampedOrderIds, paymentDates);
             const customerName = mapped.walk_in_name ||
                 mapped.customer_display_name ||
                 [mapped.customer_company_name, mapped.customer_person_name]
@@ -349,6 +363,7 @@ let AccountingService = class AccountingService {
                 folio: mapped.folio ?? '',
                 branch: mapped.billing_branch?.label ?? '',
                 created_at: (0, excel_export_util_1.formatExportDateTime)(mapped.created_at),
+                payment_date: formatCalendarExportDate(mapped.payment_date),
                 collected_at: (0, excel_export_util_1.formatExportDateTime)(mapped.collected_at),
                 shift_date: mapped.shift_date ?? '',
                 customer: customerName,
@@ -366,6 +381,7 @@ let AccountingService = class AccountingService {
                     '',
                 total: (0, excel_export_util_1.num)(mapped.total),
                 payment_status: mapped.payment_status ?? '',
+                for_shipping: mapped.for_shipping ? 'Sí' : 'No',
             };
         });
         const customerTypeLabel = customerType === query_accounting_base_dto_1.PosCollectionCustomerType.WALK_IN
@@ -388,6 +404,7 @@ let AccountingService = class AccountingService {
                 { header: 'Folio', key: 'folio', width: 16 },
                 { header: 'Sucursal', key: 'branch', width: 28 },
                 { header: 'Fecha venta', key: 'created_at', width: 18, type: 'date' },
+                { header: 'Fecha pago', key: 'payment_date', width: 14, type: 'date' },
                 { header: 'Fecha cobro', key: 'collected_at', width: 18, type: 'date' },
                 { header: 'Fecha corte', key: 'shift_date', width: 14, type: 'date' },
                 { header: 'Cliente', key: 'customer', width: 28 },
@@ -398,6 +415,7 @@ let AccountingService = class AccountingService {
                 { header: 'Método de pago', key: 'payment_method', width: 28 },
                 { header: 'Total', key: 'total', width: 14, type: 'currency' },
                 { header: 'Estatus pago', key: 'payment_status', width: 14 },
+                { header: 'Para envío', key: 'for_shipping', width: 14 },
             ],
             rows,
         });
@@ -926,6 +944,13 @@ let AccountingService = class AccountingService {
         }
         return labels;
     }
+    isForShippingFlag(value) {
+        if (value === true || value === 1 || value === '1')
+            return true;
+        if (Buffer.isBuffer(value))
+            return value.length > 0 && value[0] === 1;
+        return false;
+    }
     posBranchSql() {
         return '(so.billing_branch_id = :branchId OR warehouse.billing_branch_id = :branchId)';
     }
@@ -941,6 +966,7 @@ let AccountingService = class AccountingService {
             .addSelect('so.created_at', 'created_at')
             .addSelect('so.total', 'total')
             .addSelect('so.payment_status', 'payment_status')
+            .addSelect('so.for_shipping', 'for_shipping')
             .addSelect('terminal_user.first_name', 'terminal_first_name')
             .addSelect('terminal_user.last_name', 'terminal_last_name')
             .addSelect('customer.company_name', 'customer_company_name')
@@ -983,6 +1009,7 @@ let AccountingService = class AccountingService {
                 created_at: createdAt,
                 total: Number(row.total || 0),
                 payment_status: row.payment_status,
+                for_shipping: this.isForShippingFlag(row.for_shipping),
                 sales_order_type: row.sales_order_type,
                 channel: row.sales_order_type === 'POS' ? 'caja' : 'branch',
                 terminal_name: row.sales_order_type === 'POS'
@@ -1006,6 +1033,30 @@ let AccountingService = class AccountingService {
         AND ei.source_id = ${salesOrderAlias}.id
         AND ei.stamp_status IN ('stamped', 'cancel_pending', 'cancelled')
     )`;
+    }
+    async loadSalesOrderPaymentDates(tenantId, orderIds) {
+        const dates = new Map();
+        if (!orderIds.length) {
+            return dates;
+        }
+        for (const ids of chunkIds(orderIds, 500)) {
+            const rows = await this.salesOrderRepo.manager
+                .getRepository(sales_order_payment_entity_1.SalesOrderPayment)
+                .createQueryBuilder('payment')
+                .select('payment.sales_order_id', 'sales_order_id')
+                .addSelect("DATE_FORMAT(MAX(payment.payment_date), '%Y-%m-%d')", 'payment_date')
+                .where('payment.tenant_id = :tenantId', { tenantId })
+                .andWhere('payment.sales_order_id IN (:...ids)', { ids })
+                .groupBy('payment.sales_order_id')
+                .getRawMany();
+            for (const row of rows) {
+                const day = row.payment_date ? String(row.payment_date).slice(0, 10) : '';
+                if (row.sales_order_id && day) {
+                    dates.set(row.sales_order_id, day);
+                }
+            }
+        }
+        return dates;
     }
     async getStampedInvoiceOrderIds(tenantId, orderIds) {
         if (!orderIds.length) {
@@ -1412,7 +1463,7 @@ let AccountingService = class AccountingService {
           OR so.walk_in_rfc ILIKE :search)`, { search: `%${term}%` });
         }
     }
-    mapPosCollectionRow(collection, stampedOrderIds) {
+    mapPosCollectionRow(collection, stampedOrderIds, paymentDates) {
         const order = collection.sales_order;
         const customer = collection.customer;
         const customerFields = this.buildCustomerFields(customer);
@@ -1446,6 +1497,7 @@ let AccountingService = class AccountingService {
             payment_status: order?.payment_status ?? null,
             general_status: order?.general_status ?? null,
             created_at: order?.created_at ?? null,
+            payment_date: order?.id ? paymentDates.get(order.id) ?? null : null,
             collected_at: collection.created_at,
             shift_date: collection.pos_daily_shift?.shift_date
                 ? (0, unclosed_shift_alert_1.toDateOnlyString)(collection.pos_daily_shift.shift_date)
@@ -1457,6 +1509,7 @@ let AccountingService = class AccountingService {
             has_stamped_invoice: hasStampedInvoice,
             walk_in_name: order?.walk_in_name ?? null,
             walk_in_rfc: order?.walk_in_rfc ?? null,
+            for_shipping: this.isForShippingFlag(order?.for_shipping),
             ...customerFields,
             is_walk_in: customer ? (0, pos_sale_collection_mapper_1.isWalkInCustomer)(customer) : false,
             seller_user: order?.seller_user
@@ -1568,6 +1621,12 @@ function toDetailDate(value) {
     if (Number.isNaN(date.getTime()))
         return { display: '', sort: '' };
     return { display: (0, excel_export_util_1.formatExportDate)(date), sort: date.toISOString() };
+}
+function formatCalendarExportDate(value) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value ?? '').trim());
+    if (!match)
+        return '';
+    return `${match[3]}/${match[2]}/${match[1]}`;
 }
 function chunkIds(ids, size) {
     if (!ids.length)

@@ -665,6 +665,7 @@ export declare class PosShiftsController {
             notes: string | null;
             walk_in_name: string | null;
             walk_in_rfc: string | null;
+            for_shipping: boolean;
             fiscal_configuration_id: string;
             customer: {
                 id: number;
@@ -768,6 +769,7 @@ export declare class PosShiftsController {
             notes: string | null;
             walk_in_name: string | null;
             walk_in_rfc: string | null;
+            for_shipping: boolean;
             fiscal_configuration_id: string;
             customer: {
                 id: number;
@@ -930,6 +932,7 @@ export declare class PosShiftsController {
                 created_at: Date;
                 walk_in_name: string | null;
                 walk_in_rfc: string | null;
+                for_shipping: boolean;
                 seller_user: {
                     id: string;
                     first_name: string;
@@ -1077,6 +1080,7 @@ export declare class PosShiftsController {
             notes: string | null;
             walk_in_name: string | null;
             walk_in_rfc: string | null;
+            for_shipping: boolean;
             fiscal_configuration_id: string;
             customer: {
                 id: number;
@@ -1174,6 +1178,7 @@ export declare class PosShiftsController {
         notes: string | null;
         walk_in_name: string | null;
         walk_in_rfc: string | null;
+        for_shipping: boolean;
         fiscal_configuration_id: string;
         customer: {
             id: number;
@@ -1207,6 +1212,7 @@ export declare class PosShiftsController {
             notes: string | null;
             walk_in_name: string | null;
             walk_in_rfc: string | null;
+            for_shipping: boolean;
             fiscal_configuration_id: string;
             customer: {
                 id: number;

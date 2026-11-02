@@ -24,6 +24,9 @@ export declare class AccountingController {
             amount_collected: number;
             orders_pending: number;
             amount_pending: number;
+            orders_for_shipping: number;
+            amount_for_shipping: number;
+            orders_for_shipping_pending: number;
         };
         entered_orders: {
             id: string;
@@ -31,6 +34,7 @@ export declare class AccountingController {
             created_at: string;
             total: number;
             payment_status: string | null;
+            for_shipping: boolean;
             sales_order_type: string | null;
             channel: string;
             terminal_name: string | null;
@@ -137,6 +141,7 @@ export declare class AccountingController {
             payment_status: string;
             general_status: string;
             created_at: Date;
+            payment_date: string | null;
             collected_at: Date;
             shift_date: string | null;
             billing_branch: {
@@ -151,6 +156,7 @@ export declare class AccountingController {
             has_stamped_invoice: boolean;
             walk_in_name: string | null;
             walk_in_rfc: string | null;
+            for_shipping: boolean;
         }[];
         total: number;
         page: number;

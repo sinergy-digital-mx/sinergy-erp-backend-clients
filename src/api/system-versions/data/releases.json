@@ -448,5 +448,23 @@
       }
     ],
     "releasedAt": "2026-11-02T18:52:19.596Z"
+  },
+  {
+    "releaseKey": "full:0.0.88:0.0.88-1793649635025",
+    "version": "0.0.88",
+    "buildId": "0.0.88-1793649635025",
+    "channel": "full",
+    "title": "Versión 0.0.88",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "Cambios en contabilidad"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en ventas"
+      }
+    ],
+    "releasedAt": "2026-11-02T20:00:35.025Z"
   }
 ]

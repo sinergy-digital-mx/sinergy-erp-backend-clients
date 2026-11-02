@@ -20,6 +20,7 @@ class ReplacePosSaleCartDto {
     global_discount_id;
     walk_in_name;
     walk_in_rfc;
+    for_shipping;
 }
 exports.ReplacePosSaleCartDto = ReplacePosSaleCartDto;
 __decorate([
@@ -66,4 +67,13 @@ __decorate([
     }),
     __metadata("design:type", String)
 ], ReplacePosSaleCartDto.prototype, "walk_in_rfc", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        description: 'Marca la orden para envío al reenviar el ticket a caja.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], ReplacePosSaleCartDto.prototype, "for_shipping", void 0);
 //# sourceMappingURL=replace-pos-sale-cart.dto.js.map

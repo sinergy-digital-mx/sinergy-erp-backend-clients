@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UpdateInvoiceEmailTemplateDto = exports.SendSalesOrderInvoiceEmailDto = exports.StampPaymentComplementDto = exports.StampSalesOrderCreditNoteDto = exports.StampSalesOrderInvoiceDto = exports.UpdateSalesOrderAssignedSellerDto = exports.UpdateSalesOrderSellerDto = exports.CreateSalesOrderPaymentDto = exports.QuerySalesOrderDetailExportDto = exports.QuerySalesOrderHeaderExportDto = exports.UpdateSalesOrderNotesDto = exports.RegenerateDocumentDto = exports.FulfillSalesOrderDto = exports.QuerySalesOrderProductsSummaryDto = exports.QuerySalesOrderDto = exports.UpdateSalesOrderLineItemDto = exports.CloneSalesOrderLineDto = exports.CloneSalesOrderDto = exports.CreateSalesOrderLineItemDto = exports.CreateSalesOrderDto = void 0;
+exports.UpdateInvoiceEmailTemplateDto = exports.SendSalesOrderInvoiceEmailDto = exports.StampPaymentComplementDto = exports.StampSalesOrderCreditNoteDto = exports.StampSalesOrderInvoiceDto = exports.UpdateSalesOrderAssignedSellerDto = exports.UpdateSalesOrderSellerDto = exports.CreateSalesOrderPaymentDto = exports.QuerySalesOrderDetailExportDto = exports.QuerySalesOrderHeaderExportDto = exports.UpdateSalesOrderForShippingDto = exports.UpdateSalesOrderNotesDto = exports.RegenerateDocumentDto = exports.FulfillSalesOrderDto = exports.QuerySalesOrderProductsSummaryDto = exports.QuerySalesOrderDto = exports.UpdateSalesOrderLineItemDto = exports.CloneSalesOrderLineDto = exports.CloneSalesOrderDto = exports.CreateSalesOrderLineItemDto = exports.CreateSalesOrderDto = void 0;
 var create_sales_order_dto_1 = require("./create-sales-order.dto");
 Object.defineProperty(exports, "CreateSalesOrderDto", { enumerable: true, get: function () { return create_sales_order_dto_1.CreateSalesOrderDto; } });
 Object.defineProperty(exports, "CreateSalesOrderLineItemDto", { enumerable: true, get: function () { return create_sales_order_dto_1.CreateSalesOrderLineItemDto; } });
@@ -19,6 +19,8 @@ var regenerate_document_dto_1 = require("./regenerate-document.dto");
 Object.defineProperty(exports, "RegenerateDocumentDto", { enumerable: true, get: function () { return regenerate_document_dto_1.RegenerateDocumentDto; } });
 var update_sales_order_notes_dto_1 = require("./update-sales-order-notes.dto");
 Object.defineProperty(exports, "UpdateSalesOrderNotesDto", { enumerable: true, get: function () { return update_sales_order_notes_dto_1.UpdateSalesOrderNotesDto; } });
+var update_sales_order_for_shipping_dto_1 = require("./update-sales-order-for-shipping.dto");
+Object.defineProperty(exports, "UpdateSalesOrderForShippingDto", { enumerable: true, get: function () { return update_sales_order_for_shipping_dto_1.UpdateSalesOrderForShippingDto; } });
 var query_sales_order_export_dto_1 = require("./query-sales-order-export.dto");
 Object.defineProperty(exports, "QuerySalesOrderHeaderExportDto", { enumerable: true, get: function () { return query_sales_order_export_dto_1.QuerySalesOrderHeaderExportDto; } });
 Object.defineProperty(exports, "QuerySalesOrderDetailExportDto", { enumerable: true, get: function () { return query_sales_order_export_dto_1.QuerySalesOrderDetailExportDto; } });

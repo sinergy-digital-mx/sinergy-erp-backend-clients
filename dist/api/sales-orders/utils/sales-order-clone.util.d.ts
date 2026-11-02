@@ -24,6 +24,7 @@ export interface CloneSourceOrder {
     assigned_seller_user_id?: string | null;
     global_discount_id?: string | null;
     requires_selection_assembly?: boolean | null;
+    for_shipping?: boolean | null;
     line_items?: CloneSourceLine[];
 }
 export interface CloneLineOverride {

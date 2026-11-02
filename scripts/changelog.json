@@ -269,6 +269,24 @@
       "status": "shipped",
       "version": "0.0.86",
       "shippedAt": "2026-11-02T10:53:13-08:00"
+    },
+    {
+      "id": "20261102-105817",
+      "at": "2026-11-02T10:58:17-08:00",
+      "scope": "both",
+      "message": "En el reporte de punto de venta de cobranza, la fecha de pago del abono queda aparte de la fecha de cobro en caja, en la tabla y en el Excel.",
+      "status": "shipped",
+      "version": "0.0.88",
+      "shippedAt": "2026-11-02T12:01:29-08:00"
+    },
+    {
+      "id": "20261102-113302",
+      "at": "2026-11-02T11:33:02-08:00",
+      "scope": "both",
+      "message": "Se pidió marcar órdenes de venta como para envío al crearlas en el alta, el listado y el punto de venta, y poder agregarlo después en caja o en el detalle. El reporte de puntos de venta en cobranza muestra la marca y un total de envío.",
+      "status": "shipped",
+      "version": "0.0.88",
+      "shippedAt": "2026-11-02T12:01:29-08:00"
     }
   ]
 }

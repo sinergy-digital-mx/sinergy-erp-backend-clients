@@ -56,6 +56,7 @@ function buildCloneSalesOrderDto(source, overrides, today) {
     if (source.global_discount_id)
         dto.global_discount_id = source.global_discount_id;
     dto.requires_selection_assembly = !!source.requires_selection_assembly;
+    dto.for_shipping = !!source.for_shipping;
     dto.line_items = lineItems;
     return dto;
 }

@@ -84,6 +84,9 @@ let SalesOrderController = class SalesOrderController {
     async updateNotes(id, dto, req) {
         return this.salesOrderService.updateNotes(id, dto, req.user.tenant_id, req.user.id);
     }
+    async updateForShipping(id, dto, req) {
+        return this.salesOrderService.updateForShipping(id, dto.for_shipping, req.user.tenant_id, req.user.id);
+    }
     async updateSeller(id, dto, req) {
         await this.salesOrderService.updateSeller(id, dto.seller_user_id, req.user.tenant_id, req.user.id);
         return this.findOne(id, req);
@@ -418,6 +421,19 @@ __decorate([
     __metadata("design:paramtypes", [String, dto_1.UpdateSalesOrderNotesDto, Object]),
     __metadata("design:returntype", Promise)
 ], SalesOrderController.prototype, "updateNotes", null);
+__decorate([
+    (0, common_1.Patch)(':id/for-shipping'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Marcar o quitar la orden como para envío',
+        description: 'Solo cambia la bandera for_shipping. No crea ni asigna un envío. Disponible en cualquier estado excepto Cancelada.',
+    }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, dto_1.UpdateSalesOrderForShippingDto, Object]),
+    __metadata("design:returntype", Promise)
+], SalesOrderController.prototype, "updateForShipping", null);
 __decorate([
     (0, common_1.Patch)(':id/seller'),
     (0, swagger_1.ApiOperation)({
