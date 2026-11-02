@@ -410,5 +410,43 @@
       }
     ],
     "releasedAt": "2026-11-02T18:19:20.713Z"
+  },
+  {
+    "releaseKey": "full:0.0.86:0.0.86-1793645539596",
+    "version": "0.0.86",
+    "buildId": "0.0.86-1793645539596",
+    "channel": "full",
+    "title": "Versión 0.0.86",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "Cambios en versiones"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en accesos y permisos"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en facturación"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en configuración"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en WhatsApp"
+      },
+      {
+        "scope": "backend",
+        "message": "Cambios en productos"
+      },
+      {
+        "scope": "backend",
+        "message": "Cambios en proveedores"
+      }
+    ],
+    "releasedAt": "2026-11-02T18:52:19.596Z"
   }
 ]

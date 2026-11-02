@@ -233,6 +233,42 @@
       "status": "shipped",
       "version": "0.0.85",
       "shippedAt": "2026-11-02T10:20:17-08:00"
+    },
+    {
+      "id": "20261102-104309",
+      "at": "2026-11-02T10:43:09-08:00",
+      "scope": "both",
+      "message": "El historial de versiones se arma en memoria con el catálogo y los módulos de cada organización, sin copiar filas, y la pantalla usa un cargador centrado.",
+      "status": "shipped",
+      "version": "0.0.86",
+      "shippedAt": "2026-11-02T10:53:13-08:00"
+    },
+    {
+      "id": "20261102-104522",
+      "at": "2026-11-02T10:45:22-08:00",
+      "scope": "frontend",
+      "message": "El nombre visible pasó de Pollux a Polux: la pestaña dice Polux, arriba dice Polux ERP y el favicon es una estrella en PNG sin fondo.",
+      "status": "shipped",
+      "version": "0.0.86",
+      "shippedAt": "2026-11-02T10:53:13-08:00"
+    },
+    {
+      "id": "20261102-104618",
+      "at": "2026-11-02T10:46:18-08:00",
+      "scope": "both",
+      "message": "El aviso de actualización lista las notas publicadas en app-version.json, sin consultar el historial, y Ver todas las versiones quedó como botón.",
+      "status": "shipped",
+      "version": "0.0.86",
+      "shippedAt": "2026-11-02T10:53:13-08:00"
+    },
+    {
+      "id": "20261102-104642",
+      "at": "2026-11-02T10:46:42-08:00",
+      "scope": "both",
+      "message": "Productos y Proveedores salen de Configuración y quedan en el menú principal, con permiso ViewMenu como el resto de vistas.",
+      "status": "shipped",
+      "version": "0.0.86",
+      "shippedAt": "2026-11-02T10:53:13-08:00"
     }
   ]
 }

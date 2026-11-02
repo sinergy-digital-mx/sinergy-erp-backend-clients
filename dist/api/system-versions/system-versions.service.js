@@ -17,76 +17,39 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const system_version_entity_1 = require("../../entities/system-versions/system-version.entity");
-const release_notes_util_1 = require("./utils/release-notes.util");
+const releases_generated_1 = require("./data/releases.generated");
+const tenant_release_list_util_1 = require("./utils/tenant-release-list.util");
 exports.SYSTEM_VERSIONS_MODULE_CODE = 'system-versions';
+const TENANT_RELEASE_CACHE_MS = 60_000;
 let SystemVersionsService = class SystemVersionsService {
     versions;
+    cache = new Map();
     constructor(versions) {
         this.versions = versions;
     }
     async findAll(tenantId, query) {
-        await this.assertModuleEnabled(tenantId);
-        let page = Number(query?.page) || 1;
-        let limit = Number(query?.limit) || 20;
-        if (page < 1)
-            page = 1;
-        if (limit < 1)
-            limit = 1;
-        if (limit > 50)
-            limit = 50;
-        const search = query?.search?.trim().toLowerCase() ?? '';
-        const [rows, enabledModules] = await Promise.all([
-            this.versions.query(`
-          SELECT sv.id, sv.version, sv.build_id, sv.channel, sv.title, sv.changes, sv.released_at
-          FROM system_versions sv
-          WHERE sv.tenant_id = ?
-          ORDER BY sv.released_at DESC, sv.created_at DESC
-          LIMIT 200
-        `, [tenantId]),
-            this.enabledModuleCodes(tenantId),
-        ]);
-        let items = rows
-            .map((row) => this.toItem(row))
-            .map((item) => ({
-            ...item,
-            changes: (0, release_notes_util_1.filterChangesForModules)(item.changes, enabledModules),
-        }))
-            .filter((item) => item.changes.length > 0);
-        if (search) {
-            items = items.filter((item) => item.version.toLowerCase().includes(search)
-                || item.title.toLowerCase().includes(search)
-                || item.changes.some((change) => change.message.toLowerCase().includes(search)));
-        }
-        const total = items.length;
-        const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
-        const pageItems = items.slice((page - 1) * limit, page * limit);
-        return {
-            data: pageItems,
-            total,
-            page,
-            limit,
-            totalPages,
-            hasNext: page < totalPages,
-            hasPrev: page > 1 && totalPages > 0,
-        };
+        const items = await this.itemsForTenant(tenantId);
+        return (0, tenant_release_list_util_1.paginateTenantReleases)(items, query?.page, query?.limit, query?.search);
     }
     async findLatest(tenantId) {
-        const page = await this.findAll(tenantId, { page: 1, limit: 1 });
-        return page.data[0] ?? null;
+        const items = await this.itemsForTenant(tenantId);
+        return items[0] ?? null;
     }
-    async assertModuleEnabled(tenantId) {
-        const rows = await this.versions.query(`
-        SELECT 1 AS ok
-        FROM tenant_modules tm
-        INNER JOIN modules m ON m.id = tm.module_id
-        WHERE tm.tenant_id = ?
-          AND m.code = ?
-          AND tm.is_enabled = 1
-        LIMIT 1
-      `, [tenantId, exports.SYSTEM_VERSIONS_MODULE_CODE]);
-        if (!rows.length) {
+    async itemsForTenant(tenantId) {
+        const now = Date.now();
+        const cached = this.cache.get(tenantId);
+        if (cached && cached.expiresAt > now) {
+            return cached.items;
+        }
+        const codes = await this.enabledModuleCodes(tenantId);
+        const enabled = new Set(codes.map((code) => code.toLowerCase()));
+        if (!enabled.has(exports.SYSTEM_VERSIONS_MODULE_CODE)) {
+            this.cache.delete(tenantId);
             throw new common_1.ForbiddenException('El módulo de versiones no está habilitado para esta organización');
         }
+        const items = (0, tenant_release_list_util_1.listReleasesForTenant)(releases_generated_1.SYSTEM_VERSION_RELEASES, codes);
+        this.cache.set(tenantId, { expiresAt: now + TENANT_RELEASE_CACHE_MS, items });
+        return items;
     }
     async enabledModuleCodes(tenantId) {
         const rows = await this.versions.query(`
@@ -97,31 +60,6 @@ let SystemVersionsService = class SystemVersionsService {
           AND tm.is_enabled = 1
       `, [tenantId]);
         return rows.map((row) => row.code);
-    }
-    toItem(row) {
-        const released = row.released_at instanceof Date
-            ? row.released_at.toISOString()
-            : String(row.released_at);
-        return {
-            id: row.id,
-            version: row.version,
-            build_id: row.build_id,
-            channel: row.channel,
-            title: row.title,
-            changes: this.readChanges(row.changes),
-            released_at: released,
-        };
-    }
-    readChanges(value) {
-        if (typeof value === 'string') {
-            try {
-                return (0, release_notes_util_1.sanitizeReleaseChanges)(JSON.parse(value));
-            }
-            catch {
-                return [];
-            }
-        }
-        return (0, release_notes_util_1.sanitizeReleaseChanges)(value);
     }
 };
 exports.SystemVersionsService = SystemVersionsService;

@@ -34,7 +34,7 @@ let SystemVersionsController = class SystemVersionsController {
     getTenantId(req) {
         const tenantId = req.user?.tenant_id ?? req.user?.tenantId;
         if (!tenantId) {
-            throw new common_1.ForbiddenException('Tenant no disponible en la sesión');
+            throw new common_1.ForbiddenException('No se encontró la organización en la sesión');
         }
         return tenantId;
     }
@@ -45,7 +45,7 @@ __decorate([
     (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'system-versions', action: 'Read' }, { entityType: 'system-versions', action: 'ViewMenu' }),
     (0, swagger_1.ApiOperation)({ summary: 'Última versión publicada para la organización actual' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Última versión, o null si todavía no hay' }),
-    (0, swagger_1.ApiResponse)({ status: 403, description: 'El módulo no está habilitado para el tenant' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'El módulo no está habilitado para la organización' }),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
@@ -54,12 +54,12 @@ __decorate([
 __decorate([
     (0, common_1.Get)(),
     (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'system-versions', action: 'Read' }, { entityType: 'system-versions', action: 'ViewMenu' }),
-    (0, swagger_1.ApiOperation)({ summary: 'Historial de versiones de la organización actual' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Historial de versiones de la organización actual, filtrado por sus módulos activos' }),
     (0, swagger_1.ApiQuery)({ name: 'page', required: false, type: Number }),
     (0, swagger_1.ApiQuery)({ name: 'limit', required: false, type: Number }),
     (0, swagger_1.ApiQuery)({ name: 'search', required: false, type: String }),
-    (0, swagger_1.ApiResponse)({ status: 200, description: 'Listado paginado de versiones del tenant' }),
-    (0, swagger_1.ApiResponse)({ status: 403, description: 'El módulo no está habilitado para el tenant' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Listado paginado de versiones de la organización' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'El módulo no está habilitado para la organización' }),
     __param(0, (0, common_1.Query)()),
     __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),

@@ -10,6 +10,13 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.86 · 2026-11-02
+
+- aplicación y servidor · El historial de versiones se arma en memoria con el catálogo y los módulos de cada organización, sin copiar filas, y la pantalla usa un cargador centrado.
+- aplicación · El nombre visible pasó de Pollux a Polux: la pestaña dice Polux, arriba dice Polux ERP y el favicon es una estrella en PNG sin fondo.
+- aplicación y servidor · El aviso de actualización lista las notas publicadas en app-version.json, sin consultar el historial, y Ver todas las versiones quedó como botón.
+- aplicación y servidor · Productos y Proveedores salen de Configuración y quedan en el menú principal, con permiso ViewMenu como el resto de vistas.
+
 ### Versión 0.0.85 · 2026-11-02
 
 - aplicación y servidor · En la venta, si el producto o servicio no tiene unidad de medida, el mismo cuadro avisa y abre su ficha para asignarla. Al guardar un almacén de sucursal sin dirección válida, indica qué falta y permite usar la de la sucursal, en lugar de u
