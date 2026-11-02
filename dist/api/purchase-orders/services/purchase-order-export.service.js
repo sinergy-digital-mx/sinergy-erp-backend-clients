@@ -20,7 +20,10 @@ const purchase_order_batch_entity_1 = require("../../../entities/purchase-orders
 const purchase_order_batch_detail_entity_1 = require("../../../entities/purchase-orders/purchase-order-batch-detail.entity");
 const purchase_order_line_breakdown_util_1 = require("../utils/purchase-order-line-breakdown.util");
 const purchase_order_vendor_invoice_util_1 = require("../utils/purchase-order-vendor-invoice.util");
+const pedimento_number_util_1 = require("../utils/pedimento-number.util");
 const excel_export_util_1 = require("../../../common/utils/excel-export.util");
+const vendor_profile_util_1 = require("../../vendor/utils/vendor-profile.util");
+const fiscal_tax_policy_util_1 = require("../../billing/utils/fiscal-tax-policy.util");
 let PurchaseOrderExportService = class PurchaseOrderExportService {
     poRepo;
     detailRepo;
@@ -29,7 +32,7 @@ let PurchaseOrderExportService = class PurchaseOrderExportService {
         { header: 'Fecha creación', key: 'created_at', width: 18, type: 'date' },
         { header: 'Proveedor', key: 'vendor_name', width: 28 },
         { header: 'Internacional', key: 'is_international', width: 14 },
-        { header: 'Pedimento', key: 'pedimento_number', width: 18 },
+        { header: 'Pedimento', key: 'pedimento_number', width: 24 },
         { header: 'Factura proveedor', key: 'vendor_invoice_number', width: 36 },
         { header: 'Razón social', key: 'razon_social', width: 26 },
         { header: 'Sucursal', key: 'billing_branch_code', width: 22 },
@@ -70,14 +73,20 @@ let PurchaseOrderExportService = class PurchaseOrderExportService {
         this.poRepo = poRepo;
         this.detailRepo = detailRepo;
     }
+    async columnsFor(tenantId, columns) {
+        const iepsEnabled = await (0, fiscal_tax_policy_util_1.loadTenantIepsEnabled)(this.poRepo.manager, tenantId);
+        return (0, fiscal_tax_policy_util_1.columnsWithoutDisabledIeps)(columns, iepsEnabled);
+    }
     async exportHeaders(tenantId, filters) {
         const orders = await this.fetchOrders(tenantId, filters);
         const rows = orders.map((po) => ({
             folio: po.folio,
             created_at: (0, excel_export_util_1.formatExportDateTime)(po.created_at),
-            vendor_name: po.vendor?.name ?? po.vendor?.company_name ?? '',
+            vendor_name: (0, vendor_profile_util_1.vendorCompanyName)(po.vendor),
             is_international: po.vendor?.vendor_type === 'INTERNATIONAL' ? 'Sí' : 'No',
-            pedimento_number: po.vendor?.vendor_type === 'INTERNATIONAL' ? (po.pedimento_number ?? '') : '',
+            pedimento_number: po.vendor?.vendor_type === 'INTERNATIONAL'
+                ? ((0, pedimento_number_util_1.formatPedimentoForDisplay)(po.pedimento_number) ?? '')
+                : '',
             vendor_invoice_number: (0, purchase_order_vendor_invoice_util_1.formatVendorInvoiceNumbers)((0, purchase_order_vendor_invoice_util_1.parseStoredVendorInvoiceNumbers)(po.vendor_invoice_numbers, po.vendor_invoice_number)) ?? '',
             razon_social: po.fiscal_configuration?.razon_social ?? '',
             billing_branch_code: po.warehouse?.billing_branch?.code ?? '',
@@ -102,7 +111,7 @@ let PurchaseOrderExportService = class PurchaseOrderExportService {
                 `Registros: ${rows.length}`,
                 this.describeFilters(filters),
             ]),
-            columns: this.headerColumns,
+            columns: await this.columnsFor(tenantId, this.headerColumns),
             rows,
             headerColor: 'FF5B4B8A',
             titleColor: 'FF3D3266',
@@ -143,9 +152,7 @@ let PurchaseOrderExportService = class PurchaseOrderExportService {
                 folio: d.purchase_order_batch?.folio ?? '',
                 order_created_at: (0, excel_export_util_1.formatExportDateTime)(d.purchase_order_batch?.created_at),
                 general_status: d.purchase_order_batch?.general_status ?? '',
-                vendor_name: d.purchase_order_batch?.vendor?.name ??
-                    d.purchase_order_batch?.vendor?.company_name ??
-                    '',
+                vendor_name: (0, vendor_profile_util_1.vendorCompanyName)(d.purchase_order_batch?.vendor),
                 razon_social: d.purchase_order_batch?.fiscal_configuration?.razon_social ?? '',
                 billing_branch_code: d.purchase_order_batch?.warehouse?.billing_branch?.code ?? '',
                 warehouse_name: d.purchase_order_batch?.warehouse?.name ?? '',
@@ -171,7 +178,7 @@ let PurchaseOrderExportService = class PurchaseOrderExportService {
                 `Líneas: ${rows.length}`,
                 this.describeFilters(filters),
             ]),
-            columns: this.detailColumns,
+            columns: await this.columnsFor(tenantId, this.detailColumns),
             rows,
             headerColor: 'FF6A5ACD',
             titleColor: 'FF4A3F7A',

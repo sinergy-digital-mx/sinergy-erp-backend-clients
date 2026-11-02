@@ -24,6 +24,7 @@ const purchase_order_locations_service_1 = require("../services/purchase-order-l
 const dto_1 = require("../dto");
 const purchase_order_real_cost_permission_1 = require("../constants/purchase-order-real-cost-permission");
 const hide_purchase_order_real_cost_interceptor_1 = require("../interceptors/hide-purchase-order-real-cost.interceptor");
+const jwt_permission_util_1 = require("../../rbac/utils/jwt-permission.util");
 let PurchaseOrderController = class PurchaseOrderController {
     purchaseOrderService;
     documentsService;
@@ -44,7 +45,8 @@ let PurchaseOrderController = class PurchaseOrderController {
     }
     async findAll(filters, req) {
         const tenantId = req.user.tenant_id;
-        return this.purchaseOrderService.findAll(tenantId, filters);
+        const includeStats = (0, jwt_permission_util_1.userHasJwtPermission)(req.user, 'purchase_orders', 'ViewStats');
+        return this.purchaseOrderService.findAll(tenantId, filters, { includeStats });
     }
     async exportHeadersExcel(filters, req, res) {
         const buffer = await this.exportService.exportHeaders(req.user.tenant_id, filters);

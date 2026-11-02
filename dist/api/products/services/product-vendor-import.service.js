@@ -23,6 +23,8 @@ const vendor_entity_1 = require("../../../entities/vendor/vendor.entity");
 const product_vendor_import_excel_util_1 = require("../utils/product-vendor-import-excel.util");
 const excel_export_util_1 = require("../../../common/utils/excel-export.util");
 const unit_amount_util_1 = require("../../../common/utils/unit-amount.util");
+const fiscal_tax_policy_util_1 = require("../../billing/utils/fiscal-tax-policy.util");
+const vendor_profile_util_1 = require("../../vendor/utils/vendor-profile.util");
 let ProductVendorImportService = class ProductVendorImportService {
     vendorCostRepo;
     productPriceRepo;
@@ -45,7 +47,7 @@ let ProductVendorImportService = class ProductVendorImportService {
         const costs = await this.loadVendorCosts(orgId, vendorId);
         const preview = {
             vendor_id: vendor.id,
-            vendor_name: vendor.name,
+            vendor_name: (0, vendor_profile_util_1.vendorCompanyName)(vendor),
             product_count: new Set(costs.map((c) => c.product_id)).size,
             row_count: costs.length,
         };
@@ -76,7 +78,7 @@ let ProductVendorImportService = class ProductVendorImportService {
         }));
         const buffer = await (0, product_vendor_import_excel_util_1.buildVendorImportTemplate)({
             kind: 'cost',
-            title: `Costos — ${vendor.name}`,
+            title: `Costos — ${(0, vendor_profile_util_1.vendorCompanyName)(vendor)}`,
             subtitle: [
                 `Generado: ${(0, excel_export_util_1.formatExportDateTime)(new Date())}`,
                 `${rows.length} renglones`,
@@ -84,12 +86,12 @@ let ProductVendorImportService = class ProductVendorImportService {
                 'No afecta OC / OV ya creadas.',
             ].join('  •  '),
             contextLines: [
-                `Proveedor: ${vendor.name}`,
+                `Proveedor: ${(0, vendor_profile_util_1.vendorCompanyName)(vendor)}`,
                 `Renglones: ${rows.length} (un renglón por producto + UOM)`,
             ],
             rows,
         });
-        return { buffer, filename: (0, product_vendor_import_excel_util_1.vendorImportFilename)('cost', vendor.name) };
+        return { buffer, filename: (0, product_vendor_import_excel_util_1.vendorImportFilename)('cost', (0, vendor_profile_util_1.vendorCompanyName)(vendor)) };
     }
     async exportPriceTemplate(orgId, vendorId, priceListId) {
         const vendor = await this.requireVendor(orgId, vendorId);
@@ -123,7 +125,7 @@ let ProductVendorImportService = class ProductVendorImportService {
         });
         const buffer = await (0, product_vendor_import_excel_util_1.buildVendorImportTemplate)({
             kind: 'price',
-            title: `Precios — ${vendor.name}`,
+            title: `Precios — ${(0, vendor_profile_util_1.vendorCompanyName)(vendor)}`,
             subtitle: [
                 `Lista: ${priceList.name}`,
                 `Generado: ${(0, excel_export_util_1.formatExportDateTime)(new Date())}`,
@@ -132,7 +134,7 @@ let ProductVendorImportService = class ProductVendorImportService {
                 'No afecta OV ya creadas.',
             ].join('  •  '),
             contextLines: [
-                `Proveedor: ${vendor.name}`,
+                `Proveedor: ${(0, vendor_profile_util_1.vendorCompanyName)(vendor)}`,
                 `Lista de precios: ${priceList.name}`,
                 `Renglones: ${rows.length} (productos de este proveedor en esta lista)`,
             ],
@@ -140,7 +142,7 @@ let ProductVendorImportService = class ProductVendorImportService {
         });
         return {
             buffer,
-            filename: (0, product_vendor_import_excel_util_1.vendorImportFilename)('price', vendor.name, priceList.name),
+            filename: (0, product_vendor_import_excel_util_1.vendorImportFilename)('price', (0, vendor_profile_util_1.vendorCompanyName)(vendor), priceList.name),
         };
     }
     async exportCatalogTemplate(orgId, vendorId, priceListId) {
@@ -179,7 +181,7 @@ let ProductVendorImportService = class ProductVendorImportService {
         });
         const buffer = await (0, product_vendor_import_excel_util_1.buildVendorImportTemplate)({
             kind: 'catalog',
-            title: `Costos y precios — ${vendor.name}`,
+            title: `Costos y precios — ${(0, vendor_profile_util_1.vendorCompanyName)(vendor)}`,
             subtitle: [
                 `Lista: ${priceList.name}`,
                 `Generado: ${(0, excel_export_util_1.formatExportDateTime)(new Date())}`,
@@ -188,7 +190,7 @@ let ProductVendorImportService = class ProductVendorImportService {
                 'No afecta OC / OV ya creadas.',
             ].join('  •  '),
             contextLines: [
-                `Proveedor: ${vendor.name}`,
+                `Proveedor: ${(0, vendor_profile_util_1.vendorCompanyName)(vendor)}`,
                 `Lista de precios: ${priceList.name}`,
                 `Renglones: ${rows.length} (un renglón por producto + UOM)`,
             ],
@@ -196,10 +198,11 @@ let ProductVendorImportService = class ProductVendorImportService {
         });
         return {
             buffer,
-            filename: (0, product_vendor_import_excel_util_1.vendorImportFilename)('catalog', vendor.name, priceList.name),
+            filename: (0, product_vendor_import_excel_util_1.vendorImportFilename)('catalog', (0, vendor_profile_util_1.vendorCompanyName)(vendor), priceList.name),
         };
     }
     async importCosts(orgId, vendorId, file) {
+        const iepsEnabled = await (0, fiscal_tax_policy_util_1.loadTenantIepsEnabled)(this.vendorCostRepo.manager, orgId);
         this.assertExcelFile(file);
         await this.requireVendor(orgId, vendorId);
         const costs = await this.loadVendorCosts(orgId, vendorId);
@@ -232,8 +235,10 @@ let ProductVendorImportService = class ProductVendorImportService {
                 result.skipped += 1;
                 continue;
             }
-            const totals = this.calculateTotals(nextCost, this.toNumber(match.iva_percentage), this.toNumber(match.ieps_percentage));
+            const totals = this.calculateTotals(nextCost, this.toNumber(match.iva_percentage), this.iepsValue(iepsEnabled, match.ieps_percentage));
             match.cost = nextCost;
+            if (!iepsEnabled)
+                match.ieps_percentage = 0;
             Object.assign(match, totals);
             await this.vendorCostRepo.save(match);
             result.updated += 1;
@@ -242,6 +247,7 @@ let ProductVendorImportService = class ProductVendorImportService {
         return result;
     }
     async importPrices(orgId, vendorId, priceListId, file) {
+        const iepsEnabled = await (0, fiscal_tax_policy_util_1.loadTenantIepsEnabled)(this.vendorCostRepo.manager, orgId);
         this.assertExcelFile(file);
         await this.requireVendor(orgId, vendorId);
         await this.requirePriceList(orgId, priceListId);
@@ -295,22 +301,24 @@ let ProductVendorImportService = class ProductVendorImportService {
                     result.skipped += 1;
                     continue;
                 }
-                const totals = this.calculateTotals(nextPrice, this.toNumber(existing.iva_percentage), this.toNumber(existing.ieps_percentage));
+                const totals = this.calculateTotals(nextPrice, this.toNumber(existing.iva_percentage), this.iepsValue(iepsEnabled, existing.ieps_percentage));
                 existing.price = nextPrice;
+                if (!iepsEnabled)
+                    existing.ieps_percentage = 0;
                 Object.assign(existing, totals);
                 await this.productPriceRepo.save(existing);
                 result.updated += 1;
                 result.prices_updated += 1;
                 continue;
             }
-            const totals = this.calculateTotals(nextPrice, this.toNumber(cost.iva_percentage), this.toNumber(cost.ieps_percentage));
+            const totals = this.calculateTotals(nextPrice, this.toNumber(cost.iva_percentage), this.iepsValue(iepsEnabled, cost.ieps_percentage));
             const created = this.productPriceRepo.create({
                 product_id: cost.product_id,
                 price_list_id: priceListId,
                 product_uom_id: cost.product_uom_id,
                 price: nextPrice,
                 iva_percentage: this.toNumber(cost.iva_percentage),
-                ieps_percentage: this.toNumber(cost.ieps_percentage),
+                ieps_percentage: this.iepsValue(iepsEnabled, cost.ieps_percentage),
                 ...totals,
             });
             const saved = await this.productPriceRepo.save(created);
@@ -322,6 +330,7 @@ let ProductVendorImportService = class ProductVendorImportService {
         return result;
     }
     async importCatalog(orgId, vendorId, priceListId, file) {
+        const iepsEnabled = await (0, fiscal_tax_policy_util_1.loadTenantIepsEnabled)(this.vendorCostRepo.manager, orgId);
         this.assertExcelFile(file);
         await this.requireVendor(orgId, vendorId);
         await this.requirePriceList(orgId, priceListId);
@@ -369,8 +378,10 @@ let ProductVendorImportService = class ProductVendorImportService {
                 else {
                     const nextCost = this.roundUnitCost(nextCostValue);
                     if (nextCost !== this.roundUnitCost(this.toNumber(cost.cost))) {
-                        const totals = this.calculateTotals(nextCost, this.toNumber(cost.iva_percentage), this.toNumber(cost.ieps_percentage));
+                        const totals = this.calculateTotals(nextCost, this.toNumber(cost.iva_percentage), this.iepsValue(iepsEnabled, cost.ieps_percentage));
                         cost.cost = nextCost;
+                        if (!iepsEnabled)
+                            cost.ieps_percentage = 0;
                         Object.assign(cost, totals);
                         await this.vendorCostRepo.save(cost);
                         result.costs_updated += 1;
@@ -399,8 +410,10 @@ let ProductVendorImportService = class ProductVendorImportService {
                             rowHasError = true;
                         }
                         else if (nextPrice !== this.roundPrice(this.toNumber(existing.price))) {
-                            const totals = this.calculateTotals(nextPrice, this.toNumber(existing.iva_percentage), this.toNumber(existing.ieps_percentage));
+                            const totals = this.calculateTotals(nextPrice, this.toNumber(existing.iva_percentage), this.iepsValue(iepsEnabled, existing.ieps_percentage));
                             existing.price = nextPrice;
+                            if (!iepsEnabled)
+                                existing.ieps_percentage = 0;
                             Object.assign(existing, totals);
                             await this.productPriceRepo.save(existing);
                             result.prices_updated += 1;
@@ -408,14 +421,14 @@ let ProductVendorImportService = class ProductVendorImportService {
                         }
                     }
                     else {
-                        const totals = this.calculateTotals(nextPrice, this.toNumber(cost.iva_percentage), this.toNumber(cost.ieps_percentage));
+                        const totals = this.calculateTotals(nextPrice, this.toNumber(cost.iva_percentage), this.iepsValue(iepsEnabled, cost.ieps_percentage));
                         const created = this.productPriceRepo.create({
                             product_id: cost.product_id,
                             price_list_id: priceListId,
                             product_uom_id: cost.product_uom_id,
                             price: nextPrice,
                             iva_percentage: this.toNumber(cost.iva_percentage),
-                            ieps_percentage: this.toNumber(cost.ieps_percentage),
+                            ieps_percentage: this.iepsValue(iepsEnabled, cost.ieps_percentage),
                             ...totals,
                         });
                         const saved = await this.productPriceRepo.save(created);
@@ -517,6 +530,9 @@ let ProductVendorImportService = class ProductVendorImportService {
     }
     roundPrice(price) {
         return (0, unit_amount_util_1.roundUnitAmount)(price);
+    }
+    iepsValue(iepsEnabled, value) {
+        return iepsEnabled ? this.toNumber(value) : 0;
     }
     calculateTotals(base, ivaPercentage, iepsPercentage) {
         const iva_unit_total = (base * ivaPercentage) / 100;

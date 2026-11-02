@@ -99,7 +99,8 @@ let CustomersExportService = class CustomersExportService {
         });
         const grouped = new Map();
         for (const row of rows) {
-            const label = `${row.fiscal_configuration?.razon_social ?? row.fiscal_configuration_id}: $${Number(row.credit_amount ?? 0).toFixed(2)} (${row.credit_days ?? 0}d)`;
+            const currency = row.credit_currency === 'USD' ? 'USD' : 'MXN';
+            const label = `${row.fiscal_configuration?.razon_social ?? row.fiscal_configuration_id}: $${Number(row.credit_amount ?? 0).toFixed(2)} ${currency} (${row.credit_days ?? 0}d)`;
             const list = grouped.get(row.customer_id) ?? [];
             list.push(label);
             grouped.set(row.customer_id, list);

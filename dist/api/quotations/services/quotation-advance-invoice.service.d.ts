@@ -8,6 +8,7 @@ import { ElectronicInvoiceService } from '../../electronic-invoicing/services/el
 import { PosShiftsService } from '../../pos-shifts/pos-shifts.service';
 import { AdvanceShiftPaymentService } from '../../pos-shifts/services/advance-shift-payment.service';
 import { CollectPosSaleDto } from '../../pos-shifts/dto/collect-pos-sale.dto';
+import { PayerContact } from '../../pos-shifts/utils/pos-payer-contact.util';
 import { PosSalePaymentMethod } from '../../../entities/pos/pos-sale-payment-method.enum';
 export declare class QuotationAdvanceInvoiceService {
     private readonly quotationRepo;
@@ -52,6 +53,7 @@ export declare class QuotationAdvanceInvoiceService {
         amountTransferMxn?: number;
         amountCardMxn?: number;
         amountCheckMxn?: number;
+        payer?: PayerContact;
     }): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     getPdf(id: string, invoiceId: string, tenantId: string, regenerate?: boolean, preview?: boolean): Promise<import("../../electronic-invoicing/services/electronic-invoice-pdf.service").ElectronicInvoicePdfUploadResult>;
     getXml(id: string, invoiceId: string, tenantId: string): Promise<{

@@ -13,6 +13,7 @@ export declare class CustomerCredit {
     allow_credit_exceed: boolean;
     credit_days: number | null;
     credit_amount: number | null;
+    credit_currency: string;
     created_at: Date;
     updated_at: Date;
 }

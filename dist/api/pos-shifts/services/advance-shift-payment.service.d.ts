@@ -4,6 +4,7 @@ import { PosDailyShift } from '../../../entities/pos/pos-daily-shift.entity';
 import { PosSalePaymentMethod } from '../../../entities/pos/pos-sale-payment-method.enum';
 import { SalesOrder } from '../../../entities/sales-orders/sales-order.entity';
 import { SalesOrderPayment } from '../../../entities/sales-orders/sales-order-payment.entity';
+import { PayerContact } from '../utils/pos-payer-contact.util';
 export interface RecordAdvanceShiftPaymentInput {
     tenantId: string;
     userId: string;
@@ -18,6 +19,7 @@ export interface RecordAdvanceShiftPaymentInput {
     amountTransferMxn?: number;
     amountCardMxn?: number;
     amountCheckMxn?: number;
+    payer?: PayerContact | null;
 }
 export declare class AdvanceShiftPaymentService {
     private readonly paymentRepo;
@@ -49,6 +51,7 @@ export declare class AdvanceShiftPaymentService {
         payment_method: PosSalePaymentMethod;
         payment_method_label: string;
         amount_mxn: number;
+        payer_summary: string | null;
     }[]>;
     private activeByInvoice;
     private applyToSalesOrder;

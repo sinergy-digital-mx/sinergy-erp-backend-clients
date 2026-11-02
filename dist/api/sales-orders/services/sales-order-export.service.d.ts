@@ -14,6 +14,7 @@ export declare class SalesOrderExportService {
     private readonly headerColumns;
     private readonly detailColumns;
     constructor(soRepo: Repository<SalesOrder>, detailRepo: Repository<SalesOrderDetail>, paymentRepo: Repository<SalesOrderPayment>, posCollectionRepo: Repository<PosSaleCollection>, invoiceRepo: Repository<ElectronicInvoice>);
+    private columnsFor;
     exportHeaders(tenantId: string, filters: QuerySalesOrderHeaderExportDto): Promise<Buffer>;
     exportDetails(tenantId: string, filters: QuerySalesOrderDetailExportDto): Promise<Buffer>;
     getHeadersFilename(): string;

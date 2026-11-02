@@ -19,6 +19,7 @@ const typeorm_2 = require("typeorm");
 const product_vendor_cost_entity_1 = require("../../entities/products/product-vendor-cost.entity");
 const product_entity_1 = require("../../entities/products/product.entity");
 const unit_amount_util_1 = require("../../common/utils/unit-amount.util");
+const fiscal_tax_policy_util_1 = require("../billing/utils/fiscal-tax-policy.util");
 let ProductVendorCostService = class ProductVendorCostService {
     productVendorCostRepository;
     productRepository;
@@ -65,10 +66,12 @@ let ProductVendorCostService = class ProductVendorCostService {
             throw new common_1.ConflictException('Ya existe un costo para este proveedor y UOM en este producto');
         }
         const cost = this.roundUnitCost(dto.cost);
-        const totals = this.calculateTotals(cost, dto.iva_percentage, dto.ieps_percentage);
+        const iepsPercentage = await this.resolveIeps(tenantId, dto.ieps_percentage);
+        const totals = this.calculateTotals(cost, dto.iva_percentage, iepsPercentage);
         const vendorCost = this.productVendorCostRepository.create({
             ...dto,
             cost,
+            ieps_percentage: iepsPercentage,
             ...totals,
             product_id: productId,
             currency: dto.currency || 'MXN',
@@ -112,9 +115,14 @@ let ProductVendorCostService = class ProductVendorCostService {
     async update(id, productId, dto, tenantId) {
         const vendorCost = await this.findOne(id, productId, tenantId);
         const cost = this.roundUnitCost(dto.cost !== undefined ? dto.cost : Number(vendorCost.cost));
-        const totals = this.calculateTotals(cost, dto.iva_percentage ?? vendorCost.iva_percentage, dto.ieps_percentage ?? vendorCost.ieps_percentage);
-        Object.assign(vendorCost, dto, totals, { cost });
+        const iepsPercentage = await this.resolveIeps(tenantId, dto.ieps_percentage ?? vendorCost.ieps_percentage);
+        const totals = this.calculateTotals(cost, dto.iva_percentage ?? vendorCost.iva_percentage, iepsPercentage);
+        Object.assign(vendorCost, dto, totals, { cost, ieps_percentage: iepsPercentage });
         return await this.productVendorCostRepository.save(vendorCost);
+    }
+    async resolveIeps(tenantId, value) {
+        const enabled = await (0, fiscal_tax_policy_util_1.loadTenantIepsEnabled)(this.productVendorCostRepository.manager, tenantId);
+        return enabled ? Number(value) || 0 : 0;
     }
     async remove(id, productId, tenantId) {
         const vendorCost = await this.findOne(id, productId, tenantId);

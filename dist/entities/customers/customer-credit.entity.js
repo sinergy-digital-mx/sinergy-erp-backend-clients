@@ -26,6 +26,7 @@ let CustomerCredit = class CustomerCredit {
     allow_credit_exceed;
     credit_days;
     credit_amount;
+    credit_currency;
     created_at;
     updated_at;
 };
@@ -77,6 +78,10 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'decimal', precision: 14, scale: 2, nullable: true }),
     __metadata("design:type", Object)
 ], CustomerCredit.prototype, "credit_amount", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 3, default: 'MXN' }),
+    __metadata("design:type", String)
+], CustomerCredit.prototype, "credit_currency", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)({ type: 'timestamp' }),
     __metadata("design:type", Date)

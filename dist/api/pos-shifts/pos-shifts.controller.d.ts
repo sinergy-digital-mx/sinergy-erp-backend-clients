@@ -135,6 +135,7 @@ export declare class PosShiftsController {
                 collected_transfer_mxn: number;
                 collected_card_mxn: number;
                 collected_check_mxn: number;
+                collected_check_usd: number;
                 collected_credit_mxn: number;
                 removed_total_mxn: number;
                 removed_total_usd: number;
@@ -157,6 +158,7 @@ export declare class PosShiftsController {
                 payment_method: import("../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
                 payment_method_label: string;
                 amount_mxn: number;
+                payer_summary: string | null;
             }[];
         } | null;
         requires_previous_close: boolean;
@@ -251,6 +253,7 @@ export declare class PosShiftsController {
                 collected_transfer_mxn: number;
                 collected_card_mxn: number;
                 collected_check_mxn: number;
+                collected_check_usd: number;
                 collected_credit_mxn: number;
                 removed_total_mxn: number;
                 removed_total_usd: number;
@@ -273,6 +276,7 @@ export declare class PosShiftsController {
                 payment_method: import("../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
                 payment_method_label: string;
                 amount_mxn: number;
+                payer_summary: string | null;
             }[];
         };
         queued_sales_assigned: number;
@@ -363,6 +367,7 @@ export declare class PosShiftsController {
                 collected_transfer_mxn: number;
                 collected_card_mxn: number;
                 collected_check_mxn: number;
+                collected_check_usd: number;
                 collected_credit_mxn: number;
                 removed_total_mxn: number;
                 removed_total_usd: number;
@@ -385,6 +390,7 @@ export declare class PosShiftsController {
                 payment_method: import("../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
                 payment_method_label: string;
                 amount_mxn: number;
+                payer_summary: string | null;
             }[];
         }[];
     }>;
@@ -474,6 +480,7 @@ export declare class PosShiftsController {
                 collected_transfer_mxn: number;
                 collected_card_mxn: number;
                 collected_check_mxn: number;
+                collected_check_usd: number;
                 collected_credit_mxn: number;
                 removed_total_mxn: number;
                 removed_total_usd: number;
@@ -496,6 +503,7 @@ export declare class PosShiftsController {
                 payment_method: import("../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
                 payment_method_label: string;
                 amount_mxn: number;
+                payer_summary: string | null;
             }[];
         };
     }>;
@@ -615,6 +623,7 @@ export declare class PosShiftsController {
                 collected_transfer_mxn: number;
                 collected_card_mxn: number;
                 collected_check_mxn: number;
+                collected_check_usd: number;
                 collected_credit_mxn: number;
                 removed_total_mxn: number;
                 removed_total_usd: number;
@@ -637,6 +646,7 @@ export declare class PosShiftsController {
                 payment_method: import("../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
                 payment_method_label: string;
                 amount_mxn: number;
+                payer_summary: string | null;
             }[];
         };
     }>;
@@ -647,6 +657,8 @@ export declare class PosShiftsController {
             folio: string;
             quotation_folio: string | null;
             total: number;
+            currency: string;
+            exchange_rate: number | null;
             amount_pending: number;
             subtotal: number;
             created_at: Date;
@@ -846,6 +858,7 @@ export declare class PosShiftsController {
             transfer_mxn: number;
             card_mxn: number;
             check_mxn: number;
+            check_usd: number;
             credit_mxn: number;
         };
     } | {
@@ -880,11 +893,18 @@ export declare class PosShiftsController {
                 usd_exchange_rate: number | null;
                 amount_transfer_mxn: number;
                 transfer_reference: string | null;
+                transfer_payer_name: string | null;
+                transfer_payer_business_name: string | null;
                 amount_card_mxn: number;
                 amount_credit_mxn: number;
                 amount_check_mxn: number;
+                amount_check_usd: number;
                 check_reference: string | null;
+                check_payer_name: string | null;
+                check_payer_phone: string | null;
                 card_reference: string | null;
+                card_payer_name: string | null;
+                card_payer_phone: string | null;
                 card_payments: import("./utils/pos-card-payments.util").PosCardPayment[];
                 received_cash_mxn: number;
                 received_cash_usd: number;
@@ -945,6 +965,7 @@ export declare class PosShiftsController {
             transfer_mxn: number;
             card_mxn: number;
             check_mxn: number;
+            check_usd: number;
             credit_mxn: number;
         };
     }>;
@@ -971,11 +992,18 @@ export declare class PosShiftsController {
             usd_exchange_rate: number | null;
             amount_transfer_mxn: number;
             transfer_reference: string | null;
+            transfer_payer_name: string | null;
+            transfer_payer_business_name: string | null;
             amount_card_mxn: number;
             amount_credit_mxn: number;
             amount_check_mxn: number;
+            amount_check_usd: number;
             check_reference: string | null;
+            check_payer_name: string | null;
+            check_payer_phone: string | null;
             card_reference: string | null;
+            card_payer_name: string | null;
+            card_payer_phone: string | null;
             card_payments: import("./utils/pos-card-payments.util").PosCardPayment[];
             received_cash_mxn: number;
             received_cash_usd: number;
@@ -1020,7 +1048,7 @@ export declare class PosShiftsController {
             } | null;
             pos_daily_shift_id: string;
             total: number;
-            currency: import("../sales-orders/utils/sales-order-currency.util").SalesOrderCurrency;
+            currency: "USD" | "MXN";
             exchange_rate: number | null;
             amount_collected: number;
             amount_on_credit: number;
@@ -1253,11 +1281,18 @@ export declare class PosShiftsController {
             usd_exchange_rate: number | null;
             amount_transfer_mxn: number;
             transfer_reference: string | null;
+            transfer_payer_name: string | null;
+            transfer_payer_business_name: string | null;
             amount_card_mxn: number;
             amount_credit_mxn: number;
             amount_check_mxn: number;
+            amount_check_usd: number;
             check_reference: string | null;
+            check_payer_name: string | null;
+            check_payer_phone: string | null;
             card_reference: string | null;
+            card_payer_name: string | null;
+            card_payer_phone: string | null;
             card_payments: import("./utils/pos-card-payments.util").PosCardPayment[];
             received_cash_mxn: number;
             received_cash_usd: number;

@@ -4,6 +4,7 @@ exports.computeVendorCompleteness = computeVendorCompleteness;
 exports.normalizeVendorName = normalizeVendorName;
 exports.normalizeFiscalId = normalizeFiscalId;
 exports.normalizeBankId = normalizeBankId;
+exports.vendorCompanyName = vendorCompanyName;
 exports.findSimilarVendors = findSimilarVendors;
 exports.pickBestSimilarVendor = pickBestSimilarVendor;
 const vendor_type_enum_1 = require("../../../entities/vendor/vendor-type.enum");
@@ -29,8 +30,7 @@ function isFilled(value) {
 function computeVendorCompleteness(vendor) {
     const isInternational = vendor.vendor_type === vendor_type_enum_1.VendorType.INTERNATIONAL;
     const slots = [
-        isFilled(vendor.name),
-        isFilled(vendor.company_name),
+        isFilled(vendor.company_name) || isFilled(vendor.name),
         isInternational ? isFilled(vendor.tax_id) : isFilled(vendor.rfc),
         isInternational ? isFilled(vendor.legal_name) : isFilled(vendor.razon_social),
         isFilled(vendor.street),
@@ -137,8 +137,15 @@ function fiscalIdsLookSimilar(left, right) {
     }
     return a.length >= 10 && b.length >= 10 && levenshtein(a, b) <= 2;
 }
+function vendorCompanyName(vendor) {
+    return (vendor?.company_name || vendor?.name || '').trim();
+}
 function companyOf(vendor) {
-    return vendor.company_name || vendor.razon_social || vendor.legal_name || null;
+    return (vendor.company_name?.trim() ||
+        vendor.name?.trim() ||
+        vendor.razon_social?.trim() ||
+        vendor.legal_name?.trim() ||
+        null);
 }
 function bankIdsOf(vendor) {
     return [
@@ -169,10 +176,6 @@ function findSimilarVendors(vendor, catalog, limit = SIMILAR_MATCH_LIMIT) {
             reasons.push('bank');
             score = Math.max(score, 95);
         }
-        if (namesLookSimilar(vendor.name, other.name)) {
-            reasons.push('name');
-            score = Math.max(score, normalizeVendorName(vendor.name) === normalizeVendorName(other.name) ? 90 : 78);
-        }
         if (namesLookSimilar(companyOf(vendor), companyOf(other))) {
             reasons.push('company');
             score = Math.max(score, 82);
@@ -182,7 +185,7 @@ function findSimilarVendors(vendor, catalog, limit = SIMILAR_MATCH_LIMIT) {
         }
         matches.push({
             id: other.id,
-            name: other.name ?? '',
+            name: vendorCompanyName(other),
             company_name: other.company_name ?? null,
             rfc: other.rfc ?? null,
             tax_id: other.tax_id ?? null,

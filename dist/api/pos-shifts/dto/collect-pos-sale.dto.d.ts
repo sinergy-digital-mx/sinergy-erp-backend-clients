@@ -12,11 +12,18 @@ export declare class CollectPosSaleDto {
     usd_exchange_rate?: number;
     amount_transfer_mxn?: number;
     transfer_reference?: string;
+    transfer_payer_name?: string;
+    transfer_payer_business_name?: string;
     amount_card_mxn?: number;
     card_reference?: string;
+    card_payer_name?: string;
+    card_payer_phone?: string;
     card_payments?: CollectCardPaymentDto[];
     amount_check_mxn?: number;
+    amount_check_usd?: number;
     check_reference?: string;
+    check_payer_name?: string;
+    check_payer_phone?: string;
     amount_credit_mxn?: number;
     generate_invoice?: boolean;
     order_currency?: 'MXN' | 'USD';

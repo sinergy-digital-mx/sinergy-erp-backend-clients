@@ -116,6 +116,7 @@ export declare class CustomersService {
         allow_credit_exceed: boolean;
         credit_days: number | null;
         credit_amount: number;
+        credit_currency: "USD" | "MXN";
         credit_used: number;
         credit_available: number;
         credit_usage_percent: number;
@@ -135,6 +136,7 @@ export declare class CustomersService {
         allow_credit_exceed: boolean;
         credit_days: number | null;
         credit_amount: number;
+        credit_currency: "USD" | "MXN";
         credit_used: number;
         credit_available: number;
         credit_usage_percent: number;
@@ -151,6 +153,7 @@ export declare class CustomersService {
         allow_credit_exceed: boolean;
         credit_days: number | null;
         credit_amount: number;
+        credit_currency: "USD" | "MXN";
         credit_used: number;
         credit_available: number;
         credit_usage_percent: number;

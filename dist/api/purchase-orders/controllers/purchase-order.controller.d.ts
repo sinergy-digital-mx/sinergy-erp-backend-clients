@@ -15,7 +15,7 @@ export declare class PurchaseOrderController {
     findAll(filters: QueryPurchaseOrderDto, req: any): Promise<{
         data: import("../../../entities/purchase-orders").PurchaseOrderBatch[];
         total: number;
-        stats: import("../services/purchase-order.service").PurchaseOrderListStats;
+        stats?: import("../services/purchase-order.service").PurchaseOrderListStats;
     }>;
     exportHeadersExcel(filters: QueryPurchaseOrderHeaderExportDto, req: any, res: any): Promise<void>;
     exportDetailsExcel(filters: QueryPurchaseOrderDetailExportDto, req: any, res: any): Promise<void>;

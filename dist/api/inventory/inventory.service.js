@@ -37,6 +37,7 @@ const uom_catalog_entity_1 = require("../../entities/uom-catalog/uom-catalog.ent
 const s3_service_1 = require("../../common/services/s3.service");
 const fiscal_tax_policy_util_1 = require("../billing/utils/fiscal-tax-policy.util");
 const purchase_order_vendor_invoice_util_1 = require("../purchase-orders/utils/purchase-order-vendor-invoice.util");
+const pedimento_number_util_1 = require("../purchase-orders/utils/pedimento-number.util");
 const inventory_location_filter_util_1 = require("./utils/inventory-location-filter.util");
 const inventory_measure_util_1 = require("./utils/inventory-measure.util");
 const product_search_rank_util_1 = require("./utils/product-search-rank.util");
@@ -1253,8 +1254,8 @@ let InventoryService = InventoryService_1 = class InventoryService {
             purchase_order_batch_id: batch.purchase_order_batch_id ?? null,
             purchase_order_detail_id: batch.purchase_order_detail_id ?? null,
             purchase_order_folio: batch.purchase_order_batch?.folio ?? null,
-            pedimento_number: batch.purchase_order_batch?.pedimento_number?.trim() ||
-                batch.pedimento_number?.trim() ||
+            pedimento_number: (0, pedimento_number_util_1.formatPedimentoForDisplay)(batch.purchase_order_batch?.pedimento_number) ||
+                (0, pedimento_number_util_1.formatPedimentoForDisplay)(batch.pedimento_number) ||
                 pedimentoNumbers[0] ||
                 null,
             pedimento_numbers: pedimentoNumbers,
@@ -1298,12 +1299,12 @@ let InventoryService = InventoryService_1 = class InventoryService {
         };
     }
     resolvePedimentoNumbers(batch) {
-        const fromPurchaseOrder = batch.purchase_order_batch?.pedimento_number?.trim();
+        const fromPurchaseOrder = (0, pedimento_number_util_1.formatPedimentoForDisplay)(batch.purchase_order_batch?.pedimento_number);
         if (fromPurchaseOrder) {
             return [fromPurchaseOrder];
         }
         const fromEntries = (batch.pedimento_entries ?? [])
-            .map((entry) => entry?.number?.trim() ?? '')
+            .map((entry) => (0, pedimento_number_util_1.formatPedimentoForDisplay)(entry?.number) ?? '')
             .filter((number) => number.length > 0);
         const unique = [];
         for (const number of fromEntries) {
@@ -1314,7 +1315,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
         if (unique.length) {
             return unique;
         }
-        const own = batch.pedimento_number?.trim();
+        const own = (0, pedimento_number_util_1.formatPedimentoForDisplay)(batch.pedimento_number);
         return own ? [own] : [];
     }
     optionalMoney(value) {

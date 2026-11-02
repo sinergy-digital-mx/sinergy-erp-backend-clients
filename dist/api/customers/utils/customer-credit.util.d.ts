@@ -3,6 +3,7 @@ export interface CustomerCreditSnapshot {
     allow_credit_exceed: boolean;
     credit_days: number | null;
     credit_amount: number;
+    credit_currency: 'MXN' | 'USD';
     credit_used: number;
     credit_available: number;
     credit_usage_percent: number;
@@ -27,5 +28,6 @@ export declare function buildCreditSnapshot(params: {
     allowCreditExceed?: boolean;
     creditDays?: number | null;
     creditAmount?: number | string | null;
+    creditCurrency?: unknown;
     creditUsed?: number | string | null;
 }): CustomerCreditSnapshot;

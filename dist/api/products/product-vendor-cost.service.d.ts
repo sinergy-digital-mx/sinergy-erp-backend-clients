@@ -13,5 +13,6 @@ export declare class ProductVendorCostService {
     findAll(productId: string, tenantId: string): Promise<ProductVendorCost[]>;
     findOne(id: string, productId: string, tenantId: string): Promise<ProductVendorCost>;
     update(id: string, productId: string, dto: UpdateProductVendorCostDto, tenantId: string): Promise<ProductVendorCost>;
+    private resolveIeps;
     remove(id: string, productId: string, tenantId: string): Promise<void>;
 }

@@ -21,6 +21,7 @@ const vendor_credit_ledger_entity_1 = require("../../../entities/vendor/vendor-c
 const vendor_credit_ledger_entry_type_enum_1 = require("../../../entities/vendor/vendor-credit-ledger-entry-type.enum");
 const purchase_order_batch_entity_1 = require("../../../entities/purchase-orders/purchase-order-batch.entity");
 const purchase_order_payable_total_util_1 = require("../../purchase-orders/utils/purchase-order-payable-total.util");
+const vendor_profile_util_1 = require("../utils/vendor-profile.util");
 const vendor_credit_ledger_util_1 = require("../utils/vendor-credit-ledger.util");
 let VendorCreditLedgerService = class VendorCreditLedgerService {
     ledgerRepo;
@@ -161,7 +162,7 @@ let VendorCreditLedgerService = class VendorCreditLedgerService {
         return {
             vendor: {
                 id: vendor.id,
-                name: vendor.name,
+                name: (0, vendor_profile_util_1.vendorCompanyName)(vendor),
                 razon_social: vendor.razon_social,
                 company_name: vendor.company_name,
             },

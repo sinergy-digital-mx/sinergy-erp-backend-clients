@@ -93,7 +93,7 @@ let CrmInboxExportService = class CrmInboxExportService {
     mapRow(row) {
         return {
             customer_name: row.customer?.display_name || `#${row.customer_id}`,
-            seller_name: row.user?.display_name || '',
+            seller_name: row.seller?.display_name || row.user?.display_name || '',
             type_label: TYPE_LABELS[row.type] ?? row.type,
             title: row.title ?? '',
             description: row.description ?? '',

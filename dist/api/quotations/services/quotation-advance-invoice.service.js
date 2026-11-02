@@ -118,11 +118,13 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
         const payment = await this.posShiftsService.normalizeCollectPayment(tenantId, dto, requested);
         const cashMxn = Number((payment.amountCashMxn +
             payment.amountCashUsd * (payment.usdExchangeRate ?? 0)).toFixed(2));
+        const checkMxn = Number((payment.amountCheckMxn +
+            payment.amountCheckUsd * (payment.usdExchangeRate ?? 0)).toFixed(2));
         const formaPago = (0, advance_payment_method_util_1.formaPagoFromAdvancePayment)(dto.payment_method, {
             cashMxn,
             transferMxn: payment.amountTransferMxn,
             cardMxn: payment.amountCardMxn,
-            checkMxn: payment.amountCheckMxn,
+            checkMxn,
         });
         if (!formaPago) {
             throw new common_1.BadRequestException('El anticipo se cobra en efectivo, tarjeta, transferencia, cheque o mixto');
@@ -143,7 +145,8 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
             amountCashMxn: cashMxn,
             amountTransferMxn: payment.amountTransferMxn,
             amountCardMxn: payment.amountCardMxn,
-            amountCheckMxn: payment.amountCheckMxn,
+            amountCheckMxn: checkMxn,
+            payer: payment.payer,
         });
         return {
             folio: quotation.folio,
@@ -206,6 +209,7 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
             amountTransferMxn: collected?.amountTransferMxn,
             amountCardMxn: collected?.amountCardMxn,
             amountCheckMxn: collected?.amountCheckMxn,
+            payer: collected?.payer,
             documentFolio: quotation.folio,
             quotationId: quotation.id,
         });

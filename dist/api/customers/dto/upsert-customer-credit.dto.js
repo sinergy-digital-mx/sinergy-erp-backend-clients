@@ -19,6 +19,7 @@ class UpsertCustomerCreditItemDto {
     allow_credit_exceed;
     credit_days;
     credit_amount;
+    credit_currency;
 }
 exports.UpsertCustomerCreditItemDto = UpsertCustomerCreditItemDto;
 __decorate([
@@ -54,6 +55,12 @@ __decorate([
     (0, class_validator_1.Min)(0),
     __metadata("design:type", Object)
 ], UpsertCustomerCreditItemDto.prototype, "credit_amount", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false, enum: ['MXN', 'USD'], default: 'MXN' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(['MXN', 'USD']),
+    __metadata("design:type", String)
+], UpsertCustomerCreditItemDto.prototype, "credit_currency", void 0);
 class UpsertCustomerCreditsDto {
     credits;
 }

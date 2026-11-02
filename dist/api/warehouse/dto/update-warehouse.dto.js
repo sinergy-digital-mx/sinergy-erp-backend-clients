@@ -53,42 +53,57 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(255, {
+        message: 'La calle del almacén no puede pasar de 255 caracteres',
+    }),
     __metadata("design:type", String)
 ], UpdateWarehouseDto.prototype, "street", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(255, {
+        message: 'La ciudad del almacén no puede pasar de 255 caracteres',
+    }),
     __metadata("design:type", String)
 ], UpdateWarehouseDto.prototype, "city", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(255, {
+        message: 'El estado del almacén no puede pasar de 255 caracteres',
+    }),
     __metadata("design:type", String)
 ], UpdateWarehouseDto.prototype, "state", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(20, {
+        message: 'El código postal del almacén no puede pasar de 20 caracteres',
+    }),
     __metadata("design:type", String)
 ], UpdateWarehouseDto.prototype, "zip_code", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(255, {
+        message: 'El país del almacén no puede pasar de 255 caracteres',
+    }),
     __metadata("design:type", String)
 ], UpdateWarehouseDto.prototype, "country", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_transformer_1.Type)(() => Number),
-    (0, class_validator_1.IsNumber)(),
-    (0, class_validator_1.Min)(-90),
-    (0, class_validator_1.Max)(90),
+    (0, class_validator_1.IsNumber)({}, { message: 'La latitud del almacén no es un número válido' }),
+    (0, class_validator_1.Min)(-90, { message: 'La latitud del almacén debe estar entre -90 y 90' }),
+    (0, class_validator_1.Max)(90, { message: 'La latitud del almacén debe estar entre -90 y 90' }),
     __metadata("design:type", Object)
 ], UpdateWarehouseDto.prototype, "latitude", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_transformer_1.Type)(() => Number),
-    (0, class_validator_1.IsNumber)(),
-    (0, class_validator_1.Min)(-180),
-    (0, class_validator_1.Max)(180),
+    (0, class_validator_1.IsNumber)({}, { message: 'La longitud del almacén no es un número válido' }),
+    (0, class_validator_1.Min)(-180, { message: 'La longitud del almacén debe estar entre -180 y 180' }),
+    (0, class_validator_1.Max)(180, { message: 'La longitud del almacén debe estar entre -180 y 180' }),
     __metadata("design:type", Object)
 ], UpdateWarehouseDto.prototype, "longitude", void 0);
 __decorate([

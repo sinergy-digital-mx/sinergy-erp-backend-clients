@@ -12,5 +12,6 @@ export declare class ProductPriceService {
     findAll(productId: string, tenantId: string): Promise<ProductPrice[]>;
     findOne(id: string, productId: string, tenantId: string): Promise<ProductPrice>;
     update(id: string, productId: string, dto: UpdateProductPriceDto, tenantId: string): Promise<ProductPrice>;
+    private resolveIeps;
     remove(id: string, productId: string, tenantId: string): Promise<void>;
 }

@@ -8,6 +8,7 @@ export declare class PurchaseOrderExportService {
     private readonly headerColumns;
     private readonly detailColumns;
     constructor(poRepo: Repository<PurchaseOrderBatch>, detailRepo: Repository<PurchaseOrderBatchDetail>);
+    private columnsFor;
     exportHeaders(tenantId: string, filters: QueryPurchaseOrderHeaderExportDto): Promise<Buffer>;
     exportDetails(tenantId: string, filters: QueryPurchaseOrderDetailExportDto): Promise<Buffer>;
     getHeadersFilename(): string;

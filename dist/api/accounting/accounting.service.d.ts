@@ -165,6 +165,7 @@ export declare class AccountingService {
             } | null;
             payment_method: PosSalePaymentMethod;
             payment_method_label: string;
+            payment_breakdown_label: string | null;
             has_stamped_invoice: boolean;
             walk_in_name: string | null;
             walk_in_rfc: string | null;
@@ -307,6 +308,7 @@ export declare class AccountingService {
             collected_transfer_mxn: number;
             collected_card_mxn: number;
             collected_check_mxn: number;
+            collected_check_usd: number;
             collected_credit_mxn: number;
             removed_total_mxn: number;
             removed_total_usd: number;
@@ -329,6 +331,7 @@ export declare class AccountingService {
             payment_method: PosSalePaymentMethod;
             payment_method_label: string;
             amount_mxn: number;
+            payer_summary: string | null;
         }[];
     }>;
     getAccountsPayable(tenantId: string, filters: QueryAccountsPayableDto): Promise<{

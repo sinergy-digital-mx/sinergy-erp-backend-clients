@@ -42,11 +42,18 @@ class CollectPosSaleDto {
     usd_exchange_rate;
     amount_transfer_mxn;
     transfer_reference;
+    transfer_payer_name;
+    transfer_payer_business_name;
     amount_card_mxn;
     card_reference;
+    card_payer_name;
+    card_payer_phone;
     card_payments;
     amount_check_mxn;
+    amount_check_usd;
     check_reference;
+    check_payer_name;
+    check_payer_phone;
     amount_credit_mxn;
     generate_invoice;
     order_currency;
@@ -108,9 +115,9 @@ __decorate([
 __decorate([
     (0, swagger_1.ApiProperty)({
         required: false,
-        description: 'Tipo de cambio USD→MXN. Obligatorio si amount_cash_usd > 0',
+        description: 'Tipo de cambio USD→MXN. Obligatorio si hay efectivo o cheque en dólares',
     }),
-    (0, class_validator_1.ValidateIf)((dto) => (dto.amount_cash_usd ?? 0) > 0),
+    (0, class_validator_1.ValidateIf)((dto) => (dto.amount_cash_usd ?? 0) > 0 || (dto.amount_check_usd ?? 0) > 0),
     (0, class_validator_1.IsNumber)(),
     (0, class_validator_1.Min)(0.0001),
     __metadata("design:type", Number)
@@ -130,6 +137,26 @@ __decorate([
     __metadata("design:type", String)
 ], CollectPosSaleDto.prototype, "transfer_reference", void 0);
 __decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        description: 'Nombre de quien transfiere. Obligatorio si no hay razón social y hay monto de transferencia.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(120),
+    __metadata("design:type", String)
+], CollectPosSaleDto.prototype, "transfer_payer_name", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        description: 'Razón social de quien transfiere. Obligatoria si no hay nombre y hay monto de transferencia.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(180),
+    __metadata("design:type", String)
+], CollectPosSaleDto.prototype, "transfer_payer_business_name", void 0);
+__decorate([
     (0, swagger_1.ApiProperty)({ required: false, description: 'Monto cubierto con tarjeta (MXN)' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsNumber)(),
@@ -143,6 +170,26 @@ __decorate([
     (0, class_validator_1.MaxLength)(120),
     __metadata("design:type", String)
 ], CollectPosSaleDto.prototype, "card_reference", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        description: 'Nombre de quien paga con tarjeta. Obligatorio si amount_card_mxn > 0.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(120),
+    __metadata("design:type", String)
+], CollectPosSaleDto.prototype, "card_payer_name", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        description: 'Teléfono de quien paga con tarjeta (mínimo 10 dígitos). Obligatorio si amount_card_mxn > 0.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(20),
+    __metadata("design:type", String)
+], CollectPosSaleDto.prototype, "card_payer_phone", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
         required: false,
@@ -164,12 +211,42 @@ __decorate([
     __metadata("design:type", Number)
 ], CollectPosSaleDto.prototype, "amount_check_mxn", void 0);
 __decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        description: 'Monto del cheque en USD. Se convierte con usd_exchange_rate.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], CollectPosSaleDto.prototype, "amount_check_usd", void 0);
+__decorate([
     (0, swagger_1.ApiProperty)({ required: false, description: 'Número o referencia del cheque' }),
-    (0, class_validator_1.ValidateIf)((dto) => (dto.amount_check_mxn ?? 0) > 0),
+    (0, class_validator_1.ValidateIf)((dto) => (dto.amount_check_mxn ?? 0) > 0 || (dto.amount_check_usd ?? 0) > 0),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MaxLength)(120),
     __metadata("design:type", String)
 ], CollectPosSaleDto.prototype, "check_reference", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        description: 'Nombre de quien paga con cheque. Obligatorio si el cheque tiene monto.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(120),
+    __metadata("design:type", String)
+], CollectPosSaleDto.prototype, "check_payer_name", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        description: 'Teléfono de quien paga con cheque (mínimo 10 dígitos). Obligatorio si el cheque tiene monto.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(20),
+    __metadata("design:type", String)
+], CollectPosSaleDto.prototype, "check_payer_phone", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
         required: false,

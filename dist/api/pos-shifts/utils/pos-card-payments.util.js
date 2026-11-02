@@ -49,7 +49,7 @@ function mixedPaymentPartCount(input) {
     const types = [
         input.cashTotal > 0,
         input.amountTransferMxn > 0,
-        input.amountCheckMxn > 0,
+        input.amountCheckMxn > 0 || (input.amountCheckUsd ?? 0) > 0,
     ].filter(Boolean).length;
     return types + input.cardPayments.filter((item) => item.amount_mxn > 0).length;
 }

@@ -30,6 +30,7 @@ export declare class VendorService {
     private countPurchaseOrdersByVendor;
     private tableExists;
     private assertTypeSwitchValid;
+    private resolveCompanyName;
     private buildPayload;
     private saveVendor;
     private rethrowIfNullConstraint;

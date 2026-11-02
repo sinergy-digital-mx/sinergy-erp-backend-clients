@@ -27,6 +27,7 @@ const vendor_type_enum_1 = require("../../../entities/vendor/vendor-type.enum");
 const purchase_order_real_cost_service_1 = require("./purchase-order-real-cost.service");
 const purchase_order_real_cost_util_1 = require("../utils/purchase-order-real-cost.util");
 const purchase_order_payable_total_util_1 = require("../utils/purchase-order-payable-total.util");
+const pedimento_number_util_1 = require("../utils/pedimento-number.util");
 const vendor_credit_ledger_service_1 = require("../../vendor/services/vendor-credit-ledger.service");
 const vendor_credit_ledger_util_1 = require("../../vendor/utils/vendor-credit-ledger.util");
 const purchase_order_vendor_invoice_util_1 = require("../utils/purchase-order-vendor-invoice.util");
@@ -318,7 +319,7 @@ let PurchaseOrderService = class PurchaseOrderService {
             console.error('[PDF] Error in generateAndUploadPdf:', error);
         }
     }
-    async findAll(tenantId, filters) {
+    async findAll(tenantId, filters, options) {
         const query = this.purchaseOrderBatchRepository
             .createQueryBuilder('po')
             .where('po.tenant_id = :tenantId', { tenantId })
@@ -332,8 +333,12 @@ let PurchaseOrderService = class PurchaseOrderService {
         const skip = (page - 1) * limit;
         query.skip(skip).take(limit).orderBy('po.created_at', 'DESC');
         const [rows, total] = await query.getManyAndCount();
+        const data = rows.map((po) => this.mapPurchaseOrderLocation(po));
+        if (options?.includeStats === false) {
+            return { data, total };
+        }
         const stats = await this.getListStats(tenantId, filters);
-        return { data: rows.map((po) => this.mapPurchaseOrderLocation(po)), total, stats };
+        return { data, total, stats };
     }
     async findOne(id, tenantId) {
         const purchaseOrder = await this.purchaseOrderBatchRepository
@@ -486,7 +491,9 @@ let PurchaseOrderService = class PurchaseOrderService {
             can_edit_lines: po.general_status === 'Creada',
             can_edit_real_cost: po.general_status !== 'Cancelada',
             is_international_vendor: isInternationalVendor,
-            pedimento_number: isInternationalVendor ? po.pedimento_number ?? null : null,
+            pedimento_number: isInternationalVendor
+                ? (0, pedimento_number_util_1.formatPedimentoForDisplay)(po.pedimento_number)
+                : null,
             vendor_invoice_number: (0, purchase_order_vendor_invoice_util_1.firstVendorInvoiceNumber)(vendorInvoiceNumbers),
             vendor_invoice_numbers: vendorInvoiceNumbers,
             has_real_cost: hasRealCost,
@@ -560,7 +567,14 @@ let PurchaseOrderService = class PurchaseOrderService {
         }
         return vendor;
     }
-    normalizePedimento(value) {
+    normalizePedimento(value, allowLegacy = false) {
+        if (!allowLegacy) {
+            return (0, pedimento_number_util_1.normalizePedimentoNumber)(value);
+        }
+        const parsed = (0, pedimento_number_util_1.parsePedimentoNumber)(value);
+        if (parsed.valid) {
+            return parsed.formatted;
+        }
         const trimmed = value?.trim() ?? '';
         return trimmed.length ? trimmed : null;
     }
@@ -607,6 +621,7 @@ let PurchaseOrderService = class PurchaseOrderService {
                     .orWhere("LOWER(REPLACE(REPLACE(po.folio, '-', ''), ' ', '')) LIKE LOWER(:normalizedSearchLike)", { normalizedSearchLike })
                     .orWhere('LOWER(vendor.company_name) LIKE LOWER(:search)', { search })
                     .orWhere('LOWER(po.pedimento_number) LIKE LOWER(:search)', { search })
+                    .orWhere("LOWER(REPLACE(po.pedimento_number, ' ', '')) LIKE LOWER(:normalizedSearchLike)", { normalizedSearchLike })
                     .orWhere('LOWER(po.vendor_invoice_number) LIKE LOWER(:search)', { search })
                     .orWhere('LOWER(CAST(po.vendor_invoice_numbers AS CHAR)) LIKE LOWER(:search)', { search });
             }));
@@ -678,8 +693,8 @@ let PurchaseOrderService = class PurchaseOrderService {
             by_currency,
         };
     }
-    resolvePedimentoForVendor(vendor, value) {
-        const pedimentoNumber = this.normalizePedimento(value);
+    resolvePedimentoForVendor(vendor, value, allowLegacy = false) {
+        const pedimentoNumber = this.normalizePedimento(value, allowLegacy);
         if (pedimentoNumber && vendor.vendor_type !== vendor_type_enum_1.VendorType.INTERNATIONAL) {
             throw new common_1.BadRequestException('El número de pedimento solo aplica a compras de proveedor internacional');
         }
@@ -1017,7 +1032,7 @@ let PurchaseOrderService = class PurchaseOrderService {
         const vendor = await this.getVendorOrFail(dto.vendor_id, tenantId);
         const pedimentoNumber = this.resolvePedimentoForVendor(vendor, dto.pedimento_number !== undefined
             ? dto.pedimento_number
-            : existing.pedimento_number);
+            : existing.pedimento_number, dto.pedimento_number === undefined);
         const vendorInvoiceNumbers = (0, purchase_order_vendor_invoice_util_1.resolveVendorInvoiceInput)(dto) ??
             (0, purchase_order_vendor_invoice_util_1.parseStoredVendorInvoiceNumbers)(existing.vendor_invoice_numbers, existing.vendor_invoice_number);
         const vendorInvoiceNumber = (0, purchase_order_vendor_invoice_util_1.firstVendorInvoiceNumber)(vendorInvoiceNumbers);

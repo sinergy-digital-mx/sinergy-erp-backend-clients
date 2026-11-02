@@ -573,6 +573,8 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
         const cashUsd = Number(collection.amount_cash_usd) || 0;
         const transferMxn = Number(collection.amount_transfer_mxn) || 0;
         const cardMxn = Number(collection.amount_card_mxn) || 0;
+        const checkMxn = Number(collection.amount_check_mxn) || 0;
+        const checkUsd = Number(collection.amount_check_usd) || 0;
         const changeMxn = Number(collection.change_cash_mxn) || 0;
         const changeUsd = Number(collection.change_cash_usd) || 0;
         const changeShown = (0, pos_cash_payment_util_1.displayCashChange)(changeMxn, changeUsd, Number(collection.usd_exchange_rate) || 0);
@@ -585,6 +587,12 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
         }
         else if (collection.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.TRANSFER && transferMxn > 0) {
             lines.push((0, escpos_util_1.compactMoneyLine)('Transferencia:', (0, escpos_util_1.formatMoney)(transferMxn)));
+        }
+        else if (collection.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CHECK && (checkMxn > 0 || checkUsd > 0)) {
+            if (checkMxn > 0)
+                lines.push((0, escpos_util_1.compactMoneyLine)('Cheque:', (0, escpos_util_1.formatMoney)(checkMxn)));
+            if (checkUsd > 0)
+                lines.push((0, escpos_util_1.compactMoneyLine)('Cheque USD:', (0, escpos_util_1.formatUsd)(checkUsd)));
         }
         else if (collection.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CREDIT) {
             const creditMxn = Number(collection.amount_credit_mxn) || 0;
@@ -604,7 +612,14 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
             else if (cardMxn > 0) {
                 lines.push((0, escpos_util_1.compactMoneyLine)('Tarjeta:', (0, escpos_util_1.formatMoney)(cardMxn)));
             }
+            if (checkMxn > 0) {
+                lines.push((0, escpos_util_1.compactMoneyLine)('Cheque:', (0, escpos_util_1.formatMoney)(checkMxn)));
+            }
+            if (checkUsd > 0) {
+                lines.push((0, escpos_util_1.compactMoneyLine)('Cheque USD:', (0, escpos_util_1.formatUsd)(checkUsd)));
+            }
         }
+        lines.push(...payerTicketLines(collection));
         lines.push((0, escpos_util_1.compactMoneyLine)('Cambio Pesos:', (0, escpos_util_1.formatMoney)(changeShown.mxn)));
         lines.push((0, escpos_util_1.compactMoneyLine)('Cambio Dolares:', (0, escpos_util_1.formatUsd)(changeShown.usd)));
         return lines;
@@ -726,4 +741,30 @@ exports.SalesOrderPosReceiptService = SalesOrderPosReceiptService = SalesOrderPo
         s3_service_1.S3Service,
         config_1.ConfigService])
 ], SalesOrderPosReceiptService);
+function payerTicketLines(collection) {
+    const lines = [];
+    const transferMxn = Number(collection.amount_transfer_mxn) || 0;
+    const cardMxn = Number(collection.amount_card_mxn) || 0;
+    const checkMxn = Number(collection.amount_check_mxn) || 0;
+    const checkUsd = Number(collection.amount_check_usd) || 0;
+    if (transferMxn > 0 && collection.transfer_payer_name) {
+        lines.push(...(0, escpos_util_1.leftLabelLines)('Nombre transf.:', collection.transfer_payer_name));
+    }
+    if (transferMxn > 0 && collection.transfer_payer_business_name) {
+        lines.push(...(0, escpos_util_1.leftLabelLines)('Razon social:', collection.transfer_payer_business_name));
+    }
+    if (cardMxn > 0 && collection.card_payer_name) {
+        lines.push(...(0, escpos_util_1.leftLabelLines)('Nombre tarjeta:', collection.card_payer_name));
+    }
+    if (cardMxn > 0 && collection.card_payer_phone) {
+        lines.push(...(0, escpos_util_1.leftLabelLines)('Tel. tarjeta:', collection.card_payer_phone));
+    }
+    if ((checkMxn > 0 || checkUsd > 0) && collection.check_payer_name) {
+        lines.push(...(0, escpos_util_1.leftLabelLines)('Nombre cheque:', collection.check_payer_name));
+    }
+    if ((checkMxn > 0 || checkUsd > 0) && collection.check_payer_phone) {
+        lines.push(...(0, escpos_util_1.leftLabelLines)('Tel. cheque:', collection.check_payer_phone));
+    }
+    return lines;
+}
 //# sourceMappingURL=sales-order-pos-receipt.service.js.map

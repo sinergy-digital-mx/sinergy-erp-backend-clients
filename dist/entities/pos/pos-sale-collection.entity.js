@@ -34,11 +34,18 @@ let PosSaleCollection = class PosSaleCollection {
     usd_exchange_rate;
     amount_transfer_mxn;
     transfer_reference;
+    transfer_payer_name;
+    transfer_payer_business_name;
     amount_card_mxn;
     amount_check_mxn;
+    amount_check_usd;
     check_reference;
+    check_payer_name;
+    check_payer_phone;
     amount_credit_mxn;
     card_reference;
+    card_payer_name;
+    card_payer_phone;
     card_payments;
     received_cash_mxn;
     received_cash_usd;
@@ -122,6 +129,14 @@ __decorate([
     __metadata("design:type", Object)
 ], PosSaleCollection.prototype, "transfer_reference", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 120, nullable: true }),
+    __metadata("design:type", Object)
+], PosSaleCollection.prototype, "transfer_payer_name", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 180, nullable: true }),
+    __metadata("design:type", Object)
+], PosSaleCollection.prototype, "transfer_payer_business_name", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'decimal', precision: 12, scale: 2, default: 0 }),
     __metadata("design:type", Number)
 ], PosSaleCollection.prototype, "amount_card_mxn", void 0);
@@ -130,9 +145,21 @@ __decorate([
     __metadata("design:type", Number)
 ], PosSaleCollection.prototype, "amount_check_mxn", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'decimal', precision: 12, scale: 2, default: 0 }),
+    __metadata("design:type", Number)
+], PosSaleCollection.prototype, "amount_check_usd", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 120, nullable: true }),
     __metadata("design:type", Object)
 ], PosSaleCollection.prototype, "check_reference", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 120, nullable: true }),
+    __metadata("design:type", Object)
+], PosSaleCollection.prototype, "check_payer_name", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 20, nullable: true }),
+    __metadata("design:type", Object)
+], PosSaleCollection.prototype, "check_payer_phone", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'decimal', precision: 12, scale: 2, default: 0 }),
     __metadata("design:type", Number)
@@ -141,6 +168,14 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 120, nullable: true }),
     __metadata("design:type", Object)
 ], PosSaleCollection.prototype, "card_reference", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 120, nullable: true }),
+    __metadata("design:type", Object)
+], PosSaleCollection.prototype, "card_payer_name", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 20, nullable: true }),
+    __metadata("design:type", Object)
+], PosSaleCollection.prototype, "card_payer_phone", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'json', nullable: true }),
     __metadata("design:type", Object)

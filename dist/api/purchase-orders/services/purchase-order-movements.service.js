@@ -27,6 +27,7 @@ const sales_order_batch_allocation_entity_1 = require("../../../entities/sales-o
 const user_entity_1 = require("../../../entities/users/user.entity");
 const api_datetime_util_1 = require("../../../common/utils/api-datetime.util");
 const user_display_name_util_1 = require("../utils/user-display-name.util");
+const vendor_profile_util_1 = require("../../vendor/utils/vendor-profile.util");
 const purchase_order_activity_service_1 = require("./purchase-order-activity.service");
 const purchase_order_movements_1 = require("../constants/purchase-order-movements");
 let PurchaseOrderMovementsService = class PurchaseOrderMovementsService {
@@ -130,7 +131,7 @@ let PurchaseOrderMovementsService = class PurchaseOrderMovementsService {
             id: `created:${order.id}`,
             occurred_at: order.created_at,
             type: purchase_order_movements_1.PURCHASE_ORDER_MOVEMENT_TYPES.CREATED,
-            description: `Se creó la orden ${order.folio}${order.vendor?.name ? ` para ${order.vendor.name}` : ''}.`,
+            description: `Se creó la orden ${order.folio}${(0, vendor_profile_util_1.vendorCompanyName)(order.vendor) ? ` para ${(0, vendor_profile_util_1.vendorCompanyName)(order.vendor)}` : ''}.`,
             actor_id: order.created_by,
             actor_name: (0, user_display_name_util_1.formatUserDisplayName)(order.creator),
             metadata: { folio: order.folio, status: 'Creada' },

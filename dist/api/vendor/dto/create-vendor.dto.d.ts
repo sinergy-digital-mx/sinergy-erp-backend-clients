@@ -2,7 +2,7 @@ import { VendorType } from '../../../entities/vendor/vendor-type.enum';
 import { VendorBankingDto } from './vendor-banking.dto';
 export declare class CreateVendorDto extends VendorBankingDto {
     vendor_type: VendorType;
-    name: string;
+    name?: string;
     company_name?: string;
     street?: string;
     city?: string;

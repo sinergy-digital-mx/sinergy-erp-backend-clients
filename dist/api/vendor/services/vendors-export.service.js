@@ -23,8 +23,7 @@ let VendorsExportService = class VendorsExportService {
     vendorRepo;
     columns = [
         { header: 'Código', key: 'vendor_code', width: 14 },
-        { header: 'Nombre', key: 'name', width: 24 },
-        { header: 'Empresa', key: 'company_name', width: 24 },
+        { header: 'Empresa', key: 'company_name', width: 28 },
         { header: 'Tipo', key: 'vendor_type', width: 14 },
         { header: 'Estatus', key: 'status', width: 12 },
         { header: 'RFC', key: 'rfc', width: 16 },
@@ -55,8 +54,7 @@ let VendorsExportService = class VendorsExportService {
         const vendors = await this.fetchVendors(tenantId, filters);
         const rows = vendors.map((v) => ({
             vendor_code: v.vendor_code ?? '',
-            name: v.name ?? '',
-            company_name: v.company_name ?? '',
+            company_name: v.company_name?.trim() || v.name || '',
             vendor_type: this.formatVendorType(v.vendor_type),
             status: v.status === 'active' ? 'Activo' : 'Inactivo',
             rfc: v.rfc ?? '',

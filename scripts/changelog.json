@@ -98,6 +98,141 @@
       "status": "shipped",
       "version": "0.0.83",
       "shippedAt": "2026-10-31T11:55:26-07:00"
+    },
+    {
+      "id": "20261031-121256",
+      "at": "2026-10-31T12:12:56-07:00",
+      "scope": "both",
+      "message": "En la venta, si el producto o servicio no tiene unidad de medida, el mismo cuadro avisa y abre su ficha para asignarla. Al guardar un almacén de sucursal sin dirección válida, indica qué falta y permite usar la de la sucursal, en lugar de u",
+      "status": "shipped",
+      "version": "0.0.85",
+      "shippedAt": "2026-11-02T10:20:17-08:00"
+    },
+    {
+      "id": "20261101-194025",
+      "at": "2026-11-01T19:40:25-08:00",
+      "scope": "both",
+      "message": "En caja, transferencia pide nombre o razón social, y tarjeta o cheque piden nombre y teléfono.",
+      "status": "shipped",
+      "version": "0.0.85",
+      "shippedAt": "2026-11-02T10:20:17-08:00"
+    },
+    {
+      "id": "20261101-230238",
+      "at": "2026-11-01T23:02:38-08:00",
+      "scope": "both",
+      "message": "El crédito de cada razón social queda en pesos o dólares, y una venta en la otra moneda se convierte con el tipo de cambio de esa orden.",
+      "status": "shipped",
+      "version": "0.0.85",
+      "shippedAt": "2026-11-02T10:20:17-08:00"
+    },
+    {
+      "id": "20261102-090352",
+      "at": "2026-11-02T09:03:52-08:00",
+      "scope": "both",
+      "message": "En caja, efectivo y mixto se cobran en pesos, en dólares o en las dos monedas.",
+      "status": "shipped",
+      "version": "0.0.85",
+      "shippedAt": "2026-11-02T10:20:17-08:00"
+    },
+    {
+      "id": "20261102-091450",
+      "at": "2026-11-02T09:14:50-08:00",
+      "scope": "both",
+      "message": "Si IEPS está apagado en la razón social, ya no aparece en el producto, en órdenes de compra y venta, en el detalle, en PDF, Excel ni en la factura.",
+      "status": "shipped",
+      "version": "0.0.85",
+      "shippedAt": "2026-11-02T10:20:17-08:00"
+    },
+    {
+      "id": "20261102-091653",
+      "at": "2026-11-02T09:16:53-08:00",
+      "scope": "both",
+      "message": "Cobranza POS: en la línea del reporte, un cobro mixto de caja muestra las formas usadas (efectivo + tarjeta, tarjeta + cheque, etc.) y el Excel usa el mismo texto.",
+      "status": "shipped",
+      "version": "0.0.85",
+      "shippedAt": "2026-11-02T10:20:17-08:00"
+    },
+    {
+      "id": "20261102-091956",
+      "at": "2026-11-02T09:19:56-08:00",
+      "scope": "both",
+      "message": "En el corte parcial, el campo de cantidad de billetes en dólares se recortaba; ahora se ve completo.",
+      "status": "shipped",
+      "version": "0.0.85",
+      "shippedAt": "2026-11-02T10:20:17-08:00"
+    },
+    {
+      "id": "20261102-092605",
+      "at": "2026-11-02T09:26:05-08:00",
+      "scope": "both",
+      "message": "En CRM, cada actividad muestra siempre el vendedor: el autor de la nota, o si no hay el vendedor del cliente, o quien lo registró.",
+      "status": "shipped",
+      "version": "0.0.85",
+      "shippedAt": "2026-11-02T10:20:17-08:00"
+    },
+    {
+      "id": "20261102-094427",
+      "at": "2026-11-02T09:44:27-08:00",
+      "scope": "both",
+      "message": "En Cobranza, la sucursal queda en la URL de todos los reportes de contabilidad para que al recargar siga seleccionada.",
+      "status": "shipped",
+      "version": "0.0.85",
+      "shippedAt": "2026-11-02T10:20:17-08:00"
+    },
+    {
+      "id": "20261102-094740",
+      "at": "2026-11-02T09:47:40-08:00",
+      "scope": "both",
+      "message": "En Cobranza POS, un cobro con importe muestra un ojo para ver el ticket, y vendedor y cajero ya no muestran el código.",
+      "status": "shipped",
+      "version": "0.0.85",
+      "shippedAt": "2026-11-02T10:20:17-08:00"
+    },
+    {
+      "id": "20261102-094854",
+      "at": "2026-11-02T09:48:54-08:00",
+      "scope": "both",
+      "message": "Proveedores: se quitó el campo Nombre; el identificador queda en nombre de empresa en ficha, listados, compras, cuentas por pagar y Excel.",
+      "status": "shipped",
+      "version": "0.0.85",
+      "shippedAt": "2026-11-02T10:20:17-08:00"
+    },
+    {
+      "id": "20261102-094922",
+      "at": "2026-11-02T09:49:22-08:00",
+      "scope": "both",
+      "message": "En caja, el cheque también se puede cobrar en dólares, con el tipo de cambio del corte.",
+      "status": "shipped",
+      "version": "0.0.85",
+      "shippedAt": "2026-11-02T10:20:17-08:00"
+    },
+    {
+      "id": "20261102-095451",
+      "at": "2026-11-02T09:54:51-08:00",
+      "scope": "both",
+      "message": "Permiso ViewStats en inventario, órdenes de compra y órdenes de venta para ver las tarjetas de arriba; sin ese permiso no se muestran ni se entregan esos totales. Clientes ya lo tenía.",
+      "status": "shipped",
+      "version": "0.0.85",
+      "shippedAt": "2026-11-02T10:20:17-08:00"
+    },
+    {
+      "id": "20261102-095811",
+      "at": "2026-11-02T09:58:11-08:00",
+      "scope": "both",
+      "message": "Pedimento en órdenes de compra: solo se guarda con el formato del SAT (15 dígitos) y el campo tiene máscara para capturarlo.",
+      "status": "shipped",
+      "version": "0.0.85",
+      "shippedAt": "2026-11-02T10:20:17-08:00"
+    },
+    {
+      "id": "20261102-095851",
+      "at": "2026-11-02T09:58:51-08:00",
+      "scope": "frontend",
+      "message": "En el punto de venta las cartas del catálogo quedan más grandes: máximo tres por fila en monitor, y en pantallas angostas bajan a dos o una. El texto de stock y unidad queda centrado en las badges, sin pegarse arriba ni entre sí.",
+      "status": "shipped",
+      "version": "0.0.85",
+      "shippedAt": "2026-11-02T10:20:17-08:00"
     }
   ]
 }

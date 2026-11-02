@@ -21,11 +21,18 @@ export declare class PosSaleCollection {
     usd_exchange_rate: number | null;
     amount_transfer_mxn: number;
     transfer_reference: string | null;
+    transfer_payer_name: string | null;
+    transfer_payer_business_name: string | null;
     amount_card_mxn: number;
     amount_check_mxn: number;
+    amount_check_usd: number;
     check_reference: string | null;
+    check_payer_name: string | null;
+    check_payer_phone: string | null;
     amount_credit_mxn: number;
     card_reference: string | null;
+    card_payer_name: string | null;
+    card_payer_phone: string | null;
     card_payments: Array<{
         amount_mxn: number;
         reference: string | null;

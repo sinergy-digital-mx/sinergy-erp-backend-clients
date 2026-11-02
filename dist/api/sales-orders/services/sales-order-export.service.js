@@ -24,6 +24,7 @@ const electronic_invoice_entity_1 = require("../../../entities/electronic-invoic
 const excel_export_util_1 = require("../../../common/utils/excel-export.util");
 const sales_order_collection_channel_util_1 = require("../utils/sales-order-collection-channel.util");
 const sales_order_invoice_export_util_1 = require("../utils/sales-order-invoice-export.util");
+const fiscal_tax_policy_util_1 = require("../../billing/utils/fiscal-tax-policy.util");
 let SalesOrderExportService = class SalesOrderExportService {
     soRepo;
     detailRepo;
@@ -82,6 +83,10 @@ let SalesOrderExportService = class SalesOrderExportService {
         this.posCollectionRepo = posCollectionRepo;
         this.invoiceRepo = invoiceRepo;
     }
+    async columnsFor(tenantId, columns) {
+        const iepsEnabled = await (0, fiscal_tax_policy_util_1.loadTenantIepsEnabled)(this.soRepo.manager, tenantId);
+        return (0, fiscal_tax_policy_util_1.columnsWithoutDisabledIeps)(columns, iepsEnabled);
+    }
     async exportHeaders(tenantId, filters) {
         const orders = await this.fetchOrders(tenantId, filters);
         const [channelByOrder, invoiceByOrder] = await Promise.all([
@@ -118,7 +123,7 @@ let SalesOrderExportService = class SalesOrderExportService {
                 `Registros: ${rows.length}`,
                 this.describeFilters(filters),
             ]),
-            columns: this.headerColumns,
+            columns: await this.columnsFor(tenantId, this.headerColumns),
             rows,
             headerColor: 'FF1B7F5E',
             titleColor: 'FF145A47',
@@ -212,7 +217,7 @@ let SalesOrderExportService = class SalesOrderExportService {
                 `Líneas: ${rows.length}`,
                 this.describeFilters(filters),
             ]),
-            columns: this.detailColumns,
+            columns: await this.columnsFor(tenantId, this.detailColumns),
             rows,
             headerColor: 'FF2E8B57',
             titleColor: 'FF1F6049',

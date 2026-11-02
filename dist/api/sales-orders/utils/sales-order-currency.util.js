@@ -17,7 +17,9 @@ function canDocumentOrderInUsd(usdAppliedMxn, mxnApplied) {
 function resolvePosDocumentCurrency(input) {
     const requested = normalizeSalesOrderCurrency(input.requested);
     const rate = Number(input.usdExchangeRate ?? 0);
-    const usdAppliedMxn = input.amountCashUsd > 0 && rate > 0 ? input.amountCashUsd * rate : 0;
+    const checkUsd = Number(input.amountCheckUsd || 0);
+    const usdAppliedMxn = (input.amountCashUsd > 0 && rate > 0 ? input.amountCashUsd * rate : 0) +
+        (checkUsd > 0 && rate > 0 ? checkUsd * rate : 0);
     const mxnApplied = Number(input.amountCashMxn || 0) +
         Number(input.amountTransferMxn || 0) +
         Number(input.amountCardMxn || 0) +

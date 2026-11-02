@@ -167,12 +167,13 @@ __decorate([
 ], InventoryController.prototype, "getLocations", null);
 __decorate([
     (0, common_1.Get)('stats'),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'inventory', action: 'read' }),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'inventory', action: 'ViewStats' }),
     (0, swagger_1.ApiOperation)({
         summary: 'KPIs de inventario para cards',
-        description: 'Totales de lotes, costo vs precio de venta, precio promedio y márgenes. Mismos filtros de ubicación que el listado.',
+        description: 'Totales de lotes, costo vs precio de venta, precio promedio y márgenes. Mismos filtros de ubicación que el listado. Permiso inventory:ViewStats.',
     }),
     (0, swagger_1.ApiResponse)({ status: 200, type: inventory_stats_response_dto_1.InventoryStatsResponseDto }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Sin permiso ViewStats' }),
     (0, swagger_1.ApiQuery)({ name: 'fiscal_configuration_id', required: false, type: String }),
     (0, swagger_1.ApiQuery)({ name: 'billing_branch_id', required: false, type: String }),
     (0, swagger_1.ApiQuery)({ name: 'warehouse_id', required: false, type: String }),

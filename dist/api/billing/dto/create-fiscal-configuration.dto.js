@@ -146,7 +146,7 @@ __decorate([
     __metadata("design:type", Boolean)
 ], CreateFiscalConfigurationDto.prototype, "iva_enabled", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ description: 'IEPS en compras, ventas y cotizaciones de esta razón social.' }),
+    (0, swagger_1.ApiPropertyOptional)({ description: 'IEPS en producto, compras, ventas, cotizaciones, PDF y factura de esta razón social.' }),
     (0, class_transformer_1.Transform)(({ value }) => value === true || value === 'true' || value === 1 || value === '1'),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsBoolean)(),

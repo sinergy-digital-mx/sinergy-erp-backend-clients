@@ -28,6 +28,7 @@ const self_invoice_constants_1 = require("./self-invoice.constants");
 const public_invoice_code_util_1 = require("../../common/utils/public-invoice-code.util");
 const self_invoice_contact_util_1 = require("./utils/self-invoice-contact.util");
 const self_invoice_cfdi_xml_util_1 = require("./utils/self-invoice-cfdi-xml.util");
+const fiscal_tax_policy_util_1 = require("../billing/utils/fiscal-tax-policy.util");
 let SelfInvoiceService = SelfInvoiceService_1 = class SelfInvoiceService {
     salesOrderRepo;
     customerRepo;
@@ -149,7 +150,9 @@ let SelfInvoiceService = SelfInvoiceService_1 = class SelfInvoiceService {
                 unitPrice: Number(line.unit_price) || 0,
                 discountUnit: Number(line.discount_unit) || 0,
                 ivaPercentage: Number(line.iva_percentage) || 0,
-                iepsPercentage: Number(line.ieps_percentage) || 0,
+                iepsPercentage: (0, fiscal_tax_policy_util_1.isFiscalFlagOn)(fiscal.ieps_enabled, true)
+                    ? Number(line.ieps_percentage) || 0
+                    : 0,
                 satClave: line.product?.sat_clave,
                 uomName: line.product_uom?.uom?.name,
             })),

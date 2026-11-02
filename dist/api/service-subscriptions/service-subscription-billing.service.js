@@ -26,6 +26,7 @@ const product_item_kind_enum_1 = require("../../entities/products/product-item-k
 const sales_order_service_1 = require("../sales-orders/services/sales-order.service");
 const electronic_invoice_service_1 = require("../electronic-invoicing/services/electronic-invoice.service");
 const self_invoice_cfdi_xml_util_1 = require("../self-invoice/utils/self-invoice-cfdi-xml.util");
+const fiscal_tax_policy_util_1 = require("../billing/utils/fiscal-tax-policy.util");
 const service_subscription_constants_1 = require("./service-subscription.constants");
 const service_subscription_months_util_1 = require("./utils/service-subscription-months.util");
 let ServiceSubscriptionBillingService = ServiceSubscriptionBillingService_1 = class ServiceSubscriptionBillingService {
@@ -232,7 +233,9 @@ let ServiceSubscriptionBillingService = ServiceSubscriptionBillingService_1 = cl
                 unitPrice: Number(line.unit_price) || 0,
                 discountUnit: Number(line.discount_unit) || 0,
                 ivaPercentage: Number(line.iva_percentage) || 0,
-                iepsPercentage: Number(line.ieps_percentage) || 0,
+                iepsPercentage: (0, fiscal_tax_policy_util_1.isFiscalFlagOn)(fiscal?.ieps_enabled, true)
+                    ? Number(line.ieps_percentage) || 0
+                    : 0,
                 satClave: line.product?.sat_clave,
                 uomName: line.product_uom?.uom?.name,
             })),

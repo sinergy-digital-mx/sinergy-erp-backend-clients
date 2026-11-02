@@ -24,6 +24,7 @@ const electronic_invoice_entity_1 = require("../../entities/electronic-invoicing
 const purchase_order_batch_entity_1 = require("../../entities/purchase-orders/purchase-order-batch.entity");
 const vendor_entity_1 = require("../../entities/vendor/vendor.entity");
 const vendor_credit_ledger_service_1 = require("../vendor/services/vendor-credit-ledger.service");
+const vendor_profile_util_1 = require("../vendor/utils/vendor-profile.util");
 const purchase_order_payable_total_util_1 = require("../purchase-orders/utils/purchase-order-payable-total.util");
 const user_entity_1 = require("../../entities/users/user.entity");
 const pos_shifts_service_1 = require("../pos-shifts/pos-shifts.service");
@@ -359,7 +360,10 @@ let AccountingService = class AccountingService {
                         : 'Cliente',
                 seller: this.formatPosUserLabel(mapped.seller_user),
                 cashier: this.formatPosUserLabel(mapped.collected_by_user),
-                payment_method: mapped.payment_method_label ?? mapped.payment_method ?? '',
+                payment_method: mapped.payment_breakdown_label ||
+                    mapped.payment_method_label ||
+                    mapped.payment_method ||
+                    '',
                 total: (0, excel_export_util_1.num)(mapped.total),
                 payment_status: mapped.payment_status ?? '',
             };
@@ -391,7 +395,7 @@ let AccountingService = class AccountingService {
                 { header: 'Tipo', key: 'customer_type', width: 18 },
                 { header: 'Vendedor', key: 'seller', width: 22 },
                 { header: 'Cajero', key: 'cashier', width: 22 },
-                { header: 'Método de pago', key: 'payment_method', width: 16 },
+                { header: 'Método de pago', key: 'payment_method', width: 28 },
                 { header: 'Total', key: 'total', width: 14, type: 'currency' },
                 { header: 'Estatus pago', key: 'payment_status', width: 14 },
             ],
@@ -552,7 +556,7 @@ let AccountingService = class AccountingService {
         return {
             vendor: {
                 id: vendor.id,
-                name: vendor.name,
+                name: (0, vendor_profile_util_1.vendorCompanyName)(vendor),
                 razon_social: vendor.razon_social,
                 company_name: vendor.company_name,
                 credit_limit: vendor.credit_limit ? Number(vendor.credit_limit) : null,
@@ -1047,7 +1051,7 @@ let AccountingService = class AccountingService {
             }
             inputs.push({
                 vendor_id: vendor.id,
-                vendor_name: vendor.name,
+                vendor_name: (0, vendor_profile_util_1.vendorCompanyName)(vendor),
                 razon_social: vendor.razon_social,
                 company_name: vendor.company_name,
                 credit_limit: (0, accounts_payable_currency_util_1.parseCreditLimit)(vendor.credit_limit),
@@ -1079,7 +1083,7 @@ let AccountingService = class AccountingService {
                 if (!matches) {
                     return {
                         vendor_id: row.vendor_id,
-                        vendor_name: vendor.name,
+                        vendor_name: (0, vendor_profile_util_1.vendorCompanyName)(vendor),
                         razon_social: vendor.razon_social,
                         company_name: vendor.company_name,
                         credit_limit: (0, accounts_payable_currency_util_1.parseCreditLimit)(vendor.credit_limit),
@@ -1090,7 +1094,7 @@ let AccountingService = class AccountingService {
             }
             return {
                 vendor_id: row.vendor_id,
-                vendor_name: fromPending?.vendor_name ?? vendor?.name ?? 'Proveedor',
+                vendor_name: fromPending?.vendor_name || (0, vendor_profile_util_1.vendorCompanyName)(vendor) || 'Proveedor',
                 razon_social: fromPending?.razon_social ?? vendor?.razon_social ?? null,
                 company_name: fromPending?.company_name ?? vendor?.company_name ?? null,
                 credit_limit: fromPending?.credit_limit ?? (0, accounts_payable_currency_util_1.parseCreditLimit)(vendor?.credit_limit),
@@ -1237,7 +1241,7 @@ let AccountingService = class AccountingService {
             const vendor = order.vendor;
             if (!vendor)
                 continue;
-            const razonSocial = vendor.razon_social?.trim() || vendor.name?.trim() || vendor.company_name?.trim() || '—';
+            const razonSocial = vendor.razon_social?.trim() || (0, vendor_profile_util_1.vendorCompanyName)(vendor) || '—';
             if (term) {
                 const matches = vendor.name.toLowerCase().includes(term) ||
                     (vendor.razon_social ?? '').toLowerCase().includes(term) ||
@@ -1319,7 +1323,7 @@ let AccountingService = class AccountingService {
         };
     }
     payableVendorLabel(row) {
-        return row.vendor_name?.trim() || row.razon_social?.trim() || row.company_name?.trim() || '—';
+        return row.company_name?.trim() || row.vendor_name?.trim() || row.razon_social?.trim() || '—';
     }
     buildPurchaseOrderPaymentSummary(order) {
         const total = (0, purchase_order_payable_total_util_1.resolvePurchaseOrderPayableTotal)(order);
@@ -1349,6 +1353,7 @@ let AccountingService = class AccountingService {
         const walkInSql = this.walkInCustomerSql('customer');
         const stampedSql = this.stampedInvoiceExistsSql('so');
         const cashMxnSql = 'COALESCE(collection.amount_cash_mxn, 0) + COALESCE(collection.amount_cash_usd, 0) * COALESCE(collection.usd_exchange_rate, 0)';
+        const checkMxnSql = 'COALESCE(collection.amount_check_mxn, 0) + COALESCE(collection.amount_check_usd, 0) * COALESCE(collection.usd_exchange_rate, 0)';
         const qb = this.collectionRepo
             .createQueryBuilder('collection')
             .innerJoin('collection.sales_order', 'so')
@@ -1364,8 +1369,8 @@ let AccountingService = class AccountingService {
             .addSelect('COALESCE(SUM(collection.amount_transfer_mxn), 0)', 'transfer_amount')
             .addSelect('SUM(CASE WHEN COALESCE(collection.amount_card_mxn, 0) > 0 THEN 1 ELSE 0 END)', 'card_orders')
             .addSelect('COALESCE(SUM(collection.amount_card_mxn), 0)', 'card_amount')
-            .addSelect('SUM(CASE WHEN COALESCE(collection.amount_check_mxn, 0) > 0 THEN 1 ELSE 0 END)', 'check_orders')
-            .addSelect('COALESCE(SUM(collection.amount_check_mxn), 0)', 'check_amount');
+            .addSelect('SUM(CASE WHEN COALESCE(collection.amount_check_mxn, 0) > 0 OR COALESCE(collection.amount_check_usd, 0) > 0 THEN 1 ELSE 0 END)', 'check_orders')
+            .addSelect(`COALESCE(SUM(${checkMxnSql}), 0)`, 'check_amount');
         this.applyPosCollectionScope(qb, tenantId, filters.billing_branch_id, periodFrom, periodTo, dateBasis, customerType, search);
         qb.setParameter('walkInFiscal', WALK_IN_FISCAL_NAME).setParameter('walkInName', WALK_IN_DISPLAY_NAME);
         const row = await qb.getRawOne();
@@ -1415,10 +1420,24 @@ let AccountingService = class AccountingService {
         const billingBranch = this.mapCollectionBranch(order?.billing_branch ??
             order?.warehouse?.billing_branch ??
             collection.pos_daily_shift?.billing_branch);
-        const paymentMethod = collection.payment_method;
-        const paymentMethodLabel = paymentMethod && paymentMethod in sales_order_payment_display_util_1.SALES_ORDER_PAYMENT_METHOD_LABELS
-            ? sales_order_payment_display_util_1.SALES_ORDER_PAYMENT_METHOD_LABELS[paymentMethod]
-            : paymentMethod ?? null;
+        const paymentDisplay = (0, sales_order_payment_display_util_1.buildSalesOrderPaymentDisplay)({
+            collection: {
+                payment_method: collection.payment_method,
+                amount_cash_mxn: collection.amount_cash_mxn,
+                amount_cash_usd: collection.amount_cash_usd,
+                amount_transfer_mxn: collection.amount_transfer_mxn,
+                amount_card_mxn: collection.amount_card_mxn,
+                amount_check_mxn: collection.amount_check_mxn,
+                amount_check_usd: collection.amount_check_usd,
+                amount_credit_mxn: collection.amount_credit_mxn,
+                card_payments: collection.card_payments,
+            },
+        });
+        const paymentMethod = paymentDisplay.payment_method ?? collection.payment_method;
+        const paymentMethodLabel = paymentDisplay.payment_method_label ??
+            (paymentMethod && paymentMethod in sales_order_payment_display_util_1.SALES_ORDER_PAYMENT_METHOD_LABELS
+                ? sales_order_payment_display_util_1.SALES_ORDER_PAYMENT_METHOD_LABELS[paymentMethod]
+                : paymentMethod ?? null);
         return {
             id: order?.id ?? collection.sales_order_id,
             collection_id: collection.id,
@@ -1434,6 +1453,7 @@ let AccountingService = class AccountingService {
             billing_branch: billingBranch,
             payment_method: paymentMethod,
             payment_method_label: paymentMethodLabel,
+            payment_breakdown_label: paymentDisplay.payment_breakdown_label,
             has_stamped_invoice: hasStampedInvoice,
             walk_in_name: order?.walk_in_name ?? null,
             walk_in_rfc: order?.walk_in_rfc ?? null,
@@ -1476,8 +1496,7 @@ let AccountingService = class AccountingService {
     formatPosUserLabel(user) {
         if (!user)
             return '';
-        const name = this.buildUserName(user.first_name, user.last_name);
-        return user.pos_user_code ? `${name} (${user.pos_user_code})` : name;
+        return this.buildUserName(user.first_name, user.last_name);
     }
     buildUserName(firstName, lastName) {
         return [firstName, lastName].filter(Boolean).join(' ').trim() || 'Sin nombre';

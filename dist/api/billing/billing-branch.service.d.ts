@@ -47,6 +47,7 @@ export declare class BillingBranchService {
     private resolveBranchName;
     private assertFiscalConfiguration;
     private syncWarehouses;
+    private assertIncomingWarehouses;
     private toWarehouseCreatePayload;
     private toWarehouseUpdatePayload;
     private toWarehouseResponse;

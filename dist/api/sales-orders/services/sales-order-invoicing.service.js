@@ -33,6 +33,7 @@ const cfdi_xml_parser_1 = require("../../electronic-invoicing/utils/cfdi-xml.par
 const payment_cfdi_util_1 = require("../../electronic-invoicing/utils/payment-cfdi.util");
 const cfdi_stamp_date_util_1 = require("../../electronic-invoicing/utils/cfdi-stamp-date.util");
 const sales_order_currency_util_1 = require("../utils/sales-order-currency.util");
+const fiscal_tax_policy_util_1 = require("../../billing/utils/fiscal-tax-policy.util");
 const customer_debt_ledger_service_1 = require("../../accounting/services/customer-debt-ledger.service");
 const customer_credit_ledger_service_1 = require("../../accounting/services/customer-credit-ledger.service");
 const credit_note_cfdi_util_1 = require("../utils/credit-note-cfdi.util");
@@ -885,6 +886,7 @@ let SalesOrderInvoicingService = SalesOrderInvoicingService_1 = class SalesOrder
         }
         const advance = await this.electronicInvoiceService.findOne(advanceId, tenantId);
         const parties = this.parties(order);
+        const iepsEnabled = (0, fiscal_tax_policy_util_1.isFiscalFlagOn)(order.fiscal_configuration?.ieps_enabled, true);
         const lines = (order.line_items ?? []).map((line) => {
             const unit = (0, advance_cfdi_util_1.resolveSatUnit)(line.product_uom?.uom?.name, line.product?.item_kind);
             const quantity = Number(line.quantity) || 0;
@@ -894,7 +896,7 @@ let SalesOrderInvoicingService = SalesOrderInvoicingService_1 = class SalesOrder
                 unitPrice: Number(line.unit_price) || 0,
                 lineDiscount: (Number(line.discount_unit) || 0) * quantity,
                 ivaPercentage: Number(line.iva_percentage) || 0,
-                iepsPercentage: Number(line.ieps_percentage) || 0,
+                iepsPercentage: iepsEnabled ? Number(line.ieps_percentage) || 0 : 0,
                 unitCode: unit.code,
                 unitName: unit.name,
                 description: (0, sales_order_line_name_util_1.lineConceptName)(line),

@@ -5,6 +5,7 @@ exports.parseOptionalNumber = parseOptionalNumber;
 exports.extractCreditPatchFromBody = extractCreditPatchFromBody;
 exports.creditChargeUsesExceedWaiver = creditChargeUsesExceedWaiver;
 exports.buildCreditSnapshot = buildCreditSnapshot;
+const credit_currency_util_1 = require("./credit-currency.util");
 function parseOptionalBoolean(value) {
     if (value === undefined || value === null || value === '') {
         return undefined;
@@ -54,6 +55,7 @@ function buildCreditSnapshot(params) {
         credit_enabled: Boolean(params.creditEnabled),
         allow_credit_exceed: Boolean(params.allowCreditExceed),
         credit_days: params.creditDays ?? null,
+        credit_currency: (0, credit_currency_util_1.normalizeCreditCurrency)(params.creditCurrency),
         credit_amount: Number(creditAmount.toFixed(2)),
         credit_used: Number(creditUsed.toFixed(2)),
         credit_available: creditAvailable,

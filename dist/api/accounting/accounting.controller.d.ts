@@ -147,6 +147,7 @@ export declare class AccountingController {
             } | null;
             payment_method: import("../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
             payment_method_label: string;
+            payment_breakdown_label: string | null;
             has_stamped_invoice: boolean;
             walk_in_name: string | null;
             walk_in_rfc: string | null;
@@ -287,6 +288,7 @@ export declare class AccountingController {
                 collected_transfer_mxn: number;
                 collected_card_mxn: number;
                 collected_check_mxn: number;
+                collected_check_usd: number;
                 collected_credit_mxn: number;
                 removed_total_mxn: number;
                 removed_total_usd: number;
@@ -309,6 +311,7 @@ export declare class AccountingController {
                 payment_method: import("../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
                 payment_method_label: string;
                 amount_mxn: number;
+                payer_summary: string | null;
             }[];
         };
     }>;

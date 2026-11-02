@@ -24,6 +24,8 @@ const sales_order_payment_entity_1 = require("../../../entities/sales-orders/sal
 const electronic_invoice_entity_1 = require("../../../entities/electronic-invoicing/electronic-invoice.entity");
 const credit_note_util_1 = require("../../sales-orders/utils/credit-note.util");
 const pos_sale_collection_mapper_1 = require("../../pos-shifts/mappers/pos-sale-collection.mapper");
+const exchange_rate_service_1 = require("../../exchange-rate/exchange-rate.service");
+const credit_currency_util_1 = require("../utils/credit-currency.util");
 const customer_credit_util_1 = require("../utils/customer-credit.util");
 let CustomerCreditService = class CustomerCreditService {
     creditRepo;
@@ -31,12 +33,14 @@ let CustomerCreditService = class CustomerCreditService {
     salesOrderRepo;
     paymentRepo;
     invoiceRepo;
-    constructor(creditRepo, fiscalRepo, salesOrderRepo, paymentRepo, invoiceRepo) {
+    exchangeRateService;
+    constructor(creditRepo, fiscalRepo, salesOrderRepo, paymentRepo, invoiceRepo, exchangeRateService) {
         this.creditRepo = creditRepo;
         this.fiscalRepo = fiscalRepo;
         this.salesOrderRepo = salesOrderRepo;
         this.paymentRepo = paymentRepo;
         this.invoiceRepo = invoiceRepo;
+        this.exchangeRateService = exchangeRateService;
     }
     async listForCustomer(customer) {
         const fiscales = await this.fiscalRepo.find({
@@ -84,6 +88,7 @@ let CustomerCreditService = class CustomerCreditService {
             allowCreditExceed: Boolean(row?.allow_credit_exceed),
             creditDays: row?.credit_days,
             creditAmount: row?.credit_amount,
+            creditCurrency: row?.credit_currency,
             creditUsed: used,
         });
     }
@@ -145,7 +150,6 @@ let CustomerCreditService = class CustomerCreditService {
         for (const item of items) {
             const fiscal = fiscalById.get(item.fiscal_configuration_id);
             const used = usedByFiscal.get(item.fiscal_configuration_id) ?? 0;
-            this.assertCreditItem(item, fiscal.razon_social, used);
             const existing = await this.creditRepo.findOne({
                 where: {
                     tenant_id: customer.tenant_id,
@@ -153,6 +157,13 @@ let CustomerCreditService = class CustomerCreditService {
                     fiscal_configuration_id: item.fiscal_configuration_id,
                 },
             });
+            this.assertCreditItem(item, fiscal.razon_social, used, (0, credit_currency_util_1.normalizeCreditCurrency)(existing?.credit_currency ?? item.credit_currency));
+            const nextCurrency = (0, credit_currency_util_1.normalizeCreditCurrency)(item.credit_currency ?? existing?.credit_currency);
+            if (existing &&
+                used > 0.009 &&
+                (0, credit_currency_util_1.normalizeCreditCurrency)(existing.credit_currency) !== nextCurrency) {
+                throw new common_1.BadRequestException(`No se puede cambiar la moneda del crédito de ${fiscal.razon_social}: hay saldo utilizado`);
+            }
             if (existing) {
                 existing.credit_enabled = item.credit_enabled;
                 existing.allow_credit_exceed = item.credit_enabled
@@ -162,6 +173,9 @@ let CustomerCreditService = class CustomerCreditService {
                 existing.credit_amount = item.credit_enabled
                     ? Number(item.credit_amount)
                     : null;
+                existing.credit_currency = item.credit_enabled
+                    ? nextCurrency
+                    : (0, credit_currency_util_1.normalizeCreditCurrency)(existing.credit_currency);
                 await this.creditRepo.save(existing);
                 continue;
             }
@@ -176,14 +190,15 @@ let CustomerCreditService = class CustomerCreditService {
                     : false,
                 credit_days: item.credit_enabled ? (item.credit_days ?? 0) : null,
                 credit_amount: item.credit_enabled ? Number(item.credit_amount) : null,
+                credit_currency: item.credit_enabled ? nextCurrency : 'MXN',
             }));
         }
         return this.listForCustomer(customer);
     }
-    assertCreditItem(item, razonSocial, used) {
+    assertCreditItem(item, razonSocial, used, currency) {
         if (!item.credit_enabled) {
             if (used > 0) {
-                throw new common_1.BadRequestException(`No se puede desactivar el crédito de ${razonSocial}: el cliente tiene ${used.toFixed(2)} MXN utilizados`);
+                throw new common_1.BadRequestException(`No se puede desactivar el crédito de ${razonSocial}: el cliente tiene ${used.toFixed(2)} ${currency} utilizados`);
             }
             return;
         }
@@ -205,6 +220,7 @@ let CustomerCreditService = class CustomerCreditService {
                 allowCreditExceed: Boolean(row?.allow_credit_exceed),
                 creditDays: row?.credit_days,
                 creditAmount: row?.credit_amount,
+                creditCurrency: row?.credit_currency,
                 creditUsed: used,
             }),
         };
@@ -217,7 +233,15 @@ let CustomerCreditService = class CustomerCreditService {
                 customer_id: customerId,
                 is_credit: true,
             },
-            select: ['id', 'total', 'general_status', 'fiscal_configuration_id'],
+            select: [
+                'id',
+                'total',
+                'general_status',
+                'fiscal_configuration_id',
+                'currency',
+                'exchange_rate',
+                'created_at',
+            ],
         });
         const openOrders = orders.filter((order) => order.general_status !== 'Cancelada' && Boolean(order.fiscal_configuration_id));
         if (openOrders.length === 0) {
@@ -248,6 +272,29 @@ let CustomerCreditService = class CustomerCreditService {
                 continue;
             notesByOrder.set(invoice.source_id, (0, credit_note_util_1.roundCreditMoney)((notesByOrder.get(invoice.source_id) ?? 0) + Number(invoice.total || 0)));
         }
+        const creditRows = await this.creditRepo.find({
+            where: { tenant_id: tenantId, customer_id: customerId },
+            select: ['fiscal_configuration_id', 'credit_currency'],
+        });
+        const currencyByFiscal = new Map(creditRows.map((row) => [
+            row.fiscal_configuration_id,
+            (0, credit_currency_util_1.normalizeCreditCurrency)(row.credit_currency),
+        ]));
+        const rateByDate = new Map();
+        const rateForOrderDate = async (createdAt) => {
+            const date = (0, credit_currency_util_1.creditRateDate)(createdAt);
+            if (!date) {
+                return null;
+            }
+            if (rateByDate.has(date)) {
+                return rateByDate.get(date) ?? null;
+            }
+            const daily = await this.exchangeRateService.getDailyRate(tenantId, date);
+            const value = Number(daily?.exchange_rate ?? 0);
+            const rate = value > 0 ? value : null;
+            rateByDate.set(date, rate);
+            return rate;
+        };
         for (const order of openOrders) {
             const effect = (0, credit_note_util_1.splitCreditNoteEffect)({
                 orderTotal: Number(order.total || 0),
@@ -255,7 +302,23 @@ let CustomerCreditService = class CustomerCreditService {
                 creditNotesTotal: notesByOrder.get(order.id) ?? 0,
             });
             const key = order.fiscal_configuration_id;
-            usedByFiscal.set(key, Number(((usedByFiscal.get(key) ?? 0) + effect.pendingAfter).toFixed(2)));
+            const creditCurrency = currencyByFiscal.get(key) ?? 'MXN';
+            const storedRate = Number(order.exchange_rate);
+            const momentRate = storedRate > 0 ? storedRate : await rateForOrderDate(order.created_at);
+            const rate = (0, credit_currency_util_1.creditConversionRate)({
+                orderCurrency: order.currency,
+                creditCurrency,
+                orderExchangeRate: storedRate,
+                dailyExchangeRate: momentRate,
+            });
+            const converted = (0, credit_currency_util_1.amountInCreditCurrency)({
+                amount: effect.pendingAfter,
+                orderCurrency: order.currency,
+                creditCurrency,
+                exchangeRate: rate,
+            });
+            const pending = converted.amount ?? effect.pendingAfter;
+            usedByFiscal.set(key, Number(((usedByFiscal.get(key) ?? 0) + pending).toFixed(2)));
         }
         return usedByFiscal;
     }
@@ -272,6 +335,7 @@ exports.CustomerCreditService = CustomerCreditService = __decorate([
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
-        typeorm_2.Repository])
+        typeorm_2.Repository,
+        exchange_rate_service_1.ExchangeRateService])
 ], CustomerCreditService);
 //# sourceMappingURL=customer-credit.service.js.map

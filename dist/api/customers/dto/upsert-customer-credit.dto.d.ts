@@ -4,6 +4,7 @@ export declare class UpsertCustomerCreditItemDto {
     allow_credit_exceed?: boolean;
     credit_days?: number | null;
     credit_amount?: number | null;
+    credit_currency?: 'MXN' | 'USD';
 }
 export declare class UpsertCustomerCreditsDto {
     credits: UpsertCustomerCreditItemDto[];

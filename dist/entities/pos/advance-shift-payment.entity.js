@@ -29,6 +29,12 @@ let AdvanceShiftPayment = class AdvanceShiftPayment {
     amount_transfer_mxn;
     amount_card_mxn;
     amount_check_mxn;
+    transfer_payer_name;
+    transfer_payer_business_name;
+    card_payer_name;
+    card_payer_phone;
+    check_payer_name;
+    check_payer_phone;
     document_folio;
     collected_by_user_id;
     sales_order_payment_id;
@@ -94,6 +100,30 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'decimal', precision: 12, scale: 2, default: 0 }),
     __metadata("design:type", Number)
 ], AdvanceShiftPayment.prototype, "amount_check_mxn", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 120, nullable: true }),
+    __metadata("design:type", Object)
+], AdvanceShiftPayment.prototype, "transfer_payer_name", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 180, nullable: true }),
+    __metadata("design:type", Object)
+], AdvanceShiftPayment.prototype, "transfer_payer_business_name", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 120, nullable: true }),
+    __metadata("design:type", Object)
+], AdvanceShiftPayment.prototype, "card_payer_name", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 20, nullable: true }),
+    __metadata("design:type", Object)
+], AdvanceShiftPayment.prototype, "card_payer_phone", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 120, nullable: true }),
+    __metadata("design:type", Object)
+], AdvanceShiftPayment.prototype, "check_payer_name", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 20, nullable: true }),
+    __metadata("design:type", Object)
+], AdvanceShiftPayment.prototype, "check_payer_phone", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 40 }),
     __metadata("design:type", String)

@@ -9,6 +9,7 @@ export declare function resolvePosDocumentCurrency(input: {
     amountTransferMxn: number;
     amountCardMxn: number;
     amountCheckMxn: number;
+    amountCheckUsd?: number;
     amountCreditMxn: number;
 }): {
     currency: SalesOrderCurrency;

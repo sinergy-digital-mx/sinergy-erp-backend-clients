@@ -25,6 +25,7 @@ const sales_order_export_service_1 = require("../services/sales-order-export.ser
 const sales_order_invoicing_service_1 = require("../services/sales-order-invoicing.service");
 const sales_order_invoice_email_service_1 = require("../services/sales-order-invoice-email.service");
 const shippings_service_1 = require("../../shippings/shippings.service");
+const jwt_permission_util_1 = require("../../rbac/utils/jwt-permission.util");
 const cancel_electronic_invoice_dto_1 = require("../../electronic-invoicing/dto/cancel-electronic-invoice.dto");
 const stamp_sales_order_invoice_dto_1 = require("../dto/stamp-sales-order-invoice.dto");
 const stamp_sales_order_credit_note_dto_1 = require("../dto/stamp-sales-order-credit-note.dto");
@@ -56,6 +57,7 @@ let SalesOrderController = class SalesOrderController {
         this.shippingsService = shippingsService;
     }
     async getSalesTrend(filters, req) {
+        this.assertCanViewSalesStats(req.user);
         return this.salesOrderService.getSalesTrend(req.user.tenant_id, filters);
     }
     async create(dto, req) {
@@ -260,6 +262,7 @@ let SalesOrderController = class SalesOrderController {
     }
     async findOne(id, req, filters = {}) {
         if (id === 'sales-trend') {
+            this.assertCanViewSalesStats(req.user);
             return this.salesOrderService.getSalesTrend(req.user.tenant_id, filters);
         }
         const detail = await this.salesOrderService.findOneDetail(id, req.user.tenant_id);
@@ -304,12 +307,18 @@ let SalesOrderController = class SalesOrderController {
     async cancel(id, req) {
         return this.salesOrderService.cancel(id, req.user.tenant_id, req.user.id);
     }
+    assertCanViewSalesStats(user) {
+        if (!(0, jwt_permission_util_1.userHasJwtPermission)(user, 'sales_orders', 'ViewStats')) {
+            throw new common_1.ForbiddenException('No tienes permiso para ver el resumen de ventas');
+        }
+    }
 };
 exports.SalesOrderController = SalesOrderController;
 __decorate([
     (0, common_1.Get)('sales-trend'),
     (0, swagger_1.ApiOperation)({
         summary: 'Ventas de los últimos 12 meses con los filtros del listado',
+        description: 'Permiso sales_orders:ViewStats. Sin él no se entrega el resumen.',
     }),
     __param(0, (0, common_1.Query)()),
     __param(1, (0, common_1.Req)()),

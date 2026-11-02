@@ -202,13 +202,14 @@ let VendorService = class VendorService {
             await this.reassignVendorReferences(manager, source.id, target.id);
             await manager.delete(vendor_entity_1.Vendor, { id: source.id, tenant_id: source.tenant_id });
         });
+        const keptName = (0, vendor_profile_util_1.vendorCompanyName)(target) || 'el proveedor parecido';
         const message = purchaseCount > 0
-            ? `Proveedor eliminado. Las compras se conservaron en ${target.name}.`
-            : `Proveedor eliminado. Los datos se consolidaron en ${target.name}.`;
+            ? `Proveedor eliminado. Las compras se conservaron en ${keptName}.`
+            : `Proveedor eliminado. Los datos se consolidaron en ${keptName}.`;
         return {
             action: 'merged',
             vendor_id: source.id,
-            merged_into: { id: target.id, name: target.name },
+            merged_into: { id: target.id, name: keptName },
             purchase_orders_reassigned: purchaseCount,
             message,
         };
@@ -234,6 +235,16 @@ let VendorService = class VendorService {
             source.credit_limit &&
             Number(source.credit_limit) > 0) {
             patch.credit_limit = source.credit_limit;
+        }
+        const company = String(patch.company_name ?? target.company_name ?? '').trim() ||
+            String(target.name ?? '').trim();
+        if (company) {
+            if (!String(target.company_name ?? '').trim()) {
+                patch.company_name = company;
+            }
+            if (target.name !== company) {
+                patch.name = company;
+            }
         }
         if (Object.keys(patch).length === 0) {
             return;
@@ -322,8 +333,27 @@ let VendorService = class VendorService {
             }
         }
     }
+    resolveCompanyName(dto, existing) {
+        const provided = [dto.company_name, dto.name]
+            .map((value) => (typeof value === 'string' ? value.trim() : ''))
+            .find((value) => value.length > 0);
+        const resolved = provided ||
+            existing?.company_name?.trim() ||
+            existing?.name?.trim() ||
+            '';
+        if (!resolved) {
+            throw new common_1.BadRequestException('El nombre de empresa es obligatorio');
+        }
+        return resolved;
+    }
     buildPayload(dto, vendorType, existing) {
-        const base = { ...dto, vendor_type: vendorType };
+        const companyName = this.resolveCompanyName(dto, existing);
+        const base = {
+            ...dto,
+            vendor_type: vendorType,
+            name: companyName,
+            company_name: companyName,
+        };
         if (vendorType === vendor_type_enum_1.VendorType.NATIONAL) {
             return {
                 ...base,
@@ -337,16 +367,15 @@ let VendorService = class VendorService {
             };
         }
         const legalName = (dto.legal_name ?? existing?.legal_name ?? '').trim();
-        const name = (dto.name ?? existing?.name ?? '').trim();
-        const razonSocial = legalName || name;
+        const razonSocial = legalName || companyName;
         if (!razonSocial) {
             throw new common_1.BadRequestException('Nombre legal es requerido para proveedores internacionales');
         }
         return {
             ...base,
             vendor_type: vendor_type_enum_1.VendorType.INTERNATIONAL,
-            name: name || existing?.name || razonSocial,
-            company_name: dto.company_name || existing?.company_name || razonSocial,
+            name: companyName,
+            company_name: companyName,
             street: dto.street || existing?.street || '',
             city: dto.city || existing?.city || '',
             state: dto.state || existing?.state || '',

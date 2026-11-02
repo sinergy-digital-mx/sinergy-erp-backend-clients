@@ -16,6 +16,12 @@ export declare class AdvanceShiftPayment {
     amount_transfer_mxn: number;
     amount_card_mxn: number;
     amount_check_mxn: number;
+    transfer_payer_name: string | null;
+    transfer_payer_business_name: string | null;
+    card_payer_name: string | null;
+    card_payer_phone: string | null;
+    check_payer_name: string | null;
+    check_payer_phone: string | null;
     document_folio: string;
     collected_by_user_id: string;
     sales_order_payment_id: string | null;

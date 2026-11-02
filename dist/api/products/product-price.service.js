@@ -19,6 +19,7 @@ const typeorm_2 = require("typeorm");
 const product_price_entity_1 = require("../../entities/products/product-price.entity");
 const product_entity_1 = require("../../entities/products/product.entity");
 const unit_amount_util_1 = require("../../common/utils/unit-amount.util");
+const fiscal_tax_policy_util_1 = require("../billing/utils/fiscal-tax-policy.util");
 let ProductPriceService = class ProductPriceService {
     productPriceRepository;
     productRepository;
@@ -62,10 +63,12 @@ let ProductPriceService = class ProductPriceService {
             throw new common_1.ConflictException('Ya existe un precio para esta lista y UOM en este producto');
         }
         const price = (0, unit_amount_util_1.roundUnitAmount)(dto.price);
-        const totals = this.calculateTotals(price, dto.iva_percentage, dto.ieps_percentage);
+        const iepsPercentage = await this.resolveIeps(tenantId, dto.ieps_percentage);
+        const totals = this.calculateTotals(price, dto.iva_percentage, iepsPercentage);
         const productPrice = this.productPriceRepository.create({
             ...dto,
             price,
+            ieps_percentage: iepsPercentage,
             ...totals,
             product_id: productId,
         });
@@ -108,9 +111,14 @@ let ProductPriceService = class ProductPriceService {
     async update(id, productId, dto, tenantId) {
         const productPrice = await this.findOne(id, productId, tenantId);
         const price = (0, unit_amount_util_1.roundUnitAmount)(dto.price ?? productPrice.price);
-        const totals = this.calculateTotals(price, dto.iva_percentage ?? productPrice.iva_percentage, dto.ieps_percentage ?? productPrice.ieps_percentage);
-        Object.assign(productPrice, dto, totals, { price });
+        const iepsPercentage = await this.resolveIeps(tenantId, dto.ieps_percentage ?? productPrice.ieps_percentage);
+        const totals = this.calculateTotals(price, dto.iva_percentage ?? productPrice.iva_percentage, iepsPercentage);
+        Object.assign(productPrice, dto, totals, { price, ieps_percentage: iepsPercentage });
         return await this.productPriceRepository.save(productPrice);
+    }
+    async resolveIeps(tenantId, value) {
+        const enabled = await (0, fiscal_tax_policy_util_1.loadTenantIepsEnabled)(this.productPriceRepository.manager, tenantId);
+        return enabled ? Number(value) || 0 : 0;
     }
     async remove(id, productId, tenantId) {
         const productPrice = await this.findOne(id, productId, tenantId);

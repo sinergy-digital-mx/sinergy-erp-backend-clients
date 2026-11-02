@@ -33,12 +33,14 @@ const sales_order_pos_stage_enum_1 = require("../../entities/sales-orders/sales-
 const customer_entity_1 = require("../../entities/customers/customer.entity");
 const warehouse_entity_1 = require("../../entities/warehouse/warehouse.entity");
 const sales_order_currency_util_1 = require("../sales-orders/utils/sales-order-currency.util");
+const credit_currency_util_1 = require("../customers/utils/credit-currency.util");
 const sales_order_pos_receipt_service_1 = require("../sales-orders/services/sales-order-pos-receipt.service");
 const sales_order_service_1 = require("../sales-orders/services/sales-order.service");
 const pos_sale_collection_mapper_1 = require("./mappers/pos-sale-collection.mapper");
 const cash_drawer_1 = require("./utils/cash-drawer");
 const pos_card_payments_util_1 = require("./utils/pos-card-payments.util");
 const pos_cash_payment_util_1 = require("./utils/pos-cash-payment.util");
+const pos_payer_contact_util_1 = require("./utils/pos-payer-contact.util");
 const walk_in_ticket_util_1 = require("./utils/walk-in-ticket.util");
 const unclosed_shift_alert_1 = require("./utils/unclosed-shift-alert");
 const customer_credit_service_1 = require("../customers/services/customer-credit.service");
@@ -441,6 +443,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             }
         }
         const pendingByOrder = await this.salesOrderService.getAmountPendingMap(orders, tenantId);
+        const exchangeRateByOrder = await this.exchangeRateByOrderMoment(tenantId, orders);
         const creditEnabledByFiscal = await this.customerCreditService.getEnabledByFiscalMap(tenantId, orders
             .filter((order) => order.customer_id && order.fiscal_configuration_id)
             .map((order) => ({
@@ -455,6 +458,8 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 ? quotationFolio.get(order.converted_from_quotation_id) ?? null
                 : null,
             total: Number(order.total),
+            currency: order.currency === 'USD' ? 'USD' : 'MXN',
+            exchange_rate: exchangeRateByOrder.get(order.id) ?? null,
             amount_pending: pendingByOrder.get(order.id) ?? Number(order.total),
             subtotal: Number(order.subtotal),
             created_at: order.created_at,
@@ -660,9 +665,10 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             throw new common_1.BadRequestException('Cliente no válido');
         }
         const isCredit = dto.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CREDIT;
-        const creditWaiverUsed = isCredit
-            ? await this.assertCustomerCanUseCredit(customer, amountPending, order.fiscal_configuration_id)
-            : false;
+        const creditCharge = isCredit
+            ? await this.assertCustomerCanUseCredit(customer, amountPending, order)
+            : null;
+        const creditWaiverUsed = creditCharge?.usesWaiver ?? false;
         const fiscal = (0, fiscal_invoice_readiness_util_1.getFiscalInvoiceReadiness)(customer);
         if (dto.generate_invoice) {
             if ((0, pos_sale_collection_mapper_1.isWalkInCustomer)(customer) || !fiscal.fiscal_ready_for_invoice) {
@@ -678,6 +684,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             amountTransferMxn: payment.amountTransferMxn,
             amountCardMxn: payment.amountCardMxn,
             amountCheckMxn: payment.amountCheckMxn,
+            amountCheckUsd: payment.amountCheckUsd,
             amountCreditMxn: payment.amountCreditMxn,
         });
         if (documentCurrency.error) {
@@ -698,10 +705,17 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             transfer_reference: payment.transferReference,
             amount_card_mxn: payment.amountCardMxn,
             amount_check_mxn: payment.amountCheckMxn,
+            amount_check_usd: payment.amountCheckUsd,
             check_reference: payment.checkReference ?? null,
             amount_credit_mxn: payment.amountCreditMxn,
             card_reference: payment.cardReference ?? null,
             card_payments: payment.cardPayments.length > 1 ? payment.cardPayments : null,
+            transfer_payer_name: payment.payer.transferPayerName,
+            transfer_payer_business_name: payment.payer.transferPayerBusinessName,
+            card_payer_name: payment.payer.cardPayerName,
+            card_payer_phone: payment.payer.cardPayerPhone,
+            check_payer_name: payment.payer.checkPayerName,
+            check_payer_phone: payment.payer.checkPayerPhone,
             received_cash_mxn: payment.receivedCashMxn,
             received_cash_usd: payment.receivedCashUsd,
             change_cash_mxn: payment.changeCashMxn,
@@ -725,11 +739,17 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             }, tenantId, cobranzaUserId, 'pos_cobranza');
         }
         const paymentStatus = isCredit ? 'Pendiente' : 'Pagado';
+        const storedCurrency = isCredit
+            ? (0, credit_currency_util_1.normalizeCreditCurrency)(order.currency)
+            : documentCurrency.currency;
+        const storedExchangeRate = isCredit
+            ? this.creditExchangeRateToStore(order, creditCharge?.exchangeRate ?? null)
+            : documentCurrency.exchangeRate;
         await this.salesOrderRepo.update({ id: order.id, tenant_id: tenantId }, {
             payment_status: paymentStatus,
             is_credit: isCredit,
-            currency: documentCurrency.currency,
-            exchange_rate: documentCurrency.exchangeRate,
+            currency: storedCurrency,
+            exchange_rate: storedExchangeRate,
             invoice_requested: Boolean(dto.generate_invoice),
             collected_by_user_id: cobranzaUserId,
             customer_id: customerId,
@@ -794,8 +814,8 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 customer: (0, pos_sale_collection_mapper_1.mapPosCustomer)(customer),
                 pos_daily_shift_id: shift.id,
                 total: orderTotal,
-                currency: documentCurrency.currency,
-                exchange_rate: documentCurrency.exchangeRate,
+                currency: storedCurrency,
+                exchange_rate: storedExchangeRate,
                 amount_collected: isCredit ? 0 : amountPending,
                 amount_on_credit: isCredit ? amountPending : 0,
             },
@@ -920,27 +940,34 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             throw new common_1.BadRequestException('amount_card_mxn debe coincidir con la suma de card_payments');
         }
         const amountCheckMxn = Number(dto.amount_check_mxn ?? 0);
+        const amountCheckUsd = Number(dto.amount_check_usd ?? 0);
         const amountCreditMxn = dto.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CREDIT
             ? Number(dto.amount_credit_mxn ?? orderTotal)
             : Number(dto.amount_credit_mxn ?? 0);
         const receivedCashMxn = Number(dto.received_cash_mxn ?? amountCashMxn);
         const receivedCashUsd = Number(dto.received_cash_usd ?? amountCashUsd);
-        let usdExchangeRate = amountCashUsd > 0 || receivedCashUsd > 0
-            ? Number(dto.usd_exchange_rate ?? 0)
-            : null;
-        if ((amountCashUsd > 0 || receivedCashUsd > 0) &&
-            (!usdExchangeRate || usdExchangeRate <= 0)) {
+        const needsUsdRate = amountCashUsd > 0 || receivedCashUsd > 0 || amountCheckUsd > 0;
+        let usdExchangeRate = needsUsdRate ? Number(dto.usd_exchange_rate ?? 0) : null;
+        if (needsUsdRate && (!usdExchangeRate || usdExchangeRate <= 0)) {
             usdExchangeRate = await this.resolveUsdExchangeRate(tenantId);
         }
-        if ((amountCashUsd > 0 || receivedCashUsd > 0) &&
-            (!usdExchangeRate || usdExchangeRate <= 0)) {
+        if (needsUsdRate && (!usdExchangeRate || usdExchangeRate <= 0)) {
             throw new common_1.BadRequestException('No hay tipo de cambio. Captúralo en Tipo de Cambio o indícalo al cobrar en USD');
         }
         if (amountTransferMxn > 0 && !dto.transfer_reference?.trim()) {
             throw new common_1.BadRequestException('transfer_reference es obligatorio para pagos por transferencia');
         }
-        if (amountCheckMxn > 0 && !dto.check_reference?.trim()) {
+        if ((amountCheckMxn > 0 || amountCheckUsd > 0) && !dto.check_reference?.trim()) {
             throw new common_1.BadRequestException('check_reference es obligatorio para pagos con cheque');
+        }
+        const payer = (0, pos_payer_contact_util_1.resolvePayerContact)(dto, {
+            transferMxn: amountTransferMxn,
+            cardMxn: amountCardMxn,
+            checkMxn: amountCheckMxn,
+            checkUsd: amountCheckUsd,
+        });
+        if (payer.error) {
+            throw new common_1.BadRequestException(payer.error);
         }
         let appliedCashMxn = amountCashMxn;
         let appliedCashUsd = amountCashUsd;
@@ -963,8 +990,10 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 amountTransferMxn +
                 amountCardMxn +
                 amountCheckMxn +
+                amountCheckUsd * (usdExchangeRate ?? 0) +
                 amountCreditMxn;
-            const tolerance = amountCashUsd > 0 ? (0, pos_cash_payment_util_1.usdCentToleranceMxn)(usdExchangeRate ?? 0) : 0.01;
+            const usdLegs = (amountCashUsd > 0 ? 1 : 0) + (amountCheckUsd > 0 ? 1 : 0);
+            const tolerance = usdLegs > 0 ? (0, pos_cash_payment_util_1.usdCentToleranceMxn)(usdExchangeRate ?? 0) * usdLegs : 0.01;
             if (Math.abs(paidMxn - orderTotal) > tolerance + 0.001) {
                 throw new common_1.BadRequestException(`El monto cubierto (${paidMxn.toFixed(2)}) debe coincidir con el total de la orden (${orderTotal.toFixed(2)})`);
             }
@@ -975,6 +1004,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             amountTransferMxn,
             amountCardMxn,
             amountCheckMxn,
+            amountCheckUsd,
             amountCreditMxn,
             cardPaymentCount: cardPayments.length,
         });
@@ -992,6 +1022,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             transferReference: dto.transfer_reference?.trim() ?? null,
             amountCardMxn,
             amountCheckMxn,
+            amountCheckUsd,
             checkReference: dto.check_reference?.trim() ?? null,
             amountCreditMxn,
             cardReference: (0, pos_card_payments_util_1.firstCardReference)(cardPayments) ?? dto.card_reference?.trim() ?? null,
@@ -1000,20 +1031,22 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             receivedCashUsd,
             changeCashMxn,
             changeCashUsd,
+            payer: payer.contact,
         };
     }
     assertPaymentMethodShape(method, amounts) {
-        const { amountCashMxn, amountCashUsd, amountTransferMxn, amountCardMxn, amountCheckMxn, amountCreditMxn, cardPaymentCount, } = amounts;
+        const { amountCashMxn, amountCashUsd, amountTransferMxn, amountCardMxn, amountCheckMxn, amountCheckUsd, amountCreditMxn, cardPaymentCount, } = amounts;
         const cashTotal = amountCashMxn + amountCashUsd;
+        const checkTotal = amountCheckMxn + amountCheckUsd;
         const cardParts = cardPaymentCount > 0 ? cardPaymentCount : amountCardMxn > 0 ? 1 : 0;
-        const mixedParts = [cashTotal > 0, amountTransferMxn > 0, amountCheckMxn > 0].filter(Boolean).length +
+        const mixedParts = [cashTotal > 0, amountTransferMxn > 0, checkTotal > 0].filter(Boolean).length +
             cardParts;
         switch (method) {
             case pos_sale_payment_method_enum_1.PosSalePaymentMethod.CASH:
                 if (cashTotal <= 0 ||
                     amountTransferMxn > 0 ||
                     amountCardMxn > 0 ||
-                    amountCheckMxn > 0 ||
+                    checkTotal > 0 ||
                     amountCreditMxn > 0) {
                     throw new common_1.BadRequestException('payment_method cash requiere montos en efectivo MXN y/o USD');
                 }
@@ -1022,7 +1055,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 if (amountTransferMxn <= 0 ||
                     cashTotal > 0 ||
                     amountCardMxn > 0 ||
-                    amountCheckMxn > 0 ||
+                    checkTotal > 0 ||
                     amountCreditMxn > 0) {
                     throw new common_1.BadRequestException('payment_method transfer requiere amount_transfer_mxn');
                 }
@@ -1034,18 +1067,18 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 if (amountCardMxn <= 0 ||
                     cashTotal > 0 ||
                     amountTransferMxn > 0 ||
-                    amountCheckMxn > 0 ||
+                    checkTotal > 0 ||
                     amountCreditMxn > 0) {
                     throw new common_1.BadRequestException('payment_method card requiere amount_card_mxn');
                 }
                 break;
             case pos_sale_payment_method_enum_1.PosSalePaymentMethod.CHECK:
-                if (amountCheckMxn <= 0 ||
+                if (checkTotal <= 0 ||
                     cashTotal > 0 ||
                     amountTransferMxn > 0 ||
                     amountCardMxn > 0 ||
                     amountCreditMxn > 0) {
-                    throw new common_1.BadRequestException('payment_method check requiere amount_check_mxn');
+                    throw new common_1.BadRequestException('payment_method check requiere amount_check_mxn o amount_check_usd');
                 }
                 break;
             case pos_sale_payment_method_enum_1.PosSalePaymentMethod.MIXED:
@@ -1058,7 +1091,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                     cashTotal > 0 ||
                     amountTransferMxn > 0 ||
                     amountCardMxn > 0 ||
-                    amountCheckMxn > 0) {
+                    checkTotal > 0) {
                     throw new common_1.BadRequestException('payment_method credit requiere amount_credit_mxn y no admite otras formas de pago');
                 }
                 break;
@@ -1066,22 +1099,79 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 throw new common_1.BadRequestException('Método de pago no válido');
         }
     }
-    async assertCustomerCanUseCredit(customer, amount, fiscalConfigurationId) {
+    async assertCustomerCanUseCredit(customer, amount, order) {
         if ((0, pos_sale_collection_mapper_1.isWalkInCustomer)(customer)) {
             throw new common_1.BadRequestException('El cliente de mostrador no puede pagar a crédito');
         }
-        if (!fiscalConfigurationId) {
+        if (!order.fiscal_configuration_id) {
             throw new common_1.BadRequestException('La orden no tiene razón social para aplicar crédito');
         }
-        const snapshot = await this.customerCreditService.getSnapshotForFiscal(customer, fiscalConfigurationId);
+        const snapshot = await this.customerCreditService.getSnapshotForFiscal(customer, order.fiscal_configuration_id);
         if (!snapshot.credit_enabled) {
             throw new common_1.BadRequestException('El cliente no tiene crédito activo con esta razón social');
         }
-        const usesWaiver = (0, customer_credit_util_1.creditChargeUsesExceedWaiver)(amount, snapshot.credit_available, snapshot.allow_credit_exceed);
-        if (amount - snapshot.credit_available > 0.01 && !usesWaiver) {
-            throw new common_1.BadRequestException(`Crédito insuficiente. Disponible: ${snapshot.credit_available.toFixed(2)} MXN`);
+        const storedRate = Number(order.exchange_rate);
+        const momentRate = storedRate > 0
+            ? storedRate
+            : await this.exchangeRateForOrderDate(customer.tenant_id, order.created_at);
+        const exchangeRate = (0, credit_currency_util_1.creditConversionRate)({
+            orderCurrency: order.currency,
+            creditCurrency: snapshot.credit_currency,
+            orderExchangeRate: storedRate,
+            dailyExchangeRate: momentRate,
+        });
+        const converted = (0, credit_currency_util_1.amountInCreditCurrency)({
+            amount,
+            orderCurrency: order.currency,
+            creditCurrency: snapshot.credit_currency,
+            exchangeRate,
+        });
+        if (converted.error || converted.amount == null) {
+            throw new common_1.BadRequestException(converted.error || 'No hay tipo de cambio para convertir el crédito de la orden');
         }
-        return usesWaiver;
+        const usesWaiver = (0, customer_credit_util_1.creditChargeUsesExceedWaiver)(converted.amount, snapshot.credit_available, snapshot.allow_credit_exceed);
+        if (converted.amount - snapshot.credit_available > 0.01 && !usesWaiver) {
+            throw new common_1.BadRequestException(`Crédito insuficiente. Disponible: ${snapshot.credit_available.toFixed(2)} ${snapshot.credit_currency}`);
+        }
+        const orderCurrency = (0, credit_currency_util_1.normalizeCreditCurrency)(order.currency);
+        return {
+            usesWaiver,
+            exchangeRate: orderCurrency === snapshot.credit_currency ? null : exchangeRate,
+        };
+    }
+    async exchangeRateByOrderMoment(tenantId, orders) {
+        const rates = new Map();
+        const byDate = new Map();
+        for (const order of orders) {
+            const stored = Number(order.exchange_rate);
+            if (stored > 0) {
+                rates.set(order.id, stored);
+                continue;
+            }
+            const date = (0, credit_currency_util_1.creditRateDate)(order.created_at);
+            if (!date) {
+                rates.set(order.id, null);
+                continue;
+            }
+            if (!byDate.has(date)) {
+                byDate.set(date, await this.exchangeRateForOrderDate(tenantId, order.created_at));
+            }
+            rates.set(order.id, byDate.get(date) ?? null);
+        }
+        return rates;
+    }
+    async exchangeRateForOrderDate(tenantId, createdAt) {
+        const date = (0, credit_currency_util_1.creditRateDate)(createdAt);
+        const row = await this.exchangeRateService.getDailyRate(tenantId, date ?? undefined);
+        const value = Number(row?.exchange_rate ?? 0);
+        return value > 0 ? value : null;
+    }
+    creditExchangeRateToStore(order, creditRate) {
+        if ((0, credit_currency_util_1.normalizeCreditCurrency)(order.currency) === 'USD') {
+            const stored = Number(order.exchange_rate);
+            return stored > 0 ? stored : creditRate;
+        }
+        return creditRate;
     }
     mapCollectedSaleRow(collection) {
         const order = collection.sales_order;
@@ -1144,6 +1234,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             transfer_mxn: 0,
             card_mxn: 0,
             check_mxn: 0,
+            check_usd: 0,
             credit_mxn: 0,
         };
         for (const collection of collections) {
@@ -1153,6 +1244,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             summary.transfer_mxn += Number(collection.amount_transfer_mxn);
             summary.card_mxn += Number(collection.amount_card_mxn);
             summary.check_mxn += Number(collection.amount_check_mxn ?? 0);
+            summary.check_usd += Number(collection.amount_check_usd ?? 0);
             summary.credit_mxn += Number(collection.amount_credit_mxn ?? 0);
         }
         return summary;
@@ -1688,6 +1780,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             .addSelect('COALESCE(SUM(collection.amount_transfer_mxn), 0)', 'transfer_mxn')
             .addSelect('COALESCE(SUM(collection.amount_card_mxn), 0)', 'card_mxn')
             .addSelect('COALESCE(SUM(collection.amount_check_mxn), 0)', 'check_mxn')
+            .addSelect('COALESCE(SUM(collection.amount_check_usd), 0)', 'check_usd')
             .addSelect('COALESCE(SUM(collection.amount_credit_mxn), 0)', 'credit_mxn')
             .where('collection.pos_daily_shift_id = :dailyShiftId', { dailyShiftId })
             .getRawOne();
@@ -1698,6 +1791,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             transfer_mxn: Number(result?.transfer_mxn ?? 0) + advances.transfer_mxn,
             card_mxn: Number(result?.card_mxn ?? 0) + advances.card_mxn,
             check_mxn: Number(result?.check_mxn ?? 0) + advances.check_mxn,
+            check_usd: Number(result?.check_usd ?? 0),
             credit_mxn: Number(result?.credit_mxn ?? 0),
         };
     }
@@ -1862,6 +1956,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 collected_transfer_mxn: cashTotals.transfer_mxn,
                 collected_card_mxn: cashTotals.card_mxn,
                 collected_check_mxn: cashTotals.check_mxn,
+                collected_check_usd: cashTotals.check_usd,
                 collected_credit_mxn: cashTotals.credit_mxn,
                 removed_total_mxn: removedMxn,
                 removed_total_usd: removedUsd,

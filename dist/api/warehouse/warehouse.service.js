@@ -19,6 +19,7 @@ const typeorm_2 = require("typeorm");
 const warehouse_entity_1 = require("../../entities/warehouse/warehouse.entity");
 const document_prefix_util_1 = require("../../common/utils/document-prefix.util");
 const crypto_1 = require("crypto");
+const warehouse_address_util_1 = require("./utils/warehouse-address.util");
 let WarehouseService = class WarehouseService {
     repo;
     constructor(repo) {
@@ -26,14 +27,21 @@ let WarehouseService = class WarehouseService {
     }
     async create(dto, tenantId) {
         const prefix = (0, document_prefix_util_1.normalizeDocumentPrefix)(dto.prefix);
+        const location = (0, warehouse_address_util_1.assertWarehouseLocation)(dto);
         const warehouse = this.repo.create({
             ...dto,
+            ...location,
             prefix,
             tenant_id: tenantId,
             status: dto.status || 'active',
         });
         warehouse.code = dto.code?.trim() || warehouse.id || (0, crypto_1.randomUUID)();
-        return this.repo.save(warehouse);
+        try {
+            return await this.repo.save(warehouse);
+        }
+        catch (error) {
+            (0, warehouse_address_util_1.mapWarehousePersistError)(error, dto.name);
+        }
     }
     async findAll(tenantId, query) {
         let page = Number(query?.page) || 1;
@@ -54,13 +62,17 @@ let WarehouseService = class WarehouseService {
             queryBuilder.andWhere('(LOWER(warehouse.name) LIKE LOWER(:search) OR LOWER(warehouse.code) LIKE LOWER(:search))', { search: `%${query.search}%` });
         }
         if (query?.status) {
-            queryBuilder.andWhere('warehouse.status = :status', { status: query.status });
+            queryBuilder.andWhere('warehouse.status = :status', {
+                status: query.status,
+            });
         }
         if (query?.state) {
             queryBuilder.andWhere('warehouse.state = :state', { state: query.state });
         }
         if (query?.country) {
-            queryBuilder.andWhere('warehouse.country = :country', { country: query.country });
+            queryBuilder.andWhere('warehouse.country = :country', {
+                country: query.country,
+            });
         }
         if (query?.billing_branch_id) {
             queryBuilder.andWhere('warehouse.billing_branch_id = :billing_branch_id', {
@@ -96,9 +108,18 @@ let WarehouseService = class WarehouseService {
     }
     async update(id, dto, tenantId) {
         const warehouse = await this.findOne(id, tenantId);
-        const prefix = dto.prefix !== undefined ? (0, document_prefix_util_1.normalizeDocumentPrefix)(dto.prefix) : warehouse.prefix;
+        const prefix = dto.prefix !== undefined
+            ? (0, document_prefix_util_1.normalizeDocumentPrefix)(dto.prefix)
+            : warehouse.prefix;
         Object.assign(warehouse, dto, { prefix });
-        return this.repo.save(warehouse);
+        const location = (0, warehouse_address_util_1.assertWarehouseLocation)(warehouse);
+        Object.assign(warehouse, location);
+        try {
+            return await this.repo.save(warehouse);
+        }
+        catch (error) {
+            (0, warehouse_address_util_1.mapWarehousePersistError)(error, warehouse.name);
+        }
     }
     async remove(id, tenantId) {
         const warehouse = await this.findOne(id, tenantId);

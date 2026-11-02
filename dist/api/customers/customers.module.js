@@ -41,6 +41,7 @@ const rbac_module_1 = require("../rbac/rbac.module");
 const customer_product_insights_service_1 = require("./services/customer-product-insights.service");
 const customer_credit_service_1 = require("./services/customer-credit.service");
 const customer_assignment_service_1 = require("./services/customer-assignment.service");
+const exchange_rate_module_1 = require("../exchange-rate/exchange-rate.module");
 let CustomersModule = class CustomersModule {
 };
 exports.CustomersModule = CustomersModule;
@@ -68,6 +69,7 @@ exports.CustomersModule = CustomersModule = __decorate([
                 product_entity_1.Product,
             ]),
             rbac_module_1.RBACModule,
+            exchange_rate_module_1.ExchangeRateModule,
         ],
         providers: [
             customers_service_1.CustomersService,

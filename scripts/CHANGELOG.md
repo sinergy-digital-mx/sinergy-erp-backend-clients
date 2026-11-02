@@ -10,6 +10,24 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.85 · 2026-11-02
+
+- aplicación y servidor · En la venta, si el producto o servicio no tiene unidad de medida, el mismo cuadro avisa y abre su ficha para asignarla. Al guardar un almacén de sucursal sin dirección válida, indica qué falta y permite usar la de la sucursal, en lugar de u
+- aplicación y servidor · En caja, transferencia pide nombre o razón social, y tarjeta o cheque piden nombre y teléfono.
+- aplicación y servidor · El crédito de cada razón social queda en pesos o dólares, y una venta en la otra moneda se convierte con el tipo de cambio de esa orden.
+- aplicación y servidor · En caja, efectivo y mixto se cobran en pesos, en dólares o en las dos monedas.
+- aplicación y servidor · Si IEPS está apagado en la razón social, ya no aparece en el producto, en órdenes de compra y venta, en el detalle, en PDF, Excel ni en la factura.
+- aplicación y servidor · Cobranza POS: en la línea del reporte, un cobro mixto de caja muestra las formas usadas (efectivo + tarjeta, tarjeta + cheque, etc.) y el Excel usa el mismo texto.
+- aplicación y servidor · En el corte parcial, el campo de cantidad de billetes en dólares se recortaba; ahora se ve completo.
+- aplicación y servidor · En CRM, cada actividad muestra siempre el vendedor: el autor de la nota, o si no hay el vendedor del cliente, o quien lo registró.
+- aplicación y servidor · En Cobranza, la sucursal queda en la URL de todos los reportes de contabilidad para que al recargar siga seleccionada.
+- aplicación y servidor · En Cobranza POS, un cobro con importe muestra un ojo para ver el ticket, y vendedor y cajero ya no muestran el código.
+- aplicación y servidor · Proveedores: se quitó el campo Nombre; el identificador queda en nombre de empresa en ficha, listados, compras, cuentas por pagar y Excel.
+- aplicación y servidor · En caja, el cheque también se puede cobrar en dólares, con el tipo de cambio del corte.
+- aplicación y servidor · Permiso ViewStats en inventario, órdenes de compra y órdenes de venta para ver las tarjetas de arriba; sin ese permiso no se muestran ni se entregan esos totales. Clientes ya lo tenía.
+- aplicación y servidor · Pedimento en órdenes de compra: solo se guarda con el formato del SAT (15 dígitos) y el campo tiene máscara para capturarlo.
+- aplicación · En el punto de venta las cartas del catálogo quedan más grandes: máximo tres por fila en monitor, y en pantallas angostas bajan a dos o una. El texto de stock y unidad queda centrado en las badges, sin pegarse arriba ni entre sí.
+
 ### Versión 0.0.83 · 2026-10-31
 
 - servidor · Listado de empleados: se aplicó la columna work_schedule que faltaba y tiraba 500

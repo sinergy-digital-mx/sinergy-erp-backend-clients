@@ -81,10 +81,12 @@ export declare class PurchaseOrderService {
     private insertLineItemsForPurchaseOrder;
     create(dto: CreatePurchaseOrderDto, tenantId: string, userId: string): Promise<PurchaseOrderBatch>;
     private generateAndUploadPdf;
-    findAll(tenantId: string, filters: QueryPurchaseOrderDto): Promise<{
+    findAll(tenantId: string, filters: QueryPurchaseOrderDto, options?: {
+        includeStats?: boolean;
+    }): Promise<{
         data: PurchaseOrderBatch[];
         total: number;
-        stats: PurchaseOrderListStats;
+        stats?: PurchaseOrderListStats;
     }>;
     findOne(id: string, tenantId: string): Promise<any>;
     private assertWarehouseMatchesFiscal;

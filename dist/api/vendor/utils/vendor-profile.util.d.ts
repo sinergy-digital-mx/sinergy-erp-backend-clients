@@ -13,6 +13,10 @@ export declare function computeVendorCompleteness(vendor: Partial<Vendor>): numb
 export declare function normalizeVendorName(value?: string | null): string | null;
 export declare function normalizeFiscalId(value?: string | null): string | null;
 export declare function normalizeBankId(value?: string | null): string | null;
+export declare function vendorCompanyName(vendor?: {
+    company_name?: string | null;
+    name?: string | null;
+} | null): string;
 export declare function findSimilarVendors(vendor: Partial<Vendor> & {
     id?: string;
 }, catalog: Array<Partial<Vendor> & {

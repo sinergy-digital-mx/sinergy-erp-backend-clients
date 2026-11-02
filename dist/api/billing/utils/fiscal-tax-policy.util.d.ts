@@ -13,5 +13,10 @@ export declare function clampTaxPercentages(ivaPercentage: number, iepsPercentag
     ivaPercentage: number;
     iepsPercentage: number;
 };
+export declare function loadTenantIepsEnabled(db: Queryable, tenantId: string): Promise<boolean>;
+export declare function columnsWithoutDisabledIeps<T extends {
+    key: string;
+    header: string;
+}>(columns: T[], iepsEnabled: boolean): T[];
 export declare function loadFiscalTaxPolicy(db: Queryable, fiscalConfigurationId: string, tenantId: string): Promise<FiscalTaxPolicy>;
 export {};

@@ -414,7 +414,7 @@ let MadereriaInventoryImportService = MadereriaInventoryImportService_1 = class 
         const existing = await repo
             .createQueryBuilder('vendor')
             .where('vendor.tenant_id = :organizationId', { organizationId })
-            .andWhere('UPPER(vendor.name) = :name', { name: madereria_inventory_import_constants_1.IMPORT_VENDOR_NAME })
+            .andWhere('(UPPER(vendor.company_name) = :name OR UPPER(vendor.name) = :name)', { name: madereria_inventory_import_constants_1.IMPORT_VENDOR_NAME })
             .getOne();
         if (existing) {
             return existing;

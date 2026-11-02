@@ -208,7 +208,8 @@ let CrmInboxService = class CrmInboxService {
             .createQueryBuilder('activity')
             .leftJoinAndSelect('activity.user', 'user')
             .leftJoinAndSelect('activity.customer', 'customer')
-            .leftJoinAndSelect('customer.registered_by_user', 'customerCreator');
+            .leftJoinAndSelect('customer.registered_by_user', 'customerCreator')
+            .leftJoinAndSelect('customer.assigned_seller_user', 'assignedSeller');
         this.applyScope(qb, tenantId, scopeUserId, branchIds);
         return qb;
     }
@@ -406,6 +407,7 @@ let CrmInboxService = class CrmInboxService {
             customer: this.mapCustomer(row.customer, row.customer_id),
             user_id: row.user_id,
             user: this.mapUser(row.user),
+            seller: this.resolveSeller(row),
             type: row.type,
             status: row.status,
             title: row.title,
@@ -429,6 +431,7 @@ let CrmInboxService = class CrmInboxService {
                 company_name: null,
                 display_name: `#${customerId}`,
                 created_by: null,
+                assigned_seller: null,
             };
         }
         const person = [customer.name, customer.lastname].filter(Boolean).join(' ').trim();
@@ -440,7 +443,18 @@ let CrmInboxService = class CrmInboxService {
             company_name: customer.company_name ?? null,
             display_name: displayName,
             created_by: this.mapUser(customer.registered_by_user ?? undefined),
+            assigned_seller: this.mapUser(customer.assigned_seller_user ?? undefined),
         };
+    }
+    resolveSeller(row) {
+        const candidates = [
+            this.mapUser(row.user),
+            this.mapUser(row.customer?.assigned_seller_user ?? undefined),
+            this.mapUser(row.customer?.registered_by_user ?? undefined),
+        ].filter((user) => Boolean(user));
+        return (candidates.find((user) => user.display_name && user.display_name !== 'Sin nombre') ??
+            candidates[0] ??
+            null);
     }
     mapUser(user) {
         if (!user) {

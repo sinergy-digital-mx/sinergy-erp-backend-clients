@@ -349,5 +349,75 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-10-31T18:54:12.652Z"
+  },
+  {
+    "releaseKey": "full:0.0.85:0.0.85-1793643560713",
+    "version": "0.0.85",
+    "buildId": "0.0.85-1793643560713",
+    "channel": "full",
+    "title": "Versión 0.0.85",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "Cambios en contabilidad"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en CRM"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en clientes"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en inventario"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en compras"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en configuración"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en facturación"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en productos"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en proveedores"
+      },
+      {
+        "scope": "backend",
+        "message": "Cambios en correo"
+      },
+      {
+        "scope": "backend",
+        "message": "Cambios en autofactura"
+      },
+      {
+        "scope": "backend",
+        "message": "Cambios en almacenes"
+      },
+      {
+        "scope": "backend",
+        "message": "Cambios en cotizaciones"
+      },
+      {
+        "scope": "backend",
+        "message": "Cambios en accesos y permisos"
+      }
+    ],
+    "releasedAt": "2026-11-02T18:19:20.713Z"
   }
 ];

@@ -19,6 +19,7 @@ class CrmActivityCustomerDto {
     company_name;
     display_name;
     created_by;
+    assigned_seller;
 }
 exports.CrmActivityCustomerDto = CrmActivityCustomerDto;
 class CrmActivityItemDto {
@@ -27,6 +28,7 @@ class CrmActivityItemDto {
     customer;
     user_id;
     user;
+    seller;
     type;
     status;
     title;

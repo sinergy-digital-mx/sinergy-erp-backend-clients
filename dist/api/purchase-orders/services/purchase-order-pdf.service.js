@@ -55,6 +55,7 @@ const path = __importStar(require("path"));
 const purchase_order_line_breakdown_util_1 = require("../utils/purchase-order-line-breakdown.util");
 const inventory_measure_util_1 = require("../../inventory/utils/inventory-measure.util");
 const fiscal_tax_policy_util_1 = require("../../billing/utils/fiscal-tax-policy.util");
+const vendor_profile_util_1 = require("../../vendor/utils/vendor-profile.util");
 const COLORS = {
     primary: '#1E3A5F',
     primarySoft: '#E8EEF5',
@@ -276,7 +277,7 @@ let PurchaseOrderPdfService = class PurchaseOrderPdfService {
                     [
                         this.partyCell(labels.vendor, [
                             {
-                                text: purchaseOrder.vendor?.name || 'N/A',
+                                text: (0, vendor_profile_util_1.vendorCompanyName)(purchaseOrder.vendor) || 'N/A',
                                 fontSize: 10,
                                 bold: true,
                                 color: COLORS.text,

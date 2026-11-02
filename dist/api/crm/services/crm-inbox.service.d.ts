@@ -33,6 +33,7 @@ export declare class CrmInboxService {
     };
     private mapActivity;
     private mapCustomer;
+    private resolveSeller;
     private mapUser;
     private displayUserName;
     private toCountMap;

@@ -23,6 +23,7 @@ const pos_daily_shift_status_enum_1 = require("../../../entities/pos/pos-daily-s
 const sales_order_entity_1 = require("../../../entities/sales-orders/sales-order.entity");
 const sales_order_payment_entity_1 = require("../../../entities/sales-orders/sales-order-payment.entity");
 const advance_payment_method_util_1 = require("../utils/advance-payment-method.util");
+const pos_payer_contact_util_1 = require("../utils/pos-payer-contact.util");
 let AdvanceShiftPaymentService = class AdvanceShiftPaymentService {
     paymentRepo;
     shiftRepo;
@@ -67,6 +68,12 @@ let AdvanceShiftPaymentService = class AdvanceShiftPaymentService {
             amount_transfer_mxn: splits.transferMxn,
             amount_card_mxn: splits.cardMxn,
             amount_check_mxn: splits.checkMxn,
+            transfer_payer_name: input.payer?.transferPayerName ?? null,
+            transfer_payer_business_name: input.payer?.transferPayerBusinessName ?? null,
+            card_payer_name: input.payer?.cardPayerName ?? null,
+            card_payer_phone: input.payer?.cardPayerPhone ?? null,
+            check_payer_name: input.payer?.checkPayerName ?? null,
+            check_payer_phone: input.payer?.checkPayerPhone ?? null,
             document_folio: input.documentFolio,
             collected_by_user_id: input.userId,
             sales_order_payment_id: null,
@@ -171,6 +178,14 @@ let AdvanceShiftPaymentService = class AdvanceShiftPaymentService {
             payment_method: row.payment_method,
             payment_method_label: (0, advance_payment_method_util_1.advancePaymentMethodLabel)(row.payment_method),
             amount_mxn: Number(row.amount_mxn),
+            payer_summary: (0, pos_payer_contact_util_1.formatPayerContactSummary)({
+                transferPayerName: row.transfer_payer_name,
+                transferPayerBusinessName: row.transfer_payer_business_name,
+                cardPayerName: row.card_payer_name,
+                cardPayerPhone: row.card_payer_phone,
+                checkPayerName: row.check_payer_name,
+                checkPayerPhone: row.check_payer_phone,
+            }),
         }));
     }
     async activeByInvoice(tenantId, invoiceId) {

@@ -60,6 +60,7 @@ export declare class ProductVendorImportService {
     private validateAmount;
     private roundUnitCost;
     private roundPrice;
+    private iepsValue;
     private calculateTotals;
     private toNumber;
     private emptyResult;
