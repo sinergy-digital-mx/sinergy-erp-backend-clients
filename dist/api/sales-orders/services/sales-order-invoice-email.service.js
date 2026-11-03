@@ -27,6 +27,7 @@ const sales_order_entity_1 = require("../../../entities/sales-orders/sales-order
 const mailer_configuration_service_1 = require("../../mailer-configuration/services/mailer-configuration.service");
 const electronic_invoice_pdf_service_1 = require("../../electronic-invoicing/services/electronic-invoice-pdf.service");
 const electronic_invoice_service_1 = require("../../electronic-invoicing/services/electronic-invoice.service");
+const whatsapp_message_service_1 = require("../../whatsapp/services/whatsapp-message.service");
 const invoice_email_template_default_1 = require("../utils/invoice-email-template.default");
 const SENDABLE_STAMP_STATUSES = ['stamped', 'cancel_pending', 'cancelled'];
 let SalesOrderInvoiceEmailService = class SalesOrderInvoiceEmailService {
@@ -37,7 +38,8 @@ let SalesOrderInvoiceEmailService = class SalesOrderInvoiceEmailService {
     electronicInvoiceService;
     pdfService;
     mailerConfigurationService;
-    constructor(salesOrderRepo, customerRepo, templateRepo, emailRepo, electronicInvoiceService, pdfService, mailerConfigurationService) {
+    whatsapp;
+    constructor(salesOrderRepo, customerRepo, templateRepo, emailRepo, electronicInvoiceService, pdfService, mailerConfigurationService, whatsapp) {
         this.salesOrderRepo = salesOrderRepo;
         this.customerRepo = customerRepo;
         this.templateRepo = templateRepo;
@@ -45,6 +47,7 @@ let SalesOrderInvoiceEmailService = class SalesOrderInvoiceEmailService {
         this.electronicInvoiceService = electronicInvoiceService;
         this.pdfService = pdfService;
         this.mailerConfigurationService = mailerConfigurationService;
+        this.whatsapp = whatsapp;
     }
     async getTemplate(tenantId) {
         const template = await this.ensureTemplate(tenantId);
@@ -132,6 +135,61 @@ let SalesOrderInvoiceEmailService = class SalesOrderInvoiceEmailService {
             relations: ['sender'],
         });
         return this.mapEmailRow(withSender ?? saved);
+    }
+    async getWhatsappCompose(salesOrderId, invoiceId, tenantId) {
+        const { order, invoice, customer } = await this.loadSendableContext(salesOrderId, invoiceId, tenantId, false);
+        const values = this.buildValues(order, invoice, customer, null);
+        const canSend = this.isSendable(invoice);
+        return {
+            phone: this.customerWhatsappPhone(customer),
+            customer_name: values.customer_name,
+            customer_company: values.customer_company,
+            invoice_folio: values.invoice_folio,
+            attachments: this.describeAttachments(invoice),
+            can_send: canSend,
+            block_reason: canSend ? null : 'Solo se puede enviar una factura timbrada (PDF y XML).',
+        };
+    }
+    async sendWhatsapp(salesOrderId, invoiceId, dto, tenantId, userId) {
+        const { order, invoice, customer } = await this.loadSendableContext(salesOrderId, invoiceId, tenantId, true);
+        const dest = this.whatsappDestination(dto, customer);
+        await this.electronicInvoiceService.getPdfDownload(invoice.id, tenantId);
+        const fresh = await this.electronicInvoiceService.findOne(invoice.id, tenantId);
+        const pdf = await this.pdfService.getPdfBuffer(fresh);
+        const values = this.buildValues(order, fresh, customer, null);
+        const caption = [
+            `Factura ${values.invoice_folio}`,
+            `Orden ${values.order_folio}`,
+            `Cliente ${values.customer_company}`,
+            `Total ${values.total}`,
+            `UUID ${values.uuid}`,
+        ].join('\n');
+        const reference = { reference_type: 'sales_order_invoice', reference_id: fresh.id };
+        const first = await this.whatsapp.sendBuffer(tenantId, userId, {
+            ...dest,
+            data: pdf.buffer,
+            file_name: pdf.fileName,
+            mimetype: 'application/pdf',
+            caption,
+            ...reference,
+        });
+        let xmlSent = false;
+        if (fresh.xml_stamped) {
+            await this.whatsapp.sendBuffer(tenantId, userId, {
+                ...dest,
+                data: Buffer.from(fresh.xml_stamped, 'utf8'),
+                file_name: `${fresh.uuid ?? fresh.folio ?? fresh.id}.xml`,
+                mimetype: 'application/xml',
+                caption: `XML ${values.invoice_folio}`,
+                ...reference,
+            });
+            xmlSent = true;
+        }
+        return {
+            sent_to: first.to_phone,
+            pdf_sent: true,
+            xml_sent: xmlSent,
+        };
     }
     async list(salesOrderId, tenantId) {
         await this.getSalesOrderOrFail(salesOrderId, tenantId);
@@ -277,6 +335,31 @@ let SalesOrderInvoiceEmailService = class SalesOrderInvoiceEmailService {
                 }
                 : null,
         };
+    }
+    whatsappDestination(dto, customer) {
+        if (dto.group_id?.trim())
+            return { group_id: dto.group_id.trim() };
+        const phone = (dto.phone || this.customerWhatsappPhone(customer)).trim();
+        if (!phone) {
+            throw new common_1.BadRequestException('Indica un teléfono o un grupo. El cliente no tiene uno registrado.');
+        }
+        return { phone };
+    }
+    customerWhatsappPhone(customer) {
+        if (!customer)
+            return '';
+        const candidates = [
+            [customer.phone, customer.phone_code],
+            [customer.additional_phone, customer.additional_phone_code],
+        ];
+        for (const [phone, code] of candidates) {
+            const digits = String(phone ?? '').replace(/\D/g, '');
+            if (!digits)
+                continue;
+            const codeDigits = String(code ?? '').replace(/\D/g, '');
+            return digits.length <= 10 && codeDigits ? `${codeDigits}${digits}` : digits;
+        }
+        return '';
     }
     resolveCustomerEmail(customer) {
         return customer?.email?.trim() || customer?.additional_email?.trim() || '';
@@ -424,6 +507,7 @@ exports.SalesOrderInvoiceEmailService = SalesOrderInvoiceEmailService = __decora
         typeorm_2.Repository,
         electronic_invoice_service_1.ElectronicInvoiceService,
         electronic_invoice_pdf_service_1.ElectronicInvoicePdfService,
-        mailer_configuration_service_1.MailerConfigurationService])
+        mailer_configuration_service_1.MailerConfigurationService,
+        whatsapp_message_service_1.WhatsappMessageService])
 ], SalesOrderInvoiceEmailService);
 //# sourceMappingURL=sales-order-invoice-email.service.js.map

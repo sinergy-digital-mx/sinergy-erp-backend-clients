@@ -15,4 +15,5 @@ export { StampSalesOrderInvoiceDto } from './stamp-sales-order-invoice.dto';
 export { StampSalesOrderCreditNoteDto } from './stamp-sales-order-credit-note.dto';
 export { StampPaymentComplementDto } from './stamp-payment-complement.dto';
 export { SendSalesOrderInvoiceEmailDto } from './send-sales-order-invoice-email.dto';
+export { SendSalesOrderInvoiceWhatsappDto } from './send-sales-order-invoice-whatsapp.dto';
 export { UpdateInvoiceEmailTemplateDto } from './update-invoice-email-template.dto';

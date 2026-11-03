@@ -6,7 +6,9 @@ import { SalesOrder } from '../../../entities/sales-orders/sales-order.entity';
 import { MailerConfigurationService } from '../../mailer-configuration/services/mailer-configuration.service';
 import { ElectronicInvoicePdfService } from '../../electronic-invoicing/services/electronic-invoice-pdf.service';
 import { ElectronicInvoiceService } from '../../electronic-invoicing/services/electronic-invoice.service';
+import { WhatsappMessageService } from '../../whatsapp/services/whatsapp-message.service';
 import { SendSalesOrderInvoiceEmailDto } from '../dto/send-sales-order-invoice-email.dto';
+import { SendSalesOrderInvoiceWhatsappDto } from '../dto/send-sales-order-invoice-whatsapp.dto';
 import { UpdateInvoiceEmailTemplateDto } from '../dto/update-invoice-email-template.dto';
 export declare class SalesOrderInvoiceEmailService {
     private readonly salesOrderRepo;
@@ -16,7 +18,8 @@ export declare class SalesOrderInvoiceEmailService {
     private readonly electronicInvoiceService;
     private readonly pdfService;
     private readonly mailerConfigurationService;
-    constructor(salesOrderRepo: Repository<SalesOrder>, customerRepo: Repository<Customer>, templateRepo: Repository<SalesOrderInvoiceEmailTemplate>, emailRepo: Repository<SalesOrderInvoiceEmail>, electronicInvoiceService: ElectronicInvoiceService, pdfService: ElectronicInvoicePdfService, mailerConfigurationService: MailerConfigurationService);
+    private readonly whatsapp;
+    constructor(salesOrderRepo: Repository<SalesOrder>, customerRepo: Repository<Customer>, templateRepo: Repository<SalesOrderInvoiceEmailTemplate>, emailRepo: Repository<SalesOrderInvoiceEmail>, electronicInvoiceService: ElectronicInvoiceService, pdfService: ElectronicInvoicePdfService, mailerConfigurationService: MailerConfigurationService, whatsapp: WhatsappMessageService);
     getTemplate(tenantId: string): Promise<{
         id: string;
         subject: string;
@@ -167,6 +170,23 @@ export declare class SalesOrderInvoiceEmailService {
             display_name: string | null;
         } | null;
     }>;
+    getWhatsappCompose(salesOrderId: string, invoiceId: string, tenantId: string): Promise<{
+        phone: string;
+        customer_name: string;
+        customer_company: string;
+        invoice_folio: string;
+        attachments: {
+            kind: "pdf" | "xml";
+            fileName: string;
+        }[];
+        can_send: boolean;
+        block_reason: string | null;
+    }>;
+    sendWhatsapp(salesOrderId: string, invoiceId: string, dto: SendSalesOrderInvoiceWhatsappDto, tenantId: string, userId: string): Promise<{
+        sent_to: string;
+        pdf_sent: boolean;
+        xml_sent: boolean;
+    }>;
     list(salesOrderId: string, tenantId: string): Promise<{
         id: string;
         invoice_id: string;
@@ -189,6 +209,8 @@ export declare class SalesOrderInvoiceEmailService {
     private sampleValues;
     private mapTemplate;
     private mapEmailRow;
+    private whatsappDestination;
+    private customerWhatsappPhone;
     private resolveCustomerEmail;
     private secondaryCustomerEmail;
     private normalizeCc;

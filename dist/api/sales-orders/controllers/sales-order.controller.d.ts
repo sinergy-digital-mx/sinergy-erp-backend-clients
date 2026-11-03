@@ -13,7 +13,7 @@ import { StampPaymentComplementDto } from '../dto/stamp-payment-complement.dto';
 import { ApplyAdvanceInvoiceDto } from '../../electronic-invoicing/dto/apply-advance-invoice.dto';
 import { InventoryService } from '../../inventory/inventory.service';
 import { SalesOrderProductsPickerService } from '../services/sales-order-products-picker.service';
-import { CreateSalesOrderDto, CreateSalesOrderLineItemDto, CloneSalesOrderDto, UpdateSalesOrderLineItemDto, QuerySalesOrderDto, QuerySalesOrderProductsSummaryDto, FulfillSalesOrderDto, RegenerateDocumentDto, UpdateSalesOrderNotesDto, UpdateSalesOrderForShippingDto, QuerySalesOrderHeaderExportDto, QuerySalesOrderDetailExportDto, CreateSalesOrderPaymentDto, UpdateSalesOrderSellerDto, UpdateSalesOrderAssignedSellerDto, SendSalesOrderInvoiceEmailDto, UpdateInvoiceEmailTemplateDto } from '../dto';
+import { CreateSalesOrderDto, CreateSalesOrderLineItemDto, CloneSalesOrderDto, UpdateSalesOrderLineItemDto, QuerySalesOrderDto, QuerySalesOrderProductsSummaryDto, FulfillSalesOrderDto, RegenerateDocumentDto, UpdateSalesOrderNotesDto, UpdateSalesOrderForShippingDto, QuerySalesOrderHeaderExportDto, QuerySalesOrderDetailExportDto, CreateSalesOrderPaymentDto, UpdateSalesOrderSellerDto, UpdateSalesOrderAssignedSellerDto, SendSalesOrderInvoiceEmailDto, SendSalesOrderInvoiceWhatsappDto, UpdateInvoiceEmailTemplateDto } from '../dto';
 export declare class SalesOrderController {
     private readonly salesOrderService;
     private readonly documentsService;
@@ -2704,6 +2704,23 @@ export declare class SalesOrderController {
             last_name: string;
             display_name: string | null;
         } | null;
+    }>;
+    getInvoiceWhatsappCompose(id: string, invoiceId: string, req: any): Promise<{
+        phone: string;
+        customer_name: string;
+        customer_company: string;
+        invoice_folio: string;
+        attachments: {
+            kind: "pdf" | "xml";
+            fileName: string;
+        }[];
+        can_send: boolean;
+        block_reason: string | null;
+    }>;
+    sendInvoiceWhatsapp(id: string, invoiceId: string, dto: SendSalesOrderInvoiceWhatsappDto, req: any): Promise<{
+        sent_to: string;
+        pdf_sent: boolean;
+        xml_sent: boolean;
     }>;
     listInvoiceEmails(id: string, req: any): Promise<{
         id: string;

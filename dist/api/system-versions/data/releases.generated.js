@@ -497,6 +497,24 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-03T04:00:50.435Z"
+    },
+    {
+        "releaseKey": "full:0.0.91:0.0.91-1793681139766",
+        "version": "0.0.91",
+        "buildId": "0.0.91-1793681139766",
+        "channel": "full",
+        "title": "Versión 0.0.91",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "Cambios en ventas"
+            },
+            {
+                "scope": "frontend",
+                "message": "Cambios en WhatsApp"
+            }
+        ],
+        "releasedAt": "2026-11-03T04:45:39.766Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UpdateInvoiceEmailTemplateDto = exports.SendSalesOrderInvoiceEmailDto = exports.StampPaymentComplementDto = exports.StampSalesOrderCreditNoteDto = exports.StampSalesOrderInvoiceDto = exports.UpdateSalesOrderAssignedSellerDto = exports.UpdateSalesOrderSellerDto = exports.CreateSalesOrderPaymentDto = exports.QuerySalesOrderDetailExportDto = exports.QuerySalesOrderHeaderExportDto = exports.UpdateSalesOrderForShippingDto = exports.UpdateSalesOrderNotesDto = exports.RegenerateDocumentDto = exports.FulfillSalesOrderDto = exports.QuerySalesOrderProductsSummaryDto = exports.QuerySalesOrderDto = exports.UpdateSalesOrderLineItemDto = exports.CloneSalesOrderLineDto = exports.CloneSalesOrderDto = exports.CreateSalesOrderLineItemDto = exports.CreateSalesOrderDto = void 0;
+exports.UpdateInvoiceEmailTemplateDto = exports.SendSalesOrderInvoiceWhatsappDto = exports.SendSalesOrderInvoiceEmailDto = exports.StampPaymentComplementDto = exports.StampSalesOrderCreditNoteDto = exports.StampSalesOrderInvoiceDto = exports.UpdateSalesOrderAssignedSellerDto = exports.UpdateSalesOrderSellerDto = exports.CreateSalesOrderPaymentDto = exports.QuerySalesOrderDetailExportDto = exports.QuerySalesOrderHeaderExportDto = exports.UpdateSalesOrderForShippingDto = exports.UpdateSalesOrderNotesDto = exports.RegenerateDocumentDto = exports.FulfillSalesOrderDto = exports.QuerySalesOrderProductsSummaryDto = exports.QuerySalesOrderDto = exports.UpdateSalesOrderLineItemDto = exports.CloneSalesOrderLineDto = exports.CloneSalesOrderDto = exports.CreateSalesOrderLineItemDto = exports.CreateSalesOrderDto = void 0;
 var create_sales_order_dto_1 = require("./create-sales-order.dto");
 Object.defineProperty(exports, "CreateSalesOrderDto", { enumerable: true, get: function () { return create_sales_order_dto_1.CreateSalesOrderDto; } });
 Object.defineProperty(exports, "CreateSalesOrderLineItemDto", { enumerable: true, get: function () { return create_sales_order_dto_1.CreateSalesOrderLineItemDto; } });
@@ -38,6 +38,8 @@ var stamp_payment_complement_dto_1 = require("./stamp-payment-complement.dto");
 Object.defineProperty(exports, "StampPaymentComplementDto", { enumerable: true, get: function () { return stamp_payment_complement_dto_1.StampPaymentComplementDto; } });
 var send_sales_order_invoice_email_dto_1 = require("./send-sales-order-invoice-email.dto");
 Object.defineProperty(exports, "SendSalesOrderInvoiceEmailDto", { enumerable: true, get: function () { return send_sales_order_invoice_email_dto_1.SendSalesOrderInvoiceEmailDto; } });
+var send_sales_order_invoice_whatsapp_dto_1 = require("./send-sales-order-invoice-whatsapp.dto");
+Object.defineProperty(exports, "SendSalesOrderInvoiceWhatsappDto", { enumerable: true, get: function () { return send_sales_order_invoice_whatsapp_dto_1.SendSalesOrderInvoiceWhatsappDto; } });
 var update_invoice_email_template_dto_1 = require("./update-invoice-email-template.dto");
 Object.defineProperty(exports, "UpdateInvoiceEmailTemplateDto", { enumerable: true, get: function () { return update_invoice_email_template_dto_1.UpdateInvoiceEmailTemplateDto; } });
 //# sourceMappingURL=index.js.map

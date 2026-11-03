@@ -10,6 +10,10 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.91 · 2026-11-02
+
+- aplicación y servidor · En la factura de la orden se puede enviar por WhatsApp a un teléfono o a un grupo, con el PDF y el XML.
+
 ### Versión 0.0.90 · 2026-11-02
 
 - servidor · Clonar una orden de venta ya no se bloquea si el comisionado no tiene código POS; se copia igual que en la orden original.

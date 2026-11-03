@@ -296,6 +296,15 @@
       "status": "shipped",
       "version": "0.0.90",
       "shippedAt": "2026-11-02T20:01:55-08:00"
+    },
+    {
+      "id": "20261102-202002",
+      "at": "2026-11-02T20:20:02-08:00",
+      "scope": "both",
+      "message": "En la factura de la orden se puede enviar por WhatsApp a un teléfono o a un grupo, con el PDF y el XML.",
+      "status": "shipped",
+      "version": "0.0.91",
+      "shippedAt": "2026-11-02T20:46:49-08:00"
     }
   ]
 }

@@ -181,6 +181,12 @@ let SalesOrderController = class SalesOrderController {
     async sendInvoiceEmail(id, invoiceId, dto, req) {
         return this.invoiceEmailService.send(id, invoiceId, dto, req.user.tenant_id, req.user.id);
     }
+    async getInvoiceWhatsappCompose(id, invoiceId, req) {
+        return this.invoiceEmailService.getWhatsappCompose(id, invoiceId, req.user.tenant_id);
+    }
+    async sendInvoiceWhatsapp(id, invoiceId, dto, req) {
+        return this.invoiceEmailService.sendWhatsapp(id, invoiceId, dto, req.user.tenant_id, req.user.id);
+    }
     async listInvoiceEmails(id, req) {
         return this.invoiceEmailService.list(id, req.user.tenant_id);
     }
@@ -726,6 +732,28 @@ __decorate([
     __metadata("design:paramtypes", [String, String, dto_1.SendSalesOrderInvoiceEmailDto, Object]),
     __metadata("design:returntype", Promise)
 ], SalesOrderController.prototype, "sendInvoiceEmail", null);
+__decorate([
+    (0, common_1.Get)(':id/invoices/:invoiceId/whatsapp-compose'),
+    (0, swagger_1.ApiOperation)({ summary: 'Preparar envío por WhatsApp de una factura de la orden' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Param)('invoiceId')),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object]),
+    __metadata("design:returntype", Promise)
+], SalesOrderController.prototype, "getInvoiceWhatsappCompose", null);
+__decorate([
+    (0, common_1.Post)(':id/invoices/:invoiceId/send-whatsapp'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({ summary: 'Enviar factura por WhatsApp (PDF y XML) a un teléfono o grupo' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Param)('invoiceId')),
+    __param(2, (0, common_1.Body)()),
+    __param(3, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, dto_1.SendSalesOrderInvoiceWhatsappDto, Object]),
+    __metadata("design:returntype", Promise)
+], SalesOrderController.prototype, "sendInvoiceWhatsapp", null);
 __decorate([
     (0, common_1.Get)(':id/invoice-emails'),
     (0, swagger_1.ApiOperation)({ summary: 'Historial de correos de facturas de la orden' }),
