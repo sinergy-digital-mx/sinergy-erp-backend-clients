@@ -223,6 +223,9 @@ class InventoryTransferResponseDto {
     shipping_id;
     shipping_status;
     shipping_date;
+    shipping_driver_name;
+    shipping_truck_name;
+    shipping_transfer_count;
     created_by_user;
     created_at;
     lines;
@@ -304,6 +307,18 @@ __decorate([
     (0, swagger_1.ApiProperty)({ nullable: true }),
     __metadata("design:type", Object)
 ], InventoryTransferResponseDto.prototype, "shipping_date", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ nullable: true }),
+    __metadata("design:type", Object)
+], InventoryTransferResponseDto.prototype, "shipping_driver_name", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ nullable: true }),
+    __metadata("design:type", Object)
+], InventoryTransferResponseDto.prototype, "shipping_truck_name", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ nullable: true, description: 'Cuántas transferencias lleva el envío activo' }),
+    __metadata("design:type", Object)
+], InventoryTransferResponseDto.prototype, "shipping_transfer_count", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ type: InventoryTransferUserSummaryDto }),
     __metadata("design:type", InventoryTransferUserSummaryDto)

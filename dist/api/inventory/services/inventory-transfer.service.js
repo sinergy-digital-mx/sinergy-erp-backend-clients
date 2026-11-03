@@ -690,6 +690,9 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
             shipping_id: this.activeShipping(transfer)?.id ?? null,
             shipping_status: this.activeShipping(transfer)?.status ?? null,
             shipping_date: this.shippingDate(this.activeShipping(transfer)),
+            shipping_driver_name: this.shippingDriverName(this.activeShipping(transfer)),
+            shipping_truck_name: this.activeShipping(transfer)?.truck?.name ?? null,
+            shipping_transfer_count: this.shippingTransferCount(this.activeShipping(transfer)),
             created_by_user: {
                 id: transfer.created_by,
                 name: [transfer.created_by_user?.first_name, transfer.created_by_user?.last_name]
@@ -782,8 +785,35 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
             return;
         const links = await this.shippingLinkRepo.find({
             where: { inventory_transfer_id: (0, typeorm_2.In)(transfers.map((transfer) => transfer.id)) },
-            relations: ['shipping'],
+            relations: ['shipping', 'shipping.driver', 'shipping.truck'],
         });
+        const activeShippingIds = [
+            ...new Set(links
+                .filter((link) => link.shipping && link.shipping.status !== 'Cancelado')
+                .map((link) => link.shipping_id)),
+        ];
+        const counts = new Map();
+        if (activeShippingIds.length) {
+            const rows = await this.shippingLinkRepo
+                .createQueryBuilder('link')
+                .select('link.shipping_id', 'shipping_id')
+                .addSelect('COUNT(link.id)', 'total')
+                .where('link.shipping_id IN (:...ids)', { ids: activeShippingIds })
+                .groupBy('link.shipping_id')
+                .getRawMany();
+            for (const row of rows) {
+                const shippingId = row.shipping_id;
+                if (!shippingId)
+                    continue;
+                counts.set(shippingId, Number(row.total) || 0);
+            }
+        }
+        for (const link of links) {
+            if (!link.shipping)
+                continue;
+            link.shipping.transfer_count =
+                counts.get(link.shipping_id) ?? 0;
+        }
         const byTransfer = new Map();
         for (const link of links) {
             const list = byTransfer.get(link.inventory_transfer_id) ?? [];
@@ -793,6 +823,19 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
         for (const transfer of transfers) {
             transfer.shipping_links = byTransfer.get(transfer.id) ?? [];
         }
+    }
+    shippingDriverName(shipping) {
+        const driver = shipping?.driver;
+        if (!driver)
+            return null;
+        const name = [driver.first_name, driver.last_name].filter(Boolean).join(' ').trim();
+        return name || driver.email || null;
+    }
+    shippingTransferCount(shipping) {
+        if (!shipping)
+            return null;
+        const count = shipping.transfer_count;
+        return count == null ? null : count;
     }
     activeShipping(transfer) {
         const link = (transfer.shipping_links ?? []).find((item) => item.shipping && item.shipping.status !== 'Cancelado');

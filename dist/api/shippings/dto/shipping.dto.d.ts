@@ -19,6 +19,9 @@ export declare class PreviewShippingDto {
 export declare class AddShippingStopsDto {
     orders: ShippingOrderItemDto[];
 }
+export declare class AddShippingTransfersDto {
+    inventory_transfer_ids: string[];
+}
 export declare class UpdateShippingStatusDto {
     status: string;
 }

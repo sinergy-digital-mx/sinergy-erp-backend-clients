@@ -27,6 +27,8 @@ const customer_address_entity_1 = require("../../entities/customers/customer-add
 const carta_porte_util_1 = require("./utils/carta-porte.util");
 const shipping_cargo_util_1 = require("./utils/shipping-cargo.util");
 const inventory_transfer_service_1 = require("../inventory/services/inventory-transfer.service");
+const inventory_transfer_entity_1 = require("../../entities/inventory/inventory-transfer.entity");
+const shipping_inventory_transfer_entity_1 = require("../../entities/logistics/shipping-inventory-transfer.entity");
 const geo_helper_1 = require("../../common/utils/geo.helper");
 const ELIGIBLE_SHIPPING_STATUSES = ['Surtida', 'Lista para entrega'];
 const ALLOWED_TRANSITIONS = {
@@ -431,6 +433,103 @@ let ShippingsService = class ShippingsService {
                 distance_km: distances.totalKm,
                 cargo_kind: (0, shipping_cargo_util_1.resolveCargoKind)(mergedResolved.length, transferCount),
             });
+            await qr.commitTransaction();
+            return this.findOne(id, tenantId);
+        }
+        catch (err) {
+            await qr.rollbackTransaction();
+            throw err;
+        }
+        finally {
+            await qr.release();
+        }
+    }
+    async addTransfers(id, dto, tenantId) {
+        const shipping = await this.findOne(id, tenantId);
+        if (shipping.status !== 'Creado') {
+            throw new common_1.BadRequestException('Solo se pueden agregar transferencias a un envío en estado Creado');
+        }
+        if (shipping.carta_porte_uuid && shipping.carta_porte_environment !== 'demo') {
+            throw new common_1.BadRequestException('Este envío ya tiene carta porte. No se pueden agregar transferencias.');
+        }
+        const origin = await this.getRouteOriginFromShipping(shipping, tenantId);
+        if (!origin.billing_branch_id) {
+            throw new common_1.BadRequestException('El envío no tiene sucursal de origen');
+        }
+        const requested = [...new Set(dto.inventory_transfer_ids)];
+        const already = new Set((shipping.transfer_links ?? []).map((link) => link.inventory_transfer_id));
+        const freshIds = requested.filter((transferId) => !already.has(transferId));
+        if (!freshIds.length) {
+            throw new common_1.BadRequestException('Esas transferencias ya están en este envío');
+        }
+        await this.transfers.findPendingForShipping(tenantId, freshIds, origin.billing_branch_id);
+        const existingStops = [...(shipping.stops || [])].sort((a, b) => a.stop_sequence - b.stop_sequence);
+        const resolvedStops = existingStops
+            .filter((stop) => !!stop.sales_order)
+            .map((stop) => ({
+            sales_order: stop.sales_order,
+            stop_sequence: stop.stop_sequence,
+            customer_address_id: stop.customer_address_id,
+            location_status: stop.location_status,
+            delivery_latitude: stop.delivery_latitude
+                ? Number(stop.delivery_latitude)
+                : null,
+            delivery_longitude: stop.delivery_longitude
+                ? Number(stop.delivery_longitude)
+                : null,
+            address_summary: null,
+            customer_name: null,
+            customer_id: stop.sales_order?.customer_id ?? null,
+            address_type: null,
+            customer_addresses: [],
+        }));
+        const distances = this.buildStopDistances(origin, resolvedStops);
+        const qr = this.dataSource.createQueryRunner();
+        await qr.connect();
+        await qr.startTransaction();
+        try {
+            const locked = await qr.manager
+                .createQueryBuilder(shipping_entity_1.Shipping, 'shipping')
+                .setLock('pessimistic_write')
+                .where('shipping.id = :id', { id: shipping.id })
+                .andWhere('shipping.tenant_id = :tenantId', { tenantId })
+                .getOne();
+            if (!locked || locked.status !== 'Creado') {
+                throw new common_1.BadRequestException('Solo se pueden agregar transferencias a un envío en estado Creado');
+            }
+            if (locked.carta_porte_uuid && locked.carta_porte_environment !== 'demo') {
+                throw new common_1.BadRequestException('Este envío ya tiene carta porte. No se pueden agregar transferencias.');
+            }
+            await this.transfers.attachToShipping(qr.manager, tenantId, shipping.id, freshIds, origin.billing_branch_id);
+            const links = await qr.manager.find(shipping_inventory_transfer_entity_1.ShippingInventoryTransfer, {
+                where: { shipping_id: shipping.id, tenant_id: tenantId },
+            });
+            const allTransfers = links.length
+                ? await qr.manager.find(inventory_transfer_entity_1.InventoryTransfer, {
+                    where: {
+                        id: (0, typeorm_2.In)(links.map((link) => link.inventory_transfer_id)),
+                        tenant_id: tenantId,
+                    },
+                    relations: [
+                        'destination_warehouse',
+                        'destination_warehouse.billing_branch',
+                    ],
+                })
+                : [];
+            const patch = {
+                distance_km: this.distanceWithTransfers(origin, resolvedStops, allTransfers, distances.totalKm),
+                cargo_kind: (0, shipping_cargo_util_1.resolveCargoKind)(existingStops.length, allTransfers.length),
+            };
+            if (locked.carta_porte_environment === 'demo' && locked.carta_porte_uuid) {
+                patch.carta_porte_uuid = null;
+                patch.carta_porte_idccp = null;
+                patch.carta_porte_xml = null;
+                patch.carta_porte_stamped_at = null;
+                patch.carta_porte_error = null;
+                patch.carta_porte_peso_kg = null;
+                patch.carta_porte_environment = null;
+            }
+            await qr.manager.update(shipping_entity_1.Shipping, { id: shipping.id, tenant_id: tenantId }, patch);
             await qr.commitTransaction();
             return this.findOne(id, tenantId);
         }

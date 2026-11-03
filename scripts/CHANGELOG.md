@@ -10,6 +10,11 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.94 · 2026-11-03
+
+- servidor · El reporte de flujo de deuda, la antigüedad y su Excel muestran solo órdenes a crédito.
+- aplicación y servidor · Un envío puede llevar varias transferencias: desde el detalle se crea el envío o se agrega a uno existente, y en el viaje se pueden sumar más.
+
 ### Versión 0.0.93 · 2026-11-03
 
 - aplicación y servidor · En Cobranza POS, junto a Todas, Público en General y Facturadas, los filtros de forma de pago llevan ícono y se puede filtrar Crédito; las columnas también filtran e incluyen Crédito.

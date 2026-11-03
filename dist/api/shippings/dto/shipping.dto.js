@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.StampCartaPorteDto = exports.UpdateShippingCrewDto = exports.QueryAvailableShippingOrdersDto = exports.QueryShippingDto = exports.ResolveOrdersDto = exports.SetShippingStopAddressDto = exports.UpdateShippingStatusDto = exports.AddShippingStopsDto = exports.PreviewShippingDto = exports.CreateShippingDto = exports.ShippingOrderItemDto = void 0;
+exports.StampCartaPorteDto = exports.UpdateShippingCrewDto = exports.QueryAvailableShippingOrdersDto = exports.QueryShippingDto = exports.ResolveOrdersDto = exports.SetShippingStopAddressDto = exports.UpdateShippingStatusDto = exports.AddShippingTransfersDto = exports.AddShippingStopsDto = exports.PreviewShippingDto = exports.CreateShippingDto = exports.ShippingOrderItemDto = void 0;
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
 class ShippingOrderItemDto {
@@ -103,6 +103,16 @@ __decorate([
     (0, class_transformer_1.Type)(() => ShippingOrderItemDto),
     __metadata("design:type", Array)
 ], AddShippingStopsDto.prototype, "orders", void 0);
+class AddShippingTransfersDto {
+    inventory_transfer_ids;
+}
+exports.AddShippingTransfersDto = AddShippingTransfersDto;
+__decorate([
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ArrayMinSize)(1),
+    (0, class_validator_1.IsUUID)('4', { each: true }),
+    __metadata("design:type", Array)
+], AddShippingTransfersDto.prototype, "inventory_transfer_ids", void 0);
 class UpdateShippingStatusDto {
     status;
 }

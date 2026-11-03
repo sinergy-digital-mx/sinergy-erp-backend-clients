@@ -303,8 +303,10 @@ let CustomerDebtFlowService = class CustomerDebtFlowService {
             ORDER BY l.occurred_at DESC, l.created_at DESC, l.id DESC
           ) AS rn
         FROM acc_customer_debt_ledger l
-        LEFT JOIN inv_s_sales_orders so
-          ON so.id = l.sales_order_id AND so.tenant_id = l.tenant_id
+        INNER JOIN inv_s_sales_orders so
+          ON so.id = l.sales_order_id
+         AND so.tenant_id = l.tenant_id
+         AND so.is_credit = 1
         WHERE ${where}
       ) ranked
       WHERE ranked.rn = 1
@@ -320,8 +322,10 @@ let CustomerDebtFlowService = class CustomerDebtFlowService {
         l.order_balance_after, l.occurred_at, l.due_date, l.payment_method, l.reference_number,
         COALESCE(NULLIF(so.currency, ''), 'MXN') AS currency
       FROM acc_customer_debt_ledger l
-      LEFT JOIN inv_s_sales_orders so
-        ON so.id = l.sales_order_id AND so.tenant_id = l.tenant_id
+      INNER JOIN inv_s_sales_orders so
+        ON so.id = l.sales_order_id
+       AND so.tenant_id = l.tenant_id
+       AND so.is_credit = 1
       WHERE ${where}
       ORDER BY l.occurred_at ASC, l.created_at ASC, l.id ASC
       `, params);

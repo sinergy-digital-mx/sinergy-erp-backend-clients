@@ -286,7 +286,7 @@ __decorate([
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Antigüedad de saldos o flujo de deuda del cliente',
-        description: 'view=aging corta los saldos abiertos al fin del periodo. view=ledger lista cargos, abonos y el saldo de cada OV. El histórico queda congelado al capturarse.',
+        description: 'Solo órdenes a crédito. view=aging corta los saldos abiertos al fin del periodo. view=ledger lista cargos, abonos y el saldo de cada OV. El histórico queda congelado al capturarse.',
     }),
     __param(0, (0, common_1.Query)()),
     __param(1, (0, common_1.Req)()),

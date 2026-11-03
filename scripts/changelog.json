@@ -323,6 +323,24 @@
       "status": "shipped",
       "version": "0.0.93",
       "shippedAt": "2026-11-03T08:29:34-08:00"
+    },
+    {
+      "id": "20261103-083118",
+      "at": "2026-11-03T08:31:18-08:00",
+      "scope": "backend",
+      "message": "El reporte de flujo de deuda, la antigüedad y su Excel muestran solo órdenes a crédito.",
+      "status": "shipped",
+      "version": "0.0.94",
+      "shippedAt": "2026-11-03T09:22:03-08:00"
+    },
+    {
+      "id": "20261103-085505",
+      "at": "2026-11-03T08:55:05-08:00",
+      "scope": "both",
+      "message": "Un envío puede llevar varias transferencias: desde el detalle se crea el envío o se agrega a uno existente, y en el viaje se pueden sumar más.",
+      "status": "shipped",
+      "version": "0.0.94",
+      "shippedAt": "2026-11-03T09:22:03-08:00"
     }
   ]
 }

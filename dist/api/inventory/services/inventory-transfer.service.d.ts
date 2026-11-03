@@ -40,6 +40,8 @@ export declare class InventoryTransferService {
     private mapLine;
     private buildProductSummaries;
     private attachShippingSummaries;
+    private shippingDriverName;
+    private shippingTransferCount;
     private activeShipping;
     private shippingDate;
     private assertTransferFiscalScope;

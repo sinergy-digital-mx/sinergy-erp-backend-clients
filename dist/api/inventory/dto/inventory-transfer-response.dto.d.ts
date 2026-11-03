@@ -62,6 +62,9 @@ export declare class InventoryTransferResponseDto {
     shipping_id: string | null;
     shipping_status: string | null;
     shipping_date: string | null;
+    shipping_driver_name: string | null;
+    shipping_truck_name: string | null;
+    shipping_transfer_count: number | null;
     created_by_user: InventoryTransferUserSummaryDto;
     created_at: Date;
     lines: InventoryTransferLineResponseDto[];

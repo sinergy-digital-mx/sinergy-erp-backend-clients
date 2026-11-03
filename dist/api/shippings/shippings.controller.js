@@ -65,6 +65,9 @@ let ShippingsController = class ShippingsController {
     addStops(id, dto, req) {
         return this.service.addStops(id, dto, req.user.tenant_id);
     }
+    addTransfers(id, dto, req) {
+        return this.service.addTransfers(id, dto, req.user.tenant_id);
+    }
     recalculate(id, req) {
         return this.service.recalculateDistance(id, req.user.tenant_id);
     }
@@ -189,6 +192,20 @@ __decorate([
     __metadata("design:paramtypes", [String, shipping_dto_1.AddShippingStopsDto, Object]),
     __metadata("design:returntype", void 0)
 ], ShippingsController.prototype, "addStops", null);
+__decorate([
+    (0, common_1.Post)(':id/transfers'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Shipping', action: 'Create' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Agregar transferencias de inventario a un envío creado',
+        description: 'El envío puede llevar varias transferencias de la misma sucursal de origen. Pasan a in_transit.',
+    }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, shipping_dto_1.AddShippingTransfersDto, Object]),
+    __metadata("design:returntype", void 0)
+], ShippingsController.prototype, "addTransfers", null);
 __decorate([
     (0, common_1.Post)(':id/recalculate-distance'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Shipping', action: 'Update' }),
