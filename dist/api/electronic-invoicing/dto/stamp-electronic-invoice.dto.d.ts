@@ -1,6 +1,6 @@
 export declare class StampElectronicInvoiceDto {
     fiscal_configuration_id: string;
-    source_module: 'sales_orders' | 'quotations';
+    source_module: 'sales_orders' | 'quotations' | 'global_invoices';
     source_id: string;
     xml: string;
     rfc_receptor: string;

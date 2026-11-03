@@ -7,6 +7,7 @@ export interface SelfInvoiceCfdiLine {
     iepsPercentage: number;
     satClave?: string | null;
     uomName?: string | null;
+    identifier?: string | null;
 }
 export interface SelfInvoiceCfdiInput {
     serie?: string | null;
@@ -17,6 +18,13 @@ export interface SelfInvoiceCfdiInput {
     lugarExpedicion: string;
     subtotalBeforeDiscount?: number;
     globalDiscountAmount?: number;
+    currency?: string | null;
+    exchangeRate?: number | null;
+    informacionGlobal?: {
+        periodicidad: string;
+        meses: string;
+        anio: string;
+    } | null;
     emisor: {
         rfc: string;
         nombre: string;

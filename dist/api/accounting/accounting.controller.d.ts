@@ -4,11 +4,14 @@ import { CustomerDebtFlowService } from './services/customer-debt-flow.service';
 import { QueryDebtFlowDto } from './dto/query-debt-flow.dto';
 import { QueryAccountingBaseDto, QueryAccountsPayableDto, QueryAccountsReceivableDto, QueryPosCollectionsDto, QueryPosTerminalSalesDto } from './dto/query-accounting-base.dto';
 import { QueryAverageCostReportDto } from './dto/query-average-cost-report.dto';
+import { CreateGlobalInvoiceDto, QueryGlobalInvoiceDto } from './dto/query-global-invoice.dto';
+import { GlobalInvoiceService } from './services/global-invoice.service';
 export declare class AccountingController {
     private readonly accountingService;
     private readonly debtFlowService;
     private readonly averageCostReportService;
-    constructor(accountingService: AccountingService, debtFlowService: CustomerDebtFlowService, averageCostReportService: AverageCostReportService);
+    private readonly globalInvoiceService;
+    constructor(accountingService: AccountingService, debtFlowService: CustomerDebtFlowService, averageCostReportService: AverageCostReportService, globalInvoiceService: GlobalInvoiceService);
     getPosSummary(query: QueryAccountingBaseDto, req: any): Promise<{
         filters_applied: {
             billing_branch_id: string;
@@ -415,4 +418,7 @@ export declare class AccountingController {
     exportAverageCostReportExcel(query: QueryAverageCostReportDto, req: any, res: any): Promise<void>;
     getDebtFlow(query: QueryDebtFlowDto, req: any): Promise<import("./services/customer-debt-flow.service").DebtFlowResponse>;
     exportDebtFlowExcel(query: QueryDebtFlowDto, req: any, res: any): Promise<void>;
+    getGlobalInvoices(query: QueryGlobalInvoiceDto, req: any): Promise<import("./services/global-invoice.service").GlobalInvoicePage>;
+    createGlobalInvoice(dto: CreateGlobalInvoiceDto, req: any): Promise<import("./services/global-invoice.service").GlobalInvoicePage>;
+    cancelGlobalInvoice(id: string, req: any): Promise<import("./services/global-invoice.service").GlobalInvoicePage>;
 }

@@ -1,4 +1,5 @@
 import { InventoryBatchMovementDto } from './inventory-batch-movement.dto';
+import { InventoryMarginExplanationDto } from './inventory-margin.dto';
 export declare class BatchTransferHistoryItemDto {
     transfer_id: string;
     transfer_folio: string;
@@ -83,4 +84,5 @@ export declare class BatchDetailResponseDto {
     can_edit_tag: boolean;
     can_edit_measure: boolean;
     can_transfer: boolean;
+    margin_detail: InventoryMarginExplanationDto;
 }

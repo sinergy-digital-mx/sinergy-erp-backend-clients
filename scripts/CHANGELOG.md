@@ -10,6 +10,11 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.95 · 2026-11-03
+
+- aplicación y servidor · En inventario totalizado el margen muestra precio y costo: cada lote usa su compra o, si no tiene, el costo configurado, y el producto es el promedio de esos lotes. El detalle del lote y el producto explican de donde sale.
+- aplicación y servidor · En Cobranza se agregó la pestaña Facturas globales: por mes y razón social lista las órdenes de clientes sin facturar, con folio, fecha, totales y forma de pago, y timbra una sola factura; se puede consultar y cancelar.
+
 ### Versión 0.0.94 · 2026-11-03
 
 - servidor · El reporte de flujo de deuda, la antigüedad y su Excel muestran solo órdenes a crédito.

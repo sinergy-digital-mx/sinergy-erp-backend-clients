@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BatchDetailResponseDto = exports.MovementSummaryDto = exports.BatchAuditHistoryItemDto = exports.BatchTransferHistoryItemDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
 const inventory_batch_movement_dto_1 = require("./inventory-batch-movement.dto");
+const inventory_margin_dto_1 = require("./inventory-margin.dto");
 class BatchTransferHistoryItemDto {
     transfer_id;
     transfer_folio;
@@ -194,6 +195,7 @@ class BatchDetailResponseDto {
     can_edit_tag;
     can_edit_measure;
     can_transfer;
+    margin_detail;
 }
 exports.BatchDetailResponseDto = BatchDetailResponseDto;
 __decorate([
@@ -417,4 +419,8 @@ __decorate([
     }),
     __metadata("design:type", Boolean)
 ], BatchDetailResponseDto.prototype, "can_transfer", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ type: inventory_margin_dto_1.InventoryMarginExplanationDto }),
+    __metadata("design:type", inventory_margin_dto_1.InventoryMarginExplanationDto)
+], BatchDetailResponseDto.prototype, "margin_detail", void 0);
 //# sourceMappingURL=batch-detail-response.dto.js.map

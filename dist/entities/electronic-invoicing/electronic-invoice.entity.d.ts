@@ -1,7 +1,7 @@
 import { RBACTenant } from '../rbac/tenant.entity';
 import { FiscalConfiguration } from '../billing/fiscal-configuration.entity';
 import { User } from '../users/user.entity';
-export type ElectronicInvoiceSourceModule = 'sales_orders' | 'quotations';
+export type ElectronicInvoiceSourceModule = 'sales_orders' | 'quotations' | 'global_invoices';
 export type ElectronicInvoiceRole = 'standard' | 'advance' | 'merchandise' | 'advance_application' | 'credit_note';
 export type ElectronicInvoiceStampStatus = 'pending_stamp' | 'stamped' | 'stamp_error' | 'cancel_pending' | 'cancelled' | 'cancel_error';
 export type ElectronicInvoiceSatStatus = 'Vigente' | 'Cancelado' | 'No Encontrado' | 'Desconocido' | null;

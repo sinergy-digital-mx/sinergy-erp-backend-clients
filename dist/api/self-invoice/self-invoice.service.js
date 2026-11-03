@@ -26,6 +26,7 @@ const fiscal_invoice_readiness_util_1 = require("../customers/utils/fiscal-invoi
 const fiscal_domicile_util_1 = require("../customers/utils/fiscal-domicile.util");
 const self_invoice_constants_1 = require("./self-invoice.constants");
 const public_invoice_code_util_1 = require("../../common/utils/public-invoice-code.util");
+const global_invoice_util_1 = require("../accounting/utils/global-invoice.util");
 const self_invoice_contact_util_1 = require("./utils/self-invoice-contact.util");
 const self_invoice_cfdi_xml_util_1 = require("./utils/self-invoice-cfdi-xml.util");
 const fiscal_tax_policy_util_1 = require("../billing/utils/fiscal-tax-policy.util");
@@ -99,6 +100,7 @@ let SelfInvoiceService = SelfInvoiceService_1 = class SelfInvoiceService {
     async stamp(rawCode, dto) {
         const order = await this.getOrderByPublicCode(rawCode);
         this.assertInvoiceable(order);
+        await (0, global_invoice_util_1.assertSalesOrderNotInGlobalInvoice)(this.salesOrderRepo.manager, order.tenant_id, order.id);
         const existing = await this.findCurrentInvoice(order);
         if (existing) {
             throw new common_1.BadRequestException('Este recibo ya tiene una factura vigente');

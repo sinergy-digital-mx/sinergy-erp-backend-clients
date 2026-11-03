@@ -43,6 +43,7 @@ const inventory_measure_util_1 = require("./utils/inventory-measure.util");
 const product_search_rank_util_1 = require("./utils/product-search-rank.util");
 const inventory_batch_movements_service_1 = require("./services/inventory-batch-movements.service");
 const inventory_batch_movements_1 = require("./constants/inventory-batch-movements");
+const inventory_margin_util_1 = require("./utils/inventory-margin.util");
 const UNIT_COST_SQL = `(
   CASE
     WHEN pod.real_unit_cost_mxn IS NOT NULL THEN pod.real_unit_cost_mxn
@@ -1023,16 +1024,36 @@ let InventoryService = InventoryService_1 = class InventoryService {
             const batchesByGroup = await this.loadSummaryBatches(tenantId, groups);
             const productIds = Array.from(new Set(groups.map((row) => row.product_id)));
             const uomIds = Array.from(new Set(groups.map((row) => row.uom_id).filter(Boolean)));
-            const [priceMap, photoMap] = await Promise.all([
+            const [priceMap, photoMap, configLines] = await Promise.all([
                 this.buildPriceMap(productIds, uomIds),
                 this.signPhotoMap(groups.map((row) => row.product_photo)),
+                this.loadMarginConfigLines(productIds),
             ]);
             const data = groups.map((row) => {
                 const key = `${row.product_id}|${row.warehouse_id}`;
-                const batches = (batchesByGroup.get(key) ?? []).filter((batch) => this.hasAvailableStock(batch.available_quantity));
+                const stocked = (batchesByGroup.get(key) ?? []).filter((batch) => this.hasAvailableStock(batch.available_quantity));
                 const pricingOptions = priceMap.get(`${row.product_id}|${row.uom_id}`) || [];
                 const suggestedPrice = pricingOptions[0] || null;
                 const photoKey = row.product_photo ?? null;
+                const priceInput = {
+                    amount: suggestedPrice ? this.parseDecimal(suggestedPrice.price) : null,
+                    listName: suggestedPrice?.price_list_name ?? null,
+                };
+                const lines = configLines.byProductUom.get(`${row.product_id}|${row.uom_id}`) ?? [];
+                const pricedBatches = stocked.map((batch) => {
+                    const resolved = (0, inventory_margin_util_1.resolveLotMargin)(batch.cost_input, lines, priceInput);
+                    const { cost_input: _costInput, ...publicBatch } = batch;
+                    return {
+                        batch: { ...publicBatch, margin: resolved.margin },
+                        ref: {
+                            label: publicBatch.batch_number,
+                            detail: batch.cost_input?.folio || publicBatch.source_tag_identifier || 'Sin compra',
+                            margin: resolved.margin,
+                        },
+                    };
+                });
+                const batches = pricedBatches.map((item) => item.batch);
+                const margin = (0, inventory_margin_util_1.explainLotAverage)(pricedBatches.map((item) => item.ref), priceInput, lines, 'Promedio de los lotes con existencia en este almacén.').margin;
                 return {
                     product_id: row.product_id,
                     product_name: row.product_name ?? '',
@@ -1055,6 +1076,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
                     total_batches: batches.length,
                     measure_totals: (0, inventory_measure_util_1.buildMeasureTotals)(batches),
                     batches,
+                    margin,
                 };
             });
             this.logger.log(`Inventory summary: ${data.length} products out of ${total} total`);
@@ -1100,6 +1122,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
         const qb = this.inventoryBatchRepo
             .createQueryBuilder('batch')
             .leftJoin('batch.purchase_order_batch', 'po')
+            .leftJoin('batch.purchase_order_detail', 'pod')
             .leftJoin('batch.measure_uom', 'measure_uom')
             .select('batch.id', 'batch_id')
             .addSelect('batch.product_id', 'product_id')
@@ -1111,7 +1134,16 @@ let InventoryService = InventoryService_1 = class InventoryService {
             .addSelect('measure_uom.name', 'measure_uom_name')
             .addSelect('batch.available_quantity', 'available_quantity')
             .addSelect('batch.initial_quantity', 'initial_quantity')
+            .addSelect('batch.purchase_order_batch_id', 'purchase_order_batch_id')
+            .addSelect('batch.purchase_order_detail_id', 'purchase_order_detail_id')
             .addSelect('po.folio', 'purchase_order_folio')
+            .addSelect('po.payment_currency', 'payment_currency')
+            .addSelect('po.customs_exchange_rate', 'customs_exchange_rate')
+            .addSelect('pod.unit_total', 'unit_total')
+            .addSelect('pod.received_original_unit_total', 'received_original_unit_total')
+            .addSelect('pod.real_unit_cost_mxn', 'real_unit_cost_mxn')
+            .addSelect('pod.received_original_quantity', 'received_original_quantity')
+            .addSelect('pod.received_converted_quantity', 'received_converted_quantity')
             .addSelect('batch.created_at', 'created_at')
             .where('batch.tenant_id = :tenantId', { tenantId })
             .andWhere(new typeorm_2.Brackets((sub) => {
@@ -1139,6 +1171,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
                 initial_quantity: this.formatQty(this.parseDecimal(row.initial_quantity)),
                 purchase_order_folio: row.purchase_order_folio ?? null,
                 created_at: row.created_at,
+                cost_input: this.marginPurchaseFromRaw(row),
             });
             map.set(key, list);
         }
@@ -1336,19 +1369,207 @@ let InventoryService = InventoryService_1 = class InventoryService {
         return this.optionalMoney(line.unit_total);
     }
     async attachBatchCosting(dto, batch) {
-        if (!batch.product_id || !batch.uom_id) {
-            return dto;
-        }
-        const priceMap = await this.buildPriceMap([batch.product_id], [batch.uom_id]);
-        const suggested = priceMap.get(`${batch.product_id}|${batch.uom_id}`)?.[0];
-        if (!suggested) {
-            return dto;
-        }
+        const priceInput = await this.marginPriceFor(batch.product_id, batch.uom_id);
+        const lines = batch.product_id
+            ? (await this.loadMarginConfigLines([batch.product_id])).byProductUom.get(`${batch.product_id}|${batch.uom_id}`) ?? []
+            : [];
+        const explanation = (0, inventory_margin_util_1.resolveLotMargin)(this.purchaseInputFromBatch(batch), lines, priceInput).explanation;
         return {
             ...dto,
-            suggested_unit_price: this.parseDecimal(suggested.price),
-            suggested_price_currency: 'MXN',
+            suggested_unit_price: priceInput.amount,
+            suggested_price_currency: priceInput.amount != null ? 'MXN' : null,
+            margin_detail: explanation,
         };
+    }
+    async getProductMargin(tenantId, productId) {
+        const product = await this.productRepo.findOne({
+            where: { id: productId, tenant_id: tenantId },
+        });
+        if (!product) {
+            throw new common_1.NotFoundException('Producto no encontrado');
+        }
+        if (product.item_kind !== product_item_kind_enum_1.ProductItemKind.Goods) {
+            return {
+                product_id: product.id,
+                product_name: product.name ?? '',
+                product_sku: product.sku ?? '',
+                uoms: [],
+                empty_reason: 'Los servicios no tienen margen de inventario.',
+            };
+        }
+        const rows = await this.inventoryBatchRepo
+            .createQueryBuilder('batch')
+            .leftJoin('batch.purchase_order_batch', 'po')
+            .leftJoin('batch.purchase_order_detail', 'pod')
+            .leftJoin('batch.uom', 'uom')
+            .leftJoin('batch.warehouse', 'warehouse')
+            .select('batch.id', 'batch_id')
+            .addSelect('batch.batch_number', 'batch_number')
+            .addSelect('batch.uom_id', 'uom_id')
+            .addSelect('uom.name', 'uom_name')
+            .addSelect('warehouse.name', 'warehouse_name')
+            .addSelect('batch.source_tag_identifier', 'source_tag_identifier')
+            .addSelect('batch.purchase_order_batch_id', 'purchase_order_batch_id')
+            .addSelect('batch.purchase_order_detail_id', 'purchase_order_detail_id')
+            .addSelect('po.folio', 'purchase_order_folio')
+            .addSelect('po.payment_currency', 'payment_currency')
+            .addSelect('po.customs_exchange_rate', 'customs_exchange_rate')
+            .addSelect('pod.unit_total', 'unit_total')
+            .addSelect('pod.received_original_unit_total', 'received_original_unit_total')
+            .addSelect('pod.real_unit_cost_mxn', 'real_unit_cost_mxn')
+            .addSelect('pod.received_original_quantity', 'received_original_quantity')
+            .addSelect('pod.received_converted_quantity', 'received_converted_quantity')
+            .where('batch.tenant_id = :tenantId', { tenantId })
+            .andWhere('batch.product_id = :productId', { productId })
+            .andWhere('batch.available_quantity > 0')
+            .orderBy('uom.name', 'ASC')
+            .addOrderBy('batch.batch_number', 'ASC')
+            .getRawMany();
+        const productUoms = await this.productUomRepo.find({
+            where: { product_id: productId },
+            relations: ['uom'],
+        });
+        const uomNames = new Map();
+        for (const productUom of productUoms) {
+            if (productUom.uom_catalog_id) {
+                uomNames.set(productUom.uom_catalog_id, productUom.uom?.name ?? '');
+            }
+        }
+        for (const row of rows) {
+            if (row.uom_id && !uomNames.has(row.uom_id)) {
+                uomNames.set(row.uom_id, row.uom_name ?? '');
+            }
+        }
+        const uomIds = Array.from(uomNames.keys());
+        const [priceMap, configLines] = await Promise.all([
+            uomIds.length ? this.buildPriceMap([productId], uomIds) : Promise.resolve(new Map()),
+            this.loadMarginConfigLines([productId]),
+        ]);
+        const rowsByUom = new Map();
+        for (const row of rows) {
+            const list = rowsByUom.get(row.uom_id) ?? [];
+            list.push(row);
+            rowsByUom.set(row.uom_id, list);
+        }
+        const stockedUomIds = uomIds.filter((uomId) => (rowsByUom.get(uomId)?.length ?? 0) > 0);
+        const visibleUomIds = stockedUomIds.length
+            ? stockedUomIds
+            : uomIds.filter((uomId) => {
+                const lines = configLines.byProductUom.get(`${productId}|${uomId}`) ?? [];
+                return lines.length > 0 || !!priceMap.get(`${productId}|${uomId}`)?.[0];
+            });
+        const uoms = visibleUomIds
+            .map((uomId) => {
+            const uomName = uomNames.get(uomId) || 'Unidad';
+            const stocked = rowsByUom.get(uomId) ?? [];
+            const lines = configLines.byProductUom.get(`${productId}|${uomId}`) ?? [];
+            const suggested = priceMap.get(`${productId}|${uomId}`)?.[0];
+            const priceInput = {
+                amount: suggested ? this.parseDecimal(suggested.price) : null,
+                listName: suggested?.price_list_name ?? null,
+            };
+            const marginDetail = stocked.length
+                ? (0, inventory_margin_util_1.explainLotAverage)(stocked.map((row) => {
+                    const resolved = (0, inventory_margin_util_1.resolveLotMargin)(this.marginPurchaseFromRaw(row), lines, priceInput);
+                    const folio = row.purchase_order_folio?.trim();
+                    const place = [folio || row.source_tag_identifier || 'Sin compra', row.warehouse_name]
+                        .filter(Boolean)
+                        .join(' · ');
+                    return {
+                        label: row.batch_number,
+                        detail: place || null,
+                        margin: resolved.margin,
+                    };
+                }), priceInput, lines, 'Promedio de los lotes con existencia de este producto.')
+                : (0, inventory_margin_util_1.explainConfigurationOnly)(lines, priceInput, uomName);
+            return {
+                uom_id: uomId,
+                uom_name: uomName,
+                margin_detail: marginDetail,
+            };
+        })
+            .sort((left, right) => left.uom_name.localeCompare(right.uom_name, 'es'));
+        return {
+            product_id: product.id,
+            product_name: product.name ?? '',
+            product_sku: product.sku ?? '',
+            uoms,
+            empty_reason: uoms.length
+                ? null
+                : 'No hay lotes con existencia ni costo configurado para calcular el margen.',
+        };
+    }
+    async marginPriceFor(productId, uomId) {
+        if (!productId || !uomId) {
+            return { amount: null, listName: null };
+        }
+        const suggested = (await this.buildPriceMap([productId], [uomId])).get(`${productId}|${uomId}`)?.[0];
+        if (!suggested) {
+            return { amount: null, listName: null };
+        }
+        return {
+            amount: this.parseDecimal(suggested.price),
+            listName: suggested.price_list_name ?? null,
+        };
+    }
+    purchaseInputFromBatch(batch) {
+        return this.marginPurchaseFromRaw({
+            purchase_order_batch_id: batch.purchase_order_batch_id,
+            purchase_order_detail_id: batch.purchase_order_detail_id,
+            purchase_order_folio: batch.purchase_order_batch?.folio ?? null,
+            payment_currency: batch.purchase_order_batch?.payment_currency ?? null,
+            unit_total: batch.purchase_order_detail?.unit_total,
+            received_original_unit_total: batch.purchase_order_detail?.received_original_unit_total,
+            real_unit_cost_mxn: batch.purchase_order_detail?.real_unit_cost_mxn,
+            received_original_quantity: batch.purchase_order_detail?.received_original_quantity,
+            received_converted_quantity: batch.purchase_order_detail?.received_converted_quantity,
+            customs_exchange_rate: batch.purchase_order_batch?.customs_exchange_rate,
+        });
+    }
+    marginPurchaseFromRaw(row) {
+        if (!row.purchase_order_batch_id && !row.purchase_order_detail_id) {
+            return null;
+        }
+        const received = this.optionalMoney(row.received_original_unit_total);
+        return {
+            hasPurchase: true,
+            folio: row.purchase_order_folio ?? null,
+            currency: row.payment_currency ?? null,
+            vendorUnitCost: received ?? this.optionalMoney(row.unit_total),
+            realUnitCostMxn: this.optionalMoney(row.real_unit_cost_mxn),
+            originalQuantity: this.optionalMoney(row.received_original_quantity),
+            convertedQuantity: this.optionalMoney(row.received_converted_quantity),
+            customsExchangeRate: this.optionalMoney(row.customs_exchange_rate),
+        };
+    }
+    async loadMarginConfigLines(productIds) {
+        const byProductUom = new Map();
+        if (productIds.length === 0) {
+            return { byProductUom };
+        }
+        const costs = await this.productVendorCostRepo
+            .createQueryBuilder('pvc')
+            .leftJoinAndSelect('pvc.product_uom', 'product_uom')
+            .leftJoinAndSelect('product_uom.uom', 'uom')
+            .leftJoinAndSelect('pvc.vendor', 'vendor')
+            .where('pvc.product_id IN (:...productIds)', { productIds })
+            .getMany();
+        for (const row of costs) {
+            const catalogId = row.product_uom?.uom_catalog_id;
+            if (!catalogId)
+                continue;
+            const line = {
+                vendorName: row.vendor?.company_name || row.vendor?.name || 'Proveedor',
+                uomName: row.product_uom?.uom?.name ?? '',
+                cost: this.parseDecimal(row.cost),
+                currency: row.currency || 'MXN',
+            };
+            const key = `${row.product_id}|${catalogId}`;
+            const list = byProductUom.get(key) ?? [];
+            list.push(line);
+            byProductUom.set(key, list);
+        }
+        return { byProductUom };
     }
 };
 exports.InventoryService = InventoryService;

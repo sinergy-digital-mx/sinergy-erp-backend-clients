@@ -10,6 +10,7 @@ import { PosSessionInventorySummaryResponseDto } from './dto/pos-session-invento
 import { InventoryLocationTreeResponseDto } from './dto/inventory-location-tree-response.dto';
 import { InventoryStatsFilterDto } from './dto/inventory-stats-filter.dto';
 import { InventoryStatsResponseDto } from './dto/inventory-stats-response.dto';
+import { ProductMarginResponseDto } from './dto/inventory-margin.dto';
 import { InventoryExportService } from './services/inventory-export.service';
 import { InventoryStockFlowService } from './services/inventory-stock-flow.service';
 import { QueryInventoryBatchExportDto, QueryInventorySummaryExportDto } from './dto/query-inventory-export.dto';
@@ -28,6 +29,7 @@ export declare class InventoryController {
     getStats(filters: InventoryStatsFilterDto, req: any): Promise<InventoryStatsResponseDto>;
     findAll(filters: BatchFilterDto, req: any): Promise<BatchListResponseDto>;
     getInventorySummary(filters: InventorySummaryFilterDto, req: any): Promise<InventorySummaryResponseDto>;
+    getProductMargin(productId: string, req: any): Promise<ProductMarginResponseDto>;
     getPosTerminalInventorySummary(filters: InventorySummaryFilterDto, req: any): Promise<PosSessionInventorySummaryResponseDto>;
     findByPurchaseOrder(poId: string, filters: BatchFilterDto, req: any): Promise<BatchListResponseDto>;
     listBatchMovements(id: string, req: any): Promise<InventoryBatchMovementListResponseDto>;

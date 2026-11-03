@@ -1,3 +1,4 @@
+import { InventoryMarginDto } from './inventory-margin.dto';
 export declare class BatchBreakdownDto {
     batch_id: string;
     batch_number: string;
@@ -10,6 +11,7 @@ export declare class BatchBreakdownDto {
     initial_quantity: string;
     purchase_order_folio: string | null;
     created_at: Date;
+    margin: InventoryMarginDto;
 }
 export declare class MeasureTotalDto {
     measure: string | null;
@@ -49,6 +51,7 @@ export declare class ProductInventorySummaryDto {
     total_batches: number;
     measure_totals: MeasureTotalDto[];
     batches: BatchBreakdownDto[];
+    margin: InventoryMarginDto;
 }
 export declare class InventorySummaryResponseDto {
     data: ProductInventorySummaryDto[];

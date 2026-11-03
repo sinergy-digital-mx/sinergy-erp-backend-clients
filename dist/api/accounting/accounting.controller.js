@@ -24,14 +24,18 @@ const customer_debt_flow_service_1 = require("./services/customer-debt-flow.serv
 const query_debt_flow_dto_1 = require("./dto/query-debt-flow.dto");
 const query_accounting_base_dto_1 = require("./dto/query-accounting-base.dto");
 const query_average_cost_report_dto_1 = require("./dto/query-average-cost-report.dto");
+const query_global_invoice_dto_1 = require("./dto/query-global-invoice.dto");
+const global_invoice_service_1 = require("./services/global-invoice.service");
 let AccountingController = class AccountingController {
     accountingService;
     debtFlowService;
     averageCostReportService;
-    constructor(accountingService, debtFlowService, averageCostReportService) {
+    globalInvoiceService;
+    constructor(accountingService, debtFlowService, averageCostReportService, globalInvoiceService) {
         this.accountingService = accountingService;
         this.debtFlowService = debtFlowService;
         this.averageCostReportService = averageCostReportService;
+        this.globalInvoiceService = globalInvoiceService;
     }
     getPosSummary(query, req) {
         return this.accountingService.getPosSummary(req.user.tenant_id, query);
@@ -98,6 +102,15 @@ let AccountingController = class AccountingController {
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         res.send(buffer);
+    }
+    getGlobalInvoices(query, req) {
+        return this.globalInvoiceService.get(req.user.tenant_id, query.month, query.fiscal_configuration_id);
+    }
+    createGlobalInvoice(dto, req) {
+        return this.globalInvoiceService.generate(req.user.tenant_id, req.user.id, dto);
+    }
+    cancelGlobalInvoice(id, req) {
+        return this.globalInvoiceService.cancel(id, req.user.tenant_id, req.user.id);
     }
 };
 exports.AccountingController = AccountingController;
@@ -305,6 +318,47 @@ __decorate([
     __metadata("design:paramtypes", [query_debt_flow_dto_1.QueryDebtFlowDto, Object, Object]),
     __metadata("design:returntype", Promise)
 ], AccountingController.prototype, "exportDebtFlowExcel", null);
+__decorate([
+    (0, common_1.Get)('global-invoices'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Facturas globales del mes',
+        description: 'Órdenes de clientes sin factura de ingreso vigente en el mes, o la factura global ya timbrada. Una vigente por razón social y mes. El mes es calendario America/Tijuana.',
+    }),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [query_global_invoice_dto_1.QueryGlobalInvoiceDto, Object]),
+    __metadata("design:returntype", void 0)
+], AccountingController.prototype, "getGlobalInvoices", null);
+__decorate([
+    (0, common_1.Post)('global-invoices'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }, { entityType: 'electronic_invoices', action: 'Stamp' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Timbrar la factura global del mes',
+        description: 'Un CFDI a público en general con todas las órdenes sin facturar de esa razón social y mes. order_ids tiene que ser exactamente esa lista.',
+    }),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [query_global_invoice_dto_1.CreateGlobalInvoiceDto, Object]),
+    __metadata("design:returntype", void 0)
+], AccountingController.prototype, "createGlobalInvoice", null);
+__decorate([
+    (0, common_1.Post)('global-invoices/:id/cancel'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }, { entityType: 'electronic_invoices', action: 'Cancel' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Cancelar la factura global',
+        description: 'Cancela el CFDI con motivo 02. Si el SAT la deja cancelada, las órdenes vuelven a poder facturarse.',
+    }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], AccountingController.prototype, "cancelGlobalInvoice", null);
 exports.AccountingController = AccountingController = __decorate([
     (0, swagger_1.ApiTags)('Accounting'),
     (0, common_1.Controller)('tenant/accounting'),
@@ -312,6 +366,7 @@ exports.AccountingController = AccountingController = __decorate([
     (0, swagger_1.ApiBearerAuth)(),
     __metadata("design:paramtypes", [accounting_service_1.AccountingService,
         customer_debt_flow_service_1.CustomerDebtFlowService,
-        average_cost_report_service_1.AverageCostReportService])
+        average_cost_report_service_1.AverageCostReportService,
+        global_invoice_service_1.GlobalInvoiceService])
 ], AccountingController);
 //# sourceMappingURL=accounting.controller.js.map

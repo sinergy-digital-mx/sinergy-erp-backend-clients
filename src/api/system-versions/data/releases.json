@@ -566,5 +566,39 @@
       }
     ],
     "releasedAt": "2026-11-03T17:21:08.601Z"
+  },
+  {
+    "releaseKey": "full:0.0.95:0.0.95-1793737062762",
+    "version": "0.0.95",
+    "buildId": "0.0.95-1793737062762",
+    "channel": "full",
+    "title": "Versión 0.0.95",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "Cambios en contabilidad"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en inventario"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en productos"
+      },
+      {
+        "scope": "backend",
+        "message": "Cambios en facturación electrónica"
+      },
+      {
+        "scope": "backend",
+        "message": "Cambios en ventas"
+      },
+      {
+        "scope": "backend",
+        "message": "Cambios en autofactura"
+      }
+    ],
+    "releasedAt": "2026-11-03T20:17:42.762Z"
   }
 ]

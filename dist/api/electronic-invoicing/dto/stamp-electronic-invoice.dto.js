@@ -39,7 +39,7 @@ __decorate([
     __metadata("design:type", String)
 ], StampElectronicInvoiceDto.prototype, "fiscal_configuration_id", void 0);
 __decorate([
-    (0, class_validator_1.IsEnum)(['sales_orders', 'quotations']),
+    (0, class_validator_1.IsEnum)(['sales_orders', 'quotations', 'global_invoices']),
     __metadata("design:type", String)
 ], StampElectronicInvoiceDto.prototype, "source_module", void 0);
 __decorate([

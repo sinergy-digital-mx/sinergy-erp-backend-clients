@@ -29,6 +29,7 @@ const inventory_summary_response_dto_1 = require("./dto/inventory-summary-respon
 const inventory_location_tree_response_dto_1 = require("./dto/inventory-location-tree-response.dto");
 const inventory_stats_filter_dto_1 = require("./dto/inventory-stats-filter.dto");
 const inventory_stats_response_dto_1 = require("./dto/inventory-stats-response.dto");
+const inventory_margin_dto_1 = require("./dto/inventory-margin.dto");
 const inventory_export_service_1 = require("./services/inventory-export.service");
 const inventory_stock_flow_service_1 = require("./services/inventory-stock-flow.service");
 const query_inventory_export_dto_1 = require("./dto/query-inventory-export.dto");
@@ -80,6 +81,9 @@ let InventoryController = class InventoryController {
     async getInventorySummary(filters, req) {
         const tenantId = req.user.tenant_id;
         return this.inventoryService.getInventorySummary(tenantId, filters);
+    }
+    async getProductMargin(productId, req) {
+        return this.inventoryService.getProductMargin(req.user.tenant_id, productId);
     }
     async getPosTerminalInventorySummary(filters, req) {
         const tenantId = req.user.tenant_id;
@@ -240,6 +244,21 @@ __decorate([
     __metadata("design:paramtypes", [inventory_summary_filter_dto_1.InventorySummaryFilterDto, Object]),
     __metadata("design:returntype", Promise)
 ], InventoryController.prototype, "getInventorySummary", null);
+__decorate([
+    (0, common_1.Get)('products/:productId/margin'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'inventory', action: 'read' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Margen general de un producto',
+        description: 'Promedio simple de los lotes con existencia. Cada lote usa su compra; si no tiene, el costo configurado en pesos.',
+    }),
+    (0, swagger_1.ApiParam)({ name: 'productId', description: 'Product ID', type: String }),
+    (0, swagger_1.ApiResponse)({ status: 200, type: inventory_margin_dto_1.ProductMarginResponseDto }),
+    __param(0, (0, common_1.Param)('productId')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], InventoryController.prototype, "getProductMargin", null);
 __decorate([
     (0, common_1.Get)('pos/summary'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'inventory', action: 'read' }),

@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.InventorySummaryResponseDto = exports.ProductInventorySummaryDto = exports.MeasureTotalDto = exports.BatchBreakdownDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
+const inventory_margin_dto_1 = require("./inventory-margin.dto");
 class BatchBreakdownDto {
     batch_id;
     batch_number;
@@ -23,6 +24,7 @@ class BatchBreakdownDto {
     initial_quantity;
     purchase_order_folio;
     created_at;
+    margin;
 }
 exports.BatchBreakdownDto = BatchBreakdownDto;
 __decorate([
@@ -72,6 +74,10 @@ __decorate([
     (0, swagger_1.ApiProperty)(),
     __metadata("design:type", Date)
 ], BatchBreakdownDto.prototype, "created_at", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ type: inventory_margin_dto_1.InventoryMarginDto }),
+    __metadata("design:type", inventory_margin_dto_1.InventoryMarginDto)
+], BatchBreakdownDto.prototype, "margin", void 0);
 class MeasureTotalDto {
     measure;
     measure_uom_id;
@@ -135,6 +141,7 @@ class ProductInventorySummaryDto {
     total_batches;
     measure_totals;
     batches;
+    margin;
 }
 exports.ProductInventorySummaryDto = ProductInventorySummaryDto;
 __decorate([
@@ -221,6 +228,10 @@ __decorate([
     (0, swagger_1.ApiProperty)({ type: [BatchBreakdownDto] }),
     __metadata("design:type", Array)
 ], ProductInventorySummaryDto.prototype, "batches", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ type: inventory_margin_dto_1.InventoryMarginDto }),
+    __metadata("design:type", inventory_margin_dto_1.InventoryMarginDto)
+], ProductInventorySummaryDto.prototype, "margin", void 0);
 class InventorySummaryResponseDto {
     data;
     total;

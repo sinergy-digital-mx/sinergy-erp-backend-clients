@@ -27,6 +27,7 @@ import { InventoryLocationTreeResponseDto } from './dto/inventory-location-tree-
 import { InventoryStatsFilterDto } from './dto/inventory-stats-filter.dto';
 import { InventoryStatsResponseDto } from './dto/inventory-stats-response.dto';
 import { InventoryBatchMovementsService } from './services/inventory-batch-movements.service';
+import { ProductMarginResponseDto } from './dto/inventory-margin.dto';
 export declare class InventoryService {
     private inventoryBatchRepo;
     private readonly productRepo;
@@ -101,4 +102,9 @@ export declare class InventoryService {
     private optionalMoney;
     private unitCostFromPurchaseLine;
     private attachBatchCosting;
+    getProductMargin(tenantId: string, productId: string): Promise<ProductMarginResponseDto>;
+    private marginPriceFor;
+    private purchaseInputFromBatch;
+    private marginPurchaseFromRaw;
+    private loadMarginConfigLines;
 }
