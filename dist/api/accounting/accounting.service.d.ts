@@ -10,7 +10,7 @@ import { VendorCreditLedgerService } from '../vendor/services/vendor-credit-ledg
 import { User } from '../../entities/users/user.entity';
 import { PosShiftsService } from '../pos-shifts/pos-shifts.service';
 import { ExchangeRateService } from '../exchange-rate/exchange-rate.service';
-import { AccountingReportPeriod, PosCollectionCustomerType, PosCollectionDateBasis, QueryAccountsPayableDto, QueryAccountsReceivableDto, QueryAccountingBaseDto, QueryPosCollectionsDto, QueryPosTerminalSalesDto } from './dto/query-accounting-base.dto';
+import { AccountingReportPeriod, PosCollectionCustomerType, PosCollectionDateBasis, PosCollectionPaymentMethodFilter, QueryAccountsPayableDto, QueryAccountsReceivableDto, QueryAccountingBaseDto, QueryPosCollectionsDto, QueryPosTerminalSalesDto } from './dto/query-accounting-base.dto';
 import { PosSalePaymentMethod } from '../../entities/pos/pos-sale-payment-method.enum';
 import { PosCollectionPaymentMethodTotals } from './utils/pos-collection-payment-totals.util';
 import { AccountsPayableVendorTotals } from './utils/accounts-payable-currency.util';
@@ -72,6 +72,7 @@ export declare class AccountingService {
             amount_collected: number;
             walk_in_count: number;
             invoiced_count: number;
+            credit_count: number;
             daily_shifts_count: number;
             partial_shifts_count: number;
             open_daily_shift: {
@@ -125,6 +126,7 @@ export declare class AccountingService {
             date_to: string;
             date_basis: PosCollectionDateBasis;
             customer_type: PosCollectionCustomerType;
+            payment_method: PosCollectionPaymentMethodFilter | null;
             search: string | null;
         };
         summary: {

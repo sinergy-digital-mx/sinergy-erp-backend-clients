@@ -54,6 +54,7 @@ export declare class AccountingController {
             amount_collected: number;
             walk_in_count: number;
             invoiced_count: number;
+            credit_count: number;
             daily_shifts_count: number;
             partial_shifts_count: number;
             open_daily_shift: {
@@ -107,6 +108,7 @@ export declare class AccountingController {
             date_to: string;
             date_basis: import("./dto/query-accounting-base.dto").PosCollectionDateBasis;
             customer_type: import("./dto/query-accounting-base.dto").PosCollectionCustomerType;
+            payment_method: import("./dto/query-accounting-base.dto").PosCollectionPaymentMethodFilter | null;
             search: string | null;
         };
         summary: {

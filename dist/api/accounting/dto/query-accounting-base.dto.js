@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.QueryPosCollectionsDto = exports.PosCollectionDateBasis = exports.PosCollectionCustomerType = exports.QueryPosTerminalSalesDto = exports.QueryAccountsReceivableDto = exports.QueryAccountsPayableDto = exports.AccountsPayableCurrencyView = exports.QueryAccountingBaseDto = exports.AccountingReportPeriod = void 0;
+exports.QueryPosCollectionsDto = exports.PosCollectionDateBasis = exports.PosCollectionPaymentMethodFilter = exports.PosCollectionCustomerType = exports.QueryPosTerminalSalesDto = exports.QueryAccountsReceivableDto = exports.QueryAccountsPayableDto = exports.AccountsPayableCurrencyView = exports.QueryAccountingBaseDto = exports.AccountingReportPeriod = void 0;
 const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
 var AccountingReportPeriod;
@@ -130,6 +130,14 @@ var PosCollectionCustomerType;
     PosCollectionCustomerType["WALK_IN"] = "walk_in";
     PosCollectionCustomerType["INVOICED"] = "invoiced";
 })(PosCollectionCustomerType || (exports.PosCollectionCustomerType = PosCollectionCustomerType = {}));
+var PosCollectionPaymentMethodFilter;
+(function (PosCollectionPaymentMethodFilter) {
+    PosCollectionPaymentMethodFilter["CASH"] = "cash";
+    PosCollectionPaymentMethodFilter["TRANSFER"] = "transfer";
+    PosCollectionPaymentMethodFilter["CARD"] = "card";
+    PosCollectionPaymentMethodFilter["CHECK"] = "check";
+    PosCollectionPaymentMethodFilter["CREDIT"] = "credit";
+})(PosCollectionPaymentMethodFilter || (exports.PosCollectionPaymentMethodFilter = PosCollectionPaymentMethodFilter = {}));
 var PosCollectionDateBasis;
 (function (PosCollectionDateBasis) {
     PosCollectionDateBasis["SHIFT"] = "shift";
@@ -138,6 +146,7 @@ var PosCollectionDateBasis;
 class QueryPosCollectionsDto extends QueryAccountingBaseDto {
     date_basis = PosCollectionDateBasis.SHIFT;
     customer_type = PosCollectionCustomerType.ALL;
+    payment_method;
     search;
     page = 1;
     limit = 20;
@@ -153,6 +162,11 @@ __decorate([
     (0, class_validator_1.IsEnum)(PosCollectionCustomerType),
     __metadata("design:type", String)
 ], QueryPosCollectionsDto.prototype, "customer_type", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(PosCollectionPaymentMethodFilter),
+    __metadata("design:type", String)
+], QueryPosCollectionsDto.prototype, "payment_method", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),

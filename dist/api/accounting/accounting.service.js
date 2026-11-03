@@ -41,6 +41,13 @@ const accounts_payable_currency_util_1 = require("./utils/accounts-payable-curre
 const accounts_receivable_currency_util_1 = require("./utils/accounts-receivable-currency.util");
 const WALK_IN_FISCAL_NAME = 'VENTA DE MOSTRADOR';
 const WALK_IN_DISPLAY_NAME = 'Público en General';
+const POS_COLLECTION_PAYMENT_FILTER_LABELS = {
+    [query_accounting_base_dto_1.PosCollectionPaymentMethodFilter.CASH]: 'Efectivo',
+    [query_accounting_base_dto_1.PosCollectionPaymentMethodFilter.TRANSFER]: 'Transferencia',
+    [query_accounting_base_dto_1.PosCollectionPaymentMethodFilter.CARD]: 'Tarjeta',
+    [query_accounting_base_dto_1.PosCollectionPaymentMethodFilter.CHECK]: 'Cheque',
+    [query_accounting_base_dto_1.PosCollectionPaymentMethodFilter.CREDIT]: 'Crédito',
+};
 let AccountingService = class AccountingService {
     salesOrderRepo;
     collectionRepo;
@@ -99,6 +106,7 @@ let AccountingService = class AccountingService {
             .addSelect('COALESCE(SUM(collection.order_total_mxn), 0)', 'amount_collected')
             .addSelect(`SUM(CASE WHEN ${walkInSql} AND NOT ${stampedInvoiceSql} THEN 1 ELSE 0 END)`, 'walk_in_count')
             .addSelect(`SUM(CASE WHEN ${stampedInvoiceSql} THEN 1 ELSE 0 END)`, 'invoiced_count')
+            .addSelect(`SUM(CASE WHEN ${(0, pos_collection_payment_totals_util_1.paymentMethodMatchSql)('credit')} THEN 1 ELSE 0 END)`, 'credit_count')
             .where('collection.tenant_id = :tenantId', { tenantId })
             .andWhere('shift.billing_branch_id = :branchId', {
             branchId: filters.billing_branch_id,
@@ -141,6 +149,7 @@ let AccountingService = class AccountingService {
         const amountShipping = shippingOrders.reduce((sum, order) => sum + order.total, 0);
         const walkInCount = Number(collectionRows?.walk_in_count || 0);
         const invoicedCount = Number(collectionRows?.invoiced_count || 0);
+        const creditCount = Number(collectionRows?.credit_count || 0);
         const dailyShiftsCount = Number(shiftStats?.daily_shifts_count || 0);
         const partialShiftsCount = Number(shiftStats?.partial_shifts_count || 0);
         const periodShift = await this.dailyShiftRepo.findOne({
@@ -194,6 +203,7 @@ let AccountingService = class AccountingService {
                 amount_collected: amountCollected,
                 walk_in_count: walkInCount,
                 invoiced_count: invoicedCount,
+                credit_count: creditCount,
                 daily_shifts_count: dailyShiftsCount,
                 partial_shifts_count: partialShiftsCount,
                 open_daily_shift: openShiftInPeriod
@@ -279,6 +289,7 @@ let AccountingService = class AccountingService {
         const limit = filters.limit ?? 20;
         const customerType = filters.customer_type ?? query_accounting_base_dto_1.PosCollectionCustomerType.ALL;
         const dateBasis = filters.date_basis ?? query_accounting_base_dto_1.PosCollectionDateBasis.SHIFT;
+        const paymentMethod = filters.payment_method;
         const search = filters.search?.trim() || '';
         const periodShift = await this.dailyShiftRepo.findOne({
             where: {
@@ -291,9 +302,9 @@ let AccountingService = class AccountingService {
         });
         const cobranzaTerminal = periodShift?.terminal_user ?? null;
         const summary = await this.aggregatePosCollections(tenantId, filters, shiftFrom, shiftTo, dateBasis, query_accounting_base_dto_1.PosCollectionCustomerType.ALL);
-        const filtered = customerType === query_accounting_base_dto_1.PosCollectionCustomerType.ALL && !search
+        const filtered = customerType === query_accounting_base_dto_1.PosCollectionCustomerType.ALL && !search && !paymentMethod
             ? summary
-            : await this.aggregatePosCollections(tenantId, filters, shiftFrom, shiftTo, dateBasis, customerType, search);
+            : await this.aggregatePosCollections(tenantId, filters, shiftFrom, shiftTo, dateBasis, customerType, search, paymentMethod);
         const total = filtered.orders_collected;
         const qb = this.buildPosCollectionsQuery(tenantId, filters, shiftFrom, shiftTo, customerType, dateBasis);
         qb.orderBy('collection.created_at', 'DESC')
@@ -319,6 +330,7 @@ let AccountingService = class AccountingService {
                 date_to: shiftTo,
                 date_basis: dateBasis,
                 customer_type: customerType,
+                payment_method: paymentMethod ?? null,
                 search: search || null,
             },
             summary: {
@@ -389,6 +401,9 @@ let AccountingService = class AccountingService {
             : customerType === query_accounting_base_dto_1.PosCollectionCustomerType.INVOICED
                 ? 'Facturadas'
                 : 'Todas';
+        const paymentMethodLabel = filters.payment_method
+            ? POS_COLLECTION_PAYMENT_FILTER_LABELS[filters.payment_method]
+            : '';
         const buffer = await (0, excel_export_util_1.buildStyledExcelBuffer)({
             sheetName: 'Cobranza POS',
             title: 'Cobranza POS — órdenes cobradas',
@@ -397,6 +412,7 @@ let AccountingService = class AccountingService {
                 `${shiftFrom} – ${shiftTo}`,
                 dateBasis === query_accounting_base_dto_1.PosCollectionDateBasis.COLLECTED ? 'Por fecha de cobro' : 'Por fecha de corte',
                 `Tipo: ${customerTypeLabel}`,
+                paymentMethodLabel ? `Forma de pago: ${paymentMethodLabel}` : '',
                 filters.search?.trim() ? `Búsqueda: ${filters.search.trim()}` : '',
                 `${rows.length} órdenes`,
             ]),
@@ -1397,14 +1413,12 @@ let AccountingService = class AccountingService {
             .leftJoinAndSelect('so.warehouse', 'warehouse')
             .leftJoinAndSelect('warehouse.billing_branch', 'warehouse_branch')
             .leftJoinAndSelect('shift.billing_branch', 'shift_branch');
-        this.applyPosCollectionScope(qb, tenantId, filters.billing_branch_id, periodFrom, periodTo, dateBasis, customerType, filters.search);
+        this.applyPosCollectionScope(qb, tenantId, filters.billing_branch_id, periodFrom, periodTo, dateBasis, customerType, filters.search, filters.payment_method);
         return qb;
     }
-    async aggregatePosCollections(tenantId, filters, periodFrom, periodTo, dateBasis, customerType, search) {
+    async aggregatePosCollections(tenantId, filters, periodFrom, periodTo, dateBasis, customerType, search, paymentMethod) {
         const walkInSql = this.walkInCustomerSql('customer');
         const stampedSql = this.stampedInvoiceExistsSql('so');
-        const cashMxnSql = 'COALESCE(collection.amount_cash_mxn, 0) + COALESCE(collection.amount_cash_usd, 0) * COALESCE(collection.usd_exchange_rate, 0)';
-        const checkMxnSql = 'COALESCE(collection.amount_check_mxn, 0) + COALESCE(collection.amount_check_usd, 0) * COALESCE(collection.usd_exchange_rate, 0)';
         const qb = this.collectionRepo
             .createQueryBuilder('collection')
             .innerJoin('collection.sales_order', 'so')
@@ -1414,15 +1428,17 @@ let AccountingService = class AccountingService {
             .addSelect('COALESCE(SUM(collection.order_total_mxn), 0)', 'amount_collected')
             .addSelect(`SUM(CASE WHEN ${walkInSql} AND NOT ${stampedSql} THEN 1 ELSE 0 END)`, 'walk_in_count')
             .addSelect(`SUM(CASE WHEN ${stampedSql} THEN 1 ELSE 0 END)`, 'invoiced_count')
-            .addSelect(`SUM(CASE WHEN (${cashMxnSql}) > 0 THEN 1 ELSE 0 END)`, 'cash_orders')
-            .addSelect(`COALESCE(SUM(${cashMxnSql}), 0)`, 'cash_amount')
-            .addSelect('SUM(CASE WHEN COALESCE(collection.amount_transfer_mxn, 0) > 0 THEN 1 ELSE 0 END)', 'transfer_orders')
-            .addSelect('COALESCE(SUM(collection.amount_transfer_mxn), 0)', 'transfer_amount')
-            .addSelect('SUM(CASE WHEN COALESCE(collection.amount_card_mxn, 0) > 0 THEN 1 ELSE 0 END)', 'card_orders')
-            .addSelect('COALESCE(SUM(collection.amount_card_mxn), 0)', 'card_amount')
-            .addSelect('SUM(CASE WHEN COALESCE(collection.amount_check_mxn, 0) > 0 OR COALESCE(collection.amount_check_usd, 0) > 0 THEN 1 ELSE 0 END)', 'check_orders')
-            .addSelect(`COALESCE(SUM(${checkMxnSql}), 0)`, 'check_amount');
-        this.applyPosCollectionScope(qb, tenantId, filters.billing_branch_id, periodFrom, periodTo, dateBasis, customerType, search);
+            .addSelect(`SUM(CASE WHEN ${(0, pos_collection_payment_totals_util_1.paymentMethodMatchSql)('cash')} THEN 1 ELSE 0 END)`, 'cash_orders')
+            .addSelect(`COALESCE(SUM(${(0, pos_collection_payment_totals_util_1.paymentMethodAmountSql)('cash')}), 0)`, 'cash_amount')
+            .addSelect(`SUM(CASE WHEN ${(0, pos_collection_payment_totals_util_1.paymentMethodMatchSql)('transfer')} THEN 1 ELSE 0 END)`, 'transfer_orders')
+            .addSelect(`COALESCE(SUM(${(0, pos_collection_payment_totals_util_1.paymentMethodAmountSql)('transfer')}), 0)`, 'transfer_amount')
+            .addSelect(`SUM(CASE WHEN ${(0, pos_collection_payment_totals_util_1.paymentMethodMatchSql)('card')} THEN 1 ELSE 0 END)`, 'card_orders')
+            .addSelect(`COALESCE(SUM(${(0, pos_collection_payment_totals_util_1.paymentMethodAmountSql)('card')}), 0)`, 'card_amount')
+            .addSelect(`SUM(CASE WHEN ${(0, pos_collection_payment_totals_util_1.paymentMethodMatchSql)('check')} THEN 1 ELSE 0 END)`, 'check_orders')
+            .addSelect(`COALESCE(SUM(${(0, pos_collection_payment_totals_util_1.paymentMethodAmountSql)('check')}), 0)`, 'check_amount')
+            .addSelect(`SUM(CASE WHEN ${(0, pos_collection_payment_totals_util_1.paymentMethodMatchSql)('credit')} THEN 1 ELSE 0 END)`, 'credit_orders')
+            .addSelect(`COALESCE(SUM(${(0, pos_collection_payment_totals_util_1.paymentMethodAmountSql)('credit')}), 0)`, 'credit_amount');
+        this.applyPosCollectionScope(qb, tenantId, filters.billing_branch_id, periodFrom, periodTo, dateBasis, customerType, search, paymentMethod);
         qb.setParameter('walkInFiscal', WALK_IN_FISCAL_NAME).setParameter('walkInName', WALK_IN_DISPLAY_NAME);
         const row = await qb.getRawOne();
         return {
@@ -1435,7 +1451,7 @@ let AccountingService = class AccountingService {
                 : (0, pos_collection_payment_totals_util_1.emptyPaymentMethodTotals)(),
         };
     }
-    applyPosCollectionScope(qb, tenantId, branchId, periodFrom, periodTo, dateBasis, customerType, search) {
+    applyPosCollectionScope(qb, tenantId, branchId, periodFrom, periodTo, dateBasis, customerType, search, paymentMethod) {
         qb.where('collection.tenant_id = :tenantId', { tenantId }).andWhere('shift.billing_branch_id = :branchId', { branchId });
         if (dateBasis === query_accounting_base_dto_1.PosCollectionDateBasis.COLLECTED) {
             qb.andWhere(`${(0, unclosed_shift_alert_1.posCalendarDateSql)('collection.created_at')} >= :periodFrom`, { periodFrom })
@@ -1452,6 +1468,9 @@ let AccountingService = class AccountingService {
         }
         else if (customerType === query_accounting_base_dto_1.PosCollectionCustomerType.INVOICED) {
             qb.andWhere(this.stampedInvoiceExistsSql('so'));
+        }
+        if (paymentMethod) {
+            qb.andWhere((0, pos_collection_payment_totals_util_1.paymentMethodMatchSql)(paymentMethod));
         }
         const term = search?.trim();
         if (term) {

@@ -10,6 +10,10 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.93 · 2026-11-03
+
+- aplicación y servidor · En Cobranza POS, junto a Todas, Público en General y Facturadas, los filtros de forma de pago llevan ícono y se puede filtrar Crédito; las columnas también filtran e incluyen Crédito.
+
 ### Versión 0.0.92 · 2026-11-02
 
 - aplicación y servidor · El envío de la factura por WhatsApp ahora manda primero una foto: tu pago está pendiente, o ya está pagada, con el total y los datos del CFDI.
