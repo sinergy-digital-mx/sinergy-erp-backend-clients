@@ -51,6 +51,8 @@ export declare class AdvanceShiftPaymentService {
         payment_method: PosSalePaymentMethod;
         payment_method_label: string;
         amount_mxn: number;
+        document_total: number;
+        amount_pending: number;
         payer_summary: string | null;
     }[]>;
     private activeByInvoice;

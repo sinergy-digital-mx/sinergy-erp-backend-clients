@@ -34,6 +34,7 @@ const quotation_documents_service_1 = require("./services/quotation-documents.se
 const quotation_email_service_1 = require("./services/quotation-email.service");
 const quotation_expiration_service_1 = require("./services/quotation-expiration.service");
 const quotation_advance_invoice_service_1 = require("./services/quotation-advance-invoice.service");
+const customers_module_1 = require("../customers/customers.module");
 let QuotationsModule = class QuotationsModule {
 };
 exports.QuotationsModule = QuotationsModule;
@@ -62,6 +63,7 @@ exports.QuotationsModule = QuotationsModule = __decorate([
             (0, common_1.forwardRef)(() => sales_orders_module_1.SalesOrdersModule),
             electronic_invoicing_module_1.ElectronicInvoicingModule,
             mailer_configuration_module_1.MailerConfigurationModule,
+            customers_module_1.CustomersModule,
         ],
         controllers: [quotation_controller_1.QuotationController],
         providers: [

@@ -21,6 +21,8 @@ const advance_shift_payment_entity_1 = require("../../../entities/pos/advance-sh
 const pos_daily_shift_entity_1 = require("../../../entities/pos/pos-daily-shift.entity");
 const pos_daily_shift_status_enum_1 = require("../../../entities/pos/pos-daily-shift-status.enum");
 const sales_order_entity_1 = require("../../../entities/sales-orders/sales-order.entity");
+const quotation_entity_1 = require("../../../entities/quotations/quotation.entity");
+const advance_credit_util_1 = require("../../customers/utils/advance-credit.util");
 const sales_order_payment_entity_1 = require("../../../entities/sales-orders/sales-order-payment.entity");
 const advance_payment_method_util_1 = require("../utils/advance-payment-method.util");
 const pos_payer_contact_util_1 = require("../utils/pos-payer-contact.util");
@@ -172,21 +174,63 @@ let AdvanceShiftPaymentService = class AdvanceShiftPaymentService {
             where: { pos_daily_shift_id: dailyShiftId, voided_at: (0, typeorm_2.IsNull)() },
             order: { created_at: 'ASC' },
         });
-        return rows.map((row) => ({
-            id: row.id,
-            folio: row.document_folio,
-            payment_method: row.payment_method,
-            payment_method_label: (0, advance_payment_method_util_1.advancePaymentMethodLabel)(row.payment_method),
-            amount_mxn: Number(row.amount_mxn),
-            payer_summary: (0, pos_payer_contact_util_1.formatPayerContactSummary)({
-                transferPayerName: row.transfer_payer_name,
-                transferPayerBusinessName: row.transfer_payer_business_name,
-                cardPayerName: row.card_payer_name,
-                cardPayerPhone: row.card_payer_phone,
-                checkPayerName: row.check_payer_name,
-                checkPayerPhone: row.check_payer_phone,
-            }),
-        }));
+        const quotationIds = [
+            ...new Set(rows.map((row) => row.quotation_id).filter((id) => Boolean(id))),
+        ];
+        const orderIds = [
+            ...new Set(rows.map((row) => row.sales_order_id).filter((id) => Boolean(id))),
+        ];
+        const [quotations, orders, quotePayments, orderPayments] = await Promise.all([
+            quotationIds.length
+                ? this.paymentRepo.manager.getRepository(quotation_entity_1.Quotation).find({ where: { id: (0, typeorm_2.In)(quotationIds) } })
+                : Promise.resolve([]),
+            orderIds.length
+                ? this.salesOrderRepo.find({ where: { id: (0, typeorm_2.In)(orderIds) } })
+                : Promise.resolve([]),
+            quotationIds.length
+                ? this.paymentRepo.find({ where: { quotation_id: (0, typeorm_2.In)(quotationIds), voided_at: (0, typeorm_2.IsNull)() } })
+                : Promise.resolve([]),
+            orderIds.length
+                ? this.orderPaymentRepo.find({ where: { sales_order_id: (0, typeorm_2.In)(orderIds) } })
+                : Promise.resolve([]),
+        ]);
+        const quoteTotal = new Map(quotations.map((row) => [row.id, Number(row.total || 0)]));
+        const orderTotal = new Map(orders.map((row) => [row.id, Number(row.total || 0)]));
+        const quotePaid = new Map();
+        for (const payment of quotePayments) {
+            if (!payment.quotation_id)
+                continue;
+            quotePaid.set(payment.quotation_id, (0, advance_credit_util_1.roundAdvanceMoney)((quotePaid.get(payment.quotation_id) ?? 0) + Number(payment.amount_mxn || 0)));
+        }
+        const orderPaid = new Map();
+        for (const payment of orderPayments) {
+            orderPaid.set(payment.sales_order_id, (0, advance_credit_util_1.roundAdvanceMoney)((orderPaid.get(payment.sales_order_id) ?? 0) + Number(payment.amount || 0)));
+        }
+        return rows.map((row) => {
+            const documentTotal = row.sales_order_id
+                ? orderTotal.get(row.sales_order_id) ?? quoteTotal.get(row.quotation_id ?? '') ?? 0
+                : quoteTotal.get(row.quotation_id ?? '') ?? 0;
+            const paid = row.sales_order_id
+                ? orderPaid.get(row.sales_order_id) ?? quotePaid.get(row.quotation_id ?? '') ?? Number(row.amount_mxn || 0)
+                : quotePaid.get(row.quotation_id ?? '') ?? Number(row.amount_mxn || 0);
+            return {
+                id: row.id,
+                folio: row.document_folio,
+                payment_method: row.payment_method,
+                payment_method_label: (0, advance_payment_method_util_1.advancePaymentMethodLabel)(row.payment_method),
+                amount_mxn: Number(row.amount_mxn),
+                document_total: (0, advance_credit_util_1.roundAdvanceMoney)(documentTotal),
+                amount_pending: (0, advance_credit_util_1.advanceDocumentPending)(documentTotal, paid),
+                payer_summary: (0, pos_payer_contact_util_1.formatPayerContactSummary)({
+                    transferPayerName: row.transfer_payer_name,
+                    transferPayerBusinessName: row.transfer_payer_business_name,
+                    cardPayerName: row.card_payer_name,
+                    cardPayerPhone: row.card_payer_phone,
+                    checkPayerName: row.check_payer_name,
+                    checkPayerPhone: row.check_payer_phone,
+                }),
+            };
+        });
     }
     async activeByInvoice(tenantId, invoiceId) {
         return this.paymentRepo.findOne({

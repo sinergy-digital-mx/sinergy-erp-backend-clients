@@ -17,29 +17,37 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const crypto_1 = require("crypto");
+const customer_entity_1 = require("../../../entities/customers/customer.entity");
 const customer_credit_entity_1 = require("../../../entities/customers/customer-credit.entity");
 const fiscal_configuration_entity_1 = require("../../../entities/billing/fiscal-configuration.entity");
 const sales_order_entity_1 = require("../../../entities/sales-orders/sales-order.entity");
 const sales_order_payment_entity_1 = require("../../../entities/sales-orders/sales-order-payment.entity");
 const electronic_invoice_entity_1 = require("../../../entities/electronic-invoicing/electronic-invoice.entity");
+const quotation_entity_1 = require("../../../entities/quotations/quotation.entity");
+const advance_shift_payment_entity_1 = require("../../../entities/pos/advance-shift-payment.entity");
 const credit_note_util_1 = require("../../sales-orders/utils/credit-note.util");
 const pos_sale_collection_mapper_1 = require("../../pos-shifts/mappers/pos-sale-collection.mapper");
 const exchange_rate_service_1 = require("../../exchange-rate/exchange-rate.service");
 const credit_currency_util_1 = require("../utils/credit-currency.util");
 const customer_credit_util_1 = require("../utils/customer-credit.util");
+const advance_credit_util_1 = require("../utils/advance-credit.util");
 let CustomerCreditService = class CustomerCreditService {
     creditRepo;
     fiscalRepo;
     salesOrderRepo;
     paymentRepo;
     invoiceRepo;
+    quotationRepo;
+    advancePaymentRepo;
     exchangeRateService;
-    constructor(creditRepo, fiscalRepo, salesOrderRepo, paymentRepo, invoiceRepo, exchangeRateService) {
+    constructor(creditRepo, fiscalRepo, salesOrderRepo, paymentRepo, invoiceRepo, quotationRepo, advancePaymentRepo, exchangeRateService) {
         this.creditRepo = creditRepo;
         this.fiscalRepo = fiscalRepo;
         this.salesOrderRepo = salesOrderRepo;
         this.paymentRepo = paymentRepo;
         this.invoiceRepo = invoiceRepo;
+        this.quotationRepo = quotationRepo;
+        this.advancePaymentRepo = advancePaymentRepo;
         this.exchangeRateService = exchangeRateService;
     }
     async listForCustomer(customer) {
@@ -320,7 +328,231 @@ let CustomerCreditService = class CustomerCreditService {
             const pending = converted.amount ?? effect.pendingAfter;
             usedByFiscal.set(key, Number(((usedByFiscal.get(key) ?? 0) + pending).toFixed(2)));
         }
+        await this.addAdvanceCreditUsage(tenantId, customerId, usedByFiscal, currencyByFiscal, rateForOrderDate, new Set(openOrders.map((order) => order.id)));
         return usedByFiscal;
+    }
+    async assertAdvanceCreditFits(input) {
+        const previous = (0, advance_credit_util_1.roundAdvanceMoney)(input.previousPending);
+        const next = (0, advance_credit_util_1.roundAdvanceMoney)(input.nextPending);
+        if (next - previous <= 0.009) {
+            return;
+        }
+        if (!input.fiscalConfigurationId) {
+            throw new common_1.BadRequestException('El documento no tiene razón social para aplicar crédito');
+        }
+        const customer = await this.creditRepo.manager.getRepository(customer_entity_1.Customer).findOne({
+            where: { id: input.customerId, tenant_id: input.tenantId },
+        });
+        if (!customer) {
+            throw new common_1.BadRequestException('Cliente no encontrado');
+        }
+        if ((0, pos_sale_collection_mapper_1.isWalkInCustomer)(customer)) {
+            throw new common_1.BadRequestException('El cliente de mostrador no puede dejar saldo a crédito');
+        }
+        const snapshot = await this.getSnapshotForFiscal(customer, input.fiscalConfigurationId);
+        if (!snapshot.credit_enabled) {
+            throw new common_1.BadRequestException('El cliente no tiene crédito activo con esta razón social');
+        }
+        const storedRate = Number(input.exchangeRate);
+        const momentRate = storedRate > 0 ? storedRate : await this.rateForDate(input.tenantId, input.createdAt);
+        const exchangeRate = (0, credit_currency_util_1.creditConversionRate)({
+            orderCurrency: input.currency,
+            creditCurrency: snapshot.credit_currency,
+            orderExchangeRate: storedRate,
+            dailyExchangeRate: momentRate,
+        });
+        const nextConverted = (0, credit_currency_util_1.amountInCreditCurrency)({
+            amount: next,
+            orderCurrency: input.currency,
+            creditCurrency: snapshot.credit_currency,
+            exchangeRate,
+        });
+        const previousConverted = (0, credit_currency_util_1.amountInCreditCurrency)({
+            amount: previous,
+            orderCurrency: input.currency,
+            creditCurrency: snapshot.credit_currency,
+            exchangeRate,
+        });
+        if (nextConverted.error || nextConverted.amount == null || previousConverted.amount == null) {
+            throw new common_1.BadRequestException(nextConverted.error || 'No hay tipo de cambio para convertir el crédito');
+        }
+        const increase = (0, advance_credit_util_1.roundAdvanceMoney)(nextConverted.amount - previousConverted.amount);
+        if (increase <= snapshot.credit_available + 0.009) {
+            return;
+        }
+        if ((0, customer_credit_util_1.creditChargeUsesExceedWaiver)(increase, snapshot.credit_available, snapshot.allow_credit_exceed)) {
+            await this.consumeExceedWaiver(input.tenantId, input.customerId, input.fiscalConfigurationId);
+            return;
+        }
+        throw new common_1.BadRequestException(`Crédito insuficiente. Disponible: ${snapshot.credit_available.toFixed(2)} ${snapshot.credit_currency}`);
+    }
+    async rateForDate(tenantId, createdAt) {
+        const daily = await this.exchangeRateService.getDailyRate(tenantId, (0, credit_currency_util_1.creditRateDate)(createdAt) ?? undefined);
+        const value = Number(daily?.exchange_rate ?? 0);
+        return value > 0 ? value : null;
+    }
+    async addAdvanceCreditUsage(tenantId, customerId, usedByFiscal, currencyByFiscal, rateForOrderDate, countedOrderIds) {
+        const quotations = await this.quotationRepo.find({
+            where: {
+                tenant_id: tenantId,
+                customer_id: customerId,
+                general_status: 'Creada',
+                converted_to_sales_order_id: (0, typeorm_2.IsNull)(),
+            },
+        });
+        const openQuotes = quotations.filter((quote) => Number(quote.advance_requested_total || 0) > 0.009 && quote.fiscal_configuration_id);
+        const paidByQuote = await this.sumAdvancePaidByQuotation(tenantId, openQuotes.map((quote) => quote.id));
+        for (const quote of openQuotes) {
+            const pending = (0, advance_credit_util_1.advanceCreditPending)(Number(quote.total || 0), Number(quote.advance_requested_total || 0), paidByQuote.get(quote.id) ?? 0);
+            await this.addPendingToFiscal(usedByFiscal, currencyByFiscal, rateForOrderDate, quote.fiscal_configuration_id, pending, 'MXN', null, quote.created_at);
+        }
+        const orders = await this.salesOrderRepo.find({
+            where: {
+                tenant_id: tenantId,
+                customer_id: customerId,
+                is_credit: false,
+            },
+        });
+        const candidates = orders.filter((order) => order.general_status !== 'Cancelada' &&
+            Boolean(order.fiscal_configuration_id) &&
+            !countedOrderIds.has(order.id));
+        if (candidates.length === 0) {
+            return;
+        }
+        const coverage = await this.orderAdvanceCoverageMap(tenantId, candidates.map((order) => order.id));
+        const withAdvance = candidates.filter((order) => coverage.get(order.id)?.hasAdvance);
+        if (withAdvance.length === 0) {
+            return;
+        }
+        const noteRows = await this.invoiceRepo.find({
+            where: {
+                tenant_id: tenantId,
+                source_module: 'sales_orders',
+                source_id: (0, typeorm_2.In)(withAdvance.map((order) => order.id)),
+                invoice_role: 'credit_note',
+            },
+        });
+        const notesByOrder = new Map();
+        for (const invoice of noteRows) {
+            if (!(0, credit_note_util_1.isInvoiceVigente)(invoice))
+                continue;
+            notesByOrder.set(invoice.source_id, (0, credit_note_util_1.roundCreditMoney)((notesByOrder.get(invoice.source_id) ?? 0) + Number(invoice.total || 0)));
+        }
+        for (const order of withAdvance) {
+            const cover = coverage.get(order.id);
+            if (!cover)
+                continue;
+            const effect = (0, credit_note_util_1.splitCreditNoteEffect)({
+                orderTotal: Number(order.total || 0),
+                amountPaid: cover.paid,
+                creditNotesTotal: notesByOrder.get(order.id) ?? 0,
+            });
+            const pending = Math.min((0, advance_credit_util_1.advanceCreditPending)(Number(order.total || 0), cover.requested, cover.paid), effect.pendingAfter);
+            await this.addPendingToFiscal(usedByFiscal, currencyByFiscal, rateForOrderDate, order.fiscal_configuration_id, pending, order.currency, Number(order.exchange_rate), order.created_at);
+        }
+    }
+    async addPendingToFiscal(usedByFiscal, currencyByFiscal, rateForOrderDate, fiscalConfigurationId, pending, currency, storedRate, createdAt) {
+        const amount = (0, advance_credit_util_1.roundAdvanceMoney)(pending);
+        if (amount <= 0.009 || !fiscalConfigurationId) {
+            return;
+        }
+        const creditCurrency = currencyByFiscal.get(fiscalConfigurationId) ?? 'MXN';
+        const momentRate = storedRate && storedRate > 0 ? storedRate : await rateForOrderDate(createdAt);
+        const rate = (0, credit_currency_util_1.creditConversionRate)({
+            orderCurrency: currency,
+            creditCurrency,
+            orderExchangeRate: storedRate,
+            dailyExchangeRate: momentRate,
+        });
+        const converted = (0, credit_currency_util_1.amountInCreditCurrency)({
+            amount,
+            orderCurrency: currency,
+            creditCurrency,
+            exchangeRate: rate,
+        });
+        const next = converted.amount ?? amount;
+        usedByFiscal.set(fiscalConfigurationId, Number(((usedByFiscal.get(fiscalConfigurationId) ?? 0) + next).toFixed(2)));
+    }
+    async sumAdvancePaidByQuotation(tenantId, quotationIds) {
+        const paid = new Map();
+        if (quotationIds.length === 0) {
+            return paid;
+        }
+        const rows = await this.advancePaymentRepo
+            .createQueryBuilder('payment')
+            .select('payment.quotation_id', 'quotation_id')
+            .addSelect('COALESCE(SUM(payment.amount_mxn), 0)', 'paid')
+            .where('payment.tenant_id = :tenantId', { tenantId })
+            .andWhere('payment.voided_at IS NULL')
+            .andWhere('payment.quotation_id IN (:...ids)', { ids: quotationIds })
+            .groupBy('payment.quotation_id')
+            .getRawMany();
+        for (const row of rows) {
+            if (row.quotation_id) {
+                paid.set(row.quotation_id, Number(row.paid || 0));
+            }
+        }
+        return paid;
+    }
+    async advanceCoverageForOrder(tenantId, orderId) {
+        const coverage = await this.orderAdvanceCoverageMap(tenantId, [orderId]);
+        return coverage.get(orderId) ?? { hasAdvance: false, requested: 0, paid: 0 };
+    }
+    async orderAdvanceCoverageMap(tenantId, orderIds) {
+        const result = new Map();
+        if (orderIds.length === 0) {
+            return result;
+        }
+        const [paymentRows, quotations, invoices] = await Promise.all([
+            this.paymentRepo
+                .createQueryBuilder('payment')
+                .select('payment.sales_order_id', 'sales_order_id')
+                .addSelect('COALESCE(SUM(payment.amount), 0)', 'paid')
+                .addSelect(`COALESCE(SUM(CASE WHEN payment.source = 'advance' THEN payment.amount ELSE 0 END), 0)`, 'advance')
+                .where('payment.tenant_id = :tenantId', { tenantId })
+                .andWhere('payment.sales_order_id IN (:...ids)', { ids: orderIds })
+                .groupBy('payment.sales_order_id')
+                .getRawMany(),
+            this.quotationRepo.find({
+                where: { tenant_id: tenantId, converted_to_sales_order_id: (0, typeorm_2.In)(orderIds) },
+                select: ['id', 'converted_to_sales_order_id', 'advance_requested_total'],
+            }),
+            this.invoiceRepo.find({
+                where: {
+                    tenant_id: tenantId,
+                    source_id: (0, typeorm_2.In)(orderIds),
+                    invoice_role: 'advance',
+                },
+            }),
+        ]);
+        const paidByOrder = new Map(paymentRows.map((row) => [
+            row.sales_order_id,
+            { paid: Number(row.paid || 0), advance: Number(row.advance || 0) },
+        ]));
+        const requestedByOrder = new Map();
+        for (const quote of quotations) {
+            if (!quote.converted_to_sales_order_id)
+                continue;
+            const requested = Number(quote.advance_requested_total || 0);
+            if (requested > 0.009) {
+                requestedByOrder.set(quote.converted_to_sales_order_id, requested);
+            }
+        }
+        const invoiceTotalByOrder = new Map();
+        for (const invoice of invoices) {
+            if (!(0, credit_note_util_1.isInvoiceVigente)(invoice))
+                continue;
+            invoiceTotalByOrder.set(invoice.source_id, (0, advance_credit_util_1.roundAdvanceMoney)((invoiceTotalByOrder.get(invoice.source_id) ?? 0) + Number(invoice.total || 0)));
+        }
+        for (const orderId of orderIds) {
+            const paid = paidByOrder.get(orderId)?.paid ?? 0;
+            const advancePaid = paidByOrder.get(orderId)?.advance ?? 0;
+            const requested = requestedByOrder.get(orderId) ??
+                (advancePaid > 0.009 ? advancePaid : invoiceTotalByOrder.get(orderId) ?? 0);
+            const hasAdvance = requested > 0.009 || advancePaid > 0.009 || invoiceTotalByOrder.has(orderId);
+            result.set(orderId, { hasAdvance, requested, paid });
+        }
+        return result;
     }
 };
 exports.CustomerCreditService = CustomerCreditService;
@@ -331,7 +563,11 @@ exports.CustomerCreditService = CustomerCreditService = __decorate([
     __param(2, (0, typeorm_1.InjectRepository)(sales_order_entity_1.SalesOrder)),
     __param(3, (0, typeorm_1.InjectRepository)(sales_order_payment_entity_1.SalesOrderPayment)),
     __param(4, (0, typeorm_1.InjectRepository)(electronic_invoice_entity_1.ElectronicInvoice)),
+    __param(5, (0, typeorm_1.InjectRepository)(quotation_entity_1.Quotation)),
+    __param(6, (0, typeorm_1.InjectRepository)(advance_shift_payment_entity_1.AdvanceShiftPayment)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,

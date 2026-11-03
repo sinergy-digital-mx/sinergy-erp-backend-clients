@@ -52,6 +52,9 @@ export declare class AccountingService {
             created_at: string;
             total: number;
             payment_status: string | null;
+            has_advance: boolean;
+            advance_given: number;
+            amount_pending: number;
             for_shipping: boolean;
             sales_order_type: string | null;
             channel: string;
@@ -155,9 +158,13 @@ export declare class AccountingService {
             customer_person_name: string | null;
             customer_display_name: string | null;
             id: string;
-            collection_id: string;
+            document_kind: "sales_order" | "quotation";
+            collection_id: string | null;
             folio: string;
             total: number;
+            has_advance: boolean;
+            advance_given: number;
+            amount_pending: number;
             payment_status: string;
             general_status: string;
             created_at: Date;
@@ -170,7 +177,7 @@ export declare class AccountingService {
                 city: string | null;
                 label: string | null;
             } | null;
-            payment_method: PosSalePaymentMethod;
+            payment_method: string | null;
             payment_method_label: string;
             payment_breakdown_label: string | null;
             has_stamped_invoice: boolean;
@@ -339,6 +346,8 @@ export declare class AccountingService {
             payment_method: PosSalePaymentMethod;
             payment_method_label: string;
             amount_mxn: number;
+            document_total: number;
+            amount_pending: number;
             payer_summary: string | null;
         }[];
     }>;
@@ -444,6 +453,11 @@ export declare class AccountingService {
     private buildPosCollectionsQuery;
     private aggregatePosCollections;
     private applyPosCollectionScope;
+    private loadOrderAdvanceDisplay;
+    private loadAdvanceCreditRows;
+    private calendarDateInRange;
+    private calendarDay;
+    private advanceRowMatchesSearch;
     private mapPosCollectionRow;
     private mapCollectionBranch;
     private formatPosUserLabel;

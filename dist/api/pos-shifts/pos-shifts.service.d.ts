@@ -189,6 +189,8 @@ export declare class PosShiftsService {
                 payment_method: PosSalePaymentMethod;
                 payment_method_label: string;
                 amount_mxn: number;
+                document_total: number;
+                amount_pending: number;
                 payer_summary: string | null;
             }[];
         } | null;
@@ -314,6 +316,8 @@ export declare class PosShiftsService {
                 payment_method: PosSalePaymentMethod;
                 payment_method_label: string;
                 amount_mxn: number;
+                document_total: number;
+                amount_pending: number;
                 payer_summary: string | null;
             }[];
         };
@@ -427,6 +431,8 @@ export declare class PosShiftsService {
             payment_method: PosSalePaymentMethod;
             payment_method_label: string;
             amount_mxn: number;
+            document_total: number;
+            amount_pending: number;
             payer_summary: string | null;
         }[];
     }>;
@@ -538,6 +544,8 @@ export declare class PosShiftsService {
             payment_method: PosSalePaymentMethod;
             payment_method_label: string;
             amount_mxn: number;
+            document_total: number;
+            amount_pending: number;
             payer_summary: string | null;
         }[];
     }[]>;
@@ -675,6 +683,8 @@ export declare class PosShiftsService {
             payment_method: PosSalePaymentMethod;
             payment_method_label: string;
             amount_mxn: number;
+            document_total: number;
+            amount_pending: number;
             payer_summary: string | null;
         }[];
     }>;

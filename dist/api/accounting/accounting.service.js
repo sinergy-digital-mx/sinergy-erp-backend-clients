@@ -33,6 +33,9 @@ const query_accounting_base_dto_1 = require("./dto/query-accounting-base.dto");
 const pos_sale_collection_mapper_1 = require("../pos-shifts/mappers/pos-sale-collection.mapper");
 const unclosed_shift_alert_1 = require("../pos-shifts/utils/unclosed-shift-alert");
 const sales_order_payment_entity_1 = require("../../entities/sales-orders/sales-order-payment.entity");
+const quotation_entity_1 = require("../../entities/quotations/quotation.entity");
+const advance_shift_payment_entity_1 = require("../../entities/pos/advance-shift-payment.entity");
+const advance_credit_util_1 = require("../customers/utils/advance-credit.util");
 const sales_order_payment_display_util_1 = require("../sales-orders/utils/sales-order-payment-display.util");
 const credit_note_util_1 = require("../sales-orders/utils/credit-note.util");
 const pos_collection_payment_totals_util_1 = require("./utils/pos-collection-payment-totals.util");
@@ -306,18 +309,54 @@ let AccountingService = class AccountingService {
             ? summary
             : await this.aggregatePosCollections(tenantId, filters, shiftFrom, shiftTo, dateBasis, customerType, search, paymentMethod);
         const total = filtered.orders_collected;
-        const qb = this.buildPosCollectionsQuery(tenantId, filters, shiftFrom, shiftTo, customerType, dateBasis);
-        qb.orderBy('collection.created_at', 'DESC')
-            .skip((page - 1) * limit)
-            .take(limit);
-        const collections = await qb.getMany();
+        const collectionsQb = this.buildPosCollectionsQuery(tenantId, filters, shiftFrom, shiftTo, customerType, dateBasis);
+        collectionsQb.orderBy('collection.created_at', 'DESC');
+        if (!filters.credit_only) {
+            collectionsQb.skip((page - 1) * limit).take(limit);
+        }
+        const collections = await collectionsQb.getMany();
         const orderIds = collections
             .map((collection) => collection.sales_order_id)
             .filter((id) => Boolean(id));
-        const [stampedOrderIds, paymentDates] = await Promise.all([
+        const [stampedOrderIds, paymentDates, advanceByOrder] = await Promise.all([
             this.getStampedInvoiceOrderIds(tenantId, orderIds),
             this.loadSalesOrderPaymentDates(tenantId, orderIds),
+            this.loadOrderAdvanceDisplay(tenantId, orderIds),
         ]);
+        let data = collections.map((collection) => this.mapPosCollectionRow(collection, stampedOrderIds, paymentDates, advanceByOrder));
+        let listTotal = total;
+        let listAmount = filtered.amount_collected;
+        let listSummary = {
+            orders_collected: summary.orders_collected,
+            amount_collected: summary.amount_collected,
+            walk_in_count: summary.walk_in_count,
+            invoiced_count: summary.invoiced_count,
+            by_payment_method: summary.by_payment_method,
+        };
+        if (filters.credit_only) {
+            const extras = await this.loadAdvanceCreditRows(tenantId, filters, shiftFrom, shiftTo, search);
+            const extraOnly = extras.filter((row) => !orderIds.includes(row.id));
+            const extraInvoiced = extraOnly.filter((row) => row.has_stamped_invoice);
+            listSummary = {
+                ...listSummary,
+                orders_collected: listSummary.orders_collected + extraOnly.length,
+                amount_collected: (0, advance_credit_util_1.roundAdvanceMoney)(listSummary.amount_collected +
+                    extraOnly.reduce((sum, row) => sum + Number(row.total || 0), 0)),
+                invoiced_count: listSummary.invoiced_count + extraInvoiced.length,
+            };
+            const pageExtras = customerType === query_accounting_base_dto_1.PosCollectionCustomerType.INVOICED ? extraInvoiced : extraOnly;
+            const seen = new Set(data.map((row) => row.id));
+            for (const extra of pageExtras) {
+                if (!seen.has(extra.id)) {
+                    data.push(extra);
+                }
+            }
+            data.sort((a, b) => new Date(b.collected_at || b.created_at || 0).getTime() -
+                new Date(a.collected_at || a.created_at || 0).getTime());
+            listAmount = (0, advance_credit_util_1.roundAdvanceMoney)(listAmount + pageExtras.reduce((sum, row) => sum + Number(row.total || 0), 0));
+            listTotal = data.length;
+            data = data.slice((page - 1) * limit, page * limit);
+        }
         return {
             terminal_user_id: cobranzaTerminal?.id ?? null,
             terminal_name: cobranzaTerminal
@@ -333,19 +372,13 @@ let AccountingService = class AccountingService {
                 payment_method: paymentMethod ?? null,
                 search: search || null,
             },
-            summary: {
-                orders_collected: summary.orders_collected,
-                amount_collected: summary.amount_collected,
-                walk_in_count: summary.walk_in_count,
-                invoiced_count: summary.invoiced_count,
-                by_payment_method: summary.by_payment_method,
-            },
-            filtered_amount: filtered.amount_collected,
-            data: collections.map((collection) => this.mapPosCollectionRow(collection, stampedOrderIds, paymentDates)),
-            total,
+            summary: listSummary,
+            filtered_amount: listAmount,
+            data,
+            total: listTotal,
             page,
             limit,
-            totalPages: Math.ceil(total / limit),
+            totalPages: Math.ceil(listTotal / limit) || 0,
         };
     }
     async exportPosCollectionsExcel(tenantId, filters) {
@@ -359,12 +392,21 @@ let AccountingService = class AccountingService {
         const orderIds = collections
             .map((collection) => collection.sales_order_id)
             .filter((id) => Boolean(id));
-        const [stampedOrderIds, paymentDates] = await Promise.all([
+        const [stampedOrderIds, paymentDates, advanceByOrder] = await Promise.all([
             this.getStampedInvoiceOrderIds(tenantId, orderIds),
             this.loadSalesOrderPaymentDates(tenantId, orderIds),
+            this.loadOrderAdvanceDisplay(tenantId, orderIds),
         ]);
-        const rows = collections.map((collection) => {
-            const mapped = this.mapPosCollectionRow(collection, stampedOrderIds, paymentDates);
+        let mappedRows = collections.map((collection) => this.mapPosCollectionRow(collection, stampedOrderIds, paymentDates, advanceByOrder));
+        if (filters.credit_only) {
+            let extras = await this.loadAdvanceCreditRows(tenantId, filters, shiftFrom, shiftTo, filters.search?.trim() || '');
+            if (customerType === query_accounting_base_dto_1.PosCollectionCustomerType.INVOICED) {
+                extras = extras.filter((row) => row.has_stamped_invoice);
+            }
+            const seen = new Set(mappedRows.map((row) => row.id));
+            mappedRows.push(...extras.filter((row) => !seen.has(row.id)));
+        }
+        const rows = mappedRows.map((mapped) => {
             const customerName = mapped.walk_in_name ||
                 mapped.customer_display_name ||
                 [mapped.customer_company_name, mapped.customer_person_name]
@@ -392,6 +434,8 @@ let AccountingService = class AccountingService {
                     mapped.payment_method ||
                     '',
                 total: (0, excel_export_util_1.num)(mapped.total),
+                advance_given: mapped.has_advance ? (0, excel_export_util_1.num)(mapped.advance_given) : null,
+                amount_pending: (0, excel_export_util_1.num)(mapped.amount_pending),
                 payment_status: mapped.payment_status ?? '',
                 for_shipping: mapped.for_shipping ? 'Sí' : 'No',
             };
@@ -430,6 +474,8 @@ let AccountingService = class AccountingService {
                 { header: 'Cajero', key: 'cashier', width: 22 },
                 { header: 'Método de pago', key: 'payment_method', width: 28 },
                 { header: 'Total', key: 'total', width: 14, type: 'currency' },
+                { header: 'Anticipo', key: 'advance_given', width: 14, type: 'currency' },
+                { header: 'Pendiente', key: 'amount_pending', width: 14, type: 'currency' },
                 { header: 'Estatus pago', key: 'payment_status', width: 14 },
                 { header: 'Para envío', key: 'for_shipping', width: 14 },
             ],
@@ -1011,6 +1057,7 @@ let AccountingService = class AccountingService {
         )`, { shiftFrom, shiftTo, branchId })
             .orderBy('so.created_at', 'DESC')
             .getRawMany();
+        const advanceByOrder = await this.loadOrderAdvanceDisplay(tenantId, rows.map((row) => row.id));
         return rows.map((row) => {
             const customerFields = this.buildCustomerFields({
                 company_name: row.customer_company_name,
@@ -1019,12 +1066,16 @@ let AccountingService = class AccountingService {
                 fiscal_razon_social: row.customer_fiscal,
             });
             const createdAt = row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at ?? '');
+            const advance = advanceByOrder.get(row.id);
             return {
                 id: row.id,
                 folio: row.folio,
                 created_at: createdAt,
                 total: Number(row.total || 0),
                 payment_status: row.payment_status,
+                has_advance: advance?.hasAdvance ?? false,
+                advance_given: advance?.advanceGiven ?? 0,
+                amount_pending: advance?.amountPending ?? (0, advance_credit_util_1.advanceDocumentPending)(Number(row.total || 0), 0),
                 for_shipping: this.isForShippingFlag(row.for_shipping),
                 sales_order_type: row.sales_order_type,
                 channel: row.sales_order_type === 'POS' ? 'caja' : 'branch',
@@ -1503,7 +1554,276 @@ let AccountingService = class AccountingService {
           OR so.walk_in_rfc ILIKE :search)`, { search: `%${term}%` });
         }
     }
-    mapPosCollectionRow(collection, stampedOrderIds, paymentDates) {
+    async loadOrderAdvanceDisplay(tenantId, orderIds) {
+        const result = new Map();
+        const ids = [...new Set(orderIds.filter(Boolean))];
+        if (ids.length === 0) {
+            return result;
+        }
+        const [orders, paymentRows, quotations] = await Promise.all([
+            this.salesOrderRepo.find({
+                where: { tenant_id: tenantId, id: (0, typeorm_2.In)(ids) },
+                select: ['id', 'total', 'advance_invoice_id'],
+            }),
+            this.salesOrderRepo.manager
+                .getRepository(sales_order_payment_entity_1.SalesOrderPayment)
+                .createQueryBuilder('payment')
+                .select('payment.sales_order_id', 'sales_order_id')
+                .addSelect('COALESCE(SUM(payment.amount), 0)', 'paid')
+                .addSelect(`COALESCE(SUM(CASE WHEN payment.source = 'advance' THEN payment.amount ELSE 0 END), 0)`, 'advance')
+                .where('payment.tenant_id = :tenantId', { tenantId })
+                .andWhere('payment.sales_order_id IN (:...ids)', { ids })
+                .groupBy('payment.sales_order_id')
+                .getRawMany(),
+            this.salesOrderRepo.manager.getRepository(quotation_entity_1.Quotation).find({
+                where: { tenant_id: tenantId, converted_to_sales_order_id: (0, typeorm_2.In)(ids) },
+                select: ['id', 'converted_to_sales_order_id', 'advance_requested_total'],
+            }),
+        ]);
+        const paidByOrder = new Map(paymentRows.map((row) => [
+            row.sales_order_id,
+            { paid: Number(row.paid || 0), advance: Number(row.advance || 0) },
+        ]));
+        const requestedByOrder = new Map();
+        for (const quote of quotations) {
+            if (!quote.converted_to_sales_order_id)
+                continue;
+            const requested = Number(quote.advance_requested_total || 0);
+            if (requested > 0.009) {
+                requestedByOrder.set(quote.converted_to_sales_order_id, requested);
+            }
+        }
+        for (const order of orders) {
+            const paid = paidByOrder.get(order.id)?.paid ?? 0;
+            const advanceGiven = (0, advance_credit_util_1.roundAdvanceMoney)(paidByOrder.get(order.id)?.advance ?? 0);
+            const requested = requestedByOrder.get(order.id) ?? (order.advance_invoice_id ? advanceGiven : 0);
+            const hasAdvance = Boolean(order.advance_invoice_id) || advanceGiven > 0.009 || requested > 0.009;
+            result.set(order.id, {
+                hasAdvance,
+                advanceGiven,
+                amountPending: (0, advance_credit_util_1.advanceDocumentPending)(Number(order.total || 0), paid),
+                requested,
+            });
+        }
+        return result;
+    }
+    async loadAdvanceCreditRows(tenantId, filters, periodFrom, periodTo, search) {
+        const branchId = filters.billing_branch_id;
+        const quotationRows = await this.salesOrderRepo.manager
+            .getRepository(quotation_entity_1.Quotation)
+            .createQueryBuilder('quotation')
+            .innerJoinAndSelect('quotation.customer', 'customer')
+            .leftJoinAndSelect('quotation.seller_user', 'seller_user')
+            .leftJoinAndSelect('quotation.billing_branch', 'branch')
+            .leftJoin('quotation.warehouse', 'warehouse')
+            .where('quotation.tenant_id = :tenantId', { tenantId })
+            .andWhere('quotation.general_status = :openStatus', { openStatus: 'Creada' })
+            .andWhere('quotation.converted_to_sales_order_id IS NULL')
+            .andWhere('quotation.advance_requested_total > 0')
+            .andWhere('(quotation.billing_branch_id = :branchId OR warehouse.billing_branch_id = :branchId)', { branchId })
+            .andWhere(`NOT ${this.walkInCustomerSql('customer')}`, {
+            walkInFiscal: WALK_IN_FISCAL_NAME,
+            walkInName: WALK_IN_DISPLAY_NAME,
+        })
+            .andWhere(`EXISTS (
+          SELECT 1 FROM customer_credits cc
+          WHERE cc.tenant_id = quotation.tenant_id
+            AND cc.customer_id = customer.id
+            AND cc.fiscal_configuration_id = quotation.fiscal_configuration_id
+            AND cc.credit_enabled = 1
+        )`)
+            .getMany();
+        const quoteIds = quotationRows.map((row) => row.id);
+        const advancePayments = quoteIds.length
+            ? await this.salesOrderRepo.manager.getRepository(advance_shift_payment_entity_1.AdvanceShiftPayment).find({
+                where: { tenant_id: tenantId, quotation_id: (0, typeorm_2.In)(quoteIds), voided_at: (0, typeorm_2.IsNull)() },
+            })
+            : [];
+        const paidByQuote = new Map();
+        const paidAtByQuote = new Map();
+        for (const payment of advancePayments) {
+            if (!payment.quotation_id)
+                continue;
+            paidByQuote.set(payment.quotation_id, (0, advance_credit_util_1.roundAdvanceMoney)((paidByQuote.get(payment.quotation_id) ?? 0) + Number(payment.amount_mxn || 0)));
+            const current = paidAtByQuote.get(payment.quotation_id);
+            if (!current || payment.created_at > current) {
+                paidAtByQuote.set(payment.quotation_id, payment.created_at);
+            }
+        }
+        const orders = await this.salesOrderRepo
+            .createQueryBuilder('so')
+            .innerJoinAndSelect('so.customer', 'customer')
+            .leftJoinAndSelect('so.seller_user', 'seller_user')
+            .leftJoinAndSelect('so.billing_branch', 'branch')
+            .leftJoin('so.warehouse', 'warehouse')
+            .where('so.tenant_id = :tenantId', { tenantId })
+            .andWhere('so.general_status != :cancelled', { cancelled: 'Cancelada' })
+            .andWhere(this.posBranchSql(), { branchId })
+            .andWhere(`NOT EXISTS (
+          SELECT 1 FROM pos_sale_collections collection
+          WHERE collection.sales_order_id = so.id
+            AND collection.tenant_id = so.tenant_id
+        )`)
+            .andWhere(`(
+          so.advance_invoice_id IS NOT NULL
+          OR EXISTS (
+            SELECT 1 FROM inv_s_quotations quote
+            WHERE quote.converted_to_sales_order_id = so.id
+              AND quote.tenant_id = so.tenant_id
+              AND quote.advance_requested_total > 0
+          )
+          OR EXISTS (
+            SELECT 1 FROM inv_s_sales_order_payments payment
+            WHERE payment.sales_order_id = so.id
+              AND payment.tenant_id = so.tenant_id
+              AND payment.source = 'advance'
+          )
+        )`)
+            .andWhere(`NOT ${this.walkInCustomerSql('customer')}`, {
+            walkInFiscal: WALK_IN_FISCAL_NAME,
+            walkInName: WALK_IN_DISPLAY_NAME,
+        })
+            .andWhere(`EXISTS (
+          SELECT 1 FROM customer_credits cc
+          WHERE cc.tenant_id = so.tenant_id
+            AND cc.customer_id = customer.id
+            AND cc.fiscal_configuration_id = so.fiscal_configuration_id
+            AND cc.credit_enabled = 1
+        )`)
+            .getMany();
+        const advanceByOrder = await this.loadOrderAdvanceDisplay(tenantId, orders.map((order) => order.id));
+        const term = search.trim().toLowerCase();
+        const rows = [];
+        for (const quote of quotationRows) {
+            const paid = paidByQuote.get(quote.id) ?? 0;
+            const requested = Number(quote.advance_requested_total || 0);
+            if ((0, advance_credit_util_1.advanceCreditPending)(Number(quote.total || 0), requested, paid) <= 0.009) {
+                continue;
+            }
+            const occurredAt = paidAtByQuote.get(quote.id) ?? quote.created_at;
+            if (!this.calendarDateInRange(occurredAt, periodFrom, periodTo) &&
+                !this.calendarDateInRange(quote.created_at, periodFrom, periodTo)) {
+                continue;
+            }
+            const customerFields = this.buildCustomerFields(quote.customer);
+            if (term && !this.advanceRowMatchesSearch(term, quote.folio, customerFields, null)) {
+                continue;
+            }
+            rows.push({
+                id: quote.id,
+                collection_id: null,
+                folio: quote.folio,
+                total: Number(quote.total || 0),
+                payment_status: 'Pendiente',
+                general_status: quote.general_status,
+                created_at: quote.created_at,
+                payment_date: paid > 0 ? this.calendarDay(paidAtByQuote.get(quote.id)) : null,
+                collected_at: occurredAt,
+                shift_date: null,
+                billing_branch: this.mapCollectionBranch(quote.billing_branch),
+                payment_method: paid > 0 ? 'advance' : null,
+                payment_method_label: 'Anticipo',
+                payment_breakdown_label: null,
+                has_stamped_invoice: false,
+                has_advance: true,
+                advance_given: (0, advance_credit_util_1.roundAdvanceMoney)(paid),
+                amount_pending: (0, advance_credit_util_1.advanceDocumentPending)(Number(quote.total || 0), paid),
+                walk_in_name: null,
+                walk_in_rfc: null,
+                for_shipping: false,
+                ...customerFields,
+                is_walk_in: false,
+                seller_user: quote.seller_user
+                    ? {
+                        id: quote.seller_user.id,
+                        first_name: quote.seller_user.first_name,
+                        last_name: quote.seller_user.last_name,
+                        pos_user_code: quote.seller_user.pos_user_code ?? null,
+                    }
+                    : null,
+                collected_by_user: null,
+                document_kind: 'quotation',
+            });
+        }
+        for (const order of orders) {
+            const advance = advanceByOrder.get(order.id);
+            if (!advance?.hasAdvance)
+                continue;
+            if ((0, advance_credit_util_1.advanceCreditPending)(Number(order.total || 0), advance.requested, Number(order.total || 0) - advance.amountPending) <= 0.009) {
+                continue;
+            }
+            if (!this.calendarDateInRange(order.created_at, periodFrom, periodTo)) {
+                continue;
+            }
+            const customerFields = this.buildCustomerFields(order.customer);
+            if (term && !this.advanceRowMatchesSearch(term, order.folio, customerFields, order.walk_in_rfc)) {
+                continue;
+            }
+            rows.push({
+                id: order.id,
+                collection_id: null,
+                folio: order.folio,
+                total: Number(order.total || 0),
+                payment_status: order.payment_status,
+                general_status: order.general_status,
+                created_at: order.created_at,
+                payment_date: null,
+                collected_at: order.created_at,
+                shift_date: null,
+                billing_branch: this.mapCollectionBranch(order.billing_branch),
+                payment_method: 'advance',
+                payment_method_label: 'Anticipo',
+                payment_breakdown_label: null,
+                has_stamped_invoice: Boolean(order.advance_invoice_id),
+                has_advance: true,
+                advance_given: advance.advanceGiven,
+                amount_pending: advance.amountPending,
+                walk_in_name: order.walk_in_name,
+                walk_in_rfc: order.walk_in_rfc,
+                for_shipping: this.isForShippingFlag(order.for_shipping),
+                ...customerFields,
+                is_walk_in: false,
+                seller_user: order.seller_user
+                    ? {
+                        id: order.seller_user.id,
+                        first_name: order.seller_user.first_name,
+                        last_name: order.seller_user.last_name,
+                        pos_user_code: order.seller_user.pos_user_code ?? null,
+                    }
+                    : null,
+                collected_by_user: null,
+                document_kind: 'sales_order',
+            });
+        }
+        return rows;
+    }
+    calendarDateInRange(value, from, to) {
+        const day = this.calendarDay(value);
+        if (!day)
+            return false;
+        return day >= from && day <= to;
+    }
+    calendarDay(value) {
+        if (!value)
+            return null;
+        const date = value instanceof Date ? value : new Date(value);
+        if (Number.isNaN(date.getTime()))
+            return null;
+        return new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'America/Tijuana',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+        }).format(date);
+    }
+    advanceRowMatchesSearch(term, folio, customer, rfc) {
+        const haystack = [folio, customer.customer_company_name, customer.customer_person_name, rfc]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
+        return haystack.includes(term);
+    }
+    mapPosCollectionRow(collection, stampedOrderIds, paymentDates, advanceByOrder = new Map()) {
         const order = collection.sales_order;
         const customer = collection.customer;
         const customerFields = this.buildCustomerFields(customer);
@@ -1529,11 +1849,17 @@ let AccountingService = class AccountingService {
             (paymentMethod && paymentMethod in sales_order_payment_display_util_1.SALES_ORDER_PAYMENT_METHOD_LABELS
                 ? sales_order_payment_display_util_1.SALES_ORDER_PAYMENT_METHOD_LABELS[paymentMethod]
                 : paymentMethod ?? null);
+        const advance = order?.id ? advanceByOrder.get(order.id) : undefined;
+        const documentTotal = Number(order?.total || collection.order_total_mxn || 0);
         return {
             id: order?.id ?? collection.sales_order_id,
+            document_kind: 'sales_order',
             collection_id: collection.id,
             folio: order?.folio ?? null,
             total: Number(collection.order_total_mxn),
+            has_advance: advance?.hasAdvance ?? false,
+            advance_given: advance?.advanceGiven ?? 0,
+            amount_pending: advance?.amountPending ?? (0, advance_credit_util_1.advanceDocumentPending)(documentTotal, 0),
             payment_status: order?.payment_status ?? null,
             general_status: order?.general_status ?? null,
             created_at: order?.created_at ?? null,
@@ -1543,7 +1869,7 @@ let AccountingService = class AccountingService {
                 ? (0, unclosed_shift_alert_1.toDateOnlyString)(collection.pos_daily_shift.shift_date)
                 : null,
             billing_branch: billingBranch,
-            payment_method: paymentMethod,
+            payment_method: (paymentMethod ?? null),
             payment_method_label: paymentMethodLabel,
             payment_breakdown_label: paymentDisplay.payment_breakdown_label,
             has_stamped_invoice: hasStampedInvoice,

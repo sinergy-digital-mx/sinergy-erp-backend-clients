@@ -44,6 +44,7 @@ const sales_order_invoice_email_service_1 = require("./services/sales-order-invo
 const customer_debt_ledger_module_1 = require("../accounting/customer-debt-ledger.module");
 const exchange_rate_module_1 = require("../exchange-rate/exchange-rate.module");
 const whatsapp_module_1 = require("../whatsapp/whatsapp.module");
+const customers_module_1 = require("../customers/customers.module");
 let SalesOrdersModule = class SalesOrdersModule {
 };
 exports.SalesOrdersModule = SalesOrdersModule;
@@ -83,6 +84,7 @@ exports.SalesOrdersModule = SalesOrdersModule = __decorate([
             customer_debt_ledger_module_1.CustomerDebtLedgerModule,
             exchange_rate_module_1.ExchangeRateModule,
             whatsapp_module_1.WhatsappModule,
+            customers_module_1.CustomersModule,
         ],
         controllers: [sales_order_controller_1.SalesOrderController],
         providers: [

@@ -158,6 +158,8 @@ export declare class PosShiftsController {
                 payment_method: import("../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
                 payment_method_label: string;
                 amount_mxn: number;
+                document_total: number;
+                amount_pending: number;
                 payer_summary: string | null;
             }[];
         } | null;
@@ -276,6 +278,8 @@ export declare class PosShiftsController {
                 payment_method: import("../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
                 payment_method_label: string;
                 amount_mxn: number;
+                document_total: number;
+                amount_pending: number;
                 payer_summary: string | null;
             }[];
         };
@@ -390,6 +394,8 @@ export declare class PosShiftsController {
                 payment_method: import("../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
                 payment_method_label: string;
                 amount_mxn: number;
+                document_total: number;
+                amount_pending: number;
                 payer_summary: string | null;
             }[];
         }[];
@@ -503,6 +509,8 @@ export declare class PosShiftsController {
                 payment_method: import("../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
                 payment_method_label: string;
                 amount_mxn: number;
+                document_total: number;
+                amount_pending: number;
                 payer_summary: string | null;
             }[];
         };
@@ -646,6 +654,8 @@ export declare class PosShiftsController {
                 payment_method: import("../../entities/pos/pos-sale-payment-method.enum").PosSalePaymentMethod;
                 payment_method_label: string;
                 amount_mxn: number;
+                document_total: number;
+                amount_pending: number;
                 payer_summary: string | null;
             }[];
         };

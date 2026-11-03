@@ -386,6 +386,15 @@
       "status": "shipped",
       "version": "0.0.97",
       "shippedAt": "2026-11-03T14:22:16-08:00"
+    },
+    {
+      "id": "20261103-144548",
+      "at": "2026-11-03T14:45:48-08:00",
+      "scope": "both",
+      "message": "El saldo que queda fuera de un anticipo usa el crédito del cliente, sin duplicar cotización y orden, y Cobranza POS y punto de venta muestran lo cobrado y lo pendiente.",
+      "status": "shipped",
+      "version": "0.0.98",
+      "shippedAt": "2026-11-03T14:49:54-08:00"
     }
   ]
 }

@@ -19,6 +19,7 @@ import { PosSalePaymentMethod } from '../../../entities/pos/pos-sale-payment-met
 import { User } from '../../../entities/users/user.entity';
 import { Customer } from '../../../entities/customers/customer.entity';
 import { CustomerDebtLedgerService } from '../../accounting/services/customer-debt-ledger.service';
+import { CustomerCreditService } from '../../customers/services/customer-credit.service';
 import { ExchangeRateService } from '../../exchange-rate/exchange-rate.service';
 import { S3Service } from '../../../common/services/s3.service';
 import { SalesOrderFolioService } from './sales-order-folio.service';
@@ -65,11 +66,12 @@ export declare class SalesOrderService {
     private readonly warehouseControlService;
     private readonly debtLedger;
     private readonly exchangeRateService;
+    private readonly customerCreditService;
     private readonly logger;
     private static readonly DOC_TYPE_DOCUMENTO_ORIGINAL;
     private static readonly DOC_TYPE_NAME_ENTREGA;
     private static readonly DOC_TYPE_NAMES_ENTREGA;
-    constructor(soRepo: Repository<SalesOrder>, detailRepo: Repository<SalesOrderDetail>, allocationRepo: Repository<SalesOrderBatchAllocation>, folioService: SalesOrderFolioService, fulfillmentService: SalesOrderFulfillmentService, dataSource: DataSource, posShiftsService: PosShiftsService, productDiscountService: ProductDiscountService, globalDiscountService: GlobalDiscountService, pdfService: SalesOrderPdfService, documentsService: SalesOrderDocumentsService, posReceiptService: SalesOrderPosReceiptService, s3Service: S3Service, posCollectionRepo: Repository<PosSaleCollection>, paymentRepo: Repository<SalesOrderPayment>, paymentDocumentRepo: Repository<SalesOrderPaymentDocument>, userRepo: Repository<User>, customerRepo: Repository<Customer>, billingBranchRepo: Repository<BillingBranch>, warehouseRepo: Repository<Warehouse>, electronicInvoiceService: ElectronicInvoiceService, advanceCfdi: AdvanceCfdiService, controlDeskLifecycle: ControlDeskLifecycleService, warehouseControlService: WarehouseControlService, debtLedger: CustomerDebtLedgerService, exchangeRateService: ExchangeRateService);
+    constructor(soRepo: Repository<SalesOrder>, detailRepo: Repository<SalesOrderDetail>, allocationRepo: Repository<SalesOrderBatchAllocation>, folioService: SalesOrderFolioService, fulfillmentService: SalesOrderFulfillmentService, dataSource: DataSource, posShiftsService: PosShiftsService, productDiscountService: ProductDiscountService, globalDiscountService: GlobalDiscountService, pdfService: SalesOrderPdfService, documentsService: SalesOrderDocumentsService, posReceiptService: SalesOrderPosReceiptService, s3Service: S3Service, posCollectionRepo: Repository<PosSaleCollection>, paymentRepo: Repository<SalesOrderPayment>, paymentDocumentRepo: Repository<SalesOrderPaymentDocument>, userRepo: Repository<User>, customerRepo: Repository<Customer>, billingBranchRepo: Repository<BillingBranch>, warehouseRepo: Repository<Warehouse>, electronicInvoiceService: ElectronicInvoiceService, advanceCfdi: AdvanceCfdiService, controlDeskLifecycle: ControlDeskLifecycleService, warehouseControlService: WarehouseControlService, debtLedger: CustomerDebtLedgerService, exchangeRateService: ExchangeRateService, customerCreditService: CustomerCreditService);
     private resolveDocumentCurrency;
     private resolveWalkInTicketFields;
     private deleteDocumentsByType;
@@ -1028,6 +1030,7 @@ export declare class SalesOrderService {
     private assertLineItemsEditable;
     private applyPersistedLineTaxes;
     private recomputeTotals;
+    private assertOrderAdvanceCredit;
     private resolveSalesOrderCustomerId;
     regenerateDocumentoOriginal(id: string, tenantId: string, userId: string, language: DocumentLanguage, keepPrevious?: boolean): Promise<{
         success: boolean;

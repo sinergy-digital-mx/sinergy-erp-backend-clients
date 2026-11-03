@@ -5,6 +5,8 @@ import { FiscalConfiguration } from '../../../entities/billing/fiscal-configurat
 import { SalesOrder } from '../../../entities/sales-orders/sales-order.entity';
 import { SalesOrderPayment } from '../../../entities/sales-orders/sales-order-payment.entity';
 import { ElectronicInvoice } from '../../../entities/electronic-invoicing/electronic-invoice.entity';
+import { Quotation } from '../../../entities/quotations/quotation.entity';
+import { AdvanceShiftPayment } from '../../../entities/pos/advance-shift-payment.entity';
 import { ExchangeRateService } from '../../exchange-rate/exchange-rate.service';
 import { UpsertCustomerCreditItemDto } from '../dto/upsert-customer-credit.dto';
 import { CustomerCreditFiscalSnapshot, CustomerCreditSnapshot } from '../utils/customer-credit.util';
@@ -14,8 +16,10 @@ export declare class CustomerCreditService {
     private readonly salesOrderRepo;
     private readonly paymentRepo;
     private readonly invoiceRepo;
+    private readonly quotationRepo;
+    private readonly advancePaymentRepo;
     private readonly exchangeRateService;
-    constructor(creditRepo: Repository<CustomerCredit>, fiscalRepo: Repository<FiscalConfiguration>, salesOrderRepo: Repository<SalesOrder>, paymentRepo: Repository<SalesOrderPayment>, invoiceRepo: Repository<ElectronicInvoice>, exchangeRateService: ExchangeRateService);
+    constructor(creditRepo: Repository<CustomerCredit>, fiscalRepo: Repository<FiscalConfiguration>, salesOrderRepo: Repository<SalesOrder>, paymentRepo: Repository<SalesOrderPayment>, invoiceRepo: Repository<ElectronicInvoice>, quotationRepo: Repository<Quotation>, advancePaymentRepo: Repository<AdvanceShiftPayment>, exchangeRateService: ExchangeRateService);
     listForCustomer(customer: Customer): Promise<CustomerCreditFiscalSnapshot[]>;
     consumeExceedWaiver(tenantId: string, customerId: number, fiscalConfigurationId: string): Promise<void>;
     getSnapshotForFiscal(customer: Customer, fiscalConfigurationId: string): Promise<CustomerCreditSnapshot>;
@@ -33,4 +37,24 @@ export declare class CustomerCreditService {
     private assertCreditItem;
     private toFiscalSnapshot;
     private getUsedByFiscal;
+    assertAdvanceCreditFits(input: {
+        tenantId: string;
+        customerId: number;
+        fiscalConfigurationId: string;
+        currency?: string | null;
+        exchangeRate?: number | null;
+        createdAt?: Date | string | null;
+        previousPending: number;
+        nextPending: number;
+    }): Promise<void>;
+    private rateForDate;
+    private addAdvanceCreditUsage;
+    private addPendingToFiscal;
+    private sumAdvancePaidByQuotation;
+    advanceCoverageForOrder(tenantId: string, orderId: string): Promise<{
+        hasAdvance: boolean;
+        requested: number;
+        paid: number;
+    }>;
+    private orderAdvanceCoverageMap;
 }

@@ -19,6 +19,7 @@ const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const uuid_1 = require("uuid");
 const quotation_entity_1 = require("../../../entities/quotations/quotation.entity");
+const advance_shift_payment_entity_1 = require("../../../entities/pos/advance-shift-payment.entity");
 const quotation_detail_entity_1 = require("../../../entities/quotations/quotation-detail.entity");
 const product_item_kind_enum_1 = require("../../../entities/products/product-item-kind.enum");
 const sales_order_sale_scope_enum_1 = require("../../../entities/sales-orders/sales-order-sale-scope.enum");
@@ -48,6 +49,8 @@ const quotation_expiration_util_1 = require("../utils/quotation-expiration.util"
 const document_language_enum_1 = require("../../../common/enums/document-language.enum");
 const pos_sale_collection_mapper_1 = require("../../pos-shifts/mappers/pos-sale-collection.mapper");
 const sales_order_service_1 = require("../../sales-orders/services/sales-order.service");
+const customer_credit_service_1 = require("../../customers/services/customer-credit.service");
+const advance_credit_util_1 = require("../../customers/utils/advance-credit.util");
 const quoted_pricing_util_1 = require("../../sales-orders/utils/quoted-pricing.util");
 const quotation_seller_scope_util_1 = require("../utils/quotation-seller-scope.util");
 let QuotationService = class QuotationService {
@@ -67,9 +70,10 @@ let QuotationService = class QuotationService {
     documentsService;
     salesOrderService;
     advanceInvoices;
+    customerCreditService;
     logger = new common_1.Logger(QuotationService_1.name);
     static DOC_TYPE_DOCUMENTO_ORIGINAL = 1;
-    constructor(quotationRepo, userRepo, userBillingBranchRepo, customerRepo, billingBranchRepo, warehouseRepo, folioService, dataSource, posShiftsService, productDiscountService, globalDiscountService, pdfService, documentsService, salesOrderService, advanceInvoices) {
+    constructor(quotationRepo, userRepo, userBillingBranchRepo, customerRepo, billingBranchRepo, warehouseRepo, folioService, dataSource, posShiftsService, productDiscountService, globalDiscountService, pdfService, documentsService, salesOrderService, advanceInvoices, customerCreditService) {
         this.quotationRepo = quotationRepo;
         this.userRepo = userRepo;
         this.userBillingBranchRepo = userBillingBranchRepo;
@@ -85,6 +89,7 @@ let QuotationService = class QuotationService {
         this.documentsService = documentsService;
         this.salesOrderService = salesOrderService;
         this.advanceInvoices = advanceInvoices;
+        this.customerCreditService = customerCreditService;
     }
     async create(dto, tenantId, userId) {
         const isPos = dto.quotation_type === 'POS';
@@ -796,6 +801,17 @@ let QuotationService = class QuotationService {
         if (requested <= 0 || requested - total > 0.01) {
             throw new common_1.BadRequestException('El anticipo debe ser mayor a 0 y no puede pasar el total de la cotización');
         }
+        const paid = await this.sumQuotationAdvancePaid(tenantId, quotation.id);
+        const previousRequested = Number(quotation.advance_requested_total || 0);
+        await this.customerCreditService.assertAdvanceCreditFits({
+            tenantId,
+            customerId: quotation.customer_id,
+            fiscalConfigurationId: quotation.fiscal_configuration_id,
+            currency: 'MXN',
+            createdAt: quotation.created_at,
+            previousPending: previousRequested > 0.009 ? (0, advance_credit_util_1.advanceCreditPending)(total, previousRequested, paid) : 0,
+            nextPending: (0, advance_credit_util_1.advanceCreditPending)(total, requested, paid),
+        });
         const fiscal = await qr.manager.findOne(fiscal_configuration_entity_1.FiscalConfiguration, {
             where: { id: quotation.fiscal_configuration_id, tenant_id: tenantId },
         });
@@ -845,6 +861,7 @@ let QuotationService = class QuotationService {
         }
     }
     async recomputeTotals(qr, quotation, tenantId, globalDiscountId) {
+        const previousTotal = Number(quotation.total || 0);
         const details = await qr.manager.find(quotation_detail_entity_1.QuotationDetail, {
             where: { quotation_id: quotation.id },
         });
@@ -873,7 +890,39 @@ let QuotationService = class QuotationService {
             globalDiscountAmounts.global_discount_amount +
             iva_total +
             ieps_total).toFixed(2));
+        if (Number(quotation.advance_requested_total || 0) > 0.009) {
+            const paid = await this.sumQuotationAdvancePaid(tenantId, quotation.id);
+            const requested = Number(quotation.advance_requested_total || 0);
+            const committed = await this.quotationRepo.findOne({
+                where: { id: quotation.id, tenant_id: tenantId },
+                select: ['id', 'customer_id', 'fiscal_configuration_id'],
+            });
+            const sameAccount = committed?.customer_id === quotation.customer_id &&
+                committed?.fiscal_configuration_id === quotation.fiscal_configuration_id;
+            await this.customerCreditService.assertAdvanceCreditFits({
+                tenantId,
+                customerId: quotation.customer_id,
+                fiscalConfigurationId: quotation.fiscal_configuration_id,
+                currency: 'MXN',
+                createdAt: quotation.created_at,
+                previousPending: sameAccount
+                    ? (0, advance_credit_util_1.advanceCreditPending)(previousTotal, requested, paid)
+                    : 0,
+                nextPending: (0, advance_credit_util_1.advanceCreditPending)(Number(quotation.total), requested, paid),
+            });
+        }
         await qr.manager.save(quotation_entity_1.Quotation, quotation);
+    }
+    async sumQuotationAdvancePaid(tenantId, quotationId) {
+        const raw = await this.dataSource
+            .getRepository(advance_shift_payment_entity_1.AdvanceShiftPayment)
+            .createQueryBuilder('payment')
+            .select('COALESCE(SUM(payment.amount_mxn), 0)', 'paid')
+            .where('payment.tenant_id = :tenantId', { tenantId })
+            .andWhere('payment.quotation_id = :quotationId', { quotationId })
+            .andWhere('payment.voided_at IS NULL')
+            .getRawOne();
+        return Number(raw?.paid || 0);
     }
     resolveProductUom(qr, productId, providedUomId, tenantId) {
         return (0, resolve_product_uom_util_1.resolveProductUomForLine)(qr, productId, providedUomId, tenantId);
@@ -1071,6 +1120,7 @@ exports.QuotationService = QuotationService = QuotationService_1 = __decorate([
         quotation_pdf_service_1.QuotationPdfService,
         quotation_documents_service_1.QuotationDocumentsService,
         sales_order_service_1.SalesOrderService,
-        quotation_advance_invoice_service_1.QuotationAdvanceInvoiceService])
+        quotation_advance_invoice_service_1.QuotationAdvanceInvoiceService,
+        customer_credit_service_1.CustomerCreditService])
 ], QuotationService);
 //# sourceMappingURL=quotation.service.js.map

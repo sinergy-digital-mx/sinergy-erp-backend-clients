@@ -21,6 +21,7 @@ import { ProductDiscountService } from '../../products/product-discount.service'
 import { GlobalDiscountService } from '../../global-discounts/global-discount.service';
 import { DocumentLanguage } from '../../../common/enums/document-language.enum';
 import { SalesOrderService } from '../../sales-orders/services/sales-order.service';
+import { CustomerCreditService } from '../../customers/services/customer-credit.service';
 import { QuotationSellerAccess } from '../utils/quotation-seller-scope.util';
 export declare class QuotationService {
     private readonly quotationRepo;
@@ -38,9 +39,10 @@ export declare class QuotationService {
     private readonly documentsService;
     private readonly salesOrderService;
     private readonly advanceInvoices;
+    private readonly customerCreditService;
     private readonly logger;
     private static readonly DOC_TYPE_DOCUMENTO_ORIGINAL;
-    constructor(quotationRepo: Repository<Quotation>, userRepo: Repository<User>, userBillingBranchRepo: Repository<UserBillingBranch>, customerRepo: Repository<Customer>, billingBranchRepo: Repository<BillingBranch>, warehouseRepo: Repository<Warehouse>, folioService: QuotationFolioService, dataSource: DataSource, posShiftsService: PosShiftsService, productDiscountService: ProductDiscountService, globalDiscountService: GlobalDiscountService, pdfService: QuotationPdfService, documentsService: QuotationDocumentsService, salesOrderService: SalesOrderService, advanceInvoices: QuotationAdvanceInvoiceService);
+    constructor(quotationRepo: Repository<Quotation>, userRepo: Repository<User>, userBillingBranchRepo: Repository<UserBillingBranch>, customerRepo: Repository<Customer>, billingBranchRepo: Repository<BillingBranch>, warehouseRepo: Repository<Warehouse>, folioService: QuotationFolioService, dataSource: DataSource, posShiftsService: PosShiftsService, productDiscountService: ProductDiscountService, globalDiscountService: GlobalDiscountService, pdfService: QuotationPdfService, documentsService: QuotationDocumentsService, salesOrderService: SalesOrderService, advanceInvoices: QuotationAdvanceInvoiceService, customerCreditService: CustomerCreditService);
     create(dto: CreateQuotationDto, tenantId: string, userId: string): Promise<Quotation>;
     replace(id: string, dto: CreateQuotationDto, tenantId: string, userId: string, access?: QuotationSellerAccess): Promise<Quotation>;
     findAll(tenantId: string, userId: string, canViewAll: boolean, canViewAllBranches: boolean, filters: QueryQuotationDto): Promise<{
@@ -881,6 +883,7 @@ export declare class QuotationService {
         metodoPago?: 'PUE' | 'PPD';
     }): Promise<Quotation>;
     private recomputeTotals;
+    private sumQuotationAdvancePaid;
     private resolveProductUom;
     private resolveLineDiscountAmounts;
     private resolveGlobalDiscountAmounts;

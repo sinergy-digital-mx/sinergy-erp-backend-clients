@@ -35,6 +35,8 @@ const pos_sale_payment_method_enum_1 = require("../../../entities/pos/pos-sale-p
 const user_entity_1 = require("../../../entities/users/user.entity");
 const customer_entity_1 = require("../../../entities/customers/customer.entity");
 const customer_debt_ledger_service_1 = require("../../accounting/services/customer-debt-ledger.service");
+const customer_credit_service_1 = require("../../customers/services/customer-credit.service");
+const advance_credit_util_1 = require("../../customers/utils/advance-credit.util");
 const exchange_rate_service_1 = require("../../exchange-rate/exchange-rate.service");
 const sales_order_currency_util_1 = require("../utils/sales-order-currency.util");
 const s3_service_1 = require("../../../common/services/s3.service");
@@ -100,11 +102,12 @@ let SalesOrderService = class SalesOrderService {
     warehouseControlService;
     debtLedger;
     exchangeRateService;
+    customerCreditService;
     logger = new common_1.Logger(SalesOrderService_1.name);
     static DOC_TYPE_DOCUMENTO_ORIGINAL = 1;
     static DOC_TYPE_NAME_ENTREGA = 'ENTREGA';
     static DOC_TYPE_NAMES_ENTREGA = ['ENTREGA', 'RECIBO'];
-    constructor(soRepo, detailRepo, allocationRepo, folioService, fulfillmentService, dataSource, posShiftsService, productDiscountService, globalDiscountService, pdfService, documentsService, posReceiptService, s3Service, posCollectionRepo, paymentRepo, paymentDocumentRepo, userRepo, customerRepo, billingBranchRepo, warehouseRepo, electronicInvoiceService, advanceCfdi, controlDeskLifecycle, warehouseControlService, debtLedger, exchangeRateService) {
+    constructor(soRepo, detailRepo, allocationRepo, folioService, fulfillmentService, dataSource, posShiftsService, productDiscountService, globalDiscountService, pdfService, documentsService, posReceiptService, s3Service, posCollectionRepo, paymentRepo, paymentDocumentRepo, userRepo, customerRepo, billingBranchRepo, warehouseRepo, electronicInvoiceService, advanceCfdi, controlDeskLifecycle, warehouseControlService, debtLedger, exchangeRateService, customerCreditService) {
         this.soRepo = soRepo;
         this.detailRepo = detailRepo;
         this.allocationRepo = allocationRepo;
@@ -131,6 +134,7 @@ let SalesOrderService = class SalesOrderService {
         this.warehouseControlService = warehouseControlService;
         this.debtLedger = debtLedger;
         this.exchangeRateService = exchangeRateService;
+        this.customerCreditService = customerCreditService;
     }
     async resolveDocumentCurrency(tenantId, dto, isPosSale) {
         if (isPosSale || (0, sales_order_currency_util_1.normalizeSalesOrderCurrency)(dto.currency) !== 'USD') {
@@ -1928,6 +1932,7 @@ let SalesOrderService = class SalesOrderService {
         if (!so) {
             throw new common_1.NotFoundException(`Sales order not found: ${salesOrderId}`);
         }
+        const previousTotal = Number(so.total || 0);
         const details = await qr.manager.find(sales_order_detail_entity_1.SalesOrderDetail, { where: { sales_order_id: salesOrderId } });
         let subtotal = 0;
         let discount_total = 0;
@@ -1956,6 +1961,7 @@ let SalesOrderService = class SalesOrderService {
         so.iva_total = iva_total;
         so.ieps_total = ieps_total;
         so.total = this.computeOrderTotal(subtotal, discount_total, Number(so.global_discount_amount) || 0, iva_total, ieps_total);
+        await this.assertOrderAdvanceCredit(so, tenantId, previousTotal, Number(so.total || 0));
         await qr.manager.update(sales_order_entity_1.SalesOrder, { id: salesOrderId }, {
             subtotal: so.subtotal,
             discount_total: so.discount_total,
@@ -1964,6 +1970,28 @@ let SalesOrderService = class SalesOrderService {
             ieps_total: so.ieps_total,
             total: so.total,
             updated_by: userId,
+        });
+    }
+    async assertOrderAdvanceCredit(order, tenantId, previousTotal, nextTotal) {
+        if (!order.customer_id || !order.fiscal_configuration_id) {
+            return;
+        }
+        if (Math.abs(nextTotal - previousTotal) <= 0.009) {
+            return;
+        }
+        const coverage = await this.customerCreditService.advanceCoverageForOrder(tenantId, order.id);
+        if (!coverage.hasAdvance) {
+            return;
+        }
+        await this.customerCreditService.assertAdvanceCreditFits({
+            tenantId,
+            customerId: order.customer_id,
+            fiscalConfigurationId: order.fiscal_configuration_id,
+            currency: order.currency,
+            exchangeRate: Number(order.exchange_rate),
+            createdAt: order.created_at,
+            previousPending: (0, advance_credit_util_1.advanceCreditPending)(previousTotal, coverage.requested, coverage.paid),
+            nextPending: (0, advance_credit_util_1.advanceCreditPending)(nextTotal, coverage.requested, coverage.paid),
         });
     }
     async resolveSalesOrderCustomerId(tenantId, rawCustomerId, isPosSale) {
@@ -2329,6 +2357,7 @@ exports.SalesOrderService = SalesOrderService = SalesOrderService_1 = __decorate
         control_desk_lifecycle_service_1.ControlDeskLifecycleService,
         warehouse_control_service_1.WarehouseControlService,
         customer_debt_ledger_service_1.CustomerDebtLedgerService,
-        exchange_rate_service_1.ExchangeRateService])
+        exchange_rate_service_1.ExchangeRateService,
+        customer_credit_service_1.CustomerCreditService])
 ], SalesOrderService);
 //# sourceMappingURL=sales-order.service.js.map

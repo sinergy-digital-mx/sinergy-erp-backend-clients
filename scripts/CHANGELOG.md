@@ -10,6 +10,10 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.98 · 2026-11-03
+
+- aplicación y servidor · El saldo que queda fuera de un anticipo usa el crédito del cliente, sin duplicar cotización y orden, y Cobranza POS y punto de venta muestran lo cobrado y lo pendiente.
+
 ### Versión 0.0.97 · 2026-11-03
 
 - aplicación y servidor · Cobranza POS lista solo órdenes a crédito de clientes con crédito habilitado, pagadas o pendientes, y quita público en general y los filtros de forma de pago.
