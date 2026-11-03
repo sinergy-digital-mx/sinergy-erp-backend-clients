@@ -427,6 +427,7 @@ export declare class AccountingService {
     private isForShippingFlag;
     private posBranchSql;
     private loadPosEnteredOrders;
+    private creditCustomerOrderSql;
     private walkInCustomerSql;
     private stampedInvoiceExistsSql;
     private loadSalesOrderPaymentDates;

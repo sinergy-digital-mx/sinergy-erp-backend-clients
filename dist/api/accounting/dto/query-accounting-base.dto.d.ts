@@ -52,6 +52,7 @@ export declare class QueryPosCollectionsDto extends QueryAccountingBaseDto {
     date_basis?: PosCollectionDateBasis;
     customer_type?: PosCollectionCustomerType;
     payment_method?: PosCollectionPaymentMethodFilter;
+    credit_only?: boolean;
     search?: string;
     page?: number;
     limit?: number;

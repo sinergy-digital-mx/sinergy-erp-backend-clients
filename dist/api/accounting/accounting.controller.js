@@ -144,7 +144,7 @@ __decorate([
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Detalle de órdenes cobradas (terminal de caja)',
-        description: 'Lista cobros del periodo/sucursal. customer_type: all | walk_in | invoiced. payment_method: cash | transfer | card | check | credit. date_basis=shift usa la fecha del corte; date_basis=collected usa el día de cobro (America/Tijuana).',
+        description: 'Lista cobros del periodo/sucursal. customer_type: all | walk_in | invoiced. payment_method: cash | transfer | card | check | credit. credit_only=true deja solo órdenes a crédito de clientes con crédito habilitado, pagadas o no. date_basis=shift usa la fecha del corte; date_basis=collected usa el día de cobro (America/Tijuana).',
     }),
     __param(0, (0, common_1.Query)()),
     __param(1, (0, common_1.Req)()),

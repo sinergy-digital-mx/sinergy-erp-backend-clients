@@ -10,6 +10,11 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.97 · 2026-11-03
+
+- aplicación y servidor · Cobranza POS lista solo órdenes a crédito de clientes con crédito habilitado, pagadas o pendientes, y quita público en general y los filtros de forma de pago.
+- servidor · En el estado de cuenta se pidió el total vencido y los intereses moratorios: el PDF ya los muestra, sin sumarlos al saldo. El recibo no se guarda: al descargarlo usa la razón social del contrato.
+
 ### Versión 0.0.96 · 2026-11-03
 
 - aplicación · En Facturas globales, un texto indica que la lista son las órdenes que el cliente no facturó y que la factura global se emite con todas.

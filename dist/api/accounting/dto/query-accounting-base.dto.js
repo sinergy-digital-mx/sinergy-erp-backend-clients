@@ -147,6 +147,7 @@ class QueryPosCollectionsDto extends QueryAccountingBaseDto {
     date_basis = PosCollectionDateBasis.SHIFT;
     customer_type = PosCollectionCustomerType.ALL;
     payment_method;
+    credit_only;
     search;
     page = 1;
     limit = 20;
@@ -167,6 +168,11 @@ __decorate([
     (0, class_validator_1.IsEnum)(PosCollectionPaymentMethodFilter),
     __metadata("design:type", String)
 ], QueryPosCollectionsDto.prototype, "payment_method", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => value === true || value === 'true' || value === '1'),
+    __metadata("design:type", Boolean)
+], QueryPosCollectionsDto.prototype, "credit_only", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),

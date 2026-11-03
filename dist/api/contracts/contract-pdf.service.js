@@ -25,6 +25,7 @@ const payment_entity_1 = require("../../entities/contracts/payment.entity");
 const contract_downpayment_payment_entity_1 = require("../../entities/contracts/contract-downpayment-payment.entity");
 const contract_currency_util_1 = require("./contract-currency.util");
 const contract_financial_util_1 = require("./contract-financial.util");
+const statement_totals_util_1 = require("./utils/statement-totals.util");
 const INK = '#1c1917';
 const MUTED = '#57534e';
 const LINE = '#e7e5e4';
@@ -72,6 +73,7 @@ let ContractPdfService = class ContractPdfService {
         const target = (0, contract_financial_util_1.getDownPaymentTarget)(contract);
         const applied = Number(contract.down_payment || 0);
         const showDownpaymentSection = !!contract.down_payment_financed || downRows.length > 0;
+        const totals = (0, statement_totals_util_1.buildStatementTotals)({ contract, payments, downpayments });
         const fonts = {
             Roboto: {
                 normal: './src/_public/fonts/Roboto-Regular.ttf',
@@ -102,7 +104,7 @@ let ContractPdfService = class ContractPdfService {
                     margin: [0, 0, 0, 14],
                 },
                 this.infoBlock(contract),
-                this.summaryBlock(contract, money, target, applied),
+                this.summaryBlock(contract, money, target, applied, totals),
                 ...(showDownpaymentSection
                     ? [
                         this.sectionTitle('Pagos de enganche'),
@@ -164,7 +166,7 @@ let ContractPdfService = class ContractPdfService {
             margin: [0, 0, 0, 12],
         };
     }
-    summaryBlock(contract, money, target, applied) {
+    summaryBlock(contract, money, target, applied, totals) {
         const financed = !!contract.down_payment_financed;
         const thirdLabel = financed ? 'Meta de enganche' : 'A financiar';
         const thirdValue = financed
@@ -172,20 +174,40 @@ let ContractPdfService = class ContractPdfService {
                 ? money(target)
                 : 'Sin definir'
             : money(Math.max(0, Number(contract.total_price) - applied));
+        const overdueLabel = totals.overdue_count === 1
+            ? 'Total vencido (1)'
+            : `Total vencido (${totals.overdue_count})`;
         return {
-            table: {
-                widths: ['*', '*', '*', '*'],
-                body: [
-                    [
-                        this.fact('Precio', money(Number(contract.total_price))),
-                        this.fact(financed ? 'Enganche abonado' : 'Enganche', money(applied)),
-                        this.fact(thirdLabel, thirdValue),
-                        this.fact('Saldo pendiente', money(Number(contract.remaining_balance))),
-                    ],
-                ],
-            },
-            layout: this.bandLayout(),
-            margin: [0, 0, 0, 16],
+            stack: [
+                {
+                    table: {
+                        widths: ['*', '*', '*', '*'],
+                        body: [
+                            [
+                                this.fact('Precio', money(Number(contract.total_price))),
+                                this.fact(financed ? 'Enganche abonado' : 'Enganche', money(applied)),
+                                this.fact(thirdLabel, thirdValue),
+                                this.fact('Saldo pendiente', money(Number(contract.remaining_balance))),
+                            ],
+                        ],
+                    },
+                    layout: this.bandLayout(),
+                    margin: [0, 0, 0, 8],
+                },
+                {
+                    table: {
+                        widths: ['*', '*'],
+                        body: [
+                            [
+                                this.fact(overdueLabel, money(totals.overdue_amount)),
+                                this.fact('Intereses moratorios', money(totals.late_interest_amount)),
+                            ],
+                        ],
+                    },
+                    layout: this.bandLayout(),
+                    margin: [0, 0, 0, 16],
+                },
+            ],
         };
     }
     fact(label, value) {

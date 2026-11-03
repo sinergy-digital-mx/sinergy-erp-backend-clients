@@ -1038,6 +1038,21 @@ let AccountingService = class AccountingService {
             };
         });
     }
+    creditCustomerOrderSql() {
+        return `(
+      so.is_credit = 1
+      OR collection.payment_method = 'credit'
+      OR COALESCE(collection.amount_credit_mxn, 0) > 0
+    )
+    AND NOT ${this.walkInCustomerSql('customer')}
+    AND EXISTS (
+      SELECT 1 FROM customer_credits cc
+      WHERE cc.tenant_id = collection.tenant_id
+        AND cc.customer_id = customer.id
+        AND cc.fiscal_configuration_id = so.fiscal_configuration_id
+        AND cc.credit_enabled = 1
+    )`;
+    }
     walkInCustomerSql(customerAlias) {
         return `(${customerAlias}.fiscal_razon_social = :walkInFiscal OR ${customerAlias}.name = :walkInName)`;
     }
@@ -1413,7 +1428,7 @@ let AccountingService = class AccountingService {
             .leftJoinAndSelect('so.warehouse', 'warehouse')
             .leftJoinAndSelect('warehouse.billing_branch', 'warehouse_branch')
             .leftJoinAndSelect('shift.billing_branch', 'shift_branch');
-        this.applyPosCollectionScope(qb, tenantId, filters.billing_branch_id, periodFrom, periodTo, dateBasis, customerType, filters.search, filters.payment_method);
+        this.applyPosCollectionScope(qb, tenantId, filters.billing_branch_id, periodFrom, periodTo, dateBasis, customerType, filters.search, filters.credit_only ? undefined : filters.payment_method, filters.credit_only);
         return qb;
     }
     async aggregatePosCollections(tenantId, filters, periodFrom, periodTo, dateBasis, customerType, search, paymentMethod) {
@@ -1438,7 +1453,7 @@ let AccountingService = class AccountingService {
             .addSelect(`COALESCE(SUM(${(0, pos_collection_payment_totals_util_1.paymentMethodAmountSql)('check')}), 0)`, 'check_amount')
             .addSelect(`SUM(CASE WHEN ${(0, pos_collection_payment_totals_util_1.paymentMethodMatchSql)('credit')} THEN 1 ELSE 0 END)`, 'credit_orders')
             .addSelect(`COALESCE(SUM(${(0, pos_collection_payment_totals_util_1.paymentMethodAmountSql)('credit')}), 0)`, 'credit_amount');
-        this.applyPosCollectionScope(qb, tenantId, filters.billing_branch_id, periodFrom, periodTo, dateBasis, customerType, search, paymentMethod);
+        this.applyPosCollectionScope(qb, tenantId, filters.billing_branch_id, periodFrom, periodTo, dateBasis, customerType, search, filters.credit_only ? undefined : paymentMethod, filters.credit_only);
         qb.setParameter('walkInFiscal', WALK_IN_FISCAL_NAME).setParameter('walkInName', WALK_IN_DISPLAY_NAME);
         const row = await qb.getRawOne();
         return {
@@ -1451,7 +1466,7 @@ let AccountingService = class AccountingService {
                 : (0, pos_collection_payment_totals_util_1.emptyPaymentMethodTotals)(),
         };
     }
-    applyPosCollectionScope(qb, tenantId, branchId, periodFrom, periodTo, dateBasis, customerType, search, paymentMethod) {
+    applyPosCollectionScope(qb, tenantId, branchId, periodFrom, periodTo, dateBasis, customerType, search, paymentMethod, creditOnly = false) {
         qb.where('collection.tenant_id = :tenantId', { tenantId }).andWhere('shift.billing_branch_id = :branchId', { branchId });
         if (dateBasis === query_accounting_base_dto_1.PosCollectionDateBasis.COLLECTED) {
             qb.andWhere(`${(0, unclosed_shift_alert_1.posCalendarDateSql)('collection.created_at')} >= :periodFrom`, { periodFrom })
@@ -1460,7 +1475,13 @@ let AccountingService = class AccountingService {
         else {
             qb.andWhere('shift.shift_date >= :periodFrom', { periodFrom }).andWhere('shift.shift_date <= :periodTo', { periodTo });
         }
-        if (customerType === query_accounting_base_dto_1.PosCollectionCustomerType.WALK_IN) {
+        if (creditOnly) {
+            qb.andWhere(this.creditCustomerOrderSql(), {
+                walkInFiscal: WALK_IN_FISCAL_NAME,
+                walkInName: WALK_IN_DISPLAY_NAME,
+            });
+        }
+        if (customerType === query_accounting_base_dto_1.PosCollectionCustomerType.WALK_IN && !creditOnly) {
             qb.andWhere(this.walkInCustomerSql('customer'), {
                 walkInFiscal: WALK_IN_FISCAL_NAME,
                 walkInName: WALK_IN_DISPLAY_NAME,
@@ -1469,7 +1490,7 @@ let AccountingService = class AccountingService {
         else if (customerType === query_accounting_base_dto_1.PosCollectionCustomerType.INVOICED) {
             qb.andWhere(this.stampedInvoiceExistsSql('so'));
         }
-        if (paymentMethod) {
+        if (paymentMethod && !creditOnly) {
             qb.andWhere((0, pos_collection_payment_totals_util_1.paymentMethodMatchSql)(paymentMethod));
         }
         const term = search?.trim();
