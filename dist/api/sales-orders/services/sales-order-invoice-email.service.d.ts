@@ -184,6 +184,7 @@ export declare class SalesOrderInvoiceEmailService {
     }>;
     sendWhatsapp(salesOrderId: string, invoiceId: string, dto: SendSalesOrderInvoiceWhatsappDto, tenantId: string, userId: string): Promise<{
         sent_to: string;
+        image_sent: boolean;
         pdf_sent: boolean;
         xml_sent: boolean;
     }>;

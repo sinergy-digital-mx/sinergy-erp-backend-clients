@@ -2719,6 +2719,7 @@ export declare class SalesOrderController {
     }>;
     sendInvoiceWhatsapp(id: string, invoiceId: string, dto: SendSalesOrderInvoiceWhatsappDto, req: any): Promise<{
         sent_to: string;
+        image_sent: boolean;
         pdf_sent: boolean;
         xml_sent: boolean;
     }>;

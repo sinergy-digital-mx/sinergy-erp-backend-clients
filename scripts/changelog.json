@@ -305,6 +305,15 @@
       "status": "shipped",
       "version": "0.0.91",
       "shippedAt": "2026-11-02T20:46:49-08:00"
+    },
+    {
+      "id": "20261102-205811",
+      "at": "2026-11-02T20:58:11-08:00",
+      "scope": "both",
+      "message": "El envío de la factura por WhatsApp ahora manda primero una foto: tu pago está pendiente, o ya está pagada, con el total y los datos del CFDI.",
+      "status": "shipped",
+      "version": "0.0.92",
+      "shippedAt": "2026-11-02T21:03:56-08:00"
     }
   ]
 }

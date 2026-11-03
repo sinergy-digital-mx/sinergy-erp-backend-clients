@@ -521,5 +521,23 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-11-03T04:45:39.766Z"
+  },
+  {
+    "releaseKey": "full:0.0.92:0.0.92-1793682169698",
+    "version": "0.0.92",
+    "buildId": "0.0.92-1793682169698",
+    "channel": "full",
+    "title": "Versión 0.0.92",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "Cambios en WhatsApp"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en ventas"
+      }
+    ],
+    "releasedAt": "2026-11-03T05:02:49.698Z"
   }
 ];

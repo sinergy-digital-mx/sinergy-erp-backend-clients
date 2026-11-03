@@ -28,6 +28,7 @@ const mailer_configuration_service_1 = require("../../mailer-configuration/servi
 const electronic_invoice_pdf_service_1 = require("../../electronic-invoicing/services/electronic-invoice-pdf.service");
 const electronic_invoice_service_1 = require("../../electronic-invoicing/services/electronic-invoice.service");
 const whatsapp_message_service_1 = require("../../whatsapp/services/whatsapp-message.service");
+const invoice_whatsapp_image_util_1 = require("../utils/invoice-whatsapp-image.util");
 const invoice_email_template_default_1 = require("../utils/invoice-email-template.default");
 const SENDABLE_STAMP_STATUSES = ['stamped', 'cancel_pending', 'cancelled'];
 let SalesOrderInvoiceEmailService = class SalesOrderInvoiceEmailService {
@@ -157,22 +158,46 @@ let SalesOrderInvoiceEmailService = class SalesOrderInvoiceEmailService {
         const fresh = await this.electronicInvoiceService.findOne(invoice.id, tenantId);
         const pdf = await this.pdfService.getPdfBuffer(fresh);
         const values = this.buildValues(order, fresh, customer, null);
-        const caption = [
-            `Factura ${values.invoice_folio}`,
-            `Orden ${values.order_folio}`,
-            `Cliente ${values.customer_company}`,
-            `Total ${values.total}`,
-            `UUID ${values.uuid}`,
-        ].join('\n');
+        const card = {
+            paid: order.payment_status === 'Pagado',
+            customerName: values.customer_company,
+            issuerName: values.issuer_name,
+            issuerRfc: order.fiscal_configuration?.rfc ?? null,
+            invoiceFolio: values.invoice_folio,
+            orderFolio: values.order_folio,
+            uuid: fresh.uuid || '—',
+            totalLabel: values.total,
+            stampedAt: values.stamped_at,
+        };
         const reference = { reference_type: 'sales_order_invoice', reference_id: fresh.id };
-        const first = await this.whatsapp.sendBuffer(tenantId, userId, {
-            ...dest,
-            data: pdf.buffer,
-            file_name: pdf.fileName,
-            mimetype: 'application/pdf',
-            caption,
-            ...reference,
-        });
+        const image = (0, invoice_whatsapp_image_util_1.renderInvoiceWhatsappImage)(card);
+        const first = image
+            ? await this.whatsapp.sendBuffer(tenantId, userId, {
+                ...dest,
+                data: image,
+                file_name: `factura-${values.invoice_folio}.png`,
+                mimetype: 'image/png',
+                caption: (0, invoice_whatsapp_image_util_1.buildInvoiceWhatsappCaption)(card),
+                ...reference,
+            })
+            : await this.whatsapp.sendBuffer(tenantId, userId, {
+                ...dest,
+                data: pdf.buffer,
+                file_name: pdf.fileName,
+                mimetype: 'application/pdf',
+                caption: (0, invoice_whatsapp_image_util_1.buildInvoiceWhatsappCaption)(card),
+                ...reference,
+            });
+        if (image) {
+            await this.whatsapp.sendBuffer(tenantId, userId, {
+                ...dest,
+                data: pdf.buffer,
+                file_name: pdf.fileName,
+                mimetype: 'application/pdf',
+                caption: `Factura ${values.invoice_folio}`,
+                ...reference,
+            });
+        }
         let xmlSent = false;
         if (fresh.xml_stamped) {
             await this.whatsapp.sendBuffer(tenantId, userId, {
@@ -187,6 +212,7 @@ let SalesOrderInvoiceEmailService = class SalesOrderInvoiceEmailService {
         }
         return {
             sent_to: first.to_phone,
+            image_sent: !!image,
             pdf_sent: true,
             xml_sent: xmlSent,
         };

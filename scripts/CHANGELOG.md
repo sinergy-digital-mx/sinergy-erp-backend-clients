@@ -10,6 +10,10 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.92 · 2026-11-02
+
+- aplicación y servidor · El envío de la factura por WhatsApp ahora manda primero una foto: tu pago está pendiente, o ya está pagada, con el total y los datos del CFDI.
+
 ### Versión 0.0.91 · 2026-11-02
 
 - aplicación y servidor · En la factura de la orden se puede enviar por WhatsApp a un teléfono o a un grupo, con el PDF y el XML.
