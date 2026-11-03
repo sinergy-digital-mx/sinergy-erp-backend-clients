@@ -280,7 +280,7 @@ let SalesOrderService = class SalesOrderService {
             throw new common_1.BadRequestException('Las ventas POS requieren seller_user_id');
         }
         const sellerUserId = isPosSale ? dto.seller_user_id : (dto.seller_user_id ?? userId);
-        const assignedSellerUserId = await this.resolveAssignedSellerUserId(tenantId, customerId, sellerUserId, dto.assigned_seller_user_id);
+        const assignedSellerUserId = await this.resolveAssignedSellerUserId(tenantId, customerId, sellerUserId, dto.assigned_seller_user_id, { allowWithoutPosCode: options?.allowAssignedSellerWithoutPosCode === true });
         if (isPosSale && !fromQuotation) {
             await this.posShiftsService.assertPosWarehouseForTerminal(tenantId, userId, location.warehouseId, location.billingBranchId ?? undefined);
             const { shift, terminalUser, queued } = await this.posShiftsService.resolvePosSaleContext(tenantId, userId, sellerUserId, dto.pos_daily_shift_id, location.billingBranchId ?? undefined);
@@ -1148,8 +1148,18 @@ let SalesOrderService = class SalesOrderService {
         }
         return user;
     }
-    async resolveAssignedSellerUserId(tenantId, customerId, sellerUserId, explicitAssignedSellerId) {
+    async resolveAssignedSellerUserId(tenantId, customerId, sellerUserId, explicitAssignedSellerId, options) {
         if (explicitAssignedSellerId) {
+            if (options?.allowWithoutPosCode) {
+                const explicit = await this.userRepo.findOne({
+                    where: { id: explicitAssignedSellerId, tenant_id: tenantId },
+                    select: ['id'],
+                });
+                if (!explicit) {
+                    throw new common_1.BadRequestException('Comisionado no válido');
+                }
+                return explicit.id;
+            }
             const explicit = await this.assertPosSellerUser(explicitAssignedSellerId, tenantId, 'Comisionado no válido');
             return explicit.id;
         }
@@ -1590,7 +1600,9 @@ let SalesOrderService = class SalesOrderService {
         catch (err) {
             throw new common_1.BadRequestException(err.message);
         }
-        return this.create(createDto, tenantId, userId);
+        return this.create(createDto, tenantId, userId, {
+            allowAssignedSellerWithoutPosCode: true,
+        });
     }
     async addLineItem(orderId, dto, tenantId, userId) {
         const qr = this.dataSource.createQueryRunner();

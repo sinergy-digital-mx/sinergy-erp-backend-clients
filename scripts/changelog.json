@@ -287,6 +287,15 @@
       "status": "shipped",
       "version": "0.0.88",
       "shippedAt": "2026-11-02T12:01:29-08:00"
+    },
+    {
+      "id": "20261102-194146",
+      "at": "2026-11-02T19:41:46-08:00",
+      "scope": "backend",
+      "message": "Clonar una orden de venta ya no se bloquea si el comisionado no tiene código POS; se copia igual que en la orden original.",
+      "status": "shipped",
+      "version": "0.0.90",
+      "shippedAt": "2026-11-02T20:01:55-08:00"
     }
   ]
 }

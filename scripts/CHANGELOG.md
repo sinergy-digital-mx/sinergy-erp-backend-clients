@@ -10,6 +10,10 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.90 · 2026-11-02
+
+- servidor · Clonar una orden de venta ya no se bloquea si el comisionado no tiene código POS; se copia igual que en la orden original.
+
 ### Versión 0.0.88 · 2026-11-02
 
 - aplicación y servidor · En el reporte de punto de venta de cobranza, la fecha de pago del abono queda aparte de la fecha de cobro en caja, en la tabla y en el Excel.

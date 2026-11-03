@@ -85,6 +85,7 @@ export declare class SalesOrderService {
     create(dto: CreateSalesOrderDto, tenantId: string, userId: string, options?: {
         fromQuotation?: boolean;
         quotedGlobalDiscountAmount?: number;
+        allowAssignedSellerWithoutPosCode?: boolean;
     }): Promise<SalesOrder>;
     replacePosCart(orderId: string, dto: {
         line_items: CreateSalesOrderLineItemDto[];
