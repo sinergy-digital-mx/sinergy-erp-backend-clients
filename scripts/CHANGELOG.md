@@ -10,6 +10,10 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.96 · 2026-11-03
+
+- aplicación · En Facturas globales, un texto indica que la lista son las órdenes que el cliente no facturó y que la factura global se emite con todas.
+
 ### Versión 0.0.95 · 2026-11-03
 
 - aplicación y servidor · En inventario totalizado el margen muestra precio y costo: cada lote usa su compra o, si no tiene, el costo configurado, y el producto es el promedio de esos lotes. El detalle del lote y el producto explican de donde sale.

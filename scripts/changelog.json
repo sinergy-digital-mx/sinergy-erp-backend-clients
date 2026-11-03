@@ -359,6 +359,15 @@
       "status": "shipped",
       "version": "0.0.95",
       "shippedAt": "2026-11-03T12:18:48-08:00"
+    },
+    {
+      "id": "20261103-123951",
+      "at": "2026-11-03T12:39:51-08:00",
+      "scope": "frontend",
+      "message": "En Facturas globales, un texto indica que la lista son las órdenes que el cliente no facturó y que la factura global se emite con todas.",
+      "status": "shipped",
+      "version": "0.0.96",
+      "shippedAt": "2026-11-03T12:43:06-08:00"
     }
   ]
 }
