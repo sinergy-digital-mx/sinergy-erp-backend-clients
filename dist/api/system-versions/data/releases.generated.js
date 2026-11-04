@@ -699,6 +699,32 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-04T01:13:42.955Z"
+    },
+    {
+        "releaseKey": "full:0.0.100:0.0.100-1793759402107",
+        "version": "0.0.100",
+        "buildId": "0.0.100-1793759402107",
+        "channel": "full",
+        "title": "Versión 0.0.100",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "Cambios en contabilidad"
+            },
+            {
+                "scope": "frontend",
+                "message": "Cambios en ventas"
+            },
+            {
+                "scope": "frontend",
+                "message": "Cambios en cotizaciones"
+            },
+            {
+                "scope": "frontend",
+                "message": "Cambios en reports"
+            }
+        ],
+        "releasedAt": "2026-11-04T02:30:02.107Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map

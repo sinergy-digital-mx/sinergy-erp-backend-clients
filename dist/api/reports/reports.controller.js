@@ -35,7 +35,7 @@ let ReportsController = class ReportsController {
 };
 exports.ReportsController = ReportsController;
 __decorate([
-    (0, common_1.Get)('stock-replenishment/vendors'),
+    (0, common_1.Get)('vendors'),
     (0, require_permissions_decorator_1.RequirePermission)(reports_constants_1.REPORTS_ENTITY_CODE, 'Read'),
     (0, swagger_1.ApiOperation)({
         summary: 'Proveedores con productos para el reporte de existencias',
@@ -46,7 +46,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], ReportsController.prototype, "listVendors", null);
 __decorate([
-    (0, common_1.Get)('stock-replenishment'),
+    (0, common_1.Get)(),
     (0, require_permissions_decorator_1.RequirePermission)(reports_constants_1.REPORTS_ENTITY_CODE, 'Read'),
     (0, swagger_1.ApiOperation)({
         summary: 'Existencias por proveedor con pronóstico de compra',
@@ -59,9 +59,9 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], ReportsController.prototype, "getStockReplenishment", null);
 exports.ReportsController = ReportsController = __decorate([
-    (0, swagger_1.ApiTags)('Reportes'),
+    (0, swagger_1.ApiTags)('Reporte de requerimiento'),
     (0, swagger_1.ApiBearerAuth)(),
-    (0, common_1.Controller)('tenant/reports'),
+    (0, common_1.Controller)('tenant/reporte-requerimiento'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     __metadata("design:paramtypes", [reports_service_1.ReportsService])
 ], ReportsController);

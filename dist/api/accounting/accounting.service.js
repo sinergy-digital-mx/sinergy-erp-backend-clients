@@ -431,6 +431,7 @@ let AccountingService = class AccountingService {
                 'Público en General';
             return {
                 folio: mapped.folio ?? '',
+                sale_kind: this.excelSaleKindLabel(mapped.sale_kind),
                 branch: mapped.billing_branch?.label ?? '',
                 created_at: (0, excel_export_util_1.formatExportDateTime)(mapped.created_at),
                 payment_date: formatCalendarExportDate(mapped.payment_date),
@@ -479,6 +480,7 @@ let AccountingService = class AccountingService {
             ]),
             columns: [
                 { header: 'Folio', key: 'folio', width: 16 },
+                { header: 'Venta', key: 'sale_kind', width: 12 },
                 { header: 'Sucursal', key: 'branch', width: 28 },
                 { header: 'Fecha venta', key: 'created_at', width: 18, type: 'date' },
                 { header: 'Fecha pago', key: 'payment_date', width: 14, type: 'date' },
@@ -656,6 +658,7 @@ let AccountingService = class AccountingService {
                     ...customerFields,
                     is_walk_in: order.customer ? (0, pos_sale_collection_mapper_1.isWalkInCustomer)(order.customer) : false,
                     is_credit_payment: true,
+                    sale_kind: 'credit',
                     seller_user: order.seller_user
                         ? {
                             id: order.seller_user.id,
@@ -1962,6 +1965,7 @@ let AccountingService = class AccountingService {
                 id: quote.id,
                 sales_order_id: null,
                 is_credit_payment: false,
+                sale_kind: 'advance',
                 collection_id: null,
                 folio: quote.folio,
                 total: pending,
@@ -2014,6 +2018,7 @@ let AccountingService = class AccountingService {
                 id: order.id,
                 sales_order_id: order.id,
                 is_credit_payment: false,
+                sale_kind: order.is_credit ? 'credit' : 'advance',
                 collection_id: null,
                 folio: order.folio,
                 total: pending,
@@ -2108,6 +2113,7 @@ let AccountingService = class AccountingService {
             id: order?.id ?? collection.sales_order_id,
             sales_order_id: (order?.id ?? collection.sales_order_id),
             is_credit_payment: false,
+            sale_kind: (order?.is_credit ? 'credit' : 'cash'),
             document_kind: 'sales_order',
             collection_id: collection.id,
             folio: order?.folio ?? null,
@@ -2166,6 +2172,13 @@ let AccountingService = class AccountingService {
             city,
             label: [code, city].filter(Boolean).join(' · ') || null,
         };
+    }
+    excelSaleKindLabel(kind) {
+        if (kind === 'advance')
+            return 'Anticipo';
+        if (kind === 'credit')
+            return 'Crédito';
+        return 'Contado';
     }
     excelPaymentMethodLabel(mapped) {
         const label = mapped.payment_breakdown_label || mapped.payment_method_label || mapped.payment_method || '';

@@ -503,6 +503,87 @@
       "status": "shipped",
       "version": "0.0.99",
       "shippedAt": "2026-11-03T17:14:36-08:00"
+    },
+    {
+      "id": "20261103-172133",
+      "at": "2026-11-03T17:21:33-08:00",
+      "scope": "backend",
+      "message": "Factura público en general dejaba de cargar: faltaba la columna de sucursal en la factura global y ya quedó aplicada.",
+      "status": "shipped",
+      "version": "0.0.100",
+      "shippedAt": "2026-11-03T18:31:03-08:00"
+    },
+    {
+      "id": "20261103-172317",
+      "at": "2026-11-03T17:23:17-08:00",
+      "scope": "both",
+      "message": "Cobranza POS abre en el mes actual y, bajo el folio, indica si la venta es anticipo, crédito o contado.",
+      "status": "shipped",
+      "version": "0.0.100",
+      "shippedAt": "2026-11-03T18:31:03-08:00"
+    },
+    {
+      "id": "20261103-173757",
+      "at": "2026-11-03T17:37:57-08:00",
+      "scope": "both",
+      "message": "Cobranza: Flujo de deuda y Rep. Vent. Cost. Prom. leen la sucursal de billing_branch_id, la misma URL que el resto de pestañas.",
+      "status": "shipped",
+      "version": "0.0.100",
+      "shippedAt": "2026-11-03T18:31:03-08:00"
+    },
+    {
+      "id": "20261103-174313",
+      "at": "2026-11-03T17:43:13-08:00",
+      "scope": "frontend",
+      "message": "En Flujo de deuda los filtros quedan sueltos como en las otras pestañas de Cobranza, y Descargar Excel queda junto al periodo.",
+      "status": "shipped",
+      "version": "0.0.100",
+      "shippedAt": "2026-11-03T18:31:03-08:00"
+    },
+    {
+      "id": "20261103-174517",
+      "at": "2026-11-03T17:45:17-08:00",
+      "scope": "frontend",
+      "message": "En el selector de periodo, al picar Mes se cierra el calendario del rango que se había quedado abierto.",
+      "status": "shipped",
+      "version": "0.0.100",
+      "shippedAt": "2026-11-03T18:31:03-08:00"
+    },
+    {
+      "id": "20261103-174611",
+      "at": "2026-11-03T17:46:11-08:00",
+      "scope": "both",
+      "message": "Se pidió que el menú y la URL dejen de llamarse Reportes; quedó Reporte de requerimiento en /reporte-requerimiento, en la pantalla y en el API.",
+      "status": "shipped",
+      "version": "0.0.100",
+      "shippedAt": "2026-11-03T18:31:03-08:00"
+    },
+    {
+      "id": "20261103-180016",
+      "at": "2026-11-03T18:00:16-08:00",
+      "scope": "frontend",
+      "message": "Se pidió achicar el reporte de requerimiento, ocultar los CEDIS y bajarlo a Excel; quedó más compacto, con engrane para elegir sucursales y botón Excel de lo que se ve.",
+      "status": "shipped",
+      "version": "0.0.100",
+      "shippedAt": "2026-11-03T18:31:03-08:00"
+    },
+    {
+      "id": "20261103-180341",
+      "at": "2026-11-03T18:03:41-08:00",
+      "scope": "both",
+      "message": "Se pidió juntar código y nombre en el reporte de requerimiento y explicar los badges; quedaron en la columna Producto, y chips, estados y tarjetas dicen al pasar el mouse qué son y cómo se calculan.",
+      "status": "shipped",
+      "version": "0.0.100",
+      "shippedAt": "2026-11-03T18:31:03-08:00"
+    },
+    {
+      "id": "20261103-180528",
+      "at": "2026-11-03T18:05:28-08:00",
+      "scope": "frontend",
+      "message": "En la alta de orden de venta y cotización, el producto se captura en una barra fija abajo: búsqueda por código o nombre, y al elegirlo se confirman unidad, lista, cantidad, precio, descuento e IVA 0/8/16 sin abrir otro modal.",
+      "status": "shipped",
+      "version": "0.0.100",
+      "shippedAt": "2026-11-03T18:31:03-08:00"
     }
   ]
 }

@@ -10,6 +10,18 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.100 · 2026-11-03
+
+- servidor · Factura público en general dejaba de cargar: faltaba la columna de sucursal en la factura global y ya quedó aplicada.
+- aplicación y servidor · Cobranza POS abre en el mes actual y, bajo el folio, indica si la venta es anticipo, crédito o contado.
+- aplicación y servidor · Cobranza: Flujo de deuda y Rep. Vent. Cost. Prom. leen la sucursal de billing_branch_id, la misma URL que el resto de pestañas.
+- aplicación · En Flujo de deuda los filtros quedan sueltos como en las otras pestañas de Cobranza, y Descargar Excel queda junto al periodo.
+- aplicación · En el selector de periodo, al picar Mes se cierra el calendario del rango que se había quedado abierto.
+- aplicación y servidor · Se pidió que el menú y la URL dejen de llamarse Reportes; quedó Reporte de requerimiento en /reporte-requerimiento, en la pantalla y en el API.
+- aplicación · Se pidió achicar el reporte de requerimiento, ocultar los CEDIS y bajarlo a Excel; quedó más compacto, con engrane para elegir sucursales y botón Excel de lo que se ve.
+- aplicación y servidor · Se pidió juntar código y nombre en el reporte de requerimiento y explicar los badges; quedaron en la columna Producto, y chips, estados y tarjetas dicen al pasar el mouse qué son y cómo se calculan.
+- aplicación · En la alta de orden de venta y cotización, el producto se captura en una barra fija abajo: búsqueda por código o nombre, y al elegirlo se confirman unidad, lista, cantidad, precio, descuento e IVA 0/8/16 sin abrir otro modal.
+
 ### Versión 0.0.99 · 2026-11-03
 
 - aplicación y servidor · Facturas globales: la lista y Generar facturas quedan por sucursal y mes. Una vigente por sucursal, con el código postal de esa sucursal.

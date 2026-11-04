@@ -160,6 +160,7 @@ export declare class AccountingService {
             id: string;
             sales_order_id: string | null;
             is_credit_payment: boolean;
+            sale_kind: "advance" | "credit" | "cash";
             document_kind: "sales_order" | "quotation";
             collection_id: string | null;
             folio: string;
@@ -467,6 +468,7 @@ export declare class AccountingService {
     private advanceRowMatchesSearch;
     private mapPosCollectionRow;
     private mapCollectionBranch;
+    private excelSaleKindLabel;
     private excelPaymentMethodLabel;
     private formatPosUserLabel;
     private buildUserName;
