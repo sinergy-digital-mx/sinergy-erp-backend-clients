@@ -11,6 +11,8 @@ exports.normalizeExchangeRate = normalizeExchangeRate;
 exports.payableTotalInMxn = payableTotalInMxn;
 exports.applyPayableExchangeRate = applyPayableExchangeRate;
 exports.summarizePayableWithRate = summarizePayableWithRate;
+exports.payableCalendarDay = payableCalendarDay;
+exports.isWithinPayablePeriod = isWithinPayablePeriod;
 function normalizePayableCurrency(value) {
     return String(value ?? '').trim().toUpperCase() === 'USD' ? 'USD' : 'MXN';
 }
@@ -203,5 +205,30 @@ function emptyBucket() {
 }
 function roundMoney(value) {
     return Number(value.toFixed(2));
+}
+const PAYABLE_TIME_ZONE = 'America/Tijuana';
+function payableCalendarDay(value) {
+    if (value == null || value === '')
+        return '';
+    if (typeof value === 'string') {
+        const dateOnly = /^(\d{4}-\d{2}-\d{2})$/.exec(value.trim());
+        if (dateOnly)
+            return dateOnly[1];
+    }
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime()))
+        return '';
+    return new Intl.DateTimeFormat('en-CA', {
+        timeZone: PAYABLE_TIME_ZONE,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    }).format(date);
+}
+function isWithinPayablePeriod(value, from, to) {
+    const day = payableCalendarDay(value);
+    if (!day || !from || !to)
+        return false;
+    return day >= from && day <= to;
 }
 //# sourceMappingURL=accounts-payable-currency.util.js.map

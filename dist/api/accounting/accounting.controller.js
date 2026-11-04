@@ -69,8 +69,8 @@ let AccountingController = class AccountingController {
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         res.send(buffer);
     }
-    getAccountsPayableDetail(vendorId, req) {
-        return this.accountingService.getAccountsPayableDetail(req.user.tenant_id, vendorId);
+    getAccountsPayableDetail(vendorId, query, req) {
+        return this.accountingService.getAccountsPayableDetail(req.user.tenant_id, vendorId, query);
     }
     getAccountsReceivable(query, req) {
         return this.accountingService.getAccountsReceivable(req.user.tenant_id, query);
@@ -195,7 +195,7 @@ __decorate([
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Cuentas por pagar agrupadas por proveedor',
-        description: 'currency=all muestra pesos y dólares. currency=mxn o usd deja solo esa moneda.',
+        description: 'currency=all muestra pesos y dólares. currency=mxn o usd deja solo esa moneda. period=month o range filtra por la fecha de la orden.',
     }),
     __param(0, (0, common_1.Query)()),
     __param(1, (0, common_1.Req)()),
@@ -223,9 +223,10 @@ __decorate([
     (0, swagger_1.ApiParam)({ name: 'vendorId', description: 'UUID del proveedor' }),
     (0, swagger_1.ApiOperation)({ summary: 'Detalle de órdenes de compra pendientes de un proveedor' }),
     __param(0, (0, common_1.Param)('vendorId')),
-    __param(1, (0, common_1.Req)()),
+    __param(1, (0, common_1.Query)()),
+    __param(2, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:paramtypes", [String, query_accounting_base_dto_1.QueryAccountsPayableDto, Object]),
     __metadata("design:returntype", void 0)
 ], AccountingController.prototype, "getAccountsPayableDetail", null);
 __decorate([

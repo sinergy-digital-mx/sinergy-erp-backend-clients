@@ -347,7 +347,7 @@ export declare class AccountingController {
         totalPages: number;
     }>;
     exportAccountsPayableExcel(query: QueryAccountsPayableDto, req: any, res: any): Promise<void>;
-    getAccountsPayableDetail(vendorId: string, req: any): Promise<{
+    getAccountsPayableDetail(vendorId: string, query: QueryAccountsPayableDto, req: any): Promise<{
         vendor: {
             id: string;
             name: string;

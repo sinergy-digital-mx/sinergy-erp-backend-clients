@@ -10,6 +10,13 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.105 · 2026-11-04
+
+- aplicación · En crear orden de venta, la búsqueda queda bajo las pestañas y al elegir el producto entra a la misma lista para editarlo ahí, sin una segunda fila de confirmar.
+- servidor · Se activó Cobranza/Contabilidad y Empleados (RH) para el rol Admin de la verdulería. La maderería ya los tenía.
+- aplicación y servidor · Cuentas por pagar no cargaba: faltaban columnas de domicilio del proveedor y ya quedaron en la base. La lista vuelve a mostrar la razón social, con Mes y Rango para recortar por fecha, y al abrir sigue el saldo completo.
+- aplicación · En el detalle del cliente, Listas de precio recibía el id como texto y el componente lo espera numérico; ya usa el id de la ruta.
+
 ### Versión 0.0.103 · 2026-11-04
 
 - servidor · El interés moratorio del estado de cuenta quedó en cada mensualidad, además del total de la cabecera. Si la cuota no tiene interés, sale un guion.

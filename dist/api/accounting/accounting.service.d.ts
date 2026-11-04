@@ -371,7 +371,7 @@ export declare class AccountingService {
         buffer: Buffer;
         filename: string;
     }>;
-    getAccountsPayableDetail(tenantId: string, vendorId: string): Promise<{
+    getAccountsPayableDetail(tenantId: string, vendorId: string, filters?: QueryAccountsPayableDto): Promise<{
         vendor: {
             id: string;
             name: string;
@@ -449,6 +449,7 @@ export declare class AccountingService {
     private stampedInvoiceExistsSql;
     private loadSalesOrderPaymentDates;
     private getStampedInvoiceOrderIds;
+    private payablePeriodRange;
     private collectAccountsPayableVendors;
     private resolvePayableExchangeRate;
     private payableExcelSheets;

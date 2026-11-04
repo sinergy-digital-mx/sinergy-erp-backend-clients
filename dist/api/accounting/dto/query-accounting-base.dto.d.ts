@@ -20,6 +20,9 @@ export declare class QueryAccountsPayableDto {
     limit?: number;
     search?: string;
     currency?: AccountsPayableCurrencyView;
+    period?: AccountingReportPeriod;
+    date_from?: string;
+    date_to?: string;
 }
 export declare class QueryAccountsReceivableDto {
     billing_branch_id?: string;

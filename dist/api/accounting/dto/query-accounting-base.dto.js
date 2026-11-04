@@ -56,6 +56,9 @@ class QueryAccountsPayableDto {
     limit = 20;
     search;
     currency = AccountsPayableCurrencyView.ALL;
+    period;
+    date_from;
+    date_to;
 }
 exports.QueryAccountsPayableDto = QueryAccountsPayableDto;
 __decorate([
@@ -77,6 +80,21 @@ __decorate([
     (0, class_validator_1.IsEnum)(AccountsPayableCurrencyView),
     __metadata("design:type", String)
 ], QueryAccountsPayableDto.prototype, "currency", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(AccountingReportPeriod),
+    __metadata("design:type", String)
+], QueryAccountsPayableDto.prototype, "period", void 0);
+__decorate([
+    (0, class_validator_1.ValidateIf)((dto) => dto.period === AccountingReportPeriod.RANGE),
+    (0, class_validator_1.IsDateString)(),
+    __metadata("design:type", String)
+], QueryAccountsPayableDto.prototype, "date_from", void 0);
+__decorate([
+    (0, class_validator_1.ValidateIf)((dto) => dto.period === AccountingReportPeriod.RANGE),
+    (0, class_validator_1.IsDateString)(),
+    __metadata("design:type", String)
+], QueryAccountsPayableDto.prototype, "date_to", void 0);
 class QueryAccountsReceivableDto {
     billing_branch_id;
     page = 1;

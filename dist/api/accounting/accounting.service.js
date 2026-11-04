@@ -823,7 +823,8 @@ let AccountingService = class AccountingService {
         const page = filters.page ?? 1;
         const limit = filters.limit ?? 20;
         const currency = filters.currency ?? query_accounting_base_dto_1.AccountsPayableCurrencyView.ALL;
-        const rows = (0, accounts_payable_currency_util_1.sortPayableVendors)((0, accounts_payable_currency_util_1.filterPayableVendors)(await this.collectAccountsPayableVendors(tenantId, filters.search), currency), currency);
+        const range = this.payablePeriodRange(filters);
+        const rows = (0, accounts_payable_currency_util_1.sortPayableVendors)((0, accounts_payable_currency_util_1.filterPayableVendors)(await this.collectAccountsPayableVendors(tenantId, filters.search, range), currency), currency);
         const dailyRate = await this.resolvePayableExchangeRate(tenantId);
         const rated = (0, accounts_payable_currency_util_1.applyPayableExchangeRate)(rows, currency, dailyRate.exchange_rate);
         const total = rated.length;
@@ -839,18 +840,24 @@ let AccountingService = class AccountingService {
     }
     async exportAccountsPayableExcel(tenantId, filters) {
         const currency = filters.currency ?? query_accounting_base_dto_1.AccountsPayableCurrencyView.ALL;
-        const rows = await this.collectAccountsPayableVendors(tenantId, filters.search);
+        const range = this.payablePeriodRange(filters);
+        const rows = await this.collectAccountsPayableVendors(tenantId, filters.search, range);
         const dailyRate = await this.resolvePayableExchangeRate(tenantId);
-        const searchLabel = filters.search?.trim() ? `Búsqueda: ${filters.search.trim()}` : '';
+        const searchLabel = [
+            range ? `${range.from} – ${range.to}` : '',
+            filters.search?.trim() ? `Búsqueda: ${filters.search.trim()}` : '',
+        ]
+            .filter(Boolean)
+            .join(' · ');
         const detail = currency === query_accounting_base_dto_1.AccountsPayableCurrencyView.ALL
-            ? await this.collectPayableDetailLines(tenantId, filters.search)
+            ? await this.collectPayableDetailLines(tenantId, filters.search, range)
             : [];
         const buffer = await (0, excel_export_util_1.buildStyledExcelWorkbook)(this.payableExcelSheets(rows, currency, searchLabel, dailyRate, detail));
         const day = (0, unclosed_shift_alert_1.getTodayDateString)();
         const suffix = currency === query_accounting_base_dto_1.AccountsPayableCurrencyView.ALL ? '' : `-${currency}`;
         return { buffer, filename: `cuentas-por-pagar${suffix}-${day}.xlsx` };
     }
-    async getAccountsPayableDetail(tenantId, vendorId) {
+    async getAccountsPayableDetail(tenantId, vendorId, filters) {
         const orders = await this.purchaseOrderRepo.find({
             where: {
                 tenant_id: tenantId,
@@ -860,8 +867,10 @@ let AccountingService = class AccountingService {
             relations: ['vendor', 'payments'],
             order: { created_at: 'DESC' },
         });
+        const range = filters ? this.payablePeriodRange(filters) : null;
         const pendingOrders = orders
             .filter((po) => po.general_status !== 'Cancelada')
+            .filter((po) => !range || (0, accounts_payable_currency_util_1.isWithinPayablePeriod)(po.created_at, range.from, range.to))
             .map((po) => {
             const summary = this.buildPurchaseOrderPaymentSummary(po);
             return {
@@ -1408,7 +1417,12 @@ let AccountingService = class AccountingService {
             .getRawMany();
         return new Set(rows.map((row) => row.source_id));
     }
-    async collectAccountsPayableVendors(tenantId, search) {
+    payablePeriodRange(filters) {
+        if (!filters.period)
+            return null;
+        return (0, unclosed_shift_alert_1.resolvePosCalendarRange)(filters.period, filters.date_from, filters.date_to);
+    }
+    async collectAccountsPayableVendors(tenantId, search, range) {
         const pendingOrders = await this.purchaseOrderRepo.find({
             where: {
                 tenant_id: tenantId,
@@ -1421,6 +1435,8 @@ let AccountingService = class AccountingService {
         for (const order of pendingOrders) {
             if (order.general_status === 'Cancelada')
                 continue;
+            if (range && !(0, accounts_payable_currency_util_1.isWithinPayablePeriod)(order.created_at, range.from, range.to))
+                continue;
             const summary = this.buildPurchaseOrderPaymentSummary(order);
             if (summary.amount_pending <= 0)
                 continue;
@@ -1428,7 +1444,7 @@ let AccountingService = class AccountingService {
             if (!vendor)
                 continue;
             if (term) {
-                const matches = vendor.name.toLowerCase().includes(term) ||
+                const matches = (vendor.name ?? '').toLowerCase().includes(term) ||
                     (vendor.razon_social ?? '').toLowerCase().includes(term) ||
                     (vendor.company_name ?? '').toLowerCase().includes(term);
                 if (!matches)
@@ -1462,7 +1478,7 @@ let AccountingService = class AccountingService {
             const fromPending = pending.find((item) => item.vendor_id === row.vendor_id);
             const vendor = extraById.get(row.vendor_id);
             if (term && !fromPending && vendor) {
-                const matches = vendor.name.toLowerCase().includes(term) ||
+                const matches = (vendor.name ?? '').toLowerCase().includes(term) ||
                     (vendor.razon_social ?? '').toLowerCase().includes(term) ||
                     (vendor.company_name ?? '').toLowerCase().includes(term);
                 if (!matches) {
@@ -1525,7 +1541,7 @@ let AccountingService = class AccountingService {
                 headerColor: isUsd ? 'FF047857' : 'FF1D4ED8',
                 titleColor: isUsd ? 'FF065F46' : 'FF1E3A8A',
                 columns: [
-                    { header: 'Proveedor', key: 'vendor', width: 36 },
+                    { header: 'Razón social', key: 'vendor', width: 36 },
                     { header: 'OC pendientes', key: 'pending_orders', width: 16, type: 'integer' },
                     { header: 'Monto adeudado', key: 'amount_pending', width: 18, type: 'currency' },
                     { header: 'Saldo a favor', key: 'credit_balance', width: 16, type: 'currency' },
@@ -1573,7 +1589,7 @@ let AccountingService = class AccountingService {
             headerColor: 'FF4338CA',
             titleColor: 'FF312E81',
             columns: [
-                { header: 'Proveedor', key: 'vendor', width: 36 },
+                { header: 'Razón social', key: 'vendor', width: 36 },
                 { header: 'OC pesos', key: 'orders_mxn', width: 12, type: 'integer' },
                 { header: 'Adeudado en pesos', key: 'amount_mxn', width: 20, type: 'currency' },
                 { header: 'A favor pesos', key: 'credit_mxn', width: 16, type: 'currency' },
@@ -1607,7 +1623,7 @@ let AccountingService = class AccountingService {
             ? `Tipo de cambio del sistema: ${formatted}  ·  ${date}`
             : `Tipo de cambio del sistema: ${formatted}`;
     }
-    async collectPayableDetailLines(tenantId, search) {
+    async collectPayableDetailLines(tenantId, search, range) {
         const pendingOrders = await this.purchaseOrderRepo.find({
             where: {
                 tenant_id: tenantId,
@@ -1620,6 +1636,8 @@ let AccountingService = class AccountingService {
         for (const order of pendingOrders) {
             if (order.general_status === 'Cancelada')
                 continue;
+            if (range && !(0, accounts_payable_currency_util_1.isWithinPayablePeriod)(order.created_at, range.from, range.to))
+                continue;
             const summary = this.buildPurchaseOrderPaymentSummary(order);
             if (summary.amount_pending <= 0)
                 continue;
@@ -1628,7 +1646,7 @@ let AccountingService = class AccountingService {
                 continue;
             const razonSocial = vendor.razon_social?.trim() || (0, vendor_profile_util_1.vendorCompanyName)(vendor) || '—';
             if (term) {
-                const matches = vendor.name.toLowerCase().includes(term) ||
+                const matches = (vendor.name ?? '').toLowerCase().includes(term) ||
                     (vendor.razon_social ?? '').toLowerCase().includes(term) ||
                     (vendor.company_name ?? '').toLowerCase().includes(term);
                 if (!matches)
@@ -1708,7 +1726,7 @@ let AccountingService = class AccountingService {
         };
     }
     payableVendorLabel(row) {
-        return row.company_name?.trim() || row.vendor_name?.trim() || row.razon_social?.trim() || '—';
+        return row.razon_social?.trim() || row.company_name?.trim() || row.vendor_name?.trim() || '—';
     }
     buildPurchaseOrderPaymentSummary(order) {
         const total = (0, purchase_order_payable_total_util_1.resolvePurchaseOrderPayableTotal)(order);

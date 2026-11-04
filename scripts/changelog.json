@@ -647,6 +647,42 @@
       "status": "shipped",
       "version": "0.0.103",
       "shippedAt": "2026-11-04T10:08:14-08:00"
+    },
+    {
+      "id": "20261104-102427",
+      "at": "2026-11-04T10:24:27-08:00",
+      "scope": "frontend",
+      "message": "En crear orden de venta, la búsqueda queda bajo las pestañas y al elegir el producto entra a la misma lista para editarlo ahí, sin una segunda fila de confirmar.",
+      "status": "shipped",
+      "version": "0.0.105",
+      "shippedAt": "2026-11-04T11:40:35-08:00"
+    },
+    {
+      "id": "20261104-103656",
+      "at": "2026-11-04T10:36:56-08:00",
+      "scope": "backend",
+      "message": "Se activó Cobranza/Contabilidad y Empleados (RH) para el rol Admin de la verdulería. La maderería ya los tenía.",
+      "status": "shipped",
+      "version": "0.0.105",
+      "shippedAt": "2026-11-04T11:40:35-08:00"
+    },
+    {
+      "id": "20261104-104010",
+      "at": "2026-11-04T10:40:10-08:00",
+      "scope": "both",
+      "message": "Cuentas por pagar no cargaba: faltaban columnas de domicilio del proveedor y ya quedaron en la base. La lista vuelve a mostrar la razón social, con Mes y Rango para recortar por fecha, y al abrir sigue el saldo completo.",
+      "status": "shipped",
+      "version": "0.0.105",
+      "shippedAt": "2026-11-04T11:40:35-08:00"
+    },
+    {
+      "id": "20261104-104919",
+      "at": "2026-11-04T10:49:19-08:00",
+      "scope": "frontend",
+      "message": "En el detalle del cliente, Listas de precio recibía el id como texto y el componente lo espera numérico; ya usa el id de la ruta.",
+      "status": "shipped",
+      "version": "0.0.105",
+      "shippedAt": "2026-11-04T11:40:35-08:00"
     }
   ]
 }

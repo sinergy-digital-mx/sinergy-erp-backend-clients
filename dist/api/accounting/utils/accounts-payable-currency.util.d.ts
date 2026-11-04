@@ -69,3 +69,5 @@ export declare function normalizeExchangeRate(value: number | string | null | un
 export declare function payableTotalInMxn(amountMxn: number, amountUsd: number, exchangeRate: number | string | null | undefined): number | null;
 export declare function applyPayableExchangeRate(rows: AccountsPayableVendorTotals[], view: PayableCurrencyView, exchangeRate: number | string | null | undefined): AccountsPayableVendorTotals[];
 export declare function summarizePayableWithRate(rows: AccountsPayableVendorTotals[], view: PayableCurrencyView, exchangeRate: number | string | null | undefined, exchangeRateDate: string | null): AccountsPayableCurrencySummary;
+export declare function payableCalendarDay(value: Date | string | null | undefined): string;
+export declare function isWithinPayablePeriod(value: Date | string | null | undefined, from: string, to: string): boolean;
