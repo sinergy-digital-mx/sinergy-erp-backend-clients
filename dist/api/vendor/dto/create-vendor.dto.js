@@ -18,6 +18,10 @@ class CreateVendorDto extends vendor_banking_dto_1.VendorBankingDto {
     name;
     company_name;
     street;
+    exterior_number;
+    interior_number;
+    colonia;
+    localidad;
     city;
     state;
     zip_code;
@@ -51,6 +55,30 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateVendorDto.prototype, "street", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(20),
+    __metadata("design:type", Object)
+], CreateVendorDto.prototype, "exterior_number", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(20),
+    __metadata("design:type", Object)
+], CreateVendorDto.prototype, "interior_number", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(120),
+    __metadata("design:type", Object)
+], CreateVendorDto.prototype, "colonia", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(120),
+    __metadata("design:type", Object)
+], CreateVendorDto.prototype, "localidad", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),

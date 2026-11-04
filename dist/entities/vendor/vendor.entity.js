@@ -22,6 +22,10 @@ let Vendor = class Vendor {
     name;
     company_name;
     street;
+    exterior_number;
+    interior_number;
+    colonia;
+    localidad;
     city;
     state;
     zip_code;
@@ -82,6 +86,22 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', nullable: true }),
     __metadata("design:type", Object)
 ], Vendor.prototype, "street", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 20, nullable: true }),
+    __metadata("design:type", Object)
+], Vendor.prototype, "exterior_number", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 20, nullable: true }),
+    __metadata("design:type", Object)
+], Vendor.prototype, "interior_number", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 120, nullable: true }),
+    __metadata("design:type", Object)
+], Vendor.prototype, "colonia", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 120, nullable: true }),
+    __metadata("design:type", Object)
+], Vendor.prototype, "localidad", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', nullable: true }),
     __metadata("design:type", Object)

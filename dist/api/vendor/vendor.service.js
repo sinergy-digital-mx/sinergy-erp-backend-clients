@@ -14,6 +14,9 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.VendorService = void 0;
 const common_1 = require("@nestjs/common");
+const sat_csf_pdf_util_1 = require("../customers/utils/sat-csf-pdf.util");
+const sat_csf_util_1 = require("../customers/utils/sat-csf.util");
+const vendor_sat_constancia_util_1 = require("./utils/vendor-sat-constancia.util");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const vendor_entity_1 = require("../../entities/vendor/vendor.entity");
@@ -22,6 +25,10 @@ const vendor_profile_util_1 = require("./utils/vendor-profile.util");
 const COPY_IF_EMPTY = [
     'company_name',
     'street',
+    'exterior_number',
+    'interior_number',
+    'colonia',
+    'localidad',
     'city',
     'state',
     'zip_code',
@@ -124,6 +131,19 @@ let VendorService = class VendorService {
         const vendor = await this.findEntity(id, tenantId);
         const catalog = await this.loadCatalog(tenantId);
         return this.toVendorView(vendor, catalog);
+    }
+    async readSatConstancia(file) {
+        try {
+            (0, vendor_sat_constancia_util_1.assertSatConstanciaPdf)(file);
+            const items = await (0, sat_csf_pdf_util_1.extractSatCsfTextItems)(file.buffer);
+            return (0, vendor_sat_constancia_util_1.toVendorSatConstancia)((0, sat_csf_util_1.parseSatCsfTextItems)(items));
+        }
+        catch (error) {
+            if (error instanceof sat_csf_util_1.SatCsfParseError) {
+                throw new common_1.BadRequestException(error.message);
+            }
+            throw error;
+        }
     }
     async findDuplicates(dto, tenantId) {
         const catalog = await this.loadCatalog(tenantId);
@@ -364,6 +384,10 @@ let VendorService = class VendorService {
                 legal_name: null,
                 bank_swift_bic: null,
                 bank_iban: null,
+                exterior_number: this.blankToStored(dto.exterior_number, existing?.exterior_number),
+                interior_number: this.blankToStored(dto.interior_number, existing?.interior_number),
+                colonia: this.blankToStored(dto.colonia, existing?.colonia),
+                localidad: this.blankToStored(dto.localidad, existing?.localidad),
             };
         }
         const legalName = (dto.legal_name ?? existing?.legal_name ?? '').trim();
@@ -388,6 +412,13 @@ let VendorService = class VendorService {
             bank_clabe: null,
             bank_currency: base.bank_currency || existing?.bank_currency || 'USD',
         };
+    }
+    blankToStored(value, existing) {
+        if (value === undefined) {
+            return existing;
+        }
+        const trimmed = value?.trim() ?? '';
+        return trimmed || null;
     }
     async saveVendor(vendor) {
         try {

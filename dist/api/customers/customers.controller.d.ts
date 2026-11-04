@@ -11,13 +11,16 @@ import { QueryCustomerProductInsightsDto } from './dto/query-customer-product-in
 import { CustomerGroupsService } from './customer-groups.service';
 import { CheckCustomerDuplicatesDto } from './dto/check-customer-duplicates.dto';
 import { UpsertCustomerCreditsDto } from './dto/upsert-customer-credit.dto';
+import { UpsertCustomerPriceListsDto } from './dto/upsert-customer-price-lists.dto';
+import { CustomerPriceListService } from './services/customer-price-list.service';
 export declare class CustomersController {
     private readonly customersService;
     private readonly exportService;
     private readonly productInsightsService;
     private readonly customerGroupsService;
+    private readonly customerPriceListService;
     private readonly permissionService;
-    constructor(customersService: CustomersService, exportService: CustomersExportService, productInsightsService: CustomerProductInsightsService, customerGroupsService: CustomerGroupsService, permissionService: PermissionService);
+    constructor(customersService: CustomersService, exportService: CustomersExportService, productInsightsService: CustomerProductInsightsService, customerGroupsService: CustomerGroupsService, customerPriceListService: CustomerPriceListService, permissionService: PermissionService);
     private stripInsightWithoutPermission;
     create(dto: CreateCustomerDto, req: any): Promise<{
         credit_enabled?: boolean;
@@ -139,6 +142,12 @@ export declare class CustomersController {
     }>;
     listCredits(id: string, req: any): Promise<import("./utils/customer-credit.util").CustomerCreditFiscalSnapshot[]>;
     upsertCredits(id: string, dto: UpsertCustomerCreditsDto, req: any): Promise<import("./utils/customer-credit.util").CustomerCreditFiscalSnapshot[]>;
+    listPriceLists(id: string, req: any): Promise<{
+        price_lists: import("./services/customer-price-list.service").CustomerPriceListView[];
+    }>;
+    upsertPriceLists(id: string, dto: UpsertCustomerPriceListsDto, req: any): Promise<{
+        price_lists: import("./services/customer-price-list.service").CustomerPriceListView[];
+    }>;
     findOne(id: string, fiscalConfigurationId: string | undefined, req: any): Promise<{
         assignment_history: import("../../common/utils/assignment-change.util").AssignmentHistoryRow[];
         credits: import("./utils/customer-credit.util").CustomerCreditFiscalSnapshot[];

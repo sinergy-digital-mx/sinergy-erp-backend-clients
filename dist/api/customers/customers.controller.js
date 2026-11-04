@@ -29,6 +29,8 @@ const query_customer_product_insights_dto_1 = require("./dto/query-customer-prod
 const customer_groups_service_1 = require("./customer-groups.service");
 const check_customer_duplicates_dto_1 = require("./dto/check-customer-duplicates.dto");
 const upsert_customer_credit_dto_1 = require("./dto/upsert-customer-credit.dto");
+const upsert_customer_price_lists_dto_1 = require("./dto/upsert-customer-price-lists.dto");
+const customer_price_list_service_1 = require("./services/customer-price-list.service");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const permission_guard_1 = require("../rbac/guards/permission.guard");
 const require_permissions_decorator_1 = require("../rbac/decorators/require-permissions.decorator");
@@ -37,12 +39,14 @@ let CustomersController = class CustomersController {
     exportService;
     productInsightsService;
     customerGroupsService;
+    customerPriceListService;
     permissionService;
-    constructor(customersService, exportService, productInsightsService, customerGroupsService, permissionService) {
+    constructor(customersService, exportService, productInsightsService, customerGroupsService, customerPriceListService, permissionService) {
         this.customersService = customersService;
         this.exportService = exportService;
         this.productInsightsService = productInsightsService;
         this.customerGroupsService = customerGroupsService;
+        this.customerPriceListService = customerPriceListService;
         this.permissionService = permissionService;
     }
     async stripInsightWithoutPermission(query, req) {
@@ -106,6 +110,12 @@ let CustomersController = class CustomersController {
     }
     upsertCredits(id, dto, req) {
         return this.customersService.upsertCredits(Number(id), dto, req.user.tenantId);
+    }
+    listPriceLists(id, req) {
+        return this.customerPriceListService.list(Number(id), req.user.tenantId ?? req.user.tenant_id);
+    }
+    upsertPriceLists(id, dto, req) {
+        return this.customerPriceListService.replace(Number(id), req.user.tenantId ?? req.user.tenant_id, dto.price_lists ?? []);
     }
     findOne(id, fiscalConfigurationId, req) {
         return this.customersService.findOne(Number(id), req.user.tenantId, fiscalConfigurationId);
@@ -337,6 +347,34 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], CustomersController.prototype, "upsertCredits", null);
 __decorate([
+    (0, common_1.Get)(':id/price-lists'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'customers', action: 'Read' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Listas de precio habilitadas para el cliente',
+    }),
+    (0, swagger_1.ApiParam)({ name: 'id', type: 'number', description: 'Customer ID' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], CustomersController.prototype, "listPriceLists", null);
+__decorate([
+    (0, common_1.Put)(':id/price-lists'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'customers', action: 'Update' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Reemplaza las listas de precio del cliente y marca una como predeterminada',
+    }),
+    (0, swagger_1.ApiParam)({ name: 'id', type: 'number', description: 'Customer ID' }),
+    (0, swagger_1.ApiBody)({ type: upsert_customer_price_lists_dto_1.UpsertCustomerPriceListsDto }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, upsert_customer_price_lists_dto_1.UpsertCustomerPriceListsDto, Object]),
+    __metadata("design:returntype", void 0)
+], CustomersController.prototype, "upsertPriceLists", null);
+__decorate([
     (0, common_1.Get)(':id'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'customers', action: 'Read' }),
     (0, swagger_1.ApiOperation)({ summary: 'Get a specific customer by ID' }),
@@ -470,6 +508,7 @@ exports.CustomersController = CustomersController = __decorate([
         customers_export_service_1.CustomersExportService,
         customer_product_insights_service_1.CustomerProductInsightsService,
         customer_groups_service_1.CustomerGroupsService,
+        customer_price_list_service_1.CustomerPriceListService,
         permission_service_1.PermissionService])
 ], CustomersController);
 //# sourceMappingURL=customers.controller.js.map

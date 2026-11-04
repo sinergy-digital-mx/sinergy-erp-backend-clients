@@ -18,6 +18,12 @@ export declare class VendorController {
         found: boolean;
         matches: import("./utils/vendor-profile.util").VendorSimilarMatch[];
     }>;
+    readSatConstancia(file: {
+        buffer?: Buffer;
+        mimetype?: string;
+        originalname?: string;
+        size?: number;
+    }): Promise<import("./utils/vendor-sat-constancia.util").VendorSatConstanciaPreview>;
     findAll(query: QueryVendorDto, req: any): Promise<PaginatedVendorDto>;
     exportExcel(query: QueryVendorExportDto, req: any, res: any): Promise<void>;
     getAccounts(id: string, req: any): Promise<{

@@ -5,6 +5,10 @@ export declare class CreateVendorDto extends VendorBankingDto {
     name?: string;
     company_name?: string;
     street?: string;
+    exterior_number?: string | null;
+    interior_number?: string | null;
+    colonia?: string | null;
+    localidad?: string | null;
     city?: string;
     state?: string;
     zip_code?: string;

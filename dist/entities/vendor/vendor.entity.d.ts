@@ -9,6 +9,10 @@ export declare class Vendor {
     name: string;
     company_name: string | null;
     street: string | null;
+    exterior_number?: string | null;
+    interior_number?: string | null;
+    colonia?: string | null;
+    localidad?: string | null;
     city: string | null;
     state: string | null;
     zip_code: string | null;

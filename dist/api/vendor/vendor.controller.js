@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.VendorController = void 0;
 const common_1 = require("@nestjs/common");
+const platform_express_1 = require("@nestjs/platform-express");
 const swagger_1 = require("@nestjs/swagger");
 const vendor_service_1 = require("./vendor.service");
 const vendors_export_service_1 = require("./services/vendors-export.service");
@@ -41,6 +42,12 @@ let VendorController = class VendorController {
     }
     findDuplicates(dto, req) {
         return this.service.findDuplicates(dto, req.user.tenantId);
+    }
+    readSatConstancia(file) {
+        if (!file) {
+            throw new common_1.BadRequestException('Sube el PDF de la constancia del SAT.');
+        }
+        return this.service.readSatConstancia(file);
     }
     findAll(query, req) {
         return this.service.findAll(req.user.tenantId, query);
@@ -93,6 +100,28 @@ __decorate([
     __metadata("design:paramtypes", [check_vendor_duplicates_dto_1.CheckVendorDuplicatesDto, Object]),
     __metadata("design:returntype", void 0)
 ], VendorController.prototype, "findDuplicates", null);
+__decorate([
+    (0, common_1.Post)('fiscal-constancia'),
+    (0, common_1.HttpCode)(200),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'vendors', action: 'Create' }, { entityType: 'vendors', action: 'Update' }),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Leer la constancia del SAT (PDF) y devolver RFC, razón social y domicilio',
+    }),
+    (0, swagger_1.ApiBody)({
+        schema: {
+            type: 'object',
+            properties: { file: { type: 'string', format: 'binary' } },
+        },
+    }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Datos fiscales leídos. No se guardan hasta crear o editar.' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'El PDF no es una constancia legible' }),
+    __param(0, (0, common_1.UploadedFile)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], VendorController.prototype, "readSatConstancia", null);
 __decorate([
     (0, common_1.Get)(),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'vendors', action: 'Read' }),

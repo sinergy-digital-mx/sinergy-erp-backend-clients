@@ -21,6 +21,8 @@ const customer_documents_service_1 = require("./customer-documents.service");
 const customer_status_entity_1 = require("../../entities/customers/customer-status.entity");
 const customer_entity_1 = require("../../entities/customers/customer.entity");
 const customer_credit_entity_1 = require("../../entities/customers/customer-credit.entity");
+const customer_price_list_entity_1 = require("../../entities/customers/customer-price-list.entity");
+const price_list_entity_1 = require("../../entities/products/price-list.entity");
 const customer_assignment_change_entity_1 = require("../../entities/customers/customer-assignment-change.entity");
 const customer_group_entity_1 = require("../../entities/customers/customer-group.entity");
 const customer_activity_entity_1 = require("../../entities/customers/customer-activity.entity");
@@ -42,6 +44,7 @@ const s3_service_1 = require("../../common/services/s3.service");
 const rbac_module_1 = require("../rbac/rbac.module");
 const customer_product_insights_service_1 = require("./services/customer-product-insights.service");
 const customer_credit_service_1 = require("./services/customer-credit.service");
+const customer_price_list_service_1 = require("./services/customer-price-list.service");
 const customer_assignment_service_1 = require("./services/customer-assignment.service");
 const exchange_rate_module_1 = require("../exchange-rate/exchange-rate.module");
 let CustomersModule = class CustomersModule {
@@ -53,6 +56,8 @@ exports.CustomersModule = CustomersModule = __decorate([
             typeorm_1.TypeOrmModule.forFeature([
                 customer_entity_1.Customer,
                 customer_credit_entity_1.CustomerCredit,
+                customer_price_list_entity_1.CustomerPriceList,
+                price_list_entity_1.PriceList,
                 customer_assignment_change_entity_1.CustomerAssignmentChange,
                 customer_status_entity_1.CustomerStatus,
                 customer_group_entity_1.CustomerGroup,
@@ -83,6 +88,7 @@ exports.CustomersModule = CustomersModule = __decorate([
             customer_documents_service_1.CustomerDocumentsService,
             customer_product_insights_service_1.CustomerProductInsightsService,
             customer_credit_service_1.CustomerCreditService,
+            customer_price_list_service_1.CustomerPriceListService,
             customer_assignment_service_1.CustomerAssignmentService,
             s3_service_1.S3Service,
         ],

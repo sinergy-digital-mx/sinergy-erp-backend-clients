@@ -602,6 +602,33 @@
       "status": "shipped",
       "version": "0.0.101",
       "shippedAt": "2026-11-04T08:41:53-08:00"
+    },
+    {
+      "id": "20261104-094102",
+      "at": "2026-11-04T09:41:02-08:00",
+      "scope": "both",
+      "message": "En el cliente se habilitan una o varias listas de precio, con una predeterminada, y esa se preselecciona al crear una orden o cotización.",
+      "status": "shipped",
+      "version": "0.0.102",
+      "shippedAt": "2026-11-04T10:01:43-08:00"
+    },
+    {
+      "id": "20261104-095436",
+      "at": "2026-11-04T09:54:36-08:00",
+      "scope": "both",
+      "message": "En proveedor nacional, al crear y al editar, se puede subir la constancia del SAT para llenar RFC, razón social y domicilio, y esos datos se pueden corregir antes de guardar.",
+      "status": "shipped",
+      "version": "0.0.102",
+      "shippedAt": "2026-11-04T10:01:43-08:00"
+    },
+    {
+      "id": "20261104-095531",
+      "at": "2026-11-04T09:55:31-08:00",
+      "scope": "backend",
+      "message": "Se pidió cargar los clientes de Verdulería que venían en la hoja Clientes VTI; quedaron 254 en la organización, separados de los de Central por razón social, con crédito cuando el archivo traía límite.",
+      "status": "shipped",
+      "version": "0.0.102",
+      "shippedAt": "2026-11-04T10:01:43-08:00"
     }
   ]
 }

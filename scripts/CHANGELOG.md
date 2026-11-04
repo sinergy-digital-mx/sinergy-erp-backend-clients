@@ -10,6 +10,12 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.102 · 2026-11-04
+
+- aplicación y servidor · En el cliente se habilitan una o varias listas de precio, con una predeterminada, y esa se preselecciona al crear una orden o cotización.
+- aplicación y servidor · En proveedor nacional, al crear y al editar, se puede subir la constancia del SAT para llenar RFC, razón social y domicilio, y esos datos se pueden corregir antes de guardar.
+- servidor · Se pidió cargar los clientes de Verdulería que venían en la hoja Clientes VTI; quedaron 254 en la organización, separados de los de Central por razón social, con crédito cuando el archivo traía límite.
+
 ### Versión 0.0.101 · 2026-11-04
 
 - aplicación · Polux ERP queda en el nombre de la pestaña, junto a la estrella. Arriba del menú ya no va el texto: se ve la estrella, o el logo de la razón social si está activo.

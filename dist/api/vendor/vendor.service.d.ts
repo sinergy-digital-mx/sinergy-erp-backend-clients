@@ -1,3 +1,4 @@
+import { VendorSatConstanciaPreview } from './utils/vendor-sat-constancia.util';
 import { Repository } from 'typeorm';
 import { Vendor } from '../../entities/vendor/vendor.entity';
 import { CreateVendorDto } from './dto/create-vendor.dto';
@@ -13,6 +14,12 @@ export declare class VendorService {
     create(dto: CreateVendorDto, tenantId: string): Promise<Vendor>;
     findAll(tenantId: string, query?: QueryVendorDto): Promise<PaginatedVendorDto>;
     findOne(id: string, tenantId: string): Promise<VendorView>;
+    readSatConstancia(file: {
+        buffer?: Buffer;
+        mimetype?: string;
+        originalname?: string;
+        size?: number;
+    }): Promise<VendorSatConstanciaPreview>;
     findDuplicates(dto: CheckVendorDuplicatesDto, tenantId: string): Promise<{
         found: boolean;
         matches: VendorSimilarMatch[];
@@ -32,6 +39,7 @@ export declare class VendorService {
     private assertTypeSwitchValid;
     private resolveCompanyName;
     private buildPayload;
+    private blankToStored;
     private saveVendor;
     private rethrowIfNullConstraint;
 }
