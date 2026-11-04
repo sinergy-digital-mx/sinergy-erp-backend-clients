@@ -629,6 +629,24 @@
       "status": "shipped",
       "version": "0.0.102",
       "shippedAt": "2026-11-04T10:01:43-08:00"
+    },
+    {
+      "id": "20261104-100303",
+      "at": "2026-11-04T10:03:03-08:00",
+      "scope": "backend",
+      "message": "El interés moratorio del estado de cuenta quedó en cada mensualidad, además del total de la cabecera. Si la cuota no tiene interés, sale un guion.",
+      "status": "shipped",
+      "version": "0.0.103",
+      "shippedAt": "2026-11-04T10:08:14-08:00"
+    },
+    {
+      "id": "20261104-100647",
+      "at": "2026-11-04T10:06:47-08:00",
+      "scope": "frontend",
+      "message": "Se pidió quitar el cuadro blanco de los filtros de Productos; quedaron en fila como Clientes y Proveedores, y en móvil el tipo se abre con el botón Filtros.",
+      "status": "shipped",
+      "version": "0.0.103",
+      "shippedAt": "2026-11-04T10:08:14-08:00"
     }
   ]
 }

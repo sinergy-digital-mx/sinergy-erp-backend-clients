@@ -26,6 +26,7 @@ const contract_downpayment_payment_entity_1 = require("../../entities/contracts/
 const contract_currency_util_1 = require("./contract-currency.util");
 const contract_financial_util_1 = require("./contract-financial.util");
 const statement_totals_util_1 = require("./utils/statement-totals.util");
+const late_interest_util_1 = require("./utils/late-interest.util");
 const INK = '#1c1917';
 const MUTED = '#57534e';
 const LINE = '#e7e5e4';
@@ -68,8 +69,9 @@ let ContractPdfService = class ContractPdfService {
                 .getMany(),
         ]);
         payments.sort((a, b) => Number(a.payment_number) - Number(b.payment_number));
+        const interestConfig = (0, late_interest_util_1.resolveLateInterestConfig)(contract);
         const downRows = downpayments.map((payment) => this.toStatementRow(payment));
-        const monthlyRows = payments.map((payment) => this.toStatementRow(payment));
+        const monthlyRows = payments.map((payment) => this.toStatementRow(payment, (0, late_interest_util_1.resolveLateInterest)(payment, interestConfig).late_interest_amount));
         const target = (0, contract_financial_util_1.getDownPaymentTarget)(contract);
         const applied = Number(contract.down_payment || 0);
         const showDownpaymentSection = !!contract.down_payment_financed || downRows.length > 0;
@@ -115,7 +117,7 @@ let ContractPdfService = class ContractPdfService {
                     : []),
                 this.sectionTitle('Pagos del contrato'),
                 monthlyRows.length
-                    ? this.paymentsTable(monthlyRows, money)
+                    ? this.paymentsTable(monthlyRows, money, true)
                     : this.emptyLine('Aún no hay mensualidades.'),
             ],
             footer: (currentPage, pageCount) => ({
@@ -237,46 +239,58 @@ let ContractPdfService = class ContractPdfService {
             margin: [0, 0, 0, 12],
         };
     }
-    paymentsTable(rows, money) {
-        const header = ['#', 'Vencimiento', 'Pagado el', 'Monto', 'Pagado', 'Pendiente', 'Estado', 'Método'].map((label) => ({
+    paymentsTable(rows, money, showInterest = false) {
+        const labels = ['#', 'Vencimiento', 'Pagado el', 'Monto', 'Pagado', 'Pendiente'];
+        if (showInterest)
+            labels.push('Interés');
+        labels.push('Estado', 'Método');
+        const header = labels.map((label) => ({
             text: label,
             bold: true,
             fontSize: 8,
             color: INK,
-            alignment: label === '#' || label === 'Estado' || label === 'Método' ? 'left' : 'right',
+            alignment: label === '#' || label === 'Estado' || label === 'Método' || label === 'Vencimiento' || label === 'Pagado el'
+                ? 'left'
+                : 'right',
         }));
-        header[0].alignment = 'left';
-        header[1].alignment = 'left';
-        header[2].alignment = 'left';
-        const body = rows.map((row) => [
-            this.cell(row.number, 'left'),
-            this.cell(this.formatDate(row.due_date), 'left'),
-            this.cell(row.paid_date ? this.formatDate(row.paid_date) : '—', 'left'),
-            this.cell(money(row.amount), 'right'),
-            this.cell(money(row.amount_paid), 'right'),
-            this.cell(money(row.amount_pending), 'right'),
-            this.cell(this.paymentStatusLabel(row), 'left'),
-            this.cell(this.methodLabel(row.payment_method), 'left'),
-        ]);
+        const body = rows.map((row) => {
+            const cells = [
+                this.cell(row.number, 'left'),
+                this.cell(this.formatDate(row.due_date), 'left'),
+                this.cell(row.paid_date ? this.formatDate(row.paid_date) : '—', 'left'),
+                this.cell(money(row.amount), 'right'),
+                this.cell(money(row.amount_paid), 'right'),
+                this.cell(money(row.amount_pending), 'right'),
+            ];
+            if (showInterest)
+                cells.push(this.cell(this.interestLabel(row.late_interest, money), 'right'));
+            cells.push(this.cell(this.paymentStatusLabel(row), 'left'), this.cell(this.methodLabel(row.payment_method), 'left'));
+            return cells;
+        });
         const totals = rows.reduce((sum, row) => ({
             amount: sum.amount + row.amount,
             paid: sum.paid + row.amount_paid,
             pending: sum.pending + row.amount_pending,
-        }), { amount: 0, paid: 0, pending: 0 });
-        body.push([
+            interest: sum.interest + Number(row.late_interest || 0),
+        }), { amount: 0, paid: 0, pending: 0, interest: 0 });
+        const totalCells = [
             this.cell('Total', 'left', true),
             this.cell('', 'left', true),
             this.cell('', 'left', true),
             this.cell(money(totals.amount), 'right', true),
             this.cell(money(totals.paid), 'right', true),
             this.cell(money(totals.pending), 'right', true),
-            this.cell('', 'left', true),
-            this.cell('', 'left', true),
-        ]);
+        ];
+        if (showInterest)
+            totalCells.push(this.cell(money(totals.interest), 'right', true));
+        totalCells.push(this.cell('', 'left', true), this.cell('', 'left', true));
+        body.push(totalCells);
         return {
             table: {
                 headerRows: 1,
-                widths: [28, 68, 62, '*', '*', '*', 58, 62],
+                widths: showInterest
+                    ? [20, 52, 50, '*', '*', '*', 52, 44, 48]
+                    : [28, 68, 62, '*', '*', '*', 58, 62],
                 body: [header, ...body],
             },
             layout: {
@@ -305,7 +319,7 @@ let ContractPdfService = class ContractPdfService {
             paddingBottom: () => 8,
         };
     }
-    toStatementRow(payment) {
+    toStatementRow(payment, lateInterest) {
         return {
             number: String(payment.payment_number),
             amount: Number(payment.amount || 0),
@@ -316,7 +330,12 @@ let ContractPdfService = class ContractPdfService {
             status: payment.status,
             is_overdue: payment.is_overdue,
             payment_method: payment.payment_method,
+            late_interest: lateInterest ?? null,
         };
+    }
+    interestLabel(amount, money) {
+        const value = Number(amount || 0);
+        return value > 0 ? money(value) : '—';
     }
     formatMoney(amount, currency) {
         const formatted = Number(amount || 0).toLocaleString('es-MX', {

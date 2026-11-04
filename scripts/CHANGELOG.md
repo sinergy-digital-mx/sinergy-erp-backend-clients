@@ -10,6 +10,11 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.103 · 2026-11-04
+
+- servidor · El interés moratorio del estado de cuenta quedó en cada mensualidad, además del total de la cabecera. Si la cuota no tiene interés, sale un guion.
+- aplicación · Se pidió quitar el cuadro blanco de los filtros de Productos; quedaron en fila como Clientes y Proveedores, y en móvil el tipo se abre con el botón Filtros.
+
 ### Versión 0.0.102 · 2026-11-04
 
 - aplicación y servidor · En el cliente se habilitan una o varias listas de precio, con una predeterminada, y esa se preselecciona al crear una orden o cotización.

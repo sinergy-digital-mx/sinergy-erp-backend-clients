@@ -17,6 +17,7 @@ export declare class ContractPdfService {
     private cell;
     private bandLayout;
     private toStatementRow;
+    private interestLabel;
     private formatMoney;
     private formatDate;
     private formatDateTime;
