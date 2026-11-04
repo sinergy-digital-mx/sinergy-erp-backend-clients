@@ -584,6 +584,24 @@
       "status": "shipped",
       "version": "0.0.100",
       "shippedAt": "2026-11-03T18:31:03-08:00"
+    },
+    {
+      "id": "20261103-184111",
+      "at": "2026-11-03T18:41:11-08:00",
+      "scope": "frontend",
+      "message": "Polux ERP queda en el nombre de la pestaña, junto a la estrella. Arriba del menú ya no va el texto: se ve la estrella, o el logo de la razón social si está activo.",
+      "status": "shipped",
+      "version": "0.0.101",
+      "shippedAt": "2026-11-04T08:41:53-08:00"
+    },
+    {
+      "id": "20261103-223528",
+      "at": "2026-11-03T22:35:28-08:00",
+      "scope": "frontend",
+      "message": "En la alta de orden, la búsqueda de producto queda arriba y alineada con la lupa. Al elegir, los campos salen debajo, sin desbordarse al pie.",
+      "status": "shipped",
+      "version": "0.0.101",
+      "shippedAt": "2026-11-04T08:41:53-08:00"
     }
   ]
 }

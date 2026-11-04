@@ -10,6 +10,11 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.101 · 2026-11-04
+
+- aplicación · Polux ERP queda en el nombre de la pestaña, junto a la estrella. Arriba del menú ya no va el texto: se ve la estrella, o el logo de la razón social si está activo.
+- aplicación · En la alta de orden, la búsqueda de producto queda arriba y alineada con la lupa. Al elegir, los campos salen debajo, sin desbordarse al pie.
+
 ### Versión 0.0.100 · 2026-11-03
 
 - servidor · Factura público en general dejaba de cargar: faltaba la columna de sucursal en la factura global y ya quedó aplicada.

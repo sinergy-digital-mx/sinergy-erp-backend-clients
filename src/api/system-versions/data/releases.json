@@ -722,5 +722,27 @@
       }
     ],
     "releasedAt": "2026-11-04T02:30:02.107Z"
+  },
+  {
+    "releaseKey": "full:0.0.101:0.0.101-1793810449359",
+    "version": "0.0.101",
+    "buildId": "0.0.101-1793810449359",
+    "channel": "full",
+    "title": "Versión 0.0.101",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "Cambios en ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en facturación"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en configuración"
+      }
+    ],
+    "releasedAt": "2026-11-04T16:40:49.359Z"
   }
 ]
