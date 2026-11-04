@@ -21,6 +21,7 @@ class ReplacePosSaleCartDto {
     walk_in_name;
     walk_in_rfc;
     for_shipping;
+    notes;
 }
 exports.ReplacePosSaleCartDto = ReplacePosSaleCartDto;
 __decorate([
@@ -76,4 +77,15 @@ __decorate([
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], ReplacePosSaleCartDto.prototype, "for_shipping", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        description: 'Observaciones de la venta. Salen en el ticket. Vacío las borra. Si se omite, se conservan.',
+    }),
+    (0, class_transformer_1.Transform)(({ value }) => (typeof value === 'string' ? value.trim() : value)),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(5000),
+    __metadata("design:type", String)
+], ReplacePosSaleCartDto.prototype, "notes", void 0);
 //# sourceMappingURL=replace-pos-sale-cart.dto.js.map

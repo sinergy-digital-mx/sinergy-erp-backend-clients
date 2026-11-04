@@ -1,6 +1,5 @@
 import { Repository } from 'typeorm';
 import { BillingBranch } from '../../../entities/billing/billing-branch.entity';
-import { FiscalConfiguration } from '../../../entities/billing/fiscal-configuration.entity';
 import { GlobalInvoice } from '../../../entities/accounting/global-invoice.entity';
 import { GlobalInvoiceOrder } from '../../../entities/accounting/global-invoice-order.entity';
 import { ElectronicInvoice } from '../../../entities/electronic-invoicing/electronic-invoice.entity';
@@ -48,14 +47,16 @@ export interface GlobalInvoiceCard {
     sat_status: string | null;
     can_cancel: boolean;
 }
+export interface GlobalInvoiceBranchOption {
+    id: string;
+    label: string;
+    fiscal_configuration_id: string;
+}
 export interface GlobalInvoicePage {
     month: string;
     period_label: string;
-    fiscal_configurations: Array<{
-        id: string;
-        razon_social: string;
-        rfc: string;
-    }>;
+    branches: GlobalInvoiceBranchOption[];
+    billing_branch_id: string | null;
     fiscal_configuration_id: string | null;
     invoice: GlobalInvoiceCard | null;
     cancelled_invoice: GlobalInvoiceCard | null;
@@ -72,17 +73,18 @@ export declare class GlobalInvoiceService {
     private readonly salesOrderRepo;
     private readonly paymentRepo;
     private readonly collectionRepo;
-    private readonly fiscalRepo;
     private readonly branchRepo;
     private readonly invoiceRepo;
     private readonly electronicInvoiceService;
-    constructor(globalRepo: Repository<GlobalInvoice>, linkRepo: Repository<GlobalInvoiceOrder>, salesOrderRepo: Repository<SalesOrder>, paymentRepo: Repository<SalesOrderPayment>, collectionRepo: Repository<PosSaleCollection>, fiscalRepo: Repository<FiscalConfiguration>, branchRepo: Repository<BillingBranch>, invoiceRepo: Repository<ElectronicInvoice>, electronicInvoiceService: ElectronicInvoiceService);
-    get(tenantId: string, month: string, fiscalConfigurationId?: string): Promise<GlobalInvoicePage>;
+    constructor(globalRepo: Repository<GlobalInvoice>, linkRepo: Repository<GlobalInvoiceOrder>, salesOrderRepo: Repository<SalesOrder>, paymentRepo: Repository<SalesOrderPayment>, collectionRepo: Repository<PosSaleCollection>, branchRepo: Repository<BillingBranch>, invoiceRepo: Repository<ElectronicInvoice>, electronicInvoiceService: ElectronicInvoiceService);
+    get(tenantId: string, month: string, billingBranchId?: string): Promise<GlobalInvoicePage>;
     generate(tenantId: string, userId: string, dto: CreateGlobalInvoiceDto): Promise<GlobalInvoicePage>;
     cancel(id: string, tenantId: string, userId: string): Promise<GlobalInvoicePage>;
     private periodOrFail;
     private findOpen;
+    private findLegacyOpen;
     private releaseStalePending;
+    private settlePending;
     private loadUninvoicedOrders;
     private loadLinkedOrders;
     private loadOrderEntities;
@@ -92,6 +94,12 @@ export declare class GlobalInvoiceService {
     private singleCurrency;
     private exchangeRate;
     private lugarExpedicion;
+    private nextFolio;
+    private listBranches;
+    private branchOptions;
+    private branchLabel;
+    private emptyPage;
+    private branchIdOfInvoice;
     private conceptLines;
     private toCard;
     private isDuplicate;

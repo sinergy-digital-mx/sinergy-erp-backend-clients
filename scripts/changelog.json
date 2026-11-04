@@ -395,6 +395,114 @@
       "status": "shipped",
       "version": "0.0.98",
       "shippedAt": "2026-11-03T14:49:54-08:00"
+    },
+    {
+      "id": "20261103-152114",
+      "at": "2026-11-03T15:21:14-08:00",
+      "scope": "both",
+      "message": "Facturas globales: la lista y Generar facturas quedan por sucursal y mes. Una vigente por sucursal, con el código postal de esa sucursal.",
+      "status": "shipped",
+      "version": "0.0.99",
+      "shippedAt": "2026-11-03T17:14:36-08:00"
+    },
+    {
+      "id": "20261103-152245",
+      "at": "2026-11-03T15:22:45-08:00",
+      "scope": "both",
+      "message": "En Cobranza la pestaña se llama Factura público en general, igual que los avisos y la cancelación.",
+      "status": "shipped",
+      "version": "0.0.99",
+      "shippedAt": "2026-11-03T17:14:36-08:00"
+    },
+    {
+      "id": "20261103-153858",
+      "at": "2026-11-03T15:38:58-08:00",
+      "scope": "both",
+      "message": "Al registrar venta faltaba la nota de observaciones: el modal ya la pide y se guarda en la orden para imprimirla en el ticket.",
+      "status": "shipped",
+      "version": "0.0.99",
+      "shippedAt": "2026-11-03T17:14:36-08:00"
+    },
+    {
+      "id": "20261103-155803",
+      "at": "2026-11-03T15:58:03-08:00",
+      "scope": "both",
+      "message": "Cobranza POS vuelve a listar todas las ventas cobradas con su forma de pago, y de crédito solo los abonos ya pagados, con las tarjetas de totales sin permiso extra.",
+      "status": "shipped",
+      "version": "0.0.99",
+      "shippedAt": "2026-11-03T17:14:36-08:00"
+    },
+    {
+      "id": "20261103-160122",
+      "at": "2026-11-03T16:01:22-08:00",
+      "scope": "frontend",
+      "message": "Cobranza POS vuelve a mostrar los totales por forma de pago: transferencias, efectivo, tarjetas, cheques y crédito, con ventas, monto y ticket.",
+      "status": "shipped",
+      "version": "0.0.99",
+      "shippedAt": "2026-11-03T17:14:36-08:00"
+    },
+    {
+      "id": "20261103-160445",
+      "at": "2026-11-03T16:04:45-08:00",
+      "scope": "both",
+      "message": "Cobranza POS agrega en la fila de filtros Envío, Efectivo, Tarjeta y el resto de formas, cada uno con conteo y monto.",
+      "status": "shipped",
+      "version": "0.0.99",
+      "shippedAt": "2026-11-03T17:14:36-08:00"
+    },
+    {
+      "id": "20261103-161204",
+      "at": "2026-11-03T16:12:04-08:00",
+      "scope": "backend",
+      "message": "El anticipo ya no descuenta crédito: en Cobranza POS su total es lo que falta por cobrar, y solo la orden a crédito usa el disponible.",
+      "status": "shipped",
+      "version": "0.0.99",
+      "shippedAt": "2026-11-03T17:14:36-08:00"
+    },
+    {
+      "id": "20261103-161628",
+      "at": "2026-11-03T16:16:28-08:00",
+      "scope": "both",
+      "message": "Cuentas por cobrar: el periodo solo muestra Mes y rango; se quitaron Hoy y Semana.",
+      "status": "shipped",
+      "version": "0.0.99",
+      "shippedAt": "2026-11-03T17:14:36-08:00"
+    },
+    {
+      "id": "20261103-162602",
+      "at": "2026-11-03T16:26:02-08:00",
+      "scope": "backend",
+      "message": "El flujo de deuda solo cuenta órdenes a crédito y deja fuera el anticipo: el cargo es la parte a crédito y el abono de anticipo no entra.",
+      "status": "shipped",
+      "version": "0.0.99",
+      "shippedAt": "2026-11-03T17:14:36-08:00"
+    },
+    {
+      "id": "20261103-163829",
+      "at": "2026-11-03T16:38:29-08:00",
+      "scope": "frontend",
+      "message": "El build del punto de venta vuelve a compilar: el anticipo se lee solo cuando la confirmación es de cotización.",
+      "status": "shipped",
+      "version": "0.0.99",
+      "shippedAt": "2026-11-03T17:14:36-08:00"
+    },
+    {
+      "id": "20261103-165907",
+      "at": "2026-11-03T16:59:07-08:00",
+      "scope": "both",
+      "message": "Se pidió un módulo Reportes solo para Madería con existencias por proveedor y cuánto comprar; quedó la hoja por sucursal, con mínimos, máximos, utilidad y cantidad editable.",
+      "status": "shipped",
+      "version": "0.0.99",
+      "shippedAt": "2026-11-03T17:14:36-08:00"
+    },
+    {
+      "id": "20261103-170414",
+      "at": "2026-11-03T17:04:14-08:00",
+      "scope": "both",
+      "message": "La orden de compra impresa ahora muestra la unidad (pie lineal), las notas y la factura del proveedor; al guardar notas o factura se regenera el documento.",
+      "status": "shipped",
+      "version": "0.0.99",
+      "shippedAt": "2026-11-03T17:14:36-08:00"
     }
   ]
 }

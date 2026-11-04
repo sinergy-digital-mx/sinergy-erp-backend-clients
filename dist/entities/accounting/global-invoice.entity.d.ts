@@ -3,6 +3,7 @@ export declare class GlobalInvoice {
     id: string;
     tenant_id: string;
     fiscal_configuration_id: string;
+    billing_branch_id: string | null;
     period_year: number;
     period_month: number;
     status: GlobalInvoiceStatus;

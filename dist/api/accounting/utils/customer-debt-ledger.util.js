@@ -20,6 +20,9 @@ exports.chargeReversalSourceKey = chargeReversalSourceKey;
 exports.paymentReversalSourceKey = paymentReversalSourceKey;
 exports.creditNoteSourceKey = creditNoteSourceKey;
 exports.creditNoteReversalSourceKey = creditNoteReversalSourceKey;
+exports.advanceCoveredAmount = advanceCoveredAmount;
+exports.isAdvanceDebtMovement = isAdvanceDebtMovement;
+exports.stripAdvanceFromDebtMovements = stripAdvanceFromDebtMovements;
 const customer_debt_ledger_movement_type_enum_1 = require("../../../entities/accounting/customer-debt-ledger-movement-type.enum");
 const sales_order_payment_display_util_1 = require("../../sales-orders/utils/sales-order-payment-display.util");
 const WALK_IN_FISCAL_NAME = 'VENTA DE MOSTRADOR';
@@ -222,5 +225,76 @@ function creditNoteSourceKey(invoiceId) {
 }
 function creditNoteReversalSourceKey(invoiceId) {
     return `credit_note_reversal:${invoiceId}`;
+}
+function advanceCoveredAmount(input) {
+    const paid = roundDebtMoney(Number(input.advance_paid || 0));
+    const requested = roundDebtMoney(Number(input.advance_requested || 0));
+    const invoiced = roundDebtMoney(Number(input.advance_invoiced || 0));
+    const asked = requested > 0.009 ? requested : paid > 0.009 ? paid : invoiced;
+    return roundDebtMoney(Math.max(asked, paid));
+}
+function isAdvanceDebtMovement(source, paymentSource) {
+    return isAdvanceSource(source) || isAdvanceSource(paymentSource);
+}
+function isAdvanceSource(value) {
+    return String(value ?? '').trim().toLowerCase() === 'advance';
+}
+function stripAdvanceFromDebtMovements(rows) {
+    const groups = new Map();
+    for (const row of rows) {
+        const list = groups.get(row.sales_order_id) ?? [];
+        list.push(row);
+        groups.set(row.sales_order_id, list);
+    }
+    const result = [];
+    for (const list of groups.values()) {
+        result.push(...stripAdvanceFromOrder(list));
+    }
+    return result;
+}
+function stripAdvanceFromOrder(rows) {
+    const sample = rows[0];
+    const dropped = droppedAdvanceAmount(rows);
+    const covered = roundDebtMoney(Math.max(advanceCoveredAmount(sample ?? {}), dropped));
+    const totalKnown = sample?.order_total != null && sample.order_total !== '';
+    const chargeLimit = totalKnown
+        ? roundDebtMoney(Math.max(roundDebtMoney(Number(sample?.order_total || 0)) - covered, 0))
+        : null;
+    const kept = [];
+    let balance = 0;
+    for (const row of rows) {
+        if (isAdvanceDebtMovement(row.source, row.payment_source))
+            continue;
+        let delta = roundDebtMoney(Number(row.amount_delta || 0));
+        if (row.movement_type === customer_debt_ledger_movement_type_enum_1.CustomerDebtLedgerMovementType.CHARGE) {
+            const next = chargeLimit == null
+                ? roundDebtMoney(Math.max(delta - covered, 0))
+                : roundDebtMoney(Math.min(Math.max(delta, 0), chargeLimit));
+            if (next <= 0.009)
+                continue;
+            delta = next;
+        }
+        else if (row.movement_type === customer_debt_ledger_movement_type_enum_1.CustomerDebtLedgerMovementType.CHARGE_REVERSAL) {
+            if (balance <= 0.009)
+                continue;
+            delta = roundDebtMoney(-balance);
+        }
+        balance = clampDebtMoney(balance + delta);
+        kept.push({ ...row, amount_delta: delta, order_balance_after: balance });
+    }
+    return kept;
+}
+function droppedAdvanceAmount(rows) {
+    let net = 0;
+    for (const row of rows) {
+        if (!isAdvanceDebtMovement(row.source, row.payment_source))
+            continue;
+        const amount = Math.abs(roundDebtMoney(Number(row.amount_delta || 0)));
+        if (row.movement_type === customer_debt_ledger_movement_type_enum_1.CustomerDebtLedgerMovementType.PAYMENT)
+            net += amount;
+        if (row.movement_type === customer_debt_ledger_movement_type_enum_1.CustomerDebtLedgerMovementType.PAYMENT_REVERSAL)
+            net -= amount;
+    }
+    return roundDebtMoney(Math.max(net, 0));
 }
 //# sourceMappingURL=customer-debt-ledger.util.js.map

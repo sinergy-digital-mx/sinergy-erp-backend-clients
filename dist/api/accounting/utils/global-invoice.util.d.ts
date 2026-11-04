@@ -8,7 +8,7 @@ export interface GlobalInvoicePeriod {
 }
 export declare function parseGlobalInvoiceMonth(value: string | null | undefined): GlobalInvoicePeriod | null;
 export declare function currentGlobalInvoiceMonth(now?: Date): string;
-export declare function globalInvoiceActiveKey(fiscalConfigurationId: string, year: number, month: number): string;
+export declare function globalInvoiceActiveKey(billingBranchId: string, year: number, month: number): string;
 export declare function monthLabel(year: number, month: number): string;
 export declare function resolveGlobalInvoicePayment(orders: Array<{
     payment_status: string;

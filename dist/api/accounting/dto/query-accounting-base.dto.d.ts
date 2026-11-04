@@ -44,6 +44,9 @@ export declare enum PosCollectionPaymentMethodFilter {
     CHECK = "check",
     CREDIT = "credit"
 }
+export declare enum PosCollectionCreditScope {
+    PAID = "paid"
+}
 export declare enum PosCollectionDateBasis {
     SHIFT = "shift",
     COLLECTED = "collected"
@@ -53,6 +56,8 @@ export declare class QueryPosCollectionsDto extends QueryAccountingBaseDto {
     customer_type?: PosCollectionCustomerType;
     payment_method?: PosCollectionPaymentMethodFilter;
     credit_only?: boolean;
+    credit_scope?: PosCollectionCreditScope;
+    for_shipping?: boolean;
     search?: string;
     page?: number;
     limit?: number;

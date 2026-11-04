@@ -37,6 +37,7 @@ const sales_orders_module_1 = require("./api/sales-orders/sales-orders.module");
 const quotations_module_1 = require("./api/quotations/quotations.module");
 const sales_reports_module_1 = require("./api/sales-reports/sales-reports.module");
 const customer_sales_reports_module_1 = require("./api/customer-sales-reports/customer-sales-reports.module");
+const reports_module_1 = require("./api/reports/reports.module");
 const accounting_module_1 = require("./api/accounting/accounting.module");
 const exchange_rate_module_1 = require("./api/exchange-rate/exchange-rate.module");
 const divino_dashboard_module_1 = require("./api/divino-dashboard/divino-dashboard.module");
@@ -88,6 +89,7 @@ exports.AppModule = AppModule = __decorate([
             quotations_module_1.QuotationsModule,
             sales_reports_module_1.SalesReportsModule,
             customer_sales_reports_module_1.CustomerSalesReportsModule,
+            reports_module_1.ReportsModule,
             accounting_module_1.AccountingModule,
             exchange_rate_module_1.ExchangeRateModule,
             divino_dashboard_module_1.DivinoDashboardModule,

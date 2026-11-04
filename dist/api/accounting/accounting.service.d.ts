@@ -158,6 +158,8 @@ export declare class AccountingService {
             customer_person_name: string | null;
             customer_display_name: string | null;
             id: string;
+            sales_order_id: string | null;
+            is_credit_payment: boolean;
             document_kind: "sales_order" | "quotation";
             collection_id: string | null;
             folio: string;
@@ -194,6 +196,11 @@ export declare class AccountingService {
         buffer: Buffer;
         filename: string;
     }>;
+    private buildPosCollectionsExcel;
+    private getPaidCreditCollections;
+    private loadPaidCreditListing;
+    private matchesPaidCreditFilters;
+    private paymentCalendarDay;
     getPosDailyShifts(tenantId: string, filters: QueryAccountingBaseDto): Promise<{
         filters_applied: {
             billing_branch_id: string;
@@ -460,6 +467,7 @@ export declare class AccountingService {
     private advanceRowMatchesSearch;
     private mapPosCollectionRow;
     private mapCollectionBranch;
+    private excelPaymentMethodLabel;
     private formatPosUserLabel;
     private buildUserName;
     private buildCustomerFields;

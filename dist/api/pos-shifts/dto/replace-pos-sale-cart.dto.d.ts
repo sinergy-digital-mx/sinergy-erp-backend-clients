@@ -6,4 +6,5 @@ export declare class ReplacePosSaleCartDto {
     walk_in_name?: string;
     walk_in_rfc?: string;
     for_shipping?: boolean;
+    notes?: string;
 }

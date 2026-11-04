@@ -18,7 +18,6 @@ const typeorm_1 = require("@nestjs/typeorm");
 const crypto_1 = require("crypto");
 const typeorm_2 = require("typeorm");
 const billing_branch_entity_1 = require("../../../entities/billing/billing-branch.entity");
-const fiscal_configuration_entity_1 = require("../../../entities/billing/fiscal-configuration.entity");
 const global_invoice_entity_1 = require("../../../entities/accounting/global-invoice.entity");
 const global_invoice_order_entity_1 = require("../../../entities/accounting/global-invoice-order.entity");
 const electronic_invoice_entity_1 = require("../../../entities/electronic-invoicing/electronic-invoice.entity");
@@ -40,58 +39,36 @@ let GlobalInvoiceService = class GlobalInvoiceService {
     salesOrderRepo;
     paymentRepo;
     collectionRepo;
-    fiscalRepo;
     branchRepo;
     invoiceRepo;
     electronicInvoiceService;
-    constructor(globalRepo, linkRepo, salesOrderRepo, paymentRepo, collectionRepo, fiscalRepo, branchRepo, invoiceRepo, electronicInvoiceService) {
+    constructor(globalRepo, linkRepo, salesOrderRepo, paymentRepo, collectionRepo, branchRepo, invoiceRepo, electronicInvoiceService) {
         this.globalRepo = globalRepo;
         this.linkRepo = linkRepo;
         this.salesOrderRepo = salesOrderRepo;
         this.paymentRepo = paymentRepo;
         this.collectionRepo = collectionRepo;
-        this.fiscalRepo = fiscalRepo;
         this.branchRepo = branchRepo;
         this.invoiceRepo = invoiceRepo;
         this.electronicInvoiceService = electronicInvoiceService;
     }
-    async get(tenantId, month, fiscalConfigurationId) {
+    async get(tenantId, month, billingBranchId) {
         const period = this.periodOrFail(month);
-        const fiscals = await this.fiscalRepo.find({
-            where: { tenant_id: tenantId },
-            order: { razon_social: 'ASC' },
-        });
-        const options = fiscals.map((fiscal) => ({
-            id: fiscal.id,
-            razon_social: fiscal.razon_social,
-            rfc: fiscal.rfc,
-        }));
-        const fiscal = fiscals.find((item) => item.id === fiscalConfigurationId) ??
-            (fiscals.length === 1 ? fiscals[0] : null);
-        if (!fiscal) {
-            return {
-                month: `${period.year}-${String(period.month).padStart(2, '0')}`,
-                period_label: period.label,
-                fiscal_configurations: options,
-                fiscal_configuration_id: null,
-                invoice: null,
-                cancelled_invoice: null,
-                orders: [],
-                orders_count: 0,
-                orders_total: null,
-                currency: null,
-                can_generate: false,
-                blocked_reason: options.length
-                    ? 'Selecciona la razón social.'
-                    : 'No hay una razón social para facturar.',
-            };
+        const branches = await this.listBranches(tenantId, billingBranchId);
+        const options = this.branchOptions(branches);
+        const branch = branches.find((item) => item.id === billingBranchId) ??
+            (branches.length === 1 ? branches[0] : null);
+        if (!branch?.fiscal_configuration || branch.fiscal_configuration.tenant_id !== tenantId) {
+            return this.emptyPage(period, options, options.length ? 'Selecciona la sucursal.' : 'No hay sucursales para facturar.');
         }
-        await this.releaseStalePending(tenantId, fiscal.id, period);
-        const open = await this.findOpen(tenantId, fiscal.id, period);
+        const fiscal = branch.fiscal_configuration;
+        await this.releaseStalePending(tenantId, branch, period);
+        const open = (await this.findOpen(tenantId, branch.id, period)) ??
+            (await this.findLegacyOpen(tenantId, branch, period));
         const cancelled = await this.globalRepo.findOne({
             where: {
                 tenant_id: tenantId,
-                fiscal_configuration_id: fiscal.id,
+                billing_branch_id: branch.id,
                 period_year: period.year,
                 period_month: period.month,
                 status: 'cancelled',
@@ -100,7 +77,7 @@ let GlobalInvoiceService = class GlobalInvoiceService {
         });
         const orders = open
             ? await this.loadLinkedOrders(tenantId, open.id)
-            : await this.loadUninvoicedOrders(tenantId, fiscal.id, period);
+            : await this.loadUninvoicedOrders(tenantId, branch, period);
         const invoice = await this.toCard(tenantId, open);
         const cancelledInvoice = open?.status === 'active' ? null : await this.toCard(tenantId, cancelled);
         const currencies = [
@@ -109,14 +86,14 @@ let GlobalInvoiceService = class GlobalInvoiceService {
         const currency = currencies.length === 1 ? currencies[0] : null;
         let blocked = null;
         if (fiscal.finkok_registration_status !== 'registered' || !fiscal.fiscal_regime) {
-            blocked = 'Esta razón social aún no puede timbrar.';
+            blocked = 'La razón social de esta sucursal aún no puede timbrar.';
         }
         else if (open?.status === 'pending') {
-            blocked = 'Hay una factura global en proceso para este mes.';
+            blocked = 'Hay una factura a público en general en proceso para esta sucursal.';
         }
         else if (!open && currencies.length > 1) {
             blocked =
-                'Este mes tiene órdenes en pesos y en dólares. La factura global es un solo comprobante y solo puede llevar una moneda.';
+                'Esta sucursal tiene órdenes en pesos y en dólares. La factura a público en general es un solo comprobante y solo puede llevar una moneda.';
         }
         const total = currency
             ? round2(orders.reduce((sum, order) => sum + order.total, 0))
@@ -124,7 +101,8 @@ let GlobalInvoiceService = class GlobalInvoiceService {
         return {
             month: `${period.year}-${String(period.month).padStart(2, '0')}`,
             period_label: period.label,
-            fiscal_configurations: options,
+            branches: options,
+            billing_branch_id: branch.id,
             fiscal_configuration_id: fiscal.id,
             invoice,
             cancelled_invoice: cancelledInvoice,
@@ -138,42 +116,33 @@ let GlobalInvoiceService = class GlobalInvoiceService {
     }
     async generate(tenantId, userId, dto) {
         const period = this.periodOrFail(dto.month);
-        const fiscal = await this.fiscalRepo.findOne({
-            where: { id: dto.fiscal_configuration_id, tenant_id: tenantId },
+        const branch = await this.branchRepo.findOne({
+            where: { id: dto.billing_branch_id },
+            relations: { fiscal_configuration: true },
         });
-        if (!fiscal) {
-            throw new common_1.NotFoundException('Razón social no encontrada');
+        const fiscal = branch?.fiscal_configuration;
+        if (!branch || !fiscal || fiscal.tenant_id !== tenantId) {
+            throw new common_1.NotFoundException('Sucursal no encontrada');
         }
         if (fiscal.finkok_registration_status !== 'registered' || !fiscal.fiscal_regime) {
-            throw new common_1.BadRequestException('Esta razón social aún no puede timbrar.');
+            throw new common_1.BadRequestException('La razón social de esta sucursal aún no puede timbrar.');
         }
-        await this.releaseStalePending(tenantId, fiscal.id, period);
-        const open = await this.findOpen(tenantId, fiscal.id, period);
+        await this.releaseStalePending(tenantId, branch, period);
+        const open = (await this.findOpen(tenantId, branch.id, period)) ??
+            (await this.findLegacyOpen(tenantId, branch, period));
         if (open?.status === 'active') {
-            throw new common_1.BadRequestException('Este mes ya tiene una factura global.');
+            throw new common_1.BadRequestException('Esta sucursal ya tiene una factura a público en general en este mes.');
         }
         if (open?.status === 'pending') {
-            throw new common_1.BadRequestException('Hay una factura global en proceso para este mes.');
+            throw new common_1.BadRequestException('Hay una factura a público en general en proceso para esta sucursal.');
         }
-        const orders = await this.loadOrderEntities(tenantId, fiscal.id, period, true);
+        const orders = await this.loadOrderEntities(tenantId, branch, period, true);
         this.assertSelection(orders, dto.order_ids);
         const currency = this.singleCurrency(orders);
         const exchangeRate = this.exchangeRate(orders, currency);
-        const branches = await this.branchRepo.find({
-            where: { fiscal_configuration_id: fiscal.id },
-        });
-        const lugarExpedicion = this.lugarExpedicion(orders, branches);
-        const previous = await this.globalRepo.count({
-            where: {
-                tenant_id: tenantId,
-                fiscal_configuration_id: fiscal.id,
-                period_year: period.year,
-                period_month: period.month,
-                status: 'cancelled',
-            },
-        });
+        const lugarExpedicion = this.lugarExpedicion(branch);
         const mm = String(period.month).padStart(2, '0');
-        const folio = previous === 0 ? `${period.year}${mm}` : `${period.year}${mm}-${previous + 1}`;
+        const folio = await this.nextFolio(tenantId, fiscal.id, period);
         const serie = (fiscal.prefix?.trim() || 'FG').slice(0, 25);
         const lines = this.conceptLines(orders, fiscal);
         const payment = (0, global_invoice_util_1.resolveGlobalInvoicePayment)(await this.paymentSnapshots(tenantId, orders));
@@ -218,16 +187,17 @@ let GlobalInvoiceService = class GlobalInvoiceService {
                 id,
                 tenant_id: tenantId,
                 fiscal_configuration_id: fiscal.id,
+                billing_branch_id: branch.id,
                 period_year: period.year,
                 period_month: period.month,
                 status: 'pending',
-                active_key: (0, global_invoice_util_1.globalInvoiceActiveKey)(fiscal.id, period.year, period.month),
+                active_key: (0, global_invoice_util_1.globalInvoiceActiveKey)(branch.id, period.year, period.month),
                 created_by: userId,
             });
         }
         catch (error) {
             if (this.isDuplicate(error)) {
-                throw new common_1.BadRequestException('Este mes ya tiene una factura global.');
+                throw new common_1.BadRequestException('Esta sucursal ya tiene una factura a público en general en este mes.');
             }
             throw error;
         }
@@ -258,6 +228,7 @@ let GlobalInvoiceService = class GlobalInvoiceService {
                 metadata: {
                     global_invoice: true,
                     month: `${period.year}-${mm}`,
+                    billing_branch_id: branch.id,
                     order_ids: orders.map((order) => order.id),
                 },
             });
@@ -274,18 +245,18 @@ let GlobalInvoiceService = class GlobalInvoiceService {
             }
             throw error;
         }
-        return this.get(tenantId, dto.month, fiscal.id);
+        return this.get(tenantId, dto.month, branch.id);
     }
     async cancel(id, tenantId, userId) {
         const row = await this.globalRepo.findOne({ where: { id, tenant_id: tenantId } });
         if (!row) {
-            throw new common_1.NotFoundException('Factura global no encontrada');
+            throw new common_1.NotFoundException('Factura a público en general no encontrada');
         }
         if (row.status === 'cancelled') {
-            throw new common_1.BadRequestException('Esta factura global ya está cancelada');
+            throw new common_1.BadRequestException('Esta factura a público en general ya está cancelada');
         }
         if (row.status !== 'active' || !row.electronic_invoice_id) {
-            throw new common_1.BadRequestException('Esta factura global todavía no se puede cancelar');
+            throw new common_1.BadRequestException('Esta factura a público en general todavía no se puede cancelar');
         }
         const invoice = await this.electronicInvoiceService.cancel(row.electronic_invoice_id, tenantId, userId, { motivo: '02' });
         if (invoice.stamp_status === 'cancelled' || invoice.sat_status === 'Cancelado') {
@@ -294,7 +265,8 @@ let GlobalInvoiceService = class GlobalInvoiceService {
          WHERE id = ? AND tenant_id = ?`, [row.id, tenantId]);
         }
         const month = `${row.period_year}-${String(row.period_month).padStart(2, '0')}`;
-        return this.get(tenantId, month, row.fiscal_configuration_id);
+        const branchId = row.billing_branch_id ?? (await this.branchIdOfInvoice(row.id));
+        return this.get(tenantId, month, branchId);
     }
     periodOrFail(month) {
         const period = (0, global_invoice_util_1.parseGlobalInvoiceMonth)(month);
@@ -303,11 +275,11 @@ let GlobalInvoiceService = class GlobalInvoiceService {
         }
         return period;
     }
-    async findOpen(tenantId, fiscalConfigurationId, period) {
+    async findOpen(tenantId, billingBranchId, period) {
         const active = await this.globalRepo.findOne({
             where: {
                 tenant_id: tenantId,
-                fiscal_configuration_id: fiscalConfigurationId,
+                billing_branch_id: billingBranchId,
                 period_year: period.year,
                 period_month: period.month,
                 status: 'active',
@@ -318,23 +290,66 @@ let GlobalInvoiceService = class GlobalInvoiceService {
         return this.globalRepo.findOne({
             where: {
                 tenant_id: tenantId,
-                fiscal_configuration_id: fiscalConfigurationId,
+                billing_branch_id: billingBranchId,
                 period_year: period.year,
                 period_month: period.month,
                 status: 'pending',
             },
         });
     }
-    async releaseStalePending(tenantId, fiscalConfigurationId, period) {
+    findLegacyOpen(tenantId, branch, period) {
+        return this.globalRepo
+            .createQueryBuilder('gi')
+            .where('gi.tenant_id = :tenantId', { tenantId })
+            .andWhere('gi.fiscal_configuration_id = :fiscalId', {
+            fiscalId: branch.fiscal_configuration_id,
+        })
+            .andWhere('gi.billing_branch_id IS NULL')
+            .andWhere('gi.period_year = :year', { year: period.year })
+            .andWhere('gi.period_month = :month', { month: period.month })
+            .andWhere("gi.status IN ('pending', 'active')")
+            .andWhere(`EXISTS (
+          SELECT 1 FROM global_invoice_orders gio
+          INNER JOIN inv_s_sales_orders so ON so.id = gio.sales_order_id
+          WHERE gio.global_invoice_id = gi.id
+            AND so.billing_branch_id = :branchId
+        )`, { branchId: branch.id })
+            .orderBy('gi.created_at', 'DESC')
+            .getOne();
+    }
+    async releaseStalePending(tenantId, branch, period) {
         const pending = await this.globalRepo.findOne({
             where: {
                 tenant_id: tenantId,
-                fiscal_configuration_id: fiscalConfigurationId,
+                billing_branch_id: branch.id,
                 period_year: period.year,
                 period_month: period.month,
                 status: 'pending',
             },
         });
+        await this.settlePending(tenantId, pending);
+        const legacy = await this.globalRepo
+            .createQueryBuilder('gi')
+            .where('gi.tenant_id = :tenantId', { tenantId })
+            .andWhere('gi.fiscal_configuration_id = :fiscalId', {
+            fiscalId: branch.fiscal_configuration_id,
+        })
+            .andWhere('gi.billing_branch_id IS NULL')
+            .andWhere('gi.period_year = :year', { year: period.year })
+            .andWhere('gi.period_month = :month', { month: period.month })
+            .andWhere('gi.status = :status', { status: 'pending' })
+            .andWhere(`EXISTS (
+          SELECT 1 FROM global_invoice_orders gio
+          INNER JOIN inv_s_sales_orders so ON so.id = gio.sales_order_id
+          WHERE gio.global_invoice_id = gi.id
+            AND so.billing_branch_id = :branchId
+        )`, { branchId: branch.id })
+            .getOne();
+        if (legacy && legacy.id !== pending?.id) {
+            await this.settlePending(tenantId, legacy);
+        }
+    }
+    async settlePending(tenantId, pending) {
         if (!pending)
             return;
         const invoices = await this.electronicInvoiceService.findBySource(tenantId, 'global_invoices', pending.id);
@@ -352,8 +367,8 @@ let GlobalInvoiceService = class GlobalInvoiceService {
         await this.linkRepo.delete({ global_invoice_id: pending.id });
         await this.globalRepo.delete({ id: pending.id });
     }
-    async loadUninvoicedOrders(tenantId, fiscalConfigurationId, period) {
-        const orders = await this.loadOrderEntities(tenantId, fiscalConfigurationId, period, true);
+    async loadUninvoicedOrders(tenantId, branch, period) {
+        const orders = await this.loadOrderEntities(tenantId, branch, period, true);
         return this.toRows(tenantId, orders);
     }
     async loadLinkedOrders(tenantId, globalInvoiceId) {
@@ -371,7 +386,7 @@ let GlobalInvoiceService = class GlobalInvoiceService {
         });
         return this.toRows(tenantId, orders);
     }
-    loadOrderEntities(tenantId, fiscalConfigurationId, period, onlyUninvoiced) {
+    loadOrderEntities(tenantId, branch, period, onlyUninvoiced) {
         const qb = this.salesOrderRepo
             .createQueryBuilder('so')
             .leftJoinAndSelect('so.customer', 'customer')
@@ -381,7 +396,10 @@ let GlobalInvoiceService = class GlobalInvoiceService {
             .leftJoinAndSelect('line.product_uom', 'product_uom')
             .leftJoinAndSelect('product_uom.uom', 'uom')
             .where('so.tenant_id = :tenantId', { tenantId })
-            .andWhere('so.fiscal_configuration_id = :fiscalId', { fiscalId: fiscalConfigurationId })
+            .andWhere('so.billing_branch_id = :branchId', { branchId: branch.id })
+            .andWhere('so.fiscal_configuration_id = :fiscalId', {
+            fiscalId: branch.fiscal_configuration_id,
+        })
             .andWhere('so.general_status != :cancelled', { cancelled: 'Cancelada' })
             .andWhere(`DATE(CONVERT_TZ(so.created_at, '+00:00', 'America/Tijuana')) BETWEEN :from AND :to`, { from: period.from, to: period.to })
             .orderBy('so.created_at', 'ASC')
@@ -466,13 +484,13 @@ let GlobalInvoiceService = class GlobalInvoiceService {
         const wanted = new Set(orderIds);
         const same = current.size === wanted.size && [...current].every((id) => wanted.has(id));
         if (!same) {
-            throw new common_1.BadRequestException('Selecciona todas las órdenes sin facturar de este mes. La lista cambió: vuelve a cargarla.');
+            throw new common_1.BadRequestException('Selecciona todas las órdenes sin facturar de esta sucursal. La lista cambió: vuelve a cargarla.');
         }
     }
     singleCurrency(orders) {
         const currencies = [...new Set(orders.map((order) => (order.currency || 'MXN').toUpperCase()))];
         if (currencies.length !== 1) {
-            throw new common_1.BadRequestException('Este mes tiene órdenes en pesos y en dólares. La factura global es un solo comprobante y solo puede llevar una moneda.');
+            throw new common_1.BadRequestException('Esta sucursal tiene órdenes en pesos y en dólares. La factura a público en general es un solo comprobante y solo puede llevar una moneda.');
         }
         return currencies[0];
     }
@@ -485,30 +503,83 @@ let GlobalInvoiceService = class GlobalInvoiceService {
         }
         return Number(orders[orders.length - 1].exchange_rate);
     }
-    lugarExpedicion(orders, branches) {
-        const counts = new Map();
-        for (const order of orders) {
-            const postal = (0, global_invoice_util_1.fiveDigitPostalCode)(order.billing_branch?.postal_code);
-            if (!postal)
-                continue;
-            counts.set(postal, (counts.get(postal) ?? 0) + 1);
-        }
-        let best = '';
-        let bestCount = 0;
-        for (const [postal, count] of counts) {
-            if (count > bestCount) {
-                best = postal;
-                bestCount = count;
+    lugarExpedicion(branch) {
+        const postal = (0, global_invoice_util_1.fiveDigitPostalCode)(branch.postal_code);
+        if (postal)
+            return postal;
+        throw new common_1.BadRequestException('La sucursal no tiene código postal de 5 dígitos para expedir la factura.');
+    }
+    async nextFolio(tenantId, fiscalConfigurationId, period) {
+        const taken = await this.globalRepo.count({
+            where: {
+                tenant_id: tenantId,
+                fiscal_configuration_id: fiscalConfigurationId,
+                period_year: period.year,
+                period_month: period.month,
+            },
+        });
+        const mm = String(period.month).padStart(2, '0');
+        return taken === 0 ? `${period.year}${mm}` : `${period.year}${mm}-${taken + 1}`;
+    }
+    async listBranches(tenantId, includeId) {
+        const branches = await this.branchRepo
+            .createQueryBuilder('branch')
+            .innerJoinAndSelect('branch.fiscal_configuration', 'fiscal')
+            .where('fiscal.tenant_id = :tenantId', { tenantId })
+            .andWhere('branch.status = :status', { status: 1 })
+            .orderBy('branch.city', 'ASC')
+            .addOrderBy('branch.code', 'ASC')
+            .getMany();
+        if (includeId && !branches.some((branch) => branch.id === includeId)) {
+            const extra = await this.branchRepo.findOne({
+                where: { id: includeId },
+                relations: { fiscal_configuration: true },
+            });
+            if (extra?.fiscal_configuration?.tenant_id === tenantId) {
+                branches.unshift(extra);
             }
         }
-        if (best)
-            return best;
-        for (const branch of branches) {
-            const postal = (0, global_invoice_util_1.fiveDigitPostalCode)(branch.postal_code);
-            if (postal)
-                return postal;
-        }
-        throw new common_1.BadRequestException('La sucursal no tiene código postal de 5 dígitos para expedir la factura.');
+        return branches;
+    }
+    branchOptions(branches) {
+        const fiscals = new Set(branches.map((branch) => branch.fiscal_configuration_id));
+        const showRfc = fiscals.size > 1;
+        return branches.map((branch) => ({
+            id: branch.id,
+            label: this.branchLabel(branch, showRfc),
+            fiscal_configuration_id: branch.fiscal_configuration_id,
+        }));
+    }
+    branchLabel(branch, showRfc) {
+        const place = `${branch.city} (${branch.code})`;
+        const rfc = branch.fiscal_configuration?.rfc?.trim();
+        return showRfc && rfc ? `${place} · ${rfc}` : place;
+    }
+    emptyPage(period, branches, blocked) {
+        return {
+            month: `${period.year}-${String(period.month).padStart(2, '0')}`,
+            period_label: period.label,
+            branches,
+            billing_branch_id: null,
+            fiscal_configuration_id: null,
+            invoice: null,
+            cancelled_invoice: null,
+            orders: [],
+            orders_count: 0,
+            orders_total: null,
+            currency: null,
+            can_generate: false,
+            blocked_reason: blocked,
+        };
+    }
+    async branchIdOfInvoice(globalInvoiceId) {
+        const rows = await this.globalRepo.query(`SELECT so.billing_branch_id
+       FROM global_invoice_orders gio
+       INNER JOIN inv_s_sales_orders so ON so.id = gio.sales_order_id
+       WHERE gio.global_invoice_id = ?
+         AND so.billing_branch_id IS NOT NULL
+       LIMIT 1`, [globalInvoiceId]);
+        return rows[0]?.billing_branch_id ?? undefined;
     }
     conceptLines(orders, fiscal) {
         const ivaOn = (0, fiscal_tax_policy_util_1.isFiscalFlagOn)(fiscal.iva_enabled, true);
@@ -567,11 +638,9 @@ exports.GlobalInvoiceService = GlobalInvoiceService = __decorate([
     __param(2, (0, typeorm_1.InjectRepository)(sales_order_entity_1.SalesOrder)),
     __param(3, (0, typeorm_1.InjectRepository)(sales_order_payment_entity_1.SalesOrderPayment)),
     __param(4, (0, typeorm_1.InjectRepository)(pos_sale_collection_entity_1.PosSaleCollection)),
-    __param(5, (0, typeorm_1.InjectRepository)(fiscal_configuration_entity_1.FiscalConfiguration)),
-    __param(6, (0, typeorm_1.InjectRepository)(billing_branch_entity_1.BillingBranch)),
-    __param(7, (0, typeorm_1.InjectRepository)(electronic_invoice_entity_1.ElectronicInvoice)),
+    __param(5, (0, typeorm_1.InjectRepository)(billing_branch_entity_1.BillingBranch)),
+    __param(6, (0, typeorm_1.InjectRepository)(electronic_invoice_entity_1.ElectronicInvoice)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
-        typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,

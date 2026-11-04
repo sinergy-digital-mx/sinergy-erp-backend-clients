@@ -13,7 +13,7 @@ exports.CancelGlobalInvoiceDto = exports.CreateGlobalInvoiceDto = exports.QueryG
 const class_validator_1 = require("class-validator");
 class QueryGlobalInvoiceDto {
     month;
-    fiscal_configuration_id;
+    billing_branch_id;
 }
 exports.QueryGlobalInvoiceDto = QueryGlobalInvoiceDto;
 __decorate([
@@ -25,10 +25,10 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsUUID)(),
     __metadata("design:type", String)
-], QueryGlobalInvoiceDto.prototype, "fiscal_configuration_id", void 0);
+], QueryGlobalInvoiceDto.prototype, "billing_branch_id", void 0);
 class CreateGlobalInvoiceDto {
     month;
-    fiscal_configuration_id;
+    billing_branch_id;
     order_ids;
     environment;
 }
@@ -41,7 +41,7 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsUUID)(),
     __metadata("design:type", String)
-], CreateGlobalInvoiceDto.prototype, "fiscal_configuration_id", void 0);
+], CreateGlobalInvoiceDto.prototype, "billing_branch_id", void 0);
 __decorate([
     (0, class_validator_1.IsArray)(),
     (0, class_validator_1.ArrayMinSize)(1),

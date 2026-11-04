@@ -157,7 +157,7 @@ let CustomerDebtFlowService = class CustomerDebtFlowService {
             : `antiguedad-saldos-${day}.xlsx`;
     }
     async buildAging(tenantId, filters, asOf) {
-        const openRows = await this.latestOrders(tenantId, filters, asOf, true);
+        const openRows = lastDebtOrder(await this.movementsUntil(tenantId, filters, asOf)).filter((row) => Number(row.order_balance_after || 0) > 0.009);
         const grouped = new Map();
         for (const row of openRows) {
             const pending = (0, customer_debt_ledger_util_1.roundDebtMoney)(Number(row.order_balance_after || 0));
@@ -188,10 +188,10 @@ let CustomerDebtFlowService = class CustomerDebtFlowService {
         return { rows, totals: sumAging(rows) };
     }
     async buildLedger(tenantId, filters, dateFrom, dateTo) {
-        const [movements, openingOrders] = await Promise.all([
-            this.movementsInRange(tenantId, filters, dateFrom, dateTo),
-            this.latestOrders(tenantId, filters, new Date(dateFrom.getTime() - 1), true),
-        ]);
+        const history = await this.movementsUntil(tenantId, filters, dateTo);
+        const fromKey = this.formatSqlDateTime(dateFrom);
+        const openingOrders = lastDebtOrder(history.filter((row) => String(row.occurred_key) < fromKey)).filter((row) => Number(row.order_balance_after || 0) > 0.009);
+        const movements = history.filter((row) => String(row.occurred_key) >= fromKey);
         const rows = [];
         for (const order of openingOrders) {
             const pending = (0, customer_debt_ledger_util_1.roundDebtMoney)(Number(order.order_balance_after || 0));
@@ -287,48 +287,59 @@ let CustomerDebtFlowService = class CustomerDebtFlowService {
             is_opening: false,
         };
     }
-    async latestOrders(tenantId, filters, asOf, onlyOpen) {
+    async movementsUntil(tenantId, filters, asOf) {
         const { where, params } = this.baseWhere(tenantId, filters, ['l.occurred_at <= ?'], [this.formatSqlDateTime(asOf)]);
-        const openSql = onlyOpen ? 'AND ranked.order_balance_after > 0.009' : '';
-        return this.dataSource.query(`
-      SELECT ranked.*
-      FROM (
-        SELECT
-          l.id, l.customer_id, l.customer_name, l.customer_rfc, l.billing_branch_name,
-          l.sales_order_id, l.folio, l.movement_type, l.amount_delta, l.balance_after,
-          l.order_balance_after, l.occurred_at, l.due_date, l.payment_method, l.reference_number,
-          COALESCE(NULLIF(so.currency, ''), 'MXN') AS currency,
-          ROW_NUMBER() OVER (
-            PARTITION BY l.sales_order_id
-            ORDER BY l.occurred_at DESC, l.created_at DESC, l.id DESC
-          ) AS rn
-        FROM acc_customer_debt_ledger l
-        INNER JOIN inv_s_sales_orders so
-          ON so.id = l.sales_order_id
-         AND so.tenant_id = l.tenant_id
-         AND so.is_credit = 1
-        WHERE ${where}
-      ) ranked
-      WHERE ranked.rn = 1
-      ${openSql}
-      `, params);
-    }
-    async movementsInRange(tenantId, filters, dateFrom, dateTo) {
-        const { where, params } = this.baseWhere(tenantId, filters, ['l.occurred_at >= ?', 'l.occurred_at <= ?'], [this.formatSqlDateTime(dateFrom), this.formatSqlDateTime(dateTo)]);
-        return this.dataSource.query(`
+        const rows = await this.dataSource.query(`
       SELECT
         l.id, l.customer_id, l.customer_name, l.customer_rfc, l.billing_branch_name,
         l.sales_order_id, l.folio, l.movement_type, l.amount_delta, l.balance_after,
         l.order_balance_after, l.occurred_at, l.due_date, l.payment_method, l.reference_number,
-        COALESCE(NULLIF(so.currency, ''), 'MXN') AS currency
+        l.source,
+        DATE_FORMAT(l.occurred_at, '%Y-%m-%d %H:%i:%s') AS occurred_key,
+        COALESCE(NULLIF(so.currency, ''), 'MXN') AS currency,
+        so.total AS order_total,
+        pay.source AS payment_source,
+        COALESCE(adv_q.advance_requested, 0) AS advance_requested,
+        COALESCE(adv_p.advance_paid, 0) AS advance_paid,
+        COALESCE(adv_i.advance_invoiced, 0) AS advance_invoiced
       FROM acc_customer_debt_ledger l
       INNER JOIN inv_s_sales_orders so
         ON so.id = l.sales_order_id
        AND so.tenant_id = l.tenant_id
        AND so.is_credit = 1
+      LEFT JOIN inv_s_sales_order_payments pay
+        ON pay.id = l.sales_order_payment_id
+       AND pay.tenant_id = l.tenant_id
+      LEFT JOIN (
+        SELECT converted_to_sales_order_id AS sales_order_id,
+               MAX(advance_requested_total) AS advance_requested
+        FROM inv_s_quotations
+        WHERE tenant_id = ?
+          AND converted_to_sales_order_id IS NOT NULL
+        GROUP BY converted_to_sales_order_id
+      ) adv_q ON adv_q.sales_order_id = so.id
+      LEFT JOIN (
+        SELECT sales_order_id, SUM(amount) AS advance_paid
+        FROM inv_s_sales_order_payments
+        WHERE tenant_id = ? AND source = 'advance'
+        GROUP BY sales_order_id
+      ) adv_p ON adv_p.sales_order_id = so.id
+      LEFT JOIN (
+        SELECT source_id AS sales_order_id, SUM(total) AS advance_invoiced
+        FROM electronic_invoices
+        WHERE tenant_id = ?
+          AND invoice_role = 'advance'
+          AND (sat_status IS NULL OR sat_status <> 'Cancelado')
+          AND (
+            sat_status = 'Vigente'
+            OR stamp_status IN ('stamped', 'cancel_pending', 'cancel_error')
+          )
+        GROUP BY source_id
+      ) adv_i ON adv_i.sales_order_id = so.id
       WHERE ${where}
       ORDER BY l.occurred_at ASC, l.created_at ASC, l.id ASC
-      `, params);
+      `, [tenantId, tenantId, tenantId, ...params]);
+        return (0, customer_debt_ledger_util_1.stripAdvanceFromDebtMovements)(rows);
     }
     baseWhere(tenantId, filters, extra, extraParams = []) {
         const clauses = ['l.tenant_id = ?', 'l.fiscal_configuration_id = ?', ...extra];
@@ -454,6 +465,12 @@ function parseLocalDay(value, end) {
         ? new Date(year, month, day, 23, 59, 59, 999)
         : new Date(year, month, day, 0, 0, 0, 0);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+function lastDebtOrder(rows) {
+    const latest = new Map();
+    for (const row of rows)
+        latest.set(row.sales_order_id, row);
+    return [...latest.values()];
 }
 function toIso(value) {
     if (value instanceof Date)

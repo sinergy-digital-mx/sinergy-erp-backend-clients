@@ -24,7 +24,6 @@ const sales_order_entity_1 = require("../../../entities/sales-orders/sales-order
 const sales_order_payment_entity_1 = require("../../../entities/sales-orders/sales-order-payment.entity");
 const electronic_invoice_entity_1 = require("../../../entities/electronic-invoicing/electronic-invoice.entity");
 const quotation_entity_1 = require("../../../entities/quotations/quotation.entity");
-const advance_shift_payment_entity_1 = require("../../../entities/pos/advance-shift-payment.entity");
 const credit_note_util_1 = require("../../sales-orders/utils/credit-note.util");
 const pos_sale_collection_mapper_1 = require("../../pos-shifts/mappers/pos-sale-collection.mapper");
 const exchange_rate_service_1 = require("../../exchange-rate/exchange-rate.service");
@@ -38,16 +37,14 @@ let CustomerCreditService = class CustomerCreditService {
     paymentRepo;
     invoiceRepo;
     quotationRepo;
-    advancePaymentRepo;
     exchangeRateService;
-    constructor(creditRepo, fiscalRepo, salesOrderRepo, paymentRepo, invoiceRepo, quotationRepo, advancePaymentRepo, exchangeRateService) {
+    constructor(creditRepo, fiscalRepo, salesOrderRepo, paymentRepo, invoiceRepo, quotationRepo, exchangeRateService) {
         this.creditRepo = creditRepo;
         this.fiscalRepo = fiscalRepo;
         this.salesOrderRepo = salesOrderRepo;
         this.paymentRepo = paymentRepo;
         this.invoiceRepo = invoiceRepo;
         this.quotationRepo = quotationRepo;
-        this.advancePaymentRepo = advancePaymentRepo;
         this.exchangeRateService = exchangeRateService;
     }
     async listForCustomer(customer) {
@@ -288,6 +285,7 @@ let CustomerCreditService = class CustomerCreditService {
             row.fiscal_configuration_id,
             (0, credit_currency_util_1.normalizeCreditCurrency)(row.credit_currency),
         ]));
+        const coverage = await this.orderAdvanceCoverageMap(tenantId, openOrders.map((order) => order.id));
         const rateByDate = new Map();
         const rateForOrderDate = async (createdAt) => {
             const date = (0, credit_currency_util_1.creditRateDate)(createdAt);
@@ -309,6 +307,10 @@ let CustomerCreditService = class CustomerCreditService {
                 amountPaid: paidByOrder.get(order.id) ?? 0,
                 creditNotesTotal: notesByOrder.get(order.id) ?? 0,
             });
+            const cover = coverage.get(order.id);
+            const creditBase = cover?.hasAdvance
+                ? Math.min(effect.pendingAfter, (0, advance_credit_util_1.advanceCreditPending)(Number(order.total || 0), cover.requested, cover.paid))
+                : effect.pendingAfter;
             const key = order.fiscal_configuration_id;
             const creditCurrency = currencyByFiscal.get(key) ?? 'MXN';
             const storedRate = Number(order.exchange_rate);
@@ -320,15 +322,14 @@ let CustomerCreditService = class CustomerCreditService {
                 dailyExchangeRate: momentRate,
             });
             const converted = (0, credit_currency_util_1.amountInCreditCurrency)({
-                amount: effect.pendingAfter,
+                amount: creditBase,
                 orderCurrency: order.currency,
                 creditCurrency,
                 exchangeRate: rate,
             });
-            const pending = converted.amount ?? effect.pendingAfter;
+            const pending = converted.amount ?? creditBase;
             usedByFiscal.set(key, Number(((usedByFiscal.get(key) ?? 0) + pending).toFixed(2)));
         }
-        await this.addAdvanceCreditUsage(tenantId, customerId, usedByFiscal, currencyByFiscal, rateForOrderDate, new Set(openOrders.map((order) => order.id)));
         return usedByFiscal;
     }
     async assertAdvanceCreditFits(input) {
@@ -390,109 +391,6 @@ let CustomerCreditService = class CustomerCreditService {
         const daily = await this.exchangeRateService.getDailyRate(tenantId, (0, credit_currency_util_1.creditRateDate)(createdAt) ?? undefined);
         const value = Number(daily?.exchange_rate ?? 0);
         return value > 0 ? value : null;
-    }
-    async addAdvanceCreditUsage(tenantId, customerId, usedByFiscal, currencyByFiscal, rateForOrderDate, countedOrderIds) {
-        const quotations = await this.quotationRepo.find({
-            where: {
-                tenant_id: tenantId,
-                customer_id: customerId,
-                general_status: 'Creada',
-                converted_to_sales_order_id: (0, typeorm_2.IsNull)(),
-            },
-        });
-        const openQuotes = quotations.filter((quote) => Number(quote.advance_requested_total || 0) > 0.009 && quote.fiscal_configuration_id);
-        const paidByQuote = await this.sumAdvancePaidByQuotation(tenantId, openQuotes.map((quote) => quote.id));
-        for (const quote of openQuotes) {
-            const pending = (0, advance_credit_util_1.advanceCreditPending)(Number(quote.total || 0), Number(quote.advance_requested_total || 0), paidByQuote.get(quote.id) ?? 0);
-            await this.addPendingToFiscal(usedByFiscal, currencyByFiscal, rateForOrderDate, quote.fiscal_configuration_id, pending, 'MXN', null, quote.created_at);
-        }
-        const orders = await this.salesOrderRepo.find({
-            where: {
-                tenant_id: tenantId,
-                customer_id: customerId,
-                is_credit: false,
-            },
-        });
-        const candidates = orders.filter((order) => order.general_status !== 'Cancelada' &&
-            Boolean(order.fiscal_configuration_id) &&
-            !countedOrderIds.has(order.id));
-        if (candidates.length === 0) {
-            return;
-        }
-        const coverage = await this.orderAdvanceCoverageMap(tenantId, candidates.map((order) => order.id));
-        const withAdvance = candidates.filter((order) => coverage.get(order.id)?.hasAdvance);
-        if (withAdvance.length === 0) {
-            return;
-        }
-        const noteRows = await this.invoiceRepo.find({
-            where: {
-                tenant_id: tenantId,
-                source_module: 'sales_orders',
-                source_id: (0, typeorm_2.In)(withAdvance.map((order) => order.id)),
-                invoice_role: 'credit_note',
-            },
-        });
-        const notesByOrder = new Map();
-        for (const invoice of noteRows) {
-            if (!(0, credit_note_util_1.isInvoiceVigente)(invoice))
-                continue;
-            notesByOrder.set(invoice.source_id, (0, credit_note_util_1.roundCreditMoney)((notesByOrder.get(invoice.source_id) ?? 0) + Number(invoice.total || 0)));
-        }
-        for (const order of withAdvance) {
-            const cover = coverage.get(order.id);
-            if (!cover)
-                continue;
-            const effect = (0, credit_note_util_1.splitCreditNoteEffect)({
-                orderTotal: Number(order.total || 0),
-                amountPaid: cover.paid,
-                creditNotesTotal: notesByOrder.get(order.id) ?? 0,
-            });
-            const pending = Math.min((0, advance_credit_util_1.advanceCreditPending)(Number(order.total || 0), cover.requested, cover.paid), effect.pendingAfter);
-            await this.addPendingToFiscal(usedByFiscal, currencyByFiscal, rateForOrderDate, order.fiscal_configuration_id, pending, order.currency, Number(order.exchange_rate), order.created_at);
-        }
-    }
-    async addPendingToFiscal(usedByFiscal, currencyByFiscal, rateForOrderDate, fiscalConfigurationId, pending, currency, storedRate, createdAt) {
-        const amount = (0, advance_credit_util_1.roundAdvanceMoney)(pending);
-        if (amount <= 0.009 || !fiscalConfigurationId) {
-            return;
-        }
-        const creditCurrency = currencyByFiscal.get(fiscalConfigurationId) ?? 'MXN';
-        const momentRate = storedRate && storedRate > 0 ? storedRate : await rateForOrderDate(createdAt);
-        const rate = (0, credit_currency_util_1.creditConversionRate)({
-            orderCurrency: currency,
-            creditCurrency,
-            orderExchangeRate: storedRate,
-            dailyExchangeRate: momentRate,
-        });
-        const converted = (0, credit_currency_util_1.amountInCreditCurrency)({
-            amount,
-            orderCurrency: currency,
-            creditCurrency,
-            exchangeRate: rate,
-        });
-        const next = converted.amount ?? amount;
-        usedByFiscal.set(fiscalConfigurationId, Number(((usedByFiscal.get(fiscalConfigurationId) ?? 0) + next).toFixed(2)));
-    }
-    async sumAdvancePaidByQuotation(tenantId, quotationIds) {
-        const paid = new Map();
-        if (quotationIds.length === 0) {
-            return paid;
-        }
-        const rows = await this.advancePaymentRepo
-            .createQueryBuilder('payment')
-            .select('payment.quotation_id', 'quotation_id')
-            .addSelect('COALESCE(SUM(payment.amount_mxn), 0)', 'paid')
-            .where('payment.tenant_id = :tenantId', { tenantId })
-            .andWhere('payment.voided_at IS NULL')
-            .andWhere('payment.quotation_id IN (:...ids)', { ids: quotationIds })
-            .groupBy('payment.quotation_id')
-            .getRawMany();
-        for (const row of rows) {
-            if (row.quotation_id) {
-                paid.set(row.quotation_id, Number(row.paid || 0));
-            }
-        }
-        return paid;
     }
     async advanceCoverageForOrder(tenantId, orderId) {
         const coverage = await this.orderAdvanceCoverageMap(tenantId, [orderId]);
@@ -564,9 +462,7 @@ exports.CustomerCreditService = CustomerCreditService = __decorate([
     __param(3, (0, typeorm_1.InjectRepository)(sales_order_payment_entity_1.SalesOrderPayment)),
     __param(4, (0, typeorm_1.InjectRepository)(electronic_invoice_entity_1.ElectronicInvoice)),
     __param(5, (0, typeorm_1.InjectRepository)(quotation_entity_1.Quotation)),
-    __param(6, (0, typeorm_1.InjectRepository)(advance_shift_payment_entity_1.AdvanceShiftPayment)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
-        typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,

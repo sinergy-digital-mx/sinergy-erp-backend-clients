@@ -48,3 +48,23 @@ export declare function chargeReversalSourceKey(salesOrderId: string): string;
 export declare function paymentReversalSourceKey(paymentId: string): string;
 export declare function creditNoteSourceKey(invoiceId: string): string;
 export declare function creditNoteReversalSourceKey(invoiceId: string): string;
+export type DebtAdvanceCoverage = {
+    advance_requested?: number | string | null;
+    advance_paid?: number | string | null;
+    advance_invoiced?: number | string | null;
+};
+export declare function advanceCoveredAmount(input: DebtAdvanceCoverage): number;
+export declare function isAdvanceDebtMovement(source: string | null | undefined, paymentSource: string | null | undefined): boolean;
+export type DebtAdvanceMovement = DebtAdvanceCoverage & {
+    sales_order_id: string;
+    movement_type: CustomerDebtLedgerMovementType | string;
+    amount_delta: number | string;
+    order_balance_after?: number | string | null;
+    source?: string | null;
+    payment_source?: string | null;
+    order_total?: number | string | null;
+};
+export declare function stripAdvanceFromDebtMovements<T extends DebtAdvanceMovement>(rows: T[]): Array<T & {
+    amount_delta: number;
+    order_balance_after: number;
+}>;

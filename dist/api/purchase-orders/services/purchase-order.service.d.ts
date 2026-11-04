@@ -95,6 +95,7 @@ export declare class PurchaseOrderService {
     private withLotTree;
     private recordActivity;
     private scheduleDocumentoOriginalRegen;
+    private refreshDocumentoOriginal;
     private getVendorOrFail;
     private normalizePedimento;
     private endOfDay;

@@ -39,8 +39,8 @@ function currentGlobalInvoiceMonth(now = new Date()) {
     const month = parts.find((part) => part.type === 'month')?.value ?? '01';
     return `${year}-${month}`;
 }
-function globalInvoiceActiveKey(fiscalConfigurationId, year, month) {
-    return `${fiscalConfigurationId}:${year}:${String(month).padStart(2, '0')}`;
+function globalInvoiceActiveKey(billingBranchId, year, month) {
+    return `${billingBranchId}:${year}:${String(month).padStart(2, '0')}`;
 }
 function monthLabel(year, month) {
     const date = new Date(Date.UTC(year, month - 1, 1));
@@ -90,7 +90,7 @@ async function assertSalesOrderNotInGlobalInvoice(manager, tenantId, salesOrderI
        AND gi.status IN ('pending', 'active')
      LIMIT 1`, [salesOrderId, tenantId]);
     if (Array.isArray(rows) && rows.length > 0) {
-        throw new common_1.BadRequestException('Esta orden ya está en la factura global del mes. Cancélala en Cobranza si quieres facturarla sola.');
+        throw new common_1.BadRequestException('Esta orden ya está en la factura a público en general del mes. Cancélala en Cobranza si quieres facturarla sola.');
     }
 }
 //# sourceMappingURL=global-invoice.util.js.map

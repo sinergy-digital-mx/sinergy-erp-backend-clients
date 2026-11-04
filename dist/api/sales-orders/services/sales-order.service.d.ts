@@ -96,6 +96,7 @@ export declare class SalesOrderService {
         walk_in_name?: string | null;
         walk_in_rfc?: string | null;
         for_shipping?: boolean;
+        notes?: string | null;
     }, tenantId: string, userId: string): Promise<SalesOrder>;
     findAll(tenantId: string, filters: QuerySalesOrderDto): Promise<{
         data: ({

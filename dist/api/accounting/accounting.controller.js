@@ -104,7 +104,7 @@ let AccountingController = class AccountingController {
         res.send(buffer);
     }
     getGlobalInvoices(query, req) {
-        return this.globalInvoiceService.get(req.user.tenant_id, query.month, query.fiscal_configuration_id);
+        return this.globalInvoiceService.get(req.user.tenant_id, query.month, query.billing_branch_id);
     }
     createGlobalInvoice(dto, req) {
         return this.globalInvoiceService.generate(req.user.tenant_id, req.user.id, dto);
@@ -144,7 +144,7 @@ __decorate([
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Detalle de órdenes cobradas (terminal de caja)',
-        description: 'Lista cobros del periodo/sucursal. customer_type: all | walk_in | invoiced. payment_method: cash | transfer | card | check | credit. credit_only=true deja solo órdenes a crédito de clientes con crédito habilitado, pagadas o no. date_basis=shift usa la fecha del corte; date_basis=collected usa el día de cobro (America/Tijuana).',
+        description: 'Lista cobros del periodo/sucursal. customer_type: all | walk_in | invoiced. payment_method: cash | transfer | card | check | credit. credit_only=true deja solo órdenes a crédito de clientes con crédito habilitado. credit_scope=paid lista todas las ventas cobradas y, de crédito, solo los abonos. date_basis=shift usa la fecha del corte; date_basis=collected usa el día de cobro (America/Tijuana).',
     }),
     __param(0, (0, common_1.Query)()),
     __param(1, (0, common_1.Req)()),
@@ -322,8 +322,8 @@ __decorate([
     (0, common_1.Get)('global-invoices'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }),
     (0, swagger_1.ApiOperation)({
-        summary: 'Facturas globales del mes',
-        description: 'Órdenes de clientes sin factura de ingreso vigente en el mes, o la factura global ya timbrada. Una vigente por razón social y mes. El mes es calendario America/Tijuana.',
+        summary: 'Factura a público en general del mes',
+        description: 'Órdenes de clientes sin factura de ingreso vigente en el mes, o la factura a público en general ya timbrada. Una vigente por sucursal y mes. El mes es calendario America/Tijuana.',
     }),
     __param(0, (0, common_1.Query)()),
     __param(1, (0, common_1.Req)()),
@@ -336,8 +336,8 @@ __decorate([
     (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }, { entityType: 'electronic_invoices', action: 'Stamp' }),
     (0, swagger_1.ApiOperation)({
-        summary: 'Timbrar la factura global del mes',
-        description: 'Un CFDI a público en general con todas las órdenes sin facturar de esa razón social y mes. order_ids tiene que ser exactamente esa lista.',
+        summary: 'Timbrar la factura a público en general del mes',
+        description: 'Un CFDI a público en general con todas las órdenes sin facturar de esa sucursal y mes. order_ids tiene que ser exactamente esa lista.',
     }),
     __param(0, (0, common_1.Body)()),
     __param(1, (0, common_1.Req)()),
@@ -350,7 +350,7 @@ __decorate([
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }, { entityType: 'electronic_invoices', action: 'Cancel' }),
     (0, swagger_1.ApiOperation)({
-        summary: 'Cancelar la factura global',
+        summary: 'Cancelar la factura a público en general',
         description: 'Cancela el CFDI con motivo 02. Si el SAT la deja cancelada, las órdenes vuelven a poder facturarse.',
     }),
     __param(0, (0, common_1.Param)('id')),

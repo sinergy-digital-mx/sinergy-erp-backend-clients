@@ -527,6 +527,7 @@ let SalesOrderService = class SalesOrderService {
                 updated_by: userId,
                 ...walkInTicket,
                 ...(dto.for_shipping !== undefined ? { for_shipping: !!dto.for_shipping } : {}),
+                ...(dto.notes !== undefined ? { notes: dto.notes?.trim() || null } : {}),
             });
             await this.recomputeTotals(qr, so.id, tenantId, userId);
             await this.fulfillOrderLines(qr, so.id, this.allocationScope(so), savedDetails, userId, undefined, true);
@@ -1973,7 +1974,7 @@ let SalesOrderService = class SalesOrderService {
         });
     }
     async assertOrderAdvanceCredit(order, tenantId, previousTotal, nextTotal) {
-        if (!order.customer_id || !order.fiscal_configuration_id) {
+        if (!order.is_credit || !order.customer_id || !order.fiscal_configuration_id) {
             return;
         }
         if (Math.abs(nextTotal - previousTotal) <= 0.009) {

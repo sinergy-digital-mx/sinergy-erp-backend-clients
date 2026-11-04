@@ -56,6 +56,7 @@ const purchase_order_line_breakdown_util_1 = require("../utils/purchase-order-li
 const inventory_measure_util_1 = require("../../inventory/utils/inventory-measure.util");
 const fiscal_tax_policy_util_1 = require("../../billing/utils/fiscal-tax-policy.util");
 const vendor_profile_util_1 = require("../../vendor/utils/vendor-profile.util");
+const purchase_order_pdf_fields_util_1 = require("../utils/purchase-order-pdf-fields.util");
 const COLORS = {
     primary: '#1E3A5F',
     primarySoft: '#E8EEF5',
@@ -293,6 +294,12 @@ let PurchaseOrderPdfService = class PurchaseOrderPdfService {
                                 text: `${labels.addressPrefix}: ${vendorAddress}`,
                                 fontSize: 8,
                                 color: COLORS.muted,
+                                margin: [0, 0, 0, 1],
+                            },
+                            {
+                                text: `${labels.vendorInvoicePrefix}: ${(0, purchase_order_pdf_fields_util_1.vendorInvoicePdfText)(purchaseOrder, labels.vendorInvoiceEmpty)}`,
+                                fontSize: 8,
+                                color: COLORS.muted,
                             },
                         ]),
                         this.gapCell(),
@@ -334,7 +341,7 @@ let PurchaseOrderPdfService = class PurchaseOrderPdfService {
         for (const item of lineItems) {
             const quantity = Number(item.quantity) || 0;
             const unitPrice = Number(item.unit_total) || 0;
-            const requestedUom = item.product_uom?.uom?.name || 'UOM';
+            const requestedUom = (0, purchase_order_pdf_fields_util_1.requestedLineUomName)(item);
             const breakdown = (0, purchase_order_line_breakdown_util_1.computeRequestedLineBreakdown)(quantity, unitPrice, Number(item.iva_percentage || 0), Number(item.ieps_percentage || 0));
             const lineSubtotal = Number(item.line_subtotal) || breakdown.line_subtotal;
             const lineIva = Number(item.line_iva) || breakdown.line_iva;
@@ -411,7 +418,7 @@ let PurchaseOrderPdfService = class PurchaseOrderPdfService {
                     .join('\n')
                 : labels.noBatchesRegistered;
             const lotModeLabel = itemBatches.length > 1 ? 'MULTI' : 'SINGLE';
-            const receivedUom = item.received_uom?.name || item.product_uom?.uom?.name || 'UOM';
+            const receivedUom = (0, purchase_order_pdf_fields_util_1.receivedLineUomName)(item);
             tableBody.push([
                 {
                     stack: [

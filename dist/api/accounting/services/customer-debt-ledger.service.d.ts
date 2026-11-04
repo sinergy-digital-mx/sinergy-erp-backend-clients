@@ -44,6 +44,7 @@ export declare class CustomerDebtLedgerService {
     private insertMovement;
     private loadOrder;
     private loadPayment;
+    private advanceCovered;
     private openAmount;
     private sumPayments;
     private hasSourceKey;

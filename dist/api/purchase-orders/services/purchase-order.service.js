@@ -281,21 +281,7 @@ let PurchaseOrderService = class PurchaseOrderService {
     async generateAndUploadPdf(purchaseOrderId, tenantId, userId) {
         try {
             console.log('[PDF] Starting async PDF generation for PO:', purchaseOrderId);
-            const fullOrder = await this.purchaseOrderBatchRepository
-                .createQueryBuilder('po')
-                .where('po.id = :id AND po.tenant_id = :tenantId', { id: purchaseOrderId, tenantId })
-                .leftJoinAndSelect('po.fiscal_configuration', 'fiscal_config')
-                .leftJoinAndSelect('po.warehouse', 'warehouse')
-                .leftJoinAndSelect('warehouse.billing_branch', 'billing_branch')
-                .leftJoinAndSelect('po.vendor', 'vendor')
-                .leftJoinAndSelect('po.creator', 'creator')
-                .leftJoinAndSelect('po.line_items', 'line_items')
-                .leftJoinAndSelect('line_items.product', 'product')
-                .getOne();
-            if (!fullOrder) {
-                console.error('[PDF] Failed to load full order:', purchaseOrderId);
-                return;
-            }
+            const fullOrder = await this.findOne(purchaseOrderId, tenantId);
             console.log('[PDF] Generating PDF buffer...');
             let pdfBuffer;
             let s3Key;
@@ -554,9 +540,15 @@ let PurchaseOrderService = class PurchaseOrderService {
         }
     }
     scheduleDocumentoOriginalRegen(orderId, tenantId, userId, context) {
-        this.regenerateDocumentoOriginalPreservingLanguage(orderId, tenantId, userId).catch((err) => {
+        void this.refreshDocumentoOriginal(orderId, tenantId, userId, context);
+    }
+    async refreshDocumentoOriginal(orderId, tenantId, userId, context) {
+        try {
+            await this.regenerateDocumentoOriginalPreservingLanguage(orderId, tenantId, userId);
+        }
+        catch (err) {
             console.error(`[PDF] Error regenerating DOCUMENTO_ORIGINAL after ${context}:`, err);
-        });
+        }
     }
     async getVendorOrFail(vendorId, tenantId) {
         const vendor = await this.vendorRepository.findOne({
@@ -923,11 +915,10 @@ let PurchaseOrderService = class PurchaseOrderService {
             throw new common_1.BadRequestException('No se pueden editar notas de una orden cancelada');
         }
         const previousNotes = purchaseOrder.notes ?? null;
-        purchaseOrder.notes = dto.notes?.trim() ? dto.notes.trim() : null;
-        purchaseOrder.updated_by = userId;
-        await this.purchaseOrderBatchRepository.save(purchaseOrder);
+        const nextNotes = dto.notes?.trim() ? dto.notes.trim() : null;
+        await this.purchaseOrderBatchRepository.update({ id, tenant_id: tenantId }, { notes: nextNotes, updated_by: userId });
         const changes = (0, purchase_order_activity_change_util_1.compactActivityChanges)([
-            (0, purchase_order_activity_change_util_1.activityChange)('notes', 'Notas', previousNotes, purchaseOrder.notes),
+            (0, purchase_order_activity_change_util_1.activityChange)('notes', 'Notas', previousNotes, nextNotes),
         ]);
         if (changes.length) {
             await this.recordActivity({
@@ -939,6 +930,7 @@ let PurchaseOrderService = class PurchaseOrderService {
                 changes,
             });
         }
+        await this.refreshDocumentoOriginal(id, tenantId, userId, 'update notes');
         return this.findOne(id, tenantId);
     }
     async updatePedimento(id, dto, tenantId, userId) {
@@ -992,6 +984,7 @@ let PurchaseOrderService = class PurchaseOrderService {
                 changes,
             });
         }
+        await this.refreshDocumentoOriginal(id, tenantId, userId, 'update vendor invoice');
         return this.findOne(id, tenantId);
     }
     async updateRealCost(id, dto, tenantId, userId) {

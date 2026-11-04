@@ -25,9 +25,12 @@ let CustomerDebtLedgerService = class CustomerDebtLedgerService {
         const snapshot = await this.loadOrder(input.tenantId, input.salesOrderId);
         if (!snapshot || !this.canCapture(snapshot))
             return;
-        const amount = input.amount != null
+        const raw = input.amount != null
             ? (0, customer_debt_ledger_util_1.roundDebtMoney)(input.amount)
             : await this.openAmount(input.tenantId, snapshot);
+        const covered = await this.advanceCovered(input.tenantId, snapshot.id);
+        const creditCap = (0, customer_debt_ledger_util_1.roundDebtMoney)(Math.max(Number(snapshot.total || 0) - covered, 0));
+        const amount = (0, customer_debt_ledger_util_1.roundDebtMoney)(Math.min(Math.max(raw, 0), creditCap));
         if (amount <= 0)
             return;
         const occurredAt = input.occurredAt ?? new Date();
@@ -44,6 +47,8 @@ let CustomerDebtLedgerService = class CustomerDebtLedgerService {
     async capturePayment(input) {
         const payment = await this.loadPayment(input.tenantId, input.paymentId);
         if (!payment || payment.payment_method === 'credit')
+            return;
+        if (payment.source === 'advance' || input.source === 'advance')
             return;
         const hasCharge = await this.hasSourceKey(input.tenantId, (0, customer_debt_ledger_util_1.chargeSourceKey)(input.salesOrderId));
         if (!hasCharge && input.source === 'pos_cobranza')
@@ -287,6 +292,34 @@ let CustomerDebtLedgerService = class CustomerDebtLedgerService {
       LIMIT 1
       `, [paymentId, tenantId]);
         return rows?.[0] ?? null;
+    }
+    async advanceCovered(tenantId, salesOrderId) {
+        const rows = await this.dataSource.query(`
+      SELECT
+        COALESCE((
+          SELECT MAX(q.advance_requested_total)
+          FROM inv_s_quotations q
+          WHERE q.tenant_id = ? AND q.converted_to_sales_order_id = ?
+        ), 0) AS advance_requested,
+        COALESCE((
+          SELECT SUM(p.amount)
+          FROM inv_s_sales_order_payments p
+          WHERE p.tenant_id = ? AND p.sales_order_id = ? AND p.source = 'advance'
+        ), 0) AS advance_paid,
+        COALESCE((
+          SELECT SUM(ei.total)
+          FROM electronic_invoices ei
+          WHERE ei.tenant_id = ?
+            AND ei.source_id = ?
+            AND ei.invoice_role = 'advance'
+            AND (ei.sat_status IS NULL OR ei.sat_status <> 'Cancelado')
+            AND (
+              ei.sat_status = 'Vigente'
+              OR ei.stamp_status IN ('stamped', 'cancel_pending', 'cancel_error')
+            )
+        ), 0) AS advance_invoiced
+      `, [tenantId, salesOrderId, tenantId, salesOrderId, tenantId, salesOrderId]);
+        return (0, customer_debt_ledger_util_1.advanceCoveredAmount)(rows?.[0] ?? {});
     }
     async openAmount(tenantId, snapshot) {
         const paid = await this.sumPayments(tenantId, snapshot.id);

@@ -286,6 +286,9 @@ let AccountingService = class AccountingService {
         };
     }
     async getPosCollections(tenantId, filters) {
+        if (filters.credit_scope === query_accounting_base_dto_1.PosCollectionCreditScope.PAID) {
+            return this.getPaidCreditCollections(tenantId, filters);
+        }
         const period = filters.period ?? query_accounting_base_dto_1.AccountingReportPeriod.MONTH;
         const { from: shiftFrom, to: shiftTo } = (0, unclosed_shift_alert_1.resolvePosCalendarRange)(period, filters.date_from, filters.date_to);
         const page = filters.page ?? 1;
@@ -382,6 +385,14 @@ let AccountingService = class AccountingService {
         };
     }
     async exportPosCollectionsExcel(tenantId, filters) {
+        if (filters.credit_scope === query_accounting_base_dto_1.PosCollectionCreditScope.PAID) {
+            const { from: shiftFrom, to: shiftTo } = (0, unclosed_shift_alert_1.resolvePosCalendarRange)(filters.period ?? query_accounting_base_dto_1.AccountingReportPeriod.MONTH, filters.date_from, filters.date_to);
+            const listed = await this.loadPaidCreditListing(tenantId, filters, shiftFrom, shiftTo);
+            const mappedRows = listed
+                .filter((item) => this.matchesPaidCreditFilters(item, filters))
+                .map((item) => item.row);
+            return this.buildPosCollectionsExcel(filters, shiftFrom, shiftTo, mappedRows);
+        }
         const period = filters.period ?? query_accounting_base_dto_1.AccountingReportPeriod.MONTH;
         const { from: shiftFrom, to: shiftTo } = (0, unclosed_shift_alert_1.resolvePosCalendarRange)(period, filters.date_from, filters.date_to);
         const customerType = filters.customer_type ?? query_accounting_base_dto_1.PosCollectionCustomerType.ALL;
@@ -406,6 +417,11 @@ let AccountingService = class AccountingService {
             const seen = new Set(mappedRows.map((row) => row.id));
             mappedRows.push(...extras.filter((row) => !seen.has(row.id)));
         }
+        return this.buildPosCollectionsExcel(filters, shiftFrom, shiftTo, mappedRows);
+    }
+    async buildPosCollectionsExcel(filters, shiftFrom, shiftTo, mappedRows) {
+        const customerType = filters.customer_type ?? query_accounting_base_dto_1.PosCollectionCustomerType.ALL;
+        const dateBasis = filters.date_basis ?? query_accounting_base_dto_1.PosCollectionDateBasis.SHIFT;
         const rows = mappedRows.map((mapped) => {
             const customerName = mapped.walk_in_name ||
                 mapped.customer_display_name ||
@@ -429,10 +445,7 @@ let AccountingService = class AccountingService {
                         : 'Cliente',
                 seller: this.formatPosUserLabel(mapped.seller_user),
                 cashier: this.formatPosUserLabel(mapped.collected_by_user),
-                payment_method: mapped.payment_breakdown_label ||
-                    mapped.payment_method_label ||
-                    mapped.payment_method ||
-                    '',
+                payment_method: this.excelPaymentMethodLabel(mapped),
                 total: (0, excel_export_util_1.num)(mapped.total),
                 advance_given: mapped.has_advance ? (0, excel_export_util_1.num)(mapped.advance_given) : null,
                 amount_pending: (0, excel_export_util_1.num)(mapped.amount_pending),
@@ -457,6 +470,10 @@ let AccountingService = class AccountingService {
                 dateBasis === query_accounting_base_dto_1.PosCollectionDateBasis.COLLECTED ? 'Por fecha de cobro' : 'Por fecha de corte',
                 `Tipo: ${customerTypeLabel}`,
                 paymentMethodLabel ? `Forma de pago: ${paymentMethodLabel}` : '',
+                filters.credit_scope === query_accounting_base_dto_1.PosCollectionCreditScope.PAID
+                    ? 'Crédito: solo abonos cobrados'
+                    : '',
+                filters.for_shipping ? 'Para envío' : '',
                 filters.search?.trim() ? `Búsqueda: ${filters.search.trim()}` : '',
                 `${rows.length} órdenes`,
             ]),
@@ -483,6 +500,238 @@ let AccountingService = class AccountingService {
         });
         const day = (0, unclosed_shift_alert_1.getTodayDateString)();
         return { buffer, filename: `cobranza-pos-${day}.xlsx` };
+    }
+    async getPaidCreditCollections(tenantId, filters) {
+        const period = filters.period ?? query_accounting_base_dto_1.AccountingReportPeriod.MONTH;
+        const { from: shiftFrom, to: shiftTo } = (0, unclosed_shift_alert_1.resolvePosCalendarRange)(period, filters.date_from, filters.date_to);
+        const page = filters.page ?? 1;
+        const limit = filters.limit ?? 20;
+        const customerType = filters.customer_type ?? query_accounting_base_dto_1.PosCollectionCustomerType.ALL;
+        const dateBasis = filters.date_basis ?? query_accounting_base_dto_1.PosCollectionDateBasis.SHIFT;
+        const listed = await this.loadPaidCreditListing(tenantId, filters, shiftFrom, shiftTo);
+        const summary = (0, pos_collection_payment_totals_util_1.summarizePaidCreditRows)(listed.map((item) => item.meta));
+        const filtered = listed.filter((item) => this.matchesPaidCreditFilters(item, filters));
+        const listAmount = Number(filtered.reduce((sum, item) => sum + Number(item.row.total || 0), 0).toFixed(2));
+        const data = filtered.slice((page - 1) * limit, page * limit).map((item) => item.row);
+        return {
+            terminal_user_id: null,
+            terminal_name: null,
+            filters_applied: {
+                billing_branch_id: filters.billing_branch_id,
+                period,
+                date_from: shiftFrom,
+                date_to: shiftTo,
+                date_basis: dateBasis,
+                customer_type: customerType,
+                payment_method: filters.payment_method ?? null,
+                search: filters.search?.trim() || null,
+            },
+            summary,
+            filtered_amount: listAmount,
+            data,
+            total: filtered.length,
+            page,
+            limit,
+            totalPages: Math.ceil(filtered.length / limit) || 0,
+        };
+    }
+    async loadPaidCreditListing(tenantId, filters, periodFrom, periodTo) {
+        const dateBasis = filters.date_basis ?? query_accounting_base_dto_1.PosCollectionDateBasis.SHIFT;
+        const scopeFilters = {
+            ...filters,
+            credit_only: false,
+            payment_method: undefined,
+            search: undefined,
+            customer_type: query_accounting_base_dto_1.PosCollectionCustomerType.ALL,
+        };
+        const collectionsQb = this.buildPosCollectionsQuery(tenantId, scopeFilters, periodFrom, periodTo, query_accounting_base_dto_1.PosCollectionCustomerType.ALL, dateBasis);
+        collectionsQb.andWhere(`NOT (
+      so.is_credit = 1
+      OR collection.payment_method = 'credit'
+      OR COALESCE(collection.amount_credit_mxn, 0) > 0
+    )`);
+        const collections = await collectionsQb.getMany();
+        const payments = await this.salesOrderRepo.manager
+            .getRepository(sales_order_payment_entity_1.SalesOrderPayment)
+            .createQueryBuilder('payment')
+            .innerJoinAndSelect('payment.sales_order', 'so')
+            .innerJoinAndSelect('so.customer', 'customer')
+            .leftJoinAndSelect('so.seller_user', 'seller_user')
+            .leftJoinAndSelect('payment.creator', 'cashier')
+            .leftJoinAndSelect('so.billing_branch', 'sale_branch')
+            .leftJoinAndSelect('so.warehouse', 'warehouse')
+            .leftJoinAndSelect('warehouse.billing_branch', 'warehouse_branch')
+            .where('payment.tenant_id = :tenantId', { tenantId })
+            .andWhere('so.is_credit = 1')
+            .andWhere('so.general_status != :cancelled', { cancelled: 'Cancelada' })
+            .andWhere('payment.payment_date >= :periodFrom', { periodFrom })
+            .andWhere('payment.payment_date <= :periodTo', { periodTo })
+            .andWhere(`EXISTS (
+          SELECT 1 FROM pos_sale_collections col
+          INNER JOIN pos_daily_shifts sh ON sh.id = col.pos_daily_shift_id
+          WHERE col.sales_order_id = so.id
+            AND col.tenant_id = :tenantId
+            AND sh.billing_branch_id = :branchId
+        )`, { branchId: filters.billing_branch_id })
+            .getMany();
+        const orderIds = [
+            ...collections.map((collection) => collection.sales_order_id),
+            ...payments.map((payment) => payment.sales_order_id),
+        ].filter((id) => Boolean(id));
+        const [stampedOrderIds, paymentDates, advanceByOrder] = await Promise.all([
+            this.getStampedInvoiceOrderIds(tenantId, orderIds),
+            this.loadSalesOrderPaymentDates(tenantId, orderIds),
+            this.loadOrderAdvanceDisplay(tenantId, orderIds),
+        ]);
+        const listed = [];
+        for (const collection of collections) {
+            if ((0, pos_collection_payment_totals_util_1.isCreditChargeCollection)({
+                isCredit: collection.sales_order?.is_credit,
+                paymentMethod: collection.payment_method,
+                amountCreditMxn: collection.amount_credit_mxn,
+            })) {
+                continue;
+            }
+            const row = this.mapPosCollectionRow(collection, stampedOrderIds, paymentDates, advanceByOrder);
+            const amounts = (0, pos_collection_payment_totals_util_1.collectionTenderAmounts)(collection);
+            listed.push({
+                row,
+                meta: {
+                    total: Number(row.total || 0),
+                    isWalkIn: Boolean(row.is_walk_in),
+                    invoiced: Boolean(row.has_stamped_invoice),
+                    isCreditPayment: false,
+                    forShipping: Boolean(row.for_shipping),
+                    amounts,
+                },
+            });
+        }
+        for (const payment of payments) {
+            const order = payment.sales_order;
+            if (!order)
+                continue;
+            const amountMxn = (0, pos_collection_payment_totals_util_1.creditPaymentAmountMxn)({
+                amount: payment.amount,
+                currency: payment.currency,
+                exchangeRate: order.exchange_rate,
+            });
+            if (amountMxn <= 0.009)
+                continue;
+            const method = String(payment.payment_method || '');
+            const amounts = { cash: 0, transfer: 0, card: 0, check: 0 };
+            if (method === 'cash' || method === 'transfer' || method === 'card' || method === 'check') {
+                amounts[method] = amountMxn;
+            }
+            const customerFields = this.buildCustomerFields(order.customer);
+            const advance = advanceByOrder.get(order.id);
+            const paymentDay = this.paymentCalendarDay(payment.payment_date);
+            const label = method in sales_order_payment_display_util_1.SALES_ORDER_PAYMENT_METHOD_LABELS
+                ? sales_order_payment_display_util_1.SALES_ORDER_PAYMENT_METHOD_LABELS[method]
+                : method || null;
+            listed.push({
+                row: {
+                    id: payment.id,
+                    sales_order_id: order.id,
+                    document_kind: 'sales_order',
+                    collection_id: null,
+                    folio: order.folio ?? null,
+                    total: amountMxn,
+                    has_advance: advance?.hasAdvance ?? false,
+                    advance_given: advance?.advanceGiven ?? 0,
+                    amount_pending: advance?.amountPending ?? 0,
+                    payment_status: order.payment_status ?? null,
+                    general_status: order.general_status ?? null,
+                    created_at: order.created_at ?? null,
+                    payment_date: paymentDay,
+                    collected_at: payment.created_at,
+                    shift_date: null,
+                    billing_branch: this.mapCollectionBranch(order.billing_branch ?? order.warehouse?.billing_branch),
+                    payment_method: method || null,
+                    payment_method_label: label ?? '',
+                    payment_breakdown_label: label,
+                    has_stamped_invoice: stampedOrderIds.has(order.id),
+                    walk_in_name: order.walk_in_name ?? null,
+                    walk_in_rfc: order.walk_in_rfc ?? null,
+                    for_shipping: this.isForShippingFlag(order.for_shipping),
+                    ...customerFields,
+                    is_walk_in: order.customer ? (0, pos_sale_collection_mapper_1.isWalkInCustomer)(order.customer) : false,
+                    is_credit_payment: true,
+                    seller_user: order.seller_user
+                        ? {
+                            id: order.seller_user.id,
+                            first_name: order.seller_user.first_name,
+                            last_name: order.seller_user.last_name,
+                            pos_user_code: order.seller_user.pos_user_code ?? null,
+                        }
+                        : null,
+                    collected_by_user: payment.creator
+                        ? {
+                            id: payment.creator.id,
+                            first_name: payment.creator.first_name,
+                            last_name: payment.creator.last_name,
+                            pos_user_code: payment.creator.pos_user_code ?? null,
+                        }
+                        : null,
+                },
+                meta: {
+                    total: amountMxn,
+                    isWalkIn: order.customer ? (0, pos_sale_collection_mapper_1.isWalkInCustomer)(order.customer) : false,
+                    invoiced: stampedOrderIds.has(order.id),
+                    isCreditPayment: true,
+                    forShipping: this.isForShippingFlag(order.for_shipping),
+                    amounts,
+                },
+            });
+        }
+        listed.sort((a, b) => new Date(b.row.collected_at || b.row.created_at || 0).getTime() -
+            new Date(a.row.collected_at || a.row.created_at || 0).getTime());
+        return listed;
+    }
+    matchesPaidCreditFilters(item, filters) {
+        const customerType = filters.customer_type ?? query_accounting_base_dto_1.PosCollectionCustomerType.ALL;
+        if (customerType === query_accounting_base_dto_1.PosCollectionCustomerType.WALK_IN &&
+            !(item.row.is_walk_in && !item.row.has_stamped_invoice)) {
+            return false;
+        }
+        if (customerType === query_accounting_base_dto_1.PosCollectionCustomerType.INVOICED && !item.row.has_stamped_invoice) {
+            return false;
+        }
+        if (filters.for_shipping && !item.row.for_shipping) {
+            return false;
+        }
+        const term = filters.search?.trim().toLowerCase();
+        if (term) {
+            const haystack = [
+                item.row.folio,
+                item.row.customer_company_name,
+                item.row.customer_person_name,
+                item.row.customer_display_name,
+                item.row.walk_in_name,
+                item.row.walk_in_rfc,
+            ]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
+            if (!haystack.includes(term))
+                return false;
+        }
+        const method = filters.payment_method;
+        if (!method)
+            return true;
+        if (method === query_accounting_base_dto_1.PosCollectionPaymentMethodFilter.CREDIT)
+            return item.meta.isCreditPayment;
+        return Number(item.meta.amounts[method] || 0) > 0.009;
+    }
+    paymentCalendarDay(value) {
+        if (!value)
+            return null;
+        if (typeof value === 'string') {
+            const match = /^(\d{4}-\d{2}-\d{2})/.exec(value.trim());
+            return match ? match[1] : null;
+        }
+        if (Number.isNaN(value.getTime()))
+            return null;
+        return value.toISOString().slice(0, 10);
     }
     async getPosDailyShifts(tenantId, filters) {
         const period = filters.period ?? query_accounting_base_dto_1.AccountingReportPeriod.MONTH;
@@ -1696,8 +1945,8 @@ let AccountingService = class AccountingService {
         const rows = [];
         for (const quote of quotationRows) {
             const paid = paidByQuote.get(quote.id) ?? 0;
-            const requested = Number(quote.advance_requested_total || 0);
-            if ((0, advance_credit_util_1.advanceCreditPending)(Number(quote.total || 0), requested, paid) <= 0.009) {
+            const pending = (0, advance_credit_util_1.advanceDocumentPending)(Number(quote.total || 0), paid);
+            if (pending <= 0.009) {
                 continue;
             }
             const occurredAt = paidAtByQuote.get(quote.id) ?? quote.created_at;
@@ -1711,9 +1960,11 @@ let AccountingService = class AccountingService {
             }
             rows.push({
                 id: quote.id,
+                sales_order_id: null,
+                is_credit_payment: false,
                 collection_id: null,
                 folio: quote.folio,
-                total: Number(quote.total || 0),
+                total: pending,
                 payment_status: 'Pendiente',
                 general_status: quote.general_status,
                 created_at: quote.created_at,
@@ -1727,7 +1978,7 @@ let AccountingService = class AccountingService {
                 has_stamped_invoice: false,
                 has_advance: true,
                 advance_given: (0, advance_credit_util_1.roundAdvanceMoney)(paid),
-                amount_pending: (0, advance_credit_util_1.advanceDocumentPending)(Number(quote.total || 0), paid),
+                amount_pending: pending,
                 walk_in_name: null,
                 walk_in_rfc: null,
                 for_shipping: false,
@@ -1749,9 +2000,9 @@ let AccountingService = class AccountingService {
             const advance = advanceByOrder.get(order.id);
             if (!advance?.hasAdvance)
                 continue;
-            if ((0, advance_credit_util_1.advanceCreditPending)(Number(order.total || 0), advance.requested, Number(order.total || 0) - advance.amountPending) <= 0.009) {
+            const pending = Number(advance.amountPending || 0);
+            if (pending <= 0.009)
                 continue;
-            }
             if (!this.calendarDateInRange(order.created_at, periodFrom, periodTo)) {
                 continue;
             }
@@ -1761,9 +2012,11 @@ let AccountingService = class AccountingService {
             }
             rows.push({
                 id: order.id,
+                sales_order_id: order.id,
+                is_credit_payment: false,
                 collection_id: null,
                 folio: order.folio,
-                total: Number(order.total || 0),
+                total: pending,
                 payment_status: order.payment_status,
                 general_status: order.general_status,
                 created_at: order.created_at,
@@ -1853,6 +2106,8 @@ let AccountingService = class AccountingService {
         const documentTotal = Number(order?.total || collection.order_total_mxn || 0);
         return {
             id: order?.id ?? collection.sales_order_id,
+            sales_order_id: (order?.id ?? collection.sales_order_id),
+            is_credit_payment: false,
             document_kind: 'sales_order',
             collection_id: collection.id,
             folio: order?.folio ?? null,
@@ -1911,6 +2166,10 @@ let AccountingService = class AccountingService {
             city,
             label: [code, city].filter(Boolean).join(' · ') || null,
         };
+    }
+    excelPaymentMethodLabel(mapped) {
+        const label = mapped.payment_breakdown_label || mapped.payment_method_label || mapped.payment_method || '';
+        return mapped.is_credit_payment && label ? `Abono · ${label}` : label;
     }
     formatPosUserLabel(user) {
         if (!user)

@@ -143,6 +143,8 @@ export declare class AccountingController {
             customer_person_name: string | null;
             customer_display_name: string | null;
             id: string;
+            sales_order_id: string | null;
+            is_credit_payment: boolean;
             document_kind: "sales_order" | "quotation";
             collection_id: string | null;
             folio: string;

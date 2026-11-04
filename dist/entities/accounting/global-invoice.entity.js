@@ -15,6 +15,7 @@ let GlobalInvoice = class GlobalInvoice {
     id;
     tenant_id;
     fiscal_configuration_id;
+    billing_branch_id;
     period_year;
     period_month;
     status;
@@ -37,6 +38,10 @@ __decorate([
     (0, typeorm_1.Column)(),
     __metadata("design:type", String)
 ], GlobalInvoice.prototype, "fiscal_configuration_id", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 36, nullable: true }),
+    __metadata("design:type", Object)
+], GlobalInvoice.prototype, "billing_branch_id", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'smallint' }),
     __metadata("design:type", Number)
@@ -74,6 +79,12 @@ exports.GlobalInvoice = GlobalInvoice = __decorate([
     (0, typeorm_1.Index)('idx_global_invoice_period', [
         'tenant_id',
         'fiscal_configuration_id',
+        'period_year',
+        'period_month',
+    ]),
+    (0, typeorm_1.Index)('idx_global_invoice_branch', [
+        'tenant_id',
+        'billing_branch_id',
         'period_year',
         'period_month',
     ]),

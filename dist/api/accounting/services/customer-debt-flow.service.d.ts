@@ -100,8 +100,7 @@ export declare class CustomerDebtFlowService {
     private buildLedger;
     private toOpeningRow;
     private toMovementRow;
-    private latestOrders;
-    private movementsInRange;
+    private movementsUntil;
     private baseWhere;
     private attachCredit;
     private filtersApplied;

@@ -10,6 +10,21 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.99 · 2026-11-03
+
+- aplicación y servidor · Facturas globales: la lista y Generar facturas quedan por sucursal y mes. Una vigente por sucursal, con el código postal de esa sucursal.
+- aplicación y servidor · En Cobranza la pestaña se llama Factura público en general, igual que los avisos y la cancelación.
+- aplicación y servidor · Al registrar venta faltaba la nota de observaciones: el modal ya la pide y se guarda en la orden para imprimirla en el ticket.
+- aplicación y servidor · Cobranza POS vuelve a listar todas las ventas cobradas con su forma de pago, y de crédito solo los abonos ya pagados, con las tarjetas de totales sin permiso extra.
+- aplicación · Cobranza POS vuelve a mostrar los totales por forma de pago: transferencias, efectivo, tarjetas, cheques y crédito, con ventas, monto y ticket.
+- aplicación y servidor · Cobranza POS agrega en la fila de filtros Envío, Efectivo, Tarjeta y el resto de formas, cada uno con conteo y monto.
+- servidor · El anticipo ya no descuenta crédito: en Cobranza POS su total es lo que falta por cobrar, y solo la orden a crédito usa el disponible.
+- aplicación y servidor · Cuentas por cobrar: el periodo solo muestra Mes y rango; se quitaron Hoy y Semana.
+- servidor · El flujo de deuda solo cuenta órdenes a crédito y deja fuera el anticipo: el cargo es la parte a crédito y el abono de anticipo no entra.
+- aplicación · El build del punto de venta vuelve a compilar: el anticipo se lee solo cuando la confirmación es de cotización.
+- aplicación y servidor · Se pidió un módulo Reportes solo para Madería con existencias por proveedor y cuánto comprar; quedó la hoja por sucursal, con mínimos, máximos, utilidad y cantidad editable.
+- aplicación y servidor · La orden de compra impresa ahora muestra la unidad (pie lineal), las notas y la factura del proveedor; al guardar notas o factura se regenera el documento.
+
 ### Versión 0.0.98 · 2026-11-03
 
 - aplicación y servidor · El saldo que queda fuera de un anticipo usa el crédito del cliente, sin duplicar cotización y orden, y Cobranza POS y punto de venta muestran lo cobrado y lo pendiente.
