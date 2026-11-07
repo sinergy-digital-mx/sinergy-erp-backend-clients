@@ -823,5 +823,39 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-11-04T19:39:34.326Z"
+  },
+  {
+    "releaseKey": "full:0.0.106:0.0.106-1794011075740",
+    "version": "0.0.106",
+    "buildId": "0.0.106-1794011075740",
+    "channel": "full",
+    "title": "Versión 0.0.106",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "Cambios en accesos y permisos"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en logística"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en configuración"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en productos"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en price updates"
+      },
+      {
+        "scope": "backend",
+        "message": "Cambios en versiones"
+      }
+    ],
+    "releasedAt": "2026-11-07T00:24:35.740Z"
   }
 ];

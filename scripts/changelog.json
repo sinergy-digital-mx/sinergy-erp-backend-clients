@@ -683,6 +683,24 @@
       "status": "shipped",
       "version": "0.0.105",
       "shippedAt": "2026-11-04T11:40:35-08:00"
+    },
+    {
+      "id": "20261104-185516",
+      "at": "2026-11-04T18:55:16-08:00",
+      "scope": "both",
+      "message": "Listas de precio con número y margen, y hoja de actualización de precio (últimas compras, promedio y precios por unidad) solo para la verdulería.",
+      "status": "shipped",
+      "version": "0.0.106",
+      "shippedAt": "2026-11-06T16:25:41-08:00"
+    },
+    {
+      "id": "20261106-154057",
+      "at": "2026-11-06T15:40:57-08:00",
+      "scope": "both",
+      "message": "En Flota y remolques, cada unidad muestra un badge de Disponible o En uso con el folio del envío activo.",
+      "status": "shipped",
+      "version": "0.0.106",
+      "shippedAt": "2026-11-06T16:25:41-08:00"
     }
   ]
 }

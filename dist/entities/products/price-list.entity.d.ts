@@ -4,6 +4,8 @@ export declare class PriceList {
     tenant: RBACTenant;
     tenant_id: string;
     name: string;
+    list_number: number | null;
+    margin_percent: number | null;
     description: string;
     is_active: boolean;
     created_at: Date;

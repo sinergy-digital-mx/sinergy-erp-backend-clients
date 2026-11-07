@@ -9,5 +9,6 @@ export declare class PriceListService {
     findAll(tenantId: string): Promise<PriceList[]>;
     findOne(id: string, tenantId: string): Promise<PriceList>;
     update(id: string, dto: UpdatePriceListDto, tenantId: string): Promise<PriceList>;
+    private normalize;
     remove(id: string, tenantId: string): Promise<void>;
 }

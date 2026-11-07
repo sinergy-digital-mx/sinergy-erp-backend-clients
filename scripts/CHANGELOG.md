@@ -10,6 +10,11 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.106 · 2026-11-06
+
+- aplicación y servidor · Listas de precio con número y margen, y hoja de actualización de precio (últimas compras, promedio y precios por unidad) solo para la verdulería.
+- aplicación y servidor · En Flota y remolques, cada unidad muestra un badge de Disponible o En uso con el folio del envío activo.
+
 ### Versión 0.0.105 · 2026-11-04
 
 - aplicación · En crear orden de venta, la búsqueda queda bajo las pestañas y al elegir el producto entra a la misma lista para editarlo ahí, sin una segunda fila de confirmar.

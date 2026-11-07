@@ -55,6 +55,7 @@ const self_invoice_module_1 = require("./api/self-invoice/self-invoice.module");
 const service_subscriptions_module_1 = require("./api/service-subscriptions/service-subscriptions.module");
 const whatsapp_module_1 = require("./api/whatsapp/whatsapp.module");
 const system_versions_module_1 = require("./api/system-versions/system-versions.module");
+const price_updates_module_1 = require("./api/price-updates/price-updates.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -107,6 +108,7 @@ exports.AppModule = AppModule = __decorate([
             service_subscriptions_module_1.ServiceSubscriptionsModule,
             whatsapp_module_1.WhatsappModule,
             system_versions_module_1.SystemVersionsModule,
+            price_updates_module_1.PriceUpdatesModule,
         ],
         providers: [],
     })

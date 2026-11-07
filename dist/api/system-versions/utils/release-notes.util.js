@@ -148,7 +148,7 @@ const RELEASE_MESSAGE_MODULES = {
     'cambios en tipo de cambio': ['exchange-rate'],
     'cambios en inventario': ['inventory', 'madereria_inventory_import'],
     'cambios en ventas': ['sales_orders', 'pos', 'pos-shifts', 'pos-configuration', 'global_discounts'],
-    'cambios en productos': ['products', 'categories', 'subcategories'],
+    'cambios en productos': ['products', 'categories', 'subcategories', 'price_updates'],
     'cambios en inmuebles': ['properties'],
     'cambios en compras': ['purchase_orders', 'purchase_order_real_cost'],
     'cambios en cotizaciones': ['quotations'],

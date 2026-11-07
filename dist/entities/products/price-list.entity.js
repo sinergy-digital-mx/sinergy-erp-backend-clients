@@ -17,6 +17,8 @@ let PriceList = class PriceList {
     tenant;
     tenant_id;
     name;
+    list_number;
+    margin_percent;
     description;
     is_active;
     created_at;
@@ -40,6 +42,14 @@ __decorate([
     (0, typeorm_1.Column)({ length: 255 }),
     __metadata("design:type", String)
 ], PriceList.prototype, "name", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', nullable: true }),
+    __metadata("design:type", Object)
+], PriceList.prototype, "list_number", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'decimal', precision: 6, scale: 2, nullable: true }),
+    __metadata("design:type", Object)
+], PriceList.prototype, "margin_percent", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'text', nullable: true }),
     __metadata("design:type", String)
