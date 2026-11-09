@@ -10,6 +10,12 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.107 · 2026-11-09
+
+- aplicación · El menú vuelve a mostrar Polux | ERP. La estrella queda solo en el favicon.
+- aplicación y servidor · En factura a público en general quedó el botón Información, y en cada razón social la zona horaria, la hora de cierre, el timbrado automático del último día del mes y el bloqueo para no facturar la orden por separado después de esa hora. El
+- servidor · Se corrigió la migración de factura a público en general para que compilara y se aplicó en la base.
+
 ### Versión 0.0.106 · 2026-11-06
 
 - aplicación y servidor · Listas de precio con número y margen, y hoja de actualización de precio (últimas compras, promedio y precios por unidad) solo para la verdulería.

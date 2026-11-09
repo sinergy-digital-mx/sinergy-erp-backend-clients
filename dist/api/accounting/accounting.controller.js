@@ -324,7 +324,7 @@ __decorate([
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Accounting', action: 'Read' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Factura a público en general del mes',
-        description: 'Órdenes de clientes sin factura de ingreso vigente en el mes, o la factura a público en general ya timbrada. Una vigente por sucursal y mes. El mes es calendario America/Tijuana.',
+        description: 'Órdenes de clientes sin factura de ingreso vigente en el mes, o la factura a público en general ya timbrada. Una vigente por sucursal y mes. El mes es el calendario de la zona horaria de la razón social.',
     }),
     __param(0, (0, common_1.Query)()),
     __param(1, (0, common_1.Req)()),

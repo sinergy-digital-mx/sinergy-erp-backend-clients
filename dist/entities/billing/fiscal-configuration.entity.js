@@ -41,6 +41,10 @@ let FiscalConfiguration = class FiscalConfiguration {
     iva_enabled;
     ieps_enabled;
     multi_fiscal_transfers_enabled;
+    global_invoice_auto_enabled;
+    global_invoice_block_after_month;
+    global_invoice_hour;
+    global_invoice_timezone;
     branches;
     created_at;
     updated_at;
@@ -184,6 +188,22 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'tinyint', width: 1, default: 1 }),
     __metadata("design:type", Boolean)
 ], FiscalConfiguration.prototype, "multi_fiscal_transfers_enabled", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'tinyint', width: 1, default: 0 }),
+    __metadata("design:type", Boolean)
+], FiscalConfiguration.prototype, "global_invoice_auto_enabled", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'tinyint', width: 1, default: 0 }),
+    __metadata("design:type", Boolean)
+], FiscalConfiguration.prototype, "global_invoice_block_after_month", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'tinyint', nullable: true }),
+    __metadata("design:type", Object)
+], FiscalConfiguration.prototype, "global_invoice_hour", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 64, nullable: true }),
+    __metadata("design:type", Object)
+], FiscalConfiguration.prototype, "global_invoice_timezone", void 0);
 __decorate([
     (0, typeorm_1.OneToMany)(() => billing_branch_entity_1.BillingBranch, (branch) => branch.fiscal_configuration),
     __metadata("design:type", Array)

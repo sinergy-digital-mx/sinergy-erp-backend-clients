@@ -10,6 +10,7 @@ export declare class GlobalInvoice {
     active_key: string | null;
     electronic_invoice_id: string | null;
     created_by: string | null;
+    process_folio: string | null;
     created_at: Date;
     updated_at: Date;
 }

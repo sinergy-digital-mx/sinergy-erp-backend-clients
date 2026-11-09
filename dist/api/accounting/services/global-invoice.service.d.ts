@@ -8,6 +8,7 @@ import { SalesOrder } from '../../../entities/sales-orders/sales-order.entity';
 import { SalesOrderPayment } from '../../../entities/sales-orders/sales-order-payment.entity';
 import { ElectronicInvoiceService } from '../../electronic-invoicing/services/electronic-invoice.service';
 import { CreateGlobalInvoiceDto } from '../dto/query-global-invoice.dto';
+import { PublicInvoicePolicyView } from '../utils/public-invoice-policy.util';
 export interface GlobalInvoiceOrderRow {
     id: string;
     folio: string;
@@ -46,6 +47,7 @@ export interface GlobalInvoiceCard {
     stamp_status: string | null;
     sat_status: string | null;
     can_cancel: boolean;
+    process_folio: string | null;
 }
 export interface GlobalInvoiceBranchOption {
     id: string;
@@ -66,6 +68,7 @@ export interface GlobalInvoicePage {
     currency: string | null;
     can_generate: boolean;
     blocked_reason: string | null;
+    policy: PublicInvoicePolicyView | null;
 }
 export declare class GlobalInvoiceService {
     private readonly globalRepo;
@@ -76,9 +79,13 @@ export declare class GlobalInvoiceService {
     private readonly branchRepo;
     private readonly invoiceRepo;
     private readonly electronicInvoiceService;
+    private readonly logger;
     constructor(globalRepo: Repository<GlobalInvoice>, linkRepo: Repository<GlobalInvoiceOrder>, salesOrderRepo: Repository<SalesOrder>, paymentRepo: Repository<SalesOrderPayment>, collectionRepo: Repository<PosSaleCollection>, branchRepo: Repository<BillingBranch>, invoiceRepo: Repository<ElectronicInvoice>, electronicInvoiceService: ElectronicInvoiceService);
     get(tenantId: string, month: string, billingBranchId?: string): Promise<GlobalInvoicePage>;
-    generate(tenantId: string, userId: string, dto: CreateGlobalInvoiceDto): Promise<GlobalInvoicePage>;
+    generate(tenantId: string, userId: string | null, dto: CreateGlobalInvoiceDto, options?: {
+        processFolio?: string;
+    }): Promise<GlobalInvoicePage>;
+    stampAutomaticBranch(tenantId: string, billingBranchId: string, month: string, processFolio: string, environment: 'demo' | 'production'): Promise<'stamped' | 'empty' | 'already_open'>;
     cancel(id: string, tenantId: string, userId: string): Promise<GlobalInvoicePage>;
     private periodOrFail;
     private findOpen;
@@ -102,5 +109,6 @@ export declare class GlobalInvoiceService {
     private branchIdOfInvoice;
     private conceptLines;
     private toCard;
+    private appendProcessNote;
     private isDuplicate;
 }

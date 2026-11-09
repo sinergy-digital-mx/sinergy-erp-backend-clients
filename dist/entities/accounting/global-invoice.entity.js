@@ -22,6 +22,7 @@ let GlobalInvoice = class GlobalInvoice {
     active_key;
     electronic_invoice_id;
     created_by;
+    process_folio;
     created_at;
     updated_at;
 };
@@ -66,6 +67,10 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 36, nullable: true }),
     __metadata("design:type", Object)
 ], GlobalInvoice.prototype, "created_by", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 32, nullable: true }),
+    __metadata("design:type", Object)
+], GlobalInvoice.prototype, "process_folio", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)({ type: 'timestamp' }),
     __metadata("design:type", Date)

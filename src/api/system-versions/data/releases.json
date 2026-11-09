@@ -848,5 +848,39 @@
       }
     ],
     "releasedAt": "2026-11-07T00:24:35.740Z"
+  },
+  {
+    "releaseKey": "full:0.0.107:0.0.107-1794213006723",
+    "version": "0.0.107",
+    "buildId": "0.0.107-1794213006723",
+    "channel": "full",
+    "title": "Versión 0.0.107",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "Cambios en contabilidad"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en facturación"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en configuración"
+      },
+      {
+        "scope": "backend",
+        "message": "Cambios en facturación electrónica"
+      },
+      {
+        "scope": "backend",
+        "message": "Cambios en ventas"
+      },
+      {
+        "scope": "backend",
+        "message": "Cambios en autofactura"
+      }
+    ],
+    "releasedAt": "2026-11-09T08:30:06.723Z"
   }
 ]

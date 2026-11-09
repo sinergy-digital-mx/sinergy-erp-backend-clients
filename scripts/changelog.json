@@ -701,6 +701,33 @@
       "status": "shipped",
       "version": "0.0.106",
       "shippedAt": "2026-11-06T16:25:41-08:00"
+    },
+    {
+      "id": "20261106-162652",
+      "at": "2026-11-06T16:26:52-08:00",
+      "scope": "frontend",
+      "message": "El menú vuelve a mostrar Polux | ERP. La estrella queda solo en el favicon.",
+      "status": "shipped",
+      "version": "0.0.107",
+      "shippedAt": "2026-11-09T00:31:23-08:00"
+    },
+    {
+      "id": "20261108-230206",
+      "at": "2026-11-08T23:02:06-08:00",
+      "scope": "both",
+      "message": "En factura a público en general quedó el botón Información, y en cada razón social la zona horaria, la hora de cierre, el timbrado automático del último día del mes y el bloqueo para no facturar la orden por separado después de esa hora. El",
+      "status": "shipped",
+      "version": "0.0.107",
+      "shippedAt": "2026-11-09T00:31:23-08:00"
+    },
+    {
+      "id": "20261109-002943",
+      "at": "2026-11-09T00:29:43-08:00",
+      "scope": "backend",
+      "message": "Se corrigió la migración de factura a público en general para que compilara y se aplicó en la base.",
+      "status": "shipped",
+      "version": "0.0.107",
+      "shippedAt": "2026-11-09T00:31:23-08:00"
     }
   ]
 }

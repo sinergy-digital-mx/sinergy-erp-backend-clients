@@ -27,6 +27,7 @@ const fiscal_domicile_util_1 = require("../customers/utils/fiscal-domicile.util"
 const self_invoice_constants_1 = require("./self-invoice.constants");
 const public_invoice_code_util_1 = require("../../common/utils/public-invoice-code.util");
 const global_invoice_util_1 = require("../accounting/utils/global-invoice.util");
+const public_invoice_policy_util_1 = require("../accounting/utils/public-invoice-policy.util");
 const self_invoice_contact_util_1 = require("./utils/self-invoice-contact.util");
 const self_invoice_cfdi_xml_util_1 = require("./utils/self-invoice-cfdi-xml.util");
 const fiscal_tax_policy_util_1 = require("../billing/utils/fiscal-tax-policy.util");
@@ -231,6 +232,7 @@ let SelfInvoiceService = SelfInvoiceService_1 = class SelfInvoiceService {
         if (order.general_status === 'Cancelada') {
             throw new common_1.BadRequestException('Este recibo no se puede facturar');
         }
+        (0, public_invoice_policy_util_1.assertOrderMonthStillOpen)(order.created_at, order.fiscal_configuration);
     }
     async findCurrentInvoice(order) {
         const vigentes = await this.electronicInvoiceService.findVigenteBySource(order.tenant_id, 'sales_orders', order.id);

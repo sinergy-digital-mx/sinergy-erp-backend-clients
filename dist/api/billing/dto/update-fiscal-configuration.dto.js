@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UpdateFiscalConfigurationDto = void 0;
 const class_validator_1 = require("class-validator");
+const public_invoice_policy_util_1 = require("../../accounting/utils/public-invoice-policy.util");
 const swagger_1 = require("@nestjs/swagger");
 const class_transformer_1 = require("class-transformer");
 class UpdateFiscalConfigurationDto {
@@ -30,6 +31,10 @@ class UpdateFiscalConfigurationDto {
     iva_enabled;
     ieps_enabled;
     multi_fiscal_transfers_enabled;
+    global_invoice_auto_enabled;
+    global_invoice_block_after_month;
+    global_invoice_hour;
+    global_invoice_timezone;
 }
 exports.UpdateFiscalConfigurationDto = UpdateFiscalConfigurationDto;
 __decorate([
@@ -191,4 +196,71 @@ __decorate([
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], UpdateFiscalConfigurationDto.prototype, "multi_fiscal_transfers_enabled", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'El último día del mes, a la hora indicada, timbra la factura a público en general con las órdenes que el cliente no facturó.',
+    }),
+    (0, class_transformer_1.Transform)(({ value }) => {
+        if (value === undefined)
+            return undefined;
+        return value === true || value === 'true' || value === 1 || value === '1';
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateFiscalConfigurationDto.prototype, "global_invoice_auto_enabled", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'No permite facturar la orden por separado después de la hora de cierre del mes de la orden.',
+    }),
+    (0, class_transformer_1.Transform)(({ value }) => {
+        if (value === undefined)
+            return undefined;
+        return value === true || value === 'true' || value === 1 || value === '1';
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateFiscalConfigurationDto.prototype, "global_invoice_block_after_month", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Hora en punto del cierre (0–23), en la zona horaria de la razón social.',
+        minimum: 0,
+        maximum: 23,
+        nullable: true,
+    }),
+    (0, class_transformer_1.Transform)(({ value }) => {
+        if (value === undefined)
+            return undefined;
+        if (value === null || value === '')
+            return null;
+        const hour = Number(value);
+        return Number.isFinite(hour) ? Math.trunc(hour) : value;
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.ValidateIf)((_, value) => value !== null && value !== undefined),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    (0, class_validator_1.Max)(23),
+    __metadata("design:type", Object)
+], UpdateFiscalConfigurationDto.prototype, "global_invoice_hour", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Zona horaria IANA de México para el mes de la orden y la hora de cierre.',
+        example: 'America/Tijuana',
+        nullable: true,
+    }),
+    (0, class_transformer_1.Transform)(({ value }) => {
+        if (value === undefined)
+            return undefined;
+        if (value === null || value === '')
+            return null;
+        return String(value);
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.ValidateIf)((_, value) => value !== null && value !== undefined),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsIn)(public_invoice_policy_util_1.MEXICO_TIME_ZONE_IDS),
+    __metadata("design:type", Object)
+], UpdateFiscalConfigurationDto.prototype, "global_invoice_timezone", void 0);
 //# sourceMappingURL=update-fiscal-configuration.dto.js.map

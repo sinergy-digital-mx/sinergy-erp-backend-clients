@@ -20,6 +20,7 @@ const typeorm_2 = require("typeorm");
 const fiscal_configuration_entity_1 = require("../../entities/billing/fiscal-configuration.entity");
 const s3_service_1 = require("../../common/services/s3.service");
 const document_prefix_util_1 = require("../../common/utils/document-prefix.util");
+const public_invoice_policy_util_1 = require("../accounting/utils/public-invoice-policy.util");
 let FiscalConfigurationService = class FiscalConfigurationService {
     repo;
     s3Service;
@@ -30,6 +31,7 @@ let FiscalConfigurationService = class FiscalConfigurationService {
     async create(dto, tenantId, userId) {
         const config = this.repo.create({
             ...dto,
+            ...(0, public_invoice_policy_util_1.resolvePublicInvoiceSettings)(dto),
             prefix: (0, document_prefix_util_1.normalizeDocumentPrefix)(dto.prefix),
             tenant_id: tenantId,
             status: dto.status || 'active',
@@ -119,6 +121,12 @@ let FiscalConfigurationService = class FiscalConfigurationService {
         }
         if (dto.multi_fiscal_transfers_enabled !== undefined) {
             patch.multi_fiscal_transfers_enabled = dto.multi_fiscal_transfers_enabled;
+        }
+        if (dto.global_invoice_auto_enabled !== undefined ||
+            dto.global_invoice_block_after_month !== undefined ||
+            dto.global_invoice_hour !== undefined ||
+            dto.global_invoice_timezone !== undefined) {
+            Object.assign(patch, (0, public_invoice_policy_util_1.resolvePublicInvoiceSettings)(dto, current));
         }
         if (dto.use_as_system_logo !== undefined) {
             if (dto.use_as_system_logo && !current.logo) {

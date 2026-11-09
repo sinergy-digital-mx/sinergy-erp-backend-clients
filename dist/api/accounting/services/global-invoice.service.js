@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var GlobalInvoiceService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GlobalInvoiceService = void 0;
 const common_1 = require("@nestjs/common");
@@ -30,10 +31,11 @@ const self_invoice_cfdi_xml_util_1 = require("../../self-invoice/utils/self-invo
 const sales_order_payment_display_util_1 = require("../../sales-orders/utils/sales-order-payment-display.util");
 const pos_sale_collection_mapper_1 = require("../../pos-shifts/mappers/pos-sale-collection.mapper");
 const global_invoice_util_1 = require("../utils/global-invoice.util");
+const public_invoice_policy_util_1 = require("../utils/public-invoice-policy.util");
 const PUBLIC_RFC = 'XAXX010101000';
 const PUBLIC_NAME = 'PUBLICO EN GENERAL';
 const PENDING_GRACE_MS = 120_000;
-let GlobalInvoiceService = class GlobalInvoiceService {
+let GlobalInvoiceService = GlobalInvoiceService_1 = class GlobalInvoiceService {
     globalRepo;
     linkRepo;
     salesOrderRepo;
@@ -42,6 +44,7 @@ let GlobalInvoiceService = class GlobalInvoiceService {
     branchRepo;
     invoiceRepo;
     electronicInvoiceService;
+    logger = new common_1.Logger(GlobalInvoiceService_1.name);
     constructor(globalRepo, linkRepo, salesOrderRepo, paymentRepo, collectionRepo, branchRepo, invoiceRepo, electronicInvoiceService) {
         this.globalRepo = globalRepo;
         this.linkRepo = linkRepo;
@@ -112,9 +115,10 @@ let GlobalInvoiceService = class GlobalInvoiceService {
             currency,
             can_generate: !open && orders.length > 0 && !blocked,
             blocked_reason: blocked,
+            policy: (0, public_invoice_policy_util_1.toPublicInvoicePolicyView)(fiscal),
         };
     }
-    async generate(tenantId, userId, dto) {
+    async generate(tenantId, userId, dto, options) {
         const period = this.periodOrFail(dto.month);
         const branch = await this.branchRepo.findOne({
             where: { id: dto.billing_branch_id },
@@ -236,7 +240,11 @@ let GlobalInvoiceService = class GlobalInvoiceService {
             await this.globalRepo.update(id, {
                 status: 'active',
                 electronic_invoice_id: invoice.id,
+                ...(options?.processFolio ? { process_folio: options.processFolio } : {}),
             });
+            if (options?.processFolio) {
+                await this.appendProcessNote(tenantId, orders.map((order) => order.id), options.processFolio);
+            }
         }
         catch (error) {
             if (!stamped) {
@@ -246,6 +254,32 @@ let GlobalInvoiceService = class GlobalInvoiceService {
             throw error;
         }
         return this.get(tenantId, dto.month, branch.id);
+    }
+    async stampAutomaticBranch(tenantId, billingBranchId, month, processFolio, environment) {
+        const period = this.periodOrFail(month);
+        const branch = await this.branchRepo.findOne({
+            where: { id: billingBranchId },
+            relations: { fiscal_configuration: true },
+        });
+        const fiscal = branch?.fiscal_configuration;
+        if (!branch || !fiscal || fiscal.tenant_id !== tenantId) {
+            throw new common_1.NotFoundException('Sucursal no encontrada');
+        }
+        await this.releaseStalePending(tenantId, branch, period);
+        const open = (await this.findOpen(tenantId, branch.id, period)) ??
+            (await this.findLegacyOpen(tenantId, branch, period));
+        if (open)
+            return 'already_open';
+        const orders = await this.loadOrderEntities(tenantId, branch, period, true);
+        if (!orders.length)
+            return 'empty';
+        await this.generate(tenantId, null, {
+            month,
+            billing_branch_id: branch.id,
+            order_ids: orders.map((order) => order.id),
+            environment,
+        }, { processFolio });
+        return 'stamped';
     }
     async cancel(id, tenantId, userId) {
         const row = await this.globalRepo.findOne({ where: { id, tenant_id: tenantId } });
@@ -401,7 +435,11 @@ let GlobalInvoiceService = class GlobalInvoiceService {
             fiscalId: branch.fiscal_configuration_id,
         })
             .andWhere('so.general_status != :cancelled', { cancelled: 'Cancelada' })
-            .andWhere(`DATE(CONVERT_TZ(so.created_at, '+00:00', 'America/Tijuana')) BETWEEN :from AND :to`, { from: period.from, to: period.to })
+            .andWhere(`DATE(CONVERT_TZ(so.created_at, '+00:00', :timeZone)) BETWEEN :from AND :to`, {
+            timeZone: (0, public_invoice_policy_util_1.readPublicInvoicePolicy)(branch.fiscal_configuration).timeZone,
+            from: period.from,
+            to: period.to,
+        })
             .orderBy('so.created_at', 'ASC')
             .addOrderBy('so.folio', 'ASC');
         if (onlyUninvoiced) {
@@ -570,6 +608,7 @@ let GlobalInvoiceService = class GlobalInvoiceService {
             currency: null,
             can_generate: false,
             blocked_reason: blocked,
+            policy: null,
         };
     }
     async branchIdOfInvoice(globalInvoiceId) {
@@ -620,7 +659,27 @@ let GlobalInvoiceService = class GlobalInvoiceService {
             stamp_status: invoice?.stamp_status ?? null,
             sat_status: invoice?.sat_status ?? null,
             can_cancel: row.status === 'active' && vigente && invoice?.stamp_status !== 'cancel_pending',
+            process_folio: row.process_folio ?? null,
         };
+    }
+    async appendProcessNote(tenantId, orderIds, folio) {
+        if (!orderIds.length)
+            return;
+        const line = `Factura a público en general automática. Folio del proceso: ${folio}.`;
+        const marks = orderIds.map(() => '?').join(', ');
+        try {
+            await this.salesOrderRepo.query(`UPDATE inv_s_sales_orders
+         SET notes = CASE
+           WHEN notes IS NULL OR TRIM(notes) = '' THEN ?
+           WHEN notes LIKE ? THEN notes
+           ELSE CONCAT(notes, CHAR(10), ?)
+         END
+         WHERE tenant_id = ? AND id IN (${marks})`, [line, `%${folio}%`, line, tenantId, ...orderIds]);
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : 'No se pudo anotar el folio';
+            this.logger.warn(`Folio ${folio} no quedó en las notas: ${message}`);
+        }
     }
     isDuplicate(error) {
         if (!(error instanceof typeorm_2.QueryFailedError))
@@ -631,7 +690,7 @@ let GlobalInvoiceService = class GlobalInvoiceService {
     }
 };
 exports.GlobalInvoiceService = GlobalInvoiceService;
-exports.GlobalInvoiceService = GlobalInvoiceService = __decorate([
+exports.GlobalInvoiceService = GlobalInvoiceService = GlobalInvoiceService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(global_invoice_entity_1.GlobalInvoice)),
     __param(1, (0, typeorm_1.InjectRepository)(global_invoice_order_entity_1.GlobalInvoiceOrder)),

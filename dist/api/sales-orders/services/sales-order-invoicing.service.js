@@ -39,6 +39,7 @@ const customer_credit_ledger_service_1 = require("../../accounting/services/cust
 const credit_note_cfdi_util_1 = require("../utils/credit-note-cfdi.util");
 const credit_note_util_1 = require("../utils/credit-note.util");
 const global_invoice_util_1 = require("../../accounting/utils/global-invoice.util");
+const public_invoice_policy_util_1 = require("../../accounting/utils/public-invoice-policy.util");
 let SalesOrderInvoicingService = SalesOrderInvoicingService_1 = class SalesOrderInvoicingService {
     salesOrderRepo;
     paymentRepo;
@@ -279,6 +280,7 @@ let SalesOrderInvoicingService = SalesOrderInvoicingService_1 = class SalesOrder
         if (order.general_status === 'Cancelada') {
             throw new common_1.BadRequestException('No se puede facturar una orden cancelada');
         }
+        (0, public_invoice_policy_util_1.assertOrderMonthStillOpen)(order.created_at, order.fiscal_configuration);
         await (0, global_invoice_util_1.assertSalesOrderNotInGlobalInvoice)(this.salesOrderRepo.manager, tenantId, salesOrderId);
         await this.electronicInvoiceService.assertNoActiveProductionInvoice(tenantId, 'sales_orders', salesOrderId, dto.environment);
         if (order.advance_invoice_id) {
