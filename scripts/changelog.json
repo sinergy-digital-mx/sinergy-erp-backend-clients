@@ -755,6 +755,15 @@
       "status": "shipped",
       "version": "0.0.108",
       "shippedAt": "2026-11-09T02:43:40-08:00"
+    },
+    {
+      "id": "20261109-025440",
+      "at": "2026-11-09T02:54:40-08:00",
+      "scope": "backend",
+      "message": "Se documentó, a nivel negocio, cómo están hechos cuentas por pagar, cuentas por cobrar y flujo de deuda para replicarlos en otro proyecto.",
+      "status": "shipped",
+      "version": "0.0.109",
+      "shippedAt": "2026-11-09T09:51:04-08:00"
     }
   ]
 }

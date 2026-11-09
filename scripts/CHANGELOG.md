@@ -10,6 +10,10 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.109 · 2026-11-09
+
+- servidor · Se documentó, a nivel negocio, cómo están hechos cuentas por pagar, cuentas por cobrar y flujo de deuda para replicarlos en otro proyecto.
+
 ### Versión 0.0.108 · 2026-11-09
 
 - aplicación · El botón Información de factura a público en general abre un modal chico, y se cierra con la X, el fondo o Escape.
