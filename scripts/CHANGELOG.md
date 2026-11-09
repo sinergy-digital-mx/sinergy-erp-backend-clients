@@ -10,6 +10,12 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.108 · 2026-11-09
+
+- aplicación · El botón Información de factura a público en general abre un modal chico, y se cierra con la X, el fondo o Escape.
+- aplicación · En factura a público en general, la fila de la orden abre el modal de esa orden de venta. La casilla no lo abre.
+- aplicación · En Cuentas por cobrar, el clic en cualquier columna de la fila abre las órdenes de esa razón social.
+
 ### Versión 0.0.107 · 2026-11-09
 
 - aplicación · El menú vuelve a mostrar Polux | ERP. La estrella queda solo en el favicon.
