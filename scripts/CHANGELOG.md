@@ -10,6 +10,10 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.113 · 2026-11-10
+
+- aplicación · Órdenes de venta, órdenes de compra y cotizaciones abren con la razón social de la sucursal principal del usuario.
+
 ### Versión 0.0.112 · 2026-11-10
 
 - aplicación y servidor · Transferencias de la misma razón social ya no piden envío: se indica en el detalle, se reciben directo y al crearlas desde el lote queda preseleccionada esa razón social.

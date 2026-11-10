@@ -973,5 +973,35 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-11-10T22:04:31.959Z"
+  },
+  {
+    "releaseKey": "full:0.0.113:0.0.113-1794348728130",
+    "version": "0.0.113",
+    "buildId": "0.0.113-1794348728130",
+    "channel": "full",
+    "title": "Versión 0.0.113",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "Cambios en compras"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en cotizaciones"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en facturación"
+      },
+      {
+        "scope": "backend",
+        "message": "Cambios en usuarios"
+      }
+    ],
+    "releasedAt": "2026-11-10T22:12:08.130Z"
   }
 ];
