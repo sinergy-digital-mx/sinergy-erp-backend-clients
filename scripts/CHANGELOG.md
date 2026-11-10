@@ -10,6 +10,11 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.112 · 2026-11-10
+
+- aplicación y servidor · Transferencias de la misma razón social ya no piden envío: se indica en el detalle, se reciben directo y al crearlas desde el lote queda preseleccionada esa razón social.
+- aplicación y servidor · El envío se omite solo si la transferencia cambia de almacén dentro de la misma sucursal; si cambia de sucursal sí pide envío. Desde el lote quedan preseleccionadas la razón social y la sucursal del lote.
+
 ### Versión 0.0.109 · 2026-11-09
 
 - servidor · Se documentó, a nivel negocio, cómo están hechos cuentas por pagar, cuentas por cobrar y flujo de deuda para replicarlos en otro proyecto.

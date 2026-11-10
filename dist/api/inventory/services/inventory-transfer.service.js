@@ -390,6 +390,7 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
             where: { id: (0, typeorm_2.In)(uniqueIds), tenant_id: tenantId },
             relations: [
                 'source_warehouse',
+                'source_warehouse.billing_branch',
                 'destination_warehouse',
                 'destination_warehouse.billing_branch',
             ],
@@ -415,6 +416,9 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
             if (busy.has(transfer.id)) {
                 throw new common_1.BadRequestException(`La transferencia ${transfer.folio} ya está en un envío`);
             }
+            if (!this.transferRequiresShipping(transfer)) {
+                throw new common_1.BadRequestException(`La transferencia ${transfer.folio} solo cambia de posición en la sucursal y no lleva envío`);
+            }
         }
         return transfers;
     }
@@ -435,9 +439,17 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
             }
             const source = await manager.findOne(warehouse_entity_1.Warehouse, {
                 where: { id: transfer.source_warehouse_id, tenant_id: tenantId },
+                relations: ['billing_branch'],
+            });
+            const destination = await manager.findOne(warehouse_entity_1.Warehouse, {
+                where: { id: transfer.destination_warehouse_id, tenant_id: tenantId },
+                relations: ['billing_branch'],
             });
             if (source?.billing_branch_id !== originBranchId) {
                 throw new common_1.BadRequestException(`La transferencia ${transfer.folio} sale de otra sucursal`);
+            }
+            if (!(0, inventory_transfer_reception_util_1.transferNeedsShipping)(source?.billing_branch_id, destination?.billing_branch_id)) {
+                throw new common_1.BadRequestException(`La transferencia ${transfer.folio} solo cambia de posición en la sucursal y no lleva envío`);
             }
             const active = await manager
                 .createQueryBuilder(shipping_inventory_transfer_entity_1.ShippingInventoryTransfer, 'link')
@@ -508,17 +520,31 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
                 where: { inventory_transfer_id: transfer.id },
                 relations: ['source_inventory_batch'],
             });
-            if (transfer.status !== inventory_transfer_status_enum_1.InventoryTransferStatus.IN_TRANSIT) {
-                throw new common_1.BadRequestException('Solo se recibe una transferencia que ya tiene envío');
+            const sourceWarehouse = await qr.manager.findOne(warehouse_entity_1.Warehouse, {
+                where: { id: transfer.source_warehouse_id, tenant_id: tenantId },
+                relations: ['billing_branch'],
+            });
+            const destinationWarehouse = await qr.manager.findOne(warehouse_entity_1.Warehouse, {
+                where: { id: transfer.destination_warehouse_id, tenant_id: tenantId },
+                relations: ['billing_branch'],
+            });
+            const needsShipping = (0, inventory_transfer_reception_util_1.transferNeedsShipping)(sourceWarehouse?.billing_branch_id, destinationWarehouse?.billing_branch_id);
+            const positionPending = !needsShipping && transfer.status === inventory_transfer_status_enum_1.InventoryTransferStatus.PENDING;
+            if (!positionPending && transfer.status !== inventory_transfer_status_enum_1.InventoryTransferStatus.IN_TRANSIT) {
+                throw new common_1.BadRequestException(needsShipping
+                    ? 'Solo se recibe una transferencia que ya tiene envío'
+                    : 'Esta transferencia ya no se puede recibir');
             }
-            const link = await qr.manager
-                .createQueryBuilder(shipping_inventory_transfer_entity_1.ShippingInventoryTransfer, 'link')
-                .innerJoinAndSelect('link.shipping', 'shipping')
-                .where('link.inventory_transfer_id = :id', { id: transfer.id })
-                .andWhere("shipping.status <> 'Cancelado'")
-                .getOne();
-            if (!link?.shipping || link.shipping.status === 'Completado') {
-                throw new common_1.BadRequestException('El envío de esta transferencia no está abierto');
+            if (!positionPending) {
+                const link = await qr.manager
+                    .createQueryBuilder(shipping_inventory_transfer_entity_1.ShippingInventoryTransfer, 'link')
+                    .innerJoinAndSelect('link.shipping', 'shipping')
+                    .where('link.inventory_transfer_id = :id', { id: transfer.id })
+                    .andWhere("shipping.status <> 'Cancelado'")
+                    .getOne();
+                if (!link?.shipping || link.shipping.status === 'Completado') {
+                    throw new common_1.BadRequestException('El envío de esta transferencia no está abierto');
+                }
             }
             const lines = transfer.lines ?? [];
             const incoming = new Map(dto.lines.map((line) => [line.id, line.quantity_received]));
@@ -849,6 +875,9 @@ let InventoryTransferService = InventoryTransferService_1 = class InventoryTrans
             return value.slice(0, 10);
         const pad = (n) => String(n).padStart(2, '0');
         return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
+    }
+    transferRequiresShipping(transfer) {
+        return (0, inventory_transfer_reception_util_1.transferNeedsShipping)(transfer.source_warehouse?.billing_branch_id, transfer.destination_warehouse?.billing_branch_id);
     }
     assertTransferFiscalScope(source, destination) {
         const sourceFiscalId = source.billing_branch?.fiscal_configuration?.id ??

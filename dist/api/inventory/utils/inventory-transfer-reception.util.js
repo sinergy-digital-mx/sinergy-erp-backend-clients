@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.roundTransferQty = roundTransferQty;
 exports.quantitiesMatch = quantitiesMatch;
 exports.receptionStatus = receptionStatus;
+exports.transferNeedsShipping = transferNeedsShipping;
 exports.receptionQuantityError = receptionQuantityError;
 const inventory_transfer_status_enum_1 = require("../../../entities/inventory/inventory-transfer-status.enum");
 const QTY_EPSILON = 0.0005;
@@ -20,6 +21,11 @@ function receptionStatus(lines) {
     return same
         ? inventory_transfer_status_enum_1.InventoryTransferStatus.RECEIVED
         : inventory_transfer_status_enum_1.InventoryTransferStatus.RECEIVED_WITH_DIFFERENCE;
+}
+function transferNeedsShipping(sourceBranchId, destinationBranchId) {
+    if (!sourceBranchId || !destinationBranchId)
+        return true;
+    return sourceBranchId !== destinationBranchId;
 }
 function receptionQuantityError(shipped, received) {
     if (!Number.isFinite(received) || received < -QTY_EPSILON) {

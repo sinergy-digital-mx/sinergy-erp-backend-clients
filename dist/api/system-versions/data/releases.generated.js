@@ -949,6 +949,24 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-10T21:11:02.804Z"
+    },
+    {
+        "releaseKey": "full:0.0.112:0.0.112-1794348271959",
+        "version": "0.0.112",
+        "buildId": "0.0.112-1794348271959",
+        "channel": "full",
+        "title": "Versión 0.0.112",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "Cambios en inventario"
+            },
+            {
+                "scope": "frontend",
+                "message": "Cambios en logística"
+            }
+        ],
+        "releasedAt": "2026-11-10T22:04:31.959Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map

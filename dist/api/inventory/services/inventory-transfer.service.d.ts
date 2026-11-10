@@ -44,6 +44,7 @@ export declare class InventoryTransferService {
     private shippingTransferCount;
     private activeShipping;
     private shippingDate;
+    private transferRequiresShipping;
     private assertTransferFiscalScope;
     private filterDestinationTree;
     private mapWarehouseSummary;
