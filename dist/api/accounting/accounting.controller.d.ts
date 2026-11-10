@@ -379,7 +379,7 @@ export declare class AccountingController {
         totalPages: number;
     }>;
     exportAccountsReceivableExcel(query: QueryAccountsReceivableDto, req: any, res: any): Promise<void>;
-    getAccountsReceivableDetail(razonSocial: string, billingBranchId: string | undefined, req: any): Promise<{
+    getAccountsReceivableDetail(razonSocial: string, fiscalConfigurationId: string | undefined, req: any): Promise<{
         razon_social: string;
         fiscal_rfc: string;
         pending_order_count: number;

@@ -111,14 +111,26 @@ let VendorCreditLedgerService = class VendorCreditLedgerService {
             }));
         }
     }
-    async balancesForVendor(tenantId, vendorId) {
-        const entries = await this.ledgerRepo.find({
-            where: { tenant_id: tenantId, vendor_id: vendorId },
-        });
+    async balancesForVendor(tenantId, vendorId, fiscalConfigurationId) {
+        if (!fiscalConfigurationId) {
+            const entries = await this.ledgerRepo.find({
+                where: { tenant_id: tenantId, vendor_id: vendorId },
+            });
+            return (0, vendor_credit_ledger_util_1.vendorCreditBalances)(entries);
+        }
+        const entries = await this.ledgerRepo
+            .createQueryBuilder('entry')
+            .innerJoin('entry.purchase_order', 'purchase_order')
+            .where('entry.tenant_id = :tenantId', { tenantId })
+            .andWhere('entry.vendor_id = :vendorId', { vendorId })
+            .andWhere('purchase_order.fiscal_configuration_id = :fiscalConfigurationId', {
+            fiscalConfigurationId,
+        })
+            .getMany();
         return (0, vendor_credit_ledger_util_1.vendorCreditBalances)(entries);
     }
-    async balancesByVendor(tenantId) {
-        const rows = await this.ledgerRepo
+    async balancesByVendor(tenantId, fiscalConfigurationId) {
+        const qb = this.ledgerRepo
             .createQueryBuilder('entry')
             .select('entry.vendor_id', 'vendor_id')
             .addSelect('entry.currency', 'currency')
@@ -126,7 +138,11 @@ let VendorCreditLedgerService = class VendorCreditLedgerService {
           WHEN entry.entry_type = 'credit' THEN entry.amount
           ELSE -entry.amount
         END)`, 'balance')
-            .where('entry.tenant_id = :tenantId', { tenantId })
+            .where('entry.tenant_id = :tenantId', { tenantId });
+        if (fiscalConfigurationId) {
+            qb.innerJoin('entry.purchase_order', 'purchase_order').andWhere('purchase_order.fiscal_configuration_id = :fiscalConfigurationId', { fiscalConfigurationId });
+        }
+        const rows = await qb
             .groupBy('entry.vendor_id')
             .addGroupBy('entry.currency')
             .getRawMany();

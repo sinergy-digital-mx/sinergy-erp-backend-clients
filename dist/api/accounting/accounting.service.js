@@ -824,7 +824,7 @@ let AccountingService = class AccountingService {
         const limit = filters.limit ?? 20;
         const currency = filters.currency ?? query_accounting_base_dto_1.AccountsPayableCurrencyView.ALL;
         const range = this.payablePeriodRange(filters);
-        const rows = (0, accounts_payable_currency_util_1.sortPayableVendors)((0, accounts_payable_currency_util_1.filterPayableVendors)(await this.collectAccountsPayableVendors(tenantId, filters.search, range), currency), currency);
+        const rows = (0, accounts_payable_currency_util_1.sortPayableVendors)((0, accounts_payable_currency_util_1.filterPayableVendors)(await this.collectAccountsPayableVendors(tenantId, filters.search, range, filters.fiscal_configuration_id), currency), currency);
         const dailyRate = await this.resolvePayableExchangeRate(tenantId);
         const rated = (0, accounts_payable_currency_util_1.applyPayableExchangeRate)(rows, currency, dailyRate.exchange_rate);
         const total = rated.length;
@@ -841,7 +841,7 @@ let AccountingService = class AccountingService {
     async exportAccountsPayableExcel(tenantId, filters) {
         const currency = filters.currency ?? query_accounting_base_dto_1.AccountsPayableCurrencyView.ALL;
         const range = this.payablePeriodRange(filters);
-        const rows = await this.collectAccountsPayableVendors(tenantId, filters.search, range);
+        const rows = await this.collectAccountsPayableVendors(tenantId, filters.search, range, filters.fiscal_configuration_id);
         const dailyRate = await this.resolvePayableExchangeRate(tenantId);
         const searchLabel = [
             range ? `${range.from} – ${range.to}` : '',
@@ -850,7 +850,7 @@ let AccountingService = class AccountingService {
             .filter(Boolean)
             .join(' · ');
         const detail = currency === query_accounting_base_dto_1.AccountsPayableCurrencyView.ALL
-            ? await this.collectPayableDetailLines(tenantId, filters.search, range)
+            ? await this.collectPayableDetailLines(tenantId, filters.search, range, filters.fiscal_configuration_id)
             : [];
         const buffer = await (0, excel_export_util_1.buildStyledExcelWorkbook)(this.payableExcelSheets(rows, currency, searchLabel, dailyRate, detail));
         const day = (0, unclosed_shift_alert_1.getTodayDateString)();
@@ -863,6 +863,9 @@ let AccountingService = class AccountingService {
                 tenant_id: tenantId,
                 vendor_id: vendorId,
                 payment_status: 'Pendiente',
+                ...(filters?.fiscal_configuration_id
+                    ? { fiscal_configuration_id: filters.fiscal_configuration_id }
+                    : {}),
             },
             relations: ['vendor', 'payments'],
             order: { created_at: 'DESC' },
@@ -893,7 +896,7 @@ let AccountingService = class AccountingService {
         if (!vendor) {
             throw new common_1.NotFoundException('Proveedor no encontrado');
         }
-        const credit = await this.vendorCreditLedger.balancesForVendor(tenantId, vendorId);
+        const credit = await this.vendorCreditLedger.balancesForVendor(tenantId, vendorId, filters?.fiscal_configuration_id);
         return {
             vendor: {
                 id: vendor.id,
@@ -938,7 +941,7 @@ let AccountingService = class AccountingService {
         const suffix = currency === query_accounting_base_dto_1.AccountsPayableCurrencyView.ALL ? '' : `-${currency}`;
         return { buffer, filename: `cuentas-por-cobrar${suffix}-${day}.xlsx` };
     }
-    async getAccountsReceivableDetail(tenantId, razonSocial, billingBranchId) {
+    async getAccountsReceivableDetail(tenantId, razonSocial, fiscalConfigurationId) {
         const decodedRazonSocial = decodeURIComponent(razonSocial);
         const qb = this.salesOrderRepo
             .createQueryBuilder('so')
@@ -950,9 +953,9 @@ let AccountingService = class AccountingService {
             .andWhere('so.general_status NOT IN (:...excluded)', {
             excluded: ['Cancelada', 'En cola'],
         });
-        if (billingBranchId) {
-            qb.andWhere('warehouse.billing_branch_id = :branchId', {
-                branchId: billingBranchId,
+        if (fiscalConfigurationId) {
+            qb.andWhere('so.fiscal_configuration_id = :fiscalConfigurationId', {
+                fiscalConfigurationId,
             });
         }
         const orders = await qb.orderBy('so.created_at', 'DESC').getMany();
@@ -1007,9 +1010,9 @@ let AccountingService = class AccountingService {
         })
             .andWhere('(customer.fiscal_razon_social IS NULL OR customer.fiscal_razon_social != :walkInFiscal)', { walkInFiscal: WALK_IN_FISCAL_NAME })
             .andWhere('customer.name != :walkInName', { walkInName: WALK_IN_DISPLAY_NAME });
-        if (filters.billing_branch_id) {
-            qb.andWhere('warehouse.billing_branch_id = :branchId', {
-                branchId: filters.billing_branch_id,
+        if (filters.fiscal_configuration_id) {
+            qb.andWhere('so.fiscal_configuration_id = :fiscalConfigurationId', {
+                fiscalConfigurationId: filters.fiscal_configuration_id,
             });
         }
         const orders = await qb.getMany();
@@ -1185,9 +1188,9 @@ let AccountingService = class AccountingService {
         })
             .andWhere('(customer.fiscal_razon_social IS NULL OR customer.fiscal_razon_social != :walkInFiscal)', { walkInFiscal: WALK_IN_FISCAL_NAME })
             .andWhere('customer.name != :walkInName', { walkInName: WALK_IN_DISPLAY_NAME });
-        if (filters.billing_branch_id) {
-            qb.andWhere('warehouse.billing_branch_id = :branchId', {
-                branchId: filters.billing_branch_id,
+        if (filters.fiscal_configuration_id) {
+            qb.andWhere('so.fiscal_configuration_id = :fiscalConfigurationId', {
+                fiscalConfigurationId: filters.fiscal_configuration_id,
             });
         }
         const orders = await qb.getMany();
@@ -1422,7 +1425,7 @@ let AccountingService = class AccountingService {
             return null;
         return (0, unclosed_shift_alert_1.resolvePosCalendarRange)(filters.period, filters.date_from, filters.date_to);
     }
-    async collectAccountsPayableVendors(tenantId, search, range) {
+    async collectAccountsPayableVendors(tenantId, search, range, fiscalConfigurationId) {
         const pendingOrders = await this.purchaseOrderRepo.find({
             where: {
                 tenant_id: tenantId,
@@ -1435,6 +1438,10 @@ let AccountingService = class AccountingService {
         for (const order of pendingOrders) {
             if (order.general_status === 'Cancelada')
                 continue;
+            if (fiscalConfigurationId &&
+                order.fiscal_configuration_id !== fiscalConfigurationId) {
+                continue;
+            }
             if (range && !(0, accounts_payable_currency_util_1.isWithinPayablePeriod)(order.created_at, range.from, range.to))
                 continue;
             const summary = this.buildPurchaseOrderPaymentSummary(order);
@@ -1462,7 +1469,7 @@ let AccountingService = class AccountingService {
             });
         }
         const pending = (0, accounts_payable_currency_util_1.aggregatePayableVendors)(inputs);
-        const creditRows = await this.vendorCreditLedger.balancesByVendor(tenantId);
+        const creditRows = await this.vendorCreditLedger.balancesByVendor(tenantId, fiscalConfigurationId);
         if (!creditRows.length)
             return pending;
         const missingIds = creditRows
@@ -1623,7 +1630,7 @@ let AccountingService = class AccountingService {
             ? `Tipo de cambio del sistema: ${formatted}  ·  ${date}`
             : `Tipo de cambio del sistema: ${formatted}`;
     }
-    async collectPayableDetailLines(tenantId, search, range) {
+    async collectPayableDetailLines(tenantId, search, range, fiscalConfigurationId) {
         const pendingOrders = await this.purchaseOrderRepo.find({
             where: {
                 tenant_id: tenantId,
@@ -1636,6 +1643,10 @@ let AccountingService = class AccountingService {
         for (const order of pendingOrders) {
             if (order.general_status === 'Cancelada')
                 continue;
+            if (fiscalConfigurationId &&
+                order.fiscal_configuration_id !== fiscalConfigurationId) {
+                continue;
+            }
             if (range && !(0, accounts_payable_currency_util_1.isWithinPayablePeriod)(order.created_at, range.from, range.to))
                 continue;
             const summary = this.buildPurchaseOrderPaymentSummary(order);

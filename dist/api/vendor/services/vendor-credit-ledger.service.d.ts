@@ -31,11 +31,11 @@ export declare class VendorCreditLedgerService {
     }): Promise<VendorCreditCreated | null>;
     assertPaymentVoidable(tenantId: string, paymentId: string): Promise<void>;
     voidByPayment(tenantId: string, userId: string, paymentId: string): Promise<void>;
-    balancesForVendor(tenantId: string, vendorId: string): Promise<{
+    balancesForVendor(tenantId: string, vendorId: string, fiscalConfigurationId?: string): Promise<{
         mxn: number;
         usd: number;
     }>;
-    balancesByVendor(tenantId: string): Promise<VendorCreditBalanceRow[]>;
+    balancesByVendor(tenantId: string, fiscalConfigurationId?: string): Promise<VendorCreditBalanceRow[]>;
     describeAccounts(tenantId: string, vendorId: string): Promise<{
         vendor: {
             id: string;

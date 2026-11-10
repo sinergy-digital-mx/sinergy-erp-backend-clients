@@ -11,7 +11,6 @@ export declare enum DebtFlowPeriod {
 }
 export declare class QueryDebtFlowDto {
     fiscal_configuration_id: string;
-    billing_branch_id?: string;
     customer_id?: number;
     search?: string;
     view?: DebtFlowView;

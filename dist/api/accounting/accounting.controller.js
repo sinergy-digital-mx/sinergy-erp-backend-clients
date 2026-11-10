@@ -81,8 +81,8 @@ let AccountingController = class AccountingController {
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         res.send(buffer);
     }
-    getAccountsReceivableDetail(razonSocial, billingBranchId, req) {
-        return this.accountingService.getAccountsReceivableDetail(req.user.tenant_id, razonSocial, billingBranchId);
+    getAccountsReceivableDetail(razonSocial, fiscalConfigurationId, req) {
+        return this.accountingService.getAccountsReceivableDetail(req.user.tenant_id, razonSocial, fiscalConfigurationId);
     }
     getAverageCostReport(query, req) {
         return this.averageCostReportService.getReport(req.user.tenant_id, query);
@@ -265,7 +265,7 @@ __decorate([
     }),
     (0, swagger_1.ApiOperation)({ summary: 'Detalle de órdenes pendientes por razón social' }),
     __param(0, (0, common_1.Param)('razonSocial')),
-    __param(1, (0, common_1.Query)('billing_branch_id')),
+    __param(1, (0, common_1.Query)('fiscal_configuration_id')),
     __param(2, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, Object, Object]),

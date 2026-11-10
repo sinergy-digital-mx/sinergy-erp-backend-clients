@@ -23,9 +23,10 @@ export declare class QueryAccountsPayableDto {
     period?: AccountingReportPeriod;
     date_from?: string;
     date_to?: string;
+    fiscal_configuration_id?: string;
 }
 export declare class QueryAccountsReceivableDto {
-    billing_branch_id?: string;
+    fiscal_configuration_id?: string;
     page?: number;
     limit?: number;
     search?: string;

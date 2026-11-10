@@ -8,7 +8,7 @@ export type DebtAgingRow = {
     customer_id: number;
     customer_name: string;
     customer_rfc: string | null;
-    billing_branch_name: string | null;
+    fiscal_razon_social: string | null;
     open_order_count: number;
     mxn_order_count: number;
     usd_order_count: number;
@@ -54,7 +54,7 @@ export type DebtLedgerRow = {
     customer_id: number;
     customer_name: string;
     customer_rfc: string | null;
-    billing_branch_name: string | null;
+    fiscal_razon_social: string | null;
     sales_order_id: string | null;
     folio: string | null;
     payment_method: string | null;
@@ -73,7 +73,6 @@ export type DebtLedgerRow = {
 export type DebtFlowResponse = {
     filters_applied: {
         fiscal_configuration_id: string;
-        billing_branch_id: string | null;
         customer_id: number | null;
         search: string | null;
         view: DebtFlowView;

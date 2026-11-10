@@ -59,6 +59,7 @@ class QueryAccountsPayableDto {
     period;
     date_from;
     date_to;
+    fiscal_configuration_id;
 }
 exports.QueryAccountsPayableDto = QueryAccountsPayableDto;
 __decorate([
@@ -95,8 +96,13 @@ __decorate([
     (0, class_validator_1.IsDateString)(),
     __metadata("design:type", String)
 ], QueryAccountsPayableDto.prototype, "date_to", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], QueryAccountsPayableDto.prototype, "fiscal_configuration_id", void 0);
 class QueryAccountsReceivableDto {
-    billing_branch_id;
+    fiscal_configuration_id;
     page = 1;
     limit = 20;
     search;
@@ -107,7 +113,7 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsUUID)(),
     __metadata("design:type", String)
-], QueryAccountsReceivableDto.prototype, "billing_branch_id", void 0);
+], QueryAccountsReceivableDto.prototype, "fiscal_configuration_id", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_transformer_1.Type)(() => Number),

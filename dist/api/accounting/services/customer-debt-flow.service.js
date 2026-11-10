@@ -78,7 +78,7 @@ let CustomerDebtFlowService = class CustomerDebtFlowService {
                     occurred_at: (0, customer_debt_ledger_util_1.formatDebtDateTime)(row.occurred_at),
                     customer_name: row.customer_name,
                     customer_rfc: row.customer_rfc ?? '',
-                    billing_branch_name: row.billing_branch_name ?? '',
+                    fiscal_razon_social: row.fiscal_razon_social ?? '',
                     title: row.title,
                     folio: row.folio ?? '',
                     description: row.description,
@@ -108,7 +108,7 @@ let CustomerDebtFlowService = class CustomerDebtFlowService {
                 ...report.aging.map((row) => ({
                     customer_name: row.customer_name,
                     customer_rfc: row.customer_rfc ?? '',
-                    billing_branch_name: row.billing_branch_name ?? '',
+                    fiscal_razon_social: row.fiscal_razon_social ?? '',
                     mxn_order_count: row.mxn_order_count,
                     current: row.current,
                     d1_30: row.d1_30,
@@ -129,7 +129,7 @@ let CustomerDebtFlowService = class CustomerDebtFlowService {
                 {
                     customer_name: 'Total',
                     customer_rfc: '',
-                    billing_branch_name: '',
+                    fiscal_razon_social: '',
                     mxn_order_count: report.aging_totals.mxn_order_count,
                     current: report.aging_totals.current,
                     d1_30: report.aging_totals.d1_30,
@@ -177,7 +177,7 @@ let CustomerDebtFlowService = class CustomerDebtFlowService {
                 current.total = (0, customer_debt_ledger_util_1.roundDebtMoney)(current.total + pending);
             }
             current.open_order_count += 1;
-            current.billing_branch_name = mergeBranch(current.billing_branch_name, row.billing_branch_name);
+            current.fiscal_razon_social = keepRazon(current.fiscal_razon_social, row.fiscal_razon_social);
             grouped.set(row.customer_id, current);
         }
         const rows = Array.from(grouped.values()).sort((a, b) => b.open_order_count - a.open_order_count ||
@@ -231,7 +231,7 @@ let CustomerDebtFlowService = class CustomerDebtFlowService {
             customer_id: Number(order.customer_id),
             customer_name: order.customer_name,
             customer_rfc: order.customer_rfc,
-            billing_branch_name: order.billing_branch_name,
+            fiscal_razon_social: order.fiscal_razon_social,
             sales_order_id: order.sales_order_id,
             folio: order.folio,
             payment_method: null,
@@ -270,7 +270,7 @@ let CustomerDebtFlowService = class CustomerDebtFlowService {
             customer_id: Number(row.customer_id),
             customer_name: row.customer_name,
             customer_rfc: row.customer_rfc,
-            billing_branch_name: row.billing_branch_name,
+            fiscal_razon_social: row.fiscal_razon_social,
             sales_order_id: row.sales_order_id,
             folio: row.folio,
             payment_method: row.payment_method,
@@ -291,7 +291,7 @@ let CustomerDebtFlowService = class CustomerDebtFlowService {
         const { where, params } = this.baseWhere(tenantId, filters, ['l.occurred_at <= ?'], [this.formatSqlDateTime(asOf)]);
         const rows = await this.dataSource.query(`
       SELECT
-        l.id, l.customer_id, l.customer_name, l.customer_rfc, l.billing_branch_name,
+        l.id, l.customer_id, l.customer_name, l.customer_rfc, l.fiscal_razon_social,
         l.sales_order_id, l.folio, l.movement_type, l.amount_delta, l.balance_after,
         l.order_balance_after, l.occurred_at, l.due_date, l.payment_method, l.reference_number,
         l.source,
@@ -344,10 +344,6 @@ let CustomerDebtFlowService = class CustomerDebtFlowService {
     baseWhere(tenantId, filters, extra, extraParams = []) {
         const clauses = ['l.tenant_id = ?', 'l.fiscal_configuration_id = ?', ...extra];
         const params = [tenantId, filters.fiscal_configuration_id, ...extraParams];
-        if (filters.billing_branch_id) {
-            clauses.push('l.billing_branch_id = ?');
-            params.push(filters.billing_branch_id);
-        }
         if (filters.customer_id) {
             clauses.push('l.customer_id = ?');
             params.push(filters.customer_id);
@@ -389,7 +385,6 @@ let CustomerDebtFlowService = class CustomerDebtFlowService {
         const toLabel = (0, customer_debt_ledger_util_1.formatDebtDay)(this.formatSqlDate(dateTo));
         return {
             fiscal_configuration_id: filters.fiscal_configuration_id,
-            billing_branch_id: filters.billing_branch_id ?? null,
             customer_id: filters.customer_id ?? null,
             search: filters.search?.trim() || null,
             view,
@@ -484,7 +479,7 @@ function blankAging(row) {
         customer_id: Number(row.customer_id),
         customer_name: row.customer_name,
         customer_rfc: row.customer_rfc,
-        billing_branch_name: row.billing_branch_name,
+        fiscal_razon_social: row.fiscal_razon_social,
         open_order_count: 0,
         mxn_order_count: 0,
         usd_order_count: 0,
@@ -542,14 +537,11 @@ function applyCurrencyBalances(rows) {
 function addBucket(row, bucket, amount) {
     row[bucket] = (0, customer_debt_ledger_util_1.roundDebtMoney)(row[bucket] + amount);
 }
-function mergeBranch(current, next) {
+function keepRazon(current, next) {
+    const name = next?.trim() || null;
     if (!current)
-        return next;
-    if (!next || current === next)
-        return current;
-    if (current === 'Varias sucursales')
-        return current;
-    return 'Varias sucursales';
+        return name;
+    return current;
 }
 function emptyTotals() {
     return {
@@ -597,7 +589,7 @@ function agingColumns() {
     return [
         { header: 'Cliente', key: 'customer_name', width: 36 },
         { header: 'RFC', key: 'customer_rfc', width: 16 },
-        { header: 'Sucursal', key: 'billing_branch_name', width: 24 },
+        { header: 'Razón social', key: 'fiscal_razon_social', width: 28 },
         { header: 'Órdenes MXN', key: 'mxn_order_count', width: 14, type: 'integer' },
         { header: 'Por vencer MXN', key: 'current', width: 16, type: 'currency' },
         { header: '1-30 MXN', key: 'd1_30', width: 14, type: 'currency' },
@@ -621,7 +613,7 @@ function ledgerColumns() {
         { header: 'Fecha', key: 'occurred_at', width: 20 },
         { header: 'Cliente', key: 'customer_name', width: 32 },
         { header: 'RFC', key: 'customer_rfc', width: 16 },
-        { header: 'Sucursal', key: 'billing_branch_name', width: 22 },
+        { header: 'Razón social', key: 'fiscal_razon_social', width: 28 },
         { header: 'Movimiento', key: 'title', width: 18 },
         { header: 'OV', key: 'folio', width: 16 },
         { header: 'Detalle', key: 'description', width: 42 },

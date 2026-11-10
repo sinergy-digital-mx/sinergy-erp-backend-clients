@@ -406,7 +406,7 @@ export declare class AccountingService {
         buffer: Buffer;
         filename: string;
     }>;
-    getAccountsReceivableDetail(tenantId: string, razonSocial: string, billingBranchId?: string): Promise<{
+    getAccountsReceivableDetail(tenantId: string, razonSocial: string, fiscalConfigurationId?: string): Promise<{
         razon_social: string;
         fiscal_rfc: string;
         pending_order_count: number;
