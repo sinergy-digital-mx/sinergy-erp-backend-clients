@@ -10,6 +10,11 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.114 · 2026-11-10
+
+- aplicación · Órdenes de venta, compras y cotizaciones también abren con la sucursal principal del usuario seleccionada.
+- aplicación · En transferencias de inventario el listado solo muestra Ver detalle; recibir, cancelar, crear envío y PDF quedan dentro del detalle.
+
 ### Versión 0.0.113 · 2026-11-10
 
 - aplicación · Órdenes de venta, órdenes de compra y cotizaciones abren con la razón social de la sucursal principal del usuario.

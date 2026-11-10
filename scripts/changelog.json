@@ -791,6 +791,24 @@
       "status": "shipped",
       "version": "0.0.113",
       "shippedAt": "2026-11-10T14:13:04-08:00"
+    },
+    {
+      "id": "20261110-141503",
+      "at": "2026-11-10T14:15:03-08:00",
+      "scope": "frontend",
+      "message": "Órdenes de venta, compras y cotizaciones también abren con la sucursal principal del usuario seleccionada.",
+      "status": "shipped",
+      "version": "0.0.114",
+      "shippedAt": "2026-11-10T14:17:23-08:00"
+    },
+    {
+      "id": "20261110-141619",
+      "at": "2026-11-10T14:16:19-08:00",
+      "scope": "frontend",
+      "message": "En transferencias de inventario el listado solo muestra Ver detalle; recibir, cancelar, crear envío y PDF quedan dentro del detalle.",
+      "status": "shipped",
+      "version": "0.0.114",
+      "shippedAt": "2026-11-10T14:17:23-08:00"
     }
   ]
 }
