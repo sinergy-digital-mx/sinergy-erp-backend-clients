@@ -22,6 +22,7 @@ class CreateLineItemDto {
     ieps_percentage;
     ieps_unit;
     currency;
+    notes;
 }
 exports.CreateLineItemDto = CreateLineItemDto;
 __decorate([
@@ -75,6 +76,12 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], CreateLineItemDto.prototype, "currency", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(500),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateLineItemDto.prototype, "notes", void 0);
 class CreatePurchaseOrderDto {
     fiscal_configuration_id;
     billing_branch_id;

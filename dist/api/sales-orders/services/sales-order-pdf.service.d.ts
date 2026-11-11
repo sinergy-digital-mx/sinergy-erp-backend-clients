@@ -38,6 +38,7 @@ export declare class SalesOrderPdfService {
     private partyCell;
     private gapCell;
     private equalHeightLayout;
+    private lineNoteBlock;
     private thCell;
     private statusColor;
     private paymentColor;

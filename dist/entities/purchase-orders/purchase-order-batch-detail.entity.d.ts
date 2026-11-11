@@ -10,6 +10,7 @@ export declare class PurchaseOrderBatchDetail {
     product_id: string;
     product_uom: ProductUoM;
     product_uom_id: string;
+    notes: string | null;
     quantity: number;
     unit_total: number;
     iva_percentage: number;

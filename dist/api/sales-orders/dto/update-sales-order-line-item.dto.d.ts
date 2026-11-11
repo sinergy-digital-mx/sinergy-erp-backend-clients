@@ -5,4 +5,5 @@ export declare class UpdateSalesOrderLineItemDto {
     discount_percentage?: number;
     iva_percentage?: number;
     ieps_percentage?: number;
+    notes?: string | null;
 }

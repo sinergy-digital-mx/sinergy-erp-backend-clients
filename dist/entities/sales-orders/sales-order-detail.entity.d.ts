@@ -13,6 +13,7 @@ export declare class SalesOrderDetail {
     product_uom: ProductUoM;
     product_uom_id: string;
     custom_description: string | null;
+    notes: string | null;
     quantity: number;
     quantity_base_uom: number;
     base_uom: UoMCatalog;

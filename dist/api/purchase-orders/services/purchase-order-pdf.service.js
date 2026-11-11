@@ -350,6 +350,7 @@ let PurchaseOrderPdfService = class PurchaseOrderPdfService {
                 {
                     stack: [
                         { text: item.product?.name || 'N/A', fontSize: 9, bold: true, color: COLORS.text },
+                        ...this.lineNoteBlock(item.notes),
                         {
                             text: `${labels.unitPrefix}: ${requestedUom}`,
                             fontSize: 7.5,
@@ -423,6 +424,7 @@ let PurchaseOrderPdfService = class PurchaseOrderPdfService {
                 {
                     stack: [
                         { text: item.product?.name || 'N/A', fontSize: 9, bold: true, color: COLORS.text },
+                        ...this.lineNoteBlock(item.notes),
                         {
                             text: `${labels.modePrefix}: ${lotModeLabel}`,
                             fontSize: 7.5,
@@ -621,6 +623,18 @@ let PurchaseOrderPdfService = class PurchaseOrderPdfService {
             paddingTop: () => 0,
             paddingBottom: () => 0,
         };
+    }
+    lineNoteBlock(notes) {
+        const text = notes?.trim();
+        if (!text)
+            return [];
+        return [{
+                text,
+                fontSize: 7.5,
+                italics: true,
+                color: '#92400e',
+                margin: [0, 2, 0, 0],
+            }];
     }
     thCell(alignment) {
         return {

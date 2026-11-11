@@ -698,6 +698,7 @@ export declare class SalesOrderService {
                 product_uom: import("../../../entities/products").ProductUoM;
                 product_uom_id: string;
                 custom_description: string | null;
+                notes: string | null;
                 quantity: number;
                 quantity_base_uom: number;
                 base_uom: import("../../../entities/uom-catalog/uom-catalog.entity").UoMCatalog;

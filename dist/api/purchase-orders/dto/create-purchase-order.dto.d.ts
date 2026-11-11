@@ -8,6 +8,7 @@ export declare class CreateLineItemDto {
     ieps_percentage?: number;
     ieps_unit?: number;
     currency?: 'MXN' | 'USD';
+    notes?: string;
 }
 export declare class CreatePurchaseOrderDto {
     fiscal_configuration_id: string;

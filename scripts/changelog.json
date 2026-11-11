@@ -854,6 +854,15 @@
       "status": "shipped",
       "version": "0.0.115",
       "shippedAt": "2026-11-10T17:38:48-08:00"
+    },
+    {
+      "id": "20261111-102524",
+      "at": "2026-11-11T10:25:24-08:00",
+      "scope": "both",
+      "message": "Órdenes de venta y de compra aceptan una nota por producto: se ve debajo del nombre y sale en el PDF.",
+      "status": "shipped",
+      "version": "0.0.116",
+      "shippedAt": "2026-11-11T10:38:02-08:00"
     }
   ]
 }

@@ -383,6 +383,7 @@ let SalesOrderService = class SalesOrderService {
                     product_id: item.product_id,
                     product_uom_id: productUomRow.id,
                     custom_description: item.custom_description?.trim() || null,
+                    notes: item.notes?.trim() || null,
                     quantity: item.quantity,
                     quantity_base_uom: qty_base,
                     base_uom_id: baseUomRow.uom_catalog_id,
@@ -1687,6 +1688,9 @@ let SalesOrderService = class SalesOrderService {
             if (dto.ieps_percentage !== undefined || !taxPolicy.iepsEnabled) {
                 line.ieps_percentage = (0, fiscal_tax_policy_util_1.clampTaxPercentages)(0, Number(dto.ieps_percentage ?? line.ieps_percentage ?? 0), taxPolicy).iepsPercentage;
             }
+            if (dto.notes !== undefined) {
+                line.notes = dto.notes?.trim() || null;
+            }
             const productUomId = dto.product_uom_id || line.product_uom_id;
             const productUomRow = await this.resolveProductUom(qr, line.product_id, productUomId, tenantId);
             line.product_uom_id = productUomRow.id;
@@ -1872,6 +1876,7 @@ let SalesOrderService = class SalesOrderService {
                 product_id: item.product_id,
                 product_uom_id: productUomRow.id,
                 custom_description: item.custom_description?.trim() || null,
+                notes: item.notes?.trim() || null,
                 quantity: item.quantity,
                 quantity_base_uom: qty_base,
                 base_uom_id: baseUomRow.uom_catalog_id,

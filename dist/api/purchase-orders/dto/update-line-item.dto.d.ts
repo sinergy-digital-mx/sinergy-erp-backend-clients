@@ -4,4 +4,5 @@ export declare class UpdateLineItemDto {
     unit_total?: number;
     iva_percentage?: number;
     ieps_percentage?: number;
+    notes?: string | null;
 }

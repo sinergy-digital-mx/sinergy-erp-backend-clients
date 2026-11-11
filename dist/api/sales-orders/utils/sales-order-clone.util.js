@@ -31,6 +31,9 @@ function buildCloneSalesOrderDto(source, overrides, today) {
             : (line.custom_description ?? '').trim();
         if (description)
             item.custom_description = description;
+        const note = (line.notes ?? '').trim();
+        if (note)
+            item.notes = note;
         return item;
     });
     const dto = new create_sales_order_dto_1.CreateSalesOrderDto();

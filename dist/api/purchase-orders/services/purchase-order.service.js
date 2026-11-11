@@ -202,6 +202,7 @@ let PurchaseOrderService = class PurchaseOrderService {
                 unit_total: unitTotal,
                 iva_percentage,
                 ieps_percentage,
+                notes: lineItem.notes?.trim() || null,
                 ...breakdown,
                 created_by: userId,
             });
@@ -1125,6 +1126,7 @@ let PurchaseOrderService = class PurchaseOrderService {
             unit_total: unitTotal,
             iva_percentage,
             ieps_percentage,
+            notes: dto.notes?.trim() || null,
             ...breakdown,
             created_by: userId,
         });
@@ -1234,6 +1236,7 @@ let PurchaseOrderService = class PurchaseOrderService {
             iva_percentage: lineItem.iva_percentage,
             ieps_percentage: lineItem.ieps_percentage,
             product_uom_id: lineItem.product_uom_id,
+            notes: lineItem.notes,
         };
         if (dto.uom_id !== undefined) {
             lineItem.product_uom_id = await this.unitConversionService.getProductUomId(dto.uom_id, lineItem.product_id);
@@ -1256,6 +1259,9 @@ let PurchaseOrderService = class PurchaseOrderService {
         }
         else if (!taxPolicy.iepsEnabled) {
             lineItem.ieps_percentage = 0;
+        }
+        if (dto.notes !== undefined) {
+            lineItem.notes = dto.notes?.trim() || null;
         }
         const qty = Number(lineItem.quantity);
         if (qty <= 0 || !Number.isFinite(qty)) {
@@ -1296,6 +1302,7 @@ let PurchaseOrderService = class PurchaseOrderService {
             (0, purchase_order_activity_change_util_1.activityChange)('iva_percentage', 'IVA %', before.iva_percentage, lineItem.iva_percentage),
             (0, purchase_order_activity_change_util_1.activityChange)('ieps_percentage', 'IEPS %', before.ieps_percentage, lineItem.ieps_percentage),
             (0, purchase_order_activity_change_util_1.activityChange)('product_uom_id', 'Unidad', before.product_uom_id, lineItem.product_uom_id),
+            (0, purchase_order_activity_change_util_1.activityChange)('notes', 'Nota', before.notes, lineItem.notes),
         ]);
         if (changes.length) {
             await this.recordActivity({

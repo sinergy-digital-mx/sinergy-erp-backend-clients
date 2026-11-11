@@ -326,6 +326,7 @@ let SalesOrderPdfService = class SalesOrderPdfService {
                 {
                     stack: [
                         { text: (0, sales_order_line_name_util_1.lineConceptName)(item, 'N/A'), fontSize: 9, bold: true, color: COLORS.text },
+                        ...this.lineNoteBlock(item.notes),
                         {
                             text: `${labels.unitPrefix}: ${uomName}`,
                             fontSize: 7.5,
@@ -531,6 +532,18 @@ let SalesOrderPdfService = class SalesOrderPdfService {
             paddingTop: () => 0,
             paddingBottom: () => 0,
         };
+    }
+    lineNoteBlock(notes) {
+        const text = notes?.trim();
+        if (!text)
+            return [];
+        return [{
+                text,
+                fontSize: 7.5,
+                italics: true,
+                color: '#92400e',
+                margin: [0, 2, 0, 0],
+            }];
     }
     thCell(alignment) {
         return {

@@ -19,6 +19,7 @@ class UpdateSalesOrderLineItemDto {
     discount_percentage;
     iva_percentage;
     ieps_percentage;
+    notes;
 }
 exports.UpdateSalesOrderLineItemDto = UpdateSalesOrderLineItemDto;
 __decorate([
@@ -70,4 +71,15 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", Number)
 ], UpdateSalesOrderLineItemDto.prototype, "ieps_percentage", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Nota de la línea. null o vacío la borra.',
+        nullable: true,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.ValidateIf)((_, value) => value !== null),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(500),
+    __metadata("design:type", Object)
+], UpdateSalesOrderLineItemDto.prototype, "notes", void 0);
 //# sourceMappingURL=update-sales-order-line-item.dto.js.map

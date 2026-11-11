@@ -10,6 +10,10 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.116 · 2026-11-11
+
+- aplicación y servidor · Órdenes de venta y de compra aceptan una nota por producto: se ve debajo del nombre y sale en el PDF.
+
 ### Versión 0.0.115 · 2026-11-10
 
 - aplicación · El buscador de inventario filtra al escribir con una pausa de 300 ms y también al pulsar Enter.

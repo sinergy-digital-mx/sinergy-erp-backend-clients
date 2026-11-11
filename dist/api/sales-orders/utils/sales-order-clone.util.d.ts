@@ -10,6 +10,7 @@ interface CloneSourceLine {
     iva_percentage?: number | string | null;
     ieps_percentage?: number | string | null;
     custom_description?: string | null;
+    notes?: string | null;
 }
 export interface CloneSourceOrder {
     fiscal_configuration_id: string;

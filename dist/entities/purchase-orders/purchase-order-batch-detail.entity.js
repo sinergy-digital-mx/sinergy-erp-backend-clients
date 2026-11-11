@@ -23,6 +23,7 @@ let PurchaseOrderBatchDetail = class PurchaseOrderBatchDetail {
     product_id;
     product_uom;
     product_uom_id;
+    notes;
     quantity;
     unit_total;
     iva_percentage;
@@ -93,6 +94,10 @@ __decorate([
     (0, typeorm_1.Column)(),
     __metadata("design:type", String)
 ], PurchaseOrderBatchDetail.prototype, "product_uom_id", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 500, nullable: true }),
+    __metadata("design:type", Object)
+], PurchaseOrderBatchDetail.prototype, "notes", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'decimal', precision: 12, scale: 3 }),
     __metadata("design:type", Number)

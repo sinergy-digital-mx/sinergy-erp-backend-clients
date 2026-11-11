@@ -22,6 +22,7 @@ class CreateSalesOrderLineItemDto {
     discount_unit;
     product_discount_id;
     custom_description;
+    notes;
     iva_percentage = 0;
     ieps_percentage = 0;
 }
@@ -85,6 +86,17 @@ __decorate([
     (0, class_validator_1.MaxLength)(255),
     __metadata("design:type", String)
 ], CreateSalesOrderLineItemDto.prototype, "custom_description", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        description: 'Nota de la línea. Sale debajo del producto y en el PDF.',
+    }),
+    (0, class_transformer_1.Transform)(({ value }) => typeof value === 'string' ? value.trim() || undefined : value),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(500),
+    __metadata("design:type", String)
+], CreateSalesOrderLineItemDto.prototype, "notes", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsNumber)(),
