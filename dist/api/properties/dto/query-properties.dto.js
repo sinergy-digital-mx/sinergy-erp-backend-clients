@@ -19,6 +19,7 @@ class QueryPropertiesDto {
     customer_group_id;
     search;
     status;
+    block;
     page;
     limit;
 }
@@ -59,6 +60,13 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], QueryPropertiesDto.prototype, "status", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Manzana exacta del lote. Ej. 15' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(50),
+    __metadata("design:type", String)
+], QueryPropertiesDto.prototype, "block", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ minimum: 1, default: 1 }),
     (0, class_validator_1.IsOptional)(),

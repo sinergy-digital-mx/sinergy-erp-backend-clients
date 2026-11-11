@@ -9,6 +9,7 @@ export type PropertyListFilters = {
     group_id?: string;
     search?: string;
     status?: string;
+    block?: string;
 };
 export declare class PropertiesService {
     private propertyRepo;
@@ -25,6 +26,7 @@ export declare class PropertiesService {
     private syncContractNumbers;
     private nextFreeContractNumber;
     remove(tenantId: string, id: string): Promise<void>;
+    listBlocks(tenantId: string): Promise<string[]>;
     getListStats(tenantId: string, filters?: PropertyListFilters): Promise<{
         currency: string | null;
         currencies: string[];

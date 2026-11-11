@@ -809,6 +809,51 @@
       "status": "shipped",
       "version": "0.0.114",
       "shippedAt": "2026-11-10T14:17:23-08:00"
+    },
+    {
+      "id": "20261110-142403",
+      "at": "2026-11-10T14:24:03-08:00",
+      "scope": "frontend",
+      "message": "El buscador de inventario filtra al escribir con una pausa de 300 ms y también al pulsar Enter.",
+      "status": "shipped",
+      "version": "0.0.115",
+      "shippedAt": "2026-11-10T17:38:48-08:00"
+    },
+    {
+      "id": "20261110-142545",
+      "at": "2026-11-10T14:25:45-08:00",
+      "scope": "frontend",
+      "message": "El detalle de transferencia muestra el aviso de posición más chico, el estado como pastilla y la fecha en palabras.",
+      "status": "shipped",
+      "version": "0.0.115",
+      "shippedAt": "2026-11-10T17:38:48-08:00"
+    },
+    {
+      "id": "20261110-143301",
+      "at": "2026-11-10T14:33:01-08:00",
+      "scope": "both",
+      "message": "El lote avisa si tiene un cambio de posición o una transferencia pendiente y abre el detalle para recibirlo.",
+      "status": "shipped",
+      "version": "0.0.115",
+      "shippedAt": "2026-11-10T17:38:48-08:00"
+    },
+    {
+      "id": "20261110-143503",
+      "at": "2026-11-10T14:35:03-08:00",
+      "scope": "frontend",
+      "message": "En contratos, el contador de filtros ya no se pinta como texto: los atributos quedaron en el componente.",
+      "status": "shipped",
+      "version": "0.0.115",
+      "shippedAt": "2026-11-10T17:38:48-08:00"
+    },
+    {
+      "id": "20261110-143728",
+      "at": "2026-11-10T14:37:28-08:00",
+      "scope": "both",
+      "message": "Lotes filtra por manzana: dropdown exacto que también aplica a las tarjetas.",
+      "status": "shipped",
+      "version": "0.0.115",
+      "shippedAt": "2026-11-10T17:38:48-08:00"
     }
   ]
 }

@@ -41,6 +41,7 @@ export declare class PropertiesController {
         };
         avg_price_per_m2: number;
     }>;
+    listBlocks(): Promise<string[]>;
     downloadImportTemplate(res: any): Promise<void>;
     importProperties(file: Express.Multer.File): Promise<import("./property-import-job.store").PropertyImportJob>;
     getImportJob(jobId: string): import("./property-import-job.store").PropertyImportJob;

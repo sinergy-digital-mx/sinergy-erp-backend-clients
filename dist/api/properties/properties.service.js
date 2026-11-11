@@ -23,6 +23,7 @@ const measurement_unit_entity_1 = require("../../entities/properties/measurement
 const customer_groups_service_1 = require("../customers/customer-groups.service");
 const property_pricing_util_1 = require("./utils/property-pricing.util");
 const property_lot_lookup_util_1 = require("./utils/property-lot-lookup.util");
+const property_block_util_1 = require("./utils/property-block.util");
 const contract_currency_util_1 = require("../contracts/contract-currency.util");
 let PropertiesService = class PropertiesService {
     propertyRepo;
@@ -271,6 +272,17 @@ let PropertiesService = class PropertiesService {
         }
         await this.propertyRepo.remove(property);
     }
+    async listBlocks(tenantId) {
+        const rows = await this.propertyRepo
+            .createQueryBuilder('p')
+            .select('p.block', 'block')
+            .where('p.tenant_id = :tenantId', { tenantId })
+            .andWhere('p.block IS NOT NULL')
+            .andWhere("TRIM(p.block) <> ''")
+            .distinct(true)
+            .getRawMany();
+        return (0, property_block_util_1.listPropertyBlocks)(rows.map((row) => row.block));
+    }
     async getListStats(tenantId, filters = {}) {
         const totalsQuery = this.propertyRepo
             .createQueryBuilder('p')
@@ -341,6 +353,10 @@ let PropertiesService = class PropertiesService {
         }
         if (filters.status) {
             query.andWhere('p.status = :status', { status: filters.status });
+        }
+        const block = filters.block?.trim();
+        if (block) {
+            query.andWhere('TRIM(p.block) = :block', { block });
         }
         if (filters.search) {
             const lotMatch = `

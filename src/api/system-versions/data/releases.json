@@ -1028,5 +1028,43 @@
       }
     ],
     "releasedAt": "2026-11-10T22:16:34.737Z"
+  },
+  {
+    "releaseKey": "full:0.0.115:0.0.115-1794361057391",
+    "version": "0.0.115",
+    "buildId": "0.0.115-1794361057391",
+    "channel": "full",
+    "title": "Versión 0.0.115",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "Cambios en versiones"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en contratos"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en inventario"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en inmuebles"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en reports"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en facturación"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en configuración"
+      }
+    ],
+    "releasedAt": "2026-11-11T01:37:37.391Z"
   }
 ]

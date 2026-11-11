@@ -8,6 +8,9 @@ export declare class BatchTransferHistoryItemDto {
     related_batch_id: string | null;
     related_batch_number: string | null;
     warehouse_name: string | null;
+    status: string;
+    source_billing_branch_id: string | null;
+    destination_billing_branch_id: string | null;
     created_at: Date;
 }
 export declare class BatchAuditHistoryItemDto {

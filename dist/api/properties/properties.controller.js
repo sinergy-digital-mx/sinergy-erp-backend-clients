@@ -66,6 +66,13 @@ let PropertiesController = class PropertiesController {
         }
         return this.propertiesService.getListStats(tenantId, this.toPropertyFilters(query));
     }
+    async listBlocks() {
+        const tenantId = this.tenantContext.getCurrentTenantId();
+        if (!tenantId) {
+            throw new Error('Tenant context is required');
+        }
+        return this.propertiesService.listBlocks(tenantId);
+    }
     async downloadImportTemplate(res) {
         const organizationId = this.requireOrganizationId();
         const { buffer, filename } = await this.propertyImportService.exportTemplate(organizationId);
@@ -131,6 +138,7 @@ let PropertiesController = class PropertiesController {
             group_id: query.group_id || query.groupId || query.customer_group_id,
             search: query.search,
             status: query.status,
+            block: query.block?.trim() || undefined,
         };
     }
 };
@@ -169,6 +177,13 @@ __decorate([
     __metadata("design:paramtypes", [Object, query_properties_dto_1.QueryPropertiesDto]),
     __metadata("design:returntype", Promise)
 ], PropertiesController.prototype, "getListStats", null);
+__decorate([
+    (0, common_1.Get)('blocks'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Property', action: 'Read' }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], PropertiesController.prototype, "listBlocks", null);
 __decorate([
     (0, common_1.Get)('import/template'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Property', action: 'Create' }),

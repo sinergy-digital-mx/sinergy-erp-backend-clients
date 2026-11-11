@@ -21,6 +21,9 @@ class BatchTransferHistoryItemDto {
     related_batch_id;
     related_batch_number;
     warehouse_name;
+    status;
+    source_billing_branch_id;
+    destination_billing_branch_id;
     created_at;
 }
 exports.BatchTransferHistoryItemDto = BatchTransferHistoryItemDto;
@@ -52,6 +55,18 @@ __decorate([
     (0, swagger_1.ApiProperty)({ nullable: true }),
     __metadata("design:type", Object)
 ], BatchTransferHistoryItemDto.prototype, "warehouse_name", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'pending, in_transit, received, received_with_difference, completed o cancelled' }),
+    __metadata("design:type", String)
+], BatchTransferHistoryItemDto.prototype, "status", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ nullable: true }),
+    __metadata("design:type", Object)
+], BatchTransferHistoryItemDto.prototype, "source_billing_branch_id", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ nullable: true }),
+    __metadata("design:type", Object)
+], BatchTransferHistoryItemDto.prototype, "destination_billing_branch_id", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)(),
     __metadata("design:type", Date)

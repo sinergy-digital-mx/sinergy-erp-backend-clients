@@ -10,6 +10,14 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.115 · 2026-11-10
+
+- aplicación · El buscador de inventario filtra al escribir con una pausa de 300 ms y también al pulsar Enter.
+- aplicación · El detalle de transferencia muestra el aviso de posición más chico, el estado como pastilla y la fecha en palabras.
+- aplicación y servidor · El lote avisa si tiene un cambio de posición o una transferencia pendiente y abre el detalle para recibirlo.
+- aplicación · En contratos, el contador de filtros ya no se pinta como texto: los atributos quedaron en el componente.
+- aplicación y servidor · Lotes filtra por manzana: dropdown exacto que también aplica a las tarjetas.
+
 ### Versión 0.0.114 · 2026-11-10
 
 - aplicación · Órdenes de venta, compras y cotizaciones también abren con la sucursal principal del usuario seleccionada.

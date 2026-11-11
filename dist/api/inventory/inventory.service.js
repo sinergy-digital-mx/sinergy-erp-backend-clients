@@ -1210,6 +1210,9 @@ let InventoryService = InventoryService_1 = class InventoryService {
                 warehouse_name: isOut
                     ? line.inventory_transfer?.destination_warehouse?.name ?? null
                     : line.inventory_transfer?.source_warehouse?.name ?? null,
+                status: line.inventory_transfer?.status ?? '',
+                source_billing_branch_id: line.inventory_transfer?.source_warehouse?.billing_branch_id ?? null,
+                destination_billing_branch_id: line.inventory_transfer?.destination_warehouse?.billing_branch_id ?? null,
                 created_at: line.created_at,
             };
         });

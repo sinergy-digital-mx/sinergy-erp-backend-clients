@@ -4,6 +4,7 @@ export declare class QueryPropertiesDto {
     customer_group_id?: string;
     search?: string;
     status?: string;
+    block?: string;
     page?: number;
     limit?: number;
 }
