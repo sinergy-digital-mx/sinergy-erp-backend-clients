@@ -16,7 +16,7 @@ export declare class CreateSalesOrderDto {
     billing_branch_id?: string;
     warehouse_id?: string;
     customer_id?: number;
-    expected_delivery_date: string;
+    expected_delivery_date?: string;
     sales_order_type?: 'POS' | 'MANUAL';
     currency?: 'MXN' | 'USD';
     seller_user_id?: string;

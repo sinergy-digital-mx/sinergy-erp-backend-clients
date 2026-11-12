@@ -46,6 +46,9 @@ let ShippingsController = class ShippingsController {
     findAvailableOrders(query, req) {
         return this.service.findAvailableOrders(req.user.tenant_id, query);
     }
+    listDrivers(req) {
+        return this.service.listDrivers(req.user.tenant_id);
+    }
     findOne(id, req) {
         return this.service.findOne(id, req.user.tenant_id);
     }
@@ -131,6 +134,18 @@ __decorate([
     __metadata("design:paramtypes", [shipping_dto_1.QueryAvailableShippingOrdersDto, Object]),
     __metadata("design:returntype", void 0)
 ], ShippingsController.prototype, "findAvailableOrders", null);
+__decorate([
+    (0, common_1.Get)('drivers'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Shipping', action: 'Read' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Choferes activos para crear o editar un envío',
+        description: 'No pide permiso de usuarios. Devuelve solo usuarios marcados como chofer y que no están inactivos ni eliminados.',
+    }),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], ShippingsController.prototype, "listDrivers", null);
 __decorate([
     (0, common_1.Get)(':id'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Shipping', action: 'Read' }),

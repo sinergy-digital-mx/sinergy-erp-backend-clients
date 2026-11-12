@@ -164,7 +164,8 @@ let InventoryExportService = class InventoryExportService {
             .leftJoinAndSelect('batch.warehouse', 'warehouse')
             .leftJoinAndSelect('batch.uom', 'uom')
             .leftJoinAndSelect('batch.measure_uom', 'measure_uom')
-            .where('batch.tenant_id = :tenantId', { tenantId });
+            .where('batch.tenant_id = :tenantId', { tenantId })
+            .andWhere('product.is_active = :productActive', { productActive: true });
         (0, inventory_location_filter_util_1.joinInventoryLocation)(qb);
         (0, inventory_location_filter_util_1.assertInventoryLocationCascade)(filters);
         (0, inventory_location_filter_util_1.applyInventoryLocationFilters)(qb, filters);

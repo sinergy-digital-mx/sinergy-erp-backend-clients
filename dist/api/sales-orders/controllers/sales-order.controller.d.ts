@@ -13,7 +13,8 @@ import { StampPaymentComplementDto } from '../dto/stamp-payment-complement.dto';
 import { ApplyAdvanceInvoiceDto } from '../../electronic-invoicing/dto/apply-advance-invoice.dto';
 import { InventoryService } from '../../inventory/inventory.service';
 import { SalesOrderProductsPickerService } from '../services/sales-order-products-picker.service';
-import { CreateSalesOrderDto, CreateSalesOrderLineItemDto, CloneSalesOrderDto, UpdateSalesOrderLineItemDto, QuerySalesOrderDto, QuerySalesOrderProductsSummaryDto, FulfillSalesOrderDto, RegenerateDocumentDto, UpdateSalesOrderNotesDto, UpdateSalesOrderForShippingDto, QuerySalesOrderHeaderExportDto, QuerySalesOrderDetailExportDto, CreateSalesOrderPaymentDto, UpdateSalesOrderSellerDto, UpdateSalesOrderAssignedSellerDto, SendSalesOrderInvoiceEmailDto, SendSalesOrderInvoiceWhatsappDto, UpdateInvoiceEmailTemplateDto } from '../dto';
+import { CreateSalesOrderDto, CreateSalesOrderLineItemDto, CloneSalesOrderDto, UpdateSalesOrderLineItemDto, QuerySalesOrderDto, QuerySalesOrderProductsSummaryDto, FulfillSalesOrderDto, RegenerateDocumentDto, UpdateSalesOrderNotesDto, UpdateSalesOrderForShippingDto, QuerySalesOrderHeaderExportDto, QuerySalesOrderDetailExportDto, CreateSalesOrderPaymentDto, UpdateSalesOrderSellerDto, UpdateSalesOrderAssignedSellerDto, SendSalesOrderInvoiceEmailDto, SendSalesOrderInvoiceWhatsappDto, UpdateInvoiceEmailTemplateDto, UpdateSalesOrderCreationSettingsDto } from '../dto';
+import { SalesOrderCreationSettingsService } from '../services/sales-order-creation-settings.service';
 export declare class SalesOrderController {
     private readonly salesOrderService;
     private readonly documentsService;
@@ -24,7 +25,8 @@ export declare class SalesOrderController {
     private readonly invoicingService;
     private readonly invoiceEmailService;
     private readonly shippingsService;
-    constructor(salesOrderService: SalesOrderService, documentsService: SalesOrderDocumentsService, posReceiptService: SalesOrderPosReceiptService, inventoryService: InventoryService, productsPicker: SalesOrderProductsPickerService, exportService: SalesOrderExportService, invoicingService: SalesOrderInvoicingService, invoiceEmailService: SalesOrderInvoiceEmailService, shippingsService: ShippingsService);
+    private readonly creationSettings;
+    constructor(salesOrderService: SalesOrderService, documentsService: SalesOrderDocumentsService, posReceiptService: SalesOrderPosReceiptService, inventoryService: InventoryService, productsPicker: SalesOrderProductsPickerService, exportService: SalesOrderExportService, invoicingService: SalesOrderInvoicingService, invoiceEmailService: SalesOrderInvoiceEmailService, shippingsService: ShippingsService, creationSettings: SalesOrderCreationSettingsService);
     getSalesTrend(filters: QuerySalesOrderDto, req: any): Promise<{
         from: string;
         to: string;
@@ -32,6 +34,12 @@ export declare class SalesOrderController {
         orders_count: number;
         months: import("../../customers/utils/customer-purchase-trend.util").PurchaseTrendMonthPoint[];
         currency: string;
+    }>;
+    getCreationSettings(req: any): Promise<{
+        fields: import("../utils/sales-order-creation-settings.util").SalesOrderCreationFields;
+    }>;
+    updateCreationSettings(dto: UpdateSalesOrderCreationSettingsDto, req: any): Promise<{
+        fields: import("../utils/sales-order-creation-settings.util").SalesOrderCreationFields;
     }>;
     create(dto: CreateSalesOrderDto, req: any): Promise<import("../../../entities/sales-orders").SalesOrder>;
     clone(id: string, dto: CloneSalesOrderDto, req: any): Promise<import("../../../entities/sales-orders").SalesOrder>;

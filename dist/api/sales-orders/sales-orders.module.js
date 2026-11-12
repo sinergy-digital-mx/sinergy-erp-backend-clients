@@ -35,6 +35,8 @@ const user_entity_1 = require("../../entities/users/user.entity");
 const customer_entity_1 = require("../../entities/customers/customer.entity");
 const electronic_invoicing_1 = require("../../entities/electronic-invoicing");
 const service_subscription_period_entity_1 = require("../../entities/service-subscriptions/service-subscription-period.entity");
+const sales_order_creation_settings_entity_1 = require("../../entities/sales-orders/sales-order-creation-settings.entity");
+const sales_order_creation_settings_service_1 = require("./services/sales-order-creation-settings.service");
 const electronic_invoicing_module_1 = require("../electronic-invoicing/electronic-invoicing.module");
 const sales_order_invoicing_service_1 = require("./services/sales-order-invoicing.service");
 const shippings_module_1 = require("../shippings/shippings.module");
@@ -69,6 +71,7 @@ exports.SalesOrdersModule = SalesOrdersModule = __decorate([
                 customer_entity_1.Customer,
                 electronic_invoicing_1.ElectronicInvoice,
                 service_subscription_period_entity_1.ServiceSubscriptionPeriod,
+                sales_order_creation_settings_entity_1.SalesOrderCreationSettings,
             ]),
             auth_module_1.AuthModule,
             rbac_module_1.RBACModule,
@@ -98,6 +101,7 @@ exports.SalesOrdersModule = SalesOrdersModule = __decorate([
             sales_order_invoicing_service_1.SalesOrderInvoicingService,
             sales_order_products_picker_service_1.SalesOrderProductsPickerService,
             sales_order_invoice_email_service_1.SalesOrderInvoiceEmailService,
+            sales_order_creation_settings_service_1.SalesOrderCreationSettingsService,
             s3_service_1.S3Service,
         ],
         exports: [

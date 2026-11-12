@@ -17,3 +17,4 @@ export { StampPaymentComplementDto } from './stamp-payment-complement.dto';
 export { SendSalesOrderInvoiceEmailDto } from './send-sales-order-invoice-email.dto';
 export { SendSalesOrderInvoiceWhatsappDto } from './send-sales-order-invoice-whatsapp.dto';
 export { UpdateInvoiceEmailTemplateDto } from './update-invoice-email-template.dto';
+export { UpdateSalesOrderCreationSettingsDto } from './update-sales-order-creation-settings.dto';

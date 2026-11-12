@@ -24,15 +24,18 @@ const query_product_dto_1 = require("./dto/query-product.dto");
 const query_product_export_dto_1 = require("./dto/query-product-export.dto");
 const paginated_product_dto_1 = require("./dto/paginated-product.dto");
 const toggle_status_dto_1 = require("./dto/toggle-status.dto");
+const product_disable_service_1 = require("./services/product-disable.service");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const permission_guard_1 = require("../rbac/guards/permission.guard");
 const require_permissions_decorator_1 = require("../rbac/decorators/require-permissions.decorator");
 let ProductController = class ProductController {
     productService;
     productsExportService;
-    constructor(productService, productsExportService) {
+    productDisableService;
+    constructor(productService, productsExportService, productDisableService) {
         this.productService = productService;
         this.productsExportService = productsExportService;
+        this.productDisableService = productDisableService;
     }
     create(dto, req) {
         return this.productService.create(dto, req.user.tenant_id);
@@ -46,6 +49,9 @@ let ProductController = class ProductController {
         res.setHeader('Content-Disposition', `attachment; filename="${this.productsExportService.getFilename()}"`);
         res.send(buffer);
     }
+    getDisableImpact(id, req) {
+        return this.productDisableService.getImpact(id, req.user.tenant_id);
+    }
     findOne(id, req) {
         return this.productService.findOne(id, req.user.tenant_id);
     }
@@ -53,7 +59,7 @@ let ProductController = class ProductController {
         return this.productService.update(id, dto, req.user.tenant_id);
     }
     toggleStatus(id, dto, req) {
-        return this.productService.toggleStatus(id, dto, req.user.tenant_id);
+        return this.productDisableService.apply(id, dto, req.user.tenant_id, req.user.id);
     }
     remove(id, req) {
         return this.productService.remove(id, req.user.tenant_id);
@@ -101,6 +107,18 @@ __decorate([
     __metadata("design:paramtypes", [query_product_export_dto_1.QueryProductExportDto, Object, Object]),
     __metadata("design:returntype", Promise)
 ], ProductController.prototype, "exportExcel", null);
+__decorate([
+    (0, common_1.Get)(':id/disable-impact'),
+    (0, require_permissions_decorator_1.RequirePermission)('Product', 'Read'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Existencia y transferencias abiertas antes de deshabilitar el producto',
+    }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], ProductController.prototype, "getDisableImpact", null);
 __decorate([
     (0, common_1.Get)(':id'),
     (0, require_permissions_decorator_1.RequirePermission)('Product', 'Read'),
@@ -170,6 +188,7 @@ exports.ProductController = ProductController = __decorate([
     (0, common_1.Controller)('tenant/products'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     __metadata("design:paramtypes", [product_service_1.ProductService,
-        products_export_service_1.ProductsExportService])
+        products_export_service_1.ProductsExportService,
+        product_disable_service_1.ProductDisableService])
 ], ProductController);
 //# sourceMappingURL=product.controller.js.map

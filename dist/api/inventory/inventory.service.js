@@ -503,6 +503,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
             .select('product.id', 'id')
             .where('product.tenant_id = :tenantId', { tenantId })
             .andWhere('product.item_kind = :goodsKind', { goodsKind: product_item_kind_enum_1.ProductItemKind.Goods })
+            .andWhere('product.is_active = :productActive', { productActive: true })
             .andWhere(`EXISTS (
           SELECT 1 FROM inv_s_batches stock
           WHERE stock.product_id = product.id
@@ -528,6 +529,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
             .leftJoin('batch.uom', 'uom')
             .where('batch.tenant_id = :tenantId', { tenantId })
             .andWhere('product.item_kind = :goodsKind', { goodsKind: product_item_kind_enum_1.ProductItemKind.Goods })
+            .andWhere('product.is_active = :productActive', { productActive: true })
             .andWhere('batch.warehouse_id IN (:...warehouseIds)', { warehouseIds });
         (0, product_search_rank_util_1.applyProductSearchFilter)(qb, filters.search);
         if (filters.product_id) {
@@ -1103,7 +1105,8 @@ let InventoryService = InventoryService_1 = class InventoryService {
             .leftJoin('batch.uom', 'uom')
             .leftJoin('batch.measure_uom', 'measure_uom')
             .where('batch.tenant_id = :tenantId', { tenantId })
-            .andWhere('product.item_kind = :goodsKind', { goodsKind: product_item_kind_enum_1.ProductItemKind.Goods });
+            .andWhere('product.item_kind = :goodsKind', { goodsKind: product_item_kind_enum_1.ProductItemKind.Goods })
+            .andWhere('product.is_active = :productActive', { productActive: true });
         (0, inventory_location_filter_util_1.applyInventoryLocationFilters)(qb, filters);
         if (filters.search) {
             qb.andWhere('(LOWER(product.name) LIKE LOWER(:search) OR LOWER(product.sku) LIKE LOWER(:search))', { search: `%${filters.search}%` });

@@ -36,6 +36,7 @@ import { ElectronicInvoiceService } from '../../electronic-invoicing/services/el
 import { OrderDownloads } from '../utils/sales-order-downloads.util';
 import { AdvanceCfdiService } from '../../electronic-invoicing/services/advance-cfdi.service';
 import { BillingBranch } from '../../../entities/billing/billing-branch.entity';
+import { FiscalConfiguration } from '../../../entities/billing/fiscal-configuration.entity';
 import { Warehouse } from '../../../entities/warehouse/warehouse.entity';
 import { ControlDeskLifecycleService } from '../../warehouse-control/control-desk-lifecycle.service';
 import { WarehouseControlService } from '../../warehouse-control/warehouse-control.service';
@@ -723,7 +724,7 @@ export declare class SalesOrderService {
             tenant_id: string;
             folio: string;
             public_invoice_code: string | null;
-            fiscal_configuration: import("../../../entities/billing").FiscalConfiguration;
+            fiscal_configuration: FiscalConfiguration;
             fiscal_configuration_id: string;
             billing_branch: BillingBranch | null;
             billing_branch_id: string | null;
@@ -1051,5 +1052,8 @@ export declare class SalesOrderService {
     sendToCollection(id: string, tenantId: string, userId: string): Promise<SalesOrder>;
     withdrawFromCollection(id: string, tenantId: string, userId: string): Promise<SalesOrder>;
     private allocationScope;
+    private loadCreationFields;
+    private applyCreationDefaults;
+    private resolveImplicitBillingBranchId;
     private resolveSalesOrderLocation;
 }

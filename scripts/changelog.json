@@ -863,6 +863,51 @@
       "status": "shipped",
       "version": "0.0.116",
       "shippedAt": "2026-11-11T10:38:02-08:00"
+    },
+    {
+      "id": "20261112-103254",
+      "at": "2026-11-12T10:32:54-08:00",
+      "scope": "both",
+      "message": "Configuración del alta de órdenes de venta por organización: visibilidad, obligatoriedad y valores por defecto. Sucursal oculta o única se asigna sola. El modal mantiene altura fija y mesa de control y envío pasan a interruptores.",
+      "status": "shipped",
+      "version": "0.0.119",
+      "shippedAt": "2026-11-12T15:36:41-08:00"
+    },
+    {
+      "id": "20261112-145608",
+      "at": "2026-11-12T14:56:08-08:00",
+      "scope": "backend",
+      "message": "El guardado de la configuración de alta de órdenes no compilaba: el permiso se validaba con un solo argumento. Quedó la llamada con entidad sales_orders y acción Update.",
+      "status": "shipped",
+      "version": "0.0.119",
+      "shippedAt": "2026-11-12T15:36:41-08:00"
+    },
+    {
+      "id": "20261112-150102",
+      "at": "2026-11-12T15:01:02-08:00",
+      "scope": "both",
+      "message": "Se pidió que CEDIS Ensenada Alfredo Pérez y CEDIS Tijuana Rene Rangel vean choferes al crear envíos; el rol CEDIS no lista usuarios, y el alta ahora carga los choferes con el permiso de envíos.",
+      "status": "shipped",
+      "version": "0.0.119",
+      "shippedAt": "2026-11-12T15:36:41-08:00"
+    },
+    {
+      "id": "20261112-151243",
+      "at": "2026-11-12T15:12:43-08:00",
+      "scope": "both",
+      "message": "Importaciones Omar Moreno de Maderería no veía proveedores aunque tenía Ver proveedores: el menú acepta ese permiso y vendor/vendors cuentan como la misma entidad.",
+      "status": "shipped",
+      "version": "0.0.119",
+      "shippedAt": "2026-11-12T15:36:41-08:00"
+    },
+    {
+      "id": "20261112-152559",
+      "at": "2026-11-12T15:25:59-08:00",
+      "scope": "both",
+      "message": "Al deshabilitar un producto repetido desde el tab Detalles se avisa si tiene inventario y se da de baja; el catálogo se puede filtrar por activos o deshabilitados.",
+      "status": "shipped",
+      "version": "0.0.119",
+      "shippedAt": "2026-11-12T15:36:41-08:00"
     }
   ]
 }

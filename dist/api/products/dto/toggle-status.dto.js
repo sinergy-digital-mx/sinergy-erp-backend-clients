@@ -14,12 +14,21 @@ const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
 class ToggleStatusDto {
     is_active;
+    write_off_inventory;
 }
 exports.ToggleStatusDto = ToggleStatusDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: true, description: 'Estado activo/inactivo' }),
+    (0, swagger_1.ApiProperty)({ example: false, description: 'Estado activo/inactivo' }),
     (0, class_validator_1.IsNotEmpty)(),
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], ToggleStatusDto.prototype, "is_active", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Confirma la baja del inventario al deshabilitar el producto',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], ToggleStatusDto.prototype, "write_off_inventory", void 0);
 //# sourceMappingURL=toggle-status.dto.js.map

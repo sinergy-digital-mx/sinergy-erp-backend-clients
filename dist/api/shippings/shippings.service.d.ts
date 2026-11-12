@@ -205,5 +205,25 @@ export declare class ShippingsService {
     private getRouteOriginFromShipping;
     private assertTruckAvailable;
     private getActiveTruck;
+    listDrivers(tenantId: string): Promise<{
+        data: {
+            id: string;
+            email: string | null;
+            first_name: string;
+            last_name: string;
+            phone: string;
+            status: {
+                id: number;
+                code: string;
+                name: string;
+            } | null;
+            status_id: number;
+            is_driver: boolean;
+            driver_license_number: string | null;
+            driver_rfc: string | null;
+            carta_porte_ready: boolean;
+            carta_porte_missing: string[];
+        }[];
+    }>;
     private getDriver;
 }

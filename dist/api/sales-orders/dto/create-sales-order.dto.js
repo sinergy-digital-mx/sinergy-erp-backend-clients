@@ -164,6 +164,7 @@ __decorate([
     __metadata("design:type", Number)
 ], CreateSalesOrderDto.prototype, "customer_id", void 0);
 __decorate([
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsDateString)(),
     __metadata("design:type", String)
 ], CreateSalesOrderDto.prototype, "expected_delivery_date", void 0);

@@ -1101,6 +1101,66 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-12T05:35:58.914Z"
+    },
+    {
+        "releaseKey": "full:0.0.118:0.0.118-1794523986293",
+        "version": "0.0.118",
+        "buildId": "0.0.118-1794523986293",
+        "channel": "full",
+        "title": "Versión 0.0.118",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "Cambios en accesos y permisos"
+            },
+            {
+                "scope": "frontend",
+                "message": "Cambios en ventas"
+            }
+        ],
+        "releasedAt": "2026-11-12T22:53:06.293Z"
+    },
+    {
+        "releaseKey": "full:0.0.119:0.0.119-1794526556835",
+        "version": "0.0.119",
+        "buildId": "0.0.119-1794526556835",
+        "channel": "full",
+        "title": "Versión 0.0.119",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "Cambios en inventario"
+            },
+            {
+                "scope": "frontend",
+                "message": "Cambios en logística"
+            },
+            {
+                "scope": "frontend",
+                "message": "Cambios en compras"
+            },
+            {
+                "scope": "frontend",
+                "message": "Cambios en productos"
+            },
+            {
+                "scope": "frontend",
+                "message": "Cambios en configuración"
+            },
+            {
+                "scope": "backend",
+                "message": "Cambios en accesos y permisos"
+            },
+            {
+                "scope": "backend",
+                "message": "Cambios en ventas"
+            },
+            {
+                "scope": "backend",
+                "message": "Cambios en proveedores"
+            }
+        ],
+        "releasedAt": "2026-11-12T23:35:56.835Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map

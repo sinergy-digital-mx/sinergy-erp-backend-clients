@@ -10,6 +10,14 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.119 · 2026-11-12
+
+- aplicación y servidor · Configuración del alta de órdenes de venta por organización: visibilidad, obligatoriedad y valores por defecto. Sucursal oculta o única se asigna sola. El modal mantiene altura fija y mesa de control y envío pasan a interruptores.
+- servidor · El guardado de la configuración de alta de órdenes no compilaba: el permiso se validaba con un solo argumento. Quedó la llamada con entidad sales_orders y acción Update.
+- aplicación y servidor · Se pidió que CEDIS Ensenada Alfredo Pérez y CEDIS Tijuana Rene Rangel vean choferes al crear envíos; el rol CEDIS no lista usuarios, y el alta ahora carga los choferes con el permiso de envíos.
+- aplicación y servidor · Importaciones Omar Moreno de Maderería no veía proveedores aunque tenía Ver proveedores: el menú acepta ese permiso y vendor/vendors cuentan como la misma entidad.
+- aplicación y servidor · Al deshabilitar un producto repetido desde el tab Detalles se avisa si tiene inventario y se da de baja; el catálogo se puede filtrar por activos o deshabilitados.
+
 ### Versión 0.0.116 · 2026-11-11
 
 - aplicación y servidor · Órdenes de venta y de compra aceptan una nota por producto: se ve debajo del nombre y sale en el PDF.

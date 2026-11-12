@@ -217,12 +217,6 @@ let ProductService = class ProductService {
         await this.productRepository.update({ id, tenant_id: tenantId }, this.extractAllowedProductFields(dto));
         return await this.findOne(id, tenantId);
     }
-    async toggleStatus(id, dto, tenantId) {
-        const product = await this.getByIdOrFail(id, tenantId);
-        product.is_active = dto.is_active;
-        const saved = await this.productRepository.save(product);
-        return this.toResponseWithPhotoUrl(saved);
-    }
     async remove(id, tenantId) {
         const product = await this.getByIdOrFail(id, tenantId);
         await this.productRepository.remove(product);

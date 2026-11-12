@@ -68,6 +68,10 @@ const sales_order_downloads_util_1 = require("../utils/sales-order-downloads.uti
 const advance_cfdi_service_1 = require("../../electronic-invoicing/services/advance-cfdi.service");
 const quotation_collection_util_1 = require("../utils/quotation-collection.util");
 const billing_branch_entity_1 = require("../../../entities/billing/billing-branch.entity");
+const fiscal_configuration_entity_1 = require("../../../entities/billing/fiscal-configuration.entity");
+const user_billing_branch_entity_1 = require("../../../entities/users/user-billing-branch.entity");
+const sales_order_creation_settings_entity_1 = require("../../../entities/sales-orders/sales-order-creation-settings.entity");
+const sales_order_creation_settings_util_1 = require("../utils/sales-order-creation-settings.util");
 const warehouse_entity_1 = require("../../../entities/warehouse/warehouse.entity");
 const control_desk_lifecycle_service_1 = require("../../warehouse-control/control-desk-lifecycle.service");
 const warehouse_control_service_1 = require("../../warehouse-control/warehouse-control.service");
@@ -279,7 +283,8 @@ let SalesOrderService = class SalesOrderService {
         let collectedByUserId = null;
         let posQueued = false;
         const customerId = await this.resolveSalesOrderCustomerId(tenantId, dto.customer_id, isPosSale);
-        const location = await this.resolveSalesOrderLocation(tenantId, dto, isPosSale);
+        await this.applyCreationDefaults(tenantId, dto, isPosSale);
+        const location = await this.resolveSalesOrderLocation(tenantId, dto, isPosSale, userId);
         if (isPosSale && !dto.seller_user_id) {
             throw new common_1.BadRequestException('Las ventas POS requieren seller_user_id');
         }
@@ -331,7 +336,7 @@ let SalesOrderService = class SalesOrderService {
                 billing_branch_id: location.billingBranchId,
                 warehouse_id: location.warehouseId,
                 customer_id: customerId,
-                expected_delivery_date: new Date(dto.expected_delivery_date),
+                expected_delivery_date: new Date(dto.expected_delivery_date || (0, sales_order_creation_settings_util_1.resolveDeliveryDateDefault)('today')),
                 sales_order_type: salesOrderType,
                 fiscal_razon_social: dto.fiscal_razon_social,
                 payment_status: paymentStatus,
@@ -1506,7 +1511,8 @@ let SalesOrderService = class SalesOrderService {
             throw new common_1.BadRequestException(`Cannot edit sales order with status: ${existing.general_status}`);
         }
         const isPosSale = (dto.sales_order_type || existing.sales_order_type) === 'POS';
-        const location = await this.resolveSalesOrderLocation(tenantId, dto, isPosSale);
+        await this.applyCreationDefaults(tenantId, dto, isPosSale);
+        const location = await this.resolveSalesOrderLocation(tenantId, dto, isPosSale, userId);
         const qr = this.dataSource.createQueryRunner();
         await qr.connect();
         await qr.startTransaction();
@@ -1533,7 +1539,7 @@ let SalesOrderService = class SalesOrderService {
             if (dto.customer_id != null) {
                 so.customer_id = dto.customer_id;
             }
-            so.expected_delivery_date = new Date(dto.expected_delivery_date);
+            so.expected_delivery_date = new Date(dto.expected_delivery_date || (0, sales_order_creation_settings_util_1.resolveDeliveryDateDefault)('today'));
             so.sales_order_type = dto.sales_order_type || so.sales_order_type || 'MANUAL';
             if (dto.fiscal_razon_social !== undefined) {
                 so.fiscal_razon_social = dto.fiscal_razon_social;
@@ -2250,7 +2256,84 @@ let SalesOrderService = class SalesOrderService {
         }
         return { billingBranchId: so.billing_branch_id };
     }
-    async resolveSalesOrderLocation(tenantId, dto, isPosSale) {
+    async loadCreationFields(tenantId) {
+        try {
+            const row = await this.dataSource.getRepository(sales_order_creation_settings_entity_1.SalesOrderCreationSettings).findOne({
+                where: { tenant_id: tenantId },
+            });
+            return (0, sales_order_creation_settings_util_1.normalizeSalesOrderCreationFields)(row?.fields);
+        }
+        catch {
+            return (0, sales_order_creation_settings_util_1.normalizeSalesOrderCreationFields)(undefined);
+        }
+    }
+    async applyCreationDefaults(tenantId, dto, isPosSale) {
+        if (isPosSale) {
+            if (!dto.expected_delivery_date) {
+                throw new common_1.BadRequestException('La fecha de entrega es obligatoria');
+            }
+            return;
+        }
+        const fields = await this.loadCreationFields(tenantId);
+        if (!dto.expected_delivery_date) {
+            const field = fields.expected_delivery_date;
+            if (field.visible && field.required) {
+                throw new common_1.BadRequestException('La fecha de entrega es obligatoria');
+            }
+            dto.expected_delivery_date = (0, sales_order_creation_settings_util_1.resolveDeliveryDateDefault)(field.default_value);
+        }
+        if (!dto.sale_scope && !fields.sale_scope.visible) {
+            const value = fields.sale_scope.default_value;
+            if (value === 'inventory' || value === 'services' || value === 'combined') {
+                dto.sale_scope = value;
+            }
+        }
+        if (!dto.currency && !fields.currency.visible) {
+            dto.currency = fields.currency.default_value === 'USD' ? 'USD' : 'MXN';
+        }
+        if (dto.requires_selection_assembly == null && !fields.requires_selection_assembly.visible) {
+            dto.requires_selection_assembly = fields.requires_selection_assembly.default_value === true;
+        }
+        if (dto.for_shipping == null && !fields.for_shipping.visible) {
+            dto.for_shipping = fields.for_shipping.default_value === true;
+        }
+        if ((dto.notes == null || dto.notes === '') && !fields.notes.visible) {
+            const note = fields.notes.default_value;
+            if (typeof note === 'string' && note.trim()) {
+                dto.notes = note.trim();
+            }
+        }
+    }
+    async resolveImplicitBillingBranchId(tenantId, fiscalConfigurationId, userId, fields) {
+        const fiscal = await this.dataSource.getRepository(fiscal_configuration_entity_1.FiscalConfiguration).findOne({
+            where: { id: fiscalConfigurationId, tenant_id: tenantId },
+        });
+        if (!fiscal)
+            return null;
+        const branches = await this.billingBranchRepo.find({
+            where: { fiscal_configuration_id: fiscalConfigurationId },
+            order: { code: 'ASC' },
+        });
+        if (!branches.length)
+            return null;
+        const hidden = !fields.billing_branch_id.visible;
+        if (!hidden && branches.length !== 1)
+            return null;
+        const assignments = await this.dataSource.getRepository(user_billing_branch_entity_1.UserBillingBranch).find({
+            where: { tenant_id: tenantId, user_id: userId },
+        });
+        const primaryId = assignments.find((row) => row.is_primary)?.billing_branch_id ??
+            assignments[0]?.billing_branch_id ??
+            null;
+        const inFiscal = (id) => !!id && branches.some((branch) => branch.id === id);
+        if (inFiscal(primaryId))
+            return primaryId;
+        const assigned = branches.find((branch) => assignments.some((row) => row.billing_branch_id === branch.id));
+        if (assigned)
+            return assigned.id;
+        return branches[0].id;
+    }
+    async resolveSalesOrderLocation(tenantId, dto, isPosSale, userId) {
         if (isPosSale) {
             if (!dto.warehouse_id) {
                 throw new common_1.BadRequestException('Las ventas POS requieren warehouse_id');
@@ -2293,8 +2376,12 @@ let SalesOrderService = class SalesOrderService {
             }
             billingBranchId = warehouse.billing_branch_id;
         }
+        if (!billingBranchId && userId) {
+            const fields = await this.loadCreationFields(tenantId);
+            billingBranchId = await this.resolveImplicitBillingBranchId(tenantId, dto.fiscal_configuration_id, userId, fields);
+        }
         if (!billingBranchId) {
-            throw new common_1.BadRequestException('Las órdenes manuales requieren billing_branch_id');
+            throw new common_1.BadRequestException('La sucursal es obligatoria');
         }
         const branch = await this.billingBranchRepo.findOne({
             where: { id: billingBranchId },

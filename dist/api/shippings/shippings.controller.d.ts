@@ -133,6 +133,26 @@ export declare class ShippingsController {
         hasNext: boolean;
         hasPrev: boolean;
     }>;
+    listDrivers(req: any): Promise<{
+        data: {
+            id: string;
+            email: string | null;
+            first_name: string;
+            last_name: string;
+            phone: string;
+            status: {
+                id: number;
+                code: string;
+                name: string;
+            } | null;
+            status_id: number;
+            is_driver: boolean;
+            driver_license_number: string | null;
+            driver_rfc: string | null;
+            carta_porte_ready: boolean;
+            carta_porte_missing: string[];
+        }[];
+    }>;
     findOne(id: string, req: any): Promise<import("../../entities/logistics/shipping.entity").Shipping>;
     stampCartaPorte(id: string, dto: StampCartaPorteDto, req: any): Promise<import("../../entities/logistics/shipping.entity").Shipping>;
     downloadCartaPortePdf(id: string, req: any, res: any): Promise<void>;

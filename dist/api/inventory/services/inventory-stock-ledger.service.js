@@ -24,6 +24,7 @@ exports.STOCK_LEDGER_REFERENCE = {
     INVENTORY_TRANSFER: 'inventory_transfer',
     INVENTORY_AUDIT: 'inventory_audit',
     INVENTORY_BATCH: 'inventory_batch',
+    PRODUCT: 'product',
 };
 function roundQty(value) {
     return parseFloat(value.toFixed(3));

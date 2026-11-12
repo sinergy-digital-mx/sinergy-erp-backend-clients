@@ -1,0 +1,1 @@
+{"version":3,"file":"update-sales-order-creation-settings.dto.js","sourceRoot":"","sources":["../../../../src/api/sales-orders/dto/update-sales-order-creation-settings.dto.ts"],"names":[],"mappings":";;;;;;;;;;;;AAAA,6CAA8C;AAC9C,qDAA2C;AAE3C,MAAa,mCAAmC;IAM9C,MAAM,CAA0B;CACjC;AAPD,kFAOC;AADC;IALC,IAAA,qBAAW,EAAC;QACX,WAAW,EACT,mHAAmH;KACtH,CAAC;IACD,IAAA,0BAAQ,GAAE;;mEACqB"}

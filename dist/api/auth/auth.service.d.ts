@@ -100,6 +100,7 @@ export declare class AuthService {
             permissions_version: number;
         };
     }>;
+    private permissionsForJwt;
     private loadSessionBranchFields;
     private loadAssignedBranches;
     private loadAssignedWarehouses;

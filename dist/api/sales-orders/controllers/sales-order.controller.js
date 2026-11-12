@@ -35,6 +35,7 @@ const apply_advance_invoice_dto_1 = require("../../electronic-invoicing/dto/appl
 const inventory_service_1 = require("../../inventory/inventory.service");
 const sales_order_products_picker_service_1 = require("../services/sales-order-products-picker.service");
 const dto_1 = require("../dto");
+const sales_order_creation_settings_service_1 = require("../services/sales-order-creation-settings.service");
 let SalesOrderController = class SalesOrderController {
     salesOrderService;
     documentsService;
@@ -45,7 +46,8 @@ let SalesOrderController = class SalesOrderController {
     invoicingService;
     invoiceEmailService;
     shippingsService;
-    constructor(salesOrderService, documentsService, posReceiptService, inventoryService, productsPicker, exportService, invoicingService, invoiceEmailService, shippingsService) {
+    creationSettings;
+    constructor(salesOrderService, documentsService, posReceiptService, inventoryService, productsPicker, exportService, invoicingService, invoiceEmailService, shippingsService, creationSettings) {
         this.salesOrderService = salesOrderService;
         this.documentsService = documentsService;
         this.posReceiptService = posReceiptService;
@@ -55,10 +57,20 @@ let SalesOrderController = class SalesOrderController {
         this.invoicingService = invoicingService;
         this.invoiceEmailService = invoiceEmailService;
         this.shippingsService = shippingsService;
+        this.creationSettings = creationSettings;
     }
     async getSalesTrend(filters, req) {
         this.assertCanViewSalesStats(req.user);
         return this.salesOrderService.getSalesTrend(req.user.tenant_id, filters);
+    }
+    getCreationSettings(req) {
+        return this.creationSettings.get(req.user.tenant_id);
+    }
+    updateCreationSettings(dto, req) {
+        if (!(0, jwt_permission_util_1.userHasJwtPermission)(req.user, 'sales_orders', 'Update')) {
+            throw new common_1.ForbiddenException('No puedes cambiar la configuración de órdenes de venta');
+        }
+        return this.creationSettings.update(req.user.tenant_id, req.user.id, dto.fields);
     }
     async create(dto, req) {
         return this.salesOrderService.create(dto, req.user.tenant_id, req.user.id);
@@ -335,6 +347,29 @@ __decorate([
     __metadata("design:paramtypes", [dto_1.QuerySalesOrderDto, Object]),
     __metadata("design:returntype", Promise)
 ], SalesOrderController.prototype, "getSalesTrend", null);
+__decorate([
+    (0, common_1.Get)('creation-settings'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Configuración del alta de órdenes de venta',
+        description: 'Visibilidad, obligatoriedad y valores por defecto. Sin fila guardada responde el comportamiento actual.',
+    }),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], SalesOrderController.prototype, "getCreationSettings", null);
+__decorate([
+    (0, common_1.Put)('creation-settings'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Actualizar la configuración del alta de órdenes de venta',
+        description: 'Requiere sales_orders:Update. Cliente y razón social permanecen visibles y obligatorios.',
+    }),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [dto_1.UpdateSalesOrderCreationSettingsDto, Object]),
+    __metadata("design:returntype", void 0)
+], SalesOrderController.prototype, "updateCreationSettings", null);
 __decorate([
     (0, common_1.Post)(),
     (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
@@ -1002,6 +1037,7 @@ exports.SalesOrderController = SalesOrderController = __decorate([
         sales_order_export_service_1.SalesOrderExportService,
         sales_order_invoicing_service_1.SalesOrderInvoicingService,
         sales_order_invoice_email_service_1.SalesOrderInvoiceEmailService,
-        shippings_service_1.ShippingsService])
+        shippings_service_1.ShippingsService,
+        sales_order_creation_settings_service_1.SalesOrderCreationSettingsService])
 ], SalesOrderController);
 //# sourceMappingURL=sales-order.controller.js.map

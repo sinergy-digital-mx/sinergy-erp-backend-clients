@@ -118,7 +118,7 @@ let AuthService = AuthService_1 = class AuthService {
         catch (error) {
             this.logger.error(`Failed to load RBAC data for user ${user.id}: ${error.message}`);
         }
-        const permissionsForJwt = userPermissions.map(permission => `${permission.entity_type.toLowerCase()}:${permission.action}`);
+        const permissionsForJwt = this.permissionsForJwt(userPermissions);
         const payload = {
             sub: user.id,
             email: user.email,
@@ -166,7 +166,7 @@ let AuthService = AuthService_1 = class AuthService {
         }
         const userRoles = await this.roleService.getUserRoles(userId, tenantId);
         const userPermissions = await this.permissionService.getUserPermissions(userId, tenantId);
-        const permissionsForJwt = userPermissions.map(permission => `${permission.entity_type.toLowerCase()}:${permission.action}`);
+        const permissionsForJwt = this.permissionsForJwt(userPermissions);
         const payload = {
             sub: user.id,
             email: user.email,
@@ -199,6 +199,23 @@ let AuthService = AuthService_1 = class AuthService {
                 assigned_warehouses: await this.loadAssignedWarehouses(user.id, user.tenant.id.toString()),
             },
         };
+    }
+    permissionsForJwt(permissions) {
+        const keys = new Set();
+        for (const permission of permissions) {
+            const action = String(permission?.action ?? '').trim();
+            if (!action) {
+                continue;
+            }
+            const codes = [permission?.entity_type, permission?.module?.code];
+            for (const code of codes) {
+                const entity = String(code ?? '').trim().toLowerCase();
+                if (entity) {
+                    keys.add(`${entity}:${action}`);
+                }
+            }
+        }
+        return [...keys];
     }
     async loadSessionBranchFields(userId, tenantId) {
         const assigned_branches = await this.loadAssignedBranches(userId, tenantId);

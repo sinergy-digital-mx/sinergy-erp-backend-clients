@@ -7,6 +7,7 @@ export declare const STOCK_LEDGER_REFERENCE: {
     readonly INVENTORY_TRANSFER: "inventory_transfer";
     readonly INVENTORY_AUDIT: "inventory_audit";
     readonly INVENTORY_BATCH: "inventory_batch";
+    readonly PRODUCT: "product";
 };
 export type AppendStockLedgerParams = {
     tenantId: string;

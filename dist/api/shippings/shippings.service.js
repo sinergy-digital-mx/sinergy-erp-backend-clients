@@ -1241,6 +1241,42 @@ let ShippingsService = class ShippingsService {
         }
         return truck;
     }
+    async listDrivers(tenantId) {
+        const users = await this.userRepo
+            .createQueryBuilder('user')
+            .leftJoinAndSelect('user.status', 'status')
+            .where('user.tenant_id = :tenantId', { tenantId })
+            .andWhere('user.is_driver = 1')
+            .andWhere('(status.code IS NULL OR LOWER(status.code) NOT IN (:...hidden))', { hidden: ['inactive', 'deleted'] })
+            .orderBy('user.first_name', 'ASC')
+            .addOrderBy('user.last_name', 'ASC')
+            .getMany();
+        return {
+            data: users.map((user) => {
+                const check = (0, carta_porte_util_1.assessDriver)(user);
+                return {
+                    id: user.id,
+                    email: user.email,
+                    first_name: user.first_name,
+                    last_name: user.last_name,
+                    phone: user.phone,
+                    status: user.status
+                        ? {
+                            id: user.status.id,
+                            code: user.status.code,
+                            name: user.status.name,
+                        }
+                        : null,
+                    status_id: user.status?.id ?? null,
+                    is_driver: true,
+                    driver_license_number: user.driver_license_number,
+                    driver_rfc: user.driver_rfc,
+                    carta_porte_ready: check.ready,
+                    carta_porte_missing: check.missing,
+                };
+            }),
+        };
+    }
     async getDriver(id, tenantId) {
         const driver = await this.userRepo.findOne({
             where: { id, tenant_id: tenantId },

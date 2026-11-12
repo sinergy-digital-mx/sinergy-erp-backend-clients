@@ -19,6 +19,8 @@ const vendor_entity_1 = require("../../entities/vendor/vendor.entity");
 const product_attribute_entity_1 = require("../../entities/products/product-attribute.entity");
 const product_attribute_value_entity_1 = require("../../entities/products/product-attribute-value.entity");
 const product_attribute_assignment_entity_1 = require("../../entities/products/product-attribute-assignment.entity");
+const inventory_stock_ledger_module_1 = require("../inventory/inventory-stock-ledger.module");
+const product_disable_service_1 = require("./services/product-disable.service");
 const product_controller_1 = require("./product.controller");
 const product_service_1 = require("./product.service");
 const product_uom_controller_1 = require("./product-uom.controller");
@@ -61,6 +63,7 @@ exports.ProductsModule = ProductsModule = __decorate([
             ]),
             rbac_module_1.RBACModule,
             uom_catalog_module_1.UoMCatalogModule,
+            inventory_stock_ledger_module_1.InventoryStockLedgerModule,
         ],
         controllers: [
             product_attribute_controller_1.ProductAttributeController,
@@ -84,6 +87,7 @@ exports.ProductsModule = ProductsModule = __decorate([
             product_attribute_assignment_service_1.ProductAttributeAssignmentService,
             products_export_service_1.ProductsExportService,
             product_vendor_import_service_1.ProductVendorImportService,
+            product_disable_service_1.ProductDisableService,
             s3_service_1.S3Service,
         ],
         exports: [
