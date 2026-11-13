@@ -412,7 +412,16 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
         if (branchPhone) {
             lines.push(`!S!TEL: ${branchPhone.toUpperCase()}`);
         }
+        const usdRate = Number(order.exchange_rate) || 0;
+        const inUsd = order.currency === 'USD' && usdRate > 0;
+        const toDoc = (mxn) => (inUsd ? Math.round((mxn / usdRate) * 100) / 100 : mxn);
+        const money = (mxn) => (inUsd ? (0, escpos_util_1.formatUsd)(toDoc(mxn)) : (0, escpos_util_1.formatMoney)(mxn));
+        const lineMoney = (mxn) => (0, escpos_util_1.formatMoney)(toDoc(mxn));
+        const unitMoney = (mxn) => (0, escpos_util_1.formatUnitMoney)(inUsd ? mxn / usdRate : mxn);
         lines.push('');
+        if (inUsd) {
+            lines.push(`!N!${(0, escpos_util_1.compactMoneyLine)('Moneda:', `USD  T.C. ${usdRate.toFixed(4)}`)}`);
+        }
         lines.push(`!N!${(0, escpos_util_1.productLine)('DESCRIPCION', 'CANT.', 'PRECIO', 'TOTAL', escpos_util_1.ESCPOS_CHARS_PER_LINE)}`);
         let totalQty = 0;
         let subtotalBeforeDiscount = 0;
@@ -428,33 +437,42 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
             subtotalBeforeDiscount += lineSubtotal;
             totalLineDiscountAmount += lineDiscount;
             const description = (item.product?.name ?? 'PRODUCTO').toUpperCase();
-            lines.push(`!N!${(0, escpos_util_1.productLine)(description, this.formatQuantity(qty), (0, escpos_util_1.formatUnitMoney)(unitPrice), (0, escpos_util_1.formatMoney)(lineTotal), escpos_util_1.ESCPOS_CHARS_PER_LINE)}`);
+            lines.push(`!N!${(0, escpos_util_1.productLine)(description, this.formatQuantity(qty), unitMoney(unitPrice), lineMoney(lineTotal), escpos_util_1.ESCPOS_CHARS_PER_LINE)}`);
             if (lineDiscount > 0) {
                 const discountLabel = item.product_discount?.name
                     ? `DESC PROD: ${item.product_discount.name.toUpperCase()}`
                     : 'DESCUENTO PRODUCTO';
-                lines.push(`!N!${(0, escpos_util_1.compactMoneyLine)(`  ${discountLabel}`, `-${(0, escpos_util_1.formatMoney)(lineDiscount)}`)}`);
+                lines.push(`!N!${(0, escpos_util_1.compactMoneyLine)(`  ${discountLabel}`, `-${money(lineDiscount)}`)}`);
             }
         }
         const globalDiscountAmount = Number(order.global_discount_amount) || 0;
         const orderTotal = Number(collection.order_total_mxn) || Number(order.total) || 0;
         const lineCount = order.line_items?.length ?? 0;
         lines.push('');
-        lines.push(`!N!${(0, escpos_util_1.compactMoneyLine)('Subtotal:', (0, escpos_util_1.formatMoney)(subtotalBeforeDiscount))}`);
-        lines.push(`!N!${(0, escpos_util_1.compactMoneyLine)('Descuento:', `-${(0, escpos_util_1.formatMoney)(totalLineDiscountAmount + globalDiscountAmount)}`)}`);
+        lines.push(`!N!${(0, escpos_util_1.compactMoneyLine)('Subtotal:', money(subtotalBeforeDiscount))}`);
+        lines.push(`!N!${(0, escpos_util_1.compactMoneyLine)('Descuento:', `-${money(totalLineDiscountAmount + globalDiscountAmount)}`)}`);
         if (totalLineDiscountAmount > 0) {
-            lines.push(`!N!${(0, escpos_util_1.compactMoneyLine)('  Desc. por producto:', `-${(0, escpos_util_1.formatMoney)(totalLineDiscountAmount)}`)}`);
+            lines.push(`!N!${(0, escpos_util_1.compactMoneyLine)('  Desc. por producto:', `-${money(totalLineDiscountAmount)}`)}`);
         }
         if (globalDiscountAmount > 0) {
             const globalLabel = order.global_discount?.name
                 ? `Desc. global (${order.global_discount.name})`
                 : 'Desc. global';
-            lines.push(`!N!${(0, escpos_util_1.compactMoneyLine)(`  ${globalLabel}:`, `-${(0, escpos_util_1.formatMoney)(globalDiscountAmount)}`)}`);
+            lines.push(`!N!${(0, escpos_util_1.compactMoneyLine)(`  ${globalLabel}:`, `-${money(globalDiscountAmount)}`)}`);
         }
-        lines.push(`!N!${(0, escpos_util_1.compactMoneyLine)('IVA:', (0, escpos_util_1.formatMoney)(Number(order.iva_total) || 0))}`);
-        lines.push(`!N!${(0, escpos_util_1.compactMoneyLine)('Total:', (0, escpos_util_1.formatMoney)(orderTotal))}`);
+        if (inUsd) {
+            const totalUsd = toDoc(orderTotal);
+            const netUsd = toDoc(subtotalBeforeDiscount) - toDoc(totalLineDiscountAmount + globalDiscountAmount);
+            lines.push(`!N!${(0, escpos_util_1.compactMoneyLine)('IVA:', (0, escpos_util_1.formatUsd)(Math.round((totalUsd - netUsd) * 100) / 100))}`);
+            lines.push(`!N!${(0, escpos_util_1.compactMoneyLine)('Total:', (0, escpos_util_1.formatUsd)(totalUsd))}`);
+            lines.push(`!N!${(0, escpos_util_1.compactMoneyLine)('Equivale a:', `${(0, escpos_util_1.formatMoney)(orderTotal)} MXN`)}`);
+        }
+        else {
+            lines.push(`!N!${(0, escpos_util_1.compactMoneyLine)('IVA:', (0, escpos_util_1.formatMoney)(Number(order.iva_total) || 0))}`);
+            lines.push(`!N!${(0, escpos_util_1.compactMoneyLine)('Total:', (0, escpos_util_1.formatMoney)(orderTotal))}`);
+        }
         lines.push(`!N!${'-'.repeat(escpos_util_1.ESCPOS_CHARS_PER_LINE)}`);
-        lines.push(...this.buildPaymentLines(collection).map((line) => `!N!${line}`));
+        lines.push(...this.buildPaymentLines(collection, inUsd ? usdRate : null).map((line) => `!N!${line}`));
         lines.push(`!N!${'-'.repeat(escpos_util_1.ESCPOS_CHARS_PER_LINE)}`);
         lines.push(`!N!${(0, escpos_util_1.twoColumnLine)(`Renglones: ${lineCount}`, `Cantidad: ${this.formatQuantity(totalQty)}`)}`);
         lines.push('');
@@ -567,7 +585,7 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
     stripStyleMarkers(text) {
         return text.replace(/^![A-Z]+!/gm, '');
     }
-    buildPaymentLines(collection) {
+    buildPaymentLines(collection, documentUsdRate = null) {
         const lines = [];
         const cashMxn = Number(collection.amount_cash_mxn) || 0;
         const cashUsd = Number(collection.amount_cash_usd) || 0;
@@ -597,7 +615,9 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
         else if (collection.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CREDIT) {
             const creditMxn = Number(collection.amount_credit_mxn) || 0;
             if (creditMxn > 0) {
-                lines.push((0, escpos_util_1.compactMoneyLine)('Credito:', (0, escpos_util_1.formatMoney)(creditMxn)));
+                lines.push((0, escpos_util_1.compactMoneyLine)('Credito:', documentUsdRate
+                    ? (0, escpos_util_1.formatUsd)(Math.round((creditMxn / documentUsdRate) * 100) / 100)
+                    : (0, escpos_util_1.formatMoney)(creditMxn)));
             }
         }
         else if (collection.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.MIXED) {
