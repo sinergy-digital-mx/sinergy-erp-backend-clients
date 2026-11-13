@@ -548,7 +548,18 @@ export class SalesOrderPosReceiptService {
     if (branchPhone) {
       lines.push(`!S!TEL: ${branchPhone.toUpperCase()}`);
     }
+    // Orden en USD: los importes se guardan en MXN; el ticket los muestra en dólares al T.C. de la orden.
+    const usdRate = Number(order.exchange_rate) || 0;
+    const inUsd = order.currency === 'USD' && usdRate > 0;
+    const toDoc = (mxn: number) => (inUsd ? Math.round((mxn / usdRate) * 100) / 100 : mxn);
+    const money = (mxn: number) => (inUsd ? formatUsd(toDoc(mxn)) : formatMoney(mxn));
+    const lineMoney = (mxn: number) => formatMoney(toDoc(mxn));
+    const unitMoney = (mxn: number) => formatUnitMoney(inUsd ? mxn / usdRate : mxn);
+
     lines.push('');
+    if (inUsd) {
+      lines.push(`!N!${compactMoneyLine('Moneda:', `USD  T.C. ${usdRate.toFixed(4)}`)}`);
+    }
     lines.push(
       `!N!${productLine('DESCRIPCION', 'CANT.', 'PRECIO', 'TOTAL', ESCPOS_CHARS_PER_LINE)}`,
     );
@@ -573,8 +584,8 @@ export class SalesOrderPosReceiptService {
         `!N!${productLine(
           description,
           this.formatQuantity(qty),
-          formatUnitMoney(unitPrice),
-          formatMoney(lineTotal),
+          unitMoney(unitPrice),
+          lineMoney(lineTotal),
           ESCPOS_CHARS_PER_LINE,
         )}`,
       );
@@ -583,7 +594,7 @@ export class SalesOrderPosReceiptService {
         const discountLabel = item.product_discount?.name
           ? `DESC PROD: ${item.product_discount.name.toUpperCase()}`
           : 'DESCUENTO PRODUCTO';
-        lines.push(`!N!${compactMoneyLine(`  ${discountLabel}`, `-${formatMoney(lineDiscount)}`)}`);
+        lines.push(`!N!${compactMoneyLine(`  ${discountLabel}`, `-${money(lineDiscount)}`)}`);
       }
     }
 
@@ -592,27 +603,37 @@ export class SalesOrderPosReceiptService {
     const lineCount = order.line_items?.length ?? 0;
 
     lines.push('');
-    lines.push(`!N!${compactMoneyLine('Subtotal:', formatMoney(subtotalBeforeDiscount))}`);
+    lines.push(`!N!${compactMoneyLine('Subtotal:', money(subtotalBeforeDiscount))}`);
     lines.push(
-      `!N!${compactMoneyLine('Descuento:', `-${formatMoney(totalLineDiscountAmount + globalDiscountAmount)}`)}`,
+      `!N!${compactMoneyLine('Descuento:', `-${money(totalLineDiscountAmount + globalDiscountAmount)}`)}`,
     );
     if (totalLineDiscountAmount > 0) {
       lines.push(
-        `!N!${compactMoneyLine('  Desc. por producto:', `-${formatMoney(totalLineDiscountAmount)}`)}`,
+        `!N!${compactMoneyLine('  Desc. por producto:', `-${money(totalLineDiscountAmount)}`)}`,
       );
     }
     if (globalDiscountAmount > 0) {
       const globalLabel = order.global_discount?.name
         ? `Desc. global (${order.global_discount.name})`
         : 'Desc. global';
-      lines.push(`!N!${compactMoneyLine(`  ${globalLabel}:`, `-${formatMoney(globalDiscountAmount)}`)}`);
+      lines.push(`!N!${compactMoneyLine(`  ${globalLabel}:`, `-${money(globalDiscountAmount)}`)}`);
     }
-    lines.push(
-      `!N!${compactMoneyLine('IVA:', formatMoney(Number(order.iva_total) || 0))}`,
-    );
-    lines.push(`!N!${compactMoneyLine('Total:', formatMoney(orderTotal))}`);
+    if (inUsd) {
+      // IVA = total − (subtotal − descuentos) para que la suma en USD cuadre al centavo.
+      const totalUsd = toDoc(orderTotal);
+      const netUsd =
+        toDoc(subtotalBeforeDiscount) - toDoc(totalLineDiscountAmount + globalDiscountAmount);
+      lines.push(`!N!${compactMoneyLine('IVA:', formatUsd(Math.round((totalUsd - netUsd) * 100) / 100))}`);
+      lines.push(`!N!${compactMoneyLine('Total:', formatUsd(totalUsd))}`);
+      lines.push(`!N!${compactMoneyLine('Equivale a:', `${formatMoney(orderTotal)} MXN`)}`);
+    } else {
+      lines.push(
+        `!N!${compactMoneyLine('IVA:', formatMoney(Number(order.iva_total) || 0))}`,
+      );
+      lines.push(`!N!${compactMoneyLine('Total:', formatMoney(orderTotal))}`);
+    }
     lines.push(`!N!${'-'.repeat(ESCPOS_CHARS_PER_LINE)}`);
-    lines.push(...this.buildPaymentLines(collection).map((line) => `!N!${line}`));
+    lines.push(...this.buildPaymentLines(collection, inUsd ? usdRate : null).map((line) => `!N!${line}`));
     lines.push(`!N!${'-'.repeat(ESCPOS_CHARS_PER_LINE)}`);
     lines.push(
       `!N!${twoColumnLine(
@@ -739,7 +760,7 @@ export class SalesOrderPosReceiptService {
     return text.replace(/^![A-Z]+!/gm, '');
   }
 
-  private buildPaymentLines(collection: PosSaleCollection): string[] {
+  private buildPaymentLines(collection: PosSaleCollection, documentUsdRate: number | null = null): string[] {
     const lines: string[] = [];
     const cashMxn = Number(collection.amount_cash_mxn) || 0;
     const cashUsd = Number(collection.amount_cash_usd) || 0;
@@ -776,7 +797,14 @@ export class SalesOrderPosReceiptService {
     } else if (collection.payment_method === PosSalePaymentMethod.CREDIT) {
       const creditMxn = Number(collection.amount_credit_mxn) || 0;
       if (creditMxn > 0) {
-        lines.push(compactMoneyLine('Credito:', formatMoney(creditMxn)));
+        lines.push(
+          compactMoneyLine(
+            'Credito:',
+            documentUsdRate
+              ? formatUsd(Math.round((creditMxn / documentUsdRate) * 100) / 100)
+              : formatMoney(creditMxn),
+          ),
+        );
       }
     } else if (collection.payment_method === PosSalePaymentMethod.MIXED) {
       if (transferMxn > 0) lines.push(compactMoneyLine('Transferencia:', formatMoney(transferMxn)));
