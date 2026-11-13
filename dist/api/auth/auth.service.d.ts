@@ -5,6 +5,7 @@ import { UserBillingBranch } from '../../entities/users/user-billing-branch.enti
 import { UserWarehouseAssignment } from '../../entities/control-desk/user-warehouse-assignment.entity';
 import { PermissionService } from '../rbac/services/permission.service';
 import { RoleService } from '../rbac/services/role.service';
+import { Permission } from '../../entities/rbac/permission.entity';
 export declare class AuthService {
     private userRepo;
     private branchAssignmentRepo;
@@ -153,6 +154,6 @@ export declare class AuthService {
         tenant_id: string;
         status: string;
         roles: import("../rbac").Role[];
-        permissions: import("../rbac").Permission[];
+        permissions: Permission[];
     } | null>;
 }

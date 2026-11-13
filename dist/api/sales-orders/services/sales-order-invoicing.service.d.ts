@@ -16,6 +16,14 @@ import { ElectronicInvoice } from '../../../entities/electronic-invoicing/electr
 import { FinkokEnvironment } from '../../../entities/electronic-invoicing/finkok-provider-configuration.entity';
 import { CustomerDebtLedgerService } from '../../accounting/services/customer-debt-ledger.service';
 import { CustomerCreditLedgerService } from '../../accounting/services/customer-credit-ledger.service';
+interface UploadedCfdiFile {
+    buffer: Buffer;
+    originalname?: string;
+}
+interface UploadedCfdiFiles {
+    xml?: UploadedCfdiFile;
+    pdf?: UploadedCfdiFile;
+}
 export declare class SalesOrderInvoicingService {
     private readonly salesOrderRepo;
     private readonly paymentRepo;
@@ -29,26 +37,8 @@ export declare class SalesOrderInvoicingService {
     private readonly periodRepo;
     private readonly logger;
     constructor(salesOrderRepo: Repository<SalesOrder>, paymentRepo: Repository<SalesOrderPayment>, customerRepo: Repository<Customer>, electronicInvoiceService: ElectronicInvoiceService, advanceCfdi: AdvanceCfdiService, posShiftsService: PosShiftsService, advancePayments: AdvanceShiftPaymentService, debtLedger: CustomerDebtLedgerService, creditLedger: CustomerCreditLedgerService, periodRepo: Repository<ServiceSubscriptionPeriod>);
-    registerExistingInvoice(salesOrderId: string, tenantId: string, userId: string, files: {
-        xml?: {
-            buffer: Buffer;
-            originalname?: string;
-        };
-        pdf?: {
-            buffer: Buffer;
-            originalname?: string;
-        };
-    }, typedUuid?: string): Promise<ElectronicInvoice>;
-    attachManualFiles(salesOrderId: string, invoiceId: string, tenantId: string, files: {
-        xml?: {
-            buffer: Buffer;
-            originalname?: string;
-        };
-        pdf?: {
-            buffer: Buffer;
-            originalname?: string;
-        };
-    }): Promise<ElectronicInvoice>;
+    registerExistingInvoice(salesOrderId: string, tenantId: string, userId: string, files: UploadedCfdiFiles, typedUuid?: string): Promise<ElectronicInvoice>;
+    attachManualFiles(salesOrderId: string, invoiceId: string, tenantId: string, files: UploadedCfdiFiles): Promise<ElectronicInvoice>;
     unlinkManualInvoice(salesOrderId: string, invoiceId: string, tenantId: string): Promise<void>;
     private readExistingCfdi;
     private readXmlCfdi;
@@ -101,3 +91,4 @@ export interface PaymentComplementStatus {
     payment_complement: PaymentComplementCard | null;
     related_environment?: FinkokEnvironment | null;
 }
+export {};

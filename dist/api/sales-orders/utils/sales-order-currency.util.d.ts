@@ -11,6 +11,7 @@ export declare function resolvePosDocumentCurrency(input: {
     amountCheckMxn: number;
     amountCheckUsd?: number;
     amountCreditMxn: number;
+    isCredit?: boolean;
 }): {
     currency: SalesOrderCurrency;
     exchangeRate: number | null;

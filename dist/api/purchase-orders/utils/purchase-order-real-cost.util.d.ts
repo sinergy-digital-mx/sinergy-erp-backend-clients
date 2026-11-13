@@ -77,6 +77,6 @@ export declare function derivePersistedLandedCashTotals(input: {
     igi_mxn?: number | string | null | undefined;
     customs_exchange_rate: number | string | null | undefined;
 }): PersistedLandedCashTotals;
-export declare function computeLinesIgiMxn(lines: RealCostLineInput[] | null | undefined, paymentCurrency: RealCostCurrency | string | null | undefined, exchangeRate: number | string | null | undefined): number;
 export declare function computePurchaseOrderRealCost(input: ComputeRealCostInput): ComputeRealCostResult;
 export declare function isRealCostEnabled(exchangeRate: unknown, extrasCount: number): boolean;
+export declare function computeLinesIgiMxn(lines: RealCostLineInput[] | null | undefined, paymentCurrency: RealCostCurrency | string | null | undefined, exchangeRate: number | string | null | undefined): number;

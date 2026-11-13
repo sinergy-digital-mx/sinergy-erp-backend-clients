@@ -69,7 +69,7 @@ export declare class ServiceSubscriptionsService {
         pdf_count: number;
     }>;
     buildSummaryPdf(tenantId: string, id: string): Promise<{
-        buffer: Buffer;
+        buffer: Buffer<ArrayBufferLike>;
         fileName: string;
     }>;
     private buildSummaryInput;

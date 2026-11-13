@@ -677,11 +677,15 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             }
         }
         const payment = await this.validateAndNormalizePayment(tenantId, dto, amountPending);
+        const creditDocumentRate = isCredit && dto.order_currency === 'USD'
+            ? await this.creditDocumentExchangeRate(tenantId, dto, creditCharge?.exchangeRate ?? null)
+            : null;
         const documentCurrency = (0, sales_order_currency_util_1.resolvePosDocumentCurrency)({
             requested: dto.order_currency,
+            isCredit,
             amountCashMxn: payment.amountCashMxn,
             amountCashUsd: payment.amountCashUsd,
-            usdExchangeRate: payment.usdExchangeRate,
+            usdExchangeRate: isCredit ? creditDocumentRate : payment.usdExchangeRate,
             amountTransferMxn: payment.amountTransferMxn,
             amountCardMxn: payment.amountCardMxn,
             amountCheckMxn: payment.amountCheckMxn,
@@ -740,10 +744,11 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             }, tenantId, cobranzaUserId, 'pos_cobranza');
         }
         const paymentStatus = isCredit ? 'Pendiente' : 'Pagado';
-        const storedCurrency = isCredit
+        const creditInUsd = isCredit && documentCurrency.currency === 'USD';
+        const storedCurrency = isCredit && !creditInUsd
             ? (0, credit_currency_util_1.normalizeCreditCurrency)(order.currency)
             : documentCurrency.currency;
-        const storedExchangeRate = isCredit
+        const storedExchangeRate = isCredit && !creditInUsd
             ? this.creditExchangeRateToStore(order, creditCharge?.exchangeRate ?? null)
             : documentCurrency.exchangeRate;
         await this.salesOrderRepo.update({ id: order.id, tenant_id: tenantId }, {
@@ -1116,14 +1121,14 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             ? storedRate
             : await this.exchangeRateForOrderDate(customer.tenant_id, order.created_at);
         const exchangeRate = (0, credit_currency_util_1.creditConversionRate)({
-            orderCurrency: order.currency,
+            orderCurrency: 'MXN',
             creditCurrency: snapshot.credit_currency,
             orderExchangeRate: storedRate,
             dailyExchangeRate: momentRate,
         });
         const converted = (0, credit_currency_util_1.amountInCreditCurrency)({
             amount,
-            orderCurrency: order.currency,
+            orderCurrency: 'MXN',
             creditCurrency: snapshot.credit_currency,
             exchangeRate,
         });
@@ -1134,10 +1139,9 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         if (converted.amount - snapshot.credit_available > 0.01 && !usesWaiver) {
             throw new common_1.BadRequestException(`Crédito insuficiente. Disponible: ${snapshot.credit_available.toFixed(2)} ${snapshot.credit_currency}`);
         }
-        const orderCurrency = (0, credit_currency_util_1.normalizeCreditCurrency)(order.currency);
         return {
             usesWaiver,
-            exchangeRate: orderCurrency === snapshot.credit_currency ? null : exchangeRate,
+            exchangeRate: snapshot.credit_currency === 'MXN' ? null : exchangeRate,
         };
     }
     async exchangeRateByOrderMoment(tenantId, orders) {
@@ -1166,6 +1170,17 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         const row = await this.exchangeRateService.getDailyRate(tenantId, date ?? undefined);
         const value = Number(row?.exchange_rate ?? 0);
         return value > 0 ? value : null;
+    }
+    async creditDocumentExchangeRate(tenantId, dto, creditRate) {
+        if (creditRate != null && creditRate > 0) {
+            return creditRate;
+        }
+        const requested = Number(dto.usd_exchange_rate ?? 0);
+        if (requested > 0) {
+            return requested;
+        }
+        const daily = await this.resolveUsdExchangeRate(tenantId);
+        return daily && daily > 0 ? daily : null;
     }
     creditExchangeRateToStore(order, creditRate) {
         if ((0, credit_currency_util_1.normalizeCreditCurrency)(order.currency) === 'USD') {

@@ -28,7 +28,7 @@ function resolvePosDocumentCurrency(input) {
     if (requested !== 'USD') {
         return { currency: 'MXN', exchangeRate: null, error: null };
     }
-    if (!canDocumentOrderInUsd(usdAppliedMxn, mxnApplied)) {
+    if (!input.isCredit && !canDocumentOrderInUsd(usdAppliedMxn, mxnApplied)) {
         return {
             currency: 'MXN',
             exchangeRate: null,

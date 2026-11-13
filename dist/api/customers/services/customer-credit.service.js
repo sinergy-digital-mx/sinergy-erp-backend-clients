@@ -316,14 +316,14 @@ let CustomerCreditService = class CustomerCreditService {
             const storedRate = Number(order.exchange_rate);
             const momentRate = storedRate > 0 ? storedRate : await rateForOrderDate(order.created_at);
             const rate = (0, credit_currency_util_1.creditConversionRate)({
-                orderCurrency: order.currency,
+                orderCurrency: 'MXN',
                 creditCurrency,
                 orderExchangeRate: storedRate,
                 dailyExchangeRate: momentRate,
             });
             const converted = (0, credit_currency_util_1.amountInCreditCurrency)({
                 amount: creditBase,
-                orderCurrency: order.currency,
+                orderCurrency: 'MXN',
                 creditCurrency,
                 exchangeRate: rate,
             });
@@ -357,20 +357,20 @@ let CustomerCreditService = class CustomerCreditService {
         const storedRate = Number(input.exchangeRate);
         const momentRate = storedRate > 0 ? storedRate : await this.rateForDate(input.tenantId, input.createdAt);
         const exchangeRate = (0, credit_currency_util_1.creditConversionRate)({
-            orderCurrency: input.currency,
+            orderCurrency: 'MXN',
             creditCurrency: snapshot.credit_currency,
             orderExchangeRate: storedRate,
             dailyExchangeRate: momentRate,
         });
         const nextConverted = (0, credit_currency_util_1.amountInCreditCurrency)({
             amount: next,
-            orderCurrency: input.currency,
+            orderCurrency: 'MXN',
             creditCurrency: snapshot.credit_currency,
             exchangeRate,
         });
         const previousConverted = (0, credit_currency_util_1.amountInCreditCurrency)({
             amount: previous,
-            orderCurrency: input.currency,
+            orderCurrency: 'MXN',
             creditCurrency: snapshot.credit_currency,
             exchangeRate,
         });

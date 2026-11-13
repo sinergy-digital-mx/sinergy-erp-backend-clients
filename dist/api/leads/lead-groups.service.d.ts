@@ -1,5 +1,5 @@
 import { Repository } from 'typeorm';
-import { LeadGroup } from 'src/entities/leads/lead-group.entity';
+import { LeadGroup } from '../../entities/leads/lead-group.entity';
 import { CreateLeadGroupDto } from './dto/create-lead-group.dto';
 import { UpdateLeadGroupDto } from './dto/update-lead-group.dto';
 export declare class LeadGroupsService {
