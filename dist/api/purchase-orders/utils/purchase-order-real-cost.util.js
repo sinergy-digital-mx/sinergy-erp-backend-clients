@@ -9,6 +9,7 @@ exports.assertExchangeRateIfNeeded = assertExchangeRateIfNeeded;
 exports.derivePersistedLandedCashTotals = derivePersistedLandedCashTotals;
 exports.computePurchaseOrderRealCost = computePurchaseOrderRealCost;
 exports.isRealCostEnabled = isRealCostEnabled;
+exports.computeLinesIgiMxn = computeLinesIgiMxn;
 const common_1 = require("@nestjs/common");
 const purchase_order_line_breakdown_util_1 = require("./purchase-order-line-breakdown.util");
 function isInvoiceExtraFlag(value) {
@@ -67,7 +68,8 @@ function derivePersistedLandedCashTotals(input) {
     const extrasMxn = (0, purchase_order_line_breakdown_util_1.roundPoMoney)(parseRealCostNumber(input.extras_mxn));
     const invoiceExtrasMxn = Math.min((0, purchase_order_line_breakdown_util_1.roundPoMoney)(parseRealCostNumber(input.invoice_extras_mxn)), extrasMxn);
     const operatingExtrasMxn = (0, purchase_order_line_breakdown_util_1.roundPoMoney)(extrasMxn - invoiceExtrasMxn);
-    const totalMxn = (0, purchase_order_line_breakdown_util_1.roundPoMoney)(merchandiseMxn + extrasMxn);
+    const igiMxn = (0, purchase_order_line_breakdown_util_1.roundPoMoney)(parseRealCostNumber(input.igi_mxn));
+    const totalMxn = (0, purchase_order_line_breakdown_util_1.roundPoMoney)(merchandiseMxn + extrasMxn + igiMxn);
     const invoiceMxn = (0, purchase_order_line_breakdown_util_1.roundPoMoney)(merchandiseMxn + invoiceExtrasMxn);
     const rate = input.customs_exchange_rate == null || input.customs_exchange_rate === ''
         ? null
@@ -77,6 +79,8 @@ function derivePersistedLandedCashTotals(input) {
             extras_usd: null,
             total_usd: null,
             total_mxn: totalMxn,
+            igi_mxn: igiMxn,
+            igi_usd: null,
             contracted_mxn: merchandiseMxn,
             contracted_usd: null,
             invoice_mxn: invoiceMxn,
@@ -89,6 +93,8 @@ function derivePersistedLandedCashTotals(input) {
         extras_usd: (0, purchase_order_line_breakdown_util_1.roundPoMoney)(extrasMxn / rate),
         total_usd: (0, purchase_order_line_breakdown_util_1.roundPoMoney)(totalMxn / rate),
         total_mxn: totalMxn,
+        igi_mxn: igiMxn,
+        igi_usd: (0, purchase_order_line_breakdown_util_1.roundPoMoney)(igiMxn / rate),
         contracted_mxn: merchandiseMxn,
         contracted_usd: (0, purchase_order_line_breakdown_util_1.roundPoMoney)(merchandiseMxn / rate),
         invoice_mxn: invoiceMxn,
@@ -124,8 +130,8 @@ function computePurchaseOrderRealCost(input) {
     const incrementRatio = hasRealCost && merchandiseForRatio > 0 ? extrasForRatio / merchandiseForRatio : 0;
     const incrementPercentage = (0, purchase_order_line_breakdown_util_1.roundPoUnitCost)(incrementRatio * 100);
     const lines = preparedLines.map((line) => {
-        const taxedVendor = line.vendorUnitCost * (1 + line.igiPercentage / 100);
-        const landedVendor = taxedVendor * (1 + incrementRatio);
+        // IGI% y GTOS% se suman sobre el precio del proveedor (no se multiplican entre sí).
+        const landedVendor = line.vendorUnitCost * (1 + line.igiPercentage / 100 + incrementRatio);
         const realUsd = convertAmount(landedVendor, paymentCurrency, 'USD', exchangeRate);
         const realMxn = convertAmount(landedVendor, paymentCurrency, 'MXN', exchangeRate);
         return {
@@ -137,6 +143,11 @@ function computePurchaseOrderRealCost(input) {
             real_unit_cost_mxn: hasRealCost && realMxn != null ? (0, purchase_order_line_breakdown_util_1.roundPoUnitCost)(realMxn) : null,
         };
     });
+    const igiAmount = preparedLines.reduce((sum, line) => sum + line.quantity * line.vendorUnitCost * (line.igiPercentage / 100), 0);
+    const igiMxnRaw = convertAmount(igiAmount, paymentCurrency, 'MXN', exchangeRate);
+    const igiUsdRaw = convertAmount(igiAmount, paymentCurrency, 'USD', exchangeRate);
+    const igiMxnResult = igiMxnRaw == null ? null : (0, purchase_order_line_breakdown_util_1.roundPoMoney)(igiMxnRaw);
+    const igiUsdResult = igiUsdRaw == null ? null : (0, purchase_order_line_breakdown_util_1.roundPoMoney)(igiUsdRaw);
     const invoiceExtras = extras.filter((extra) => extra.include_in_invoice === true);
     const invoiceExtrasMxnRaw = sumConvertedExtras(invoiceExtras, 'MXN', exchangeRate);
     const extrasMxnResult = hasRealCost && (merchandiseMxn != null || extras.every((extra) => extra.currency === 'MXN'))
@@ -178,16 +189,31 @@ function computePurchaseOrderRealCost(input) {
         invoice_usd: invoiceUsdResult,
         operating_extras_mxn: operatingExtrasMxnResult,
         operating_extras_usd: operatingExtrasUsdResult,
+        igi_mxn: igiMxnResult,
+        igi_usd: igiUsdResult,
         total_usd: merchandiseUsdResult != null && extrasUsdResult != null
-            ? (0, purchase_order_line_breakdown_util_1.roundPoMoney)(merchandiseUsdResult + extrasUsdResult)
+            ? (0, purchase_order_line_breakdown_util_1.roundPoMoney)(merchandiseUsdResult + extrasUsdResult + (igiUsdResult ?? 0))
             : null,
         total_mxn: merchandiseMxnResult != null && extrasMxnResult != null
-            ? (0, purchase_order_line_breakdown_util_1.roundPoMoney)(merchandiseMxnResult + extrasMxnResult)
+            ? (0, purchase_order_line_breakdown_util_1.roundPoMoney)(merchandiseMxnResult + extrasMxnResult + (igiMxnResult ?? 0))
             : null,
         lines,
     };
 }
 function isRealCostEnabled(exchangeRate, extrasCount) {
     return extrasCount > 0 || parseRealCostNumber(exchangeRate, 0) > 0;
+}
+function computeLinesIgiMxn(lines, paymentCurrency, exchangeRate) {
+    const rate = exchangeRate == null || exchangeRate === '' ? null : parseRealCostNumber(exchangeRate, 0) || null;
+    const amount = (lines ?? []).reduce((sum, line) => {
+        const igi = Math.max(parseRealCostNumber(line.igi_percentage), 0);
+        if (igi <= 0) {
+            return sum;
+        }
+        const unit = (0, purchase_order_line_breakdown_util_1.roundPoUnitCost)(parseRealCostNumber(line.vendor_unit_cost));
+        return sum + realCostLineQuantity(line) * unit * (igi / 100);
+    }, 0);
+    const mxn = convertAmount(amount, paymentCurrency === 'USD' ? 'USD' : 'MXN', 'MXN', rate);
+    return mxn == null ? 0 : (0, purchase_order_line_breakdown_util_1.roundPoMoney)(mxn);
 }
 //# sourceMappingURL=purchase-order-real-cost.util.js.map

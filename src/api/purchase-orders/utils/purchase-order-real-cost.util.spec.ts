@@ -100,4 +100,33 @@ describe('computePurchaseOrderRealCost', () => {
     expect(result.lines[0].real_unit_cost_mxn).toBe(30);
     expect(result.lines[0].real_unit_cost_usd).toBeNull();
   });
+
+  it('suma IGI% y GTOS% sobre el precio (caso ODC-000048)', () => {
+    const result = computePurchaseOrderRealCost({
+      payment_currency: 'USD',
+      customs_exchange_rate: 18.667,
+      extras: [
+        { amount: 4500, currency: 'USD' },
+        { amount: 54779.54, currency: 'MXN' },
+      ],
+      lines: [{ id: 'a', quantity: 1130, vendor_unit_cost: 17.15, igi_percentage: 5 }],
+    });
+
+    expect(result.increment_percentage).toBeCloseTo(38.36, 2);
+    // 17.15 × (1 + 0.05 + 0.3836) — antes daba 24.9157 al multiplicar
+    expect(result.lines[0].real_unit_cost_usd).toBeCloseTo(24.5868, 3);
+    expect(result.igi_usd).toBe(968.98);
+  });
+
+  it('sin IGI el costo no cambia respecto a la fórmula anterior', () => {
+    const result = computePurchaseOrderRealCost({
+      payment_currency: 'MXN',
+      customs_exchange_rate: null,
+      extras: [{ amount: 100, currency: 'MXN' }],
+      lines: [{ id: 'a', quantity: 10, vendor_unit_cost: 20, igi_percentage: 0 }],
+    });
+
+    expect(result.lines[0].real_unit_cost_mxn).toBe(30);
+    expect(result.igi_mxn).toBe(0);
+  });
 });

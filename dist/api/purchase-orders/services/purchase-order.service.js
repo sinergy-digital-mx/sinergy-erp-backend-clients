@@ -471,6 +471,15 @@ let PurchaseOrderService = class PurchaseOrderService {
             merchandise_mxn: po.landed_merchandise_mxn,
             extras_mxn: po.landed_extras_mxn,
             invoice_extras_mxn: po.landed_invoice_extras_mxn,
+            igi_mxn: (0, purchase_order_real_cost_util_1.computeLinesIgiMxn)((po.line_items ?? []).map((line) => ({
+                id: line.id,
+                quantity: line.quantity,
+                received_quantity: line.received_original_quantity,
+                vendor_unit_cost: line.received_original_unit_total != null
+                    ? line.received_original_unit_total
+                    : line.unit_total,
+                igi_percentage: line.igi_percentage,
+            })), po.payment_currency, po.customs_exchange_rate),
             customs_exchange_rate: po.customs_exchange_rate,
         });
         return {
@@ -496,6 +505,8 @@ let PurchaseOrderService = class PurchaseOrderService {
             landed_extras_usd: landedCash.extras_usd,
             landed_total_usd: landedCash.total_usd,
             landed_total_mxn: landedCash.total_mxn,
+            landed_igi_mxn: landedCash.igi_mxn,
+            landed_igi_usd: landedCash.igi_usd,
             landed_contracted_mxn: landedCash.contracted_mxn,
             landed_contracted_usd: landedCash.contracted_usd,
             landed_invoice_mxn: landedCash.invoice_mxn,

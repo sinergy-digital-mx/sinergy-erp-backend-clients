@@ -13,6 +13,7 @@ const NULL_KEYS = new Set([
     'landed_contracted_usd',
     'landed_invoice_usd',
     'landed_operating_extras_usd',
+    'landed_igi_usd',
 ]);
 const ZERO_KEYS = new Set([
     'landed_increment_percentage',
@@ -22,6 +23,7 @@ const ZERO_KEYS = new Set([
     'landed_contracted_mxn',
     'landed_invoice_mxn',
     'landed_operating_extras_mxn',
+    'landed_igi_mxn',
     'igi_percentage',
     'extra_costs_count',
 ]);
