@@ -441,15 +441,16 @@ export class CustomerCreditService {
       const storedRate = Number(order.exchange_rate);
       const momentRate =
         storedRate > 0 ? storedRate : await rateForOrderDate(order.created_at);
+      // Los importes de la orden siempre están en MXN; `currency` es la moneda del documento.
       const rate = creditConversionRate({
-        orderCurrency: order.currency,
+        orderCurrency: 'MXN',
         creditCurrency,
         orderExchangeRate: storedRate,
         dailyExchangeRate: momentRate,
       });
       const converted = amountInCreditCurrency({
         amount: creditBase,
-        orderCurrency: order.currency,
+        orderCurrency: 'MXN',
         creditCurrency,
         exchangeRate: rate,
       });
@@ -504,20 +505,20 @@ export class CustomerCreditService {
     const momentRate =
       storedRate > 0 ? storedRate : await this.rateForDate(input.tenantId, input.createdAt);
     const exchangeRate = creditConversionRate({
-      orderCurrency: input.currency,
+      orderCurrency: 'MXN',
       creditCurrency: snapshot.credit_currency,
       orderExchangeRate: storedRate,
       dailyExchangeRate: momentRate,
     });
     const nextConverted = amountInCreditCurrency({
       amount: next,
-      orderCurrency: input.currency,
+      orderCurrency: 'MXN',
       creditCurrency: snapshot.credit_currency,
       exchangeRate,
     });
     const previousConverted = amountInCreditCurrency({
       amount: previous,
-      orderCurrency: input.currency,
+      orderCurrency: 'MXN',
       creditCurrency: snapshot.credit_currency,
       exchangeRate,
     });

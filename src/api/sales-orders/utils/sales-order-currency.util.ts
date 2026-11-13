@@ -22,6 +22,8 @@ export function resolvePosDocumentCurrency(input: {
   amountCheckMxn: number;
   amountCheckUsd?: number;
   amountCreditMxn: number;
+  /** Cobro 100 % a crédito: la moneda del documento se elige libremente (MXN o USD). */
+  isCredit?: boolean;
 }): { currency: SalesOrderCurrency; exchangeRate: number | null; error: string | null } {
   const requested = normalizeSalesOrderCurrency(input.requested);
   const rate = Number(input.usdExchangeRate ?? 0);
@@ -39,7 +41,7 @@ export function resolvePosDocumentCurrency(input: {
   if (requested !== 'USD') {
     return { currency: 'MXN', exchangeRate: null, error: null };
   }
-  if (!canDocumentOrderInUsd(usdAppliedMxn, mxnApplied)) {
+  if (!input.isCredit && !canDocumentOrderInUsd(usdAppliedMxn, mxnApplied)) {
     return {
       currency: 'MXN',
       exchangeRate: null,

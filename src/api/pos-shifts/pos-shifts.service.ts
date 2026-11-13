@@ -889,11 +889,16 @@ export class PosShiftsService {
       }
     }
     const payment = await this.validateAndNormalizePayment(tenantId, dto, amountPending);
+    const creditDocumentRate =
+      isCredit && dto.order_currency === 'USD'
+        ? await this.creditDocumentExchangeRate(tenantId, dto, creditCharge?.exchangeRate ?? null)
+        : null;
     const documentCurrency = resolvePosDocumentCurrency({
       requested: dto.order_currency,
+      isCredit,
       amountCashMxn: payment.amountCashMxn,
       amountCashUsd: payment.amountCashUsd,
-      usdExchangeRate: payment.usdExchangeRate,
+      usdExchangeRate: isCredit ? creditDocumentRate : payment.usdExchangeRate,
       amountTransferMxn: payment.amountTransferMxn,
       amountCardMxn: payment.amountCardMxn,
       amountCheckMxn: payment.amountCheckMxn,
@@ -952,10 +957,11 @@ export class PosShiftsService {
       }, tenantId, cobranzaUserId, 'pos_cobranza');
     }
     const paymentStatus = isCredit ? 'Pendiente' : 'Pagado';
-    const storedCurrency = isCredit
+    const creditInUsd = isCredit && documentCurrency.currency === 'USD';
+    const storedCurrency = isCredit && !creditInUsd
       ? normalizeCreditCurrency(order.currency)
       : documentCurrency.currency;
-    const storedExchangeRate = isCredit
+    const storedExchangeRate = isCredit && !creditInUsd
       ? this.creditExchangeRateToStore(order, creditCharge?.exchangeRate ?? null)
       : documentCurrency.exchangeRate;
     await this.salesOrderRepo.update({ id: order.id, tenant_id: tenantId }, {
@@ -1382,15 +1388,16 @@ export class PosShiftsService {
     const momentRate = storedRate > 0
       ? storedRate
       : await this.exchangeRateForOrderDate(customer.tenant_id, order.created_at);
+    // Los importes de la orden siempre están en MXN; `currency` solo indica la moneda del documento.
     const exchangeRate = creditConversionRate({
-      orderCurrency: order.currency,
+      orderCurrency: 'MXN',
       creditCurrency: snapshot.credit_currency,
       orderExchangeRate: storedRate,
       dailyExchangeRate: momentRate,
     });
     const converted = amountInCreditCurrency({
       amount,
-      orderCurrency: order.currency,
+      orderCurrency: 'MXN',
       creditCurrency: snapshot.credit_currency,
       exchangeRate,
     });
@@ -1401,10 +1408,9 @@ export class PosShiftsService {
     if (converted.amount - snapshot.credit_available > 0.01 && !usesWaiver) {
       throw new BadRequestException(`Crédito insuficiente. Disponible: ${snapshot.credit_available.toFixed(2)} ${snapshot.credit_currency}`);
     }
-    const orderCurrency = normalizeCreditCurrency(order.currency);
     return {
       usesWaiver,
-      exchangeRate: orderCurrency === snapshot.credit_currency ? null : exchangeRate,
+      exchangeRate: snapshot.credit_currency === 'MXN' ? null : exchangeRate,
     };
   }
 
@@ -1441,6 +1447,23 @@ export class PosShiftsService {
     const row = await this.exchangeRateService.getDailyRate(tenantId, date ?? undefined);
     const value = Number(row?.exchange_rate ?? 0);
     return value > 0 ? value : null;
+  }
+
+  /** T.C. para dejar en USD una venta a crédito: el usado para el crédito, el del cobro o el del día. */
+  private async creditDocumentExchangeRate(
+    tenantId: string,
+    dto: CollectPosSaleDto,
+    creditRate: number | null,
+  ): Promise<number | null> {
+    if (creditRate != null && creditRate > 0) {
+      return creditRate;
+    }
+    const requested = Number(dto.usd_exchange_rate ?? 0);
+    if (requested > 0) {
+      return requested;
+    }
+    const daily = await this.resolveUsdExchangeRate(tenantId);
+    return daily && daily > 0 ? daily : null;
   }
 
   private creditExchangeRateToStore(order: SalesOrder, creditRate: number | null): number | null {
