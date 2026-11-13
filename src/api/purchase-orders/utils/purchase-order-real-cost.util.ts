@@ -40,6 +40,8 @@ export type ComputeRealCostResult = {
   merchandise_mxn: number | null;
   extras_amount: number;
   extras_mxn: number | null;
+  igi_mxn: number | null;
+  igi_usd: number | null;
   lines: RealCostLineResult[];
 };
 
@@ -155,8 +157,8 @@ export function computePurchaseOrderRealCost(
   const incrementPercentage = roundPoUnitCost(incrementRatio * 100);
 
   const lines: RealCostLineResult[] = preparedLines.map((line) => {
-    const taxedVendor = line.vendorUnitCost * (1 + line.igiPercentage / 100);
-    const landedVendor = taxedVendor * (1 + incrementRatio);
+    // IGI% y GTOS% se suman sobre el precio del proveedor (no se multiplican entre sí).
+    const landedVendor = line.vendorUnitCost * (1 + line.igiPercentage / 100 + incrementRatio);
     const realUsd = convertAmount(landedVendor, paymentCurrency, 'USD', exchangeRate);
     const realMxn = convertAmount(landedVendor, paymentCurrency, 'MXN', exchangeRate);
 
@@ -170,6 +172,13 @@ export function computePurchaseOrderRealCost(
     };
   });
 
+  const igiAmount = preparedLines.reduce(
+    (sum, line) => sum + line.quantity * line.vendorUnitCost * (line.igiPercentage / 100),
+    0,
+  );
+  const igiMxn = convertAmount(igiAmount, paymentCurrency, 'MXN', exchangeRate);
+  const igiUsd = convertAmount(igiAmount, paymentCurrency, 'USD', exchangeRate);
+
   return {
     has_real_cost: hasRealCost,
     increment_ratio: incrementRatio,
@@ -180,6 +189,8 @@ export function computePurchaseOrderRealCost(
     extras_mxn: hasRealCost && (merchandiseMxn != null || extras.every((e) => e.currency === 'MXN'))
       ? roundPoMoney(extrasMxn)
       : null,
+    igi_mxn: igiMxn == null ? null : roundPoMoney(igiMxn),
+    igi_usd: igiUsd == null ? null : roundPoMoney(igiUsd),
     lines,
   };
 }

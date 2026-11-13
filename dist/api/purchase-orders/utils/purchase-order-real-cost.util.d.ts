@@ -41,6 +41,8 @@ export type ComputeRealCostResult = {
     invoice_usd: number | null;
     operating_extras_mxn: number | null;
     operating_extras_usd: number | null;
+    igi_mxn: number | null;
+    igi_usd: number | null;
     total_usd: number | null;
     total_mxn: number | null;
     lines: RealCostLineResult[];
@@ -49,6 +51,8 @@ export type PersistedLandedCashTotals = {
     extras_usd: number | null;
     total_usd: number | null;
     total_mxn: number;
+    igi_mxn: number;
+    igi_usd: number | null;
     contracted_mxn: number;
     contracted_usd: number | null;
     invoice_mxn: number;
@@ -70,7 +74,9 @@ export declare function derivePersistedLandedCashTotals(input: {
     merchandise_mxn: number | string | null | undefined;
     extras_mxn: number | string | null | undefined;
     invoice_extras_mxn?: number | string | null | undefined;
+    igi_mxn?: number | string | null | undefined;
     customs_exchange_rate: number | string | null | undefined;
 }): PersistedLandedCashTotals;
+export declare function computeLinesIgiMxn(lines: RealCostLineInput[] | null | undefined, paymentCurrency: RealCostCurrency | string | null | undefined, exchangeRate: number | string | null | undefined): number;
 export declare function computePurchaseOrderRealCost(input: ComputeRealCostInput): ComputeRealCostResult;
 export declare function isRealCostEnabled(exchangeRate: unknown, extrasCount: number): boolean;
