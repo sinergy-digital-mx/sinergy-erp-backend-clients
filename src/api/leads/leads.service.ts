@@ -7,8 +7,8 @@ import { CreateLeadDto } from './dto/create-lead.dto';
 import { UpdateLeadDto } from './dto/update-lead.dto';
 import { QueryLeadsDto } from './dto/query-leads.dto';
 import { PaginatedLeadsDto } from './dto/paginated-leads.dto';
-import { LeadStatus } from 'src/entities/leads/lead-status.entity';
-import { Lead } from 'src/entities/leads/lead.entity';
+import { LeadStatus } from '../../entities/leads/lead-status.entity';
+import { Lead } from '../../entities/leads/lead.entity';
 
 @Injectable()
 export class LeadsService {

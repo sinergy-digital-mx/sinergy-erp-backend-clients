@@ -27,6 +27,14 @@ export class QueryContractsDto {
   @Transform(({ value }) => value === true || value === 'true')
   hasOverdue?: boolean;
 
+  @ApiPropertyOptional({
+    description: 'Solo contratos con enganche financiado',
+    type: Boolean,
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  downPaymentFinanced?: boolean;
+
   @ApiPropertyOptional({ description: 'Buscar número, cliente, lote o clave catastral' })
   @IsOptional()
   @IsString()

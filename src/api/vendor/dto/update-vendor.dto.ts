@@ -5,6 +5,7 @@ import {
   IsInt,
   Min,
   ValidateIf,
+  MaxLength,
 } from 'class-validator';
 import { VendorType } from '../../../entities/vendor/vendor-type.enum';
 import { VendorBankingDto } from './vendor-banking.dto';
@@ -25,6 +26,26 @@ export class UpdateVendorDto extends VendorBankingDto {
   @IsOptional()
   @IsString()
   street?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  exterior_number?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  interior_number?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  colonia?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  localidad?: string | null;
 
   @IsOptional()
   @IsString()

@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Contract } from '../../../entities/contracts/contract.entity';
 import { ContractDownpaymentPayment } from '../../../entities/contracts/contract-downpayment-payment.entity';
 import { RBACModule } from '../../rbac/rbac.module';
+import { PaymentsModule } from '../contract-payments/payments.module';
 import { DownpaymentPaymentsController } from './downpayment-payments.controller';
 import { DownpaymentPaymentsService } from './downpayment-payments.service';
 
@@ -10,6 +11,7 @@ import { DownpaymentPaymentsService } from './downpayment-payments.service';
   imports: [
     TypeOrmModule.forFeature([ContractDownpaymentPayment, Contract]),
     RBACModule,
+    PaymentsModule,
   ],
   providers: [DownpaymentPaymentsService],
   controllers: [DownpaymentPaymentsController],

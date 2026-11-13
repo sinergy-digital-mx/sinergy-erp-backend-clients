@@ -19,6 +19,10 @@ export class QueryControlDeskBoardDto {
   status?: string;
 
   @IsOptional()
+  @IsIn(['queue', 'picking', 'assembling', 'assembled', 'today'])
+  stage?: 'queue' | 'picking' | 'assembling' | 'assembled' | 'today';
+
+  @IsOptional()
   @IsIn(['admin', 'warehouse'])
   view?: 'admin' | 'warehouse';
 

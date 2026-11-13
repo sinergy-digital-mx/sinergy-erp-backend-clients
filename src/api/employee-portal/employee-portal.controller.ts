@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Delete,
   Body,
   Param,
   Query,
@@ -27,6 +28,10 @@ import { EmployeePortalService } from './employee-portal.service';
 import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
 import { CreateLeaveRequestDto } from '../employees/dto/create-leave-request.dto';
 import { QueryLeaveRequestDto } from '../employees/dto/query-leave-request.dto';
+import { CreateOvertimeRequestDto } from '../employees/dto/create-overtime-request.dto';
+import { QueryOvertimeRequestDto } from '../employees/dto/query-overtime-request.dto';
+import { UpdateOvertimeRequestDto } from '../employees/dto/update-overtime-request.dto';
+import { UpsertWorkScheduleDto } from '../employees/dto/upsert-work-schedule.dto';
 import { EMPLOYEE_PORTAL_ENTITY_CODE } from './employee-portal.constants';
 
 @ApiTags('Employee Portal')
@@ -102,6 +107,90 @@ export class EmployeePortalController {
       this.getTenantId(),
       this.getUserId(),
       requestId,
+    );
+  }
+
+  @Post('me/leave-requests/:requestId/documents')
+  @RequirePermission(EMPLOYEE_PORTAL_ENTITY_CODE, 'RequestLeave')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Adjuntar un comprobante a mi incapacidad médica' })
+  @ApiParam({ name: 'requestId', type: 'string' })
+  uploadMyLeaveDocument(
+    @Param('requestId') requestId: string,
+    @UploadedFile() file: any,
+  ) {
+    return this.service.addMyLeaveDocument(
+      this.getTenantId(),
+      this.getUserId(),
+      requestId,
+      file,
+    );
+  }
+
+  @Delete('me/leave-requests/:requestId/documents/:documentId')
+  @RequirePermission(EMPLOYEE_PORTAL_ENTITY_CODE, 'RequestLeave')
+  @ApiOperation({ summary: 'Quitar un comprobante de mi incapacidad médica' })
+  @ApiParam({ name: 'requestId', type: 'string' })
+  @ApiParam({ name: 'documentId', type: 'string' })
+  removeMyLeaveDocument(
+    @Param('requestId') requestId: string,
+    @Param('documentId') documentId: string,
+  ) {
+    return this.service.removeMyLeaveDocument(
+      this.getTenantId(),
+      this.getUserId(),
+      requestId,
+      documentId,
+    );
+  }
+
+  @Get('me/overtime-requests')
+  @RequirePermission(EMPLOYEE_PORTAL_ENTITY_CODE, 'Read')
+  @ApiOperation({ summary: 'Ver mis solicitudes de horas extras' })
+  getMyOvertimeRequests(@Query() query: QueryOvertimeRequestDto) {
+    return this.service.getMyOvertimeRequests(
+      this.getTenantId(),
+      this.getUserId(),
+      query,
+    );
+  }
+
+  @Post('me/overtime-requests')
+  @RequirePermission(EMPLOYEE_PORTAL_ENTITY_CODE, 'RequestLeave')
+  @ApiOperation({ summary: 'Solicitar horas extras' })
+  createMyOvertimeRequest(@Body() dto: CreateOvertimeRequestDto) {
+    return this.service.createMyOvertimeRequest(
+      this.getTenantId(),
+      this.getUserId(),
+      dto,
+    );
+  }
+
+  @Put('me/work-schedule')
+  @RequirePermission(EMPLOYEE_PORTAL_ENTITY_CODE, 'Update')
+  @ApiOperation({ summary: 'Guardar mi horario laboral semanal' })
+  upsertMyWorkSchedule(@Body() dto: UpsertWorkScheduleDto) {
+    return this.service.upsertMyWorkSchedule(
+      this.getTenantId(),
+      this.getUserId(),
+      dto,
+    );
+  }
+
+  @Put('me/overtime-requests/:requestId')
+  @RequirePermission(EMPLOYEE_PORTAL_ENTITY_CODE, 'RequestLeave')
+  @ApiOperation({ summary: 'Corregir una de mis solicitudes de horas extras pendientes' })
+  @ApiParam({ name: 'requestId', type: 'string' })
+  updateMyOvertimeRequest(
+    @Param('requestId') requestId: string,
+    @Body() dto: UpdateOvertimeRequestDto,
+  ) {
+    return this.service.updateMyOvertimeRequest(
+      this.getTenantId(),
+      this.getUserId(),
+      requestId,
+      dto,
     );
   }
 

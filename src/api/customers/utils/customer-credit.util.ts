@@ -1,7 +1,11 @@
+import { normalizeCreditCurrency } from './credit-currency.util';
+
 export interface CustomerCreditSnapshot {
   credit_enabled: boolean;
+  allow_credit_exceed: boolean;
   credit_days: number | null;
   credit_amount: number;
+  credit_currency: 'MXN' | 'USD';
   credit_used: number;
   credit_available: number;
   credit_usage_percent: number;
@@ -37,6 +41,7 @@ export function parseOptionalNumber(value: unknown): number | undefined {
 
 export function extractCreditPatchFromBody(body: Record<string, unknown>): {
   credit_enabled: boolean;
+  allow_credit_exceed?: boolean;
   credit_days?: number | null;
   credit_amount?: number | null;
 } | null {
@@ -56,17 +61,31 @@ export function extractCreditPatchFromBody(body: Record<string, unknown>): {
   if (enabled === undefined && days === undefined && amount === undefined) {
     return null;
   }
+  const allowExceed = parseOptionalBoolean(
+    body.allow_credit_exceed ?? nested.allow_credit_exceed,
+  );
   return {
     credit_enabled: enabled ?? Number(amount ?? 0) > 0,
+    allow_credit_exceed: allowExceed ?? false,
     credit_days: days ?? null,
     credit_amount: amount ?? null,
   };
 }
 
+export function creditChargeUsesExceedWaiver(
+  amount: number,
+  creditAvailable: number,
+  allowCreditExceed: boolean,
+): boolean {
+  return allowCreditExceed && amount - creditAvailable > 0.01;
+}
+
 export function buildCreditSnapshot(params: {
   creditEnabled: boolean;
+  allowCreditExceed?: boolean;
   creditDays?: number | null;
   creditAmount?: number | string | null;
+  creditCurrency?: unknown;
   creditUsed?: number | string | null;
 }): CustomerCreditSnapshot {
   const creditAmount = Math.max(0, Number(params.creditAmount ?? 0));
@@ -77,7 +96,9 @@ export function buildCreditSnapshot(params: {
 
   return {
     credit_enabled: Boolean(params.creditEnabled),
+    allow_credit_exceed: Boolean(params.allowCreditExceed),
     credit_days: params.creditDays ?? null,
+    credit_currency: normalizeCreditCurrency(params.creditCurrency),
     credit_amount: Number(creditAmount.toFixed(2)),
     credit_used: Number(creditUsed.toFixed(2)),
     credit_available: creditAvailable,

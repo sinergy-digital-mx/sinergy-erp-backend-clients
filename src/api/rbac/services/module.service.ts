@@ -9,6 +9,8 @@ import { PermissionVersionService } from './permission-version.service';
 import { PermissionCacheService } from './permission-cache.service';
 import { getModuleCategoryLabel } from '../constants/module-categories.constants';
 import { DIVINO_DASHBOARD_ALLOWED_TENANT_ID } from '../../divino-dashboard/divino-dashboard.constants';
+import { MADERERIA_ORGANIZATION_ID } from '../../madereria-inventory-import/madereria-inventory-import.constants';
+import { PURCHASE_ORDER_REAL_COST_MODULE_CODE } from '../../purchase-orders/constants/purchase-order-real-cost-permission';
 
 const DIVINO_EXCLUDED_MODULE_CODES = ['warehouse_control'];
 
@@ -196,6 +198,13 @@ export class ModuleService {
     if (
       tenantId === DIVINO_DASHBOARD_ALLOWED_TENANT_ID &&
       DIVINO_EXCLUDED_MODULE_CODES.includes(module.code)
+    ) {
+      throw new BadRequestException('Este módulo no aplica a esta organización');
+    }
+
+    if (
+      module.code === PURCHASE_ORDER_REAL_COST_MODULE_CODE &&
+      tenantId !== MADERERIA_ORGANIZATION_ID
     ) {
       throw new BadRequestException('Este módulo no aplica a esta organización');
     }

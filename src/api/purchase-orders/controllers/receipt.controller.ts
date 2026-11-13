@@ -7,11 +7,13 @@ import {
   Req,
   HttpCode,
   HttpStatus,
+  UseInterceptors,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { TenantModuleValidationGuard } from '../../auth/tenant-module-validation.guard';
 import { ReceiptService } from '../services/receipt.service';
 import { ReceivePurchaseOrderDto } from '../dto';
+import { HidePurchaseOrderRealCostInterceptor } from '../interceptors/hide-purchase-order-real-cost.interceptor';
 
 /**
  * Receipt Controller
@@ -20,6 +22,7 @@ import { ReceivePurchaseOrderDto } from '../dto';
  */
 @Controller('tenant/purchase-orders')
 @UseGuards(JwtAuthGuard, TenantModuleValidationGuard)
+@UseInterceptors(HidePurchaseOrderRealCostInterceptor)
 export class ReceiptController {
   constructor(private readonly receiptService: ReceiptService) {}
 

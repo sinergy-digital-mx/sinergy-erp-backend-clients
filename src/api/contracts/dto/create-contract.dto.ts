@@ -32,6 +32,9 @@ export class CreateContractDto {
   @IsString()
   lead_group_id?: string;
 
+  @IsUUID()
+  fiscal_configuration_id: string;
+
   @IsOptional()
   @IsNumber()
   list_price?: number;
@@ -50,6 +53,11 @@ export class CreateContractDto {
 
   @IsNumber()
   down_payment: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  down_payment_target?: number;
 
   @IsOptional()
   @IsBoolean()
@@ -79,6 +87,20 @@ export class CreateContractDto {
   @IsDate()
   @Type(() => Date)
   first_payment_date: Date;
+
+  @IsOptional()
+  @Transform(({ value }) => (value === '' ? null : value))
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  interest_rate?: number | null;
+
+  @IsOptional()
+  @Transform(({ value }) => (value === '' ? null : value))
+  @IsInt()
+  @Min(0)
+  @Max(365)
+  payment_due_day?: number | null;
 
   /** Default USD. Si se omite, se toma la moneda del lote o USD. */
   @IsOptional()

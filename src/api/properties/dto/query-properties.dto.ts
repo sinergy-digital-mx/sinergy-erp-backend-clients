@@ -1,6 +1,13 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 export class QueryPropertiesDto {
   @ApiPropertyOptional({
@@ -33,6 +40,12 @@ export class QueryPropertiesDto {
   @IsOptional()
   @IsString()
   status?: string;
+
+  @ApiPropertyOptional({ description: 'Manzana exacta del lote. Ej. 15' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  block?: string;
 
   @ApiPropertyOptional({ minimum: 1, default: 1 })
   @IsOptional()

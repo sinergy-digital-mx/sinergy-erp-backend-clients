@@ -11,6 +11,7 @@ export interface BuildExcelOptions {
   sheetName: string;
   title: string;
   subtitle?: string;
+  banner?: string;
   columns: ExcelColumnDef[];
   rows: Record<string, unknown>[];
   /** ARGB sin #, ej. FF1B7F5E */
@@ -23,22 +24,38 @@ const DEFAULT_HEADER_COLOR = 'FF4B5A8A';
 const DEFAULT_TITLE_COLOR = 'FF2C3E6B';
 
 export async function buildStyledExcelBuffer(options: BuildExcelOptions): Promise<Buffer> {
+  return buildStyledExcelWorkbook([options]);
+}
+
+export async function buildStyledExcelWorkbook(sheets: BuildExcelOptions[]): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'Sinergy ERP';
+  workbook.created = new Date();
+
+  for (const sheet of sheets) {
+    appendStyledWorksheet(workbook, sheet);
+  }
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  return Buffer.from(buffer);
+}
+
+function appendStyledWorksheet(workbook: ExcelJS.Workbook, options: BuildExcelOptions) {
   const {
     sheetName,
     title,
     subtitle,
+    banner,
     columns,
     rows,
     headerColor = DEFAULT_HEADER_COLOR,
     titleColor = DEFAULT_TITLE_COLOR,
   } = options;
 
-  const workbook = new ExcelJS.Workbook();
-  workbook.creator = 'Sinergy ERP';
-  workbook.created = new Date();
+  const frozenRows = 1 + (banner ? 1 : 0) + (subtitle ? 1 : 0) + 1;
 
   const worksheet = workbook.addWorksheet(sheetName, {
-    views: [{ state: 'frozen', ySplit: subtitle ? 3 : 2 }],
+    views: [{ state: 'frozen', ySplit: frozenRows }],
   });
 
   const colCount = columns.length;
@@ -56,10 +73,24 @@ export async function buildStyledExcelBuffer(options: BuildExcelOptions): Promis
   titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
   titleRow.height = 28;
 
+  if (banner) {
+    const bannerRow = worksheet.addRow([banner]);
+    worksheet.mergeCells(bannerRow.number, 1, bannerRow.number, colCount);
+    const bannerCell = bannerRow.getCell(1);
+    bannerCell.font = { bold: true, size: 12, color: { argb: 'FF92400E' } };
+    bannerCell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFFEF3C7' },
+    };
+    bannerCell.alignment = { horizontal: 'left', vertical: 'middle' };
+    bannerRow.height = 24;
+  }
+
   // Fila subtítulo (filtros / fecha generación)
   if (subtitle) {
     const subRow = worksheet.addRow([subtitle]);
-    worksheet.mergeCells(2, 1, 2, colCount);
+    worksheet.mergeCells(subRow.number, 1, subRow.number, colCount);
     const subCell = subRow.getCell(1);
     subCell.font = { italic: true, size: 10, color: { argb: 'FF555555' } };
     subCell.fill = {
@@ -124,9 +155,6 @@ export async function buildStyledExcelBuffer(options: BuildExcelOptions): Promis
   });
 
   worksheet.columns = columns.map((col) => ({ width: col.width ?? 16 }));
-
-  const buffer = await workbook.xlsx.writeBuffer();
-  return Buffer.from(buffer);
 }
 
 function thinBorder(color: string): Partial<ExcelJS.Borders> {

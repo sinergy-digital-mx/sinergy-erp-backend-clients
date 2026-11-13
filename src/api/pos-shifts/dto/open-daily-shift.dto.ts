@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
 
 export class OpenDailyShiftDto {
   @ApiProperty({ example: 1500 })
@@ -17,4 +17,13 @@ export class OpenDailyShiftDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiProperty({
+    required: false,
+    description:
+      'Sucursal seleccionada en POS. El corte se abre en esa sucursal.',
+  })
+  @IsOptional()
+  @IsUUID()
+  billing_branch_id?: string;
 }

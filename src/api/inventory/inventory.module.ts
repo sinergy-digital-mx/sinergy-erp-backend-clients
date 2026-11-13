@@ -4,6 +4,7 @@ import { InventoryBatch } from '../../entities/purchase-orders/inventory-batch.e
 import { Product } from '../../entities/products/product.entity';
 import { InventoryTransfer } from '../../entities/inventory/inventory-transfer.entity';
 import { InventoryTransferLine } from '../../entities/inventory/inventory-transfer-line.entity';
+import { ShippingInventoryTransfer } from '../../entities/logistics/shipping-inventory-transfer.entity';
 import { InventoryAudit } from '../../entities/inventory/inventory-audit.entity';
 import { InventoryAuditLine } from '../../entities/inventory/inventory-audit-line.entity';
 import { SalesOrderBatchAllocation } from '../../entities/sales-orders/sales-order-batch-allocation.entity';
@@ -12,6 +13,7 @@ import { ProductDiscount } from '../../entities/products/product-discount.entity
 import { ProductUoM } from '../../entities/products/product-uom.entity';
 import { ProductVendorCost } from '../../entities/products/product-vendor-cost.entity';
 import { User } from '../../entities/users/user.entity';
+import { UserBillingBranch } from '../../entities/users/user-billing-branch.entity';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { FiscalConfiguration } from '../../entities/billing/fiscal-configuration.entity';
 import { BillingBranch } from '../../entities/billing/billing-branch.entity';
@@ -41,6 +43,7 @@ import { PurchaseOrdersModule } from '../purchase-orders/purchase-orders.module'
       Product,
       InventoryTransfer,
       InventoryTransferLine,
+      ShippingInventoryTransfer,
       InventoryAudit,
       InventoryAuditLine,
       SalesOrderBatchAllocation,
@@ -49,6 +52,7 @@ import { PurchaseOrdersModule } from '../purchase-orders/purchase-orders.module'
       ProductUoM,
       ProductVendorCost,
       User,
+      UserBillingBranch,
       Warehouse,
       FiscalConfiguration,
       BillingBranch,

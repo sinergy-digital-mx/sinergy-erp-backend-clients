@@ -10,8 +10,13 @@ import { User } from '../../entities/users/user.entity';
 import { Employee } from '../../entities/employees/employee.entity';
 import { EmployeesService } from '../employees/employees.service';
 import { EmployeeLeaveService } from '../employees/employee-leave.service';
+import { EmployeeOvertimeService } from '../employees/employee-overtime.service';
 import { CreateLeaveRequestDto } from '../employees/dto/create-leave-request.dto';
 import { QueryLeaveRequestDto } from '../employees/dto/query-leave-request.dto';
+import { CreateOvertimeRequestDto } from '../employees/dto/create-overtime-request.dto';
+import { QueryOvertimeRequestDto } from '../employees/dto/query-overtime-request.dto';
+import { UpdateOvertimeRequestDto } from '../employees/dto/update-overtime-request.dto';
+import { UpsertWorkScheduleDto } from '../employees/dto/upsert-work-schedule.dto';
 import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
 
 @Injectable()
@@ -21,6 +26,7 @@ export class EmployeePortalService {
     private readonly userRepo: Repository<User>,
     private readonly employeesService: EmployeesService,
     private readonly leaveService: EmployeeLeaveService,
+    private readonly overtimeService: EmployeeOvertimeService,
   ) {}
 
   // Resuelve el empleado del usuario autenticado o niega el acceso al portal.
@@ -90,5 +96,62 @@ export class EmployeePortalService {
   async cancelMyLeaveRequest(tenantId: string, userId: string, requestId: string) {
     const employee = await this.resolveEmployee(tenantId, userId);
     return this.leaveService.cancel(tenantId, requestId, employee.id);
+  }
+
+  async addMyLeaveDocument(
+    tenantId: string,
+    userId: string,
+    requestId: string,
+    file: any,
+  ) {
+    const employee = await this.resolveEmployee(tenantId, userId);
+    return this.leaveService.addDocument(tenantId, requestId, file, userId, employee.id);
+  }
+
+  async removeMyLeaveDocument(
+    tenantId: string,
+    userId: string,
+    requestId: string,
+    documentId: string,
+  ) {
+    const employee = await this.resolveEmployee(tenantId, userId);
+    return this.leaveService.removeDocument(tenantId, requestId, documentId, employee.id);
+  }
+
+  async getMyOvertimeRequests(
+    tenantId: string,
+    userId: string,
+    query?: QueryOvertimeRequestDto,
+  ) {
+    const employee = await this.resolveEmployee(tenantId, userId);
+    return this.overtimeService.findAllByEmployee(tenantId, employee.id, query);
+  }
+
+  async createMyOvertimeRequest(
+    tenantId: string,
+    userId: string,
+    dto: CreateOvertimeRequestDto,
+  ) {
+    const employee = await this.resolveEmployee(tenantId, userId);
+    return this.overtimeService.create(tenantId, employee.id, dto, userId);
+  }
+
+  async updateMyOvertimeRequest(
+    tenantId: string,
+    userId: string,
+    requestId: string,
+    dto: UpdateOvertimeRequestDto,
+  ) {
+    const employee = await this.resolveEmployee(tenantId, userId);
+    return this.overtimeService.update(tenantId, requestId, dto, employee.id);
+  }
+
+  async upsertMyWorkSchedule(
+    tenantId: string,
+    userId: string,
+    dto: UpsertWorkScheduleDto,
+  ) {
+    const employee = await this.resolveEmployee(tenantId, userId);
+    return this.employeesService.upsertWorkSchedule(tenantId, employee.id, dto);
   }
 }

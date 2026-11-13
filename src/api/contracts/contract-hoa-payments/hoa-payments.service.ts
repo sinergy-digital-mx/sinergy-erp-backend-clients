@@ -7,6 +7,7 @@ import {
   normalizeContractCurrency,
   resolveStoredContractCurrency,
 } from '../contract-currency.util';
+import { applyPaymentSettlement } from '../utils/contract-payment-settlement.util';
 import { GenerateHoaPaymentsDto } from './dto/generate-hoa-payments.dto';
 import { RecordHoaPaymentDto } from './dto/record-hoa-payment.dto';
 import { UpdateHoaPaymentDto } from './dto/update-hoa-payment.dto';
@@ -172,7 +173,9 @@ export class HoaPaymentsService {
       paid_count: payments.filter((p) => p.status === 'pagado').length,
       pending_count: payments.filter((p) => p.status === 'pendiente').length,
       partial_count: payments.filter((p) => p.status === 'parcial').length,
-      overdue_count: payments.filter((p) => p.is_overdue).length,
+      overdue_count: payments.filter(
+        (p) => p.is_overdue && (p.status === 'pendiente' || p.status === 'parcial'),
+      ).length,
       cancelled_count: payments.filter((p) => p.status === 'cancelado').length,
       total_paid: Math.round(totalPaid * 100) / 100,
       total_pending: Math.round(totalPending * 100) / 100,
@@ -226,6 +229,7 @@ export class HoaPaymentsService {
     payment.amount_paid = newAmountPaid;
     payment.amount_pending = newAmountPending;
     payment.status = newStatus;
+    applyPaymentSettlement(payment);
     payment.paid_date = new Date(dto.payment_date);
     payment.payment_method = dto.payment_method;
 
@@ -275,6 +279,7 @@ export class HoaPaymentsService {
       payment.amount_paid = newAmountPaid;
       payment.amount_pending = newAmountPending;
       payment.status = newStatus;
+      applyPaymentSettlement(payment);
     }
 
     if (dto.due_date) {
@@ -307,6 +312,7 @@ export class HoaPaymentsService {
     }
 
     payment.status = 'cancelado';
+    payment.is_overdue = false;
     const cancelNote = `Pago HOA cancelado el ${new Date().toISOString().split('T')[0]}`;
     payment.notes = payment.notes ? `${payment.notes}\n${cancelNote}` : cancelNote;
 
@@ -324,11 +330,9 @@ export class HoaPaymentsService {
     }
 
     const previousAmountPaid = Number(payment.amount_paid) || 0;
-    const totalAmount = Number(payment.amount) || 0;
 
     payment.amount_paid = 0;
-    payment.amount_pending = totalAmount;
-    payment.status = 'pendiente';
+    applyPaymentSettlement(payment);
     payment.paid_date = null;
     payment.first_partial_payment_date = null;
     payment.payment_method = null;

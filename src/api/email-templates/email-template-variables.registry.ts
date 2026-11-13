@@ -104,8 +104,8 @@ export const EMAIL_TEMPLATE_VARIABLE_REGISTRY: AvailableEmailTemplateEntityDto[]
     label: 'Proveedor',
     moduleCode: 'vendors',
     variables: [
-      { key: 'vendor.name', label: 'Nombre', type: 'string', source: 'vendors.name' },
-      { key: 'vendor.company_name', label: 'Empresa', type: 'string', source: 'vendors.company_name' },
+      { key: 'vendor.company_name', label: 'Nombre de empresa', type: 'string', source: 'vendors.company_name' },
+      { key: 'vendor.name', label: 'Nombre de empresa', type: 'string', source: 'vendors.company_name' },
       { key: 'vendor.rfc', label: 'RFC', type: 'string', source: 'vendors.rfc' },
       { key: 'vendor.city', label: 'Ciudad', type: 'string', source: 'vendors.city' },
       { key: 'vendor.state', label: 'Estado', type: 'string', source: 'vendors.state' },

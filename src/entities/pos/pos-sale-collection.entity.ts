@@ -73,20 +73,47 @@ export class PosSaleCollection {
   @Column({ type: 'varchar', length: 120, nullable: true })
   transfer_reference: string | null;
 
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  transfer_payer_name: string | null;
+
+  @Column({ type: 'varchar', length: 180, nullable: true })
+  transfer_payer_business_name: string | null;
+
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   amount_card_mxn: number;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   amount_check_mxn: number;
 
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  amount_check_usd: number;
+
   @Column({ type: 'varchar', length: 120, nullable: true })
   check_reference: string | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  check_payer_name: string | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  check_payer_phone: string | null;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   amount_credit_mxn: number;
 
   @Column({ type: 'varchar', length: 120, nullable: true })
   card_reference: string | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  card_payer_name: string | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  card_payer_phone: string | null;
+
+  @Column({ type: 'json', nullable: true })
+  card_payments: Array<{
+    amount_mxn: number;
+    reference: string | null;
+  }> | null;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   received_cash_mxn: number;

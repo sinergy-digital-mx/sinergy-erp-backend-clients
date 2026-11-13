@@ -95,11 +95,18 @@ export class S3Service {
       .replace(/^_+|_+$/g, '') || 'unknown';
   }
 
-  async getSignedUrl(s3Key: string, expiresIn: number = 3600): Promise<string> {
+  async getSignedUrl(
+    s3Key: string,
+    expiresIn: number = 3600,
+    downloadName?: string,
+  ): Promise<string> {
     try {
       const command = new GetObjectCommand({
         Bucket: this.bucketName,
         Key: s3Key,
+        ...(downloadName
+          ? { ResponseContentDisposition: contentDispositionInline(downloadName) }
+          : {}),
       });
 
       return getSignedUrl(this.s3Client, command, { expiresIn });
@@ -112,6 +119,11 @@ export class S3Service {
   }
 
   async getFileBuffer(s3Key: string): Promise<Buffer> {
+    const file = await this.getFile(s3Key);
+    return file.buffer;
+  }
+
+  async getFile(s3Key: string): Promise<{ buffer: Buffer; contentType: string }> {
     const command = new GetObjectCommand({
       Bucket: this.bucketName,
       Key: s3Key,
@@ -125,7 +137,22 @@ export class S3Service {
     for await (const chunk of body as AsyncIterable<Uint8Array>) {
       chunks.push(chunk);
     }
-    return Buffer.concat(chunks);
+    return {
+      buffer: Buffer.concat(chunks),
+      contentType: this.resolveImageContentType(response.ContentType, s3Key),
+    };
+  }
+
+  private resolveImageContentType(header: string | undefined, s3Key: string): string {
+    const normalized = (header || '').split(';')[0].trim().toLowerCase();
+    if (normalized.startsWith('image/')) {
+      return normalized;
+    }
+    const ext = s3Key.split('.').pop()?.toLowerCase();
+    if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+    if (ext === 'webp') return 'image/webp';
+    if (ext === 'gif') return 'image/gif';
+    return 'image/png';
   }
 
   /**
@@ -150,4 +177,9 @@ export class S3Service {
       throw error;
     }
   }
+}
+
+function contentDispositionInline(fileName: string): string {
+  const ascii = fileName.replace(/[^\w.\- ]+/g, '_').slice(0, 180) || 'comprobante';
+  return `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 }

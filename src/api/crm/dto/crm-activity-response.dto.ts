@@ -18,6 +18,8 @@ export class CrmActivityCustomerDto {
   lastname: string | null;
   company_name: string | null;
   display_name: string;
+  created_by: CrmActivityUserDto | null;
+  assigned_seller: CrmActivityUserDto | null;
 }
 
 export class CrmActivityItemDto {
@@ -26,6 +28,7 @@ export class CrmActivityItemDto {
   customer: CrmActivityCustomerDto | null;
   user_id: string | null;
   user: CrmActivityUserDto | null;
+  seller: CrmActivityUserDto | null;
   type: CustomerActivityType;
   status: CustomerActivityStatus;
   title: string;

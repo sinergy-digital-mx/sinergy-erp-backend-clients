@@ -9,6 +9,11 @@ import {
 } from '../dto/query-purchase-order-export.dto';
 import { computeRequestedLineBreakdown } from '../utils/purchase-order-line-breakdown.util';
 import {
+  formatVendorInvoiceNumbers,
+  parseStoredVendorInvoiceNumbers,
+} from '../utils/purchase-order-vendor-invoice.util';
+import { formatPedimentoForDisplay } from '../utils/pedimento-number.util';
+import {
   buildExportSubtitle,
   buildStyledExcelBuffer,
   ExcelColumnDef,
@@ -17,6 +22,11 @@ import {
   num,
   validateDateRange,
 } from '../../../common/utils/excel-export.util';
+import { vendorCompanyName } from '../../vendor/utils/vendor-profile.util';
+import {
+  columnsWithoutDisabledIeps,
+  loadTenantIepsEnabled,
+} from '../../billing/utils/fiscal-tax-policy.util';
 
 @Injectable()
 export class PurchaseOrderExportService {
@@ -25,8 +35,8 @@ export class PurchaseOrderExportService {
     { header: 'Fecha creación', key: 'created_at', width: 18, type: 'date' },
     { header: 'Proveedor', key: 'vendor_name', width: 28 },
     { header: 'Internacional', key: 'is_international', width: 14 },
-    { header: 'Pedimento', key: 'pedimento_number', width: 18 },
-    { header: 'Factura proveedor', key: 'vendor_invoice_number', width: 20 },
+    { header: 'Pedimento', key: 'pedimento_number', width: 24 },
+    { header: 'Factura proveedor', key: 'vendor_invoice_number', width: 36 },
     { header: 'Razón social', key: 'razon_social', width: 26 },
     { header: 'Sucursal', key: 'billing_branch_code', width: 22 },
     { header: 'Almacén', key: 'warehouse_name', width: 22 },
@@ -71,15 +81,28 @@ export class PurchaseOrderExportService {
     private readonly detailRepo: Repository<PurchaseOrderBatchDetail>,
   ) {}
 
+  private async columnsFor(
+    tenantId: string,
+    columns: ExcelColumnDef[],
+  ): Promise<ExcelColumnDef[]> {
+    const iepsEnabled = await loadTenantIepsEnabled(this.poRepo.manager, tenantId);
+    return columnsWithoutDisabledIeps(columns, iepsEnabled);
+  }
+
   async exportHeaders(tenantId: string, filters: QueryPurchaseOrderHeaderExportDto): Promise<Buffer> {
     const orders = await this.fetchOrders(tenantId, filters);
     const rows = orders.map((po) => ({
       folio: po.folio,
       created_at: formatExportDateTime(po.created_at),
-      vendor_name: po.vendor?.name ?? po.vendor?.company_name ?? '',
+      vendor_name: vendorCompanyName(po.vendor),
       is_international: po.vendor?.vendor_type === 'INTERNATIONAL' ? 'Sí' : 'No',
-      pedimento_number: po.vendor?.vendor_type === 'INTERNATIONAL' ? (po.pedimento_number ?? '') : '',
-      vendor_invoice_number: po.vendor_invoice_number ?? '',
+      pedimento_number: po.vendor?.vendor_type === 'INTERNATIONAL'
+        ? (formatPedimentoForDisplay(po.pedimento_number) ?? '')
+        : '',
+      vendor_invoice_number:
+        formatVendorInvoiceNumbers(
+          parseStoredVendorInvoiceNumbers(po.vendor_invoice_numbers, po.vendor_invoice_number),
+        ) ?? '',
       razon_social: po.fiscal_configuration?.razon_social ?? '',
       billing_branch_code: po.warehouse?.billing_branch?.code ?? '',
       warehouse_name: po.warehouse?.name ?? '',
@@ -104,7 +127,7 @@ export class PurchaseOrderExportService {
         `Registros: ${rows.length}`,
         this.describeFilters(filters),
       ]),
-      columns: this.headerColumns,
+      columns: await this.columnsFor(tenantId, this.headerColumns),
       rows,
       headerColor: 'FF5B4B8A',
       titleColor: 'FF3D3266',
@@ -153,10 +176,7 @@ export class PurchaseOrderExportService {
         folio: d.purchase_order_batch?.folio ?? '',
         order_created_at: formatExportDateTime(d.purchase_order_batch?.created_at),
         general_status: d.purchase_order_batch?.general_status ?? '',
-        vendor_name:
-          d.purchase_order_batch?.vendor?.name ??
-          d.purchase_order_batch?.vendor?.company_name ??
-          '',
+        vendor_name: vendorCompanyName(d.purchase_order_batch?.vendor),
         razon_social: d.purchase_order_batch?.fiscal_configuration?.razon_social ?? '',
         billing_branch_code: d.purchase_order_batch?.warehouse?.billing_branch?.code ?? '',
         warehouse_name: d.purchase_order_batch?.warehouse?.name ?? '',
@@ -183,7 +203,7 @@ export class PurchaseOrderExportService {
         `Líneas: ${rows.length}`,
         this.describeFilters(filters),
       ]),
-      columns: this.detailColumns,
+      columns: await this.columnsFor(tenantId, this.detailColumns),
       rows,
       headerColor: 'FF6A5ACD',
       titleColor: 'FF4A3F7A',

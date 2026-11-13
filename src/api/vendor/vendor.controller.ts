@@ -11,7 +11,11 @@ import {
   Delete,
   Query,
   HttpCode,
+  BadRequestException,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
@@ -20,17 +24,24 @@ import {
   ApiBody,
   ApiBearerAuth,
   ApiQuery,
+  ApiConsumes,
 } from '@nestjs/swagger';
 import { VendorService } from './vendor.service';
 import { VendorsExportService } from './services/vendors-export.service';
+import { VendorCreditLedgerService } from './services/vendor-credit-ledger.service';
 import { CreateVendorDto } from './dto/create-vendor.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { QueryVendorDto } from './dto/query-vendor.dto';
 import { QueryVendorExportDto } from './dto/query-vendor-export.dto';
 import { PaginatedVendorDto } from './dto/paginated-vendor.dto';
+import { CheckVendorDuplicatesDto } from './dto/check-vendor-duplicates.dto';
+import { DeleteVendorResultDto } from './dto/vendor-view.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionGuard } from '../rbac/guards/permission.guard';
-import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator';
+import {
+  RequireAnyPermissions,
+  RequirePermissions,
+} from '../rbac/decorators/require-permissions.decorator';
 
 @UseGuards(JwtAuthGuard, PermissionGuard)
 @Controller('tenant/vendors')
@@ -40,6 +51,7 @@ export class VendorController {
   constructor(
     private readonly service: VendorService,
     private readonly exportService: VendorsExportService,
+    private readonly creditLedger: VendorCreditLedgerService,
   ) {}
 
   @Post()
@@ -54,6 +66,45 @@ export class VendorController {
     return this.service.create(dto, req.user.tenantId);
   }
 
+  @Post('duplicates')
+  @HttpCode(200)
+  @RequirePermissions({ entityType: 'vendors', action: 'Create' })
+  @ApiOperation({ summary: 'Detectar proveedores parecidos antes de crear' })
+  @ApiBody({ type: CheckVendorDuplicatesDto })
+  @ApiResponse({ status: 200, description: 'Coincidencias de nombre, RFC o datos bancarios' })
+  findDuplicates(@Body() dto: CheckVendorDuplicatesDto, @Req() req) {
+    return this.service.findDuplicates(dto, req.user.tenantId);
+  }
+
+  @Post('fiscal-constancia')
+  @HttpCode(200)
+  @RequireAnyPermissions(
+    { entityType: 'vendors', action: 'Create' },
+    { entityType: 'vendors', action: 'Update' },
+  )
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'Leer la constancia del SAT (PDF) y devolver RFC, razón social y domicilio',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Datos fiscales leídos. No se guardan hasta crear o editar.' })
+  @ApiResponse({ status: 400, description: 'El PDF no es una constancia legible' })
+  readSatConstancia(
+    @UploadedFile()
+    file: { buffer?: Buffer; mimetype?: string; originalname?: string; size?: number },
+  ) {
+    if (!file) {
+      throw new BadRequestException('Sube el PDF de la constancia del SAT.');
+    }
+    return this.service.readSatConstancia(file);
+  }
+
   @Get()
   @RequirePermissions({ entityType: 'vendors', action: 'Read' })
   @ApiOperation({ summary: 'Get paginated vendors with search and filters' })
@@ -64,6 +115,7 @@ export class VendorController {
   @ApiQuery({ name: 'state', required: false, type: String })
   @ApiQuery({ name: 'country', required: false, type: String })
   @ApiQuery({ name: 'vendor_type', required: false, enum: ['NATIONAL', 'INTERNATIONAL'] })
+  @ApiQuery({ name: 'similar_only', required: false, type: Boolean })
   @ApiResponse({ status: 200, description: 'List of vendors retrieved successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
@@ -90,6 +142,15 @@ export class VendorController {
       `attachment; filename="${this.exportService.getFilename()}"`,
     );
     res.send(buffer);
+  }
+
+  @Get(':id/accounts')
+  @RequirePermissions({ entityType: 'vendors', action: 'Read' })
+  @ApiOperation({ summary: 'Dashboard de adeudo y saldo a favor del proveedor' })
+  @ApiParam({ name: 'id', type: 'string', description: 'Vendor ID' })
+  @ApiResponse({ status: 200, description: 'Totales por moneda y kardex' })
+  getAccounts(@Param('id') id: string, @Req() req) {
+    return this.creditLedger.describeAccounts(req.user.tenantId, id);
   }
 
   @Get(':id')
@@ -121,13 +182,15 @@ export class VendorController {
   @Delete(':id')
   @HttpCode(200)
   @RequirePermissions({ entityType: 'vendors', action: 'Delete' })
-  @ApiOperation({ summary: 'Delete a vendor by ID' })
+  @ApiOperation({
+    summary: 'Eliminar proveedor. Si hay compras y un parecido, reasigna las OC y borra el duplicado.',
+  })
   @ApiParam({ name: 'id', type: 'string' })
-  @ApiResponse({ status: 200, description: 'Vendor deleted successfully' })
+  @ApiResponse({ status: 200, description: 'Eliminado, consolidado o desactivado', type: DeleteVendorResultDto })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 404, description: 'Not found' })
-  remove(@Param('id') id: string, @Req() req) {
+  remove(@Param('id') id: string, @Req() req): Promise<DeleteVendorResultDto> {
     return this.service.remove(id, req.user.tenantId);
   }
 }

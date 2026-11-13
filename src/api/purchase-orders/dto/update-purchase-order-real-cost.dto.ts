@@ -2,6 +2,7 @@ import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsNumber,
@@ -27,6 +28,10 @@ export class PurchaseOrderExtraCostDto {
 
   @IsEnum(['MXN', 'USD'])
   currency: 'MXN' | 'USD';
+
+  @IsOptional()
+  @IsBoolean()
+  include_in_invoice?: boolean;
 }
 
 export class PurchaseOrderRealCostLineIgiDto {

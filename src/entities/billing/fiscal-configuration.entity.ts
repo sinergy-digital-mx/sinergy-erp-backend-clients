@@ -44,11 +44,7 @@ export class FiscalConfiguration {
   @IsString()
   persona_type: string;
 
-  @Column({
-    type: 'enum',
-    enum: ['601', '603', '605', '606', '607', '608', '609', '610', '611', '614', '616', '620', '621', '622', '623', '624', '625', '626', '627', '628', '629', '630'],
-    nullable: true,
-  })
+  @Column({ type: 'varchar', length: 8, nullable: true })
   @IsOptional()
   @IsString()
   fiscal_regime: string;
@@ -72,6 +68,9 @@ export class FiscalConfiguration {
   @IsOptional()
   @IsString()
   logo: string;
+
+  @Column({ type: 'tinyint', width: 1, default: 0 })
+  use_as_system_logo: boolean;
 
   @Column({
     type: 'enum',
@@ -113,6 +112,33 @@ export class FiscalConfiguration {
 
   @Column({ type: 'timestamp', nullable: true })
   last_finkok_sync_at: Date | null;
+
+  @Column({ type: 'int', nullable: true })
+  quotation_expiration_days: number | null;
+
+  @Column({ type: 'tinyint', width: 1, default: 0 })
+  advance_invoicing_enabled: boolean;
+
+  @Column({ type: 'tinyint', width: 1, default: 1 })
+  iva_enabled: boolean;
+
+  @Column({ type: 'tinyint', width: 1, default: 1 })
+  ieps_enabled: boolean;
+
+  @Column({ type: 'tinyint', width: 1, default: 1 })
+  multi_fiscal_transfers_enabled: boolean;
+
+  @Column({ type: 'tinyint', width: 1, default: 0 })
+  global_invoice_auto_enabled: boolean;
+
+  @Column({ type: 'tinyint', width: 1, default: 0 })
+  global_invoice_block_after_month: boolean;
+
+  @Column({ type: 'tinyint', nullable: true })
+  global_invoice_hour: number | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  global_invoice_timezone: string | null;
 
   @OneToMany(() => BillingBranch, (branch) => branch.fiscal_configuration)
   branches: BillingBranch[];

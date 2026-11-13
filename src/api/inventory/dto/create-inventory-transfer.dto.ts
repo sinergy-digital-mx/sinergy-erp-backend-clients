@@ -25,15 +25,21 @@ export class CreateInventoryTransferLineDto {
 }
 
 export class CreateInventoryTransferDto {
-  @ApiProperty()
+  @ApiPropertyOptional({
+    description:
+      'Si se envía, todas las líneas deben ser de este producto. Si se omite, cada línea puede ser de un producto distinto.',
+  })
+  @IsOptional()
   @IsUUID()
-  @IsNotEmpty()
-  product_id: string;
+  product_id?: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional({
+    description:
+      'Si se envía, todas las líneas deben usar esta unidad. Si se omite, cada línea conserva la unidad de su lote.',
+  })
+  @IsOptional()
   @IsUUID()
-  @IsNotEmpty()
-  uom_id: string;
+  uom_id?: string;
 
   @ApiProperty({ description: 'Almacén de origen' })
   @IsUUID()

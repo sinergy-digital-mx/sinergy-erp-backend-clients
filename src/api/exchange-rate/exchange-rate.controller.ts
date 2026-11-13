@@ -16,7 +16,7 @@ export class ExchangeRateController {
 
   @Put('daily')
   @RequirePermission('ExchangeRate', 'Update')
-  @ApiOperation({ summary: 'Create or update exchange rate for a day' })
+  @ApiOperation({ summary: 'Crea o sobrescribe el tipo de cambio de un día' })
   @ApiResponse({ status: 200, description: 'Exchange rate saved successfully' })
   setDailyRate(@Body() dto: SetDailyExchangeRateDto, @Req() req: any) {
     return this.exchangeRateService.setDailyRate(this.getTenantId(req), dto);
@@ -24,9 +24,14 @@ export class ExchangeRateController {
 
   @Get('daily')
   @RequirePermission('ExchangeRate', 'Read')
-  @ApiOperation({ summary: 'Get exchange rate for a specific day or today' })
+  @ApiOperation({
+    summary: 'Tipo de cambio del día. Si no hay captura, deja en el historial el del día anterior',
+  })
   @ApiQuery({ name: 'date', required: false, type: String, example: '2026-04-28' })
-  @ApiResponse({ status: 200, description: 'Exchange rate found or null if not configured for the day' })
+  @ApiResponse({
+    status: 200,
+    description: 'Registro de esa fecha. Si faltaba, se creó copiando la tasa del día previo.',
+  })
   getDailyRate(@Query('date') date: string | undefined, @Req() req: any) {
     return this.exchangeRateService.getDailyRate(this.getTenantId(req), date);
   }

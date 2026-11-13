@@ -12,6 +12,7 @@ import {
   Min,
   Max,
   MaxLength,
+  ArrayMaxSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -59,6 +60,11 @@ export class CreateLineItemDto {
   @IsEnum(['MXN', 'USD'])
   @IsOptional()
   currency?: 'MXN' | 'USD';
+
+  @IsString()
+  @MaxLength(500)
+  @IsOptional()
+  notes?: string;
 }
 
 export class CreatePurchaseOrderDto {
@@ -106,6 +112,13 @@ export class CreatePurchaseOrderDto {
   @IsOptional()
   @MaxLength(60)
   vendor_invoice_number?: string | null;
+
+  @IsArray()
+  @IsOptional()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(60, { each: true })
+  vendor_invoice_numbers?: string[] | null;
 
   @IsArray()
   @ArrayMinSize(1)

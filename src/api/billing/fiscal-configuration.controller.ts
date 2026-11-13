@@ -13,6 +13,7 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  StreamableFile,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -34,7 +35,20 @@ import { QueryFiscalConfigurationDto } from './dto/query-fiscal-configuration.dt
 import { PaginatedFiscalConfigurationDto } from './dto/paginated-fiscal-configuration.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionGuard } from '../rbac/guards/permission.guard';
-import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator';
+import { PermissionService } from '../rbac/services/permission.service';
+import {
+  RequireAnyPermissions,
+  RequirePermissions,
+  RequiredPermission,
+} from '../rbac/decorators/require-permissions.decorator';
+
+export const FISCAL_LOOKUP_PERMISSIONS: RequiredPermission[] = [
+  { entityType: 'FiscalConfiguration', action: 'Read' },
+  { entityType: 'Quotation', action: 'Read' },
+  { entityType: 'sales_orders', action: 'Read' },
+  { entityType: 'DivinoReservationFormat', action: 'Read' },
+  { entityType: 'DivinoReservationFormat', action: 'Create' },
+];
 
 @UseGuards(JwtAuthGuard, PermissionGuard)
 @Controller('tenant/fiscal-configurations')
@@ -44,6 +58,7 @@ export class FiscalConfigurationController {
   constructor(
     private readonly service: FiscalConfigurationService,
     private readonly finkokService: FiscalConfigurationFinkokService,
+    private readonly permissionService: PermissionService,
   ) {}
 
   @Post()
@@ -59,7 +74,7 @@ export class FiscalConfigurationController {
   }
 
   @Get()
-  @RequirePermissions({ entityType: 'FiscalConfiguration', action: 'Read' })
+  @RequireAnyPermissions(...FISCAL_LOOKUP_PERMISSIONS)
   @ApiOperation({ summary: 'Get paginated fiscal configurations with search and filters' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
@@ -68,8 +83,33 @@ export class FiscalConfigurationController {
   @ApiResponse({ status: 200, description: 'List of fiscal configurations retrieved successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
-  findAll(@Query() query: QueryFiscalConfigurationDto, @Req() req): Promise<PaginatedFiscalConfigurationDto> {
-    return this.service.findAll(req.user.tenantId, query);
+  async findAll(@Query() query: QueryFiscalConfigurationDto, @Req() req): Promise<PaginatedFiscalConfigurationDto> {
+    const includeSecrets = await this.permissionService.hasPermission(
+      req.user.id,
+      req.user.tenantId,
+      'FiscalConfiguration',
+      'Read',
+    );
+    return this.service.findAll(req.user.tenantId, query, { includeSecrets });
+  }
+
+  @Get('system-logo')
+  @ApiOperation({ summary: 'Metadatos del logo que reemplaza la marca del menú' })
+  @ApiResponse({ status: 200, description: 'Indica si hay logo y la clave de caché del archivo' })
+  getSystemLogo(@Req() req) {
+    return this.service.getSystemLogoMeta(req.user.tenantId);
+  }
+
+  @Get('system-logo/file')
+  @ApiOperation({ summary: 'Archivo del logo del sistema' })
+  @ApiResponse({ status: 200, description: 'Imagen del logo' })
+  @ApiResponse({ status: 404, description: 'No hay logo del sistema' })
+  async getSystemLogoFile(@Req() req): Promise<StreamableFile> {
+    const file = await this.service.getSystemLogoFile(req.user.tenantId);
+    return new StreamableFile(file.buffer, {
+      type: file.contentType,
+      disposition: 'inline; filename="system-logo"',
+    });
   }
 
   @Get(':id/finkok-status')

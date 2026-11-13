@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { createHash } from 'crypto';
 import { Repository } from 'typeorm';
 import { FiscalConfiguration } from '../../entities/billing/fiscal-configuration.entity';
 import { CreateFiscalConfigurationDto } from './dto/create-fiscal-configuration.dto';
@@ -8,6 +9,7 @@ import { QueryFiscalConfigurationDto } from './dto/query-fiscal-configuration.dt
 import { PaginatedFiscalConfigurationDto } from './dto/paginated-fiscal-configuration.dto';
 import { S3Service } from '../../common/services/s3.service';
 import { normalizeDocumentPrefix } from '../../common/utils/document-prefix.util';
+import { resolvePublicInvoiceSettings } from '../accounting/utils/public-invoice-policy.util';
 
 @Injectable()
 export class FiscalConfigurationService {
@@ -24,6 +26,7 @@ export class FiscalConfigurationService {
   ): Promise<FiscalConfiguration> {
     const config = this.repo.create({
       ...dto,
+      ...resolvePublicInvoiceSettings(dto),
       prefix: normalizeDocumentPrefix(dto.prefix),
       tenant_id: tenantId,
       status: dto.status || 'active',
@@ -38,6 +41,7 @@ export class FiscalConfigurationService {
   async findAll(
     tenantId: string,
     query?: QueryFiscalConfigurationDto,
+    options?: { includeSecrets?: boolean },
   ): Promise<PaginatedFiscalConfigurationDto> {
     let page = Number(query?.page) || 1;
     let limit = Number(query?.limit) || 20;
@@ -69,7 +73,12 @@ export class FiscalConfigurationService {
     const data = await queryBuilder.skip(skip).take(limit).getMany();
     const withPrefix = await this.attachPrefixes(data);
     const dataWithLogoUrls = await Promise.all(
-      withPrefix.map((config) => this.toResponseWithLogoUrl(config)),
+      withPrefix.map(async (config) => {
+        const response = await this.toResponseWithLogoUrl(config);
+        return options?.includeSecrets === false
+          ? this.withoutSealSecrets(response)
+          : response;
+      }),
     );
 
     const totalPages = Math.ceil(total / limit);
@@ -97,7 +106,7 @@ export class FiscalConfigurationService {
     dto: UpdateFiscalConfigurationDto,
     tenantId: string,
   ): Promise<FiscalConfiguration> {
-    await this.getByIdOrFail(id, tenantId);
+    const current = await this.getByIdOrFail(id, tenantId);
 
     const patch: Partial<FiscalConfiguration> = {};
     if (dto.razon_social !== undefined) patch.razon_social = dto.razon_social;
@@ -109,6 +118,38 @@ export class FiscalConfigurationService {
     if (dto.private_key !== undefined) patch.private_key = dto.private_key;
     if (dto.logo !== undefined) patch.logo = dto.logo;
     if (dto.status !== undefined) patch.status = dto.status;
+    if (dto.quotation_expiration_days !== undefined) {
+      patch.quotation_expiration_days = dto.quotation_expiration_days;
+    }
+    if (dto.advance_invoicing_enabled !== undefined) {
+      patch.advance_invoicing_enabled = dto.advance_invoicing_enabled;
+    }
+    if (dto.iva_enabled !== undefined) {
+      patch.iva_enabled = dto.iva_enabled;
+    }
+    if (dto.ieps_enabled !== undefined) {
+      patch.ieps_enabled = dto.ieps_enabled;
+    }
+    if (dto.multi_fiscal_transfers_enabled !== undefined) {
+      patch.multi_fiscal_transfers_enabled = dto.multi_fiscal_transfers_enabled;
+    }
+    if (
+      dto.global_invoice_auto_enabled !== undefined ||
+      dto.global_invoice_block_after_month !== undefined ||
+      dto.global_invoice_hour !== undefined ||
+      dto.global_invoice_timezone !== undefined
+    ) {
+      Object.assign(patch, resolvePublicInvoiceSettings(dto, current));
+    }
+    if (dto.use_as_system_logo !== undefined) {
+      if (dto.use_as_system_logo && !current.logo) {
+        throw new BadRequestException('Sube un logo antes de usarlo como logo del sistema.');
+      }
+      if (dto.use_as_system_logo) {
+        await this.repo.update({ tenant_id: tenantId }, { use_as_system_logo: false });
+      }
+      patch.use_as_system_logo = dto.use_as_system_logo;
+    }
 
     if (Object.keys(patch).length) {
       await this.repo.update({ id, tenant_id: tenantId }, patch);
@@ -150,6 +191,41 @@ export class FiscalConfigurationService {
     config.logo = s3Key;
     const saved = await this.repo.save(config);
     return this.toResponseWithLogoUrl(saved);
+  }
+
+  async getSystemLogoMeta(
+    tenantId: string,
+  ): Promise<{ enabled: boolean; cache_key: string | null }> {
+    const config = await this.findSystemLogo(tenantId);
+    if (!config?.logo) {
+      return { enabled: false, cache_key: null };
+    }
+    return {
+      enabled: true,
+      cache_key: createHash('sha256').update(config.logo).digest('hex').slice(0, 24),
+    };
+  }
+
+  async getSystemLogoFile(
+    tenantId: string,
+  ): Promise<{ buffer: Buffer; contentType: string }> {
+    const config = await this.findSystemLogo(tenantId);
+    if (!config?.logo) {
+      throw new NotFoundException('No hay logo del sistema');
+    }
+    return this.s3Service.getFile(config.logo);
+  }
+
+  private async findSystemLogo(tenantId: string): Promise<FiscalConfiguration | null> {
+    return this.repo
+      .createQueryBuilder('config')
+      .where('config.tenant_id = :tenantId', { tenantId })
+      .andWhere('config.use_as_system_logo = 1')
+      .andWhere('config.status = :status', { status: 'active' })
+      .andWhere('config.logo IS NOT NULL')
+      .andWhere("config.logo <> ''")
+      .orderBy('config.updated_at', 'DESC')
+      .getOne();
   }
 
   private async getByIdOrFail(id: string, tenantId: string): Promise<FiscalConfiguration> {
@@ -201,6 +277,16 @@ export class FiscalConfigurationService {
       config.prefix = prefixById.get(config.id) ?? null;
       return config;
     });
+  }
+
+  private withoutSealSecrets(config: FiscalConfiguration): FiscalConfiguration {
+    const {
+      digital_seal: _digitalSeal,
+      digital_seal_password: _digitalSealPassword,
+      private_key: _privateKey,
+      ...safe
+    } = config;
+    return safe as FiscalConfiguration;
   }
 
   private async toResponseWithLogoUrl(config: FiscalConfiguration): Promise<FiscalConfiguration> {

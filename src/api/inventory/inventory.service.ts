@@ -16,11 +16,15 @@ import {
   mapApplicableProductDiscount,
 } from '../products/utils/product-discount.util';
 import { User } from '../../entities/users/user.entity';
+import { UserBillingBranch } from '../../entities/users/user-billing-branch.entity';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { FiscalConfiguration } from '../../entities/billing/fiscal-configuration.entity';
 import { BillingBranch } from '../../entities/billing/billing-branch.entity';
 import { UoMCatalog } from '../../entities/uom-catalog/uom-catalog.entity';
 import { S3Service } from '../../common/services/s3.service';
+import { isFiscalFlagOn } from '../billing/utils/fiscal-tax-policy.util';
+import { parseStoredVendorInvoiceNumbers } from '../purchase-orders/utils/purchase-order-vendor-invoice.util';
+import { formatPedimentoForDisplay } from '../purchase-orders/utils/pedimento-number.util';
 import { BatchFilterDto } from './dto/batch-filter.dto';
 import { BatchListResponseDto } from './dto/batch-list-response.dto';
 import { BatchResponseDto } from './dto/batch-response.dto';
@@ -50,10 +54,23 @@ import {
 } from './utils/product-search-rank.util';
 import { InventoryBatchMovementsService } from './services/inventory-batch-movements.service';
 import { INVENTORY_BATCH_MOVEMENT_TYPES } from './constants/inventory-batch-movements';
+import { ProductMarginResponseDto } from './dto/inventory-margin.dto';
+import {
+  explainConfigurationOnly,
+  explainLotAverage,
+  LotMarginRef,
+  MarginConfigLineInput,
+  MarginPriceInput,
+  MarginPurchaseInput,
+  resolveLotMargin,
+} from './utils/inventory-margin.util';
 
 /** Costo unitario en UOM de inventario: precio OC × (qty original / qty convertida). */
 const UNIT_COST_SQL = `(
-  COALESCE(pod.received_original_unit_total, pod.unit_total, 0)
+  CASE
+    WHEN pod.real_unit_cost_mxn IS NOT NULL THEN pod.real_unit_cost_mxn
+    ELSE COALESCE(pod.received_original_unit_total, pod.unit_total, 0)
+  END
   * CASE
       WHEN pod.received_converted_quantity IS NOT NULL
        AND pod.received_converted_quantity > 0
@@ -63,6 +80,22 @@ const UNIT_COST_SQL = `(
       ELSE 1
     END
 )`;
+
+type BatchDetailBaseDto = Omit<BatchDetailResponseDto, 'margin_detail'>;
+
+/** Columnas crudas de OC/partida para calcular el margen de un lote. */
+interface MarginRawRow {
+  purchase_order_batch_id?: string | null;
+  purchase_order_detail_id?: string | null;
+  purchase_order_folio?: string | null;
+  payment_currency?: string | null;
+  unit_total?: unknown;
+  received_original_unit_total?: unknown;
+  real_unit_cost_mxn?: unknown;
+  received_original_quantity?: unknown;
+  received_converted_quantity?: unknown;
+  customs_exchange_rate?: unknown;
+}
 
 const BRANCH_SUMMARY_PAGE_MAX = 40;
 const SIGNED_PHOTO_CACHE_MS = 8 * 60 * 1000;
@@ -91,6 +124,8 @@ export class InventoryService {
     private readonly productVendorCostRepo: Repository<ProductVendorCost>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(UserBillingBranch)
+    private readonly branchAssignmentRepo: Repository<UserBillingBranch>,
     @InjectRepository(Warehouse)
     private readonly warehouseRepo: Repository<Warehouse>,
     @InjectRepository(FiscalConfiguration)
@@ -159,6 +194,9 @@ export class InventoryService {
         razon_social: fiscal.razon_social,
         rfc: fiscal.rfc,
         status: fiscal.status,
+        iva_enabled: isFiscalFlagOn(fiscal.iva_enabled, true),
+        ieps_enabled: isFiscalFlagOn(fiscal.ieps_enabled, true),
+        multi_fiscal_transfers_enabled: isFiscalFlagOn(fiscal.multi_fiscal_transfers_enabled, true),
         branches: (branchesByFiscal.get(fiscal.id) ?? []).map((branch) => ({
           id: branch.id,
           name: branch.code,
@@ -306,6 +344,10 @@ export class InventoryService {
     return Number.isFinite(parsed) ? parsed : 0;
   }
 
+  private hasAvailableStock(quantity: unknown): boolean {
+    return this.parseDecimal(quantity) > 0;
+  }
+
   private parseIntSafe(value: unknown): number {
     const parsed = parseInt(String(value ?? 0), 10);
     return Number.isFinite(parsed) ? parsed : 0;
@@ -388,13 +430,40 @@ export class InventoryService {
       throw new BadRequestException('El usuario POS no tiene una sucursal asignada');
     }
 
-    return this.getBranchInventorySummary(tenantId, terminalUser.billing_branch_id, filters, {
-      fiscalConfigurationId: terminalUser.billing_branch?.fiscal_configuration_id ?? null,
+    const branchId = await this.resolvePosInventoryBranchId(
+      terminalUser,
+      tenantId,
+      filters.billing_branch_id,
+    );
+
+    return this.getBranchInventorySummary(tenantId, branchId, filters, {
       emptyWarehousesMessage: 'No se encontraron almacenes para la sucursal de la terminal',
       warehouseMismatchMessage:
         'El almacén seleccionado no pertenece a la sucursal de esta terminal POS. Omita warehouse_id o use un almacén de la lista.',
       pageMax: 40,
     });
+  }
+
+  private async resolvePosInventoryBranchId(
+    user: User,
+    tenantId: string,
+    requestedBranchId?: string,
+  ): Promise<string> {
+    const requested = requestedBranchId?.trim();
+    if (!requested || requested === user.billing_branch_id) {
+      return user.billing_branch_id as string;
+    }
+    const rows = await this.branchAssignmentRepo.find({
+      where: { tenant_id: tenantId, user_id: user.id },
+    });
+    const allowed =
+      rows.length === 0
+        ? user.billing_branch_id == null
+        : rows.some((row) => row.billing_branch_id === requested);
+    if (!allowed) {
+      throw new BadRequestException('La sucursal no está asignada a este usuario');
+    }
+    return requested;
   }
 
   /**
@@ -622,6 +691,7 @@ export class InventoryService {
       .select('product.id', 'id')
       .where('product.tenant_id = :tenantId', { tenantId })
       .andWhere('product.item_kind = :goodsKind', { goodsKind: ProductItemKind.Goods })
+      .andWhere('product.is_active = :productActive', { productActive: true })
       .andWhere(
         `EXISTS (
           SELECT 1 FROM inv_s_batches stock
@@ -659,6 +729,7 @@ export class InventoryService {
       .leftJoin('batch.uom', 'uom')
       .where('batch.tenant_id = :tenantId', { tenantId })
       .andWhere('product.item_kind = :goodsKind', { goodsKind: ProductItemKind.Goods })
+      .andWhere('product.is_active = :productActive', { productActive: true })
       .andWhere('batch.warehouse_id IN (:...warehouseIds)', { warehouseIds });
 
     applyProductSearchFilter(qb, filters.search);
@@ -1368,7 +1439,6 @@ export class InventoryService {
         .addSelect('MAX(uom.name)', 'uom_name')
         .addSelect('COALESCE(SUM(batch.available_quantity), 0)', 'total_available')
         .addSelect('COALESCE(SUM(batch.initial_quantity), 0)', 'total_initial')
-        .addSelect('COUNT(batch.id)', 'total_batches')
         .groupBy('batch.product_id')
         .addGroupBy('batch.warehouse_id')
         .orderBy(sortExpression, sortOrder)
@@ -1397,7 +1467,6 @@ export class InventoryService {
           uom_name: string;
           total_available: string | number;
           total_initial: string | number;
-          total_batches: string | number;
         }>(),
       ]);
 
@@ -1406,20 +1475,47 @@ export class InventoryService {
         return { data: [], total, page, limit, totalPages: Math.ceil(total / limit) || 0 };
       }
 
-      const batchesByGroup = await this.loadSummaryBatches(tenantId, filters, groups);
+      const batchesByGroup = await this.loadSummaryBatches(tenantId, groups);
       const productIds = Array.from(new Set(groups.map((row) => row.product_id)));
       const uomIds = Array.from(new Set(groups.map((row) => row.uom_id).filter(Boolean)));
-      const [priceMap, photoMap] = await Promise.all([
+      const [priceMap, photoMap, configLines] = await Promise.all([
         this.buildPriceMap(productIds, uomIds),
         this.signPhotoMap(groups.map((row) => row.product_photo)),
+        this.loadMarginConfigLines(productIds),
       ]);
 
       const data: ProductInventorySummaryDto[] = groups.map((row) => {
         const key = `${row.product_id}|${row.warehouse_id}`;
-        const batches = batchesByGroup.get(key) ?? [];
+        const stocked = (batchesByGroup.get(key) ?? []).filter((batch) =>
+          this.hasAvailableStock(batch.available_quantity),
+        );
         const pricingOptions = priceMap.get(`${row.product_id}|${row.uom_id}`) || [];
         const suggestedPrice = pricingOptions[0] || null;
         const photoKey = row.product_photo ?? null;
+        const priceInput: MarginPriceInput = {
+          amount: suggestedPrice ? this.parseDecimal(suggestedPrice.price) : null,
+          listName: suggestedPrice?.price_list_name ?? null,
+        };
+        const lines = configLines.byProductUom.get(`${row.product_id}|${row.uom_id}`) ?? [];
+        const pricedBatches = stocked.map((batch) => {
+          const resolved = resolveLotMargin(batch.cost_input, lines, priceInput);
+          const { cost_input: _costInput, ...publicBatch } = batch;
+          return {
+            batch: { ...publicBatch, margin: resolved.margin },
+            ref: {
+              label: publicBatch.batch_number,
+              detail: batch.cost_input?.folio || publicBatch.source_tag_identifier || 'Sin compra',
+              margin: resolved.margin,
+            } as LotMarginRef,
+          };
+        });
+        const batches = pricedBatches.map((item) => item.batch);
+        const margin = explainLotAverage(
+          pricedBatches.map((item) => item.ref),
+          priceInput,
+          lines,
+          'Promedio de los lotes con existencia en este almacén.',
+        ).margin;
 
         return {
           product_id: row.product_id,
@@ -1440,9 +1536,10 @@ export class InventoryService {
           pricing_options: pricingOptions,
           total_available_quantity: this.formatQty(this.parseDecimal(row.total_available)),
           total_initial_quantity: this.formatQty(this.parseDecimal(row.total_initial)),
-          total_batches: this.parseIntSafe(row.total_batches),
+          total_batches: batches.length,
           measure_totals: buildMeasureTotals(batches),
           batches,
+          margin,
         };
       });
 
@@ -1477,7 +1574,8 @@ export class InventoryService {
       .leftJoin('batch.uom', 'uom')
       .leftJoin('batch.measure_uom', 'measure_uom')
       .where('batch.tenant_id = :tenantId', { tenantId })
-      .andWhere('product.item_kind = :goodsKind', { goodsKind: ProductItemKind.Goods });
+      .andWhere('product.item_kind = :goodsKind', { goodsKind: ProductItemKind.Goods })
+      .andWhere('product.is_active = :productActive', { productActive: true });
 
     applyInventoryLocationFilters(qb, filters);
 
@@ -1503,12 +1601,12 @@ export class InventoryService {
 
   private async loadSummaryBatches(
     tenantId: string,
-    filters: InventorySummaryFilterDto,
     groups: Array<{ product_id: string; warehouse_id: string }>,
   ) {
     const qb = this.inventoryBatchRepo
       .createQueryBuilder('batch')
       .leftJoin('batch.purchase_order_batch', 'po')
+      .leftJoin('batch.purchase_order_detail', 'pod')
       .leftJoin('batch.measure_uom', 'measure_uom')
       .select('batch.id', 'batch_id')
       .addSelect('batch.product_id', 'product_id')
@@ -1520,7 +1618,16 @@ export class InventoryService {
       .addSelect('measure_uom.name', 'measure_uom_name')
       .addSelect('batch.available_quantity', 'available_quantity')
       .addSelect('batch.initial_quantity', 'initial_quantity')
+      .addSelect('batch.purchase_order_batch_id', 'purchase_order_batch_id')
+      .addSelect('batch.purchase_order_detail_id', 'purchase_order_detail_id')
       .addSelect('po.folio', 'purchase_order_folio')
+      .addSelect('po.payment_currency', 'payment_currency')
+      .addSelect('po.customs_exchange_rate', 'customs_exchange_rate')
+      .addSelect('pod.unit_total', 'unit_total')
+      .addSelect('pod.received_original_unit_total', 'received_original_unit_total')
+      .addSelect('pod.real_unit_cost_mxn', 'real_unit_cost_mxn')
+      .addSelect('pod.received_original_quantity', 'received_original_quantity')
+      .addSelect('pod.received_converted_quantity', 'received_converted_quantity')
       .addSelect('batch.created_at', 'created_at')
       .where('batch.tenant_id = :tenantId', { tenantId })
       .andWhere(
@@ -1536,26 +1643,25 @@ export class InventoryService {
           });
         }),
       )
-      .orderBy('batch.created_at', 'DESC');
+      .andWhere('batch.available_quantity > 0')
+      .orderBy('batch.available_quantity', 'DESC')
+      .addOrderBy('batch.batch_number', 'ASC');
 
-    if (filters.only_available) {
-      qb.andWhere('batch.available_quantity > 0');
-    }
-
-    const rows = await qb.getRawMany<{
-      batch_id: string;
-      product_id: string;
-      warehouse_id: string;
-      batch_number: string;
-      source_tag_identifier: string | null;
-      measure: string | number | null;
-      measure_uom_id: string | null;
-      measure_uom_name: string | null;
-      available_quantity: string | number;
-      initial_quantity: string | number;
-      purchase_order_folio: string | null;
-      created_at: Date;
-    }>();
+    const rows = await qb.getRawMany<
+      MarginRawRow & {
+        batch_id: string;
+        product_id: string;
+        warehouse_id: string;
+        batch_number: string;
+        source_tag_identifier: string | null;
+        measure: string | number | null;
+        measure_uom_id: string | null;
+        measure_uom_name: string | null;
+        available_quantity: string | number;
+        initial_quantity: string | number;
+        created_at: Date;
+      }
+    >();
 
     const map = new Map<
       string,
@@ -1571,6 +1677,7 @@ export class InventoryService {
         initial_quantity: string;
         purchase_order_folio: string | null;
         created_at: Date;
+        cost_input: MarginPurchaseInput | null;
       }>
     >();
 
@@ -1586,6 +1693,7 @@ export class InventoryService {
         initial_quantity: this.formatQty(this.parseDecimal(row.initial_quantity)),
         purchase_order_folio: row.purchase_order_folio ?? null,
         created_at: row.created_at,
+        cost_input: this.marginPurchaseFromRaw(row),
       });
       map.set(key, list);
     }
@@ -1635,6 +1743,11 @@ export class InventoryService {
         warehouse_name: isOut
           ? line.inventory_transfer?.destination_warehouse?.name ?? null
           : line.inventory_transfer?.source_warehouse?.name ?? null,
+        status: line.inventory_transfer?.status ?? '',
+        source_billing_branch_id:
+          line.inventory_transfer?.source_warehouse?.billing_branch_id ?? null,
+        destination_billing_branch_id:
+          line.inventory_transfer?.destination_warehouse?.billing_branch_id ?? null,
         created_at: line.created_at,
       };
     });
@@ -1703,6 +1816,9 @@ export class InventoryService {
       related_batch_id: string | null;
       related_batch_number: string | null;
       warehouse_name: string | null;
+      status: string;
+      source_billing_branch_id: string | null;
+      destination_billing_branch_id: string | null;
       created_at: Date;
     }> = [],
     auditHistory: Array<{
@@ -1719,7 +1835,7 @@ export class InventoryService {
       authorized_at: Date | null;
     }> = [],
     movements: InventoryBatchMovementDto[] = [],
-  ): BatchDetailResponseDto {
+  ): BatchDetailBaseDto {
     const initial = parseFloat(batch.initial_quantity?.toString() ?? '0');
     const available = parseFloat(batch.available_quantity?.toString() ?? '0');
     const consumed = parseFloat((initial - available).toFixed(3));
@@ -1738,6 +1854,11 @@ export class InventoryService {
     const totalIn = movements
       .filter((item) => item.direction === 'in')
       .reduce((sum, item) => sum + parseFloat(item.quantity ?? '0'), 0);
+    const vendorInvoiceNumbers = parseStoredVendorInvoiceNumbers(
+      batch.purchase_order_batch?.vendor_invoice_numbers,
+      batch.purchase_order_batch?.vendor_invoice_number,
+    );
+    const pedimentoNumbers = this.resolvePedimentoNumbers(batch);
 
     return {
       id: batch.id,
@@ -1754,8 +1875,14 @@ export class InventoryService {
       purchase_order_batch_id: batch.purchase_order_batch_id ?? null,
       purchase_order_detail_id: batch.purchase_order_detail_id ?? null,
       purchase_order_folio: batch.purchase_order_batch?.folio ?? null,
-      pedimento_number: batch.purchase_order_batch?.pedimento_number ?? null,
-      vendor_invoice_number: batch.purchase_order_batch?.vendor_invoice_number ?? null,
+      pedimento_number:
+        formatPedimentoForDisplay(batch.purchase_order_batch?.pedimento_number) ||
+        formatPedimentoForDisplay(batch.pedimento_number) ||
+        pedimentoNumbers[0] ||
+        null,
+      pedimento_numbers: pedimentoNumbers,
+      vendor_invoice_number: vendorInvoiceNumbers[0] ?? null,
+      vendor_invoice_numbers: vendorInvoiceNumbers,
       payment_currency: batch.purchase_order_batch?.payment_currency ?? null,
       unit_cost: this.unitCostFromPurchaseLine(batch.purchase_order_detail),
       real_unit_cost_usd: this.optionalMoney(batch.purchase_order_detail?.real_unit_cost_usd),
@@ -1796,6 +1923,27 @@ export class InventoryService {
     };
   }
 
+  private resolvePedimentoNumbers(batch: InventoryBatch): string[] {
+    const fromPurchaseOrder = formatPedimentoForDisplay(batch.purchase_order_batch?.pedimento_number);
+    if (fromPurchaseOrder) {
+      return [fromPurchaseOrder];
+    }
+    const fromEntries = (batch.pedimento_entries ?? [])
+      .map((entry) => formatPedimentoForDisplay(entry?.number) ?? '')
+      .filter((number) => number.length > 0);
+    const unique: string[] = [];
+    for (const number of fromEntries) {
+      if (!unique.includes(number)) {
+        unique.push(number);
+      }
+    }
+    if (unique.length) {
+      return unique;
+    }
+    const own = formatPedimentoForDisplay(batch.pedimento_number);
+    return own ? [own] : [];
+  }
+
   private optionalMoney(value: unknown): number | null {
     if (value === undefined || value === null || value === '') {
       return null;
@@ -1819,21 +1967,252 @@ export class InventoryService {
   }
 
   private async attachBatchCosting(
-    dto: BatchDetailResponseDto,
+    dto: BatchDetailBaseDto,
     batch: InventoryBatch,
   ): Promise<BatchDetailResponseDto> {
-    if (!batch.product_id || !batch.uom_id) {
-      return dto;
-    }
-    const priceMap = await this.buildPriceMap([batch.product_id], [batch.uom_id]);
-    const suggested = priceMap.get(`${batch.product_id}|${batch.uom_id}`)?.[0];
-    if (!suggested) {
-      return dto;
-    }
+    const priceInput = await this.marginPriceFor(batch.product_id, batch.uom_id);
+    const lines = batch.product_id
+      ? (await this.loadMarginConfigLines([batch.product_id])).byProductUom.get(
+          `${batch.product_id}|${batch.uom_id}`,
+        ) ?? []
+      : [];
+    const explanation = resolveLotMargin(
+      this.purchaseInputFromBatch(batch),
+      lines,
+      priceInput,
+    ).explanation;
     return {
       ...dto,
-      suggested_unit_price: this.parseDecimal(suggested.price),
-      suggested_price_currency: 'MXN',
+      suggested_unit_price: priceInput.amount,
+      suggested_price_currency: priceInput.amount != null ? 'MXN' : null,
+      margin_detail: explanation,
     };
+  }
+
+  /** Margen general del producto por UOM: promedio de lotes con existencia. */
+  async getProductMargin(tenantId: string, productId: string): Promise<ProductMarginResponseDto> {
+    const product = await this.productRepo.findOne({
+      where: { id: productId, tenant_id: tenantId },
+    });
+    if (!product) {
+      throw new NotFoundException('Producto no encontrado');
+    }
+    if (product.item_kind !== ProductItemKind.Goods) {
+      return {
+        product_id: product.id,
+        product_name: product.name ?? '',
+        product_sku: product.sku ?? '',
+        uoms: [],
+        empty_reason: 'Los servicios no tienen margen de inventario.',
+      };
+    }
+
+    const rows = await this.inventoryBatchRepo
+      .createQueryBuilder('batch')
+      .leftJoin('batch.purchase_order_batch', 'po')
+      .leftJoin('batch.purchase_order_detail', 'pod')
+      .leftJoin('batch.uom', 'uom')
+      .leftJoin('batch.warehouse', 'warehouse')
+      .select('batch.id', 'batch_id')
+      .addSelect('batch.batch_number', 'batch_number')
+      .addSelect('batch.uom_id', 'uom_id')
+      .addSelect('uom.name', 'uom_name')
+      .addSelect('warehouse.name', 'warehouse_name')
+      .addSelect('batch.source_tag_identifier', 'source_tag_identifier')
+      .addSelect('batch.purchase_order_batch_id', 'purchase_order_batch_id')
+      .addSelect('batch.purchase_order_detail_id', 'purchase_order_detail_id')
+      .addSelect('po.folio', 'purchase_order_folio')
+      .addSelect('po.payment_currency', 'payment_currency')
+      .addSelect('po.customs_exchange_rate', 'customs_exchange_rate')
+      .addSelect('pod.unit_total', 'unit_total')
+      .addSelect('pod.received_original_unit_total', 'received_original_unit_total')
+      .addSelect('pod.real_unit_cost_mxn', 'real_unit_cost_mxn')
+      .addSelect('pod.received_original_quantity', 'received_original_quantity')
+      .addSelect('pod.received_converted_quantity', 'received_converted_quantity')
+      .where('batch.tenant_id = :tenantId', { tenantId })
+      .andWhere('batch.product_id = :productId', { productId })
+      .andWhere('batch.available_quantity > 0')
+      .orderBy('uom.name', 'ASC')
+      .addOrderBy('batch.batch_number', 'ASC')
+      .getRawMany<
+        MarginRawRow & {
+          batch_id: string;
+          batch_number: string;
+          uom_id: string;
+          uom_name: string | null;
+          warehouse_name: string | null;
+          source_tag_identifier: string | null;
+        }
+      >();
+
+    const productUoms = await this.productUomRepo.find({
+      where: { product_id: productId },
+      relations: ['uom'],
+    });
+    const uomNames = new Map<string, string>();
+    for (const productUom of productUoms) {
+      if (productUom.uom_catalog_id) {
+        uomNames.set(productUom.uom_catalog_id, productUom.uom?.name ?? '');
+      }
+    }
+    for (const row of rows) {
+      if (row.uom_id && !uomNames.has(row.uom_id)) {
+        uomNames.set(row.uom_id, row.uom_name ?? '');
+      }
+    }
+
+    const uomIds = Array.from(uomNames.keys());
+    const [priceMap, configLines] = await Promise.all([
+      uomIds.length ? this.buildPriceMap([productId], uomIds) : Promise.resolve(new Map()),
+      this.loadMarginConfigLines([productId]),
+    ]);
+
+    const rowsByUom = new Map<string, typeof rows>();
+    for (const row of rows) {
+      const list = rowsByUom.get(row.uom_id) ?? [];
+      list.push(row);
+      rowsByUom.set(row.uom_id, list);
+    }
+
+    const stockedUomIds = uomIds.filter((uomId) => (rowsByUom.get(uomId)?.length ?? 0) > 0);
+    const visibleUomIds = stockedUomIds.length
+      ? stockedUomIds
+      : uomIds.filter((uomId) => {
+          const lines = configLines.byProductUom.get(`${productId}|${uomId}`) ?? [];
+          return lines.length > 0 || !!priceMap.get(`${productId}|${uomId}`)?.[0];
+        });
+
+    const uoms = visibleUomIds
+      .map((uomId) => {
+        const uomName = uomNames.get(uomId) || 'Unidad';
+        const stocked = rowsByUom.get(uomId) ?? [];
+        const lines = configLines.byProductUom.get(`${productId}|${uomId}`) ?? [];
+        const suggested = priceMap.get(`${productId}|${uomId}`)?.[0];
+        const priceInput: MarginPriceInput = {
+          amount: suggested ? this.parseDecimal(suggested.price) : null,
+          listName: suggested?.price_list_name ?? null,
+        };
+        const marginDetail = stocked.length
+          ? explainLotAverage(
+              stocked.map((row) => {
+                const resolved = resolveLotMargin(
+                  this.marginPurchaseFromRaw(row),
+                  lines,
+                  priceInput,
+                );
+                const folio = row.purchase_order_folio?.trim();
+                const place = [folio || row.source_tag_identifier || 'Sin compra', row.warehouse_name]
+                  .filter(Boolean)
+                  .join(' · ');
+                return {
+                  label: row.batch_number,
+                  detail: place || null,
+                  margin: resolved.margin,
+                };
+              }),
+              priceInput,
+              lines,
+              'Promedio de los lotes con existencia de este producto.',
+            )
+          : explainConfigurationOnly(lines, priceInput, uomName);
+        return {
+          uom_id: uomId,
+          uom_name: uomName,
+          margin_detail: marginDetail,
+        };
+      })
+      .sort((left, right) => left.uom_name.localeCompare(right.uom_name, 'es'));
+
+    return {
+      product_id: product.id,
+      product_name: product.name ?? '',
+      product_sku: product.sku ?? '',
+      uoms,
+      empty_reason: uoms.length
+        ? null
+        : 'No hay lotes con existencia ni costo configurado para calcular el margen.',
+    };
+  }
+
+  private async marginPriceFor(
+    productId: string | null | undefined,
+    uomId: string | null | undefined,
+  ): Promise<MarginPriceInput> {
+    if (!productId || !uomId) {
+      return { amount: null, listName: null };
+    }
+    const suggested = (await this.buildPriceMap([productId], [uomId])).get(
+      `${productId}|${uomId}`,
+    )?.[0];
+    if (!suggested) {
+      return { amount: null, listName: null };
+    }
+    return {
+      amount: this.parseDecimal(suggested.price),
+      listName: suggested.price_list_name ?? null,
+    };
+  }
+
+  private purchaseInputFromBatch(batch: InventoryBatch): MarginPurchaseInput | null {
+    return this.marginPurchaseFromRaw({
+      purchase_order_batch_id: batch.purchase_order_batch_id,
+      purchase_order_detail_id: batch.purchase_order_detail_id,
+      purchase_order_folio: batch.purchase_order_batch?.folio ?? null,
+      payment_currency: batch.purchase_order_batch?.payment_currency ?? null,
+      unit_total: batch.purchase_order_detail?.unit_total,
+      received_original_unit_total: batch.purchase_order_detail?.received_original_unit_total,
+      real_unit_cost_mxn: batch.purchase_order_detail?.real_unit_cost_mxn,
+      received_original_quantity: batch.purchase_order_detail?.received_original_quantity,
+      received_converted_quantity: batch.purchase_order_detail?.received_converted_quantity,
+      customs_exchange_rate: batch.purchase_order_batch?.customs_exchange_rate,
+    });
+  }
+
+  private marginPurchaseFromRaw(row: MarginRawRow): MarginPurchaseInput | null {
+    if (!row.purchase_order_batch_id && !row.purchase_order_detail_id) {
+      return null;
+    }
+    const received = this.optionalMoney(row.received_original_unit_total);
+    return {
+      hasPurchase: true,
+      folio: row.purchase_order_folio ?? null,
+      currency: row.payment_currency ?? null,
+      vendorUnitCost: received ?? this.optionalMoney(row.unit_total),
+      realUnitCostMxn: this.optionalMoney(row.real_unit_cost_mxn),
+      originalQuantity: this.optionalMoney(row.received_original_quantity),
+      convertedQuantity: this.optionalMoney(row.received_converted_quantity),
+      customsExchangeRate: this.optionalMoney(row.customs_exchange_rate),
+    };
+  }
+
+  private async loadMarginConfigLines(
+    productIds: string[],
+  ): Promise<{ byProductUom: Map<string, MarginConfigLineInput[]> }> {
+    const byProductUom = new Map<string, MarginConfigLineInput[]>();
+    if (productIds.length === 0) {
+      return { byProductUom };
+    }
+    const costs = await this.productVendorCostRepo
+      .createQueryBuilder('pvc')
+      .leftJoinAndSelect('pvc.product_uom', 'product_uom')
+      .leftJoinAndSelect('product_uom.uom', 'uom')
+      .leftJoinAndSelect('pvc.vendor', 'vendor')
+      .where('pvc.product_id IN (:...productIds)', { productIds })
+      .getMany();
+    for (const row of costs) {
+      const catalogId = row.product_uom?.uom_catalog_id;
+      if (!catalogId) continue;
+      const line: MarginConfigLineInput = {
+        vendorName: row.vendor?.company_name || row.vendor?.name || 'Proveedor',
+        uomName: row.product_uom?.uom?.name ?? '',
+        cost: this.parseDecimal(row.cost),
+        currency: row.currency || 'MXN',
+      };
+      const key = `${row.product_id}|${catalogId}`;
+      const list = byProductUom.get(key) ?? [];
+      list.push(line);
+      byProductUom.set(key, list);
+    }
+    return { byProductUom };
   }
 }

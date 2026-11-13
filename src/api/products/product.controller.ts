@@ -24,6 +24,7 @@ import { QueryProductDto } from './dto/query-product.dto';
 import { QueryProductExportDto } from './dto/query-product-export.dto';
 import { PaginatedProductDto } from './dto/paginated-product.dto';
 import { ToggleStatusDto } from './dto/toggle-status.dto';
+import { ProductDisableService } from './services/product-disable.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionGuard } from '../rbac/guards/permission.guard';
 import { RequirePermission } from '../rbac/decorators/require-permissions.decorator';
@@ -36,6 +37,7 @@ export class ProductController {
   constructor(
     private readonly productService: ProductService,
     private readonly productsExportService: ProductsExportService,
+    private readonly productDisableService: ProductDisableService,
   ) {}
 
   @Post()
@@ -79,6 +81,15 @@ export class ProductController {
     res.send(buffer);
   }
 
+  @Get(':id/disable-impact')
+  @RequirePermission('Product', 'Read')
+  @ApiOperation({
+    summary: 'Existencia y transferencias abiertas antes de deshabilitar el producto',
+  })
+  getDisableImpact(@Param('id') id: string, @Request() req) {
+    return this.productDisableService.getImpact(id, req.user.tenant_id);
+  }
+
   @Get(':id')
   @RequirePermission('Product', 'Read')
   @ApiOperation({ summary: 'Obtener producto por ID' })
@@ -103,7 +114,7 @@ export class ProductController {
   @ApiResponse({ status: 200, description: 'Estado actualizado exitosamente' })
   @ApiResponse({ status: 404, description: 'Producto no encontrado' })
   toggleStatus(@Param('id') id: string, @Body() dto: ToggleStatusDto, @Request() req) {
-    return this.productService.toggleStatus(id, dto, req.user.tenant_id);
+    return this.productDisableService.apply(id, dto, req.user.tenant_id, req.user.id);
   }
 
   @Delete(':id')

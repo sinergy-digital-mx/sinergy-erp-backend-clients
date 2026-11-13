@@ -483,9 +483,9 @@ export class InventoryStockFlowService {
           l.product_id,
           w.billing_branch_id,
           l.uom_id,
-          SUM(CASE WHEN l.movement_type IN ('purchase_receipt', 'import') THEN l.quantity_delta ELSE 0 END) AS purchases_qty,
+          SUM(CASE WHEN l.movement_type IN ('purchase_receipt', 'import', 'purchase_reversal') THEN l.quantity_delta ELSE 0 END) AS purchases_qty,
           SUM(CASE
-            WHEN l.movement_type IN ('purchase_receipt', 'import')
+            WHEN l.movement_type IN ('purchase_receipt', 'import', 'purchase_reversal')
             THEN l.quantity_delta * COALESCE(l.unit_cost_mxn, 0)
             ELSE 0
           END) AS purchases_cost,
@@ -725,9 +725,9 @@ export class InventoryStockFlowService {
       LEFT JOIN (
         SELECT
           w.billing_branch_id,
-          SUM(CASE WHEN l.movement_type IN ('purchase_receipt', 'import') THEN l.quantity_delta ELSE 0 END) AS purchases_qty,
+          SUM(CASE WHEN l.movement_type IN ('purchase_receipt', 'import', 'purchase_reversal') THEN l.quantity_delta ELSE 0 END) AS purchases_qty,
           SUM(CASE
-            WHEN l.movement_type IN ('purchase_receipt', 'import')
+            WHEN l.movement_type IN ('purchase_receipt', 'import', 'purchase_reversal')
             THEN l.quantity_delta * COALESCE(l.unit_cost_mxn, 0)
             ELSE 0
           END) AS purchases_cost,
@@ -1006,6 +1006,8 @@ export class InventoryStockFlowService {
     switch (type) {
       case InventoryStockLedgerMovementType.PURCHASE_RECEIPT:
         return `Entraron ${qty} ${uom} por compra${folio}.`.trim();
+      case InventoryStockLedgerMovementType.PURCHASE_REVERSAL:
+        return `Salieron ${qty} ${uom} por cancelación de compra${folio}.`.trim();
       case InventoryStockLedgerMovementType.IMPORT:
         return `Entraron ${qty} ${uom} por importación${folio}.`.trim();
       case InventoryStockLedgerMovementType.SALE:

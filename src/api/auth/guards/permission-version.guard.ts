@@ -63,7 +63,7 @@ export class PermissionVersionGuard implements CanActivate {
       );
 
       // Compare versions
-      if (jwtVersion < dbVersion) {
+      if (Number(jwtVersion) < Number(dbVersion)) {
         this.logger.warn(
           `Permission version mismatch for user ${user.id}: JWT version ${jwtVersion} < DB version ${dbVersion}`,
         );

@@ -6,6 +6,7 @@ export type ContractListFilters = {
   propertyId?: string;
   status?: string;
   hasOverdue?: boolean;
+  downPaymentFinanced?: boolean;
   search?: string;
   group_id?: string;
 };
@@ -49,6 +50,10 @@ export function applyContractListFilters(
     );
   }
 
+  if (filters.downPaymentFinanced === true) {
+    query.andWhere('c.down_payment_financed = true');
+  }
+
   if (filters.hasOverdue === true) {
     query.andWhere(
       `EXISTS (
@@ -56,6 +61,12 @@ export function applyContractListFilters(
         WHERE overdue_filter_p.contract_id = c.id
           AND overdue_filter_p.is_overdue = true
           AND overdue_filter_p.status IN ('pendiente', 'parcial')
+      )
+      OR EXISTS (
+        SELECT 1 FROM contract_downpayment_payments overdue_filter_d
+        WHERE overdue_filter_d.contract_id = c.id
+          AND overdue_filter_d.is_overdue = true
+          AND overdue_filter_d.status IN ('pendiente', 'parcial')
       )`,
     );
   }

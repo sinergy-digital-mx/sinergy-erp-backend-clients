@@ -984,12 +984,13 @@ export class PermissionService {
   ): Promise<Permission[]> {
     const query = `
       SELECT DISTINCT p.id, p.action, p.description, p.is_system_permission, p.created_at, p.updated_at,
-             p.entity_registry_id, er.code as entity_code, p.module_id
+             p.entity_registry_id, er.code as entity_code, p.module_id, m.code as module_code
       FROM rbac_permissions p
       INNER JOIN entity_registry er ON p.entity_registry_id = er.id
       INNER JOIN rbac_role_permissions rp ON p.id = rp.permission_id
       INNER JOIN rbac_roles r ON rp.role_id = r.id
       INNER JOIN rbac_user_roles ur ON r.id = ur.role_id
+      LEFT JOIN modules m ON m.id = p.module_id
       LEFT JOIN tenant_modules tm ON p.module_id = tm.module_id AND tm.tenant_id = ?
       WHERE ur.user_id = ? AND ur.tenant_id = ?
         AND (p.module_id IS NULL OR (tm.is_enabled = 1 AND tm.tenant_id = ?))
@@ -1021,6 +1022,9 @@ export class PermissionService {
         id: row.entity_registry_id,
         code: row.entity_code,
       } as any;
+      if (row.module_code) {
+        permission.module = { code: row.module_code } as Permission['module'];
+      }
       return permission;
     });
   }

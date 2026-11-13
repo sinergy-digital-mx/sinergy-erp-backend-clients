@@ -10,6 +10,7 @@ import {
   ElectronicInvoice,
   ElectronicInvoiceSatStatus,
   ElectronicInvoiceSourceModule,
+  ElectronicInvoiceStampStatus,
 } from '../../../entities/electronic-invoicing/electronic-invoice.entity';
 import { ElectronicInvoiceSyncLog } from '../../../entities/electronic-invoicing/electronic-invoice-sync-log.entity';
 import { FiscalConfiguration } from '../../../entities/billing/fiscal-configuration.entity';
@@ -21,6 +22,12 @@ import { FinkokProviderConfigurationService } from './finkok-provider-configurat
 import { FinkokSoapClient } from './finkok-soap.client';
 import { ElectronicInvoicePdfService } from './electronic-invoice-pdf.service';
 import { parseCfdiXmlForPdf, normalizeCfdiXml } from '../utils/cfdi-xml.parser';
+import { receptorRegimenMismatch } from '../utils/cfdi-regimen-person.util';
+import { finkokErrorMessage, stampRejectionMessage } from '../utils/finkok-error-message.util';
+import {
+  resolveStampStatusAfterCancelRequest,
+  resolveStampStatusAfterSatConsult,
+} from '../utils/cfdi-cancel-status.util';
 
 @Injectable()
 export class ElectronicInvoiceService {
@@ -40,7 +47,7 @@ export class ElectronicInvoiceService {
 
   async stamp(
     tenantId: string,
-    userId: string,
+    userId: string | null,
     dto: StampElectronicInvoiceDto,
   ): Promise<ElectronicInvoice> {
     const fiscal = await this.fiscalRepo.findOne({
@@ -62,6 +69,8 @@ export class ElectronicInvoiceService {
       dto.environment,
     );
 
+    this.assertReceptorRegimen(dto.xml);
+
     let result;
     try {
       result = await this.finkokClient.signStamp(credentials, dto.xml);
@@ -69,7 +78,7 @@ export class ElectronicInvoiceService {
       const msg =
         error instanceof Error ? error.message : 'Error de comunicación con Finkok';
       this.logger.warn(`Finkok Sign_Stamp comunicación: ${msg}`);
-      throw new BadRequestException(msg);
+      throw new BadRequestException(finkokErrorMessage(undefined, msg));
     }
 
     if (!result.success || !result.xml) {
@@ -79,10 +88,15 @@ export class ElectronicInvoiceService {
         result.codEstatus ??
         'Error desconocido al timbrar';
       const codigo = incidencia?.codigoError;
+      const extra = incidencia?.extraInfo?.trim();
+      const fecha = readXmlAttr(dto.xml, 'Fecha');
+      const lugar = readXmlAttr(dto.xml, 'LugarExpedicion');
       this.logger.warn(
-        `Finkok Sign_Stamp rechazado${codigo ? ` [${codigo}]` : ''}: ${errorMsg}`,
+        `Finkok Sign_Stamp rechazado${codigo ? ` [${codigo}]` : ''}: ${errorMsg}` +
+          `${fecha ? ` Fecha=${fecha}` : ''}${lugar ? ` CP=${lugar}` : ''}` +
+          `${extra ? ` Extra=${extra}` : ''}`,
       );
-      throw new BadRequestException(codigo ? `${codigo}: ${errorMsg}` : errorMsg);
+      throw new BadRequestException(stampRejectionMessage(codigo, errorMsg, extra, fecha, lugar));
     }
 
     const invoice = this.invoiceRepo.create({
@@ -113,6 +127,10 @@ export class ElectronicInvoiceService {
       stamp_status: 'stamped',
       stamp_error_message: null,
       sat_sync_enabled: 1,
+      invoice_role: dto.invoice_role ?? 'standard',
+      related_advance_invoice_id: dto.related_advance_invoice_id ?? null,
+      related_invoice_id: dto.related_invoice_id ?? null,
+      relation_type: dto.relation_type ?? null,
       metadata: {
         ...(dto.metadata ?? {}),
         finkok_environment: credentials.environment,
@@ -133,7 +151,11 @@ export class ElectronicInvoiceService {
   ): Promise<ElectronicInvoice> {
     const invoice = await this.getByIdOrFail(id, tenantId);
 
-    if (invoice.stamp_status !== 'stamped' && invoice.stamp_status !== 'cancel_pending') {
+    if (
+      invoice.stamp_status !== 'stamped' &&
+      invoice.stamp_status !== 'cancel_pending' &&
+      invoice.stamp_status !== 'cancel_error'
+    ) {
       throw new BadRequestException(
         `Solo se pueden cancelar facturas timbradas. Estado actual: ${invoice.stamp_status}`,
       );
@@ -180,15 +202,23 @@ export class ElectronicInvoiceService {
 
     if (!result.success) {
       invoice.stamp_status = 'cancel_error';
-      invoice.stamp_error_message = result.codEstatus ?? 'Error al cancelar en Finkok';
+      invoice.stamp_error_message = finkokErrorMessage(
+        undefined,
+        result.codEstatus ?? 'Error al cancelar en Finkok',
+      );
       return this.invoiceRepo.save(invoice);
     }
 
     const folio = result.folios[0];
     invoice.cancel_sat_status_code = folio?.estatusUuid ?? null;
     invoice.cancel_acuse_xml = result.acuse ?? null;
-    invoice.stamp_status =
-      folio?.estatusUuid === '201' ? 'cancel_pending' : 'cancelled';
+    if (folio?.estatusCancelacion) {
+      invoice.sat_estatus_cancelacion = folio.estatusCancelacion;
+    }
+    invoice.stamp_status = resolveStampStatusAfterCancelRequest(
+      folio?.estatusUuid,
+      invoice.sat_estatus_cancelacion,
+    );
     invoice.stamp_error_message = null;
 
     await this.syncLogRepo.save(
@@ -197,14 +227,29 @@ export class ElectronicInvoiceService {
         electronic_invoice_id: invoice.id,
         trigger_type: 'manual',
         previous_sat_status: invoice.sat_status,
-        new_sat_status: invoice.stamp_status === 'cancelled' ? 'Cancelado' : invoice.sat_status,
+        new_sat_status: invoice.sat_status,
         raw_response: { cancel: result },
         success: result.success ? 1 : 0,
         triggered_by: userId,
       }),
     );
 
-    return this.invoiceRepo.save(invoice);
+    const saved = await this.invoiceRepo.save(invoice);
+    return this.syncAfterCancel(saved.id, tenantId, userId);
+  }
+
+  private async syncAfterCancel(
+    id: string,
+    tenantId: string,
+    userId: string,
+  ): Promise<ElectronicInvoice> {
+    try {
+      return await this.syncSatStatus(id, tenantId, userId, 'manual');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Sync SAT después de cancelar ${id} falló: ${message}`);
+      return this.getByIdOrFail(id, tenantId);
+    }
   }
 
   async syncSatStatus(
@@ -240,9 +285,11 @@ export class ElectronicInvoiceService {
     invoice.sat_codigo_estatus = result.codigoEstatus ?? null;
     invoice.sat_last_sync_at = new Date();
 
-    if (newSatStatus === 'Cancelado') {
-      invoice.stamp_status = 'cancelled';
-    }
+    invoice.stamp_status = resolveStampStatusAfterSatConsult(
+      invoice.stamp_status,
+      newSatStatus,
+      invoice.sat_estatus_cancelacion,
+    ) as ElectronicInvoiceStampStatus;
 
     await this.syncLogRepo.save(
       this.syncLogRepo.create({
@@ -263,6 +310,148 @@ export class ElectronicInvoiceService {
     return this.invoiceRepo.save(invoice);
   }
 
+  async registerExisting(
+    tenantId: string,
+    userId: string,
+    input: {
+      fiscal_configuration_id: string;
+      source_id: string;
+      uuid: string;
+      rfc_emisor: string;
+      rfc_receptor: string;
+      receptor_nombre?: string | null;
+      subtotal: number;
+      total: number;
+      series?: string | null;
+      folio?: string | null;
+      currency?: string | null;
+      stamped_at?: Date | null;
+      xml?: string | null;
+      pdf?: Buffer | null;
+      origin: 'xml' | 'pdf' | 'uuid' | 'xml_pdf';
+    },
+  ): Promise<ElectronicInvoice> {
+    const uuid = input.uuid.trim().toUpperCase();
+    const duplicate = await this.invoiceRepo.findOne({
+      where: { tenant_id: tenantId, uuid },
+    });
+    if (duplicate) {
+      throw new BadRequestException('Ese UUID ya está registrado');
+    }
+
+    const invoice = this.invoiceRepo.create({
+      tenant_id: tenantId,
+      fiscal_configuration_id: input.fiscal_configuration_id,
+      source_module: 'sales_orders',
+      source_id: input.source_id,
+      uuid,
+      series: input.series ?? null,
+      folio: input.folio ?? null,
+      tipo_comprobante: 'I',
+      rfc_emisor: input.rfc_emisor,
+      rfc_receptor: input.rfc_receptor,
+      receptor_nombre: input.receptor_nombre ?? null,
+      subtotal: input.subtotal,
+      total: input.total,
+      currency: input.currency || 'MXN',
+      xml_stamped: input.xml ?? null,
+      stamp_status: 'stamped',
+      sat_status: 'Vigente',
+      stamped_at: input.stamped_at ?? null,
+      created_by: userId,
+      sat_sync_enabled: input.xml ? 1 : 0,
+      metadata: { registered_existing: true, origin: input.origin },
+    });
+    const saved = await this.invoiceRepo.save(invoice);
+    if (!input.pdf?.length) {
+      return saved;
+    }
+
+    saved.pdf_stamped_s3_key = await this.pdfService.storeUploadedPdf(saved, input.pdf);
+    saved.metadata = { ...(saved.metadata ?? {}), pdf_file_name: `${saved.uuid}.pdf` };
+    return this.invoiceRepo.save(saved);
+  }
+
+  async attachManualFiles(
+    id: string,
+    tenantId: string,
+    input: {
+      xml?: string | null;
+      pdf?: Buffer | null;
+      series?: string | null;
+      folio?: string | null;
+      subtotal?: number | null;
+      total?: number | null;
+      rfcEmisor?: string | null;
+      rfcReceptor?: string | null;
+      receptorNombre?: string | null;
+      stampedAt?: Date | null;
+    },
+  ): Promise<ElectronicInvoice> {
+    const invoice = await this.getByIdOrFail(id, tenantId);
+    if (invoice.metadata?.registered_existing !== true) {
+      throw new BadRequestException('Solo se pueden completar facturas registradas a mano');
+    }
+
+    if (input.xml) {
+      invoice.xml_stamped = input.xml;
+      invoice.sat_sync_enabled = 1;
+      if (input.series) invoice.series = input.series;
+      if (input.folio) invoice.folio = input.folio;
+      if (input.subtotal != null) invoice.subtotal = input.subtotal;
+      if (input.total != null) invoice.total = input.total;
+      if (input.rfcEmisor) invoice.rfc_emisor = input.rfcEmisor;
+      if (input.rfcReceptor) invoice.rfc_receptor = input.rfcReceptor;
+      if (input.receptorNombre) invoice.receptor_nombre = input.receptorNombre;
+    }
+    if (input.stampedAt) invoice.stamped_at = input.stampedAt;
+
+    const saved = await this.invoiceRepo.save(invoice);
+    if (!input.pdf?.length) {
+      return saved;
+    }
+
+    saved.pdf_stamped_s3_key = await this.pdfService.storeUploadedPdf(saved, input.pdf);
+    saved.metadata = { ...(saved.metadata ?? {}), pdf_file_name: `${saved.uuid}.pdf` };
+    return this.invoiceRepo.save(saved);
+  }
+
+  async unlinkManualRegistration(id: string, tenantId: string, sourceId: string): Promise<void> {
+    const invoice = await this.getByIdOrFail(id, tenantId);
+    if (invoice.source_module !== 'sales_orders' || invoice.source_id !== sourceId) {
+      throw new NotFoundException('Factura no encontrada en esta orden');
+    }
+    if (invoice.metadata?.registered_existing !== true) {
+      throw new BadRequestException(
+        'Solo se puede quitar una factura registrada a mano. Las timbradas desde aquí se cancelan en el SAT.',
+      );
+    }
+
+    await this.invoiceRepo.manager.query(
+      'DELETE FROM electronic_invoice_sync_logs WHERE electronic_invoice_id = ?',
+      [id],
+    );
+    await this.invoiceRepo.manager.query(
+      'DELETE FROM inv_s_sales_order_invoice_emails WHERE invoice_id = ?',
+      [id],
+    );
+    await this.invoiceRepo.manager.query(
+      'UPDATE electronic_invoices SET related_advance_invoice_id = NULL WHERE related_advance_invoice_id = ?',
+      [id],
+    );
+    await this.invoiceRepo.delete({ id, tenant_id: tenantId });
+  }
+
+  async readPdfBuffer(id: string, tenantId: string): Promise<Buffer> {
+    const invoice = await this.getByIdOrFail(id, tenantId);
+    const file = await this.pdfService.getPdfBuffer(invoice);
+    return file.buffer;
+  }
+
+  async saveStampDate(id: string, tenantId: string, stampedAt: Date): Promise<void> {
+    await this.invoiceRepo.update({ id, tenant_id: tenantId }, { stamped_at: stampedAt });
+  }
+
   async findBySource(
     tenantId: string,
     sourceModule: ElectronicInvoiceSourceModule,
@@ -272,6 +461,39 @@ export class ElectronicInvoiceService {
       where: { tenant_id: tenantId, source_module: sourceModule, source_id: sourceId },
       order: { created_at: 'DESC' },
     });
+  }
+
+  async assertNoActiveProductionInvoice(
+    tenantId: string,
+    sourceModule: ElectronicInvoiceSourceModule,
+    sourceId: string,
+    environment?: FinkokEnvironment,
+  ): Promise<void> {
+    const credentials = await this.finkokConfigService.getCredentials(tenantId, environment);
+    if (credentials.environment !== 'production') {
+      return;
+    }
+
+    const invoices = await this.findBySource(tenantId, sourceModule, sourceId);
+    const active = invoices.some(
+      (invoice) => invoice.tipo_comprobante !== 'P' && this.isActiveProductionInvoice(invoice),
+    );
+    if (active) {
+      throw new BadRequestException(
+        'Ya existe una factura activa en producción. Cancela la anterior antes de timbrar otra factura en PROD.',
+      );
+    }
+  }
+
+  private isActiveProductionInvoice(invoice: ElectronicInvoice): boolean {
+    if (invoice.metadata?.finkok_environment !== 'production') {
+      return false;
+    }
+    if (invoice.stamp_status !== 'stamped') {
+      return false;
+    }
+    const sat = String(invoice.sat_status ?? '').toLowerCase();
+    return !/\bcancelad[oa]\b/.test(sat);
   }
 
   /**
@@ -338,7 +560,12 @@ export class ElectronicInvoiceService {
       return this.getPdfPreviewDownload(invoice, tenantId);
     }
 
-    if (invoice.stamp_status !== 'stamped' && invoice.stamp_status !== 'cancel_pending' && invoice.stamp_status !== 'cancelled') {
+    if (
+      invoice.stamp_status !== 'stamped' &&
+      invoice.stamp_status !== 'cancel_pending' &&
+      invoice.stamp_status !== 'cancelled' &&
+      invoice.stamp_status !== 'cancel_error'
+    ) {
       throw new BadRequestException('Solo hay PDF para facturas timbradas');
     }
 
@@ -483,6 +710,22 @@ export class ElectronicInvoiceService {
     return this.readNoCertificadoFromXml(invoice.xml_stamped);
   }
 
+  private assertReceptorRegimen(xml: string): void {
+    let parsed;
+    try {
+      parsed = parseCfdiXmlForPdf(xml);
+    } catch {
+      return;
+    }
+    const message = receptorRegimenMismatch(
+      parsed.receptor.rfc,
+      parsed.receptor.regimenFiscalReceptor,
+    );
+    if (message) {
+      throw new BadRequestException(message);
+    }
+  }
+
   private readNoCertificadoFromXml(xml: string | null | undefined): string | null {
     if (!xml?.trim()) {
       return null;
@@ -516,4 +759,10 @@ export class ElectronicInvoiceService {
     }
     return invoice;
   }
+}
+
+function readXmlAttr(xml: string, name: string): string | null {
+  const match = xml.match(new RegExp(`${name}="([^"]*)"`));
+  const value = match?.[1]?.trim();
+  return value || null;
 }

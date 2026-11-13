@@ -19,7 +19,11 @@ import {
   RBACDebugErrorResponse,
 } from './error-response.interface';
 import { RBACException } from './rbac-exceptions';
-import { getErrorMessage, getUserFriendlyMessage } from './error-messages';
+import {
+  getClientMessage,
+  getErrorMessage,
+  getUserFriendlyMessage,
+} from './error-messages';
 
 /**
  * Configuration for error handling behavior
@@ -105,7 +109,7 @@ export class RBACErrorHandlerService {
     const baseResponse: RBACErrorResponse = {
       statusCode: exception.getStatus(),
       error: exception.name,
-      message: this.truncateMessage(errorMessage.technical),
+      message: this.truncateMessage(getClientMessage(exception.code)),
       code: exception.code,
       category: exception.category,
       severity: exception.severity,
@@ -152,7 +156,11 @@ export class RBACErrorHandlerService {
     return {
       statusCode: exception.getStatus(),
       error: exception.name,
-      message: this.truncateMessage(getUserFriendlyMessage(exception.code)),
+      message: this.truncateMessage(
+        exception.code === 'PERMISSION_DENIED'
+          ? getClientMessage(exception.code)
+          : getUserFriendlyMessage(exception.code),
+      ),
       timestamp: new Date().toISOString(),
       path: request.url,
     };

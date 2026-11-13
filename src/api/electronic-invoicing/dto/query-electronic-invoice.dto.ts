@@ -2,8 +2,8 @@ import { IsEnum, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-val
 
 export class QueryElectronicInvoiceDto {
   @IsOptional()
-  @IsEnum(['sales_orders'])
-  source_module?: 'sales_orders';
+  @IsEnum(['sales_orders', 'quotations', 'global_invoices'])
+  source_module?: 'sales_orders' | 'quotations' | 'global_invoices';
 
   @IsOptional()
   @IsUUID()

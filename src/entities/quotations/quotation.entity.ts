@@ -16,6 +16,7 @@ import { Warehouse } from '../warehouse/warehouse.entity';
 import { Customer } from '../customers/customer.entity';
 import { User } from '../users/user.entity';
 import { GlobalDiscount } from '../global-discounts/global-discount.entity';
+import { SalesOrderPosStage } from '../sales-orders/sales-order-pos-stage.enum';
 import { QuotationDetail } from './quotation-detail.entity';
 
 @Entity('inv_s_quotations')
@@ -116,6 +117,23 @@ export class Quotation {
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   total: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  advance_requested_total: number | null;
+
+  @Column({ type: 'varchar', length: 4, nullable: true })
+  advance_uso_cfdi: string | null;
+
+  @Column({ type: 'varchar', length: 3, nullable: true })
+  advance_metodo_pago: 'PUE' | 'PPD' | null;
+
+  @Column({
+    type: 'enum',
+    enum: SalesOrderPosStage,
+    nullable: true,
+    default: null,
+  })
+  pos_stage: SalesOrderPosStage | null;
 
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'created_by' })

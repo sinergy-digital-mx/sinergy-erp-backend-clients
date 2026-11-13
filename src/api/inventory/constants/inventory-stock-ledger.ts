@@ -12,6 +12,7 @@ export const STOCK_LEDGER_MOVEMENT_TYPE_LABELS: Record<
   [InventoryStockLedgerMovementType.TRANSFER_OUT]: 'Salida por transferencia',
   [InventoryStockLedgerMovementType.AUDIT_ADJUSTMENT]: 'Ajuste por auditoría',
   [InventoryStockLedgerMovementType.OPENING_BALANCE]: 'Saldo inicial',
+  [InventoryStockLedgerMovementType.PURCHASE_REVERSAL]: 'Salida por cancelación de compra',
 };
 
 export function formatStockQty(value: unknown): string {

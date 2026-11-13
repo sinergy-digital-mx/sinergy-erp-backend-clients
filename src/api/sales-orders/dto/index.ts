@@ -1,10 +1,12 @@
 export { CreateSalesOrderDto, CreateSalesOrderLineItemDto } from './create-sales-order.dto';
+export { CloneSalesOrderDto, CloneSalesOrderLineDto } from './clone-sales-order.dto';
 export { UpdateSalesOrderLineItemDto } from './update-sales-order-line-item.dto';
 export { QuerySalesOrderDto } from './query-sales-order.dto';
 export { QuerySalesOrderProductsSummaryDto } from './query-sales-order-products-summary.dto';
 export { FulfillSalesOrderDto } from './fulfill-sales-order.dto';
 export { RegenerateDocumentDto } from './regenerate-document.dto';
 export { UpdateSalesOrderNotesDto } from './update-sales-order-notes.dto';
+export { UpdateSalesOrderForShippingDto } from './update-sales-order-for-shipping.dto';
 export {
   QuerySalesOrderHeaderExportDto,
   QuerySalesOrderDetailExportDto,
@@ -13,5 +15,9 @@ export { CreateSalesOrderPaymentDto } from './create-sales-order-payment.dto';
 export { UpdateSalesOrderSellerDto } from './update-sales-order-seller.dto';
 export { UpdateSalesOrderAssignedSellerDto } from './update-sales-order-assigned-seller.dto';
 export { StampSalesOrderInvoiceDto } from './stamp-sales-order-invoice.dto';
+export { StampSalesOrderCreditNoteDto } from './stamp-sales-order-credit-note.dto';
+export { StampPaymentComplementDto } from './stamp-payment-complement.dto';
 export { SendSalesOrderInvoiceEmailDto } from './send-sales-order-invoice-email.dto';
+export { SendSalesOrderInvoiceWhatsappDto } from './send-sales-order-invoice-whatsapp.dto';
 export { UpdateInvoiceEmailTemplateDto } from './update-invoice-email-template.dto';
+export { UpdateSalesOrderCreationSettingsDto } from './update-sales-order-creation-settings.dto';

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like } from 'typeorm';
+import { Repository, Like, QueryFailedError } from 'typeorm';
 import { UoMCatalog } from '../../entities/uom-catalog/uom-catalog.entity';
 import { CreateUoMCatalogDto } from './dto/create-uom-catalog.dto';
 import { UpdateUoMCatalogDto } from './dto/update-uom-catalog.dto';
@@ -21,7 +21,7 @@ export class UoMCatalogService {
     });
 
     if (existing) {
-      throw new ConflictException(`UoM con nombre "${dto.name}" ya existe para este tenant`);
+      throw new ConflictException(`Ya existe una unidad de medida con el nombre "${dto.name}"`);
     }
 
     const uom = this.uomCatalogRepository.create({
@@ -80,7 +80,7 @@ export class UoMCatalogService {
       });
 
       if (existing) {
-        throw new ConflictException(`UoM con nombre "${dto.name}" ya existe para este tenant`);
+        throw new ConflictException(`Ya existe una unidad de medida con el nombre "${dto.name}"`);
       }
     }
 
@@ -90,6 +90,21 @@ export class UoMCatalogService {
 
   async remove(id: string, tenantId: string): Promise<void> {
     const uom = await this.findOne(id, tenantId);
-    await this.uomCatalogRepository.remove(uom);
+    try {
+      await this.uomCatalogRepository.remove(uom);
+    } catch (error) {
+      if (this.isInUseError(error)) {
+        throw new ConflictException(
+          'No se puede eliminar: la unidad está asignada a productos o movimientos',
+        );
+      }
+      throw error;
+    }
+  }
+
+  private isInUseError(error: unknown): boolean {
+    if (!(error instanceof QueryFailedError)) return false;
+    const driverError = error.driverError as { errno?: number; code?: string } | undefined;
+    return driverError?.errno === 1451 || driverError?.code === 'ER_ROW_IS_REFERENCED_2';
   }
 }

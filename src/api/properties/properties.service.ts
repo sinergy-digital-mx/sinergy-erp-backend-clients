@@ -2,6 +2,8 @@ import { Injectable, ConflictException, BadRequestException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import { Property } from '../../entities/properties/property.entity';
+import { Contract } from '../../entities/contracts/contract.entity';
+import { buildContractNumberFromPropertyCode } from '../contracts/contract-number.util';
 import { MeasurementUnit } from '../../entities/properties/measurement-unit.entity';
 import { CreatePropertyDto } from './dto/create-property.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
@@ -12,6 +14,8 @@ import {
   resolvePropertyPricing,
   roundMoney,
 } from './utils/property-pricing.util';
+import { toPropertyLotLookup } from './utils/property-lot-lookup.util';
+import { listPropertyBlocks } from './utils/property-block.util';
 import {
   DEFAULT_CONTRACT_CURRENCY,
   normalizeContractCurrency,
@@ -22,6 +26,7 @@ export type PropertyListFilters = {
   group_id?: string;
   search?: string;
   status?: string;
+  block?: string;
 };
 
 @Injectable()
@@ -29,6 +34,8 @@ export class PropertiesService {
   constructor(
     @InjectRepository(Property)
     private propertyRepo: Repository<Property>,
+    @InjectRepository(Contract)
+    private contractRepo: Repository<Contract>,
     @InjectRepository(MeasurementUnit)
     private measurementUnitRepo: Repository<MeasurementUnit>,
     private readonly customerGroupsService: CustomerGroupsService,
@@ -130,7 +137,7 @@ export class PropertiesService {
             : null,
         } : null,
         // Keep the original contracts array for backward compatibility
-        contracts: property.contracts,
+        contracts: this.contractsWithoutPropertyBackref(property.contracts),
         ...this.pricingFields(property),
         currency: resolveStoredContractCurrency(property.currency),
       };
@@ -140,6 +147,44 @@ export class PropertiesService {
 
     return {
       data,
+      total,
+      page,
+      limit,
+      totalPages,
+      hasNext: page < totalPages,
+      hasPrev: page > 1,
+    };
+  }
+
+  async findLotLookup(
+    tenantId: string,
+    filters: PropertyListFilters = {},
+    page: number = 1,
+    limit: number = 20,
+  ): Promise<any> {
+    if (page < 1) page = 1;
+    if (limit < 1) limit = 1;
+    if (limit > 100) limit = 100;
+
+    const skip = (page - 1) * limit;
+
+    const query = this.propertyRepo
+      .createQueryBuilder('p')
+      .where('p.tenant_id = :tenantId', { tenantId });
+
+    this.applyPropertyListFilters(query, filters, { lotFieldsOnly: true });
+
+    const total = await query.getCount();
+    const properties = await query
+      .orderBy('p.code', 'ASC')
+      .skip(skip)
+      .take(limit)
+      .getMany();
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data: properties.map((property) => toPropertyLotLookup(property)),
       total,
       page,
       limit,
@@ -229,7 +274,71 @@ export class PropertiesService {
       throw err;
     }
 
+    if (dto.code !== undefined) {
+      await this.syncContractNumbers(tenantId, updated);
+    }
+
     return this.presentProperty(updated);
+  }
+
+  private async syncContractNumbers(
+    tenantId: string,
+    property: Property,
+  ): Promise<void> {
+    const contracts = await this.contractRepo.find({
+      where: { tenant_id: tenantId, property_id: property.id },
+      order: { created_at: 'ASC' },
+    });
+    if (!contracts.length) {
+      return;
+    }
+
+    const base = buildContractNumberFromPropertyCode(property.code);
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+    for (let index = 0; index < contracts.length; index += 1) {
+      const contract = contracts[index];
+      const next = await this.nextFreeContractNumber(
+        tenantId,
+        base,
+        contract.id,
+        index,
+        letters,
+      );
+      if (!next || next === contract.contract_number) {
+        continue;
+      }
+      contract.contract_number = next;
+      await this.contractRepo.save(contract);
+    }
+  }
+
+  private async nextFreeContractNumber(
+    tenantId: string,
+    base: string,
+    contractId: string,
+    index: number,
+    letters: string,
+  ): Promise<string | null> {
+    const candidates = [
+      index === 0 ? base : `${base}${letters[index - 1] ?? ''}`.slice(0, 50),
+      ...letters.split('').map((letter) => `${base}${letter}`.slice(0, 50)),
+      `${base}-${Date.now()}`.slice(0, 50),
+    ];
+
+    for (const candidate of candidates) {
+      if (!candidate) {
+        continue;
+      }
+      const taken = await this.contractRepo.findOne({
+        where: { tenant_id: tenantId, contract_number: candidate },
+      });
+      if (!taken || taken.id === contractId) {
+        return candidate;
+      }
+    }
+
+    return null;
   }
 
   async remove(tenantId: string, id: string): Promise<void> {
@@ -239,6 +348,19 @@ export class PropertiesService {
     }
 
     await this.propertyRepo.remove(property);
+  }
+
+  async listBlocks(tenantId: string): Promise<string[]> {
+    const rows = await this.propertyRepo
+      .createQueryBuilder('p')
+      .select('p.block', 'block')
+      .where('p.tenant_id = :tenantId', { tenantId })
+      .andWhere('p.block IS NOT NULL')
+      .andWhere("TRIM(p.block) <> ''")
+      .distinct(true)
+      .getRawMany<{ block: string | null }>();
+
+    return listPropertyBlocks(rows.map((row) => row.block));
   }
 
   /**
@@ -350,6 +472,7 @@ export class PropertiesService {
   private applyPropertyListFilters(
     query: ReturnType<Repository<Property>['createQueryBuilder']>,
     filters: PropertyListFilters,
+    options?: { lotFieldsOnly?: boolean },
   ): void {
     if (filters.group_id) {
       query.andWhere('p.group_id = :group_id', { group_id: filters.group_id });
@@ -359,13 +482,20 @@ export class PropertiesService {
       query.andWhere('p.status = :status', { status: filters.status });
     }
 
+    const block = filters.block?.trim();
+    if (block) {
+      query.andWhere('TRIM(p.block) = :block', { block });
+    }
+
     if (filters.search) {
-      query.andWhere(
-        `(
+      const lotMatch = `
           LOWER(p.code) LIKE LOWER(:search)
           OR LOWER(p.name) LIKE LOWER(:search)
           OR LOWER(p.block) LIKE LOWER(:search)
-          OR LOWER(p.lot_number) LIKE LOWER(:search)
+          OR LOWER(p.lot_number) LIKE LOWER(:search)`;
+      const extendedMatch = options?.lotFieldsOnly
+        ? ''
+        : `
           OR LOWER(p.cadastral_key) LIKE LOWER(:search)
           OR LOWER(p.location) LIKE LOWER(:search)
           OR LOWER(p.description) LIKE LOWER(:search)
@@ -378,10 +508,8 @@ export class PropertiesService {
                 OR LOWER(s_cust.lastname) LIKE LOWER(:search)
                 OR LOWER(CONCAT(s_cust.name, ' ', s_cust.lastname)) LIKE LOWER(:search)
               )
-          )
-        )`,
-        { search: `%${filters.search}%` },
-      );
+          )`;
+      query.andWhere(`(${lotMatch}${extendedMatch})`, { search: `%${filters.search}%` });
     }
   }
 
@@ -419,7 +547,21 @@ export class PropertiesService {
     property.total_price = pricing.total_price;
     property.price_per_m2 = pricing.price_per_m2;
     property.currency = resolveStoredContractCurrency(property.currency);
+    property.contracts = this.contractsWithoutPropertyBackref(property.contracts);
     return property;
+  }
+
+  private contractsWithoutPropertyBackref(
+    contracts: Contract[] | null | undefined,
+  ): Contract[] {
+    return (contracts ?? []).map((contract) => {
+      const { property: _property, customer, ...rest } = contract;
+      if (customer) {
+        const { contracts: _customerContracts, ...customerRest } = customer;
+        return { ...rest, customer: customerRest } as Contract;
+      }
+      return rest as Contract;
+    });
   }
 
   async getMeasurementUnits(): Promise<MeasurementUnit[]> {

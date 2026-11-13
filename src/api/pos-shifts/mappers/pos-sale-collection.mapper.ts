@@ -1,6 +1,7 @@
 import { Customer } from '../../../entities/customers/customer.entity';
 import { PosSaleCollection } from '../../../entities/pos/pos-sale-collection.entity';
 import { User } from '../../../entities/users/user.entity';
+import { cardPaymentsForResponse } from '../utils/pos-card-payments.util';
 
 const WALK_IN_FISCAL_NAME = 'VENTA DE MOSTRADOR';
 const WALK_IN_DISPLAY_NAME = 'Público en General';
@@ -61,9 +62,23 @@ export function mapPosSaleCollection(collection: PosSaleCollection) {
       : null,
     amount_transfer_mxn: Number(collection.amount_transfer_mxn),
     transfer_reference: collection.transfer_reference,
+    transfer_payer_name: collection.transfer_payer_name ?? null,
+    transfer_payer_business_name: collection.transfer_payer_business_name ?? null,
     amount_card_mxn: Number(collection.amount_card_mxn),
     amount_credit_mxn: Number(collection.amount_credit_mxn ?? 0),
+    amount_check_mxn: Number(collection.amount_check_mxn ?? 0),
+    amount_check_usd: Number(collection.amount_check_usd ?? 0),
+    check_reference: collection.check_reference ?? null,
+    check_payer_name: collection.check_payer_name ?? null,
+    check_payer_phone: collection.check_payer_phone ?? null,
     card_reference: collection.card_reference,
+    card_payer_name: collection.card_payer_name ?? null,
+    card_payer_phone: collection.card_payer_phone ?? null,
+    card_payments: cardPaymentsForResponse(
+      collection.card_payments,
+      Number(collection.amount_card_mxn),
+      collection.card_reference,
+    ),
     received_cash_mxn: Number(collection.received_cash_mxn),
     received_cash_usd: Number(collection.received_cash_usd),
     change_cash_mxn: Number(collection.change_cash_mxn),

@@ -73,6 +73,12 @@ export class Payment {
   @Column({ type: 'boolean', default: false })
   is_overdue: boolean;
 
+  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
+  late_interest_amount: number | null;
+
+  @Column({ type: 'boolean', default: false })
+  late_interest_waived: boolean;
+
   @Column({ type: 'text', nullable: true })
   notes: string;
 

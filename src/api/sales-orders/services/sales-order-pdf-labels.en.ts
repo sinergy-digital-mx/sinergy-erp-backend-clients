@@ -43,4 +43,7 @@ export const SALES_ORDER_PDF_LABELS_EN: SalesOrderPdfLabels = {
   paymentPending: 'Pending',
   paymentPaid: 'Paid',
   dateLocale: 'en-US',
+  invoiceYourPurchase: 'INVOICE YOUR PURCHASE',
+  invoiceScanOrOpen: 'Scan the QR or open:',
+  publicFolio: 'Public folio',
 };

@@ -8,6 +8,12 @@ import {
   ContractListFilters,
   joinContractFilterRelations,
 } from './contract-list-filters.util';
+import {
+  loadFilteredOverdueStats,
+  loadListPaymentInsightMaps,
+  resolveListPaymentInsight,
+} from './contract-list-insight.util';
+import { getDownPaymentApplied } from './contract-financial.util';
 
 @Injectable()
 export class ContractsExportService {
@@ -38,96 +44,66 @@ export class ContractsExportService {
     const stats = await this.calculateFilteredStats(tenantId, filters);
 
     // Get payment stats for each contract
-    const contractIds = contracts.map(c => c.id);
-    
-    // Get paid payments count and total paid amount
-    const paidPaymentsQuery = `
-      SELECT 
-        contract_id,
-        COUNT(*) as paid_count,
-        SUM(amount) as total_paid
-      FROM contract_payments
-      WHERE contract_id IN (${contractIds.map(() => '?').join(',')})
-        AND tenant_id = ?
-        AND status = 'pagado'
-      GROUP BY contract_id
-    `;
-
-    const paidPayments = await this.contractRepo.manager.query(
-      paidPaymentsQuery,
-      [...contractIds, tenantId]
+    const contractIds = contracts.map((c) => c.id);
+    const paidPaymentMap = new Map<string, { paid_count: number; total_paid: number }>();
+    const paymentInsight = await loadListPaymentInsightMaps(
+      this.contractRepo.manager,
+      tenantId,
+      contractIds,
     );
 
-    const paidPaymentMap = new Map();
-    paidPayments.forEach(row => {
-      paidPaymentMap.set(row.contract_id, {
-        paid_count: row.paid_count || 0,
-        total_paid: Number(row.total_paid) || 0,
-      });
-    });
-
-    // Get next payment info
-    const nextPaymentsQuery = `
-      SELECT p.*
-      FROM contract_payments p
-      INNER JOIN (
-        SELECT contract_id, MIN(due_date) as next_due_date
+    if (contractIds.length > 0) {
+      // Get paid payments count and total paid amount
+      const paidPayments: Array<{
+        contract_id: string;
+        paid_count: number;
+        total_paid: string | number | null;
+      }> = await this.contractRepo.manager.query(
+        `
+        SELECT
+          contract_id,
+          COUNT(*) as paid_count,
+          SUM(amount) as total_paid
         FROM contract_payments
         WHERE contract_id IN (${contractIds.map(() => '?').join(',')})
           AND tenant_id = ?
-          AND status IN ('pendiente', 'parcial', 'vencido')
+          AND status = 'pagado'
         GROUP BY contract_id
-      ) next_p ON p.contract_id = next_p.contract_id AND p.due_date = next_p.next_due_date
-      WHERE p.tenant_id = ?
-        AND p.status IN ('pendiente', 'parcial', 'vencido')
-      ORDER BY p.is_overdue DESC, p.due_date ASC
-    `;
+        `,
+        [...contractIds, tenantId],
+      );
 
-    const nextPayments = await this.contractRepo.manager.query(
-      nextPaymentsQuery,
-      [...contractIds, tenantId, tenantId]
-    );
-
-    const nextPaymentMap = new Map();
-    nextPayments.forEach(payment => {
-      nextPaymentMap.set(payment.contract_id, {
-        next_payment_date: payment.due_date,
-        next_payment_status: payment.status,
-        next_payment_number: payment.payment_number,
-        next_payment_amount: payment.status === 'parcial' 
-          ? Number(payment.amount_pending) 
-          : Number(payment.amount),
+      paidPayments.forEach((row) => {
+        paidPaymentMap.set(row.contract_id, {
+          paid_count: row.paid_count || 0,
+          total_paid: Number(row.total_paid) || 0,
+        });
       });
-    });
-
-    // Get overdue payment counts
-    const overdueCountsQuery = `
-      SELECT contract_id, COUNT(*) as overdue_count
-      FROM contract_payments
-      WHERE contract_id IN (${contractIds.map(() => '?').join(',')})
-        AND tenant_id = ?
-        AND payment_date < CURDATE()
-        AND status IN ('pendiente', 'parcial')
-      GROUP BY contract_id
-    `;
-
-    const overdueCounts = await this.contractRepo.manager.query(
-      overdueCountsQuery,
-      [...contractIds, tenantId]
-    );
-
-    const overdueCountMap = new Map();
-    overdueCounts.forEach(row => {
-      overdueCountMap.set(row.contract_id, row.overdue_count);
-    });
+    }
 
     // Prepare data for Excel
-    const excelData = contracts.map(contract => {
+    const excelData = contracts.map((contract) => {
       const totalPrice = Number(contract.total_price) || 0;
       const downPayment = Number(contract.down_payment) || 0;
       const financedAmount = totalPrice - downPayment;
       const paidInfo = paidPaymentMap.get(contract.id) || { paid_count: 0, total_paid: 0 };
-      const nextPayment = nextPaymentMap.get(contract.id) || {};
+      const insight = resolveListPaymentInsight({
+        downPaymentFinanced: !!contract.down_payment_financed,
+        unpaidDownPaymentCount: paymentInsight.unpaidDownCount.get(contract.id) || 0,
+        downPaymentApplied: getDownPaymentApplied(contract),
+        downPaymentTarget:
+          contract.down_payment_target != null
+            ? Number(contract.down_payment_target)
+            : null,
+        contractNext: paymentInsight.contractNext.get(contract.id) || null,
+        downPaymentNext: paymentInsight.downPaymentNext.get(contract.id) || null,
+      });
+      const nextKindLabel =
+        insight.next_payment_kind === 'down_payment'
+          ? 'Enganche'
+          : insight.next_payment_kind === 'contract'
+            ? 'Contrato'
+            : 'N/A';
 
       return {
         'Número Contrato': contract.contract_number,
@@ -135,16 +111,22 @@ export class ContractsExportService {
         'Lote': contract.property?.code || '',
         'Fecha Inicio': this.formatDate(contract.contract_date),
         'Moneda': (contract.currency || 'USD').toString().trim().toUpperCase() || 'USD',
+        'Fase': insight.payment_phase === 'down_payment' ? 'Enganche' : 'Contrato',
         'Precio Total': totalPrice,
         'Enganche': downPayment,
         'Monto Financiado': financedAmount,
         'Saldo Pendiente': Number(contract.remaining_balance) || 0,
         'Meses Pagados': paidInfo.paid_count,
         'Monto Pagado': paidInfo.total_paid,
-        'Próximo Pago': nextPayment.next_payment_date ? this.formatDate(nextPayment.next_payment_date) : 'N/A',
-        'Monto Próximo Pago': nextPayment.next_payment_amount ? nextPayment.next_payment_amount : 'N/A',
+        'Próximo Pago': insight.next_payment?.due_date
+          ? this.formatDate(insight.next_payment.due_date)
+          : 'N/A',
+        'Tipo Próximo Pago': nextKindLabel,
+        'Monto Próximo Pago': insight.next_payment?.amount ?? 'N/A',
+        'Último Enganche': insight.next_payment_is_last_down_payment ? 'Sí' : 'No',
         'Estado': contract.status,
-        'Pagos Vencidos': overdueCountMap.get(contract.id) || 0,
+        'Pagos Vencidos': paymentInsight.overdueContractCount.get(contract.id) || 0,
+        'Vencidos Enganche': paymentInsight.overdueDownCount.get(contract.id) || 0,
       };
     });
 
@@ -153,7 +135,31 @@ export class ContractsExportService {
     const worksheet = workbook.addWorksheet('Contratos');
 
     // Add header row
-    const headerRow = worksheet.addRow(Object.keys(excelData[0] || {}));
+    const headerRow = worksheet.addRow(
+      Object.keys(
+        excelData[0] || {
+          'Número Contrato': '',
+          'Cliente': '',
+          'Lote': '',
+          'Fecha Inicio': '',
+          'Moneda': '',
+          'Fase': '',
+          'Precio Total': '',
+          'Enganche': '',
+          'Monto Financiado': '',
+          'Saldo Pendiente': '',
+          'Meses Pagados': '',
+          'Monto Pagado': '',
+          'Próximo Pago': '',
+          'Tipo Próximo Pago': '',
+          'Monto Próximo Pago': '',
+          'Último Enganche': '',
+          'Estado': '',
+          'Pagos Vencidos': '',
+          'Vencidos Enganche': '',
+        },
+      ),
+    );
 
     // Style header
     headerRow.eachCell((cell) => {
@@ -202,13 +208,13 @@ export class ContractsExportService {
         };
 
         // Alignment
-        if (colNumber <= 5 || colNumber === 12 || colNumber === 14) {
+        if ([1, 2, 3, 4, 5, 6, 13, 14, 16, 17].includes(colNumber)) {
           cell.alignment = { horizontal: 'left', vertical: 'middle' };
         } else {
           cell.alignment = { horizontal: 'right', vertical: 'middle' };
         }
 
-        if ([6, 7, 8, 9, 11, 13].includes(colNumber)) {
+        if ([7, 8, 9, 10, 12, 15].includes(colNumber)) {
           if (typeof cell.value === 'number') {
             cell.numFmt = '$#,##0.00';
           }
@@ -223,6 +229,7 @@ export class ContractsExportService {
       { width: 12 }, // Lote
       { width: 15 }, // Fecha Inicio
       { width: 10 }, // Moneda
+      { width: 12 }, // Fase
       { width: 14 }, // Precio Total
       { width: 14 }, // Enganche
       { width: 16 }, // Monto Financiado
@@ -230,16 +237,19 @@ export class ContractsExportService {
       { width: 14 }, // Meses Pagados
       { width: 14 }, // Monto Pagado
       { width: 15 }, // Próximo Pago
+      { width: 16 }, // Tipo Próximo Pago
       { width: 18 }, // Monto Próximo Pago
+      { width: 16 }, // Último Enganche
       { width: 12 }, // Estado
       { width: 14 }, // Pagos Vencidos
+      { width: 16 }, // Vencidos Enganche
     ];
 
     // Freeze header row
     worksheet.views = [{ state: 'frozen', ySplit: 1 }];
 
     // Add summary stats to the right of the table
-    const statsStartColumn = 18;
+    const statsStartColumn = 22;
     const statsStartRow = 2;
 
     // Add stats title
@@ -271,6 +281,18 @@ export class ContractsExportService {
     this.addStatRowWithDetails(worksheet, currentRow, statsStartColumn, 'VENCIDOS', stats.overdue.contracts_count, stats.overdue.value,
       { label: 'Contratos:', value: stats.overdue.contracts_count },
       { label: 'Pagos:', value: stats.overdue.payments_count }
+    );
+    currentRow += 4;
+
+    this.addStatRowWithDetails(worksheet, currentRow, statsStartColumn, 'VENCIDOS CONTRATO', stats.overdue.contract.contracts_count, stats.overdue.contract.value,
+      { label: 'Contratos:', value: stats.overdue.contract.contracts_count },
+      { label: 'Pagos:', value: stats.overdue.contract.payments_count }
+    );
+    currentRow += 4;
+
+    this.addStatRowWithDetails(worksheet, currentRow, statsStartColumn, 'VENCIDOS ENGANCHE', stats.overdue.down_payment.contracts_count, stats.overdue.down_payment.value,
+      { label: 'Contratos:', value: stats.overdue.down_payment.contracts_count },
+      { label: 'Pagos:', value: stats.overdue.down_payment.payments_count }
     );
     currentRow += 4;
 
@@ -438,22 +460,7 @@ export class ContractsExportService {
       .addSelect('SUM(c.remaining_balance)', 'remaining')
       .getRawOne();
 
-    const overdueResult = await baseQuery()
-      .leftJoin(
-        'contract_payments',
-        'p',
-        'p.contract_id = c.id AND p.payment_date < CURDATE() AND p.status IN (:...overduePaymentStatuses)',
-        { overduePaymentStatuses: ['pendiente', 'parcial'] },
-      )
-      .andWhere('c.status = :overdueContractStatus', { overdueContractStatus: 'activo' })
-      .andWhere('p.id IS NOT NULL')
-      .select('COUNT(DISTINCT c.id)', 'contracts_count')
-      .addSelect('COUNT(p.id)', 'payments_count')
-      .addSelect(
-        'SUM(CASE WHEN p.status = "parcial" THEN p.amount_pending ELSE p.amount END)',
-        'value',
-      )
-      .getRawOne();
+    const overdue = await loadFilteredOverdueStats(baseQuery);
 
     return {
       total: {
@@ -470,11 +477,7 @@ export class ContractsExportService {
         paid: parseFloat(pendingStats.paid) || 0,
         remaining: parseFloat(pendingStats.remaining) || 0,
       },
-      overdue: {
-        contracts_count: parseInt(overdueResult.contracts_count) || 0,
-        payments_count: parseInt(overdueResult.payments_count) || 0,
-        value: parseFloat(overdueResult.value) || 0,
-      },
+      overdue,
     };
   }
 }

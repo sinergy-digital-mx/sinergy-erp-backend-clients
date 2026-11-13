@@ -31,6 +31,7 @@ export class CreateCustomerDto {
     lastname?: string;
 
     @ApiProperty({ description: 'Customer email', example: 'john@example.com', required: false })
+    @Transform(({ value }) => (value === '' || value === null ? undefined : value))
     @IsEmail()
     @IsOptional()
     email?: string;
@@ -119,6 +120,7 @@ export class CreateCustomerDto {
     fiscal_razon_social?: string;
 
     @ApiProperty({ description: 'Tipo de persona fiscal', example: 'moral', enum: ['fisica', 'moral', 'otro'], required: false })
+    @Transform(({ value }) => (value === '' || value === null ? undefined : value))
     @IsString()
     @IsIn(['fisica', 'moral', 'otro'])
     @IsOptional()
@@ -166,9 +168,13 @@ export class CreateCustomerDto {
     fiscal_municipio?: string;
 
     @ApiProperty({ description: 'Pais catalogo SAT c_Pais', example: 'MEX', required: false })
-    @Transform(({ value }) =>
-        typeof value === 'string' && value.trim() !== '' ? value.trim().toUpperCase() : value,
-    )
+    @Transform(({ value }) => {
+        if (typeof value === 'string') {
+            const trimmed = value.trim();
+            return trimmed === '' ? undefined : trimmed.toUpperCase();
+        }
+        return value === null ? undefined : value;
+    })
     @IsString()
     @IsOptional()
     @Matches(/^[A-Z]{3}$/, { message: 'El pais fiscal debe ser clave SAT de 3 letras (ej. MEX)' })
@@ -185,6 +191,7 @@ export class CreateCustomerDto {
     fiscal_state?: string;
 
     @ApiProperty({ description: 'Codigo postal fiscal (DomicilioFiscalReceptor CFDI 4.0)', example: '22040', required: false })
+    @Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value))
     @IsString()
     @IsOptional()
     @Matches(/^\d{5}$/, { message: 'El codigo postal fiscal debe tener 5 digitos' })

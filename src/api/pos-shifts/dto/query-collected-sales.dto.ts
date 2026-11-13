@@ -10,4 +10,13 @@ export class QueryCollectedSalesDto {
   @IsOptional()
   @IsUUID()
   daily_shift_id?: string;
+
+  @ApiProperty({
+    required: false,
+    description:
+      'Sucursal seleccionada en POS, si no se envía daily_shift_id.',
+  })
+  @IsOptional()
+  @IsUUID()
+  billing_branch_id?: string;
 }

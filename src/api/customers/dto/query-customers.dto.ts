@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsOptional, IsInt, Min, Max, IsString, IsNumber } from 'class-validator';
+import { IsOptional, IsInt, Min, Max, IsString, IsNumber, IsUUID, IsIn } from 'class-validator';
+import { CUSTOMER_LIST_INSIGHTS } from '../utils/customer-list-insight.util';
 
 export class QueryCustomersDto {
     @ApiPropertyOptional({
@@ -56,4 +57,22 @@ export class QueryCustomersDto {
     @IsOptional()
     @IsString()
     group_id?: string;
+
+    @ApiPropertyOptional({
+        description: 'Razón social de registro asignada al cliente',
+        example: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+    })
+    @IsOptional()
+    @IsUUID()
+    registered_fiscal_configuration_id?: string;
+
+    @ApiPropertyOptional({
+        description: 'Corte del resumen. Requiere el permiso ViewStats; si no, se ignora.',
+        enum: CUSTOMER_LIST_INSIGHTS,
+        example: 'fiscal_not_ready',
+    })
+    @IsOptional()
+    @IsString()
+    @IsIn(CUSTOMER_LIST_INSIGHTS)
+    insight?: string;
 }

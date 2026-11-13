@@ -20,6 +20,7 @@ import { UserBillingBranch } from '../../entities/users/user-billing-branch.enti
 import { BillingBranch } from '../../entities/billing/billing-branch.entity';
 import { PosUserType, canPosCollect, canPosSell } from '../../entities/users/pos-user-type.enum';
 import { PosDailyShift } from '../../entities/pos/pos-daily-shift.entity';
+import { getTodayDateString } from '../pos-shifts/utils/unclosed-shift-alert';
 import { PosDailyShiftStatus } from '../../entities/pos/pos-daily-shift-status.enum';
 import { EmployeesService } from '../employees/employees.service';
 import { UserManagerReport } from '../../entities/users/user-manager-report.entity';
@@ -30,6 +31,13 @@ import {
   USER_STATUS_CODE,
   isActiveUserStatus,
 } from './user-status.constants';
+import {
+  CartaPorteDriverInput,
+  assessDriver,
+  isDriverFlag,
+  normalizeLicense,
+  normalizeRfc,
+} from '../shippings/utils/carta-porte.util';
 
 @Injectable()
 export class UsersService {
@@ -78,9 +86,21 @@ export class UsersService {
       employee,
       is_manager,
       is_crm_admin,
+      is_driver,
+      driver_license_number,
+      driver_rfc,
       warehouse_ids,
       ...userFields
     } = dto;
+
+    const driverProfile = {
+      is_driver: is_driver ?? false,
+      first_name: dto.first_name,
+      last_name: dto.last_name,
+      driver_license_number: normalizeLicense(driver_license_number),
+      driver_rfc: normalizeRfc(driver_rfc),
+    };
+    this.assertDriverProfile(driverProfile);
 
     const user = await this.userRepo.save({
       ...userFields,
@@ -96,6 +116,9 @@ export class UsersService {
       is_employee: false,
       is_manager: is_manager ?? false,
       is_crm_admin: is_crm_admin ?? false,
+      is_driver: driverProfile.is_driver,
+      driver_license_number: driverProfile.driver_license_number || null,
+      driver_rfc: driverProfile.driver_rfc || null,
     });
 
     await this.replaceAssignedBranches(user.id, tenantId, assignment);
@@ -181,9 +204,30 @@ export class UsersService {
       employee,
       is_manager,
       is_crm_admin,
+      is_driver,
+      driver_license_number,
+      driver_rfc,
       warehouse_ids,
       ...userFields
     } = dto;
+
+    const nextIsDriver =
+      is_driver !== undefined ? is_driver : isDriverFlag(user.is_driver);
+    const driverProfile = {
+      is_driver: nextIsDriver,
+      first_name: dto.first_name ?? user.first_name,
+      last_name: dto.last_name ?? user.last_name,
+      driver_license_number: normalizeLicense(
+        driver_license_number !== undefined
+          ? driver_license_number
+          : user.driver_license_number,
+      ),
+      driver_rfc: normalizeRfc(driver_rfc !== undefined ? driver_rfc : user.driver_rfc),
+    };
+    this.assertDriverProfile(driverProfile);
+    user.is_driver = driverProfile.is_driver;
+    user.driver_license_number = driverProfile.driver_license_number || null;
+    user.driver_rfc = driverProfile.driver_rfc || null;
 
     if (dto.is_pos_user === true) {
       user.is_pos_user = true;
@@ -434,14 +478,12 @@ export class UsersService {
       return user;
     }
 
-    if (user.is_employee) {
-      const employee = await this.employeesService.findEntityByUser(tenantId, id);
-      if (employee) {
-        (user as any).employeeProfile = await this.employeesService.mapEmployee(
-          employee,
-          { withRequests: false },
-        );
-      }
+    const employee = await this.employeesService.findEntityByUser(tenantId, id);
+    if (employee) {
+      (user as any).employeeProfile = await this.employeesService.mapEmployee(
+        employee,
+        { withRequests: false },
+      );
     }
 
     const assignment = await this.managerReportRepo.findOne({
@@ -634,10 +676,11 @@ export class UsersService {
       pos_can_sell: Boolean(user.is_pos_user) && canPosSell(user.pos_user_type),
       pos_can_collect:
         Boolean(user.is_pos_user) && canPosCollect(user.pos_user_type),
-      is_employee: Boolean(user.is_employee),
+      is_employee: Boolean(user.is_employee) || Boolean((user as any).employeeProfile),
       employee: (user as any).employeeProfile ?? null,
       is_manager: Boolean(user.is_manager),
       is_crm_admin: Boolean(user.is_crm_admin),
+      ...this.mapDriverResponse(user),
       manager: this.mapManagerSummary((user as any).managerUser),
       ...((user as any).managedUsers
         ? { reports: (user as any).managedUsers }
@@ -646,6 +689,24 @@ export class UsersService {
       assigned_warehouses:
         (user as any).assignedWarehouses ?? [],
     };
+  }
+
+  private mapDriverResponse(user: User) {
+    const check = assessDriver(user);
+    return {
+      is_driver: isDriverFlag(user.is_driver),
+      driver_license_number: user.driver_license_number,
+      driver_rfc: user.driver_rfc,
+      carta_porte_ready: check.ready,
+      carta_porte_missing: check.missing,
+    };
+  }
+
+  private assertDriverProfile(input: CartaPorteDriverInput) {
+    const check = assessDriver(input);
+    if (input.is_driver && !check.ready) {
+      throw new BadRequestException(check.missing.join('. '));
+    }
   }
 
   async getAssignedWarehouses(userId: string, tenantId: string) {
@@ -902,7 +963,7 @@ export class UsersService {
   }
 
   private async hasOpenDailyShift(terminalUserId: string, tenantId: string) {
-    const shiftDate = new Date().toISOString().slice(0, 10);
+    const shiftDate = getTodayDateString();
 
     const count = await this.dailyShiftRepo.count({
       where: {

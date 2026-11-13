@@ -6,8 +6,8 @@ export class UpdatePurchaseOrderPedimentoDto {
     required: false,
     nullable: true,
     description:
-      'Número de pedimento aduanal. Solo aplica a compras de proveedor internacional. Enviar null o cadena vacía para borrar.',
-    example: '162430010001234',
+      'Número de pedimento aduanal (Anexo 22, 15 dígitos: año, aduana, patente y numeración). Se guarda como 26  47  3807  6000123. Solo proveedor internacional. Null o vacío para borrar.',
+    example: '26  47  3807  6000123',
   })
   @IsOptional()
   @IsString()

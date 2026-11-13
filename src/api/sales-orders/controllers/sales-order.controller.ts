@@ -1,9 +1,9 @@
 import {
   Controller, Post, Get, Put, Patch, Delete, Body, Param, Query,
   UseGuards, Req, HttpCode, HttpStatus, Res, UseInterceptors, UploadedFile,
-  BadRequestException,
+  UploadedFiles, BadRequestException, ForbiddenException,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { TenantModuleValidationGuard } from '../../auth/tenant-module-validation.guard';
@@ -14,27 +14,40 @@ import { SalesOrderExportService } from '../services/sales-order-export.service'
 import { SalesOrderInvoicingService } from '../services/sales-order-invoicing.service';
 import { SalesOrderInvoiceEmailService } from '../services/sales-order-invoice-email.service';
 import { ShippingsService } from '../../shippings/shippings.service';
+import {
+  JwtPermissionUser,
+  userHasJwtPermission,
+} from '../../rbac/utils/jwt-permission.util';
 import { CancelElectronicInvoiceDto } from '../../electronic-invoicing/dto/cancel-electronic-invoice.dto';
 import { StampSalesOrderInvoiceDto } from '../dto/stamp-sales-order-invoice.dto';
+import { StampSalesOrderCreditNoteDto } from '../dto/stamp-sales-order-credit-note.dto';
+import { StampAdvanceInvoiceDto } from '../../electronic-invoicing/dto/stamp-advance-invoice.dto';
+import { StampPaymentComplementDto } from '../dto/stamp-payment-complement.dto';
+import { ApplyAdvanceInvoiceDto } from '../../electronic-invoicing/dto/apply-advance-invoice.dto';
 import { InventoryService } from '../../inventory/inventory.service';
 import { SalesOrderProductsPickerService } from '../services/sales-order-products-picker.service';
 import {
   CreateSalesOrderDto,
   CreateSalesOrderLineItemDto,
+  CloneSalesOrderDto,
   UpdateSalesOrderLineItemDto,
   QuerySalesOrderDto,
   QuerySalesOrderProductsSummaryDto,
   FulfillSalesOrderDto,
   RegenerateDocumentDto,
   UpdateSalesOrderNotesDto,
+  UpdateSalesOrderForShippingDto,
   QuerySalesOrderHeaderExportDto,
   QuerySalesOrderDetailExportDto,
   CreateSalesOrderPaymentDto,
   UpdateSalesOrderSellerDto,
   UpdateSalesOrderAssignedSellerDto,
   SendSalesOrderInvoiceEmailDto,
+  SendSalesOrderInvoiceWhatsappDto,
   UpdateInvoiceEmailTemplateDto,
+  UpdateSalesOrderCreationSettingsDto,
 } from '../dto';
+import { SalesOrderCreationSettingsService } from '../services/sales-order-creation-settings.service';
 
 @ApiTags('Sales Orders')
 @Controller('tenant/sales-orders')
@@ -51,17 +64,71 @@ export class SalesOrderController {
     private readonly invoicingService: SalesOrderInvoicingService,
     private readonly invoiceEmailService: SalesOrderInvoiceEmailService,
     private readonly shippingsService: ShippingsService,
+    private readonly creationSettings: SalesOrderCreationSettingsService,
   ) {}
+
+  @Get('sales-trend')
+  @ApiOperation({
+    summary: 'Ventas de los últimos 12 meses con los filtros del listado',
+    description: 'Permiso sales_orders:ViewStats. Sin él no se entrega el resumen.',
+  })
+  async getSalesTrend(@Query() filters: QuerySalesOrderDto, @Req() req: any) {
+    this.assertCanViewSalesStats(req.user);
+    return this.salesOrderService.getSalesTrend(req.user.tenant_id, filters);
+  }
+
+  @Get('creation-settings')
+  @ApiOperation({
+    summary: 'Configuración del alta de órdenes de venta',
+    description:
+      'Visibilidad, obligatoriedad y valores por defecto. Sin fila guardada responde el comportamiento actual.',
+  })
+  getCreationSettings(@Req() req: any) {
+    return this.creationSettings.get(req.user.tenant_id);
+  }
+
+  @Put('creation-settings')
+  @ApiOperation({
+    summary: 'Actualizar la configuración del alta de órdenes de venta',
+    description:
+      'Requiere sales_orders:Update. Cliente y razón social permanecen visibles y obligatorios.',
+  })
+  updateCreationSettings(
+    @Body() dto: UpdateSalesOrderCreationSettingsDto,
+    @Req() req: any,
+  ) {
+    if (!userHasJwtPermission(req.user, 'sales_orders', 'Update')) {
+      throw new ForbiddenException(
+        'No puedes cambiar la configuración de órdenes de venta',
+      );
+    }
+    return this.creationSettings.update(req.user.tenant_id, req.user.id, dto.fields);
+  }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Create a new sales order',
     description:
-      'Orders with sales_order_type POS are automatically fulfilled (inventory deducted via FIFO) in the same transaction.',
+      'POS descuenta inventario al crear. Una orden manual sin selección/armado también aparta lotes FIFO en la misma transacción y queda Creada.',
   })
   async create(@Body() dto: CreateSalesOrderDto, @Req() req: any) {
     return this.salesOrderService.create(dto, req.user.tenant_id, req.user.id);
+  }
+
+  @Post(':id/clone')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Clonar una orden manual',
+    description:
+      'Crea una venta nueva con los mismos datos. Solo cambian los conceptos y precios indicados en `lines`.',
+  })
+  async clone(
+    @Param('id') id: string,
+    @Body() dto: CloneSalesOrderDto,
+    @Req() req: any,
+  ) {
+    return this.salesOrderService.cloneOrder(id, dto, req.user.tenant_id, req.user.id);
   }
 
   @Put(':id')
@@ -142,6 +209,25 @@ export class SalesOrderController {
     return this.salesOrderService.updateNotes(id, dto, req.user.tenant_id, req.user.id);
   }
 
+  @Patch(':id/for-shipping')
+  @ApiOperation({
+    summary: 'Marcar o quitar la orden como para envío',
+    description:
+      'Solo cambia la bandera for_shipping. No crea ni asigna un envío. Disponible en cualquier estado excepto Cancelada.',
+  })
+  async updateForShipping(
+    @Param('id') id: string,
+    @Body() dto: UpdateSalesOrderForShippingDto,
+    @Req() req: any,
+  ) {
+    return this.salesOrderService.updateForShipping(
+      id,
+      dto.for_shipping,
+      req.user.tenant_id,
+      req.user.id,
+    );
+  }
+
   @Patch(':id/seller')
   @ApiOperation({
     summary: 'Cambiar vendedor de la orden',
@@ -153,12 +239,13 @@ export class SalesOrderController {
     @Body() dto: UpdateSalesOrderSellerDto,
     @Req() req: any,
   ) {
-    return this.salesOrderService.updateSeller(
+    await this.salesOrderService.updateSeller(
       id,
       dto.seller_user_id,
       req.user.tenant_id,
       req.user.id,
     );
+    return this.findOne(id, req);
   }
 
   @Patch(':id/assigned-seller')
@@ -172,12 +259,13 @@ export class SalesOrderController {
     @Body() dto: UpdateSalesOrderAssignedSellerDto,
     @Req() req: any,
   ) {
-    return this.salesOrderService.updateAssignedSeller(
+    await this.salesOrderService.updateAssignedSeller(
       id,
       dto.assigned_seller_user_id,
       req.user.tenant_id,
       req.user.id,
     );
+    return this.findOne(id, req);
   }
 
   @Get(':id/payments')
@@ -293,10 +381,109 @@ export class SalesOrderController {
     );
   }
 
+  @Post(':id/invoices/:invoiceId/files')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Agregar XML o PDF a una factura registrada a mano' })
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'xml', maxCount: 1 },
+        { name: 'pdf', maxCount: 1 },
+      ],
+      { limits: { fileSize: 8 * 1024 * 1024 } },
+    ),
+  )
+  async attachManualInvoiceFiles(
+    @Param('id') id: string,
+    @Param('invoiceId') invoiceId: string,
+    @UploadedFiles()
+    files: {
+      xml?: { buffer: Buffer; originalname?: string }[];
+      pdf?: { buffer: Buffer; originalname?: string }[];
+    },
+    @Req() req: any,
+  ) {
+    return this.invoicingService.attachManualFiles(
+      id,
+      invoiceId,
+      req.user.tenant_id,
+      { xml: files?.xml?.[0], pdf: files?.pdf?.[0] },
+    );
+  }
+
+  @Delete(':id/invoices/:invoiceId/manual')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Quitar una factura registrada a mano. No cancela el CFDI en el SAT.' })
+  async unlinkManualInvoice(
+    @Param('id') id: string,
+    @Param('invoiceId') invoiceId: string,
+    @Req() req: any,
+  ): Promise<void> {
+    await this.invoicingService.unlinkManualInvoice(id, invoiceId, req.user.tenant_id);
+  }
+
+  @Post(':id/invoices/register')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiConsumes('multipart/form-data', 'application/json')
+  @ApiOperation({ summary: 'Registrar un CFDI ya emitido (XML, PDF o UUID)' })
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'xml', maxCount: 1 },
+        { name: 'pdf', maxCount: 1 },
+      ],
+      { limits: { fileSize: 8 * 1024 * 1024 } },
+    ),
+  )
+  async registerExistingInvoice(
+    @Param('id') id: string,
+    @UploadedFiles()
+    files: {
+      xml?: { buffer: Buffer; originalname?: string }[];
+      pdf?: { buffer: Buffer; originalname?: string }[];
+    },
+    @Body() body: { uuid?: string },
+    @Req() req: any,
+  ) {
+    return this.invoicingService.registerExistingInvoice(
+      id,
+      req.user.tenant_id,
+      req.user.id,
+      { xml: files?.xml?.[0], pdf: files?.pdf?.[0] },
+      body?.uuid?.trim() || undefined,
+    );
+  }
+
   @Get(':id/invoices')
   @ApiOperation({ summary: 'Listar facturas electrónicas de la orden de venta' })
   async getInvoices(@Param('id') id: string, @Req() req: any) {
     return this.invoicingService.listInvoices(id, req.user.tenant_id);
+  }
+
+  @Get(':id/invoices/payment-complement')
+  @ApiOperation({ summary: 'Ver si la orden pagada puede timbrar el CEP' })
+  async getPaymentComplement(@Param('id') id: string, @Req() req: any) {
+    return this.invoicingService.getPaymentComplementStatus(id, req.user.tenant_id);
+  }
+
+  @Post(':id/invoices/payment-complement')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Timbrar el comprobante electrónico de pago de la orden',
+    description:
+      'CFDI tipo P con complemento de recepción de pagos 2.0, vía Finkok. Solo si la venta está pagada y la factura de ingreso es PPD. Body.environment elige demo o production; si se omite, usa el ambiente de la factura ligada.',
+  })
+  async stampPaymentComplement(
+    @Param('id') id: string,
+    @Body() dto: StampPaymentComplementDto,
+    @Req() req: any,
+  ) {
+    return this.invoicingService.stampPaymentComplement(
+      id,
+      req.user.tenant_id,
+      req.user.id,
+      dto.environment,
+    );
   }
 
   @Post(':id/invoices/stamp')
@@ -312,6 +499,52 @@ export class SalesOrderController {
     @Req() req: any,
   ) {
     return this.invoicingService.stampInvoice(id, req.user.tenant_id, req.user.id, dto);
+  }
+
+  @Post(':id/invoices/stamp-advance')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Timbrar CFDI de anticipo de la orden' })
+  async stampAdvance(
+    @Param('id') id: string,
+    @Body() dto: StampAdvanceInvoiceDto,
+    @Req() req: any,
+  ) {
+    return this.invoicingService.stampAdvance(id, req.user.tenant_id, req.user.id, dto);
+  }
+
+  @Post(':id/invoices/apply-advance')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Facturar la mercancía y aplicar el anticipo con nota de crédito',
+  })
+  async applyAdvance(
+    @Param('id') id: string,
+    @Body() dto: ApplyAdvanceInvoiceDto,
+    @Req() req: any,
+  ) {
+    return this.invoicingService.applyAdvance(id, req.user.tenant_id, req.user.id, dto);
+  }
+
+  @Post(':id/invoices/:invoiceId/credit-note')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Timbrar nota de crédito sobre una factura de la orden',
+    description:
+      'CFDI de egreso relacionado con TipoRelacion 01 al UUID de la factura de ingreso. Puede ser parcial (diferencia) o por el total. Si la orden está cancelada, esta nota sí se puede timbrar.',
+  })
+  async stampCreditNote(
+    @Param('id') id: string,
+    @Param('invoiceId') invoiceId: string,
+    @Body() dto: StampSalesOrderCreditNoteDto,
+    @Req() req: any,
+  ) {
+    return this.invoicingService.stampCreditNote(
+      id,
+      invoiceId,
+      req.user.tenant_id,
+      req.user.id,
+      dto,
+    );
   }
 
   @Post(':id/invoices/:invoiceId/cancel')
@@ -404,6 +637,34 @@ export class SalesOrderController {
     @Req() req: any,
   ) {
     return this.invoiceEmailService.send(
+      id,
+      invoiceId,
+      dto,
+      req.user.tenant_id,
+      req.user.id,
+    );
+  }
+
+  @Get(':id/invoices/:invoiceId/whatsapp-compose')
+  @ApiOperation({ summary: 'Preparar envío por WhatsApp de una factura de la orden' })
+  async getInvoiceWhatsappCompose(
+    @Param('id') id: string,
+    @Param('invoiceId') invoiceId: string,
+    @Req() req: any,
+  ) {
+    return this.invoiceEmailService.getWhatsappCompose(id, invoiceId, req.user.tenant_id);
+  }
+
+  @Post(':id/invoices/:invoiceId/send-whatsapp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Enviar factura por WhatsApp (PDF y XML) a un teléfono o grupo' })
+  async sendInvoiceWhatsapp(
+    @Param('id') id: string,
+    @Param('invoiceId') invoiceId: string,
+    @Body() dto: SendSalesOrderInvoiceWhatsappDto,
+    @Req() req: any,
+  ) {
+    return this.invoiceEmailService.sendWhatsapp(
       id,
       invoiceId,
       dto,
@@ -590,6 +851,30 @@ export class SalesOrderController {
     };
   }
 
+  @Get(':id/ticket-recibo/pdf')
+  @ApiOperation({
+    summary: 'PDF del ticket térmico',
+    description:
+      'PDF de 80 mm con el texto del ticket. Si todavía no hay ticket, lo genera y luego arma el PDF.',
+  })
+  async downloadTicketReciboPdf(
+    @Param('id') id: string,
+    @Req() req: any,
+    @Res() res: any,
+  ): Promise<void> {
+    const { buffer, fileName, generated } = await this.posReceiptService.getPosTicketPdf(
+      req.user.tenant_id,
+      id,
+      req.user.id,
+    );
+    if (generated) {
+      res.setHeader('X-Ticket-Generated', '1');
+    }
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.send(buffer);
+  }
+
   @Get(':id/ticket-recibo/raw')
   @ApiOperation({
     summary: 'Descargar bytes ESC/POS del ticket (binario)',
@@ -615,7 +900,15 @@ export class SalesOrderController {
   @ApiOperation({
     summary: 'Get a single sales order with line items, documents and POS collection',
   })
-  async findOne(@Param('id') id: string, @Req() req: any) {
+  async findOne(
+    @Param('id') id: string,
+    @Req() req: any,
+    @Query() filters: QuerySalesOrderDto = {},
+  ) {
+    if (id === 'sales-trend') {
+      this.assertCanViewSalesStats(req.user);
+      return this.salesOrderService.getSalesTrend(req.user.tenant_id, filters);
+    }
     const detail = await this.salesOrderService.findOneDetail(id, req.user.tenant_id);
     const documents = await this.documentsService.getDocuments(id);
     const shipping = await this.shippingsService.getShippingSummaryForOrder(
@@ -666,6 +959,42 @@ export class SalesOrderController {
     return this.salesOrderService.cancel(id, req.user.tenant_id, req.user.id);
   }
 
+  @Post(':id/control-desk')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Enviar o sacar la orden de la cola de Mesa de Control',
+  })
+  async setControlDesk(
+    @Param('id') id: string,
+    @Body() body: { enabled?: boolean },
+    @Req() req: any,
+  ) {
+    return this.salesOrderService.setControlDesk(
+      id,
+      body?.enabled !== false,
+      req.user.tenant_id,
+      req.user.id,
+    );
+  }
+
+  @Post(':id/send-to-collection')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Enviar a cobranza del corte abierto la orden que vino de una cotización',
+  })
+  async sendToCollection(@Param('id') id: string, @Req() req: any) {
+    return this.salesOrderService.sendToCollection(id, req.user.tenant_id, req.user.id);
+  }
+
+  @Post(':id/withdraw-from-collection')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Quitar de cobranza una orden de cotización que aún no se cobra',
+  })
+  async withdrawFromCollection(@Param('id') id: string, @Req() req: any) {
+    return this.salesOrderService.withdrawFromCollection(id, req.user.tenant_id, req.user.id);
+  }
+
   @Delete(':id')
   @ApiOperation({
     summary: 'Cancelar orden de venta (alias de POST :id/cancel)',
@@ -674,5 +1003,11 @@ export class SalesOrderController {
   })
   async cancel(@Param('id') id: string, @Req() req: any) {
     return this.salesOrderService.cancel(id, req.user.tenant_id, req.user.id);
+  }
+
+  private assertCanViewSalesStats(user: JwtPermissionUser): void {
+    if (!userHasJwtPermission(user, 'sales_orders', 'ViewStats')) {
+      throw new ForbiddenException('No tienes permiso para ver el resumen de ventas');
+    }
   }
 }

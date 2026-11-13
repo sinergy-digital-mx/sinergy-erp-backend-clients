@@ -1,9 +1,12 @@
+import { Type } from 'class-transformer';
 import {
   IsString,
   IsOptional,
   IsEnum,
   IsNotEmpty,
   MaxLength,
+  IsNumber,
+  Min,
 } from 'class-validator';
 
 export class CreateTruckDto {
@@ -58,6 +61,12 @@ export class CreateTruckDto {
   poliza_rc?: string;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0.001)
+  peso_bruto_vehicular?: number;
+
+  @IsOptional()
   @IsString()
   @MaxLength(100)
   subtipo_remolque1?: string;
@@ -70,4 +79,14 @@ export class CreateTruckDto {
   @IsOptional()
   @IsEnum(['active', 'inactive'])
   status?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  gps_unit_uid?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  gps_unit_name?: string | null;
 }

@@ -18,7 +18,30 @@ import { UpdatePurchaseOrderPedimentoDto } from '../dto/update-purchase-order-pe
 import { UpdatePurchaseOrderVendorInvoiceDto } from '../dto/update-purchase-order-vendor-invoice.dto';
 import { UpdatePurchaseOrderRealCostDto } from '../dto/update-purchase-order-real-cost.dto';
 import { PurchaseOrderRealCostService } from './purchase-order-real-cost.service';
-import { isRealCostEnabled, parseRealCostNumber } from '../utils/purchase-order-real-cost.util';
+import {
+  computeLinesIgiMxn,
+  derivePersistedLandedCashTotals,
+  isInvoiceExtraFlag,
+  isRealCostEnabled,
+  parseRealCostNumber,
+} from '../utils/purchase-order-real-cost.util';
+import { resolvePurchaseOrderPayableTotal } from '../utils/purchase-order-payable-total.util';
+import {
+  formatPedimentoForDisplay,
+  normalizePedimentoNumber,
+  parsePedimentoNumber,
+} from '../utils/pedimento-number.util';
+import { VendorCreditLedgerService } from '../../vendor/services/vendor-credit-ledger.service';
+import {
+  normalizeVendorCreditCurrency,
+  splitVendorPayment,
+} from '../../vendor/utils/vendor-credit-ledger.util';
+import {
+  firstVendorInvoiceNumber,
+  formatVendorInvoiceNumbers,
+  parseStoredVendorInvoiceNumbers,
+  resolveVendorInvoiceInput,
+} from '../utils/purchase-order-vendor-invoice.util';
 import { UnitConversionService } from './unit-conversion.service';
 import { BatchNumberGeneratorService } from './batch-number-generator.service';
 import { FolioGeneratorService } from './folio-generator.service';
@@ -42,6 +65,12 @@ import {
   compactActivityChanges,
 } from '../utils/purchase-order-activity-change.util';
 import { PURCHASE_ORDER_MOVEMENT_TYPES } from '../constants/purchase-order-movements';
+import { PurchaseOrderReversalService } from './purchase-order-reversal.service';
+import { CorrectPurchaseReceiptDto } from '../dto/correct-purchase-receipt.dto';
+import {
+  clampTaxPercentages,
+  loadFiscalTaxPolicy,
+} from '../../billing/utils/fiscal-tax-policy.util';
 
 type PurchaseOrderCurrency = 'MXN' | 'USD';
 
@@ -95,6 +124,8 @@ export class PurchaseOrderService {
     private readonly lotsService: PurchaseOrderLotsService,
     private readonly activityService: PurchaseOrderActivityService,
     private readonly realCostService: PurchaseOrderRealCostService,
+    private readonly reversalService: PurchaseOrderReversalService,
+    private readonly vendorCreditLedger: VendorCreditLedgerService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -250,6 +281,8 @@ export class PurchaseOrderService {
     lineItems: CreateLineItemDto[],
     userId: string,
     headerCurrency?: string,
+    fiscalConfigurationId?: string,
+    tenantId?: string,
   ): Promise<{
     requested_subtotal: number;
     requested_iva_total: number;
@@ -262,14 +295,24 @@ export class PurchaseOrderService {
       lineItems,
       headerCurrency,
     );
+    const taxPolicy = await loadFiscalTaxPolicy(
+      queryRunner.manager,
+      fiscalConfigurationId || '',
+      tenantId || '',
+    );
 
     let requested_subtotal = 0;
     let requested_iva_total = 0;
     let requested_ieps_total = 0;
 
     for (const lineItem of lineItems) {
-      const iva_percentage = Number(lineItem.iva_percentage || 0);
-      const ieps_percentage = Number(lineItem.ieps_percentage || 0);
+      const taxes = clampTaxPercentages(
+        Number(lineItem.iva_percentage || 0),
+        Number(lineItem.ieps_percentage || 0),
+        taxPolicy,
+      );
+      const iva_percentage = taxes.ivaPercentage;
+      const ieps_percentage = taxes.iepsPercentage;
       const unitTotal = roundPoUnitCost(lineItem.unit_total);
       const breakdown = computeRequestedLineBreakdown(
         Number(lineItem.quantity),
@@ -302,6 +345,7 @@ export class PurchaseOrderService {
         unit_total: unitTotal,
         iva_percentage,
         ieps_percentage,
+        notes: lineItem.notes?.trim() || null,
         ...breakdown,
         created_by: userId,
       });
@@ -346,6 +390,7 @@ export class PurchaseOrderService {
         vendor,
         dto.pedimento_number,
       );
+      const vendorInvoiceNumbers = resolveVendorInvoiceInput(dto) ?? [];
 
       // Generate folio
       const folio = await this.folioGenerator.generateFolio(tenantId);
@@ -364,7 +409,8 @@ export class PurchaseOrderService {
         general_status: 'Creada',
         notes: dto.notes,
         pedimento_number: pedimentoNumber,
-        vendor_invoice_number: this.normalizeVendorInvoice(dto.vendor_invoice_number),
+        vendor_invoice_number: firstVendorInvoiceNumber(vendorInvoiceNumbers),
+        vendor_invoice_numbers: vendorInvoiceNumbers,
         created_by: userId,
       });
 
@@ -377,6 +423,8 @@ export class PurchaseOrderService {
         dto.line_items,
         userId,
         dto.payment_currency,
+        dto.fiscal_configuration_id,
+        tenantId,
       );
 
       savedOrder.payment_currency = totals.payment_currency;
@@ -434,22 +482,7 @@ export class PurchaseOrderService {
       console.log('[PDF] Starting async PDF generation for PO:', purchaseOrderId);
       
       // Load the full order with all relationships
-      const fullOrder = await this.purchaseOrderBatchRepository
-        .createQueryBuilder('po')
-        .where('po.id = :id AND po.tenant_id = :tenantId', { id: purchaseOrderId, tenantId })
-        .leftJoinAndSelect('po.fiscal_configuration', 'fiscal_config')
-        .leftJoinAndSelect('po.warehouse', 'warehouse')
-        .leftJoinAndSelect('warehouse.billing_branch', 'billing_branch')
-        .leftJoinAndSelect('po.vendor', 'vendor')
-        .leftJoinAndSelect('po.creator', 'creator')
-        .leftJoinAndSelect('po.line_items', 'line_items')
-        .leftJoinAndSelect('line_items.product', 'product')
-        .getOne();
-
-      if (!fullOrder) {
-        console.error('[PDF] Failed to load full order:', purchaseOrderId);
-        return;
-      }
+      const fullOrder = await this.findOne(purchaseOrderId, tenantId);
 
       console.log('[PDF] Generating PDF buffer...');
       let pdfBuffer: Buffer;
@@ -494,10 +527,11 @@ export class PurchaseOrderService {
   async findAll(
     tenantId: string,
     filters: QueryPurchaseOrderDto,
+    options?: { includeStats?: boolean },
   ): Promise<{
     data: PurchaseOrderBatch[];
     total: number;
-    stats: PurchaseOrderListStats;
+    stats?: PurchaseOrderListStats;
   }> {
     const query = this.purchaseOrderBatchRepository
       .createQueryBuilder('po')
@@ -516,8 +550,12 @@ export class PurchaseOrderService {
     query.skip(skip).take(limit).orderBy('po.created_at', 'DESC');
 
     const [rows, total] = await query.getManyAndCount();
+    const data = rows.map((po) => this.mapPurchaseOrderLocation(po));
+    if (options?.includeStats === false) {
+      return { data, total };
+    }
     const stats = await this.getListStats(tenantId, filters);
-    return { data: rows.map((po) => this.mapPurchaseOrderLocation(po)), total, stats };
+    return { data, total, stats };
   }
 
   /**
@@ -698,19 +736,47 @@ export class PurchaseOrderService {
         concept: extra.concept,
         amount: Number(extra.amount),
         currency: extra.currency,
+        include_in_invoice: isInvoiceExtraFlag(extra.include_in_invoice),
         sort_order: extra.sort_order,
       }));
     const hasRealCost =
       isRealCostEnabled(po.customs_exchange_rate, extraCosts.length) ||
       parseRealCostNumber(po.landed_extras_mxn) > 0;
+    const vendorInvoiceNumbers = parseStoredVendorInvoiceNumbers(
+      po.vendor_invoice_numbers,
+      po.vendor_invoice_number,
+    );
+    const landedCash = derivePersistedLandedCashTotals({
+      merchandise_mxn: po.landed_merchandise_mxn,
+      extras_mxn: po.landed_extras_mxn,
+      invoice_extras_mxn: po.landed_invoice_extras_mxn,
+      igi_mxn: computeLinesIgiMxn(
+        (po.line_items ?? []).map((line) => ({
+          id: line.id,
+          quantity: line.quantity,
+          received_quantity: line.received_original_quantity,
+          vendor_unit_cost:
+            line.received_original_unit_total != null
+              ? line.received_original_unit_total
+              : line.unit_total,
+          igi_percentage: line.igi_percentage,
+        })),
+        po.payment_currency,
+        po.customs_exchange_rate,
+      ),
+      customs_exchange_rate: po.customs_exchange_rate,
+    });
 
     return {
       ...po,
       can_edit_lines: po.general_status === 'Creada',
       can_edit_real_cost: po.general_status !== 'Cancelada',
       is_international_vendor: isInternationalVendor,
-      pedimento_number: isInternationalVendor ? po.pedimento_number ?? null : null,
-      vendor_invoice_number: po.vendor_invoice_number ?? null,
+      pedimento_number: isInternationalVendor
+        ? formatPedimentoForDisplay(po.pedimento_number)
+        : null,
+      vendor_invoice_number: firstVendorInvoiceNumber(vendorInvoiceNumbers),
+      vendor_invoice_numbers: vendorInvoiceNumbers,
       has_real_cost: hasRealCost,
       extra_costs_count: extraCosts.length,
       extra_costs: extraCosts,
@@ -721,6 +787,19 @@ export class PurchaseOrderService {
       landed_increment_percentage: parseRealCostNumber(po.landed_increment_percentage),
       landed_merchandise_mxn: parseRealCostNumber(po.landed_merchandise_mxn),
       landed_extras_mxn: parseRealCostNumber(po.landed_extras_mxn),
+      landed_invoice_extras_mxn: parseRealCostNumber(po.landed_invoice_extras_mxn),
+      landed_extras_usd: landedCash.extras_usd,
+      landed_total_usd: landedCash.total_usd,
+      landed_total_mxn: landedCash.total_mxn,
+      landed_igi_mxn: landedCash.igi_mxn,
+      landed_igi_usd: landedCash.igi_usd,
+      landed_contracted_mxn: landedCash.contracted_mxn,
+      landed_contracted_usd: landedCash.contracted_usd,
+      landed_invoice_mxn: landedCash.invoice_mxn,
+      landed_invoice_usd: landedCash.invoice_usd,
+      landed_operating_extras_mxn: landedCash.operating_extras_mxn,
+      landed_operating_extras_usd: landedCash.operating_extras_usd,
+      payable_total: Number(resolvePurchaseOrderPayableTotal(po).toFixed(2)),
       razon_social: fiscal?.razon_social ?? null,
       sucursal: branch?.code ?? null,
       billing_branch_id: po.warehouse?.billing_branch_id ?? branch?.id ?? null,
@@ -769,14 +848,23 @@ export class PurchaseOrderService {
     userId: string,
     context: string,
   ): void {
-    this.regenerateDocumentoOriginalPreservingLanguage(orderId, tenantId, userId).catch(
-      (err) => {
-        console.error(
-          `[PDF] Error regenerating DOCUMENTO_ORIGINAL after ${context}:`,
-          err,
-        );
-      },
-    );
+    void this.refreshDocumentoOriginal(orderId, tenantId, userId, context);
+  }
+
+  private async refreshDocumentoOriginal(
+    orderId: string,
+    tenantId: string,
+    userId: string,
+    context: string,
+  ): Promise<void> {
+    try {
+      await this.regenerateDocumentoOriginalPreservingLanguage(orderId, tenantId, userId);
+    } catch (err) {
+      console.error(
+        `[PDF] Error regenerating DOCUMENTO_ORIGINAL after ${context}:`,
+        err,
+      );
+    }
   }
 
   private async getVendorOrFail(vendorId: string, tenantId: string): Promise<Vendor> {
@@ -789,12 +877,14 @@ export class PurchaseOrderService {
     return vendor;
   }
 
-  private normalizePedimento(value?: string | null): string | null {
-    const trimmed = value?.trim() ?? '';
-    return trimmed.length ? trimmed : null;
-  }
-
-  private normalizeVendorInvoice(value?: string | null): string | null {
+  private normalizePedimento(value?: string | null, allowLegacy = false): string | null {
+    if (!allowLegacy) {
+      return normalizePedimentoNumber(value);
+    }
+    const parsed = parsePedimentoNumber(value);
+    if (parsed.valid) {
+      return parsed.formatted;
+    }
     const trimmed = value?.trim() ?? '';
     return trimmed.length ? trimmed : null;
   }
@@ -857,7 +947,12 @@ export class PurchaseOrderService {
             )
             .orWhere('LOWER(vendor.company_name) LIKE LOWER(:search)', { search })
             .orWhere('LOWER(po.pedimento_number) LIKE LOWER(:search)', { search })
-            .orWhere('LOWER(po.vendor_invoice_number) LIKE LOWER(:search)', { search });
+            .orWhere(
+              "LOWER(REPLACE(po.pedimento_number, ' ', '')) LIKE LOWER(:normalizedSearchLike)",
+              { normalizedSearchLike },
+            )
+            .orWhere('LOWER(po.vendor_invoice_number) LIKE LOWER(:search)', { search })
+            .orWhere('LOWER(CAST(po.vendor_invoice_numbers AS CHAR)) LIKE LOWER(:search)', { search });
         }),
       );
     }
@@ -958,8 +1053,9 @@ export class PurchaseOrderService {
   private resolvePedimentoForVendor(
     vendor: Vendor,
     value?: string | null,
+    allowLegacy = false,
   ): string | null {
-    const pedimentoNumber = this.normalizePedimento(value);
+    const pedimentoNumber = this.normalizePedimento(value, allowLegacy);
     if (pedimentoNumber && vendor.vendor_type !== VendorType.INTERNATIONAL) {
       throw new BadRequestException(
         'El número de pedimento solo aplica a compras de proveedor internacional',
@@ -980,14 +1076,7 @@ export class PurchaseOrderService {
     payment_status: string;
     currency: string;
   } {
-    const requestedTotal = Number(purchaseOrder.requested_total || 0);
-    const receivedTotal = Number(purchaseOrder.received_total || 0);
-    // For open orders (Creada), payments are against requested total.
-    // Once received, payments should track the received total.
-    const total =
-      purchaseOrder.general_status === 'Recibida'
-        ? (receivedTotal > 0 ? receivedTotal : requestedTotal)
-        : requestedTotal;
+    const total = resolvePurchaseOrderPayableTotal(purchaseOrder);
     const amount_paid = payments.reduce(
       (sum, payment) => sum + Number(payment.amount || 0),
       0,
@@ -1043,13 +1132,14 @@ export class PurchaseOrderService {
     tenantId: string,
     userId: string,
   ): Promise<{
-    payment: PurchaseOrderPayment;
+    payment: PurchaseOrderPayment | null;
     summary: {
       amount_paid: number;
       amount_pending: number;
       payment_status: string;
       currency: string;
     };
+    credit_created: { amount: number; currency: string; balance_after: number } | null;
   }> {
     const purchaseOrder = await this.findOne(purchaseOrderId, tenantId);
 
@@ -1071,33 +1161,45 @@ export class PurchaseOrderService {
     });
     const currentSummary = this.buildPaymentSummary(purchaseOrder, existingPayments);
 
-    if (dto.amount > currentSummary.amount_pending) {
-      throw new BadRequestException(
-        `El monto excede el saldo pendiente (${currentSummary.amount_pending.toFixed(2)} ${currentSummary.currency})`,
-      );
+    const split = splitVendorPayment(Number(dto.amount), currentSummary.amount_pending);
+    const currency = normalizeVendorCreditCurrency(dto.currency);
+
+    let payment: PurchaseOrderPayment | null = null;
+    if (split.applied > 0) {
+      payment = this.purchaseOrderPaymentRepository.create({
+        tenant_id: tenantId,
+        purchase_order_batch_id: purchaseOrderId,
+        payment_date: new Date(dto.payment_date),
+        amount: split.applied,
+        currency: dto.currency,
+        payment_method: dto.payment_method,
+        reference_number: dto.reference_number,
+        notes: dto.notes,
+        created_by: userId,
+      });
+      await this.purchaseOrderPaymentRepository.save(payment);
     }
 
-    const payment = this.purchaseOrderPaymentRepository.create({
-      tenant_id: tenantId,
-      purchase_order_batch_id: purchaseOrderId,
-      payment_date: new Date(dto.payment_date),
-      amount: dto.amount,
-      currency: dto.currency,
-      payment_method: dto.payment_method,
-      reference_number: dto.reference_number,
-      notes: dto.notes,
-      created_by: userId,
-    });
-
-    await this.purchaseOrderPaymentRepository.save(payment);
-
-    const updatedPayments = [...existingPayments, payment];
+    const updatedPayments = payment ? [...existingPayments, payment] : existingPayments;
     const updatedSummary = this.buildPaymentSummary(purchaseOrder, updatedPayments);
     purchaseOrder.payment_status = updatedSummary.payment_status;
     purchaseOrder.updated_by = userId;
     await this.purchaseOrderBatchRepository.save(purchaseOrder);
 
-    return { payment, summary: updatedSummary };
+    const creditCreated = await this.vendorCreditLedger.recordCredit({
+      tenantId,
+      vendorId: purchaseOrder.vendor_id,
+      userId,
+      amount: split.credit,
+      currency,
+      purchaseOrderId: purchaseOrder.id,
+      purchaseOrderPaymentId: payment?.id ?? null,
+      notes: purchaseOrder.folio
+        ? `Excedente de ${purchaseOrder.folio}`
+        : 'Excedente de pago',
+    });
+
+    return { payment, summary: updatedSummary, credit_created: creditCreated };
   }
 
   async deletePayment(
@@ -1129,7 +1231,9 @@ export class PurchaseOrderService {
       throw new NotFoundException(`Pago no encontrado: ${paymentId}`);
     }
 
+    await this.vendorCreditLedger.assertPaymentVoidable(tenantId, paymentId);
     await this.purchaseOrderPaymentRepository.remove(payment);
+    await this.vendorCreditLedger.voidByPayment(tenantId, userId, paymentId);
 
     const paymentData = await this.getPaymentsForOrder(purchaseOrder);
     purchaseOrder.payment_status = paymentData.summary.payment_status;
@@ -1339,12 +1443,14 @@ export class PurchaseOrderService {
     }
 
     const previousNotes = purchaseOrder.notes ?? null;
-    purchaseOrder.notes = dto.notes?.trim() ? dto.notes.trim() : null;
-    purchaseOrder.updated_by = userId;
-    await this.purchaseOrderBatchRepository.save(purchaseOrder);
+    const nextNotes = dto.notes?.trim() ? dto.notes.trim() : null;
+    await this.purchaseOrderBatchRepository.update(
+      { id, tenant_id: tenantId },
+      { notes: nextNotes, updated_by: userId },
+    );
 
     const changes = compactActivityChanges([
-      activityChange('notes', 'Notas', previousNotes, purchaseOrder.notes),
+      activityChange('notes', 'Notas', previousNotes, nextNotes),
     ]);
     if (changes.length) {
       await this.recordActivity({
@@ -1357,6 +1463,7 @@ export class PurchaseOrderService {
       });
     }
 
+    await this.refreshDocumentoOriginal(id, tenantId, userId, 'update notes');
     return this.findOne(id, tenantId);
   }
 
@@ -1423,19 +1530,26 @@ export class PurchaseOrderService {
       );
     }
 
-    const vendorInvoiceNumber = this.normalizeVendorInvoice(dto.vendor_invoice_number);
-    const previousInvoice = purchaseOrder.vendor_invoice_number ?? null;
+    const vendorInvoiceNumbers = resolveVendorInvoiceInput(dto) ?? [];
+    const previousInvoices = parseStoredVendorInvoiceNumbers(
+      purchaseOrder.vendor_invoice_numbers,
+      purchaseOrder.vendor_invoice_number,
+    );
     await this.purchaseOrderBatchRepository.update(
       { id, tenant_id: tenantId },
-      { vendor_invoice_number: vendorInvoiceNumber, updated_by: userId },
+      {
+        vendor_invoice_number: firstVendorInvoiceNumber(vendorInvoiceNumbers),
+        vendor_invoice_numbers: vendorInvoiceNumbers,
+        updated_by: userId,
+      },
     );
 
     const changes = compactActivityChanges([
       activityChange(
         'vendor_invoice_number',
         'Factura de proveedor',
-        previousInvoice,
-        vendorInvoiceNumber,
+        formatVendorInvoiceNumbers(previousInvoices),
+        formatVendorInvoiceNumbers(vendorInvoiceNumbers),
       ),
     ]);
     if (changes.length) {
@@ -1444,11 +1558,14 @@ export class PurchaseOrderService {
         purchaseOrderId: id,
         type: PURCHASE_ORDER_MOVEMENT_TYPES.VENDOR_INVOICE_UPDATED,
         actorId: userId,
-        description: 'Se actualizó la factura de proveedor.',
+        description: vendorInvoiceNumbers.length > 1
+          ? 'Se actualizaron las facturas de proveedor.'
+          : 'Se actualizó la factura de proveedor.',
         changes,
       });
     }
 
+    await this.refreshDocumentoOriginal(id, tenantId, userId, 'update vendor invoice');
     return this.findOne(id, tenantId);
   }
 
@@ -1468,29 +1585,54 @@ export class PurchaseOrderService {
   /**
    * Cancel a purchase order
    */
-  async cancel(id: string, tenantId: string, userId: string): Promise<PurchaseOrderBatch> {
-    const purchaseOrder = await this.findOne(id, tenantId);
+  async cancel(
+    id: string,
+    tenantId: string,
+    userId: string,
+    reason?: string | null,
+  ): Promise<PurchaseOrderBatch> {
+    await this.reversalService.cancel(id, tenantId, userId, reason);
+    return this.findOne(id, tenantId);
+  }
 
-    if (purchaseOrder.general_status !== 'Creada') {
+  async reopen(id: string, tenantId: string, userId: string): Promise<PurchaseOrderBatch> {
+    await this.reversalService.reopen(id, tenantId, userId);
+    return this.findOne(id, tenantId);
+  }
+
+  async reopenForAdditionalReceipt(
+    id: string,
+    tenantId: string,
+    userId: string,
+  ): Promise<PurchaseOrderBatch> {
+    await this.reversalService.reopenForAdditionalReceipt(id, tenantId, userId);
+    return this.findOne(id, tenantId);
+  }
+
+  async closeAdditionalReceipt(
+    id: string,
+    tenantId: string,
+    userId: string,
+  ): Promise<PurchaseOrderBatch> {
+    await this.reversalService.closeAdditionalReceipt(id, tenantId, userId);
+    return this.findOne(id, tenantId);
+  }
+
+  private assertLineOpenForEdit(lineItem: PurchaseOrderBatchDetail): void {
+    if (Number(lineItem.received_original_quantity || 0) > 0) {
       throw new BadRequestException(
-        `No se puede cancelar la orden de compra con estado: ${purchaseOrder.general_status}`,
+        'Esta línea ya tiene mercancía recibida. Agrega un producto nuevo para el siguiente ingreso.',
       );
     }
+  }
 
-    purchaseOrder.general_status = 'Cancelada';
-    purchaseOrder.updated_by = userId;
-
-    await this.purchaseOrderBatchRepository.save(purchaseOrder);
-    await this.recordActivity({
-      tenantId,
-      purchaseOrderId: id,
-      type: PURCHASE_ORDER_MOVEMENT_TYPES.STATUS_CHANGED,
-      actorId: userId,
-      description: 'La orden pasó de Creada a Cancelada.',
-      changes: compactActivityChanges([
-        activityChange('general_status', 'Estatus', 'Creada', 'Cancelada'),
-      ]),
-    });
+  async correctReceipt(
+    id: string,
+    dto: CorrectPurchaseReceiptDto,
+    tenantId: string,
+    userId: string,
+  ): Promise<PurchaseOrderBatch> {
+    await this.reversalService.correctReceipt(id, dto, tenantId, userId);
     return this.findOne(id, tenantId);
   }
 
@@ -1526,11 +1668,12 @@ export class PurchaseOrderService {
       dto.pedimento_number !== undefined
         ? dto.pedimento_number
         : existing.pedimento_number,
+      dto.pedimento_number === undefined,
     );
-    const vendorInvoiceNumber =
-      dto.vendor_invoice_number !== undefined
-        ? this.normalizeVendorInvoice(dto.vendor_invoice_number)
-        : this.normalizeVendorInvoice(existing.vendor_invoice_number);
+    const vendorInvoiceNumbers =
+      resolveVendorInvoiceInput(dto) ??
+      parseStoredVendorInvoiceNumbers(existing.vendor_invoice_numbers, existing.vendor_invoice_number);
+    const vendorInvoiceNumber = firstVendorInvoiceNumber(vendorInvoiceNumbers);
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -1548,6 +1691,8 @@ export class PurchaseOrderService {
         dto.line_items,
         userId,
         dto.payment_currency,
+        dto.fiscal_configuration_id,
+        tenantId,
       );
 
       const batch = await queryRunner.manager.findOne(PurchaseOrderBatch, {
@@ -1570,6 +1715,7 @@ export class PurchaseOrderService {
       }
       batch.pedimento_number = pedimentoNumber;
       batch.vendor_invoice_number = vendorInvoiceNumber;
+      batch.vendor_invoice_numbers = vendorInvoiceNumbers;
       batch.requested_subtotal = totals.requested_subtotal;
       batch.requested_iva_total = totals.requested_iva_total;
       batch.requested_ieps_total = totals.requested_ieps_total;
@@ -1614,8 +1760,10 @@ export class PurchaseOrderService {
       activityChange(
         'vendor_invoice_number',
         'Factura de proveedor',
-        existing.vendor_invoice_number,
-        vendorInvoiceNumber,
+        formatVendorInvoiceNumbers(
+          parseStoredVendorInvoiceNumbers(existing.vendor_invoice_numbers, existing.vendor_invoice_number),
+        ),
+        formatVendorInvoiceNumbers(vendorInvoiceNumbers),
       ),
       activityChange(
         'line_items_count',
@@ -1662,8 +1810,18 @@ export class PurchaseOrderService {
     }
 
     const poCurrency = this.normalizeCurrency(purchaseOrder.payment_currency) || 'MXN';
-    const iva_percentage = Number(dto.iva_percentage || 0);
-    const ieps_percentage = Number(dto.ieps_percentage || 0);
+    const taxPolicy = await loadFiscalTaxPolicy(
+      this.dataSource,
+      purchaseOrder.fiscal_configuration_id,
+      tenantId,
+    );
+    const taxes = clampTaxPercentages(
+      Number(dto.iva_percentage || 0),
+      Number(dto.ieps_percentage || 0),
+      taxPolicy,
+    );
+    const iva_percentage = taxes.ivaPercentage;
+    const ieps_percentage = taxes.iepsPercentage;
     const unitTotal = roundPoUnitCost(dto.unit_total);
     const breakdown = computeRequestedLineBreakdown(
       Number(dto.quantity),
@@ -1691,6 +1849,7 @@ export class PurchaseOrderService {
       unit_total: unitTotal,
       iva_percentage,
       ieps_percentage,
+      notes: dto.notes?.trim() || null,
       ...breakdown,
       created_by: userId,
     });
@@ -1850,6 +2009,7 @@ export class PurchaseOrderService {
     if (!lineItem) {
       throw new NotFoundException(`Línea no encontrada: ${lineItemId}`);
     }
+    this.assertLineOpenForEdit(lineItem);
 
     const productName =
       (purchaseOrder.line_items || []).find((line) => line.id === lineItemId)?.product
@@ -1860,6 +2020,7 @@ export class PurchaseOrderService {
       iva_percentage: lineItem.iva_percentage,
       ieps_percentage: lineItem.ieps_percentage,
       product_uom_id: lineItem.product_uom_id,
+      notes: lineItem.notes,
     };
 
     if (dto.uom_id !== undefined) {
@@ -1874,11 +2035,31 @@ export class PurchaseOrderService {
     if (dto.unit_total !== undefined) {
       lineItem.unit_total = roundPoUnitCost(dto.unit_total);
     }
+    const taxPolicy = await loadFiscalTaxPolicy(
+      this.dataSource,
+      purchaseOrder.fiscal_configuration_id,
+      tenantId,
+    );
     if (dto.iva_percentage !== undefined) {
-      lineItem.iva_percentage = dto.iva_percentage;
+      lineItem.iva_percentage = clampTaxPercentages(
+        Number(dto.iva_percentage || 0),
+        0,
+        taxPolicy,
+      ).ivaPercentage;
+    } else if (!taxPolicy.ivaEnabled) {
+      lineItem.iva_percentage = 0;
     }
     if (dto.ieps_percentage !== undefined) {
-      lineItem.ieps_percentage = dto.ieps_percentage;
+      lineItem.ieps_percentage = clampTaxPercentages(
+        0,
+        Number(dto.ieps_percentage || 0),
+        taxPolicy,
+      ).iepsPercentage;
+    } else if (!taxPolicy.iepsEnabled) {
+      lineItem.ieps_percentage = 0;
+    }
+    if (dto.notes !== undefined) {
+      lineItem.notes = dto.notes?.trim() || null;
     }
 
     const qty = Number(lineItem.quantity);
@@ -1927,6 +2108,7 @@ export class PurchaseOrderService {
       activityChange('iva_percentage', 'IVA %', before.iva_percentage, lineItem.iva_percentage),
       activityChange('ieps_percentage', 'IEPS %', before.ieps_percentage, lineItem.ieps_percentage),
       activityChange('product_uom_id', 'Unidad', before.product_uom_id, lineItem.product_uom_id),
+      activityChange('notes', 'Nota', before.notes, lineItem.notes),
     ]);
     if (changes.length) {
       await this.recordActivity({
@@ -1966,6 +2148,7 @@ export class PurchaseOrderService {
     if (!lineItem) {
       throw new NotFoundException(`Línea no encontrada: ${lineItemId}`);
     }
+    this.assertLineOpenForEdit(lineItem);
 
     const productName =
       (purchaseOrder.line_items || []).find((line) => line.id === lineItemId)?.product

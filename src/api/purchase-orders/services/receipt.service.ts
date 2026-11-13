@@ -1,6 +1,6 @@
 import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { PurchaseOrderBatch } from '../../../entities/purchase-orders/purchase-order-batch.entity';
 import { PurchaseOrderBatchDetail } from '../../../entities/purchase-orders/purchase-order-batch-detail.entity';
 import { InventoryBatch } from '../../../entities/purchase-orders/inventory-batch.entity';
@@ -21,6 +21,11 @@ import {
   compactActivityChanges,
 } from '../utils/purchase-order-activity-change.util';
 import { PURCHASE_ORDER_MOVEMENT_TYPES } from '../constants/purchase-order-movements';
+import {
+  clampTaxPercentages,
+  isFiscalFlagOn,
+  loadFiscalTaxPolicy,
+} from '../../billing/utils/fiscal-tax-policy.util';
 
 /**
  * Orquestador de recepción de órdenes de compra.
@@ -66,15 +71,20 @@ export class ReceiptService {
         throw new NotFoundException(`Orden de compra no encontrada: ${id}`);
       }
 
-      const existingBatchesCount = await this.inventoryBatchRepository.count({
+      const linkedBatches = await this.inventoryBatchRepository.find({
         where: {
           purchase_order_batch_id: id,
           tenant_id: tenantId,
         },
       });
+      const stillOnHand = linkedBatches.filter(
+        (batch) => Number(batch.available_quantity) > 0.001,
+      );
+      const liveDirect = stillOnHand.filter((batch) => !batch.transferred_from_batch_id);
+      const additionalReceipt = isFiscalFlagOn(purchaseOrder.additional_receipt_open, false);
 
       // Recepción a medias: hay lotes pero el estado no pasó a Recibida
-      if (existingBatchesCount > 0 && purchaseOrder.general_status === 'Creada') {
+      if (!additionalReceipt && liveDirect.length > 0 && purchaseOrder.general_status === 'Creada') {
         this.logger.warn(
           `PO ${id} tiene lotes pero sigue en Creada; se completa el estado a Recibida`,
         );
@@ -90,11 +100,39 @@ export class ReceiptService {
         );
       }
 
-      if (existingBatchesCount > 0) {
+      if (!additionalReceipt && stillOnHand.length > 0) {
         throw new BadRequestException(
-          'La orden de compra ya tiene lotes de inventario. Si una recepción falló antes, contacta a soporte antes de reintentar.',
+          'La orden de compra ya tiene lotes con existencia. Si una recepción falló antes, contacta a soporte antes de reintentar.',
         );
       }
+
+      const taxPolicy = await loadFiscalTaxPolicy(
+        this.dataSource,
+        purchaseOrder.fiscal_configuration_id,
+        tenantId,
+      );
+      for (const item of dto.received_items || []) {
+        const taxes = clampTaxPercentages(
+          Number(item.iva_percentage || 0),
+          Number(item.ieps_percentage || 0),
+          taxPolicy,
+        );
+        item.iva_percentage = taxes.ivaPercentage;
+        item.ieps_percentage = taxes.iepsPercentage;
+        if (!taxPolicy.ivaEnabled) {
+          item.iva_unit = 0;
+        }
+        if (!taxPolicy.iepsEnabled) {
+          item.ieps_unit = 0;
+        }
+      }
+
+      const linesWithStock = new Set(
+        linkedBatches
+          .filter((batch) => Number(batch.available_quantity) > 0.001 || Number(batch.initial_quantity) > 0)
+          .map((batch) => batch.purchase_order_detail_id)
+          .filter((lineId): lineId is string => !!lineId),
+      );
 
       await this.receiptValidatorService.validateReceivedItems(dto.received_items);
       await this.assertMeasureUomsExist(dto.received_items, tenantId);
@@ -144,9 +182,22 @@ export class ReceiptService {
             }
 
             const factor = productUom.factor || 1;
-            const convertedQuantity = productUom.is_base
+            const addedConverted = productUom.is_base
               ? totalQuantityInLineUom
               : totalQuantityInLineUom * factor;
+            const existingLine = (purchaseOrder.line_items || []).find(
+              (line) => line.id === receivedItem.line_item_id,
+            );
+            const alreadyQty = additionalReceipt && linesWithStock.has(receivedItem.line_item_id)
+              ? Number(existingLine?.received_original_quantity || 0)
+              : 0;
+            const nextQty = alreadyQty + totalQuantityInLineUom;
+            const unitTotal = alreadyQty > 0
+              ? Number(existingLine?.received_original_unit_total || receivedItem.unit_total)
+              : Number(receivedItem.unit_total);
+            const convertedQuantity = alreadyQty > 0
+              ? Number(existingLine?.received_converted_quantity || 0) + addedConverted
+              : addedConverted;
 
             await queryRunner.manager.update(
               PurchaseOrderBatchDetail,
@@ -155,15 +206,15 @@ export class ReceiptService {
                 received_original_product_id: receivedItem.product_id,
                 received_original_uom_id: productUom.uom_catalog_id,
                 product_uom_id: productUom.id,
-                received_original_quantity: totalQuantityInLineUom,
-                received_original_unit_total: roundPoUnitCost(receivedItem.unit_total),
+                received_original_quantity: nextQty,
+                received_original_unit_total: roundPoUnitCost(unitTotal),
                 received_original_iva_percentage: receivedItem.iva_percentage,
                 received_original_iva_unit: receivedItem.iva_unit,
                 received_original_ieps_percentage: receivedItem.ieps_percentage,
                 received_original_ieps_unit: receivedItem.ieps_unit,
                 ...computeReceivedLineBreakdown(
-                  Number(totalQuantityInLineUom),
-                  Number(receivedItem.unit_total),
+                  nextQty,
+                  unitTotal,
                   Number(receivedItem.iva_percentage || 0),
                   Number(receivedItem.ieps_percentage || 0),
                 ),
@@ -215,13 +266,17 @@ export class ReceiptService {
           }
         }
 
-        await this.applyReceivedTotals(
-          queryRunner.manager.getRepository(PurchaseOrderBatch),
-          id,
-          tenantId,
-          userId,
-          dto,
-        );
+        if (additionalReceipt) {
+          await this.persistReceivedTotalsFromLines(queryRunner.manager, id, tenantId, userId);
+        } else {
+          await this.applyReceivedTotals(
+            queryRunner.manager.getRepository(PurchaseOrderBatch),
+            id,
+            tenantId,
+            userId,
+            dto,
+          );
+        }
 
         await queryRunner.commitTransaction();
       } catch (txError) {
@@ -235,7 +290,13 @@ export class ReceiptService {
         `Recepción procesada para OC ${id} por usuario ${userId}`,
       );
       await this.realCostService.recalculateIfEnabled(tenantId, id);
-      await this.recordReceivedStatus(id, tenantId, userId, dto.received_items.length);
+      await this.recordReceivedStatus(
+        id,
+        tenantId,
+        userId,
+        dto.received_items.length,
+        additionalReceipt,
+      );
 
       return this.loadReceivedPurchaseOrder(id);
     } catch (error) {
@@ -338,6 +399,43 @@ export class ReceiptService {
         received_ieps_total: receivedIepsTotal,
         received_total: receivedTotal,
         general_status: 'Recibida',
+        additional_receipt_open: false,
+        updated_by: userId,
+      },
+    );
+  }
+
+  private async persistReceivedTotalsFromLines(
+    manager: EntityManager,
+    id: string,
+    tenantId: string,
+    userId: string,
+  ): Promise<void> {
+    const lines = await manager.find(PurchaseOrderBatchDetail, {
+      where: { purchase_order_batch_id: id },
+    });
+    let subtotal = 0;
+    let iva = 0;
+    let ieps = 0;
+    let total = 0;
+    for (const line of lines) {
+      const qty = Number(line.received_original_quantity || 0);
+      if (qty <= 0) continue;
+      subtotal += Number(line.received_line_subtotal || 0);
+      iva += Number(line.received_line_iva || 0);
+      ieps += Number(line.received_line_ieps || 0);
+      total += Number(line.received_line_total || 0);
+    }
+    await manager.update(
+      PurchaseOrderBatch,
+      { id, tenant_id: tenantId },
+      {
+        received_subtotal: this.roundMoney(subtotal),
+        received_iva_total: this.roundMoney(iva),
+        received_ieps_total: this.roundMoney(ieps),
+        received_total: this.roundMoney(total),
+        general_status: 'Recibida',
+        additional_receipt_open: false,
         updated_by: userId,
       },
     );
@@ -348,6 +446,7 @@ export class ReceiptService {
     tenantId: string,
     userId: string,
     receivedItems: number,
+    additionalReceipt = false,
   ): Promise<void> {
     try {
       await this.activityService.record({
@@ -355,7 +454,9 @@ export class ReceiptService {
         purchaseOrderId,
         type: PURCHASE_ORDER_MOVEMENT_TYPES.STATUS_CHANGED,
         actorId: userId,
-        description: 'La orden pasó de Creada a Recibida.',
+        description: additionalReceipt
+          ? 'Ingreso adicional de mercancía. La orden volvió a Recibida.'
+          : 'La orden pasó de Creada a Recibida.',
         changes: compactActivityChanges([
           activityChange('general_status', 'Estatus', 'Creada', 'Recibida'),
         ]),

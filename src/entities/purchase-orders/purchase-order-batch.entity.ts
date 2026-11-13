@@ -86,6 +86,9 @@ export class PurchaseOrderBatch {
   })
   general_status: string;
 
+  @Column({ type: 'tinyint', width: 1, default: 0 })
+  additional_receipt_open: boolean;
+
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
@@ -96,6 +99,9 @@ export class PurchaseOrderBatch {
   /** Número de factura del proveedor. Aplica a cualquier tipo de proveedor. */
   @Column({ type: 'varchar', length: 60, nullable: true })
   vendor_invoice_number: string | null;
+
+  @Column({ type: 'json', nullable: true })
+  vendor_invoice_numbers: string[] | null;
 
   /** Fecha del pedimento / aduana. Independiente del tipo de cambio diario. */
   @Column({ type: 'date', nullable: true })
@@ -114,6 +120,9 @@ export class PurchaseOrderBatch {
 
   @Column({ type: 'decimal', precision: 14, scale: 2, default: 0 })
   landed_extras_mxn: number;
+
+  @Column({ type: 'decimal', precision: 14, scale: 2, default: 0 })
+  landed_invoice_extras_mxn: number;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   requested_subtotal: number;

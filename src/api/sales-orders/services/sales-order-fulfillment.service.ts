@@ -41,10 +41,6 @@ export class SalesOrderFulfillmentService {
     const needed = parseFloat(
       (quantityBase ?? detail.quantity_base_uom).toString(),
     );
-    if (needed <= 0) {
-      return [];
-    }
-
     const product = await manager.findOne(Product, {
       where: { id: detail.product_id },
       select: ['id', 'item_kind', 'name', 'sku'],
@@ -52,6 +48,17 @@ export class SalesOrderFulfillmentService {
     if (product?.item_kind === ProductItemKind.Service) {
       return [];
     }
+    if (!Number.isFinite(needed) || needed <= 0) {
+      const ordered = parseFloat(String(detail.quantity ?? 0));
+      if (ordered > 0) {
+        throw new BadRequestException(
+          `No se pudo apartar inventario de ${this.formatProductLabel(product) || 'la línea'}: la cantidad en unidad base quedó en cero.`,
+        );
+      }
+      return [];
+    }
+    const salesOrder = await this.resolveSalesOrder(detail, manager);
+    const tenantId = salesOrder?.tenant_id;
     const warehouseId = scope.warehouseId || undefined;
     const billingBranchId = scope.billingBranchId || undefined;
 
@@ -66,15 +73,33 @@ export class SalesOrderFulfillmentService {
       .where('batch.product_id = :productId', { productId: detail.product_id })
       .andWhere('batch.available_quantity > 0')
       .orderBy('batch.created_at', 'ASC')
+      .addOrderBy('batch.id', 'ASC')
       .setLock('pessimistic_write');
+
+    if (tenantId) {
+      qb.andWhere('batch.tenant_id = :tenantId', { tenantId });
+    }
+    if (detail.base_uom_id) {
+      qb.andWhere('batch.uom_id = :uomId', { uomId: detail.base_uom_id });
+    }
 
     if (warehouseId) {
       qb.andWhere('batch.warehouse_id = :warehouseId', { warehouseId });
     } else {
-      qb.innerJoin('batch.warehouse', 'warehouse').andWhere(
-        'warehouse.billing_branch_id = :billingBranchId',
-        { billingBranchId },
-      );
+      const params: unknown[] = [billingBranchId];
+      let sql = `SELECT id FROM warehouses WHERE billing_branch_id = ?`;
+      if (tenantId) {
+        sql += ` AND tenant_id = ?`;
+        params.push(tenantId);
+      }
+      const warehouses: Array<{ id: string }> = await manager.query(sql, params);
+      const warehouseIds = warehouses.map((row) => row.id);
+      if (!warehouseIds.length) {
+        throw new BadRequestException(
+          this.buildInsufficientStockMessage(product, needed, 0),
+        );
+      }
+      qb.andWhere('batch.warehouse_id IN (:...warehouseIds)', { warehouseIds });
     }
 
     const batches = await qb.getMany();
@@ -90,7 +115,6 @@ export class SalesOrderFulfillmentService {
       );
     }
 
-    const salesOrder = await this.resolveSalesOrder(detail, manager);
     const allocations: SalesOrderBatchAllocation[] = [];
     let remaining = needed;
 

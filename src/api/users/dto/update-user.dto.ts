@@ -6,6 +6,7 @@ import {
   IsEmail,
   IsEnum,
   IsInt,
+  IsNotEmpty,
   IsObject,
   IsOptional,
   IsString,
@@ -132,6 +133,23 @@ export class UpdateUserDto {
   @IsOptional()
   @IsBoolean()
   is_crm_admin?: boolean;
+
+  @ApiProperty({ required: false, description: 'Chofer para carta porte' })
+  @IsOptional()
+  @IsBoolean()
+  is_driver?: boolean;
+
+  @ApiProperty({ required: false })
+  @ValidateIf((dto: UpdateUserDto) => dto.is_driver === true)
+  @IsString()
+  @IsNotEmpty()
+  driver_license_number?: string;
+
+  @ApiProperty({ required: false })
+  @ValidateIf((dto: UpdateUserDto) => dto.is_driver === true)
+  @IsString()
+  @IsNotEmpty()
+  driver_rfc?: string;
 
   @ApiProperty({
     required: false,

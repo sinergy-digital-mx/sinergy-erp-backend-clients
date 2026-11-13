@@ -32,7 +32,7 @@ export class ExchangeRate {
   exchange_rate: number;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  notes?: string;
+  notes?: string | null;
 
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;

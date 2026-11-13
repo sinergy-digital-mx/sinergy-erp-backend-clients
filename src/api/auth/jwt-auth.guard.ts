@@ -48,7 +48,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       );
 
       // Compare versions
-      if (user.permissions_version < dbVersion) {
+      if (Number(user.permissions_version) < Number(dbVersion)) {
         this.logger.warn(
           `Permission version mismatch for user ${user.id}: JWT version ${user.permissions_version} < DB version ${dbVersion}`,
         );

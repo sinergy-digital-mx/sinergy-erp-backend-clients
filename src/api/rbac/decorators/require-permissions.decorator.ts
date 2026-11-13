@@ -14,6 +14,7 @@ export interface RequiredPermission {
  * Metadata key for storing required permissions
  */
 export const PERMISSIONS_KEY = 'permissions';
+export const PERMISSIONS_ANY_KEY = 'permissions_any';
 
 /**
  * Decorator to specify required permissions for a route or controller
@@ -52,6 +53,10 @@ export const PERMISSIONS_KEY = 'permissions';
 export const RequirePermissions = (
   ...permissions: RequiredPermission[]
 ) => SetMetadata(PERMISSIONS_KEY, permissions);
+
+export const RequireAnyPermissions = (
+  ...permissions: RequiredPermission[]
+) => SetMetadata(PERMISSIONS_ANY_KEY, permissions);
 
 /**
  * Convenience decorator for single permission requirement

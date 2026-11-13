@@ -1,5 +1,6 @@
 import {
   IsEnum,
+  IsIn,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -12,8 +13,8 @@ export class StampElectronicInvoiceDto {
   @IsUUID()
   fiscal_configuration_id: string;
 
-  @IsEnum(['sales_orders'])
-  source_module: 'sales_orders';
+  @IsEnum(['sales_orders', 'quotations', 'global_invoices'])
+  source_module: 'sales_orders' | 'quotations' | 'global_invoices';
 
   @IsUUID()
   source_id: string;
@@ -69,4 +70,20 @@ export class StampElectronicInvoiceDto {
 
   @IsOptional()
   metadata?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsIn(['standard', 'advance', 'merchandise', 'advance_application', 'credit_note'])
+  invoice_role?: 'standard' | 'advance' | 'merchandise' | 'advance_application' | 'credit_note';
+
+  @IsOptional()
+  @IsUUID()
+  related_advance_invoice_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  related_invoice_id?: string;
+
+  @IsOptional()
+  @IsString()
+  relation_type?: string;
 }

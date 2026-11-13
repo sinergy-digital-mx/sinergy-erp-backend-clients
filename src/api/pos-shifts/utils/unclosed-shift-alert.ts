@@ -10,7 +10,11 @@ export type UnclosedShiftAlert = {
 };
 
 /** Día calendario POS (México). Evita tratar el corte de hoy como “ayer” por UTC. */
-const POS_CALENDAR_TIMEZONE = 'America/Mexico_City';
+export const POS_CALENDAR_TIMEZONE = 'America/Tijuana';
+
+export function posCalendarDateSql(column: string): string {
+  return `DATE(CONVERT_TZ(${column}, '+00:00', '${POS_CALENDAR_TIMEZONE}'))`;
+}
 
 export function getTodayDateString(now = new Date()): string {
   return new Intl.DateTimeFormat('en-CA', {
@@ -22,11 +26,39 @@ export function getTodayDateString(now = new Date()): string {
 }
 
 export function toDateOnlyString(value: string | Date): string {
-  if (value instanceof Date) {
-    return value.toISOString().slice(0, 10);
-  }
+  const raw = value instanceof Date ? value.toISOString() : String(value);
+  const match = /^(\d{4}-\d{2}-\d{2})/.exec(raw.trim());
+  return match ? match[1] : raw.slice(0, 10);
+}
 
-  return String(value).slice(0, 10);
+export function resolvePosCalendarRange(
+  period: 'today' | 'week' | 'month' | 'range',
+  dateFrom?: string,
+  dateTo?: string,
+  now = new Date(),
+): { from: string; to: string } {
+  const today = getTodayDateString(now);
+  if (period === 'today') {
+    return { from: today, to: today };
+  }
+  if (period === 'range') {
+    return {
+      from: String(dateFrom || today).slice(0, 10),
+      to: String(dateTo || today).slice(0, 10),
+    };
+  }
+  if (period === 'week') {
+    const [year, month, day] = today.split('-').map(Number);
+    const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+    const daysFromMonday = weekday === 0 ? 6 : weekday - 1;
+    return { from: addUtcDays(today, -daysFromMonday), to: today };
+  }
+  return { from: `${today.slice(0, 8)}01`, to: today };
+}
+
+function addUtcDays(isoDate: string, days: number): string {
+  const [year, month, day] = isoDate.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
 }
 
 export function isPreviousDayOpenShift(

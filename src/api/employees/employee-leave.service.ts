@@ -5,17 +5,25 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Employee } from '../../entities/employees/employee.entity';
 import { EmployeeLeaveRequest } from '../../entities/employees/employee-leave-request.entity';
+import { EmployeeLeaveDocument } from '../../entities/employees/employee-leave-document.entity';
 import { LeaveType } from '../../entities/employees/leave-type.enum';
 import { LeaveStatus } from '../../entities/employees/leave-status.enum';
+import { S3Service } from '../../common/services/s3.service';
 import { CreateLeaveRequestDto } from './dto/create-leave-request.dto';
 import { ReviewLeaveRequestDto } from './dto/review-leave-request.dto';
 import { QueryLeaveRequestDto } from './dto/query-leave-request.dto';
-import { EmployeesService, mapLeaveRequest } from './employees.service';
+import { EmployeesService, presentLeaveRequest } from './employees.service';
 import { resolveLeaveDays } from './utils/mexican-labor-law';
 import { UpdateLeaveRequestDto } from './dto/update-leave-request.dto';
+import {
+  assertMedicalCertificateFile,
+  MEDICAL_CERTIFICATE_MAX_FILES,
+  sanitizeUploadFileName,
+  UploadLike,
+} from './utils/medical-certificate.util';
 
 @Injectable()
 export class EmployeeLeaveService {
@@ -24,7 +32,10 @@ export class EmployeeLeaveService {
     private readonly leaveRepo: Repository<EmployeeLeaveRequest>,
     @InjectRepository(Employee)
     private readonly employeeRepo: Repository<Employee>,
+    @InjectRepository(EmployeeLeaveDocument)
+    private readonly documentRepo: Repository<EmployeeLeaveDocument>,
     private readonly employeesService: EmployeesService,
+    private readonly s3Service: S3Service,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -83,7 +94,7 @@ export class EmployeeLeaveService {
     });
 
     const saved = await this.leaveRepo.save(request);
-    return mapLeaveRequest(saved);
+    return this.present(saved);
   }
 
   // ---------------------------------------------------------------------------
@@ -141,18 +152,21 @@ export class EmployeeLeaveService {
     const total = await qb.getCount();
     const rows = await qb.skip(skip).take(limit).getMany();
 
-    const data = rows.map((r) => ({
-      ...mapLeaveRequest(r),
-      employee: r.employee
-        ? {
-            id: r.employee.id,
-            position: r.employee.position,
-            first_name: r.employee.user?.first_name ?? null,
-            last_name: r.employee.user?.last_name ?? null,
-            email: r.employee.user?.email ?? null,
-          }
-        : null,
-    }));
+    await this.attachDocuments(rows);
+    const data = await Promise.all(
+      rows.map(async (r) => ({
+        ...(await this.present(r)),
+        employee: r.employee
+          ? {
+              id: r.employee.id,
+              position: r.employee.position,
+              first_name: r.employee.user?.first_name ?? null,
+              last_name: r.employee.user?.last_name ?? null,
+              email: r.employee.user?.email ?? null,
+            }
+          : null,
+      })),
+    );
 
     const totalPages = Math.ceil(total / limit) || 1;
     return {
@@ -205,7 +219,7 @@ export class EmployeeLeaveService {
     request.reviewed_at = new Date();
 
     const saved = await this.leaveRepo.save(request);
-    return mapLeaveRequest(saved);
+    return this.present(saved);
   }
 
   // ---------------------------------------------------------------------------
@@ -228,7 +242,7 @@ export class EmployeeLeaveService {
 
     request.status = LeaveStatus.CANCELLED;
     const saved = await this.leaveRepo.save(request);
-    return mapLeaveRequest(saved);
+    return this.present(saved);
   }
 
   // ---------------------------------------------------------------------------
@@ -305,7 +319,135 @@ export class EmployeeLeaveService {
     }
 
     const saved = await this.leaveRepo.save(request);
-    return mapLeaveRequest(saved);
+    return this.present(saved);
+  }
+
+  async addDocument(
+    tenantId: string,
+    requestId: string,
+    file: UploadLike | null | undefined,
+    uploadedBy: string | null,
+    ownerEmployeeId?: string,
+  ) {
+    const request = await this.findOne(tenantId, requestId);
+    this.assertSickLeaveOpen(request, ownerEmployeeId);
+    try {
+      assertMedicalCertificateFile(file);
+    } catch (err) {
+      throw new BadRequestException(
+        err instanceof Error ? err.message : 'Archivo inválido',
+      );
+    }
+
+    const current = await this.documentRepo.count({
+      where: { leave_request_id: request.id, tenant_id: tenantId },
+    });
+    if (current >= MEDICAL_CERTIFICATE_MAX_FILES) {
+      throw new BadRequestException(
+        `Esta solicitud ya tiene el máximo de ${MEDICAL_CERTIFICATE_MAX_FILES} comprobantes`,
+      );
+    }
+
+    const safeName = sanitizeUploadFileName(file?.originalname);
+    const s3Key = await this.s3Service.uploadEntityFile(
+      tenantId,
+      'employee-leave',
+      request.id,
+      'medical-certificate',
+      file!.buffer as Buffer,
+      safeName,
+      file?.mimetype || 'application/octet-stream',
+    );
+
+    const document = this.documentRepo.create({
+      tenant_id: tenantId,
+      leave_request_id: request.id,
+      employee_id: request.employee_id,
+      file_name: safeName,
+      s3_key: s3Key,
+      mime_type: file?.mimetype || null,
+      file_size: Number(file?.size ?? file?.buffer?.length ?? 0) || null,
+      uploaded_by: uploadedBy,
+    });
+    try {
+      await this.documentRepo.save(document);
+    } catch (err) {
+      await this.s3Service.deleteFile(s3Key).catch(() => undefined);
+      throw err;
+    }
+
+    delete request.documents;
+    return this.present(request);
+  }
+
+  async removeDocument(
+    tenantId: string,
+    requestId: string,
+    documentId: string,
+    ownerEmployeeId?: string,
+  ) {
+    const request = await this.findOne(tenantId, requestId);
+    this.assertSickLeaveOpen(request, ownerEmployeeId);
+    const document = await this.documentRepo.findOne({
+      where: { id: documentId, leave_request_id: request.id, tenant_id: tenantId },
+    });
+    if (!document) {
+      throw new NotFoundException('Comprobante no encontrado');
+    }
+    await this.documentRepo.remove(document);
+    if (document.s3_key) {
+      await this.s3Service.deleteFile(document.s3_key).catch(() => undefined);
+    }
+    delete request.documents;
+    return this.present(request);
+  }
+
+  private assertSickLeaveOpen(request: EmployeeLeaveRequest, ownerEmployeeId?: string) {
+    if (ownerEmployeeId && request.employee_id !== ownerEmployeeId) {
+      throw new ForbiddenException('No puedes modificar comprobantes de otro empleado');
+    }
+    if (request.type !== LeaveType.SICK_LEAVE) {
+      throw new BadRequestException(
+        'Los comprobantes médicos solo aplican a incapacidad médica',
+      );
+    }
+    if (
+      request.status === LeaveStatus.CANCELLED ||
+      request.status === LeaveStatus.REJECTED
+    ) {
+      throw new BadRequestException(
+        'No se pueden modificar comprobantes de una solicitud cancelada o rechazada',
+      );
+    }
+  }
+
+  private async attachDocuments(rows: EmployeeLeaveRequest[]) {
+    if (!rows.length) {
+      return;
+    }
+    const docs = await this.documentRepo.find({
+      where: { leave_request_id: In(rows.map((row) => row.id)) },
+      order: { created_at: 'ASC' },
+    });
+    const grouped = new Map<string, EmployeeLeaveDocument[]>();
+    for (const doc of docs) {
+      const list = grouped.get(doc.leave_request_id) ?? [];
+      list.push(doc);
+      grouped.set(doc.leave_request_id, list);
+    }
+    for (const row of rows) {
+      row.documents = grouped.get(row.id) ?? [];
+    }
+  }
+
+  private async present(request: EmployeeLeaveRequest) {
+    if (!request.documents) {
+      request.documents = await this.documentRepo.find({
+        where: { leave_request_id: request.id, tenant_id: request.tenant_id },
+        order: { created_at: 'ASC' },
+      });
+    }
+    return presentLeaveRequest(request, this.s3Service);
   }
 
   private resolveDays(params: {

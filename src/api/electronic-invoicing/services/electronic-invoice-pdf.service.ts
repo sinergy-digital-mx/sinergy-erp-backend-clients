@@ -19,6 +19,7 @@ import {
   labelTipoComprobante,
   labelUsoCfdi,
 } from '../utils/cfdi-catalog-labels';
+import { readPaymentComplementLines } from '../utils/payment-cfdi.util';
 
 export interface ElectronicInvoicePdfUploadResult {
   s3Key: string;
@@ -68,7 +69,9 @@ export class ElectronicInvoicePdfService {
     });
     const receptor = await this.findReceptorCustomer(invoice, cfdi.receptor.rfc);
 
-    const pdfBuffer = await this.buildPdfBuffer(cfdi, fiscal, branch, receptor);
+    const pdfBuffer = await this.buildPdfBuffer(cfdi, fiscal, branch, receptor, {
+      xml: invoice.xml_stamped ?? undefined,
+    });
     return this.uploadPdf(invoice, cfdi, pdfBuffer);
   }
 
@@ -113,7 +116,10 @@ export class ElectronicInvoicePdfService {
     });
     const receptor = await this.findReceptorCustomer(invoice, cfdi.receptor.rfc);
 
-    const pdfBuffer = await this.buildPdfBuffer(cfdi, fiscal, branch, receptor, { preview: true });
+    const pdfBuffer = await this.buildPdfBuffer(cfdi, fiscal, branch, receptor, {
+      preview: true,
+      xml,
+    });
     const upload = await this.uploadPdf(invoice, cfdi, pdfBuffer, { preview: true });
     return { ...upload, preview: true };
   }
@@ -123,7 +129,7 @@ export class ElectronicInvoicePdfService {
     fiscal: FiscalConfiguration,
     branch: BillingBranch | null,
     receptor: Customer | null,
-    options: { preview?: boolean } = {},
+    options: { preview?: boolean; xml?: string } = {},
   ): Promise<Buffer> {
     const printer = new PdfPrinter(this.fonts);
     const logoImage = await this.getLogoImage(fiscal.logo);
@@ -178,6 +184,11 @@ export class ElectronicInvoicePdfService {
         ]);
       }
     }
+
+    const paymentSection =
+      cfdi.tipoComprobante === 'P' && options.xml
+        ? this.buildPaymentComplementSection(options.xml)
+        : null;
 
     const previewBanner = isPreview
       ? {
@@ -241,6 +252,7 @@ export class ElectronicInvoicePdfService {
           ['Uso CFDI', labelUsoCfdi(cfdi.receptor.usoCfdi)],
           ['Version CFDI', `CFDI ${cfdi.version || '4.0'}`],
         ]),
+        ...(paymentSection ?? []),
         this.sectionBar('CONCEPTOS'),
         {
           table: {
@@ -416,6 +428,20 @@ export class ElectronicInvoicePdfService {
     };
 
     return this.renderPdf(printer, docDefinition);
+  }
+
+  async storeUploadedPdf(invoice: ElectronicInvoice, pdfBuffer: Buffer): Promise<string> {
+    const fileName = `${invoice.uuid || invoice.id}.pdf`;
+    const { entityType, entityId, documentType } = this.resolveS3Path(invoice);
+    return this.s3Service.uploadEntityFile(
+      invoice.tenant_id,
+      entityType,
+      entityId,
+      documentType,
+      pdfBuffer,
+      fileName,
+      'application/pdf',
+    );
   }
 
   private async uploadPdf(
@@ -672,6 +698,45 @@ export class ElectronicInvoicePdfService {
     };
   }
 
+  private buildPaymentComplementSection(xml: string) {
+    const lines = readPaymentComplementLines(xml);
+    if (!lines.length) {
+      return null;
+    }
+
+    const body: Array<Array<string | { text: string; style: string }>> = [
+      [
+        { text: 'Fecha de pago', style: 'tableTh' },
+        { text: 'Forma de pago', style: 'tableTh' },
+        { text: 'Monto', style: 'tableTh' },
+        { text: 'Parcialidad', style: 'tableTh' },
+        { text: 'Saldo', style: 'tableTh' },
+      ],
+    ];
+    for (const line of lines) {
+      body.push([
+        line.fecha || '—',
+        labelFormaPago(line.formaPago) || line.formaPago || '—',
+        this.formatCurrency(line.monto),
+        line.parcialidad || '—',
+        this.formatCurrency(line.saldo || '0'),
+      ]);
+    }
+
+    return [
+      this.sectionBar('PAGOS'),
+      {
+        table: {
+          headerRows: 1,
+          widths: ['*', '*', 70, 70, 70],
+          body,
+        },
+        layout: this.tableLayout(),
+        margin: [0, 0, 0, 8],
+      },
+    ];
+  }
+
   private sectionBar(title: string) {
     return {
       text: title,
@@ -702,7 +767,17 @@ export class ElectronicInvoicePdfService {
       table: {
         widths: ['*'],
         body: [
-          [{ text: 'FACTURA', style: 'facturaTitle', alignment: 'center', margin: [0, 6, 0, 6] }],
+          [{
+            text:
+              cfdi.tipoComprobante === 'P'
+                ? 'COMPROBANTE DE PAGO'
+                : cfdi.tipoComprobante === 'E'
+                  ? 'NOTA DE CRÉDITO'
+                  : 'FACTURA',
+            style: 'facturaTitle',
+            alignment: 'center',
+            margin: [0, 6, 0, 6],
+          }],
           [{ stack: rows, margin: [6, 6, 6, 6] }],
         ],
       },

@@ -27,6 +27,12 @@ export class PriceList {
   @Column({ length: 255 })
   name: string;
 
+  @Column({ type: 'int', nullable: true })
+  list_number: number | null;
+
+  @Column({ type: 'decimal', precision: 6, scale: 2, nullable: true })
+  margin_percent: number | null;
+
   @Column({ type: 'text', nullable: true })
   description: string;
 

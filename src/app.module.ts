@@ -29,6 +29,7 @@ import { SalesOrdersModule } from './api/sales-orders/sales-orders.module';
 import { QuotationsModule } from './api/quotations/quotations.module';
 import { SalesReportsModule } from './api/sales-reports/sales-reports.module';
 import { CustomerSalesReportsModule } from './api/customer-sales-reports/customer-sales-reports.module';
+import { ReportsModule } from './api/reports/reports.module';
 import { AccountingModule } from './api/accounting/accounting.module';
 import { ExchangeRateModule } from './api/exchange-rate/exchange-rate.module';
 import { DivinoDashboardModule } from './api/divino-dashboard/divino-dashboard.module';
@@ -39,9 +40,14 @@ import { EmployeesModule } from './api/employees/employees.module';
 import { EmployeePortalModule } from './api/employee-portal/employee-portal.module';
 import { TrucksModule } from './api/trucks/trucks.module';
 import { ShippingsModule } from './api/shippings/shippings.module';
+import { GpsTrackingModule } from './api/gps-tracking/gps-tracking.module';
 import { WarehouseControlModule } from './api/warehouse-control/warehouse-control.module';
 import { MadereriaInventoryImportModule } from './api/madereria-inventory-import/madereria-inventory-import.module';
 import { SelfInvoiceModule } from './api/self-invoice/self-invoice.module';
+import { ServiceSubscriptionsModule } from './api/service-subscriptions/service-subscriptions.module';
+import { WhatsappModule } from './api/whatsapp/whatsapp.module';
+import { SystemVersionsModule } from './api/system-versions/system-versions.module';
+import { PriceUpdatesModule } from './api/price-updates/price-updates.module';
 import { PermissionVersionGuard } from './api/auth/guards/permission-version.guard';
 
 @Module({
@@ -74,6 +80,7 @@ import { PermissionVersionGuard } from './api/auth/guards/permission-version.gua
     QuotationsModule,
     SalesReportsModule,
     CustomerSalesReportsModule,
+    ReportsModule,
     AccountingModule,
     ExchangeRateModule,
     DivinoDashboardModule,
@@ -84,9 +91,14 @@ import { PermissionVersionGuard } from './api/auth/guards/permission-version.gua
     EmployeePortalModule,
     TrucksModule,
     ShippingsModule,
+    GpsTrackingModule,
     WarehouseControlModule,
     MadereriaInventoryImportModule,
     SelfInvoiceModule,
+    ServiceSubscriptionsModule,
+    WhatsappModule,
+    SystemVersionsModule,
+    PriceUpdatesModule,
   ],
   providers: [],
 })

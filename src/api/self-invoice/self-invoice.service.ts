@@ -18,6 +18,8 @@ import { IdentifySelfInvoiceDto } from './dto/identify-self-invoice.dto';
 import { StampSelfInvoiceDto } from './dto/stamp-self-invoice.dto';
 import { SELF_INVOICE_CATALOGS } from './self-invoice.constants';
 import { normalizePublicInvoiceCode } from '../../common/utils/public-invoice-code.util';
+import { assertSalesOrderNotInGlobalInvoice } from '../accounting/utils/global-invoice.util';
+import { assertOrderMonthStillOpen } from '../accounting/utils/public-invoice-policy.util';
 import {
   composePhoneDigits,
   emailsMatch,
@@ -29,6 +31,7 @@ import {
   buildSelfInvoiceCfdiXml,
   formatCfdiFecha,
 } from './utils/self-invoice-cfdi-xml.util';
+import { isFiscalFlagOn } from '../billing/utils/fiscal-tax-policy.util';
 
 @Injectable()
 export class SelfInvoiceService {
@@ -107,6 +110,11 @@ export class SelfInvoiceService {
   async stamp(rawCode: string, dto: StampSelfInvoiceDto) {
     const order = await this.getOrderByPublicCode(rawCode);
     this.assertInvoiceable(order);
+    await assertSalesOrderNotInGlobalInvoice(
+      this.salesOrderRepo.manager,
+      order.tenant_id,
+      order.id,
+    );
 
     const existing = await this.findCurrentInvoice(order);
     if (existing) {
@@ -159,12 +167,14 @@ export class SelfInvoiceService {
         usoCfdi: dto.uso_cfdi.toUpperCase(),
       },
       lines: (order.line_items ?? []).map((line) => ({
-        description: line.product?.name ?? 'PRODUCTO',
+        description: line.custom_description?.trim() || line.product?.name || 'PRODUCTO',
         quantity: Number(line.quantity) || 0,
         unitPrice: Number(line.unit_price) || 0,
         discountUnit: Number(line.discount_unit) || 0,
         ivaPercentage: Number(line.iva_percentage) || 0,
-        iepsPercentage: Number(line.ieps_percentage) || 0,
+        iepsPercentage: isFiscalFlagOn(fiscal.ieps_enabled, true)
+          ? Number(line.ieps_percentage) || 0
+          : 0,
         satClave: line.product?.sat_clave,
         uomName: line.product_uom?.uom?.name,
       })),
@@ -257,6 +267,7 @@ export class SelfInvoiceService {
     if (order.general_status === 'Cancelada') {
       throw new BadRequestException('Este recibo no se puede facturar');
     }
+    assertOrderMonthStillOpen(order.created_at, order.fiscal_configuration);
   }
 
   private async findCurrentInvoice(order: SalesOrder) {

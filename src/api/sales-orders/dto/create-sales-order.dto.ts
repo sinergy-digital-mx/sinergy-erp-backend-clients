@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import {
   IsArray,
@@ -10,6 +10,8 @@ import {
   IsPositive,
   IsString,
   IsUUID,
+  Matches,
+  MaxLength,
   Min,
   ValidateIf,
   ValidateNested,
@@ -57,6 +59,32 @@ export class CreateSalesOrderLineItemDto {
   @IsUUID()
   product_discount_id?: string;
 
+  @ApiProperty({
+    required: false,
+    description:
+      'Concepto libre de la línea. Si se envía, se muestra y se factura en lugar del nombre del producto.',
+    example: 'Desarrollo de software septiembre',
+  })
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() || undefined : value,
+  )
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  custom_description?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Nota de la línea. Sale debajo del producto y en el PDF.',
+  })
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() || undefined : value,
+  )
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  notes?: string;
+
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -102,12 +130,24 @@ export class CreateSalesOrderDto {
   @IsNumber()
   customer_id?: number;
 
+  @IsOptional()
   @IsDateString()
-  expected_delivery_date: string;
+  expected_delivery_date?: string;
 
   @IsOptional()
   @IsEnum(['POS', 'MANUAL'])
   sales_order_type?: 'POS' | 'MANUAL';
+
+  @ApiProperty({
+    required: false,
+    enum: ['MXN', 'USD'],
+    default: 'MXN',
+    description:
+      'Moneda de toda la orden y de su factura. En POS se ignora: se define al cobrar, y solo puede ser USD si el pago en dólares es mayor.',
+  })
+  @IsOptional()
+  @IsEnum(['MXN', 'USD'])
+  currency?: 'MXN' | 'USD';
 
   @ValidateIf((dto: CreateSalesOrderDto) => dto.sales_order_type === 'POS')
   @IsUUID()
@@ -150,6 +190,30 @@ export class CreateSalesOrderDto {
 
   @ApiProperty({
     required: false,
+    description: 'Nombre para el ticket si la venta es Público en general',
+  })
+  @Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value))
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  walk_in_name?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'RFC para el ticket si la venta es Público en general',
+  })
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().toUpperCase().replace(/[\s-]/g, '') || undefined : value,
+  )
+  @IsOptional()
+  @IsString()
+  @Matches(/^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/, {
+    message: 'El RFC debe tener 12 o 13 caracteres',
+  })
+  walk_in_rfc?: string;
+
+  @ApiProperty({
+    required: false,
     default: false,
     description:
       'Si true (solo MANUAL), la orden entra en En Selección y requiere corroboración en Control de almacén. Ignorado en POS.',
@@ -157,6 +221,16 @@ export class CreateSalesOrderDto {
   @IsOptional()
   @IsBoolean()
   requires_selection_assembly?: boolean;
+
+  @ApiProperty({
+    required: false,
+    default: false,
+    description:
+      'Si true, la orden queda marcada para envío. No la asigna a una ruta. Aplica a MANUAL y POS.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  for_shipping?: boolean;
 
   @ApiProperty({
     required: false,

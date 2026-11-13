@@ -31,6 +31,8 @@ import {
 import {
   InventoryExcelRow,
   parseMadereriaInventoryExcel,
+  selectPrimaryPedimento,
+  uomMatchKey,
 } from './excel-inventory.parser';
 import {
   createImportJob,
@@ -41,6 +43,12 @@ import {
 } from './import-job.store';
 
 export type ImportInventoryResult = ImportInventoryJobResult;
+
+type UomCatalogLookup = {
+  idsByKey: Map<string, string>;
+  piezaId: string;
+  created: string[];
+};
 
 @Injectable()
 export class MadereriaInventoryImportService {
@@ -231,7 +239,11 @@ export class MadereriaInventoryImportService {
     return this.dataSource.transaction(async (manager) => {
       const vendor = await this.ensureImportVendor(manager, params.organizationId);
       const priceList = await this.ensurePriceList(manager, params.organizationId);
-      const piezaUomId = await this.ensurePiezaUom(manager, params.organizationId);
+      const uomCatalog = await this.ensureUomCatalog(
+        manager,
+        params.organizationId,
+        params.rows,
+      );
 
       const result: ImportInventoryResult = {
         warehouse_id: params.warehouse.id,
@@ -242,6 +254,8 @@ export class MadereriaInventoryImportService {
         costs_created: 0,
         costs_updated: 0,
         batches_created: 0,
+        sat_claves_saved: 0,
+        uoms_created: uomCatalog.created,
         skipped: [],
         errors: [],
       };
@@ -255,7 +269,8 @@ export class MadereriaInventoryImportService {
             warehouseId: params.warehouse.id,
             vendorId: vendor.id,
             priceListId: priceList.id,
-            piezaUomId,
+            uomCatalogId: this.resolveRowUomId(row, uomCatalog),
+            piezaUomId: uomCatalog.piezaId,
             row,
             result,
           });
@@ -323,6 +338,7 @@ export class MadereriaInventoryImportService {
       warehouseId: string;
       vendorId: string;
       priceListId: string;
+      uomCatalogId: string;
       piezaUomId: string;
       row: InventoryExcelRow;
       result: ImportInventoryResult;
@@ -333,18 +349,26 @@ export class MadereriaInventoryImportService {
     let product = await this.findProduct(manager, ctx.organizationId, row);
 
     if (!product) {
-      product = await this.createProduct(manager, ctx.organizationId, row, ctx.piezaUomId);
+      product = await this.createProduct(manager, ctx.organizationId, row);
       created = true;
       result.products_created.push({
         sku: product.sku,
         name: product.name,
         row_number: row.row_number,
       });
+      if (row.sat_clave) {
+        result.sat_claves_saved += 1;
+      }
+    } else if (row.sat_clave && product.sat_clave !== row.sat_clave) {
+      product.sat_clave = row.sat_clave;
+      await manager.getRepository(Product).save(product);
+      result.sat_claves_saved += 1;
     }
 
-    const productUom = await this.ensureBaseUom(
+    const productUom = await this.ensureProductUom(
       manager,
       product.id,
+      ctx.uomCatalogId,
       ctx.piezaUomId,
     );
 
@@ -393,12 +417,16 @@ export class MadereriaInventoryImportService {
       manager,
     );
 
+    const pedimentos = row.pedimentos ?? [];
+    const primaryPedimento = selectPrimaryPedimento(pedimentos);
     const batchRepo = manager.getRepository(InventoryBatch);
     await batchRepo.save(
       batchRepo.create({
         tenant_id: ctx.organizationId,
         batch_number: batchNumber,
         source_tag_identifier: 'IMPORTACION',
+        pedimento_number: primaryPedimento?.number ?? null,
+        pedimento_entries: pedimentos.length ? pedimentos : null,
         warehouse_id: ctx.warehouseId,
         product_id: product.id,
         uom_id: productUom.uom_catalog_id,
@@ -450,52 +478,54 @@ export class MadereriaInventoryImportService {
     manager: EntityManager,
     organizationId: string,
     row: InventoryExcelRow,
-    piezaUomId: string,
   ): Promise<Product> {
     const productRepo = manager.getRepository(Product);
-    const product = await productRepo.save(
+    return productRepo.save(
       productRepo.create({
         tenant_id: organizationId,
         sku: row.sku.slice(0, 255),
         external_sku: null,
         name: row.name.slice(0, 255),
         description: row.name,
+        sat_clave: row.sat_clave,
         is_active: true,
       }),
     );
-
-    const uomRepo = manager.getRepository(ProductUoM);
-    await uomRepo.save(
-      uomRepo.create({
-        product_id: product.id,
-        uom_catalog_id: piezaUomId,
-        factor: 1,
-        is_base: true,
-        parent_uom_id: null,
-      }),
-    );
-
-    return product;
   }
 
-  private async ensureBaseUom(
+  private async ensureProductUom(
     manager: EntityManager,
     productId: string,
+    uomCatalogId: string,
     piezaUomId: string,
   ): Promise<ProductUoM> {
     const repo = manager.getRepository(ProductUoM);
-    const existing = await repo.findOne({
-      where: { product_id: productId, is_base: true },
-    });
-    if (existing) {
-      return existing;
+    const rows = await repo.find({ where: { product_id: productId } });
+    const match = rows.find((row) => row.uom_catalog_id === uomCatalogId);
+    if (match) {
+      if (!rows.some((row) => row.is_base)) {
+        match.is_base = true;
+        await repo.save(match);
+      }
+      return match;
     }
+
+    const onlyDefaultPieza =
+      rows.length === 1 &&
+      rows[0].uom_catalog_id === piezaUomId &&
+      uomCatalogId !== piezaUomId;
+    if (onlyDefaultPieza) {
+      rows[0].uom_catalog_id = uomCatalogId;
+      rows[0].is_base = true;
+      return repo.save(rows[0]);
+    }
+
     return repo.save(
       repo.create({
         product_id: productId,
-        uom_catalog_id: piezaUomId,
+        uom_catalog_id: uomCatalogId,
         factor: 1,
-        is_base: true,
+        is_base: rows.length === 0,
         parent_uom_id: null,
       }),
     );
@@ -574,7 +604,7 @@ export class MadereriaInventoryImportService {
     const existing = await repo
       .createQueryBuilder('vendor')
       .where('vendor.tenant_id = :organizationId', { organizationId })
-      .andWhere('UPPER(vendor.name) = :name', { name: IMPORT_VENDOR_NAME })
+      .andWhere('(UPPER(vendor.company_name) = :name OR UPPER(vendor.name) = :name)', { name: IMPORT_VENDOR_NAME })
       .getOne();
     if (existing) {
       return existing;
@@ -622,29 +652,78 @@ export class MadereriaInventoryImportService {
     );
   }
 
-  private async ensurePiezaUom(
+  private resolveRowUomId(row: InventoryExcelRow, catalog: UomCatalogLookup): string {
+    if (!row.uom) {
+      return catalog.piezaId;
+    }
+    return catalog.idsByKey.get(uomMatchKey(row.uom)) ?? catalog.piezaId;
+  }
+
+  private async ensureUomCatalog(
     manager: EntityManager,
     organizationId: string,
-  ): Promise<string> {
+    rows: InventoryExcelRow[],
+  ): Promise<UomCatalogLookup> {
     const repo = manager.getRepository(UoMCatalog);
-    const existing = await repo
-      .createQueryBuilder('uom')
-      .where('uom.tenant_id = :organizationId', { organizationId })
-      .andWhere('UPPER(uom.name) IN (:...names)', {
-        names: ['PIEZA', 'PZA', 'PZ'],
-      })
-      .getOne();
-    if (existing) {
-      return existing.id;
+    const existing = await repo.find({ where: { tenant_id: organizationId } });
+    const idsByKey = new Map<string, string>();
+    for (const uom of existing) {
+      const key = uomMatchKey(uom.name);
+      if (!idsByKey.has(key)) {
+        idsByKey.set(key, uom.id);
+      }
     }
-    const created = await repo.save(
-      repo.create({
-        tenant_id: organizationId,
-        name: DEFAULT_UOM_NAME,
-        description: 'UoM por defecto para importación',
-      }),
-    );
-    return created.id;
+
+    const created: string[] = [];
+    const needsPieza = rows.some((row) => {
+      if (!row.uom) {
+        return true;
+      }
+      const key = uomMatchKey(row.uom);
+      return key === 'PIEZA' || key === 'PZA' || key === 'PZ';
+    });
+
+    let resolvedPiezaId = idsByKey.get('PIEZA') ?? idsByKey.get('PZA') ?? idsByKey.get('PZ') ?? '';
+    if (needsPieza && !resolvedPiezaId) {
+      const saved = await repo.save(
+        repo.create({
+          tenant_id: organizationId,
+          name: DEFAULT_UOM_NAME,
+          description: 'Unidad creada por importación de inventario',
+        }),
+      );
+      resolvedPiezaId = saved.id;
+      created.push(saved.name);
+    }
+    if (resolvedPiezaId) {
+      idsByKey.set('PIEZA', resolvedPiezaId);
+      idsByKey.set('PZA', resolvedPiezaId);
+      idsByKey.set('PZ', resolvedPiezaId);
+    }
+
+    const seen = new Set<string>(['PIEZA', 'PZA', 'PZ']);
+    for (const row of rows) {
+      if (!row.uom) {
+        continue;
+      }
+      const key = uomMatchKey(row.uom);
+      if (seen.has(key) || idsByKey.has(key)) {
+        seen.add(key);
+        continue;
+      }
+      seen.add(key);
+      const saved = await repo.save(
+        repo.create({
+          tenant_id: organizationId,
+          name: row.uom,
+          description: 'Unidad creada por importación de inventario',
+        }),
+      );
+      idsByKey.set(key, saved.id);
+      created.push(saved.name);
+    }
+
+    return { idsByKey, piezaId: resolvedPiezaId, created };
   }
 
   private calculateTotals(amount: number) {

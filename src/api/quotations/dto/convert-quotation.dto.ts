@@ -1,5 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNumber, IsOptional, IsString, MaxLength } from 'class-validator';
+import { Transform } from 'class-transformer';
+import {
+  IsBoolean,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 export class ConvertQuotationDto {
   @ApiProperty({
@@ -19,4 +26,18 @@ export class ConvertQuotationDto {
   @IsString()
   @MaxLength(5000)
   notes?: string;
+
+  @ApiProperty({
+    required: false,
+    description:
+      'Si true, la OV va a caja POS de la sucursal de la cotización. Si false, queda MANUAL. Si se omite, POS solo cuando la cotización era POS.',
+  })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === true || value === 'true') return true;
+    if (value === false || value === 'false') return false;
+    return undefined;
+  })
+  @IsBoolean()
+  send_to_pos_caja?: boolean;
 }

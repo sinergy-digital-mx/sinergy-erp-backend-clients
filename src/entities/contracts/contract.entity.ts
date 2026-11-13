@@ -15,6 +15,7 @@ import { RBACTenant } from '../rbac/tenant.entity';
 import { User } from '../users/user.entity';
 import { Lead } from '../leads/lead.entity';
 import { LeadGroup } from '../leads/lead-group.entity';
+import { FiscalConfiguration } from '../billing/fiscal-configuration.entity';
 
 @Entity('contracts')
 @Index('tenant_index', ['tenant_id'])
@@ -68,6 +69,13 @@ export class Contract {
   @Column({ nullable: true })
   lead_group_id: string | null;
 
+  @ManyToOne(() => FiscalConfiguration, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'fiscal_configuration_id' })
+  fiscal_configuration: FiscalConfiguration | null;
+
+  @Column({ nullable: true })
+  fiscal_configuration_id: string | null;
+
   @Column({ length: 50 })
   contract_number: string;
 
@@ -116,10 +124,10 @@ export class Contract {
   first_payment_date: Date;
 
   @Column({ type: 'int', nullable: true })
-  payment_due_day: number; // Días límite de pago (ej: 5 días después de la fecha de vencimiento)
+  payment_due_day: number | null; // Días límite de pago (ej: 5 días después de la fecha de vencimiento)
 
   @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
-  interest_rate: number; // Porcentaje de interés moratorio (ej: 0.10 = 10%)
+  interest_rate: number | null; // Porcentaje de interés moratorio (ej: 0.10 = 10%)
 
   @Column({ length: 10, default: 'USD' })
   currency: string;

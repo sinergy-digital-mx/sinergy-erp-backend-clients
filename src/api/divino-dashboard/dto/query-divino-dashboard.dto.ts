@@ -2,6 +2,7 @@ import {
   IsIn,
   IsInt,
   IsOptional,
+  IsUUID,
   Max,
   Min,
   ValidateIf,
@@ -33,6 +34,10 @@ export class QueryDivinoDashboardDto {
   @Max(12)
   @Type(() => Number)
   month?: number;
+
+  @IsOptional()
+  @IsUUID()
+  group_id?: string;
 }
 
 export class QueryRevenueSeriesDto extends QueryDivinoDashboardDto {

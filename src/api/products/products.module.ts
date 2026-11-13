@@ -10,6 +10,8 @@ import { Vendor } from '../../entities/vendor/vendor.entity';
 import { ProductAttribute } from '../../entities/products/product-attribute.entity';
 import { ProductAttributeValue } from '../../entities/products/product-attribute-value.entity';
 import { ProductAttributeAssignment } from '../../entities/products/product-attribute-assignment.entity';
+import { InventoryStockLedgerModule } from '../inventory/inventory-stock-ledger.module';
+import { ProductDisableService } from './services/product-disable.service';
 import { ProductController } from './product.controller';
 import { ProductService } from './product.service';
 import { ProductUoMController } from './product-uom.controller';
@@ -49,6 +51,7 @@ import { S3Service } from '../../common/services/s3.service';
     ]),
     RBACModule,
     UoMCatalogModule,
+    InventoryStockLedgerModule,
   ],
   controllers: [
     // ProductAttributeController must be registered before ProductController so
@@ -74,6 +77,7 @@ import { S3Service } from '../../common/services/s3.service';
     ProductAttributeAssignmentService,
     ProductsExportService,
     ProductVendorImportService,
+    ProductDisableService,
     S3Service,
   ],
   exports: [

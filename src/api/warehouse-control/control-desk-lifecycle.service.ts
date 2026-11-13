@@ -153,26 +153,25 @@ export class ControlDeskLifecycleService {
     );
   }
 
-  deriveJobStatus(tasks: Array<{ status: ControlDeskTaskStatus }>): {
+  deriveJobStatus(
+    tasks: Array<{ status: ControlDeskTaskStatus }>,
+    hasPosition = false,
+  ): {
     status: ControlDeskJobStatus;
     hasShortage: boolean;
   } {
     const active = tasks.filter((task) => task.status !== 'cancelled');
     const hasShortage = active.some((task) => task.status === 'short');
-    if (!active.length) {
-      return { status: 'released', hasShortage: false };
-    }
-    const allPending = active.every((task) => task.status === 'pending');
-    if (allPending) {
-      return { status: 'released', hasShortage };
-    }
-    const allTerminal = active.every((task) =>
-      CONTROL_DESK_TERMINAL_TASK_STATUSES.includes(task.status),
-    );
+    const allTerminal =
+      active.length > 0 &&
+      active.every((task) => CONTROL_DESK_TERMINAL_TASK_STATUSES.includes(task.status));
     if (allTerminal) {
-      return { status: 'waiting_assembly', hasShortage };
+      return { status: 'assembling', hasShortage };
     }
-    return { status: 'picking', hasShortage };
+    if (hasPosition) {
+      return { status: 'picking', hasShortage };
+    }
+    return { status: 'released', hasShortage };
   }
 
   async refreshJobProgress(
@@ -192,12 +191,14 @@ export class ControlDeskLifecycleService {
       return job;
     }
 
-    const derived = this.deriveJobStatus(job.tasks ?? []);
+    const derived = this.deriveJobStatus(job.tasks ?? [], !!job.position_id);
     let nextStatus = derived.status;
-    if (
+    if (job.status === 'assembled' && derived.status === 'assembling') {
+      nextStatus = 'assembled';
+    } else if (
       preserveAssembly &&
-      derived.status === 'waiting_assembly' &&
-      (job.status === 'assembling' || job.status === 'assembled')
+      (job.status === 'assembling' || job.status === 'assembled') &&
+      derived.status === 'assembling'
     ) {
       nextStatus = job.status;
     }

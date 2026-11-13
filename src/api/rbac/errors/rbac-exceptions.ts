@@ -26,7 +26,7 @@ import {
   SystemErrorDetails,
 } from './rbac-error.types';
 import { RBACErrorResponse } from './error-response.interface';
-import { getErrorMessage } from './error-messages';
+import { getClientMessage, getErrorMessage } from './error-messages';
 
 /**
  * Base RBAC Exception class that all other RBAC exceptions extend
@@ -51,7 +51,7 @@ export abstract class RBACException extends HttpException {
     const response: RBACErrorResponse = {
       statusCode,
       error: HttpException.createBody('', '', statusCode).error || 'Unknown Error',
-      message: errorMessage.technical,
+      message: getClientMessage(code),
       code,
       category,
       severity,

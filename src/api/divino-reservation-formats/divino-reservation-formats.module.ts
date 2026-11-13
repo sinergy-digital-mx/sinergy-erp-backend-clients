@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DivinoReservationFormat } from '../../entities/divino-reservation-formats/divino-reservation-format.entity';
+import { FiscalConfiguration } from '../../entities/billing/fiscal-configuration.entity';
 import { Property } from '../../entities/properties/property.entity';
 import { User } from '../../entities/users/user.entity';
 import { RBACModule } from '../rbac/rbac.module';
@@ -12,7 +13,7 @@ import { DivinoReservationFormatPdfService } from './divino-reservation-format-p
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([DivinoReservationFormat, Property, User]),
+    TypeOrmModule.forFeature([DivinoReservationFormat, Property, User, FiscalConfiguration]),
     RBACModule,
     MailerConfigurationModule,
   ],

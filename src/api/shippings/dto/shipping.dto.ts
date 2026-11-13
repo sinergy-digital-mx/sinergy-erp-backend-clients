@@ -9,6 +9,8 @@ import {
   Min,
   ValidateNested,
   ArrayMinSize,
+  IsNumber,
+  IsEnum,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -42,11 +44,16 @@ export class CreateShippingDto {
   @IsString()
   notes?: string;
 
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => ShippingOrderItemDto)
-  orders: ShippingOrderItemDto[];
+  orders?: ShippingOrderItemDto[];
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  inventory_transfer_ids?: string[];
 }
 
 export class PreviewShippingDto {
@@ -68,10 +75,23 @@ export class AddShippingStopsDto {
   orders: ShippingOrderItemDto[];
 }
 
+export class AddShippingTransfersDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsUUID('4', { each: true })
+  inventory_transfer_ids: string[];
+}
+
 export class UpdateShippingStatusDto {
   @IsNotEmpty()
   @IsString()
   status: string;
+}
+
+export class SetShippingStopAddressDto {
+  @IsInt()
+  @Min(1)
+  customer_address_id: number;
 }
 
 export class ResolveOrdersDto {
@@ -147,4 +167,23 @@ export class QueryAvailableShippingOrdersDto {
   @IsInt()
   @Min(1)
   limit?: number = 50;
+}
+
+export class UpdateShippingCrewDto {
+  @IsUUID()
+  driver_id: string;
+
+  @IsUUID()
+  truck_id: string;
+}
+
+export class StampCartaPorteDto {
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0.001)
+  peso_bruto_kg: number;
+
+  @IsOptional()
+  @IsEnum(['demo', 'production'])
+  environment?: 'demo' | 'production';
 }

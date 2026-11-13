@@ -47,6 +47,12 @@ export class SalesOrderDetail {
   @Column()
   product_uom_id: string;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  custom_description: string | null;
+
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  notes: string | null;
+
   /** Quantity requested in the order (in product UOM) */
   @Column({ type: 'decimal', precision: 12, scale: 3 })
   quantity: number;

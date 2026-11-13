@@ -5,7 +5,7 @@ import 'dotenv/config';
 import { setupSwagger } from './config/swagger/swagger.setup';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
 
   // Clients or proxies that call /tenant/... without the global /api prefix would get 404
   // because routes are registered as /api/tenant/... . Normalize before routing.
