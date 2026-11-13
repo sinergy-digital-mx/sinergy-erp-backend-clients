@@ -13,6 +13,8 @@ import { CustomerDocumentsService } from './customer-documents.service';
 import { CustomerStatus } from '../../entities/customers/customer-status.entity';
 import { Customer } from '../../entities/customers/customer.entity';
 import { CustomerCredit } from '../../entities/customers/customer-credit.entity';
+import { CustomerPriceList } from '../../entities/customers/customer-price-list.entity';
+import { PriceList } from '../../entities/products/price-list.entity';
 import { CustomerAssignmentChange } from '../../entities/customers/customer-assignment-change.entity';
 import { CustomerGroup } from '../../entities/customers/customer-group.entity';
 import { CustomerActivity } from '../../entities/customers/customer-activity.entity';
@@ -26,18 +28,25 @@ import { CustomerAddress } from '../../entities/customers/customer-address.entit
 import { SalesOrder } from '../../entities/sales-orders/sales-order.entity';
 import { SalesOrderDetail } from '../../entities/sales-orders/sales-order-detail.entity';
 import { SalesOrderPayment } from '../../entities/sales-orders/sales-order-payment.entity';
+import { ElectronicInvoice } from '../../entities/electronic-invoicing/electronic-invoice.entity';
+import { Quotation } from '../../entities/quotations/quotation.entity';
+import { AdvanceShiftPayment } from '../../entities/pos/advance-shift-payment.entity';
 import { Product } from '../../entities/products/product.entity';
 import { S3Service } from '../../common/services/s3.service';
 import { RBACModule } from '../rbac/rbac.module';
 import { CustomerProductInsightsService } from './services/customer-product-insights.service';
 import { CustomerCreditService } from './services/customer-credit.service';
+import { CustomerPriceListService } from './services/customer-price-list.service';
 import { CustomerAssignmentService } from './services/customer-assignment.service';
+import { ExchangeRateModule } from '../exchange-rate/exchange-rate.module';
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([
             Customer,
             CustomerCredit,
+            CustomerPriceList,
+            PriceList,
             CustomerAssignmentChange,
             CustomerStatus,
             CustomerGroup,
@@ -52,9 +61,13 @@ import { CustomerAssignmentService } from './services/customer-assignment.servic
             SalesOrder,
             SalesOrderDetail,
             SalesOrderPayment,
+            ElectronicInvoice,
+            Quotation,
+            AdvanceShiftPayment,
             Product,
         ]),
         RBACModule,
+        ExchangeRateModule,
     ],
     providers: [
         CustomersService,
@@ -64,6 +77,7 @@ import { CustomerAssignmentService } from './services/customer-assignment.servic
         CustomerDocumentsService,
         CustomerProductInsightsService,
         CustomerCreditService,
+        CustomerPriceListService,
         CustomerAssignmentService,
         S3Service,
     ],

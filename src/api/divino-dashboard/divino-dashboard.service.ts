@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Contract } from '../../entities/contracts/contract.entity';
@@ -339,10 +343,15 @@ export class DivinoDashboardService {
     const dateClause = this.isAllTime(query)
       ? ''
       : 'AND c.contract_date >= ? AND c.contract_date <= ?';
+    const groupId = await this.resolveProjectGroupId(tenantId, query.group_id);
+    const groupClause = groupId ? 'AND p.group_id = ?' : '';
     const params: (string | number)[] = [tenantId];
     if (!this.isAllTime(query)) {
       const { dateFrom, dateTo } = this.resolveRange(query.year!, query.month);
       params.push(dateFrom, dateTo);
+    }
+    if (groupId) {
+      params.push(groupId);
     }
 
     return this.contractRepo.manager.query(
@@ -373,6 +382,7 @@ export class DivinoDashboardService {
       WHERE c.tenant_id = ?
         AND c.status IN ('activo', 'completado')
         ${dateClause}
+        ${groupClause}
       ORDER BY c.contract_date DESC
       `,
       params,
@@ -450,14 +460,34 @@ export class DivinoDashboardService {
     };
   }
 
+  private async resolveProjectGroupId(
+    organizationId: string,
+    groupId?: string,
+  ): Promise<string | null> {
+    const id = groupId?.trim();
+    if (!id) {
+      return null;
+    }
+    const rows: { id: string }[] = await this.contractRepo.manager.query(
+      `SELECT id FROM customer_groups WHERE id = ? AND tenant_id = ? LIMIT 1`,
+      [id, organizationId],
+    );
+    if (!rows.length) {
+      throw new BadRequestException('El proyecto no existe.');
+    }
+    return id;
+  }
+
   private filtersMeta(query: QueryDivinoDashboardDto) {
     const scope: DivinoDashboardScope = query.scope ?? 'period';
+    const group_id = query.group_id?.trim() || null;
     if (scope === 'all_time') {
       return {
         scope: 'all_time' as const,
         year: null,
         month: null,
         mode: 'all_time' as const,
+        group_id,
       };
     }
     return {
@@ -465,6 +495,7 @@ export class DivinoDashboardService {
       year: query.year ?? null,
       month: query.month ?? null,
       mode: query.month ? ('month' as const) : ('year' as const),
+      group_id,
     };
   }
 

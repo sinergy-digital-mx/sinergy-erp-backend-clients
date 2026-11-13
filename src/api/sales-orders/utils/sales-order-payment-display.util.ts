@@ -31,7 +31,9 @@ export type PaymentDisplayCollectionInput = {
   amount_transfer_mxn?: number | string | null;
   amount_card_mxn?: number | string | null;
   amount_check_mxn?: number | string | null;
+  amount_check_usd?: number | string | null;
   amount_credit_mxn?: number | string | null;
+  card_payments?: Array<{ amount_mxn?: number | string | null }> | null;
 };
 
 export type PaymentDisplayPaymentInput = {
@@ -104,6 +106,15 @@ function fromLines(
 
 function fromCollection(collection: PaymentDisplayCollectionInput): SalesOrderPaymentDisplay {
   const method = asMethod(String(collection.payment_method));
+  const splitCards = (collection.card_payments ?? [])
+    .map((item) => line(PosSalePaymentMethod.CARD, toNumber(item?.amount_mxn)))
+    .filter((item): item is SalesOrderPaymentDisplayLine => item != null);
+  const cardLines =
+    splitCards.length > 1
+      ? splitCards
+      : [line(PosSalePaymentMethod.CARD, toNumber(collection.amount_card_mxn))].filter(
+          (item): item is SalesOrderPaymentDisplayLine => item != null,
+        );
   const lines = [
     line(
       PosSalePaymentMethod.CASH,
@@ -111,8 +122,12 @@ function fromCollection(collection: PaymentDisplayCollectionInput): SalesOrderPa
       toNumber(collection.amount_cash_usd),
     ),
     line(PosSalePaymentMethod.TRANSFER, toNumber(collection.amount_transfer_mxn)),
-    line(PosSalePaymentMethod.CARD, toNumber(collection.amount_card_mxn)),
-    line(PosSalePaymentMethod.CHECK, toNumber(collection.amount_check_mxn)),
+    ...cardLines,
+    line(
+      PosSalePaymentMethod.CHECK,
+      toNumber(collection.amount_check_mxn),
+      toNumber(collection.amount_check_usd),
+    ),
     line(PosSalePaymentMethod.CREDIT, toNumber(collection.amount_credit_mxn)),
   ].filter((item): item is SalesOrderPaymentDisplayLine => item != null);
 

@@ -6,6 +6,7 @@ import { Product } from '../../entities/products/product.entity';
 import { CreateProductPriceDto } from './dto/create-product-price.dto';
 import { UpdateProductPriceDto } from './dto/update-product-price.dto';
 import { roundUnitAmount } from '../../common/utils/unit-amount.util';
+import { loadTenantIepsEnabled } from '../billing/utils/fiscal-tax-policy.util';
 
 @Injectable()
 export class ProductPriceService {
@@ -61,11 +62,13 @@ export class ProductPriceService {
     }
 
     const price = roundUnitAmount(dto.price);
-    const totals = this.calculateTotals(price, dto.iva_percentage, dto.ieps_percentage);
+    const iepsPercentage = await this.resolveIeps(tenantId, dto.ieps_percentage);
+    const totals = this.calculateTotals(price, dto.iva_percentage, iepsPercentage);
 
     const productPrice = this.productPriceRepository.create({
       ...dto,
       price,
+      ieps_percentage: iepsPercentage,
       ...totals,
       product_id: productId,
     });
@@ -122,14 +125,23 @@ export class ProductPriceService {
     const productPrice = await this.findOne(id, productId, tenantId);
 
     const price = roundUnitAmount(dto.price ?? productPrice.price);
+    const iepsPercentage = await this.resolveIeps(
+      tenantId,
+      dto.ieps_percentage ?? productPrice.ieps_percentage,
+    );
     const totals = this.calculateTotals(
       price,
       dto.iva_percentage ?? productPrice.iva_percentage,
-      dto.ieps_percentage ?? productPrice.ieps_percentage,
+      iepsPercentage,
     );
 
-    Object.assign(productPrice, dto, totals, { price });
+    Object.assign(productPrice, dto, totals, { price, ieps_percentage: iepsPercentage });
     return await this.productPriceRepository.save(productPrice);
+  }
+
+  private async resolveIeps(tenantId: string, value: number | undefined): Promise<number> {
+    const enabled = await loadTenantIepsEnabled(this.productPriceRepository.manager, tenantId);
+    return enabled ? Number(value) || 0 : 0;
   }
 
   async remove(id: string, productId: string, tenantId: string): Promise<void> {

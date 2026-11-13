@@ -16,8 +16,7 @@ import {
 export class VendorsExportService {
   private readonly columns: ExcelColumnDef[] = [
     { header: 'Código', key: 'vendor_code', width: 14 },
-    { header: 'Nombre', key: 'name', width: 24 },
-    { header: 'Empresa', key: 'company_name', width: 24 },
+    { header: 'Empresa', key: 'company_name', width: 28 },
     { header: 'Tipo', key: 'vendor_type', width: 14 },
     { header: 'Estatus', key: 'status', width: 12 },
     { header: 'RFC', key: 'rfc', width: 16 },
@@ -26,6 +25,10 @@ export class VendorsExportService {
     { header: 'ID fiscal', key: 'tax_id', width: 16 },
     { header: 'Nombre legal', key: 'legal_name', width: 24 },
     { header: 'Calle', key: 'street', width: 24 },
+    { header: 'No. exterior', key: 'exterior_number', width: 14 },
+    { header: 'No. interior', key: 'interior_number', width: 14 },
+    { header: 'Colonia', key: 'colonia', width: 18 },
+    { header: 'Localidad', key: 'localidad', width: 18 },
     { header: 'Ciudad', key: 'city', width: 16 },
     { header: 'Estado', key: 'state', width: 16 },
     { header: 'CP', key: 'zip_code', width: 10 },
@@ -52,8 +55,7 @@ export class VendorsExportService {
 
     const rows = vendors.map((v) => ({
       vendor_code: v.vendor_code ?? '',
-      name: v.name ?? '',
-      company_name: v.company_name ?? '',
+      company_name: v.company_name?.trim() || v.name || '',
       vendor_type: this.formatVendorType(v.vendor_type),
       status: v.status === 'active' ? 'Activo' : 'Inactivo',
       rfc: v.rfc ?? '',
@@ -62,6 +64,10 @@ export class VendorsExportService {
       tax_id: v.tax_id ?? '',
       legal_name: v.legal_name ?? '',
       street: v.street ?? '',
+      exterior_number: v.exterior_number ?? '',
+      interior_number: v.interior_number ?? '',
+      colonia: v.colonia ?? '',
+      localidad: v.localidad ?? '',
       city: v.city ?? '',
       state: v.state ?? '',
       zip_code: v.zip_code ?? '',

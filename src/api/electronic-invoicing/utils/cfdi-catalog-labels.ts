@@ -47,6 +47,7 @@ const USO_CFDI: Record<string, string> = {
   G03: 'Gastos en general',
   I01: 'Construcciones',
   P01: 'Por definir',
+  CP01: 'Pagos',
 };
 
 export function labelRegimenFiscal(code: string): string {

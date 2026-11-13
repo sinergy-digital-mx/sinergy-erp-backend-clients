@@ -338,6 +338,13 @@ export function getUserFriendlyMessage(code: RBACErrorCode): string {
   return getErrorMessage(code).userFriendly;
 }
 
+export function getClientMessage(code: RBACErrorCode): string {
+  if (code === RBACErrorCode.PERMISSION_DENIED) {
+    return 'No tienes permiso para realizar esta acción';
+  }
+  return getErrorMessage(code).technical;
+}
+
 /**
  * Get technical error message
  */

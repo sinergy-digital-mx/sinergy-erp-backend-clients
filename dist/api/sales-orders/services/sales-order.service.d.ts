@@ -34,7 +34,7 @@ import { DocumentLanguage } from '../../../common/enums/document-language.enum';
 import { PosSaleCollection } from '../../../entities/pos/pos-sale-collection.entity';
 import { ElectronicInvoiceService } from '../../electronic-invoicing/services/electronic-invoice.service';
 import { OrderDownloads } from '../utils/sales-order-downloads.util';
-import { AdvanceCfdiService } from '../../electronic-invoicing/services/advance-cfdi.service';
+import { AdvanceCfdiService, AdvanceInvoiceSummary } from '../../electronic-invoicing/services/advance-cfdi.service';
 import { BillingBranch } from '../../../entities/billing/billing-branch.entity';
 import { FiscalConfiguration } from '../../../entities/billing/fiscal-configuration.entity';
 import { Warehouse } from '../../../entities/warehouse/warehouse.entity';
@@ -472,7 +472,7 @@ export declare class SalesOrderService {
             advance_invoicing_enabled: boolean;
             can_stamp_advance: boolean;
             can_apply_advance: boolean;
-            advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
+            advance_invoice: AdvanceInvoiceSummary | null;
             can_edit_lines: boolean;
             control_desk: {
                 id: string;

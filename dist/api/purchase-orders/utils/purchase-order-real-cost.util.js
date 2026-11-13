@@ -130,7 +130,6 @@ function computePurchaseOrderRealCost(input) {
     const incrementRatio = hasRealCost && merchandiseForRatio > 0 ? extrasForRatio / merchandiseForRatio : 0;
     const incrementPercentage = (0, purchase_order_line_breakdown_util_1.roundPoUnitCost)(incrementRatio * 100);
     const lines = preparedLines.map((line) => {
-        // IGI% y GTOS% se suman sobre el precio del proveedor (no se multiplican entre sí).
         const landedVendor = line.vendorUnitCost * (1 + line.igiPercentage / 100 + incrementRatio);
         const realUsd = convertAmount(landedVendor, paymentCurrency, 'USD', exchangeRate);
         const realMxn = convertAmount(landedVendor, paymentCurrency, 'MXN', exchangeRate);

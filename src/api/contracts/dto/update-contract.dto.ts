@@ -64,6 +64,20 @@ export class UpdateContractDto {
   first_payment_date?: Date;
 
   @IsOptional()
+  @Transform(({ value }) => (value === '' ? null : value))
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  interest_rate?: number | null;
+
+  @IsOptional()
+  @Transform(({ value }) => (value === '' ? null : value))
+  @IsInt()
+  @Min(0)
+  @Max(365)
+  payment_due_day?: number | null;
+
+  @IsOptional()
   @IsUUID()
   seller_id?: string;
 
@@ -74,6 +88,11 @@ export class UpdateContractDto {
   @IsOptional()
   @IsString()
   lead_group_id?: string | null;
+
+  @IsOptional()
+  @Transform(({ value }) => (value === '' ? null : value))
+  @IsUUID()
+  fiscal_configuration_id?: string | null;
 
   @IsOptional()
   @IsNumber()

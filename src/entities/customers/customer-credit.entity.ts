@@ -46,11 +46,17 @@ export class CustomerCredit {
   @Column({ type: 'boolean', default: false })
   credit_enabled: boolean;
 
+  @Column({ type: 'boolean', default: false })
+  allow_credit_exceed: boolean;
+
   @Column({ type: 'int', nullable: true })
   credit_days: number | null;
 
   @Column({ type: 'decimal', precision: 14, scale: 2, nullable: true })
   credit_amount: number | null;
+
+  @Column({ type: 'varchar', length: 3, default: 'MXN' })
+  credit_currency: string;
 
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;

@@ -125,27 +125,15 @@ export declare class AccountingController {
             by_payment_method: import("./utils/pos-collection-payment-totals.util").PosCollectionPaymentMethodTotals;
         };
         filtered_amount: number;
-        data: {
-            is_walk_in: boolean;
-            seller_user: {
-                id: string;
-                first_name: string;
-                last_name: string;
-                pos_user_code: number | null;
-            } | null;
-            collected_by_user: {
-                id: string;
-                first_name: string;
-                last_name: string;
-                pos_user_code: number | null;
-            } | null;
+        data: ({
             customer_company_name: string | null;
             customer_person_name: string | null;
             customer_display_name: string | null;
+        } & {
             id: string;
             sales_order_id: string | null;
             is_credit_payment: boolean;
-            sale_kind: "advance" | "credit" | "cash";
+            sale_kind: "cash" | "credit" | "advance";
             document_kind: "sales_order" | "quotation";
             collection_id: string | null;
             folio: string;
@@ -172,7 +160,20 @@ export declare class AccountingController {
             walk_in_name: string | null;
             walk_in_rfc: string | null;
             for_shipping: boolean;
-        }[];
+            is_walk_in: boolean;
+            seller_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+            } | null;
+            collected_by_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+            } | null;
+        })[];
         total: number;
         page: number;
         limit: number;

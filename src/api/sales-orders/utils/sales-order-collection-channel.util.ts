@@ -164,6 +164,9 @@ export function collectionChannelSourceLabel(
   if (source === 'pos_cobranza') {
     return SALES_ORDER_COLLECTION_CHANNEL_LABELS.pos_cobranza;
   }
+  if (source === 'advance') {
+    return 'Anticipo';
+  }
   if (source === 'manual') {
     return SALES_ORDER_COLLECTION_CHANNEL_LABELS.manual;
   }

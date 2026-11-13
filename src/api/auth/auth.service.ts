@@ -9,6 +9,7 @@ import { UserBillingBranch } from '../../entities/users/user-billing-branch.enti
 import { UserWarehouseAssignment } from '../../entities/control-desk/user-warehouse-assignment.entity';
 import { PermissionService } from '../rbac/services/permission.service';
 import { RoleService } from '../rbac/services/role.service';
+import { Permission } from '../../entities/rbac/permission.entity';
 import { isActiveUserStatus } from '../users/user-status.constants';
 import { canPosCollect, canPosSell } from '../../entities/users/pos-user-type.enum';
 
@@ -51,7 +52,7 @@ export class AuthService {
 
         // Update last login timestamp
         user.last_login_at = new Date();
-        await this.userRepo.save(user);
+        await this.userRepo.update({ id: user.id }, { last_login_at: user.last_login_at });
 
         // Load user roles and permissions for the tenant
         let userRoles: any[] = [];
@@ -84,9 +85,7 @@ export class AuthService {
 
         // Create JWT payload with RBAC context
         // Format permissions as entity:Action (e.g., "customers:Create")
-        const permissionsForJwt = userPermissions.map(permission => 
-            `${permission.entity_type.toLowerCase()}:${permission.action}`
-        );
+        const permissionsForJwt = this.permissionsForJwt(userPermissions);
 
         const payload = {
             sub: user.id,
@@ -153,9 +152,7 @@ export class AuthService {
         const userPermissions = await this.permissionService.getUserPermissions(userId, tenantId);
 
         // Format permissions as entity:Action for JWT
-        const permissionsForJwt = userPermissions.map(permission => 
-            `${permission.entity_type.toLowerCase()}:${permission.action}`
-        );
+        const permissionsForJwt = this.permissionsForJwt(userPermissions);
 
         const payload = {
             sub: user.id,
@@ -193,6 +190,24 @@ export class AuthService {
                 ),
             },
         };
+    }
+
+    private permissionsForJwt(permissions: Permission[]): string[] {
+        const keys = new Set<string>();
+        for (const permission of permissions) {
+            const action = String(permission?.action ?? '').trim();
+            if (!action) {
+                continue;
+            }
+            const codes = [permission?.entity_type, permission?.module?.code];
+            for (const code of codes) {
+                const entity = String(code ?? '').trim().toLowerCase();
+                if (entity) {
+                    keys.add(`${entity}:${action}`);
+                }
+            }
+        }
+        return [...keys];
     }
 
     private async loadSessionBranchFields(userId: string, tenantId: string) {

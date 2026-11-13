@@ -7,7 +7,11 @@ import {
 import { Reflector } from '@nestjs/core';
 import { PermissionService } from '../services/permission.service';
 import { TenantContextService } from '../services/tenant-context.service';
-import { PERMISSIONS_KEY, RequiredPermission } from '../decorators/require-permissions.decorator';
+import {
+  PERMISSIONS_ANY_KEY,
+  PERMISSIONS_KEY,
+  RequiredPermission,
+} from '../decorators/require-permissions.decorator';
 import { RBACErrorUtils } from '../errors/error-utils';
 import { RBACErrorCode } from '../errors/rbac-error.types';
 
@@ -32,18 +36,100 @@ export class PermissionGuard implements CanActivate {
    * @returns Promise<boolean> - True if access is granted, false otherwise
    */
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    const targets = [context.getHandler(), context.getClass()];
+
     // Get required permissions from decorator metadata
     const requiredPermissions = this.reflector.getAllAndOverride<RequiredPermission[]>(
       PERMISSIONS_KEY,
-      [context.getHandler(), context.getClass()],
+      targets,
+    );
+
+    if (requiredPermissions?.length) {
+      return this.authorizeAll(context, requiredPermissions);
+    }
+
+    const anyPermissions = this.reflector.getAllAndOverride<RequiredPermission[]>(
+      PERMISSIONS_ANY_KEY,
+      targets,
     );
 
     // If no permissions are required, allow access
-    if (!requiredPermissions || requiredPermissions.length === 0) {
+    if (!anyPermissions?.length) {
       this.logger.debug('No permissions required for this route');
       return true;
     }
 
+    return this.authorizeAny(context, anyPermissions);
+  }
+
+  private async authorizeAll(
+    context: ExecutionContext,
+    requiredPermissions: RequiredPermission[],
+  ): Promise<boolean> {
+    const { user, tenantId } = this.requireUserContext(context);
+
+    this.logger.debug(
+      `Checking permissions for user ${user.user_id} in tenant ${tenantId}: ${requiredPermissions
+        .map(p => `${p.entityType}:${p.action}`)
+        .join(', ')}`,
+    );
+
+    // Check each required permission
+    for (const permission of requiredPermissions) {
+      const hasPermission = await this.checkPermission(user.user_id, tenantId, permission);
+
+      if (!hasPermission) {
+        this.logger.warn(
+          `Permission denied for user ${user.user_id} in tenant ${tenantId}: missing ${permission.entityType}:${permission.action}`,
+        );
+
+        RBACErrorUtils.throwPermissionDenied(
+          permission.entityType,
+          permission.action,
+          user.user_id,
+          tenantId,
+        );
+      }
+    }
+
+    this.logger.debug(
+      `All permissions granted for user ${user.user_id} in tenant ${tenantId}`,
+    );
+
+    return true;
+  }
+
+  private async authorizeAny(
+    context: ExecutionContext,
+    permissions: RequiredPermission[],
+  ): Promise<boolean> {
+    const { user, tenantId } = this.requireUserContext(context);
+
+    for (const permission of permissions) {
+      const hasPermission = await this.checkPermission(user.user_id, tenantId, permission);
+      if (hasPermission) {
+        this.logger.debug(
+          `Permission granted for user ${user.user_id}: ${permission.entityType}:${permission.action}`,
+        );
+        return true;
+      }
+    }
+
+    const denied = permissions[0];
+    this.logger.warn(
+      `Permission denied for user ${user.user_id} in tenant ${tenantId}: missing any of ${permissions
+        .map(p => `${p.entityType}:${p.action}`)
+        .join(', ')}`,
+    );
+    RBACErrorUtils.throwPermissionDenied(
+      denied.entityType,
+      denied.action,
+      user.user_id,
+      tenantId,
+    );
+  }
+
+  private requireUserContext(context: ExecutionContext) {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
@@ -64,65 +150,39 @@ export class PermissionGuard implements CanActivate {
     // Set tenant context for this request
     this.tenantContextService.setTenantContext(tenantId, user.user_id);
 
-    this.logger.debug(
-      `Checking permissions for user ${user.user_id} in tenant ${tenantId}: ${requiredPermissions
-        .map(p => `${p.entityType}:${p.action}`)
-        .join(', ')}`,
-    );
+    return { user, tenantId };
+  }
 
-    // Check each required permission
-    for (const permission of requiredPermissions) {
-      try {
-        const hasPermission = await this.permissionService.hasPermission(
-          user.user_id,
-          tenantId,
-          permission.entityType,
-          permission.action,
-        );
-
-        if (!hasPermission) {
-          this.logger.warn(
-            `Permission denied for user ${user.user_id} in tenant ${tenantId}: missing ${permission.entityType}:${permission.action}`,
-          );
-          
-          RBACErrorUtils.throwPermissionDenied(
-            permission.entityType,
-            permission.action,
-            user.user_id,
-            tenantId,
-          );
-        }
-
-        this.logger.debug(
-          `Permission granted for user ${user.user_id}: ${permission.entityType}:${permission.action}`,
-        );
-      } catch (error) {
-        // If it's already an RBAC exception, re-throw it
-        if (RBACErrorUtils.isRBACException(error)) {
-          throw error;
-        }
-
-        // Log unexpected errors and convert to appropriate exception
-        this.logger.error(
-          `Error checking permission ${permission.entityType}:${permission.action} for user ${user.user_id}:`,
-          error,
-        );
-
-        // If it's a validation error (like invalid entity type), it should already be an RBAC exception
-        // For other errors, return system error
-        RBACErrorUtils.throwSystemError(
-          'PermissionGuard',
-          'canActivate',
-          error as Error,
-        );
+  private async checkPermission(
+    userId: string,
+    tenantId: string,
+    permission: RequiredPermission,
+  ): Promise<boolean> {
+    try {
+      return await this.permissionService.hasPermission(
+        userId,
+        tenantId,
+        permission.entityType,
+        permission.action,
+      );
+    } catch (error) {
+      // If it's already an RBAC exception, re-throw it
+      if (RBACErrorUtils.isRBACException(error)) {
+        throw error;
       }
+
+      // Log unexpected errors and convert to appropriate exception
+      this.logger.error(
+        `Error checking permission ${permission.entityType}:${permission.action} for user ${userId}:`,
+        error,
+      );
+
+      RBACErrorUtils.throwSystemError(
+        'PermissionGuard',
+        'canActivate',
+        error as Error,
+      );
     }
-
-    this.logger.debug(
-      `All permissions granted for user ${user.user_id} in tenant ${tenantId}`,
-    );
-
-    return true;
   }
 
   /**

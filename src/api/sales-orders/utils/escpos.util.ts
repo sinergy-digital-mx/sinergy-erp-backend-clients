@@ -156,8 +156,7 @@ export function compactMoneyLine(
 ): string {
   const text = `${label} ${formattedValue}`;
   if (text.length <= width) return text;
-  const trimmedLabel = label.slice(0, Math.max(1, width - formattedValue.length - 1));
-  return `${trimmedLabel} ${formattedValue}`;
+  return wrapLines(text, width).join('\n');
 }
 
 /** Dos columnas: etiqueta izquierda, valor derecho. */
@@ -194,8 +193,22 @@ export function wrapLines(text: string, width = ESCPOS_CHARS_PER_LINE): string[]
       current = candidate;
       continue;
     }
-    if (current) lines.push(current);
-    current = word.length > width ? word.slice(0, width) : word;
+    if (current) {
+      lines.push(current);
+      current = '';
+    }
+    if (word.length <= width) {
+      current = word;
+      continue;
+    }
+    for (let offset = 0; offset < word.length; offset += width) {
+      const chunk = word.slice(offset, offset + width);
+      if (chunk.length === width) {
+        lines.push(chunk);
+      } else {
+        current = chunk;
+      }
+    }
   }
 
   if (current) lines.push(current);

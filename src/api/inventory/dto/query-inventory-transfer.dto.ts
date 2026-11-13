@@ -1,8 +1,14 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsUUID, IsInt, Min, Max, IsDateString } from 'class-validator';
+import { IsOptional, IsString, IsUUID, IsInt, Min, Max, IsDateString, IsIn } from 'class-validator';
 import { Type } from 'class-transformer';
+import { InventoryTransferStatus } from '../../../entities/inventory/inventory-transfer-status.enum';
 
 export class QueryInventoryTransferDto {
+  @ApiPropertyOptional({ enum: InventoryTransferStatus })
+  @IsOptional()
+  @IsIn(Object.values(InventoryTransferStatus))
+  status?: InventoryTransferStatus;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

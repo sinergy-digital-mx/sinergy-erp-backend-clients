@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -16,13 +17,16 @@ import { S3Service } from '../../common/services/s3.service';
 import { EmployeeProfileDto } from './dto/employee-profile.dto';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
+import { UpsertWorkScheduleDto } from './dto/upsert-work-schedule.dto';
 import { QueryEmployeeDto } from './dto/query-employee.dto';
+import { presentWorkSchedule, resolveWorkSchedule } from './utils/work-schedule.util';
 import {
   buildPayrollSummary,
   buildVacationSummary,
   completedYearsOfService,
   currentAnniversaryStart,
 } from './utils/mexican-labor-law';
+import { calendarYearInMexico, summarizeSickLeaveYear } from './utils/sick-leave-year.util';
 
 @Injectable()
 export class EmployeesService {
@@ -130,12 +134,23 @@ export class EmployeesService {
     if (employee.vacation_carryover_days == null) {
       employee.vacation_carryover_days = 0;
     }
+    if (profile.work_schedule !== undefined && profile.work_schedule !== null) {
+      const resolved = resolveWorkSchedule(profile.work_schedule);
+      if (!resolved.ok) {
+        throw new BadRequestException(resolved.message);
+      }
+      employee.work_schedule = resolved.schedule;
+    }
   }
 
   // ---------------------------------------------------------------------------
   // Listado con paginación, búsqueda y resumen de vacaciones por empleado.
   // ---------------------------------------------------------------------------
-  async findAll(tenantId: string, query?: QueryEmployeeDto) {
+  async findAll(
+    tenantId: string,
+    query?: QueryEmployeeDto,
+    scope?: { userId: string | null; seeAll: boolean },
+  ) {
     let page = Number(query?.page) || 1;
     let limit = Number(query?.limit) || 20;
     if (page < 1) page = 1;
@@ -147,6 +162,12 @@ export class EmployeesService {
       .createQueryBuilder('employee')
       .leftJoinAndSelect('employee.user', 'user')
       .where('employee.tenant_id = :tenantId', { tenantId });
+
+    if (scope && !scope.seeAll) {
+      qb.andWhere('employee.user_id = :ownUserId', {
+        ownUserId: scope.userId ?? '00000000-0000-0000-0000-000000000000',
+      });
+    }
 
     if (query?.status) {
       qb.andWhere('employee.status = :status', { status: query.status });
@@ -191,7 +212,11 @@ export class EmployeesService {
     };
   }
 
-  async findOne(tenantId: string, id: string) {
+  async findOne(
+    tenantId: string,
+    id: string,
+    scope?: { userId: string | null; seeAll: boolean },
+  ) {
     const employee = await this.employeeRepo.findOne({
       where: { id, tenant_id: tenantId },
       relations: ['user'],
@@ -199,7 +224,34 @@ export class EmployeesService {
     if (!employee) {
       throw new NotFoundException('Empleado no encontrado');
     }
+    this.assertEmployeeScope(employee, scope);
     return this.mapEmployee(employee, { withRequests: true });
+  }
+
+  async assertAccessible(
+    tenantId: string,
+    id: string,
+    scope?: { userId: string | null; seeAll: boolean },
+  ): Promise<void> {
+    const employee = await this.employeeRepo.findOne({
+      where: { id, tenant_id: tenantId },
+    });
+    if (!employee) {
+      throw new NotFoundException('Empleado no encontrado');
+    }
+    this.assertEmployeeScope(employee, scope);
+  }
+
+  private assertEmployeeScope(
+    employee: Employee,
+    scope?: { userId: string | null; seeAll: boolean },
+  ) {
+    if (!scope || scope.seeAll) {
+      return;
+    }
+    if (!scope.userId || employee.user_id !== scope.userId) {
+      throw new ForbiddenException('Solo puedes consultar tu propio expediente');
+    }
   }
 
   async findEntityByUser(tenantId: string, userId: string): Promise<Employee | null> {
@@ -217,6 +269,22 @@ export class EmployeesService {
       throw new NotFoundException('Empleado no encontrado');
     }
     this.assignProfile(employee, dto);
+    await this.employeeRepo.save(employee);
+    return this.findOne(tenantId, id);
+  }
+
+  async upsertWorkSchedule(tenantId: string, id: string, dto: UpsertWorkScheduleDto) {
+    const employee = await this.employeeRepo.findOne({
+      where: { id, tenant_id: tenantId },
+    });
+    if (!employee) {
+      throw new NotFoundException('Empleado no encontrado');
+    }
+    const resolved = resolveWorkSchedule(dto);
+    if (!resolved.ok) {
+      throw new BadRequestException(resolved.message);
+    }
+    employee.work_schedule = resolved.schedule;
     await this.employeeRepo.save(employee);
     return this.findOne(tenantId, id);
   }
@@ -357,6 +425,7 @@ export class EmployeesService {
       termination_date: employee.termination_date,
       photo_url: photoUrl,
       has_photo: Boolean(employee.photo_s3_key),
+      work_schedule: presentWorkSchedule(employee.work_schedule ?? null),
       years_of_service: years,
       vacation,
       payroll,
@@ -368,9 +437,17 @@ export class EmployeesService {
     if (opts.withRequests) {
       const requests = await this.leaveRepo.find({
         where: { employee_id: employee.id },
+        relations: { documents: true },
         order: { created_at: 'DESC' },
       });
-      return { ...base, leave_requests: requests.map(mapLeaveRequest) };
+      const leaveRequests = await Promise.all(
+        requests.map((request) => presentLeaveRequest(request, this.s3Service)),
+      );
+      const sickLeave = summarizeSickLeaveYear(
+        requests.filter((request) => request.type === LeaveType.SICK_LEAVE),
+        calendarYearInMexico(),
+      );
+      return { ...base, sick_leave: sickLeave, leave_requests: leaveRequests };
     }
 
     return base;
@@ -420,5 +497,30 @@ export function mapLeaveRequest(request: EmployeeLeaveRequest) {
     created_by: request.created_by,
     created_at: request.created_at,
     updated_at: request.updated_at,
+  };
+}
+
+const MEDICAL_URL_TTL_SECONDS = 6 * 60 * 60;
+
+export async function presentLeaveRequest(request: EmployeeLeaveRequest, s3: S3Service) {
+  const documents = [...(request.documents ?? [])].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+  );
+  return {
+    ...mapLeaveRequest(request),
+    documents: await Promise.all(
+      documents.map(async (document) => ({
+        id: document.id,
+        file_name: document.file_name,
+        mime_type: document.mime_type,
+        file_size: document.file_size != null ? Number(document.file_size) : null,
+        url: document.s3_key
+          ? await s3
+              .getSignedUrl(document.s3_key, MEDICAL_URL_TTL_SECONDS, document.file_name)
+              .catch(() => null)
+          : null,
+        created_at: document.created_at,
+      })),
+    ),
   };
 }

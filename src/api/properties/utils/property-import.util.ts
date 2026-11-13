@@ -1,0 +1,402 @@
+import * as ExcelJS from 'exceljs';
+import * as XLSX from 'xlsx';
+import { CreatePropertyDto } from '../dto/create-property.dto';
+import {
+  PropertyPricingError,
+  resolvePropertyPricing,
+} from './property-pricing.util';
+
+export const PROPERTY_IMPORT_SHEET = 'Lotes';
+export const PROPERTY_IMPORT_MAX_ROWS = 500;
+export const PROPERTY_IMPORT_EXAMPLE_NAME = 'Lote ejemplo';
+
+export const PROPERTY_IMPORT_HEADERS = [
+  'nombre',
+  'grupo',
+  'area',
+  'unidad',
+  'manzana',
+  'numero_lote',
+  'clave_catastral',
+  'descripcion',
+  'precio_m2',
+  'precio_total',
+  'moneda',
+  'estado',
+] as const;
+
+export const PROPERTY_IMPORT_GROUPS_SHEET = 'Grupos';
+
+const HEADER_ALIASES: Record<string, string> = {
+  nombre: 'name',
+  grupo: 'group',
+  grupo_cliente: 'group',
+  grupo_de_cliente: 'group',
+  group: 'group',
+  area: 'area',
+  unidad: 'unit',
+  manzana: 'block',
+  numero_lote: 'lot_number',
+  numero_de_lote: 'lot_number',
+  clave_catastral: 'cadastral_key',
+  descripcion: 'description',
+  precio_m2: 'price_per_m2',
+  precio_por_m2: 'price_per_m2',
+  precio_total: 'total_price',
+  moneda: 'currency',
+  estado: 'status',
+};
+
+const STATUSES = new Set(['disponible', 'vendido', 'reservado', 'cancelado']);
+
+export interface PropertyImportRowError {
+  row: number;
+  message: string;
+  code?: string;
+}
+
+export interface PropertyImportReadyRow {
+  row: number;
+  dto: CreatePropertyDto;
+}
+
+export interface PropertyImportCatalogs {
+  groups: { id: string; name: string }[];
+  units: { id: string; code: string; name: string; symbol: string }[];
+  existingCodes: Set<string>;
+}
+
+interface RawImportRow {
+  row: number;
+  values: Record<string, unknown>;
+}
+
+type ParsedNumber = number | null | 'invalid';
+
+export function foldText(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+    .replace(/²/g, '2')
+    .replace(/\s+/g, ' ');
+}
+
+function headerKey(value: unknown): string {
+  return foldText(String(value ?? '')).replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+}
+
+function cellText(value: unknown): string {
+  if (value == null) {
+    return '';
+  }
+  return String(value).trim();
+}
+
+function parseNumber(value: unknown): ParsedNumber {
+  if (value == null || value === '') {
+    return null;
+  }
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : 'invalid';
+  }
+  const text = String(value).trim().replace(/,/g, '');
+  if (!text) {
+    return null;
+  }
+  const parsed = Number(text);
+  return Number.isFinite(parsed) ? parsed : 'invalid';
+}
+
+export function buildPropertyImportCode(block: string, lotNumber: string): string {
+  return `LOT-${block}-${lotNumber.padStart(2, '0')}`;
+}
+
+export async function buildPropertyImportTemplate(catalogs: {
+  units: { code: string; name: string; symbol: string }[];
+  groups: { name: string }[];
+}): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet(PROPERTY_IMPORT_SHEET);
+  sheet.addRow([...PROPERTY_IMPORT_HEADERS]);
+  sheet.addRow([
+    PROPERTY_IMPORT_EXAMPLE_NAME,
+    catalogs.groups[0]?.name ?? '',
+    250,
+    catalogs.units[0]?.symbol ?? 'm²',
+    'A',
+    '1',
+    '',
+    '',
+    120,
+    '',
+    'USD',
+    'disponible',
+  ]);
+  sheet.getRow(1).font = { bold: true };
+  sheet.views = [{ state: 'frozen', ySplit: 1 }];
+  sheet.columns.forEach((column) => {
+    column.width = 18;
+  });
+  sheet.getColumn(2).width = 28;
+
+  const groupsSheet = workbook.addWorksheet(PROPERTY_IMPORT_GROUPS_SHEET);
+  groupsSheet.addRow(['nombre']);
+  groupsSheet.getRow(1).font = { bold: true };
+  for (const group of catalogs.groups) {
+    groupsSheet.addRow([group.name]);
+  }
+  groupsSheet.columns.forEach((column) => {
+    column.width = 36;
+  });
+
+  const lastGroupRow = Math.max(2, catalogs.groups.length + 1);
+  for (let row = 2; row <= PROPERTY_IMPORT_MAX_ROWS + 2; row += 1) {
+    sheet.getCell(row, 2).dataValidation = {
+      type: 'list',
+      allowBlank: false,
+      formulae: [`=${PROPERTY_IMPORT_GROUPS_SHEET}!$A$2:$A$${lastGroupRow}`],
+      showErrorMessage: true,
+      errorTitle: 'Grupo',
+      error: 'Elige un grupo de la hoja Grupos.',
+    };
+  }
+
+  const unitsSheet = workbook.addWorksheet('Unidades');
+  unitsSheet.addRow(['simbolo', 'nombre', 'codigo']);
+  unitsSheet.getRow(1).font = { bold: true };
+  for (const unit of catalogs.units) {
+    unitsSheet.addRow([unit.symbol, unit.name, unit.code]);
+  }
+  unitsSheet.columns.forEach((column) => {
+    column.width = 22;
+  });
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  return Buffer.from(buffer);
+}
+
+export function parsePropertyImportWorkbook(buffer: Buffer): {
+  rows: RawImportRow[];
+  errors: PropertyImportRowError[];
+} {
+  const workbook = XLSX.read(buffer, { type: 'buffer' });
+  const sheetName =
+    workbook.SheetNames.find((name) => foldText(name) === foldText(PROPERTY_IMPORT_SHEET)) ??
+    workbook.SheetNames[0];
+  if (!sheetName) {
+    return { rows: [], errors: [{ row: 1, message: 'El archivo no tiene hojas.' }] };
+  }
+
+  const matrix = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[sheetName], {
+    header: 1,
+    raw: true,
+    defval: '',
+  });
+  if (!matrix.length) {
+    return { rows: [], errors: [{ row: 1, message: 'La hoja de lotes está vacía.' }] };
+  }
+
+  const headers = (matrix[0] ?? []).map((cell) => HEADER_ALIASES[headerKey(cell)]).filter(Boolean);
+  const required = ['name', 'group', 'area', 'unit', 'block', 'lot_number'];
+  const missing = required.filter((key) => !headers.includes(key));
+  if (missing.length) {
+    return {
+      rows: [],
+      errors: [
+        {
+          row: 1,
+          message:
+            'La primera fila debe ser la plantilla (nombre, grupo, area, unidad, manzana, numero_lote). Descárgala de nuevo.',
+        },
+      ],
+    };
+  }
+
+  const columnIndex = new Map<string, number>();
+  (matrix[0] ?? []).forEach((cell, index) => {
+    const key = HEADER_ALIASES[headerKey(cell)];
+    if (key && !columnIndex.has(key)) {
+      columnIndex.set(key, index);
+    }
+  });
+
+  const rows: RawImportRow[] = [];
+  const errors: PropertyImportRowError[] = [];
+  for (let index = 1; index < matrix.length; index += 1) {
+    const line = matrix[index] ?? [];
+    const values: Record<string, unknown> = {};
+    for (const [key, column] of columnIndex) {
+      values[key] = line[column];
+    }
+    const name = cellText(values.name);
+    const hasContent = Object.values(values).some((value) => cellText(value) !== '');
+    if (!hasContent || foldText(name) === foldText(PROPERTY_IMPORT_EXAMPLE_NAME)) {
+      continue;
+    }
+    if (rows.length >= PROPERTY_IMPORT_MAX_ROWS) {
+      errors.push({
+        row: index + 1,
+        message: `El archivo supera ${PROPERTY_IMPORT_MAX_ROWS} lotes. Divídelo e impórtalo por partes.`,
+      });
+      break;
+    }
+    rows.push({ row: index + 1, values });
+  }
+
+  return { rows, errors };
+}
+
+export function resolvePropertyImportRows(
+  rows: RawImportRow[],
+  catalogs: PropertyImportCatalogs,
+  parseErrors: PropertyImportRowError[] = [],
+): { ready: PropertyImportReadyRow[]; errors: PropertyImportRowError[] } {
+  const errors = [...parseErrors];
+  const ready: PropertyImportReadyRow[] = [];
+  const seenCodes = new Set<string>();
+  const units = new Map<string, string>();
+  for (const unit of catalogs.units) {
+    for (const label of [unit.symbol, unit.code, unit.name]) {
+      const key = foldText(label);
+      if (key && !units.has(key)) {
+        units.set(key, unit.id);
+      }
+    }
+  }
+  const groups = new Map<string, string>();
+  for (const group of catalogs.groups) {
+    const key = foldText(group.name);
+    if (key && !groups.has(key)) {
+      groups.set(key, group.id);
+    }
+  }
+
+  for (const row of rows) {
+    const rowErrors = validateRow(row, units, groups, catalogs.existingCodes, seenCodes);
+    if (rowErrors.length) {
+      errors.push(...rowErrors);
+      continue;
+    }
+    ready.push({ row: row.row, dto: toDto(row, groups, units) });
+  }
+
+  errors.sort((left, right) => left.row - right.row || left.message.localeCompare(right.message));
+  return { ready, errors };
+}
+
+function validateRow(
+  row: RawImportRow,
+  units: Map<string, string>,
+  groups: Map<string, string>,
+  existingCodes: Set<string>,
+  seenCodes: Set<string>,
+): PropertyImportRowError[] {
+  const errors: PropertyImportRowError[] = [];
+  const fail = (message: string, code?: string) => {
+    errors.push(code ? { row: row.row, message, code } : { row: row.row, message });
+  };
+
+  const name = cellText(row.values.name);
+  const groupLabel = cellText(row.values.group);
+  const unitLabel = cellText(row.values.unit);
+  const area = parseNumber(row.values.area);
+  const pricePerM2 = parseNumber(row.values.price_per_m2);
+  const totalPrice = parseNumber(row.values.total_price);
+  const currency = cellText(row.values.currency).toUpperCase();
+  const status = foldText(cellText(row.values.status));
+  const block = cellText(row.values.block);
+  const lotNumber = cellText(row.values.lot_number);
+  const cadastralKey = cellText(row.values.cadastral_key);
+  const code = block && lotNumber ? buildPropertyImportCode(block, lotNumber) : '';
+
+  if (!name) fail('El nombre es obligatorio.');
+  else if (name.length > 150) fail('El nombre admite máximo 150 caracteres.');
+  if (!groupLabel) fail('El grupo es obligatorio. Cópialo de la hoja Grupos.');
+  else if (!groups.has(foldText(groupLabel))) {
+    fail(`No existe el grupo "${groupLabel}". Copia el nombre de la hoja Grupos.`);
+  }
+  if (!block) fail('La manzana es obligatoria.');
+  else if (block.length > 50) fail('La manzana admite máximo 50 caracteres.');
+  if (!lotNumber) fail('El número de lote es obligatorio.');
+  else if (lotNumber.length > 50) fail('El número de lote admite máximo 50 caracteres.');
+  if (code.length > 50) fail('El código generado admite máximo 50 caracteres.', code);
+  else if (code) {
+    const folded = foldText(code);
+    if (seenCodes.has(folded)) fail(`El código "${code}" está repetido en el archivo.`, code);
+    else if (existingCodes.has(folded)) fail(`Ya existe un lote con el código "${code}".`, code);
+    else seenCodes.add(folded);
+  }
+  if (area === 'invalid') fail('El área no es un número.');
+  else if (area == null || area <= 0) fail('El área debe ser mayor a 0.');
+  if (!unitLabel) fail('La unidad es obligatoria.');
+  else if (!units.has(foldText(unitLabel))) {
+    fail(`No existe la unidad "${unitLabel}". Usa un símbolo de la hoja Unidades.`);
+  }
+  if (cadastralKey.length > 100) fail('La clave catastral admite máximo 100 caracteres.');
+  if (pricePerM2 === 'invalid') fail('El precio por m² no es un número.');
+  if (totalPrice === 'invalid') fail('El precio total no es un número.');
+
+  if (pricePerM2 !== 'invalid' && totalPrice !== 'invalid' && area !== 'invalid') {
+    try {
+      resolvePropertyPricing({
+        totalArea: area,
+        totalPrice: totalPrice,
+        pricePerM2: pricePerM2,
+        isCreate: true,
+      });
+    } catch (error) {
+      if (error instanceof PropertyPricingError) {
+        fail(error.message);
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  if (currency && currency !== 'USD' && currency !== 'MXN') {
+    fail('La moneda debe ser USD o MXN.');
+  }
+  if (status && !STATUSES.has(status)) {
+    fail('El estado debe ser disponible, vendido, reservado o cancelado.');
+  }
+
+  return errors;
+}
+
+function toDto(
+  row: RawImportRow,
+  groups: Map<string, string>,
+  units: Map<string, string>,
+): CreatePropertyDto {
+  const area = parseNumber(row.values.area) as number;
+  const pricePerM2 = parseNumber(row.values.price_per_m2);
+  const totalPrice = parseNumber(row.values.total_price);
+  const currency = cellText(row.values.currency).toUpperCase();
+  const status = foldText(cellText(row.values.status));
+  const block = cellText(row.values.block);
+  const lotNumber = cellText(row.values.lot_number);
+  const dto: CreatePropertyDto = {
+    code: buildPropertyImportCode(block, lotNumber),
+    name: cellText(row.values.name),
+    group_id: groups.get(foldText(cellText(row.values.group)))!,
+    total_area: area,
+    measurement_unit_id: units.get(foldText(cellText(row.values.unit)))!,
+    block,
+    lot_number: lotNumber,
+  };
+  const cadastralKey = cellText(row.values.cadastral_key);
+  const description = cellText(row.values.description);
+
+  if (block) dto.block = block;
+  if (lotNumber) dto.lot_number = lotNumber;
+  if (cadastralKey) dto.cadastral_key = cadastralKey;
+  if (description) dto.description = description;
+  if (typeof pricePerM2 === 'number') dto.price_per_m2 = pricePerM2;
+  else if (typeof totalPrice === 'number') dto.total_price = totalPrice;
+  if (currency === 'USD' || currency === 'MXN') dto.currency = currency;
+  if (STATUSES.has(status)) dto.status = status;
+
+  return dto;
+}

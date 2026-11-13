@@ -1,4 +1,13 @@
-import { IsNumber, Min, Max, IsOptional, IsUUID } from 'class-validator';
+import {
+  IsNumber,
+  Min,
+  Max,
+  IsOptional,
+  IsUUID,
+  ValidateIf,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 export class UpdateLineItemDto {
   /** Quantity in the selected UOM (same rules as create). */
@@ -32,4 +41,10 @@ export class UpdateLineItemDto {
   @Max(100)
   @IsOptional()
   ieps_percentage?: number;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(500)
+  notes?: string | null;
 }

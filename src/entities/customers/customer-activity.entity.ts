@@ -14,7 +14,10 @@ import { RBACTenant } from '../rbac/tenant.entity';
 
 export enum CustomerActivityType {
     CALL = 'call',
+    WHATSAPP = 'whatsapp',
     EMAIL = 'email',
+    HOME_VISIT = 'home_visit',
+    STORE_VISIT = 'store_visit',
     MEETING = 'meeting',
     NOTE = 'note',
     TASK = 'task',

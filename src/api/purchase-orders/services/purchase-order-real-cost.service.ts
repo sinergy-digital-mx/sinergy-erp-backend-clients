@@ -20,6 +20,7 @@ import {
   RealCostCurrency,
   assertExchangeRateIfNeeded,
   computePurchaseOrderRealCost,
+  isInvoiceExtraFlag,
   isRealCostEnabled,
   parseCustomsExchangeRate,
   parseRealCostNumber,
@@ -61,6 +62,7 @@ export class PurchaseOrderRealCostService {
       concept: extra.concept.trim(),
       amount: extra.amount,
       currency: extra.currency,
+      include_in_invoice: extra.include_in_invoice === true,
     }));
     if (extras.some((extra) => !extra.concept)) {
       throw new BadRequestException('Cada gasto necesita un concepto');
@@ -110,6 +112,7 @@ export class PurchaseOrderRealCostService {
           concept: extra.concept,
           amount: extra.amount,
           currency: extra.currency,
+          include_in_invoice: extra.include_in_invoice,
           sort_order: index,
           created_by: userId,
           updated_by: userId,
@@ -203,6 +206,7 @@ export class PurchaseOrderRealCostService {
       extras: extras.map((extra) => ({
         amount: extra.amount,
         currency: extra.currency,
+        include_in_invoice: isInvoiceExtraFlag(extra.include_in_invoice),
       })),
       lines: (purchaseOrder.line_items ?? []).map((line) => ({
         id: line.id,
@@ -222,6 +226,7 @@ export class PurchaseOrderRealCostService {
         landed_increment_percentage: enabled ? computed.increment_percentage : 0,
         landed_merchandise_mxn: enabled ? computed.merchandise_mxn ?? 0 : 0,
         landed_extras_mxn: enabled ? computed.extras_mxn ?? 0 : 0,
+        landed_invoice_extras_mxn: enabled ? computed.invoice_extras_mxn ?? 0 : 0,
       },
     );
 

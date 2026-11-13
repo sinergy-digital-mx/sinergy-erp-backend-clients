@@ -45,6 +45,9 @@ export interface SalesOrderPdfLabels {
   paymentPending: string;
   paymentPaid: string;
   dateLocale: string;
+  invoiceYourPurchase: string;
+  invoiceScanOrOpen: string;
+  publicFolio: string;
 }
 
 const LABELS_BY_LANGUAGE: Record<DocumentLanguage, SalesOrderPdfLabels> = {

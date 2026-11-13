@@ -43,8 +43,8 @@ export class DivinoReservationFormatPdfService {
   async generate(format: DivinoReservationFormat): Promise<Buffer> {
     const logoImage = await this.getLogoImage(format);
     const razonSocial =
-      format.payable_to ||
       format.fiscal_configuration?.razon_social ||
+      format.payable_to ||
       DIVINO_RESERVATION_BRAND.defaultPayableTo;
 
     const docDefinition: any = {

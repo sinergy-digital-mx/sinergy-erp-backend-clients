@@ -662,7 +662,7 @@ export declare class PosShiftsController {
     }>;
     getPendingSales(query: QueryPosBranchDto, req: any): Promise<{
         pending_sales: ({
-            kind: "sale";
+            kind: string;
             id: string;
             folio: string;
             quotation_folio: string | null;
@@ -700,7 +700,7 @@ export declare class PosShiftsController {
                 pos_user_type: import("../../entities/users/pos-user-type.enum").PosUserType | null;
             } | null;
         } | {
-            kind: "advance";
+            kind: string;
             id: string;
             folio: string;
             quotation_folio: null;
@@ -828,7 +828,7 @@ export declare class PosShiftsController {
                     product_uom_id: string | null;
                 } | null;
             }[];
-            kind: "advance";
+            kind: string;
             id: string;
             folio: string;
             total: number;
@@ -1112,7 +1112,7 @@ export declare class PosShiftsController {
     returnQuotationToVentas(quotationId: string, req: any): Promise<{
         message: string;
         quotation: {
-            kind: "advance";
+            kind: string;
             id: string;
             folio: string;
             total: number;
@@ -1244,7 +1244,7 @@ export declare class PosShiftsController {
     sendQuotationToCaja(quotationId: string, dto: SendQuotationToCajaDto, req: any): Promise<{
         message: string;
         quotation: {
-            kind: "advance";
+            kind: string;
             id: string;
             folio: string;
             total: number;

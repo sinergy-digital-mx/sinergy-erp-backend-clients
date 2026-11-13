@@ -20,7 +20,11 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionGuard } from '../rbac/guards/permission.guard';
-import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator';
+import {
+  RequireAnyPermissions,
+  RequirePermissions,
+} from '../rbac/decorators/require-permissions.decorator';
+import { FISCAL_LOOKUP_PERMISSIONS } from './fiscal-configuration.controller';
 import { TenantContextService } from '../rbac/services/tenant-context.service';
 import { BillingBranchService } from './billing-branch.service';
 import { CreateBillingBranchDto } from './dto/create-billing-branch.dto';
@@ -53,7 +57,7 @@ export class BillingBranchController {
   }
 
   @Get()
-  @RequirePermissions({ entityType: 'FiscalConfiguration', action: 'Read' })
+  @RequireAnyPermissions(...FISCAL_LOOKUP_PERMISSIONS)
   @ApiOperation({ summary: 'Get all branches for a fiscal configuration' })
   @ApiParam({ name: 'fiscalConfigId', description: 'Fiscal Configuration ID' })
   @ApiResponse({ status: 200, description: 'List of branches' })
@@ -126,7 +130,7 @@ export class BillingBranchAllController {
   ) {}
 
   @Get()
-  @RequirePermissions({ entityType: 'FiscalConfiguration', action: 'Read' })
+  @RequireAnyPermissions(...FISCAL_LOOKUP_PERMISSIONS)
   @ApiOperation({ summary: 'Get all branches for the current tenant' })
   @ApiResponse({ status: 200, description: 'List of all branches' })
   async findAll() {

@@ -1,11 +1,14 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
+import { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 import {
+  ACTIVE_SHIPPING_STATUSES,
   Shipping,
   ShippingStatus,
 } from '../../entities/logistics/shipping.entity';
@@ -20,20 +23,42 @@ import { User } from '../../entities/users/user.entity';
 import { SalesOrder } from '../../entities/sales-orders/sales-order.entity';
 import { CustomerAddress } from '../../entities/customers/customer-address.entity';
 import {
+  assessDriver,
+  decorateShippingCartaPorte,
+  isDriverFlag,
+} from './utils/carta-porte.util';
+import { resolveCargoKind } from './utils/shipping-cargo.util';
+import { InventoryTransferService } from '../inventory/services/inventory-transfer.service';
+import { InventoryTransfer } from '../../entities/inventory/inventory-transfer.entity';
+import { ShippingInventoryTransfer } from '../../entities/logistics/shipping-inventory-transfer.entity';
+import {
   hasValidGps,
   routeDistanceKm,
   segmentDistanceKm,
 } from '../../common/utils/geo.helper';
 import {
   AddShippingStopsDto,
+  AddShippingTransfersDto,
   CreateShippingDto,
   PreviewShippingDto,
   QueryAvailableShippingOrdersDto,
   QueryShippingDto,
   ResolveOrdersDto,
   ShippingOrderItemDto,
+  UpdateShippingCrewDto,
   UpdateShippingStatusDto,
 } from './dto/shipping.dto';
+
+export interface CustomerAddressOption {
+  id: number;
+  type: string | null;
+  type_label: string;
+  address_summary: string;
+  is_primary: boolean;
+  has_gps: boolean;
+  latitude: number | null;
+  longitude: number | null;
+}
 
 const ELIGIBLE_SHIPPING_STATUSES = ['Surtida', 'Lista para entrega'] as const;
 
@@ -55,7 +80,17 @@ interface ResolvedStop {
   customer_name: string | null;
   customer_id: number | null;
   address_type: string | null;
+  customer_addresses: CustomerAddressOption[];
 }
+
+type ResolvedAddress = Omit<
+  ResolvedStop,
+  'sales_order' | 'stop_sequence' | 'customer_id'
+>;
+
+type ShippingStopWithAddresses = ShippingStop & {
+  customer_addresses?: CustomerAddressOption[];
+};
 
 /** Labels de ruta: A = origen (sucursal), B/C/D… = paradas. */
 function routeLabel(index: number): string {
@@ -96,6 +131,7 @@ export class ShippingsService {
     @InjectRepository(CustomerAddress)
     private readonly addressRepo: Repository<CustomerAddress>,
     private readonly dataSource: DataSource,
+    private readonly transfers: InventoryTransferService,
   ) {}
 
   async preview(dto: PreviewShippingDto, tenantId: string) {
@@ -110,24 +146,47 @@ export class ShippingsService {
   }
 
   async create(dto: CreateShippingDto, tenantId: string, userId: string) {
+    const orders = dto.orders ?? [];
+    const transferIds = [...new Set(dto.inventory_transfer_ids ?? [])];
+    if (!orders.length && !transferIds.length) {
+      throw new BadRequestException(
+        'El envío necesita órdenes de entrega, transferencias o ambas',
+      );
+    }
     const truck = await this.getActiveTruck(dto.truck_id, tenantId);
     const driver = await this.getDriver(dto.driver_id, tenantId);
     const origin = await this.getRouteOriginFromBranch(
       dto.billing_branch_id,
       tenantId,
     );
-    let resolved = await this.resolveStops(dto.orders, origin, tenantId, {
-      validateAssignable: true,
-    });
-    resolved = this.sortStopsByDistanceFromOrigin(origin, resolved);
+    let resolved: ResolvedStop[] = [];
+    if (orders.length) {
+      resolved = await this.resolveStops(orders, origin, tenantId, {
+        validateAssignable: true,
+      });
+      resolved = this.sortStopsByDistanceFromOrigin(origin, resolved);
+    }
+    const stagedTransfers = await this.transfers.findPendingForShipping(
+      tenantId,
+      transferIds,
+      dto.billing_branch_id,
+    );
 
     const distances = this.buildStopDistances(origin, resolved);
+    const distanceKm = this.distanceWithTransfers(
+      origin,
+      resolved,
+      stagedTransfers,
+      distances.totalKm,
+    );
+    const cargoKind = resolveCargoKind(orders.length, stagedTransfers.length);
 
     const qr = this.dataSource.createQueryRunner();
     await qr.connect();
     await qr.startTransaction();
 
     try {
+      await this.assertTruckAvailable(qr.manager, tenantId, truck);
       const shipping = qr.manager.create(Shipping, {
         tenant_id: tenantId,
         shipping_date: dto.shipping_date as any,
@@ -137,10 +196,20 @@ export class ShippingsService {
         origin_billing_branch_id: origin.billing_branch_id,
         origin_warehouse_id: null,
         status: 'Creado',
-        distance_km: distances.totalKm,
+        cargo_kind: cargoKind,
+        distance_km: distanceKm,
         notes: dto.notes ?? null,
       });
       const saved = await qr.manager.save(shipping);
+      if (stagedTransfers.length) {
+        await this.transfers.attachToShipping(
+          qr.manager,
+          tenantId,
+          saved.id,
+          stagedTransfers.map((transfer) => transfer.id),
+          dto.billing_branch_id,
+        );
+      }
 
       for (const r of resolved) {
         const dist = distances.byOrderId.get(r.sales_order.id) ?? null;
@@ -229,10 +298,35 @@ export class ShippingsService {
     );
 
     const total = await qb.getCount();
-    const data = await qb
+    const pageRows = await qb
       .skip((page - 1) * limit)
       .take(limit)
       .getMany();
+    const ids = pageRows.map((row) => row.id);
+    let data = pageRows;
+    if (ids.length > 0) {
+      const detailed = await this.shippingRepo.find({
+        where: { id: In(ids), tenant_id: tenantId },
+        relations: [
+          'truck',
+          'driver',
+          'origin_warehouse',
+          'origin_billing_branch',
+          'stops',
+          'stops.sales_order',
+          'stops.sales_order.customer',
+          'transfer_links',
+          'transfer_links.inventory_transfer',
+          'transfer_links.inventory_transfer.destination_warehouse',
+        ],
+        order: { stops: { stop_sequence: 'ASC' } },
+      });
+      const byId = new Map(detailed.map((row) => [row.id, row]));
+      data = ids
+        .map((id) => byId.get(id))
+        .filter((row): row is Shipping => !!row)
+        .map((row) => decorateShippingCartaPorte(this.attachTransferView(row)));
+    }
     const totalPages = Math.ceil(total / limit) || 1;
 
     return {
@@ -378,6 +472,9 @@ export class ShippingsService {
         'stops.sales_order',
         'stops.sales_order.customer',
         'stops.customer_address',
+        'transfer_links',
+        'transfer_links.inventory_transfer',
+        'transfer_links.inventory_transfer.destination_warehouse',
       ],
       order: { stops: { stop_sequence: 'ASC' } },
     });
@@ -386,7 +483,47 @@ export class ShippingsService {
       throw new NotFoundException('Envío no encontrado');
     }
 
-    return shipping;
+    await this.attachCustomerAddresses(shipping, tenantId);
+    return decorateShippingCartaPorte(this.attachTransferView(shipping));
+  }
+
+  async setStopAddress(
+    shippingId: string,
+    salesOrderId: string,
+    addressId: number,
+    tenantId: string,
+  ) {
+    const shipping = await this.shippingRepo.findOne({
+      where: { id: shippingId, tenant_id: tenantId },
+      relations: ['stops', 'stops.sales_order'],
+    });
+    if (!shipping) {
+      throw new NotFoundException('Envío no encontrado');
+    }
+    if (shipping.status !== 'Creado') {
+      throw new BadRequestException(
+        'Solo se puede cambiar la dirección en un envío creado',
+      );
+    }
+    const stop = (shipping.stops ?? []).find(
+      (item) => item.sales_order_id === salesOrderId,
+    );
+    if (!stop?.sales_order) {
+      throw new NotFoundException('La orden no está en este envío');
+    }
+    const address = await this.addressRepo.findOne({
+      where: {
+        id: addressId,
+        tenant_id: tenantId,
+        customer_id: stop.sales_order.customer_id,
+        status: 1,
+      },
+    });
+    if (!address) {
+      throw new BadRequestException('La dirección no pertenece a este cliente');
+    }
+    await this.stopRepo.update(stop.id, { customer_address_id: address.id });
+    return this.recalculateDistance(shippingId, tenantId);
   }
 
   async addStops(
@@ -425,6 +562,7 @@ export class ShippingsService {
         customer_name: null,
         customer_id: s.sales_order?.customer_id ?? null,
         address_type: null,
+        customer_addresses: [],
       })),
       ...resolved,
     ];
@@ -470,10 +608,154 @@ export class ShippingsService {
         );
       }
 
+      const transferCount = shipping.transfer_links?.length ?? 0;
       await qr.manager.update(
         Shipping,
         { id: shipping.id },
-        { distance_km: distances.totalKm },
+        {
+          distance_km: distances.totalKm,
+          cargo_kind: resolveCargoKind(mergedResolved.length, transferCount),
+        },
+      );
+
+      await qr.commitTransaction();
+      return this.findOne(id, tenantId);
+    } catch (err) {
+      await qr.rollbackTransaction();
+      throw err;
+    } finally {
+      await qr.release();
+    }
+  }
+
+  async addTransfers(
+    id: string,
+    dto: AddShippingTransfersDto,
+    tenantId: string,
+  ) {
+    const shipping = await this.findOne(id, tenantId);
+    if (shipping.status !== 'Creado') {
+      throw new BadRequestException(
+        'Solo se pueden agregar transferencias a un envío en estado Creado',
+      );
+    }
+    if (shipping.carta_porte_uuid && shipping.carta_porte_environment !== 'demo') {
+      throw new BadRequestException(
+        'Este envío ya tiene carta porte. No se pueden agregar transferencias.',
+      );
+    }
+
+    const origin = await this.getRouteOriginFromShipping(shipping, tenantId);
+    if (!origin.billing_branch_id) {
+      throw new BadRequestException('El envío no tiene sucursal de origen');
+    }
+
+    const requested = [...new Set(dto.inventory_transfer_ids)];
+    const already = new Set(
+      (shipping.transfer_links ?? []).map((link) => link.inventory_transfer_id),
+    );
+    const freshIds = requested.filter((transferId) => !already.has(transferId));
+    if (!freshIds.length) {
+      throw new BadRequestException('Esas transferencias ya están en este envío');
+    }
+    await this.transfers.findPendingForShipping(
+      tenantId,
+      freshIds,
+      origin.billing_branch_id,
+    );
+
+    const existingStops = [...(shipping.stops || [])].sort(
+      (a, b) => a.stop_sequence - b.stop_sequence,
+    );
+    const resolvedStops: ResolvedStop[] = existingStops
+      .filter((stop) => !!stop.sales_order)
+      .map((stop) => ({
+        sales_order: stop.sales_order,
+        stop_sequence: stop.stop_sequence,
+        customer_address_id: stop.customer_address_id,
+        location_status: stop.location_status,
+        delivery_latitude: stop.delivery_latitude
+          ? Number(stop.delivery_latitude)
+          : null,
+        delivery_longitude: stop.delivery_longitude
+          ? Number(stop.delivery_longitude)
+          : null,
+        address_summary: null,
+        customer_name: null,
+        customer_id: stop.sales_order?.customer_id ?? null,
+        address_type: null,
+        customer_addresses: [],
+      }));
+    const distances = this.buildStopDistances(origin, resolvedStops);
+
+    const qr = this.dataSource.createQueryRunner();
+    await qr.connect();
+    await qr.startTransaction();
+
+    try {
+      const locked = await qr.manager
+        .createQueryBuilder(Shipping, 'shipping')
+        .setLock('pessimistic_write')
+        .where('shipping.id = :id', { id: shipping.id })
+        .andWhere('shipping.tenant_id = :tenantId', { tenantId })
+        .getOne();
+      if (!locked || locked.status !== 'Creado') {
+        throw new BadRequestException(
+          'Solo se pueden agregar transferencias a un envío en estado Creado',
+        );
+      }
+      if (locked.carta_porte_uuid && locked.carta_porte_environment !== 'demo') {
+        throw new BadRequestException(
+          'Este envío ya tiene carta porte. No se pueden agregar transferencias.',
+        );
+      }
+
+      await this.transfers.attachToShipping(
+        qr.manager,
+        tenantId,
+        shipping.id,
+        freshIds,
+        origin.billing_branch_id,
+      );
+
+      const links = await qr.manager.find(ShippingInventoryTransfer, {
+        where: { shipping_id: shipping.id, tenant_id: tenantId },
+      });
+      const allTransfers = links.length
+        ? await qr.manager.find(InventoryTransfer, {
+            where: {
+              id: In(links.map((link) => link.inventory_transfer_id)),
+              tenant_id: tenantId,
+            },
+            relations: [
+              'destination_warehouse',
+              'destination_warehouse.billing_branch',
+            ],
+          })
+        : [];
+
+      const patch: QueryDeepPartialEntity<Shipping> = {
+        distance_km: this.distanceWithTransfers(
+          origin,
+          resolvedStops,
+          allTransfers,
+          distances.totalKm,
+        ),
+        cargo_kind: resolveCargoKind(existingStops.length, allTransfers.length),
+      };
+      if (locked.carta_porte_environment === 'demo' && locked.carta_porte_uuid) {
+        patch.carta_porte_uuid = null;
+        patch.carta_porte_idccp = null;
+        patch.carta_porte_xml = null;
+        patch.carta_porte_stamped_at = null;
+        patch.carta_porte_error = null;
+        patch.carta_porte_peso_kg = null;
+        patch.carta_porte_environment = null;
+      }
+      await qr.manager.update(
+        Shipping,
+        { id: shipping.id, tenant_id: tenantId },
+        patch,
       );
 
       await qr.commitTransaction();
@@ -549,6 +831,65 @@ export class ShippingsService {
     }
   }
 
+  async updateCrew(id: string, dto: UpdateShippingCrewDto, tenantId: string) {
+    const current = await this.shippingRepo.findOne({
+      where: { id, tenant_id: tenantId },
+    });
+    if (!current) throw new NotFoundException('Envío no encontrado');
+    if (current.status !== 'Creado' && current.status !== 'En Ruta') {
+      throw new BadRequestException(
+        'Solo se puede cambiar el chofer y el camión mientras el viaje está creado o en ruta',
+      );
+    }
+    if (current.carta_porte_uuid && current.carta_porte_environment !== 'demo') {
+      throw new BadRequestException(
+        'Este viaje ya tiene carta porte timbrada. No se puede cambiar el chofer ni el camión.',
+      );
+    }
+
+    const driver = await this.getDriver(dto.driver_id, tenantId);
+    if (!isDriverFlag(driver.is_driver)) {
+      throw new BadRequestException('El usuario no está marcado como chofer');
+    }
+    const statusCode = driver.status?.code?.toLowerCase();
+    if (statusCode === 'inactive' || statusCode === 'deleted') {
+      throw new BadRequestException('El chofer está inactivo');
+    }
+    const truck = await this.getActiveTruck(dto.truck_id, tenantId);
+    const changed =
+      driver.id !== current.driver_id || truck.id !== current.truck_id;
+
+    const qr = this.dataSource.createQueryRunner();
+    await qr.connect();
+    await qr.startTransaction();
+    try {
+      if (truck.id !== current.truck_id) {
+        await this.assertTruckAvailable(qr.manager, tenantId, truck, current.id);
+      }
+      const patch: QueryDeepPartialEntity<Shipping> = {
+        driver_id: driver.id,
+        truck_id: truck.id,
+      };
+      if (changed && current.carta_porte_environment === 'demo') {
+        patch.carta_porte_uuid = null;
+        patch.carta_porte_idccp = null;
+        patch.carta_porte_xml = null;
+        patch.carta_porte_stamped_at = null;
+        patch.carta_porte_error = null;
+        patch.carta_porte_peso_kg = null;
+        patch.carta_porte_environment = null;
+      }
+      await qr.manager.update(Shipping, { id, tenant_id: tenantId }, patch);
+      await qr.commitTransaction();
+    } catch (error) {
+      await qr.rollbackTransaction();
+      throw error;
+    } finally {
+      await qr.release();
+    }
+    return this.findOne(id, tenantId);
+  }
+
   async updateStatus(
     id: string,
     dto: UpdateShippingStatusDto,
@@ -570,6 +911,20 @@ export class ShippingsService {
     await qr.startTransaction();
 
     try {
+      if (next === 'Completado') {
+        await this.transfers.assertReceivedBeforeClose(
+          qr.manager,
+          tenantId,
+          shipping.id,
+        );
+      }
+      if (next === 'Cancelado') {
+        await this.transfers.releaseFromCancelledShipping(
+          qr.manager,
+          tenantId,
+          shipping.id,
+        );
+      }
       await qr.manager.update(
         Shipping,
         { id: shipping.id },
@@ -705,6 +1060,53 @@ export class ShippingsService {
     };
   }
 
+  private attachTransferView(shipping: Shipping): Shipping {
+    const links = shipping.transfer_links ?? [];
+    Object.assign(shipping, {
+      transfers: links.map((link) => ({
+        id: link.inventory_transfer_id,
+        folio: link.inventory_transfer?.folio ?? '',
+        status: link.inventory_transfer?.status ?? null,
+        total_quantity: link.inventory_transfer?.total_quantity ?? null,
+        destination_warehouse_name:
+          link.inventory_transfer?.destination_warehouse?.name ?? null,
+      })),
+    });
+    return shipping;
+  }
+
+  private distanceWithTransfers(
+    origin: RouteOrigin,
+    stops: ResolvedStop[],
+    transfers: InventoryTransfer[],
+    orderKm: number | null,
+  ): number | null {
+    const transferPoints = transfers
+      .map((transfer) => {
+        const warehouse = transfer.destination_warehouse;
+        const branch = warehouse?.billing_branch;
+        const latitude = warehouse?.latitude ?? branch?.latitude ?? null;
+        const longitude = warehouse?.longitude ?? branch?.longitude ?? null;
+        return {
+          latitude: latitude == null ? null : Number(latitude),
+          longitude: longitude == null ? null : Number(longitude),
+        };
+      })
+      .filter((point) => hasValidGps(point));
+    if (!transferPoints.length) return orderKm;
+    return routeDistanceKm([
+      {
+        latitude: origin.latitude != null ? Number(origin.latitude) : null,
+        longitude: origin.longitude != null ? Number(origin.longitude) : null,
+      },
+      ...stops.map((stop) => ({
+        latitude: stop.delivery_latitude,
+        longitude: stop.delivery_longitude,
+      })),
+      ...transferPoints,
+    ]);
+  }
+
   private buildStopDistances(
     origin: RouteOrigin,
     stops: ResolvedStop[],
@@ -829,77 +1231,143 @@ export class ShippingsService {
     order: SalesOrder,
     preferredAddressId: number | undefined,
     tenantId: string,
-  ): Promise<{
-    customer_address_id: number | null;
-    location_status: LocationStatus;
-    delivery_latitude: number | null;
-    delivery_longitude: number | null;
-    address_summary: string | null;
-    customer_name: string | null;
-    address_type: string | null;
-  }> {
+  ): Promise<ResolvedAddress> {
     const customerName = this.customerName(order);
-
-    if (preferredAddressId) {
-      const preferred = await this.addressRepo.findOne({
-        where: {
-          id: preferredAddressId,
-          tenant_id: tenantId,
-          customer_id: order.customer_id,
-          status: 1,
-        } as any,
-      });
-      if (preferred && hasValidGps(preferred)) {
-        return {
-          customer_address_id: preferred.id,
-          location_status: 'ok',
-          delivery_latitude: Number(preferred.latitude),
-          delivery_longitude: Number(preferred.longitude),
-          address_summary: this.addressSummary(preferred),
-          customer_name: customerName,
-          address_type: preferred.type ?? null,
-        };
-      }
-    }
-
-    const addresses = await this.addressRepo.find({
-      where: {
-        tenant_id: tenantId,
-        customer_id: order.customer_id,
-        status: 1,
-      } as any,
-      order: { is_primary: 'DESC', id: 'ASC' },
-    });
-
-    // Preferencia: type shipping (Entrega) con GPS → cualquier GPS → shipping sin GPS → cualquiera
-    const shippingWithGps = addresses.find(
-      (a) => a.type === 'shipping' && hasValidGps(a),
+    const addresses = await this.loadActiveAddresses(order.customer_id, tenantId);
+    const customer_addresses = addresses.map((address) =>
+      this.toAddressOption(address),
     );
-    const anyWithGps = addresses.find((a) => hasValidGps(a));
-    const shippingAny = addresses.find((a) => a.type === 'shipping');
-    const chosen = shippingWithGps || anyWithGps || shippingAny || addresses[0];
 
-    if (chosen && hasValidGps(chosen)) {
+    const preferred = preferredAddressId
+      ? addresses.find((address) => address.id === Number(preferredAddressId))
+      : undefined;
+    const primary = addresses.find((address) => Boolean(address.is_primary));
+    const shippingWithGps = addresses.find(
+      (address) => address.type === 'shipping' && hasValidGps(address),
+    );
+    const anyWithGps = addresses.find((address) => hasValidGps(address));
+    const shippingAny = addresses.find((address) => address.type === 'shipping');
+    const chosen =
+      preferred ||
+      primary ||
+      shippingWithGps ||
+      anyWithGps ||
+      shippingAny ||
+      addresses[0];
+
+    return this.addressSelection(chosen, customerName, customer_addresses);
+  }
+
+  private addressSelection(
+    chosen: CustomerAddress | undefined,
+    customerName: string | null,
+    customer_addresses: CustomerAddressOption[],
+  ): ResolvedAddress {
+    if (!chosen) {
       return {
-        customer_address_id: chosen.id,
-        location_status: 'ok',
-        delivery_latitude: Number(chosen.latitude),
-        delivery_longitude: Number(chosen.longitude),
-        address_summary: this.addressSummary(chosen),
+        customer_address_id: null,
+        location_status: 'without_location',
+        delivery_latitude: null,
+        delivery_longitude: null,
+        address_summary: null,
         customer_name: customerName,
-        address_type: chosen.type ?? null,
+        address_type: null,
+        customer_addresses,
       };
     }
-
+    const gps = hasValidGps(chosen);
     return {
-      customer_address_id: chosen?.id ?? null,
-      location_status: 'without_location',
-      delivery_latitude: null,
-      delivery_longitude: null,
-      address_summary: chosen ? this.addressSummary(chosen) : null,
+      customer_address_id: chosen.id,
+      location_status: (gps ? 'ok' : 'without_location') as LocationStatus,
+      delivery_latitude: gps ? Number(chosen.latitude) : null,
+      delivery_longitude: gps ? Number(chosen.longitude) : null,
+      address_summary: this.addressSummary(chosen),
       customer_name: customerName,
-      address_type: chosen?.type ?? null,
+      address_type: chosen.type ?? null,
+      customer_addresses,
     };
+  }
+
+  private async loadActiveAddresses(
+    customerId: number | null | undefined,
+    tenantId: string,
+  ): Promise<CustomerAddress[]> {
+    if (customerId == null) return [];
+    return this.addressRepo.find({
+      where: {
+        tenant_id: tenantId,
+        customer_id: customerId,
+        status: 1,
+      },
+      order: { is_primary: 'DESC', id: 'ASC' },
+    });
+  }
+
+  private async attachCustomerAddresses(
+    shipping: Shipping,
+    tenantId: string,
+  ): Promise<void> {
+    const stops = shipping.stops ?? [];
+    const customerIds = [
+      ...new Set(
+        stops
+          .map((stop) => stop.sales_order?.customer_id)
+          .filter((id): id is number => id != null),
+      ),
+    ];
+    if (customerIds.length === 0) {
+      for (const stop of stops) {
+        (stop as ShippingStopWithAddresses).customer_addresses =
+          [];
+      }
+      return;
+    }
+
+    const rows = await this.addressRepo.find({
+      where: {
+        tenant_id: tenantId,
+        customer_id: In(customerIds),
+        status: 1,
+      },
+      order: { is_primary: 'DESC', id: 'ASC' },
+    });
+    const byCustomer = new Map<number, CustomerAddressOption[]>();
+    for (const row of rows) {
+      const list = byCustomer.get(row.customer_id) ?? [];
+      list.push(this.toAddressOption(row));
+      byCustomer.set(row.customer_id, list);
+    }
+    for (const stop of stops) {
+      const customerId = stop.sales_order?.customer_id;
+      (stop as ShippingStopWithAddresses).customer_addresses =
+        customerId != null ? byCustomer.get(customerId) ?? [] : [];
+    }
+  }
+
+  private toAddressOption(address: CustomerAddress): CustomerAddressOption {
+    return {
+      id: address.id,
+      type: address.type ?? null,
+      type_label: this.addressTypeLabel(address.type),
+      address_summary: this.addressSummary(address),
+      is_primary: Boolean(address.is_primary),
+      has_gps: hasValidGps(address),
+      latitude: address.latitude != null ? Number(address.latitude) : null,
+      longitude: address.longitude != null ? Number(address.longitude) : null,
+    };
+  }
+
+  private addressTypeLabel(type: string | null | undefined): string {
+    switch (type) {
+      case 'shipping':
+        return 'Entrega';
+      case 'billing':
+        return 'Facturación';
+      case 'primary':
+        return 'Principal';
+      default:
+        return 'Dirección';
+    }
   }
 
   /**
@@ -1000,6 +1468,7 @@ export class ShippingsService {
         address_summary: r.address_summary,
         customer_address_id: r.customer_address_id,
         address_type: r.address_type,
+        customer_addresses: r.customer_addresses ?? [],
         distance_from_previous_km: segment,
         distance_from_origin_km: segmentDistanceKm(originPoint, current),
       };
@@ -1172,6 +1641,32 @@ export class ShippingsService {
     throw new BadRequestException('El envío no tiene sucursal de origen');
   }
 
+  private async assertTruckAvailable(
+    manager: EntityManager,
+    tenantId: string,
+    truck: Truck,
+    exceptShippingId?: string,
+  ): Promise<void> {
+    const busyQuery = manager
+      .createQueryBuilder(Shipping, 'shipping')
+      .setLock('pessimistic_write')
+      .where('shipping.tenant_id = :tenantId', { tenantId })
+      .andWhere('shipping.truck_id = :truckId', { truckId: truck.id })
+      .andWhere('shipping.status IN (:...statuses)', {
+        statuses: [...ACTIVE_SHIPPING_STATUSES],
+      });
+    if (exceptShippingId) {
+      busyQuery.andWhere('shipping.id != :exceptShippingId', { exceptShippingId });
+    }
+    const busy = await busyQuery.getOne();
+    if (busy) {
+      const label = [truck.name, truck.placa].filter(Boolean).join(' · ');
+      throw new ConflictException(
+        `La unidad ${label} ya está en un envío activo. Complétalo o cancélalo para volver a usarla.`,
+      );
+    }
+  }
+
   private async getActiveTruck(id: string, tenantId: string): Promise<Truck> {
     const truck = await this.truckRepo.findOne({
       where: { id, tenant_id: tenantId, status: 'active' },
@@ -1180,6 +1675,47 @@ export class ShippingsService {
       throw new BadRequestException('El camión no existe o está inactivo');
     }
     return truck;
+  }
+
+  async listDrivers(tenantId: string) {
+    const users = await this.userRepo
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.status', 'status')
+      .where('user.tenant_id = :tenantId', { tenantId })
+      .andWhere('user.is_driver = 1')
+      .andWhere(
+        '(status.code IS NULL OR LOWER(status.code) NOT IN (:...hidden))',
+        { hidden: ['inactive', 'deleted'] },
+      )
+      .orderBy('user.first_name', 'ASC')
+      .addOrderBy('user.last_name', 'ASC')
+      .getMany();
+
+    return {
+      data: users.map((user) => {
+        const check = assessDriver(user);
+        return {
+          id: user.id,
+          email: user.email,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          phone: user.phone,
+          status: user.status
+            ? {
+                id: user.status.id,
+                code: user.status.code,
+                name: user.status.name,
+              }
+            : null,
+          status_id: user.status?.id ?? null,
+          is_driver: true,
+          driver_license_number: user.driver_license_number,
+          driver_rfc: user.driver_rfc,
+          carta_porte_ready: check.ready,
+          carta_porte_missing: check.missing,
+        };
+      }),
+    };
   }
 
   private async getDriver(id: string, tenantId: string): Promise<User> {

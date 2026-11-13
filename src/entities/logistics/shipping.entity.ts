@@ -15,6 +15,15 @@ import { Warehouse } from '../warehouse/warehouse.entity';
 import { BillingBranch } from '../billing/billing-branch.entity';
 import { Truck } from './truck.entity';
 import { ShippingStop } from './shipping-stop.entity';
+import { ShippingInventoryTransfer } from './shipping-inventory-transfer.entity';
+
+export const SHIPPING_CARGO_KINDS = [
+  'order_delivery',
+  'inventory_transfer',
+  'mixed',
+] as const;
+
+export type ShippingCargoKind = (typeof SHIPPING_CARGO_KINDS)[number];
 
 export const SHIPPING_STATUSES = [
   'Creado',
@@ -24,6 +33,8 @@ export const SHIPPING_STATUSES = [
 ] as const;
 
 export type ShippingStatus = (typeof SHIPPING_STATUSES)[number];
+
+export const ACTIVE_SHIPPING_STATUSES: ShippingStatus[] = ['Creado', 'En Ruta'];
 
 @Entity('shippings')
 @Index('idx_shippings_tenant', ['tenant_id'])
@@ -89,14 +100,41 @@ export class Shipping {
   @Column({ type: 'varchar', length: 30, default: 'Creado' })
   status: ShippingStatus;
 
+  @Column({ type: 'varchar', length: 30, default: 'order_delivery' })
+  cargo_kind: ShippingCargoKind;
+
   @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
   distance_km: number | null;
 
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  carta_porte_uuid: string | null;
+
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  carta_porte_idccp: string | null;
+
+  @Column({ type: 'longtext', nullable: true })
+  carta_porte_xml: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  carta_porte_stamped_at: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  carta_porte_error: string | null;
+
+  @Column({ type: 'decimal', precision: 12, scale: 3, nullable: true })
+  carta_porte_peso_kg: number | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  carta_porte_environment: 'demo' | 'production' | null;
+
   @OneToMany(() => ShippingStop, (stop) => stop.shipping)
   stops: ShippingStop[];
+
+  @OneToMany(() => ShippingInventoryTransfer, (link) => link.shipping)
+  transfer_links: ShippingInventoryTransfer[];
 
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;

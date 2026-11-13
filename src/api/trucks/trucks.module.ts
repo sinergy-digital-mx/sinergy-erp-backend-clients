@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Truck } from '../../entities/logistics/truck.entity';
+import { Shipping } from '../../entities/logistics/shipping.entity';
 import { S3Service } from '../../common/services/s3.service';
 import { AuthModule } from '../auth/auth.module';
 import { RBACModule } from '../rbac/rbac.module';
@@ -8,7 +9,7 @@ import { TrucksController } from './trucks.controller';
 import { TrucksService } from './trucks.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Truck]), AuthModule, RBACModule],
+  imports: [TypeOrmModule.forFeature([Truck, Shipping]), AuthModule, RBACModule],
   controllers: [TrucksController],
   providers: [TrucksService, S3Service],
   exports: [TrucksService],

@@ -122,9 +122,21 @@ export class SalesOrder {
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  walk_in_name: string | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  walk_in_phone: string | null;
+
+  @Column({ type: 'varchar', length: 13, nullable: true })
+  walk_in_rfc: string | null;
+
   /** Cotización origen si esta OV se creó con POST /quotations/:id/convert. */
   @Column({ type: 'varchar', length: 36, nullable: true })
   converted_from_quotation_id: string | null;
+
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  advance_invoice_id: string | null;
 
   /** Inventario, servicios o ambos. POS siempre inventory. */
   @Column({ type: 'varchar', length: 16, default: SalesOrderSaleScope.Inventory })
@@ -133,6 +145,9 @@ export class SalesOrder {
   /** Si true, la OV entra en proceso de selección/armado (Control de almacén). */
   @Column({ type: 'boolean', default: false })
   requires_selection_assembly: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  for_shipping: boolean;
 
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'corroborated_by' })
@@ -168,6 +183,12 @@ export class SalesOrder {
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   total: number;
+
+  @Column({ type: 'varchar', length: 3, default: 'MXN' })
+  currency: string;
+
+  @Column({ type: 'decimal', precision: 12, scale: 6, nullable: true })
+  exchange_rate: number | null;
 
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'created_by' })

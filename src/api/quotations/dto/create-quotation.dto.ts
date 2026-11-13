@@ -4,6 +4,7 @@ import {
   IsArray,
   IsDateString,
   IsEnum,
+  IsIn,
   IsNumber,
   IsOptional,
   IsPositive,
@@ -124,6 +125,36 @@ export class CreateQuotationDto {
   @IsOptional()
   @IsUUID()
   global_discount_id?: string;
+
+  @ApiProperty({
+    required: false,
+    description:
+      'Anticipo con IVA que caja debe cobrar. Parcial o total de la cotización. Exige datos fiscales del cliente.',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0.01)
+  advance_amount?: number;
+
+  @ApiProperty({
+    required: false,
+    description:
+      'Uso CFDI del anticipo (catálogo SAT). Solo con advance_amount. Si se omite, caja timbra con G03.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(4)
+  advance_uso_cfdi?: string;
+
+  @ApiProperty({
+    required: false,
+    enum: ['PUE', 'PPD'],
+    description:
+      'Método de pago del CFDI de anticipo. Solo con advance_amount. Si se omite, PUE.',
+  })
+  @IsOptional()
+  @IsIn(['PUE', 'PPD'])
+  advance_metodo_pago?: 'PUE' | 'PPD';
 
   @IsArray()
   @ValidateNested({ each: true })

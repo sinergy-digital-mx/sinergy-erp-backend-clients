@@ -10,8 +10,15 @@ import { SalesOrder } from '../../../entities/sales-orders/sales-order.entity';
 import { MailerConfigurationService } from '../../mailer-configuration/services/mailer-configuration.service';
 import { ElectronicInvoicePdfService } from '../../electronic-invoicing/services/electronic-invoice-pdf.service';
 import { ElectronicInvoiceService } from '../../electronic-invoicing/services/electronic-invoice.service';
+import { WhatsappMessageService } from '../../whatsapp/services/whatsapp-message.service';
 import { SendSalesOrderInvoiceEmailDto } from '../dto/send-sales-order-invoice-email.dto';
 import { UpdateInvoiceEmailTemplateDto } from '../dto/update-invoice-email-template.dto';
+import { SendSalesOrderInvoiceWhatsappDto } from '../dto/send-sales-order-invoice-whatsapp.dto';
+import {
+  buildInvoiceWhatsappCaption,
+  InvoiceWhatsappImageInput,
+  renderInvoiceWhatsappImage,
+} from '../utils/invoice-whatsapp-image.util';
 import {
   DEFAULT_INVOICE_EMAIL_HTML,
   DEFAULT_INVOICE_EMAIL_SUBJECT,
@@ -37,6 +44,7 @@ export class SalesOrderInvoiceEmailService {
     private readonly electronicInvoiceService: ElectronicInvoiceService,
     private readonly pdfService: ElectronicInvoicePdfService,
     private readonly mailerConfigurationService: MailerConfigurationService,
+    private readonly whatsapp: WhatsappMessageService,
   ) {}
 
   async getTemplate(tenantId: string) {
@@ -161,6 +169,110 @@ export class SalesOrderInvoiceEmailService {
     return this.mapEmailRow(withSender ?? saved);
   }
 
+  async getWhatsappCompose(salesOrderId: string, invoiceId: string, tenantId: string) {
+    const { order, invoice, customer } = await this.loadSendableContext(
+      salesOrderId,
+      invoiceId,
+      tenantId,
+      false,
+    );
+    const values = this.buildValues(order, invoice, customer, null);
+    const canSend = this.isSendable(invoice);
+    return {
+      phone: this.customerWhatsappPhone(customer),
+      customer_name: values.customer_name,
+      customer_company: values.customer_company,
+      invoice_folio: values.invoice_folio,
+      attachments: this.describeAttachments(invoice),
+      can_send: canSend,
+      block_reason: canSend ? null : 'Solo se puede enviar una factura timbrada (PDF y XML).',
+    };
+  }
+
+  async sendWhatsapp(
+    salesOrderId: string,
+    invoiceId: string,
+    dto: SendSalesOrderInvoiceWhatsappDto,
+    tenantId: string,
+    userId: string,
+  ) {
+    const { order, invoice, customer } = await this.loadSendableContext(
+      salesOrderId,
+      invoiceId,
+      tenantId,
+      true,
+    );
+    const dest = this.whatsappDestination(dto, customer);
+
+    await this.electronicInvoiceService.getPdfDownload(invoice.id, tenantId);
+    const fresh = await this.electronicInvoiceService.findOne(invoice.id, tenantId);
+    const pdf = await this.pdfService.getPdfBuffer(fresh);
+    const values = this.buildValues(order, fresh, customer, null);
+
+    const card: InvoiceWhatsappImageInput = {
+      paid: order.payment_status === 'Pagado',
+      customerName: values.customer_company,
+      issuerName: values.issuer_name,
+      issuerRfc: order.fiscal_configuration?.rfc ?? null,
+      invoiceFolio: values.invoice_folio,
+      orderFolio: values.order_folio,
+      uuid: fresh.uuid || '—',
+      totalLabel: values.total,
+      stampedAt: values.stamped_at,
+    };
+    const reference = { reference_type: 'sales_order_invoice', reference_id: fresh.id };
+    const image = renderInvoiceWhatsappImage(card);
+
+    const first = image
+      ? await this.whatsapp.sendBuffer(tenantId, userId, {
+          ...dest,
+          data: image,
+          file_name: `factura-${values.invoice_folio}.png`,
+          mimetype: 'image/png',
+          caption: buildInvoiceWhatsappCaption(card),
+          ...reference,
+        })
+      : await this.whatsapp.sendBuffer(tenantId, userId, {
+          ...dest,
+          data: pdf.buffer,
+          file_name: pdf.fileName,
+          mimetype: 'application/pdf',
+          caption: buildInvoiceWhatsappCaption(card),
+          ...reference,
+        });
+
+    if (image) {
+      await this.whatsapp.sendBuffer(tenantId, userId, {
+        ...dest,
+        data: pdf.buffer,
+        file_name: pdf.fileName,
+        mimetype: 'application/pdf',
+        caption: `Factura ${values.invoice_folio}`,
+        ...reference,
+      });
+    }
+
+    let xmlSent = false;
+    if (fresh.xml_stamped) {
+      await this.whatsapp.sendBuffer(tenantId, userId, {
+        ...dest,
+        data: Buffer.from(fresh.xml_stamped, 'utf8'),
+        file_name: `${fresh.uuid ?? fresh.folio ?? fresh.id}.xml`,
+        mimetype: 'application/xml',
+        caption: `XML ${values.invoice_folio}`,
+        ...reference,
+      });
+      xmlSent = true;
+    }
+
+    return {
+      sent_to: first.to_phone,
+      image_sent: !!image,
+      pdf_sent: true,
+      xml_sent: xmlSent,
+    };
+  }
+
   async list(salesOrderId: string, tenantId: string) {
     await this.getSalesOrderOrFail(salesOrderId, tenantId);
     const rows = await this.emailRepo.find({
@@ -186,7 +298,14 @@ export class SalesOrderInvoiceEmailService {
     }
 
     const invoice = await this.electronicInvoiceService.findOne(invoiceId, tenantId);
-    if (invoice.source_module !== 'sales_orders' || invoice.source_id !== salesOrderId) {
+    const linkedAdvance =
+      !!order.advance_invoice_id &&
+      (invoice.id === order.advance_invoice_id ||
+        invoice.related_advance_invoice_id === order.advance_invoice_id);
+    if (
+      (invoice.source_module !== 'sales_orders' || invoice.source_id !== salesOrderId) &&
+      !linkedAdvance
+    ) {
       throw new NotFoundException('La factura no pertenece a esta orden de venta');
     }
 
@@ -339,6 +458,35 @@ export class SalesOrderInvoiceEmailService {
           }
         : null,
     };
+  }
+
+  private whatsappDestination(
+    dto: SendSalesOrderInvoiceWhatsappDto,
+    customer?: Customer | null,
+  ): { phone: string } | { group_id: string } {
+    if (dto.group_id?.trim()) return { group_id: dto.group_id.trim() };
+    const phone = (dto.phone || this.customerWhatsappPhone(customer)).trim();
+    if (!phone) {
+      throw new BadRequestException(
+        'Indica un teléfono o un grupo. El cliente no tiene uno registrado.',
+      );
+    }
+    return { phone };
+  }
+
+  private customerWhatsappPhone(customer?: Customer | null): string {
+    if (!customer) return '';
+    const candidates: Array<[unknown, unknown]> = [
+      [customer.phone, customer.phone_code],
+      [customer.additional_phone, customer.additional_phone_code],
+    ];
+    for (const [phone, code] of candidates) {
+      const digits = String(phone ?? '').replace(/\D/g, '');
+      if (!digits) continue;
+      const codeDigits = String(code ?? '').replace(/\D/g, '');
+      return digits.length <= 10 && codeDigits ? `${codeDigits}${digits}` : digits;
+    }
+    return '';
   }
 
   private resolveCustomerEmail(customer?: Customer | null): string {

@@ -6,6 +6,7 @@ import { Product } from '../../entities/products/product.entity';
 import { CreateProductVendorCostDto } from './dto/create-product-vendor-cost.dto';
 import { UpdateProductVendorCostDto } from './dto/update-product-vendor-cost.dto';
 import { roundUnitAmount } from '../../common/utils/unit-amount.util';
+import { loadTenantIepsEnabled } from '../billing/utils/fiscal-tax-policy.util';
 
 @Injectable()
 export class ProductVendorCostService {
@@ -65,11 +66,13 @@ export class ProductVendorCostService {
     }
 
     const cost = this.roundUnitCost(dto.cost);
-    const totals = this.calculateTotals(cost, dto.iva_percentage, dto.ieps_percentage);
+    const iepsPercentage = await this.resolveIeps(tenantId, dto.ieps_percentage);
+    const totals = this.calculateTotals(cost, dto.iva_percentage, iepsPercentage);
 
     const vendorCost = this.productVendorCostRepository.create({
       ...dto,
       cost,
+      ieps_percentage: iepsPercentage,
       ...totals,
       product_id: productId,
       currency: dto.currency || 'MXN',
@@ -129,14 +132,23 @@ export class ProductVendorCostService {
     const cost = this.roundUnitCost(
       dto.cost !== undefined ? dto.cost : Number(vendorCost.cost),
     );
+    const iepsPercentage = await this.resolveIeps(
+      tenantId,
+      dto.ieps_percentage ?? vendorCost.ieps_percentage,
+    );
     const totals = this.calculateTotals(
       cost,
       dto.iva_percentage ?? vendorCost.iva_percentage,
-      dto.ieps_percentage ?? vendorCost.ieps_percentage,
+      iepsPercentage,
     );
 
-    Object.assign(vendorCost, dto, totals, { cost });
+    Object.assign(vendorCost, dto, totals, { cost, ieps_percentage: iepsPercentage });
     return await this.productVendorCostRepository.save(vendorCost);
+  }
+
+  private async resolveIeps(tenantId: string, value: number | undefined): Promise<number> {
+    const enabled = await loadTenantIepsEnabled(this.productVendorCostRepository.manager, tenantId);
+    return enabled ? Number(value) || 0 : 0;
   }
 
   async remove(id: string, productId: string, tenantId: string): Promise<void> {

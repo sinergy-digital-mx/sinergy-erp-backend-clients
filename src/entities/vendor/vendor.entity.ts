@@ -46,6 +46,18 @@ export class Vendor {
   @Column({ type: 'varchar', nullable: true })
   street: string | null;
 
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  exterior_number?: string | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  interior_number?: string | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  colonia?: string | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  localidad?: string | null;
+
   @Column({ type: 'varchar', nullable: true })
   city: string | null;
 

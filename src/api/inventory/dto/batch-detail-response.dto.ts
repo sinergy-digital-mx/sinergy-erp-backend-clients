@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { InventoryBatchMovementDto } from './inventory-batch-movement.dto';
+import { InventoryMarginExplanationDto } from './inventory-margin.dto';
 
 export class BatchTransferHistoryItemDto {
   @ApiProperty() transfer_id: string;
@@ -9,6 +10,10 @@ export class BatchTransferHistoryItemDto {
   @ApiProperty({ nullable: true }) related_batch_id: string | null;
   @ApiProperty({ nullable: true }) related_batch_number: string | null;
   @ApiProperty({ nullable: true }) warehouse_name: string | null;
+  @ApiProperty({ description: 'pending, in_transit, received, received_with_difference, completed o cancelled' })
+  status: string;
+  @ApiProperty({ nullable: true }) source_billing_branch_id: string | null;
+  @ApiProperty({ nullable: true }) destination_billing_branch_id: string | null;
   @ApiProperty() created_at: Date;
 }
 
@@ -87,15 +92,27 @@ export class BatchDetailResponseDto {
   @ApiProperty({ nullable: true }) purchase_order_folio: string | null;
   @ApiProperty({
     nullable: true,
-    description: 'Número de pedimento de la OC de origen. Null si no hay OC o la OC no tiene pedimento.',
+    description:
+      'Pedimento principal. El de la OC si existe; si no, el más reciente guardado en el lote (importación).',
   })
   pedimento_number: string | null;
   @ApiProperty({
+    type: [String],
+    description:
+      'Pedimentos del lote. Uno si viene de la OC; todos los del reporte si el lote se importó.',
+  })
+  pedimento_numbers: string[];
+  @ApiProperty({
     nullable: true,
     description:
-      'Número de factura del proveedor de la OC de origen. Null si no hay OC o la OC no tiene factura.',
+      'Primera factura del proveedor de la OC. Null si no hay OC o la OC no tiene factura.',
   })
   vendor_invoice_number: string | null;
+  @ApiProperty({
+    type: [String],
+    description: 'Facturas del proveedor de la OC. Vacío si no hay OC o no hay facturas.',
+  })
+  vendor_invoice_numbers: string[];
 
   @ApiProperty({
     nullable: true,
@@ -174,4 +191,7 @@ export class BatchDetailResponseDto {
       'True si hay disponible. El almacén se cambia con transferencia, no con PATCH.',
   })
   can_transfer: boolean;
+
+  @ApiProperty({ type: InventoryMarginExplanationDto })
+  margin_detail: InventoryMarginExplanationDto;
 }

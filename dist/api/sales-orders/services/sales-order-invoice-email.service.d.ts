@@ -8,8 +8,8 @@ import { ElectronicInvoicePdfService } from '../../electronic-invoicing/services
 import { ElectronicInvoiceService } from '../../electronic-invoicing/services/electronic-invoice.service';
 import { WhatsappMessageService } from '../../whatsapp/services/whatsapp-message.service';
 import { SendSalesOrderInvoiceEmailDto } from '../dto/send-sales-order-invoice-email.dto';
-import { SendSalesOrderInvoiceWhatsappDto } from '../dto/send-sales-order-invoice-whatsapp.dto';
 import { UpdateInvoiceEmailTemplateDto } from '../dto/update-invoice-email-template.dto';
+import { SendSalesOrderInvoiceWhatsappDto } from '../dto/send-sales-order-invoice-whatsapp.dto';
 export declare class SalesOrderInvoiceEmailService {
     private readonly salesOrderRepo;
     private readonly customerRepo;

@@ -10,4 +10,5 @@ export enum InventoryStockLedgerMovementType {
   TRANSFER_OUT = 'transfer_out',
   AUDIT_ADJUSTMENT = 'audit_adjustment',
   OPENING_BALANCE = 'opening_balance',
+  PURCHASE_REVERSAL = 'purchase_reversal',
 }

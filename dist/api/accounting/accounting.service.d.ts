@@ -13,8 +13,56 @@ import { ExchangeRateService } from '../exchange-rate/exchange-rate.service';
 import { AccountingReportPeriod, PosCollectionCustomerType, PosCollectionDateBasis, PosCollectionPaymentMethodFilter, QueryAccountsPayableDto, QueryAccountsReceivableDto, QueryAccountingBaseDto, QueryPosCollectionsDto, QueryPosTerminalSalesDto } from './dto/query-accounting-base.dto';
 import { PosSalePaymentMethod } from '../../entities/pos/pos-sale-payment-method.enum';
 import { PosCollectionPaymentMethodTotals } from './utils/pos-collection-payment-totals.util';
-import { AccountsPayableVendorTotals } from './utils/accounts-payable-currency.util';
+import { AccountsPayableVendorTotals, PayableCurrencyCode } from './utils/accounts-payable-currency.util';
 import { AccountsReceivableAccountTotals } from './utils/accounts-receivable-currency.util';
+type PosCollectionSaleKind = 'advance' | 'credit' | 'cash';
+type PosCollectionUserRef = {
+    id: string;
+    first_name: string;
+    last_name: string;
+    pos_user_code: number | null;
+};
+type PosCollectionBranchRef = {
+    id: string | null;
+    code: string | null;
+    city: string | null;
+    label: string | null;
+};
+type PosCustomerFields = {
+    customer_company_name: string | null;
+    customer_person_name: string | null;
+    customer_display_name: string | null;
+};
+type PosCollectionListRow = PosCustomerFields & {
+    id: string;
+    sales_order_id: string | null;
+    is_credit_payment: boolean;
+    sale_kind: PosCollectionSaleKind;
+    document_kind: 'sales_order' | 'quotation';
+    collection_id: string | null;
+    folio: string;
+    total: number;
+    has_advance: boolean;
+    advance_given: number;
+    amount_pending: number;
+    payment_status: string;
+    general_status: string;
+    created_at: Date;
+    payment_date: string | null;
+    collected_at: Date;
+    shift_date: string | null;
+    billing_branch: PosCollectionBranchRef | null;
+    payment_method: string | null;
+    payment_method_label: string;
+    payment_breakdown_label: string | null;
+    has_stamped_invoice: boolean;
+    walk_in_name: string | null;
+    walk_in_rfc: string | null;
+    for_shipping: boolean;
+    is_walk_in: boolean;
+    seller_user: PosCollectionUserRef | null;
+    collected_by_user: PosCollectionUserRef | null;
+};
 export declare class AccountingService {
     private readonly salesOrderRepo;
     private readonly collectionRepo;
@@ -140,54 +188,7 @@ export declare class AccountingService {
             by_payment_method: PosCollectionPaymentMethodTotals;
         };
         filtered_amount: number;
-        data: {
-            is_walk_in: boolean;
-            seller_user: {
-                id: string;
-                first_name: string;
-                last_name: string;
-                pos_user_code: number | null;
-            } | null;
-            collected_by_user: {
-                id: string;
-                first_name: string;
-                last_name: string;
-                pos_user_code: number | null;
-            } | null;
-            customer_company_name: string | null;
-            customer_person_name: string | null;
-            customer_display_name: string | null;
-            id: string;
-            sales_order_id: string | null;
-            is_credit_payment: boolean;
-            sale_kind: "advance" | "credit" | "cash";
-            document_kind: "sales_order" | "quotation";
-            collection_id: string | null;
-            folio: string;
-            total: number;
-            has_advance: boolean;
-            advance_given: number;
-            amount_pending: number;
-            payment_status: string;
-            general_status: string;
-            created_at: Date;
-            payment_date: string | null;
-            collected_at: Date;
-            shift_date: string | null;
-            billing_branch: {
-                id: string | null;
-                code: string | null;
-                city: string | null;
-                label: string | null;
-            } | null;
-            payment_method: string | null;
-            payment_method_label: string;
-            payment_breakdown_label: string | null;
-            has_stamped_invoice: boolean;
-            walk_in_name: string | null;
-            walk_in_rfc: string | null;
-            for_shipping: boolean;
-        }[];
+        data: PosCollectionListRow[];
         total: number;
         page: number;
         limit: number;
@@ -418,7 +419,7 @@ export declare class AccountingService {
         orders: {
             id: string;
             folio: string;
-            currency: import("./utils/accounts-payable-currency.util").PayableCurrencyCode;
+            currency: PayableCurrencyCode;
             total: number;
             payment_status: string;
             general_status: string;
@@ -475,3 +476,4 @@ export declare class AccountingService {
     private buildUserName;
     private buildCustomerFields;
 }
+export {};

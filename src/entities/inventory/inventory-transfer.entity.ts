@@ -15,6 +15,7 @@ import { UoMCatalog } from '../uom-catalog/uom-catalog.entity';
 import { User } from '../users/user.entity';
 import { InventoryTransferStatus } from './inventory-transfer-status.enum';
 import { InventoryTransferLine } from './inventory-transfer-line.entity';
+import { ShippingInventoryTransfer } from '../logistics/shipping-inventory-transfer.entity';
 
 @Entity('inv_s_inventory_transfers')
 @Index('idx_transfer_tenant', ['tenant_id'])
@@ -37,19 +38,19 @@ export class InventoryTransfer {
   @Column({ length: 20 })
   folio: string;
 
-  @ManyToOne(() => Product, { onDelete: 'RESTRICT', nullable: false })
+  @ManyToOne(() => Product, { onDelete: 'RESTRICT', nullable: true })
   @JoinColumn({ name: 'product_id' })
-  product: Product;
+  product: Product | null;
 
-  @Column()
-  product_id: string;
+  @Column({ type: 'varchar', length: '36', nullable: true })
+  product_id: string | null;
 
-  @ManyToOne(() => UoMCatalog, { onDelete: 'RESTRICT', nullable: false })
+  @ManyToOne(() => UoMCatalog, { onDelete: 'RESTRICT', nullable: true })
   @JoinColumn({ name: 'uom_id' })
-  uom: UoMCatalog;
+  uom: UoMCatalog | null;
 
-  @Column()
-  uom_id: string;
+  @Column({ type: 'varchar', length: '36', nullable: true })
+  uom_id: string | null;
 
   @ManyToOne(() => Warehouse, { onDelete: 'RESTRICT', nullable: false })
   @JoinColumn({ name: 'source_warehouse_id' })
@@ -72,12 +73,21 @@ export class InventoryTransfer {
   @Column({
     type: 'enum',
     enum: InventoryTransferStatus,
-    default: InventoryTransferStatus.COMPLETED,
+    default: InventoryTransferStatus.PENDING,
   })
   status: InventoryTransferStatus;
 
   @Column({ type: 'text', nullable: true })
   notes: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  reception_notes: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  received_at: Date | null;
+
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  received_by: string | null;
 
   @ManyToOne(() => User, { onDelete: 'RESTRICT', nullable: false })
   @JoinColumn({ name: 'created_by' })
@@ -91,4 +101,7 @@ export class InventoryTransfer {
 
   @OneToMany(() => InventoryTransferLine, (line) => line.inventory_transfer)
   lines: InventoryTransferLine[];
+
+  @OneToMany(() => ShippingInventoryTransfer, (link) => link.inventory_transfer)
+  shipping_links: ShippingInventoryTransfer[];
 }

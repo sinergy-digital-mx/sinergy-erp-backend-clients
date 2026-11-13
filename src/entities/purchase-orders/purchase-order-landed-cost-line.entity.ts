@@ -50,6 +50,9 @@ export class PurchaseOrderLandedCostLine {
   })
   currency: 'MXN' | 'USD';
 
+  @Column({ type: 'tinyint', width: 1, default: 0 })
+  include_in_invoice: boolean;
+
   @Column({ type: 'int', default: 0 })
   sort_order: number;
 

@@ -13,6 +13,8 @@ import {
   HttpCode,
   HttpStatus,
   Res,
+  ForbiddenException,
+  UseInterceptors,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { TenantModuleValidationGuard } from '../../auth/tenant-module-validation.guard';
@@ -20,6 +22,7 @@ import { PurchaseOrderService } from '../services/purchase-order.service';
 import { PurchaseOrderDocumentsService } from '../services/purchase-order-documents.service';
 import { PurchaseOrderExportService } from '../services/purchase-order-export.service';
 import { PurchaseOrderMovementsService } from '../services/purchase-order-movements.service';
+import { PurchaseOrderLocationsService } from '../services/purchase-order-locations.service';
 import {
   CreatePurchaseOrderDto,
   CreateLineItemDto,
@@ -30,19 +33,26 @@ import {
   RegenerateDocumentDto,
   UpdatePurchaseOrderNotesDto,
   UpdatePurchaseOrderPedimentoDto,
+  UpdatePurchaseOrderVendorInvoiceDto,
   UpdatePurchaseOrderRealCostDto,
+  CorrectPurchaseReceiptDto,
   QueryPurchaseOrderHeaderExportDto,
   QueryPurchaseOrderDetailExportDto,
 } from '../dto';
+import { userCanViewPurchaseOrderRealCost } from '../constants/purchase-order-real-cost-permission';
+import { HidePurchaseOrderRealCostInterceptor } from '../interceptors/hide-purchase-order-real-cost.interceptor';
+import { userHasJwtPermission } from '../../rbac/utils/jwt-permission.util';
 
 @Controller('tenant/purchase-orders')
 @UseGuards(JwtAuthGuard, TenantModuleValidationGuard)
+@UseInterceptors(HidePurchaseOrderRealCostInterceptor)
 export class PurchaseOrderController {
   constructor(
     private readonly purchaseOrderService: PurchaseOrderService,
     private readonly documentsService: PurchaseOrderDocumentsService,
     private readonly exportService: PurchaseOrderExportService,
     private readonly movementsService: PurchaseOrderMovementsService,
+    private readonly locationsService: PurchaseOrderLocationsService,
   ) {}
 
   @Post()
@@ -56,7 +66,8 @@ export class PurchaseOrderController {
   @Get()
   async findAll(@Query() filters: QueryPurchaseOrderDto, @Req() req: any) {
     const tenantId = req.user.tenant_id;
-    return this.purchaseOrderService.findAll(tenantId, filters);
+    const includeStats = userHasJwtPermission(req.user, 'purchase_orders', 'ViewStats');
+    return this.purchaseOrderService.findAll(tenantId, filters, { includeStats });
   }
 
   @Get('export/excel/headers')
@@ -93,6 +104,11 @@ export class PurchaseOrderController {
       `attachment; filename="${this.exportService.getDetailsFilename(filters.created_from, filters.created_to)}"`,
     );
     res.send(buffer);
+  }
+
+  @Get('locations')
+  async getLocations(@Req() req: any) {
+    return this.locationsService.getLocationTree(req.user.tenant_id);
   }
 
   /* Rutas con más segmentos antes que `:id` suelto (evita conflictos en el router). */
@@ -247,12 +263,26 @@ export class PurchaseOrderController {
     return this.purchaseOrderService.updatePedimento(id, dto, tenantId, userId);
   }
 
+  @Patch(':id/vendor-invoice')
+  async updateVendorInvoice(
+    @Param('id') id: string,
+    @Body() dto: UpdatePurchaseOrderVendorInvoiceDto,
+    @Req() req: any,
+  ) {
+    const tenantId = req.user.tenant_id;
+    const userId = req.user.id;
+    return this.purchaseOrderService.updateVendorInvoice(id, dto, tenantId, userId);
+  }
+
   @Put(':id/real-cost')
   async updateRealCost(
     @Param('id') id: string,
     @Body() dto: UpdatePurchaseOrderRealCostDto,
     @Req() req: any,
   ) {
+    if (!userCanViewPurchaseOrderRealCost(req.user)) {
+      throw new ForbiddenException('No tienes permiso para editar el costo real');
+    }
     const tenantId = req.user.tenant_id;
     const userId = req.user.id;
     return this.purchaseOrderService.updateRealCost(id, dto, tenantId, userId);
@@ -288,6 +318,50 @@ export class PurchaseOrderController {
     const tenantId = req.user.tenant_id;
     const userId = req.user.id;
     return this.purchaseOrderService.replacePurchaseOrder(id, dto, tenantId, userId);
+  }
+
+  @Post(':id/cancel')
+  async cancelOrder(
+    @Param('id') id: string,
+    @Body() body: { reason?: string } | undefined,
+    @Req() req: any,
+  ) {
+    const tenantId = req.user.tenant_id;
+    const userId = req.user.id;
+    return this.purchaseOrderService.cancel(id, tenantId, userId, body?.reason);
+  }
+
+  @Post(':id/reopen')
+  async reopenOrder(@Param('id') id: string, @Req() req: any) {
+    const tenantId = req.user.tenant_id;
+    const userId = req.user.id;
+    return this.purchaseOrderService.reopen(id, tenantId, userId);
+  }
+
+  @Post(':id/reopen-for-receipt')
+  async reopenForAdditionalReceipt(@Param('id') id: string, @Req() req: any) {
+    const tenantId = req.user.tenant_id;
+    const userId = req.user.id;
+    return this.purchaseOrderService.reopenForAdditionalReceipt(id, tenantId, userId);
+  }
+
+  @Post(':id/close-additional-receipt')
+  async closeAdditionalReceipt(@Param('id') id: string, @Req() req: any) {
+    const tenantId = req.user.tenant_id;
+    const userId = req.user.id;
+    return this.purchaseOrderService.closeAdditionalReceipt(id, tenantId, userId);
+  }
+
+  @Patch(':id/receipt-correction')
+  async correctReceipt(
+    @Param('id') id: string,
+    @Body() dto: CorrectPurchaseReceiptDto,
+    @Req() req: any,
+  ) {
+    this.assertCorrectReceiptPermission(req);
+    const tenantId = req.user.tenant_id;
+    const userId = req.user.id;
+    return this.purchaseOrderService.correctReceipt(id, dto, tenantId, userId);
   }
 
   @Delete(':id')
@@ -328,5 +402,18 @@ export class PurchaseOrderController {
         movements_count: movements.total,
       },
     };
+  }
+
+  private assertCorrectReceiptPermission(req: any): void {
+    if (req.user?.hasAdminRole) {
+      return;
+    }
+    const permissions = Array.isArray(req.user?.permissions) ? req.user.permissions : [];
+    const allowed = permissions.some(
+      (permission: unknown) => String(permission).toLowerCase() === 'purchase_orders:correctreceipt',
+    );
+    if (!allowed) {
+      throw new ForbiddenException('No tienes permiso para corregir un recibo de compra');
+    }
   }
 }

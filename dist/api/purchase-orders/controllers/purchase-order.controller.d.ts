@@ -3,7 +3,7 @@ import { PurchaseOrderDocumentsService } from '../services/purchase-order-docume
 import { PurchaseOrderExportService } from '../services/purchase-order-export.service';
 import { PurchaseOrderMovementsService } from '../services/purchase-order-movements.service';
 import { PurchaseOrderLocationsService } from '../services/purchase-order-locations.service';
-import { CreatePurchaseOrderDto, CreateLineItemDto, ReceivePurchaseOrderDto, UpdateLineItemDto, QueryPurchaseOrderDto, CreatePurchaseOrderPaymentDto, RegenerateDocumentDto, UpdatePurchaseOrderNotesDto, UpdatePurchaseOrderPedimentoDto, UpdatePurchaseOrderVendorInvoiceDto, UpdatePurchaseOrderRealCostDto, QueryPurchaseOrderHeaderExportDto, QueryPurchaseOrderDetailExportDto, CorrectPurchaseReceiptDto } from '../dto';
+import { CreatePurchaseOrderDto, CreateLineItemDto, ReceivePurchaseOrderDto, UpdateLineItemDto, QueryPurchaseOrderDto, CreatePurchaseOrderPaymentDto, RegenerateDocumentDto, UpdatePurchaseOrderNotesDto, UpdatePurchaseOrderPedimentoDto, UpdatePurchaseOrderVendorInvoiceDto, UpdatePurchaseOrderRealCostDto, CorrectPurchaseReceiptDto, QueryPurchaseOrderHeaderExportDto, QueryPurchaseOrderDetailExportDto } from '../dto';
 export declare class PurchaseOrderController {
     private readonly purchaseOrderService;
     private readonly documentsService;

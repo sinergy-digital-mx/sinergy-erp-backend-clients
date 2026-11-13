@@ -14,6 +14,7 @@ import { RBACTenant } from '../rbac/tenant.entity';
 @Index('idx_trucks_tenant', ['tenant_id'])
 @Index('idx_trucks_status', ['status'])
 @Index('uq_trucks_tenant_placa', ['tenant_id', 'placa'], { unique: true })
+@Index('uq_trucks_tenant_gps_unit', ['tenant_id', 'gps_unit_uid'], { unique: true })
 export class Truck {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -56,6 +57,9 @@ export class Truck {
   @Column({ type: 'varchar', length: 100, nullable: true })
   poliza_rc: string | null;
 
+  @Column({ type: 'decimal', precision: 10, scale: 3, nullable: true })
+  peso_bruto_vehicular: number | null;
+
   @Column({ type: 'varchar', length: 100, nullable: true })
   subtipo_remolque1: string | null;
 
@@ -65,6 +69,12 @@ export class Truck {
   /** Clave S3 de la foto; en respuestas API se sustituye por URL firmada. */
   @Column({ type: 'varchar', length: 500, nullable: true })
   photo: string | null;
+
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  gps_unit_uid: string | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  gps_unit_name: string | null;
 
   @Column({
     type: 'enum',

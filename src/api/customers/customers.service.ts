@@ -17,6 +17,7 @@ import { CustomerAddress } from '../../entities/customers/customer-address.entit
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { BillingBranch } from '../../entities/billing/billing-branch.entity';
 import { FiscalConfiguration } from '../../entities/billing/fiscal-configuration.entity';
+import { SalesOrder } from '../../entities/sales-orders/sales-order.entity';
 import { User } from '../../entities/users/user.entity';
 import { parsePhoneNumber } from '../../common/utils/phone.validator';
 import { hasValidGps } from '../../common/utils/geo.helper';
@@ -24,18 +25,39 @@ import { CustomerGroupsService } from './customer-groups.service';
 import {
     composeFiscalAddress,
     hasSatStreetParts,
+    pickFiscalPart,
 } from './utils/fiscal-domicile.util';
 import { CustomerCreditService } from './services/customer-credit.service';
 import { CustomerAssignmentService } from './services/customer-assignment.service';
 import { getFiscalInvoiceReadiness } from './utils/fiscal-invoice-readiness.util';
 import { mapCustomerCheckoutFields } from './utils/map-customer-checkout.util';
 import { buildCreditSnapshot, extractCreditPatchFromBody } from './utils/customer-credit.util';
+import {
+    buildPurchaseTrend,
+    formatUtcDateTime,
+    PurchaseTrendRow,
+    rollingWindowStart,
+} from './utils/customer-purchase-trend.util';
 import { UpsertCustomerCreditsDto } from './dto/upsert-customer-credit.dto';
 import {
     assignmentChange,
     compactAssignmentChanges,
     formatAssignmentUserLabel,
 } from '../../common/utils/assignment-change.util';
+import { extractSatCsfTextItems } from './utils/sat-csf-pdf.util';
+import {
+    parseSatCsfTextItems,
+    SatCsfFiscalData,
+    SatCsfParseError,
+} from './utils/sat-csf.util';
+import {
+    applyCustomerDirectoryFilters,
+    CUSTOMER_FISCAL_READY_SQL,
+    CUSTOMER_HAS_EMAIL_SQL,
+    CUSTOMER_HAS_ORDER_SQL,
+    CUSTOMER_IS_ACTIVE_SQL,
+    CUSTOMER_IS_INACTIVE_SQL,
+} from './utils/customer-list-insight.util';
 
 const GENERIC_RFCS = new Set(['XAXX010101000', 'XEXX010101000']);
 const DUPLICATE_MATCH_LIMIT = 10;
@@ -65,6 +87,18 @@ interface PaginatedCustomersDto {
     hasPrev: boolean;
 }
 
+export interface CustomerListStats {
+    total: number;
+    with_orders: number;
+    without_orders: number;
+    fiscal_ready: number;
+    fiscal_not_ready: number;
+    active: number;
+    inactive: number;
+    with_email: number;
+    without_email: number;
+}
+
 @Injectable()
 export class CustomersService {
     constructor(
@@ -78,13 +112,17 @@ export class CustomersService {
         @InjectRepository(User) private userRepo: Repository<User>,
         @InjectRepository(CustomerAddress)
         private addressRepo: Repository<CustomerAddress>,
+        @InjectRepository(SalesOrder)
+        private salesOrderRepo: Repository<SalesOrder>,
         private readonly customerGroupsService: CustomerGroupsService,
         private readonly customerCreditService: CustomerCreditService,
         private readonly customerAssignmentService: CustomerAssignmentService,
     ) { }
 
     private async resolveDefaultStatus(): Promise<CustomerStatus> {
-        const active = await this.statusRepo.findOne({ where: { code: 'ACTIVE' } });
+        const active = await this.statusRepo.findOne({
+            where: { code: 'ACTIVE' },
+        });
         if (active) return active;
         return this.statusRepo.findOneByOrFail({ id: 1 });
     }
@@ -123,9 +161,7 @@ export class CustomersService {
         }
 
         const warehouse =
-            dto.warehouse_id !== undefined
-                ? await this.resolveWarehouseOrThrow(dto.warehouse_id, tenantId)
-                : undefined;
+            dto.warehouse_id !== undefined ? await this.resolveWarehouseOrThrow(dto.warehouse_id, tenantId) : undefined;
 
         const groupId = await this.customerGroupsService.assertBelongsToOrganization(
             dto.group_id,
@@ -138,9 +174,7 @@ export class CustomersService {
             tenantId,
         );
         const registeredByUserId = await this.resolveRegisteredByUserOrThrow(
-            dto.registered_by_user_id !== undefined
-                ? dto.registered_by_user_id
-                : currentUserId,
+            dto.registered_by_user_id !== undefined ? dto.registered_by_user_id : currentUserId,
             tenantId,
         );
         delete dto.registered_fiscal_configuration_id;
@@ -200,11 +234,7 @@ export class CustomersService {
     async update(id: number, dto: UpdateCustomerDto, tenantId: string, currentUserId?: string) {
         const customer = await this.customerRepo.findOneOrFail({
             where: { id, tenant_id: tenantId },
-            relations: [
-                'registered_fiscal_configuration',
-                'registered_billing_branch',
-                'assigned_seller_user',
-            ],
+            relations: ['registered_fiscal_configuration', 'registered_billing_branch', 'assigned_seller_user'],
         });
         const previousAssignment = {
             fiscalId: customer.registered_fiscal_configuration_id,
@@ -213,7 +243,9 @@ export class CustomersService {
         };
 
         if (dto.status_id) {
-            const status = await this.statusRepo.findOneByOrFail({ id: dto.status_id });
+            const status = await this.statusRepo.findOneByOrFail({
+                id: dto.status_id,
+            });
             customer.status = status;
         }
 
@@ -229,10 +261,7 @@ export class CustomersService {
 
         if (dto.additional_phone) {
             const defaultCode =
-                dto.additional_phone_code ??
-                customer.additional_phone_code ??
-                dto.phone_code ??
-                customer.phone_code;
+                dto.additional_phone_code ?? customer.additional_phone_code ?? dto.phone_code ?? customer.phone_code;
             const parsed = parsePhoneNumber(dto.additional_phone, defaultCode);
             if (parsed.isValid) {
                 dto.additional_phone = parsed.nationalNumber;
@@ -252,10 +281,7 @@ export class CustomersService {
             delete dto.group_id;
         }
 
-        if (
-            dto.registered_fiscal_configuration_id !== undefined ||
-            dto.registered_billing_branch_id !== undefined
-        ) {
+        if (dto.registered_fiscal_configuration_id !== undefined || dto.registered_billing_branch_id !== undefined) {
             const registration = await this.resolveRegistrationAssignment(dto, tenantId, customer);
             customer.registered_fiscal_configuration_id = registration.fiscalId;
             customer.registered_billing_branch_id = registration.branchId;
@@ -318,6 +344,37 @@ export class CustomersService {
         return enriched;
     }
 
+    async applySatConstancia(
+        id: number,
+        file: { buffer?: Buffer; mimetype?: string; originalname?: string; size?: number },
+        tenantId: string,
+        currentUserId?: string,
+    ) {
+        if (!file?.buffer?.length) {
+            throw new BadRequestException('Sube el PDF de la constancia del SAT.');
+        }
+        if ((file.size ?? file.buffer.length) > 10 * 1024 * 1024) {
+            throw new BadRequestException('El PDF no puede superar 10 MB.');
+        }
+        const name = (file.originalname ?? '').toLowerCase();
+        const mime = (file.mimetype ?? '').toLowerCase();
+        const header = file.buffer.subarray(0, 5).toString('utf8');
+        if (header !== '%PDF-' || (mime !== 'application/pdf' && !name.endsWith('.pdf'))) {
+            throw new BadRequestException('Sube el PDF de la constancia del SAT.');
+        }
+
+        try {
+            const items = await extractSatCsfTextItems(file.buffer);
+            const parsed = parseSatCsfTextItems(items);
+            return await this.update(id, toSatConstanciaUpdate(parsed), tenantId, currentUserId);
+        } catch (error) {
+            if (error instanceof SatCsfParseError) {
+                throw new BadRequestException(error.message);
+            }
+            throw error;
+        }
+    }
+
     async findAll(tenantId: string, query?: QueryCustomersDto): Promise<PaginatedCustomersDto> {
         let page = Number(query?.page) || 1;
         let limit = Number(query?.limit) || 20;
@@ -328,7 +385,8 @@ export class CustomersService {
         
         const skip = (page - 1) * limit;
 
-        const queryBuilder = this.customerRepo.createQueryBuilder('customer')
+        const queryBuilder = this.customerRepo
+            .createQueryBuilder('customer')
             .leftJoinAndSelect('customer.status', 'status')
             .leftJoinAndSelect(
                 'customer.group',
@@ -338,11 +396,7 @@ export class CustomersService {
             .leftJoinAndSelect('customer.warehouse', 'warehouse')
             .leftJoinAndSelect('customer.registered_billing_branch', 'registeredBranch')
             .leftJoin('customer.registered_fiscal_configuration', 'registeredFiscal')
-            .addSelect([
-                'registeredFiscal.id',
-                'registeredFiscal.razon_social',
-                'registeredFiscal.rfc',
-            ])
+            .addSelect(['registeredFiscal.id', 'registeredFiscal.razon_social', 'registeredFiscal.rfc'])
             .leftJoin('customer.registered_by_user', 'registeredByUser')
             .addSelect([
                 'registeredByUser.id',
@@ -360,54 +414,23 @@ export class CustomersService {
             ])
             .leftJoin('customer.contracts', 'contracts')
             .leftJoin('contracts.property', 'property')
-            .addSelect(['contracts.id', 'contracts.status', 'contracts.contract_number', 'property.id', 'property.code', 'property.name', 'property.status'])
+            .addSelect([
+                'contracts.id',
+                'contracts.status',
+                'contracts.contract_number',
+                'property.id',
+                'property.code',
+                'property.name',
+                'property.status',
+            ])
             .where('customer.tenant_id = :tenantId', { tenantId });
 
-        if (query?.search) {
-            const term = `%${query.search.trim()}%`;
-            queryBuilder.andWhere(
-                `(
-                    LOWER(customer.name) LIKE LOWER(:search)
-                    OR LOWER(customer.lastname) LIKE LOWER(:search)
-                    OR LOWER(CONCAT(customer.name, ' ', COALESCE(customer.lastname, ''))) LIKE LOWER(:search)
-                    OR LOWER(CONCAT(COALESCE(customer.lastname, ''), ' ', customer.name)) LIKE LOWER(:search)
-                    OR LOWER(customer.email) LIKE LOWER(:search)
-                    OR LOWER(customer.phone) LIKE LOWER(:search)
-                    OR LOWER(customer.phone_code) LIKE LOWER(:search)
-                    OR LOWER(CONCAT(COALESCE(customer.phone_code, ''), customer.phone)) LIKE LOWER(:search)
-                    OR LOWER(customer.company_name) LIKE LOWER(:search)
-                    OR LOWER(customer.website) LIKE LOWER(:search)
-                    OR LOWER(customer.additional_name) LIKE LOWER(:search)
-                    OR LOWER(customer.additional_lastname) LIKE LOWER(:search)
-                    OR LOWER(CONCAT(customer.additional_name, ' ', COALESCE(customer.additional_lastname, ''))) LIKE LOWER(:search)
-                    OR LOWER(customer.additional_email) LIKE LOWER(:search)
-                    OR LOWER(customer.additional_phone) LIKE LOWER(:search)
-                    OR LOWER(customer.fiscal_rfc) LIKE LOWER(:search)
-                    OR LOWER(customer.fiscal_razon_social) LIKE LOWER(:search)
-                    OR LOWER(property.code) LIKE LOWER(:search)
-                    OR LOWER(property.name) LIKE LOWER(:search)
-                    OR LOWER(property.cadastral_key) LIKE LOWER(:search)
-                    OR LOWER(contracts.contract_number) LIKE LOWER(:search)
-                )`,
-                { search: term },
-            );
-        }
-
-        if (query?.status_id) {
-            queryBuilder.andWhere('customer.status_id = :status_id', { status_id: query.status_id });
-        }
-
-        if (query?.group_id) {
-            queryBuilder.andWhere('customer.group_id = :group_id', { group_id: query.group_id });
-        }
+        applyCustomerDirectoryFilters(queryBuilder, query);
 
         queryBuilder.orderBy('customer.created_at', 'DESC');
 
         const total = await queryBuilder.getCount();
-        const customers = await queryBuilder
-            .skip(skip)
-            .take(limit)
-            .getMany();
+        const customers = await queryBuilder.skip(skip).take(limit).getMany();
 
         const totalPages = Math.ceil(total / limit);
 
@@ -419,6 +442,46 @@ export class CustomersService {
             totalPages,
             hasNext: page < totalPages,
             hasPrev: page > 1,
+        };
+    }
+
+    async getListStats(tenantId: string, query?: QueryCustomersDto): Promise<CustomerListStats> {
+        const queryBuilder = this.customerRepo
+            .createQueryBuilder('customer')
+            .leftJoin('customer.status', 'status')
+            .leftJoin('customer.contracts', 'contracts')
+            .leftJoin('contracts.property', 'property')
+            .where('customer.tenant_id = :tenantId', { tenantId });
+
+        applyCustomerDirectoryFilters(queryBuilder, query, { applyInsight: false });
+
+        const raw = await queryBuilder
+            .select('COUNT(DISTINCT customer.id)', 'total')
+            .addSelect(`COUNT(DISTINCT CASE WHEN ${CUSTOMER_HAS_ORDER_SQL} THEN customer.id END)`, 'with_orders')
+            .addSelect(`COUNT(DISTINCT CASE WHEN NOT (${CUSTOMER_HAS_ORDER_SQL}) THEN customer.id END)`, 'without_orders')
+            .addSelect(`COUNT(DISTINCT CASE WHEN ${CUSTOMER_FISCAL_READY_SQL} THEN customer.id END)`, 'fiscal_ready')
+            .addSelect(`COUNT(DISTINCT CASE WHEN NOT (${CUSTOMER_FISCAL_READY_SQL}) THEN customer.id END)`, 'fiscal_not_ready')
+            .addSelect(`COUNT(DISTINCT CASE WHEN ${CUSTOMER_IS_ACTIVE_SQL} THEN customer.id END)`, 'active')
+            .addSelect(`COUNT(DISTINCT CASE WHEN ${CUSTOMER_IS_INACTIVE_SQL} THEN customer.id END)`, 'inactive')
+            .addSelect(`COUNT(DISTINCT CASE WHEN ${CUSTOMER_HAS_EMAIL_SQL} THEN customer.id END)`, 'with_email')
+            .addSelect(`COUNT(DISTINCT CASE WHEN NOT (${CUSTOMER_HAS_EMAIL_SQL}) THEN customer.id END)`, 'without_email')
+            .getRawOne<Record<string, string | number | null>>();
+
+        const count = (key: keyof CustomerListStats): number => {
+            const value = Number(raw?.[key] ?? 0);
+            return Number.isFinite(value) ? value : 0;
+        };
+
+        return {
+            total: count('total'),
+            with_orders: count('with_orders'),
+            without_orders: count('without_orders'),
+            fiscal_ready: count('fiscal_ready'),
+            fiscal_not_ready: count('fiscal_not_ready'),
+            active: count('active'),
+            inactive: count('inactive'),
+            with_email: count('with_email'),
+            without_email: count('without_email'),
         };
     }
 
@@ -434,11 +497,7 @@ export class CustomersService {
             .leftJoinAndSelect('customer.warehouse', 'warehouse')
             .leftJoinAndSelect('customer.registered_billing_branch', 'registeredBranch')
             .leftJoin('customer.registered_fiscal_configuration', 'registeredFiscal')
-            .addSelect([
-                'registeredFiscal.id',
-                'registeredFiscal.razon_social',
-                'registeredFiscal.rfc',
-            ])
+            .addSelect(['registeredFiscal.id', 'registeredFiscal.razon_social', 'registeredFiscal.rfc'])
             .leftJoin('customer.registered_by_user', 'registeredByUser')
             .addSelect([
                 'registeredByUser.id',
@@ -468,7 +527,10 @@ export class CustomersService {
     }
 
     async listCredits(id: number, tenantId: string) {
-        const customer = await this.customerRepo.findOneBy({ id, tenant_id: tenantId });
+        const customer = await this.customerRepo.findOneBy({
+            id,
+            tenant_id: tenantId,
+        });
         if (!customer) {
             throw new NotFoundException('Cliente no encontrado');
         }
@@ -480,7 +542,10 @@ export class CustomersService {
         dto: UpsertCustomerCreditsDto,
         tenantId: string,
     ) {
-        const customer = await this.customerRepo.findOneBy({ id, tenant_id: tenantId });
+        const customer = await this.customerRepo.findOneBy({
+            id,
+            tenant_id: tenantId,
+        });
         if (!customer) {
             throw new NotFoundException('Cliente no encontrado');
         }
@@ -499,11 +564,7 @@ export class CustomersService {
             .leftJoinAndSelect('customer.warehouse', 'warehouse')
             .leftJoinAndSelect('customer.registered_billing_branch', 'registeredBranch')
             .leftJoin('customer.registered_fiscal_configuration', 'registeredFiscal')
-            .addSelect([
-                'registeredFiscal.id',
-                'registeredFiscal.razon_social',
-                'registeredFiscal.rfc',
-            ])
+            .addSelect(['registeredFiscal.id', 'registeredFiscal.razon_social', 'registeredFiscal.rfc'])
             .leftJoin('customer.registered_by_user', 'registeredByUser')
             .addSelect([
                 'registeredByUser.id',
@@ -537,11 +598,7 @@ export class CustomersService {
             .leftJoinAndSelect('customer.warehouse', 'warehouse')
             .leftJoinAndSelect('customer.registered_billing_branch', 'registeredBranch')
             .leftJoin('customer.registered_fiscal_configuration', 'registeredFiscal')
-            .addSelect([
-                'registeredFiscal.id',
-                'registeredFiscal.razon_social',
-                'registeredFiscal.rfc',
-            ])
+            .addSelect(['registeredFiscal.id', 'registeredFiscal.razon_social', 'registeredFiscal.rfc'])
             .leftJoin('customer.registered_by_user', 'registeredByUser')
             .addSelect([
                 'registeredByUser.id',
@@ -616,9 +673,7 @@ export class CustomersService {
         const gpsOk = hasValidGps(address);
         address.has_gps = gpsOk ? 1 : 0;
         if (dto.latitude !== undefined || dto.longitude !== undefined) {
-            address.address_source =
-                dto.address_source ||
-                (gpsOk ? 'manual' : 'without_location');
+            address.address_source = dto.address_source || (gpsOk ? 'manual' : 'without_location');
         }
 
         return this.addressRepo.save(address);
@@ -810,11 +865,7 @@ export class CustomersService {
             reasons.push('name');
         }
 
-        if (
-            input.rfc &&
-            !GENERIC_RFCS.has(input.rfc) &&
-            this.normalizeRfc(customer.fiscal_rfc) === input.rfc
-        ) {
+        if (input.rfc && !GENERIC_RFCS.has(input.rfc) && this.normalizeRfc(customer.fiscal_rfc) === input.rfc) {
             reasons.push('rfc');
         }
 
@@ -974,14 +1025,14 @@ export class CustomersService {
                   dto.registered_fiscal_configuration_id,
                   tenantId,
               )
-            : existing?.registered_fiscal_configuration_id ?? null;
+            : (existing?.registered_fiscal_configuration_id ?? null);
 
         let branchId = branchTouched
             ? await this.resolveRegisteredBranchOrThrow(
                   dto.registered_billing_branch_id,
                   tenantId,
               )
-            : existing?.registered_billing_branch_id ?? null;
+            : (existing?.registered_billing_branch_id ?? null);
 
         fiscalId = fiscalId ?? null;
         branchId = branchId ?? null;
@@ -1114,10 +1165,10 @@ export class CustomersService {
         }
 
         const composed = composeFiscalAddress({
-            street: dto.fiscal_street ?? existing?.fiscal_street,
-            exteriorNumber: dto.fiscal_exterior_number ?? existing?.fiscal_exterior_number,
-            interiorNumber: dto.fiscal_interior_number ?? existing?.fiscal_interior_number,
-            colonia: dto.fiscal_colonia ?? existing?.fiscal_colonia,
+            street: pickFiscalPart(dto.fiscal_street, existing?.fiscal_street),
+            exteriorNumber: pickFiscalPart(dto.fiscal_exterior_number, existing?.fiscal_exterior_number),
+            interiorNumber: pickFiscalPart(dto.fiscal_interior_number, existing?.fiscal_interior_number),
+            colonia: pickFiscalPart(dto.fiscal_colonia, existing?.fiscal_colonia),
         });
         if (composed) {
             dto.fiscal_address = composed;
@@ -1161,8 +1212,7 @@ export class CustomersService {
                 customer,
                 fiscalConfigurationId,
             )
-            : credits.find((item) => item.credit_enabled) ??
-              buildCreditSnapshot({ creditEnabled: false });
+            : (credits.find((item) => item.credit_enabled) ?? buildCreditSnapshot({ creditEnabled: false }));
         const mapped = mapCustomerCheckoutFields(
             customer,
             credits,
@@ -1184,4 +1234,140 @@ export class CustomersService {
             assignment_history,
         };
     }
+
+    async getSalesStats(customerId: number, tenantId: string) {
+        const customer = await this.customerRepo.findOne({
+            where: { id: customerId, tenant_id: tenantId },
+            select: ['id'],
+        });
+        if (!customer) {
+            throw new NotFoundException('Cliente no encontrado');
+        }
+
+        const active = `so.general_status <> 'Cancelada'`;
+        const invoiced = `EXISTS (
+            SELECT 1 FROM electronic_invoices ei
+            WHERE ei.tenant_id = so.tenant_id
+              AND ei.source_module = 'sales_orders'
+              AND ei.source_id = so.id
+              AND ei.stamp_status IN ('stamped', 'cancel_pending', 'cancel_error')
+              AND (ei.sat_status IS NULL OR ei.sat_status <> 'Cancelado')
+        )`;
+        const balanceDue = `GREATEST(
+            so.total - COALESCE((
+                SELECT SUM(p.amount)
+                FROM inv_s_sales_order_payments p
+                WHERE p.sales_order_id = so.id AND p.tenant_id = so.tenant_id
+            ), 0),
+            0
+        )`;
+
+        const row = await this.salesOrderRepo
+            .createQueryBuilder('so')
+            .select('COUNT(so.id)', 'orders_count')
+            .addSelect(`COALESCE(SUM(CASE WHEN ${active} THEN 1 ELSE 0 END), 0)`, 'active_orders_count')
+            .addSelect(`COALESCE(SUM(CASE WHEN so.general_status = 'Cancelada' THEN 1 ELSE 0 END), 0)`, 'cancelled_count')
+            .addSelect(`COALESCE(SUM(CASE WHEN ${active} THEN so.total ELSE 0 END), 0)`, 'sales_total')
+            .addSelect(`MAX(CASE WHEN ${active} THEN so.created_at END)`, 'last_order_at')
+            .addSelect(`COALESCE(SUM(CASE WHEN ${active} AND ${invoiced} THEN 1 ELSE 0 END), 0)`, 'invoiced_count')
+            .addSelect(`COALESCE(SUM(CASE WHEN ${active} AND so.payment_status = 'Pagado' THEN 1 ELSE 0 END), 0)`, 'paid_count')
+            .addSelect(`COALESCE(SUM(CASE WHEN ${active} AND so.payment_status = 'Pagado' THEN so.total ELSE 0 END), 0)`, 'paid_total')
+            .addSelect(`COALESCE(SUM(CASE WHEN ${active} AND so.payment_status = 'Pendiente' THEN 1 ELSE 0 END), 0)`, 'pending_count')
+            .addSelect(`COALESCE(SUM(CASE WHEN ${active} AND so.payment_status = 'Pendiente' THEN ${balanceDue} ELSE 0 END), 0)`, 'pending_total')
+            .where('so.customer_id = :customerId', { customerId })
+            .andWhere('so.tenant_id = :tenantId', { tenantId })
+            .getRawOne<{
+                orders_count: string | number | null;
+                active_orders_count: string | number | null;
+                cancelled_count: string | number | null;
+                sales_total: string | number | null;
+                last_order_at: string | Date | null;
+                invoiced_count: string | number | null;
+                paid_count: string | number | null;
+                paid_total: string | number | null;
+                pending_count: string | number | null;
+                pending_total: string | number | null;
+            }>();
+
+        const lastOrder = await this.salesOrderRepo.findOne({
+            where: {
+                customer_id: customerId,
+                tenant_id: tenantId,
+                general_status: Not('Cancelada'),
+            },
+            select: ['folio', 'created_at'],
+            order: { created_at: 'DESC' },
+        });
+
+        const money = (value: string | number | null | undefined) => Number(Number(value ?? 0).toFixed(2));
+        const count = (value: string | number | null | undefined) => Number(value ?? 0);
+        const activeOrders = count(row?.active_orders_count);
+        const salesTotal = money(row?.sales_total);
+
+        return {
+            orders_count: count(row?.orders_count),
+            active_orders_count: activeOrders,
+            cancelled_count: count(row?.cancelled_count),
+            sales_total: salesTotal,
+            paid_total: money(row?.paid_total),
+            paid_count: count(row?.paid_count),
+            pending_total: money(row?.pending_total),
+            pending_count: count(row?.pending_count),
+            invoiced_count: count(row?.invoiced_count),
+            average_order: activeOrders > 0 ? Number((salesTotal / activeOrders).toFixed(2)) : 0,
+            last_order_at: lastOrder?.created_at ?? row?.last_order_at ?? null,
+            last_order_folio: lastOrder?.folio ?? null,
+        };
+    }
+
+    async getPurchaseTrend(customerId: number, tenantId: string) {
+        const customer = await this.customerRepo.findOne({
+            where: { id: customerId, tenant_id: tenantId },
+            select: ['id'],
+        });
+        if (!customer) {
+            throw new NotFoundException('Cliente no encontrado');
+        }
+
+        const from = formatUtcDateTime(new Date(rollingWindowStart().getTime() - 24 * 60 * 60 * 1000));
+        const rows = await this.salesOrderRepo
+            .createQueryBuilder('so')
+            .select('so.created_at', 'created_at')
+            .addSelect('so.total', 'total')
+            .where('so.customer_id = :customerId', { customerId })
+            .andWhere('so.tenant_id = :tenantId', { tenantId })
+            .andWhere(`so.general_status <> 'Cancelada'`)
+            .andWhere('so.created_at >= :from', { from })
+            .getRawMany<PurchaseTrendRow>();
+
+        return {
+            currency: 'MXN',
+            ...buildPurchaseTrend(rows),
+        };
+    }
+}
+
+function toSatConstanciaUpdate(data: SatCsfFiscalData): UpdateCustomerDto {
+    const dto: UpdateCustomerDto = {
+        fiscal_rfc: data.fiscal_rfc,
+        fiscal_person_type: data.fiscal_person_type,
+        fiscal_razon_social: data.fiscal_razon_social,
+        fiscal_postal_code: data.fiscal_postal_code,
+        fiscal_country: data.fiscal_country,
+    };
+    const optional: Array<keyof SatCsfFiscalData & keyof UpdateCustomerDto> = [
+        'fiscal_street',
+        'fiscal_exterior_number',
+        'fiscal_interior_number',
+        'fiscal_colonia',
+        'fiscal_localidad',
+        'fiscal_municipio',
+        'fiscal_state',
+    ];
+    for (const key of optional) {
+        if (data[key] !== undefined) {
+            (dto as Record<string, unknown>)[key] = data[key];
+        }
+    }
+    return dto;
 }

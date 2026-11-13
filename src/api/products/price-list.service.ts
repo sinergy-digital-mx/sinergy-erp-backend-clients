@@ -22,18 +22,26 @@ export class PriceListService {
     }
 
     const priceList = this.priceListRepository.create({
-      ...dto,
+      name: dto.name,
+      description: dto.description,
+      list_number: dto.list_number ?? null,
+      margin_percent: dto.margin_percent ?? null,
       tenant_id: tenantId,
       is_active: true,
     });
 
-    return await this.priceListRepository.save(priceList);
+    return this.normalize(await this.priceListRepository.save(priceList));
   }
 
   async findAll(tenantId: string): Promise<PriceList[]> {
-    return await this.priceListRepository.find({
+    const rows = await this.priceListRepository.find({
       where: { tenant_id: tenantId },
-      order: { name: 'ASC' },
+    });
+    return rows.map((row) => this.normalize(row)).sort((a, b) => {
+      const aNumber = a.list_number == null ? Number.MAX_SAFE_INTEGER : a.list_number;
+      const bNumber = b.list_number == null ? Number.MAX_SAFE_INTEGER : b.list_number;
+      if (aNumber !== bNumber) return aNumber - bNumber;
+      return a.name.localeCompare(b.name, 'es');
     });
   }
 
@@ -46,7 +54,7 @@ export class PriceListService {
       throw new NotFoundException(`Lista de precios con ID ${id} no encontrada`);
     }
 
-    return priceList;
+    return this.normalize(priceList);
   }
 
   async update(id: string, dto: UpdatePriceListDto, tenantId: string): Promise<PriceList> {
@@ -62,8 +70,17 @@ export class PriceListService {
       }
     }
 
-    Object.assign(priceList, dto);
-    return await this.priceListRepository.save(priceList);
+    if (dto.name !== undefined) priceList.name = dto.name;
+    if (dto.description !== undefined) priceList.description = dto.description;
+    if (dto.list_number !== undefined) priceList.list_number = dto.list_number;
+    if (dto.margin_percent !== undefined) priceList.margin_percent = dto.margin_percent;
+    return this.normalize(await this.priceListRepository.save(priceList));
+  }
+
+  private normalize(list: PriceList): PriceList {
+    list.list_number = list.list_number == null ? null : Number(list.list_number);
+    list.margin_percent = list.margin_percent == null ? null : Number(list.margin_percent);
+    return list;
   }
 
   async remove(id: string, tenantId: string): Promise<void> {

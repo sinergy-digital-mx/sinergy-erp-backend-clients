@@ -40,29 +40,54 @@ export class BranchWarehouseDto {
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Calle. Obligatoria al guardar el almacén.',
+  })
   @IsOptional()
   @IsString()
+  @MaxLength(255, {
+    message: 'La calle del almacén no puede pasar de 255 caracteres',
+  })
   street?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Ciudad. Obligatoria al guardar el almacén.',
+  })
   @IsOptional()
   @IsString()
+  @MaxLength(255, {
+    message: 'La ciudad del almacén no puede pasar de 255 caracteres',
+  })
   city?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Estado. Obligatorio al guardar el almacén.',
+  })
   @IsOptional()
   @IsString()
+  @MaxLength(255, {
+    message: 'El estado del almacén no puede pasar de 255 caracteres',
+  })
   state?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Código postal. Obligatorio al guardar el almacén.',
+  })
   @IsOptional()
   @IsString()
+  @MaxLength(20, {
+    message: 'El código postal del almacén no puede pasar de 20 caracteres',
+  })
   zip_code?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'País. Obligatorio al guardar el almacén.',
+  })
   @IsOptional()
   @IsString()
+  @MaxLength(255, {
+    message: 'El país del almacén no puede pasar de 255 caracteres',
+  })
   country?: string;
 
   @ApiPropertyOptional({
@@ -72,9 +97,9 @@ export class BranchWarehouseDto {
   })
   @IsOptional()
   @Type(() => Number)
-  @IsNumber()
-  @Min(-90)
-  @Max(90)
+  @IsNumber({}, { message: 'La latitud del almacén no es un número válido' })
+  @Min(-90, { message: 'La latitud del almacén debe estar entre -90 y 90' })
+  @Max(90, { message: 'La latitud del almacén debe estar entre -90 y 90' })
   latitude?: number | null;
 
   @ApiPropertyOptional({
@@ -84,9 +109,9 @@ export class BranchWarehouseDto {
   })
   @IsOptional()
   @Type(() => Number)
-  @IsNumber()
-  @Min(-180)
-  @Max(180)
+  @IsNumber({}, { message: 'La longitud del almacén no es un número válido' })
+  @Min(-180, { message: 'La longitud del almacén debe estar entre -180 y 180' })
+  @Max(180, { message: 'La longitud del almacén debe estar entre -180 y 180' })
   longitude?: number | null;
 
   @ApiPropertyOptional({ enum: ['active', 'inactive'] })

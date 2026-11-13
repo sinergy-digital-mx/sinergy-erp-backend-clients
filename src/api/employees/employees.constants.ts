@@ -11,5 +11,16 @@ export const EMPLOYEES_ACTIONS = [
   'Read',
   'Update',
   'Delete',
-  'ManageLeave', // aprobar/rechazar solicitudes de vacaciones/faltas
+  'ManageLeave', // aprobar/rechazar solicitudes de vacaciones/faltas/horas extras
+  'ViewOwn',
 ];
+
+export const EMPLOYEES_ACTION_DESCRIPTIONS: Record<string, string> = {
+  ViewMenu: 'Ver Empleados en el menú',
+  Create: 'Crear empleados',
+  Read: 'Ver todos los empleados, su salario y sus solicitudes',
+  Update: 'Actualizar datos de empleados y registrar solicitudes a su nombre',
+  Delete: 'Eliminar empleados',
+  ManageLeave: 'Aprobar o rechazar vacaciones, ausencias y horas extras',
+  ViewOwn: 'Ver solo mi expediente, mi salario y solicitar vacaciones u horas extras',
+};

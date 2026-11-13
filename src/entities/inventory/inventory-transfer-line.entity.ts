@@ -42,12 +42,15 @@ export class InventoryTransferLine {
   @Column({ type: 'decimal', precision: 12, scale: 3 })
   quantity: number;
 
-  @ManyToOne(() => InventoryBatch, { onDelete: 'RESTRICT', nullable: false })
-  @JoinColumn({ name: 'destination_inventory_batch_id' })
-  destination_inventory_batch: InventoryBatch;
+  @Column({ type: 'decimal', precision: 12, scale: 3, nullable: true })
+  quantity_received: number | null;
 
-  @Column()
-  destination_inventory_batch_id: string;
+  @ManyToOne(() => InventoryBatch, { onDelete: 'RESTRICT', nullable: true })
+  @JoinColumn({ name: 'destination_inventory_batch_id' })
+  destination_inventory_batch: InventoryBatch | null;
+
+  @Column({ type: 'varchar', length: '36', nullable: true })
+  destination_inventory_batch_id: string | null;
 
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;

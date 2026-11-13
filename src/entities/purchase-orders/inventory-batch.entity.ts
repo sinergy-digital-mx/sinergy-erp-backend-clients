@@ -38,6 +38,18 @@ export class InventoryBatch {
   @Column({ type: 'varchar', length: 100, nullable: true })
   source_tag_identifier: string | null;
 
+  @Column({ type: 'varchar', length: 30, nullable: true })
+  pedimento_number: string | null;
+
+  @Column({ type: 'json', nullable: true })
+  pedimento_entries: Array<{
+    number: string | null;
+    date: string | null;
+    customs: string | null;
+    vendor: string | null;
+    raw: string;
+  }> | null;
+
   /**
    * Tamaño opcional del lote (p. ej. 8 o 12).
    * Independiente de uom_id (existencia: PT, ft², pza).

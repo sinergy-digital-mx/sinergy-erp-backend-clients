@@ -82,6 +82,15 @@ export class User {
     @Column({ type: 'tinyint', default: 0 })
     is_crm_admin: boolean;
 
+    @Column({ type: 'tinyint', default: 0 })
+    is_driver: boolean;
+
+    @Column({ type: 'varchar', length: 30, nullable: true })
+    driver_license_number: string | null;
+
+    @Column({ type: 'varchar', length: 13, nullable: true })
+    driver_rfc: string | null;
+
     @CreateDateColumn({ type: 'timestamp' })
     created_at: Date;
 

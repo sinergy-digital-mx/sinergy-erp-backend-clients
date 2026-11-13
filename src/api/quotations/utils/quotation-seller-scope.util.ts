@@ -4,6 +4,8 @@ import { entityCodesMatch } from '../../rbac/utils/entity-code.util';
 export type QuotationSellerAccess = {
   userId: string;
   canViewAll: boolean;
+  canViewAllBranches: boolean;
+  assignedBranchIds?: string[];
 };
 
 function listJwtPermissionStrings(
@@ -39,9 +41,9 @@ function listJwtPermissionStrings(
   return flat;
 }
 
-/** JWT trae `quotation:ViewAll`. No usa el rol Admin. */
-export function userCanViewAllQuotations(
+function jwtHasQuotationAction(
   user: { permissions?: unknown } | null | undefined,
+  actionNormalized: string,
 ): boolean {
   return listJwtPermissionStrings(user).some((raw) => {
     const colon = raw.indexOf(':');
@@ -50,8 +52,21 @@ export function userCanViewAllQuotations(
     }
     const entity = raw.slice(0, colon);
     const action = raw.slice(colon + 1).replace(/[_-]/g, '').toLowerCase();
-    return entityCodesMatch(entity, 'Quotation') && action === 'viewall';
+    return entityCodesMatch(entity, 'Quotation') && action === actionNormalized;
   });
+}
+
+/** JWT trae `quotation:ViewAll`. No usa el rol Admin. */
+export function userCanViewAllQuotations(
+  user: { permissions?: unknown } | null | undefined,
+): boolean {
+  return jwtHasQuotationAction(user, 'viewall');
+}
+
+export function userCanViewAllQuotationBranches(
+  user: { permissions?: unknown } | null | undefined,
+): boolean {
+  return jwtHasQuotationAction(user, 'viewallbranches');
 }
 
 /** Con ViewAll: filtro opcional. Sin él: siempre el propio usuario. */
@@ -98,6 +113,61 @@ export function assertQuotationSellerAccess(
     return;
   }
   if (quotationIsVisibleToSeller(quotation, access.userId)) {
+    return;
+  }
+  throw new NotFoundException(`Cotización no encontrada: ${quotation.id}`);
+}
+
+export function quotationBillingBranchId(quotation: {
+  billing_branch_id?: string | null;
+  warehouse?: { billing_branch_id?: string | null } | null;
+}): string | null {
+  return quotation.billing_branch_id ?? quotation.warehouse?.billing_branch_id ?? null;
+}
+
+export function resolveQuotationBranchScopeIds(
+  canViewAllBranches: boolean,
+  assignedBranchIds: string[],
+  requestedBranchId?: string,
+): string[] | null {
+  const requested = requestedBranchId?.trim();
+  if (canViewAllBranches) {
+    return requested ? [requested] : null;
+  }
+  if (requested) {
+    if (!assignedBranchIds.includes(requested)) {
+      throw new ForbiddenException(
+        'No puedes filtrar cotizaciones de otras sucursales',
+      );
+    }
+    return [requested];
+  }
+  return assignedBranchIds;
+}
+
+export function quotationIsVisibleToBranches(
+  quotation: {
+    billing_branch_id?: string | null;
+    warehouse?: { billing_branch_id?: string | null } | null;
+  },
+  assignedBranchIds: string[],
+): boolean {
+  const branchId = quotationBillingBranchId(quotation);
+  return Boolean(branchId && assignedBranchIds.includes(branchId));
+}
+
+export function assertQuotationBranchAccess(
+  quotation: {
+    id: string;
+    billing_branch_id?: string | null;
+    warehouse?: { billing_branch_id?: string | null } | null;
+  },
+  access?: QuotationSellerAccess,
+): void {
+  if (!access || access.canViewAllBranches) {
+    return;
+  }
+  if (quotationIsVisibleToBranches(quotation, access.assignedBranchIds ?? [])) {
     return;
   }
   throw new NotFoundException(`Cotización no encontrada: ${quotation.id}`);

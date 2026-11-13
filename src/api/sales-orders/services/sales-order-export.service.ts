@@ -5,6 +5,7 @@ import { SalesOrder } from '../../../entities/sales-orders/sales-order.entity';
 import { SalesOrderDetail } from '../../../entities/sales-orders/sales-order-detail.entity';
 import { SalesOrderPayment } from '../../../entities/sales-orders/sales-order-payment.entity';
 import { PosSaleCollection } from '../../../entities/pos/pos-sale-collection.entity';
+import { ElectronicInvoice } from '../../../entities/electronic-invoicing/electronic-invoice.entity';
 import {
   QuerySalesOrderDetailExportDto,
   QuerySalesOrderHeaderExportDto,
@@ -24,6 +25,16 @@ import {
   SALES_ORDER_COLLECTION_CHANNEL_LABELS,
   SalesOrderCollectionChannelDisplay,
 } from '../utils/sales-order-collection-channel.util';
+import {
+  emptyInvoiceExportRow,
+  groupInvoicesByOrderId,
+  mapInvoiceExportRow,
+  SALES_ORDER_INVOICE_EXPORT_COLUMNS,
+} from '../utils/sales-order-invoice-export.util';
+import {
+  columnsWithoutDisabledIeps,
+  loadTenantIepsEnabled,
+} from '../../billing/utils/fiscal-tax-policy.util';
 
 @Injectable()
 export class SalesOrderExportService {
@@ -47,6 +58,7 @@ export class SalesOrderExportService {
     { header: 'Vendedor', key: 'seller_name', width: 22 },
     { header: 'Comisionado', key: 'assigned_seller_name', width: 24 },
     { header: 'Notas', key: 'notes', width: 30 },
+    ...SALES_ORDER_INVOICE_EXPORT_COLUMNS,
   ];
 
   private readonly detailColumns: ExcelColumnDef[] = [
@@ -70,6 +82,7 @@ export class SalesOrderExportService {
     { header: 'IVA %', key: 'iva_percentage', width: 10, type: 'percent' },
     { header: 'Subtotal línea', key: 'line_subtotal', width: 14, type: 'currency' },
     { header: 'Total línea', key: 'line_total', width: 14, type: 'currency' },
+    ...SALES_ORDER_INVOICE_EXPORT_COLUMNS,
   ];
 
   constructor(
@@ -81,11 +94,27 @@ export class SalesOrderExportService {
     private readonly paymentRepo: Repository<SalesOrderPayment>,
     @InjectRepository(PosSaleCollection)
     private readonly posCollectionRepo: Repository<PosSaleCollection>,
+    @InjectRepository(ElectronicInvoice)
+    private readonly invoiceRepo: Repository<ElectronicInvoice>,
   ) {}
+
+  private async columnsFor(
+    tenantId: string,
+    columns: ExcelColumnDef[],
+  ): Promise<ExcelColumnDef[]> {
+    const iepsEnabled = await loadTenantIepsEnabled(this.soRepo.manager, tenantId);
+    return columnsWithoutDisabledIeps(columns, iepsEnabled);
+  }
 
   async exportHeaders(tenantId: string, filters: QuerySalesOrderHeaderExportDto): Promise<Buffer> {
     const orders = await this.fetchOrders(tenantId, filters);
-    const channelByOrder = await this.loadCollectionChannels(tenantId, orders);
+    const [channelByOrder, invoiceByOrder] = await Promise.all([
+      this.loadCollectionChannels(tenantId, orders),
+      this.loadInvoicesByOrder(
+        tenantId,
+        orders.map((so) => so.id),
+      ),
+    ]);
     const rows = orders.map((so) => ({
       folio: so.folio,
       created_at: formatExportDateTime(so.created_at),
@@ -106,6 +135,7 @@ export class SalesOrderExportService {
       seller_name: this.formatUserName(so.seller_user),
       assigned_seller_name: this.formatUserName(so.assigned_seller_user),
       notes: so.notes ?? '',
+      ...mapInvoiceExportRow(invoiceByOrder.get(so.id) ?? [], formatExportDateTime),
     }));
 
     return buildStyledExcelBuffer({
@@ -116,7 +146,7 @@ export class SalesOrderExportService {
         `Registros: ${rows.length}`,
         this.describeFilters(filters),
       ]),
-      columns: this.headerColumns,
+      columns: await this.columnsFor(tenantId, this.headerColumns),
       rows,
       headerColor: 'FF1B7F5E',
       titleColor: 'FF145A47',
@@ -155,12 +185,22 @@ export class SalesOrderExportService {
       .getMany();
 
     const filtered = this.applyDetailFilters(details, filters);
-    const channelByOrder = await this.loadCollectionChannels(
-      tenantId,
-      filtered
-        .map((d) => d.sales_order)
-        .filter((so): so is SalesOrder => !!so),
-    );
+    const orderIds = [
+      ...new Set(
+        filtered
+          .map((d) => d.sales_order?.id)
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    const [channelByOrder, invoiceByOrder] = await Promise.all([
+      this.loadCollectionChannels(
+        tenantId,
+        filtered
+          .map((d) => d.sales_order)
+          .filter((so): so is SalesOrder => !!so),
+      ),
+      this.loadInvoicesByOrder(tenantId, orderIds),
+    ]);
 
     const rows = filtered.map((d) => {
       const qty = num(d.quantity);
@@ -188,7 +228,7 @@ export class SalesOrderExportService {
           d.sales_order?.warehouse?.billing_branch?.code ??
           '',
         product_sku: d.product?.sku ?? '',
-        product_name: d.product?.name ?? '',
+        product_name: d.custom_description?.trim() || d.product?.name || '',
         uom_name: d.product_uom?.uom?.name ?? '',
         quantity: qty,
         unit_price: unitPrice,
@@ -198,6 +238,12 @@ export class SalesOrderExportService {
         iva_percentage: num(d.iva_percentage),
         line_subtotal: lineSubtotal,
         line_total: lineTotal,
+        ...(d.sales_order
+          ? mapInvoiceExportRow(
+              invoiceByOrder.get(d.sales_order.id) ?? [],
+              formatExportDateTime,
+            )
+          : emptyInvoiceExportRow()),
       };
     });
 
@@ -210,7 +256,7 @@ export class SalesOrderExportService {
         `Líneas: ${rows.length}`,
         this.describeFilters(filters),
       ]),
-      columns: this.detailColumns,
+      columns: await this.columnsFor(tenantId, this.detailColumns),
       rows,
       headerColor: 'FF2E8B57',
       titleColor: 'FF1F6049',
@@ -380,6 +426,49 @@ export class SalesOrderExportService {
     ]);
 
     return mapCollectionChannelByOrderId(uniqueOrders, collections, payments);
+  }
+
+  private async loadInvoicesByOrder(
+    tenantId: string,
+    orderIds: string[],
+  ): Promise<Map<string, ElectronicInvoice[]>> {
+    if (orderIds.length === 0) {
+      return new Map();
+    }
+    const invoices = await this.invoiceRepo.find({
+      where: {
+        tenant_id: tenantId,
+        source_module: 'sales_orders',
+        source_id: In(orderIds),
+      },
+      select: [
+        'id',
+        'source_id',
+        'uuid',
+        'series',
+        'folio',
+        'tipo_comprobante',
+        'rfc_emisor',
+        'rfc_receptor',
+        'receptor_nombre',
+        'subtotal',
+        'total',
+        'currency',
+        'stamped_at',
+        'stamp_status',
+        'stamp_error_message',
+        'cancel_motivo',
+        'cancel_replacement_uuid',
+        'sat_status',
+        'sat_es_cancelable',
+        'sat_estatus_cancelacion',
+        'sat_codigo_estatus',
+        'sat_last_sync_at',
+        'metadata',
+        'created_at',
+      ],
+    });
+    return groupInvoicesByOrderId(invoices);
   }
 
   private formatCustomerName(so: SalesOrder): string {

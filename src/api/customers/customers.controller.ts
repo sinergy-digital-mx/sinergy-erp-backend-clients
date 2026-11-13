@@ -11,9 +11,14 @@ import {
     Delete,
     Query,
     Res,
+    BadRequestException,
+    UseInterceptors,
+    UploadedFile,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiBearerAuth, ApiQuery, ApiConsumes } from '@nestjs/swagger';
 import { CustomersService } from './customers.service';
+import { PermissionService } from '../rbac/services/permission.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { QueryCustomersDto } from './dto/query-customers.dto';
@@ -28,6 +33,8 @@ import { QueryCustomerProductInsightsDto } from './dto/query-customer-product-in
 import { CustomerGroupsService } from './customer-groups.service';
 import { CheckCustomerDuplicatesDto } from './dto/check-customer-duplicates.dto';
 import { UpsertCustomerCreditsDto } from './dto/upsert-customer-credit.dto';
+import { UpsertCustomerPriceListsDto } from './dto/upsert-customer-price-lists.dto';
+import { CustomerPriceListService } from './services/customer-price-list.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionGuard } from '../rbac/guards/permission.guard';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator';
@@ -42,7 +49,33 @@ export class CustomersController {
         private readonly exportService: CustomersExportService,
         private readonly productInsightsService: CustomerProductInsightsService,
         private readonly customerGroupsService: CustomerGroupsService,
+        private readonly customerPriceListService: CustomerPriceListService,
+        private readonly permissionService: PermissionService,
     ) { }
+
+    private async stripInsightWithoutPermission(
+        query: QueryCustomersDto | undefined,
+        req: any,
+    ): Promise<void> {
+        if (!query?.insight) {
+            return;
+        }
+        const userId = req.user?.user_id ?? req.user?.id;
+        const tenantId = req.user?.tenantId ?? req.user?.tenant_id;
+        if (!userId || !tenantId) {
+            query.insight = undefined;
+            return;
+        }
+        const allowed = await this.permissionService.hasPermission(
+            userId,
+            tenantId,
+            'customers',
+            'ViewStats',
+        );
+        if (!allowed) {
+            query.insight = undefined;
+        }
+    }
 
     @Post()
     @RequirePermissions({ entityType: 'customers', action: 'Create' })
@@ -90,6 +123,37 @@ export class CustomersController {
         );
     }
 
+    @Post(':id/fiscal-constancia')
+    @RequirePermissions({ entityType: 'customers', action: 'Update' })
+    @UseInterceptors(FileInterceptor('file'))
+    @ApiConsumes('multipart/form-data')
+    @ApiOperation({ summary: 'Leer la constancia del SAT (PDF) y guardar los datos fiscales' })
+    @ApiParam({ name: 'id', type: 'number', description: 'Customer ID' })
+    @ApiBody({
+        schema: {
+            type: 'object',
+            properties: { file: { type: 'string', format: 'binary' } },
+        },
+    })
+    @ApiResponse({ status: 200, description: 'Datos fiscales actualizados desde la constancia' })
+    @ApiResponse({ status: 400, description: 'El PDF no es una constancia legible' })
+    applySatConstancia(
+        @Param('id') id: string,
+        @UploadedFile()
+        file: { buffer?: Buffer; mimetype?: string; originalname?: string; size?: number },
+        @Req() req,
+    ) {
+        if (!file) {
+            throw new BadRequestException('Sube el PDF de la constancia del SAT.');
+        }
+        return this.customersService.applySatConstancia(
+            Number(id),
+            file,
+            req.user.tenantId,
+            req.user.id ?? req.user.user_id,
+        );
+    }
+
     @Get('statuses')
     @RequirePermissions({ entityType: 'customers', action: 'Read' })
     @ApiOperation({ summary: 'Listar estatus disponibles para clientes' })
@@ -131,6 +195,7 @@ export class CustomersController {
         @Req() req,
         @Res() res,
     ) {
+        await this.stripInsightWithoutPermission(query, req);
         const buffer = await this.exportService.exportCustomers(req.user.tenantId, query);
         res.setHeader(
             'Content-Type',
@@ -143,6 +208,25 @@ export class CustomersController {
         res.send(buffer);
     }
 
+    @Get('stats')
+    @RequirePermissions({ entityType: 'customers', action: 'ViewStats' })
+    @ApiOperation({
+        summary: 'Resumen del listado de clientes de esta organización',
+        description:
+            'Totales de órdenes vigentes, listos para facturar, activos y con correo. Respeta búsqueda, estatus y grupo. No aplica insight.',
+    })
+    @ApiQuery({ name: 'search', required: false, type: String })
+    @ApiQuery({ name: 'status_id', required: false, type: Number })
+    @ApiQuery({ name: 'group_id', required: false, type: String })
+    @ApiResponse({ status: 200, description: 'Conteos del directorio' })
+    @ApiResponse({ status: 403, description: 'Sin permiso ViewStats' })
+    getListStats(@Query() query: QueryCustomersDto, @Req() req) {
+        return this.customersService.getListStats(
+            req.user.tenantId ?? req.user.tenant_id,
+            query,
+        );
+    }
+
     @Get()
     @RequirePermissions({ entityType: 'customers', action: 'Read' })
     @ApiOperation({ summary: 'Get paginated customers with search and filters' })
@@ -151,10 +235,17 @@ export class CustomersController {
     @ApiQuery({ name: 'search', required: false, type: String, description: 'Search by name, email, phone, company, RFC, fiscal name, etc.' })
     @ApiQuery({ name: 'status_id', required: false, type: Number, description: 'Filter by status ID' })
     @ApiQuery({ name: 'group_id', required: false, type: String, description: 'Filter by customer group ID' })
+    @ApiQuery({
+        name: 'insight',
+        required: false,
+        type: String,
+        description: 'Corte del resumen. Se ignora sin el permiso ViewStats.',
+    })
     @ApiResponse({ status: 200, description: 'List of customers retrieved successfully' })
     @ApiResponse({ status: 401, description: 'Unauthorized - Invalid or missing token' })
     @ApiResponse({ status: 403, description: 'Forbidden - Insufficient permissions' })
     async findAll(@Query() query: QueryCustomersDto, @Req() req): Promise<any> {
+        await this.stripInsightWithoutPermission(query, req);
         return this.customersService.findAll(req.user.tenantId, query);
     }
 
@@ -198,6 +289,38 @@ export class CustomersController {
         return this.customersService.upsertCredits(Number(id), dto, req.user.tenantId);
     }
 
+    @Get(':id/price-lists')
+    @RequirePermissions({ entityType: 'customers', action: 'Read' })
+    @ApiOperation({
+        summary: 'Listas de precio habilitadas para el cliente',
+    })
+    @ApiParam({ name: 'id', type: 'number', description: 'Customer ID' })
+    listPriceLists(@Param('id') id: string, @Req() req) {
+        return this.customerPriceListService.list(
+            Number(id),
+            req.user.tenantId ?? req.user.tenant_id,
+        );
+    }
+
+    @Put(':id/price-lists')
+    @RequirePermissions({ entityType: 'customers', action: 'Update' })
+    @ApiOperation({
+        summary: 'Reemplaza las listas de precio del cliente y marca una como predeterminada',
+    })
+    @ApiParam({ name: 'id', type: 'number', description: 'Customer ID' })
+    @ApiBody({ type: UpsertCustomerPriceListsDto })
+    upsertPriceLists(
+        @Param('id') id: string,
+        @Body() dto: UpsertCustomerPriceListsDto,
+        @Req() req,
+    ) {
+        return this.customerPriceListService.replace(
+            Number(id),
+            req.user.tenantId ?? req.user.tenant_id,
+            dto.price_lists ?? [],
+        );
+    }
+
     @Get(':id')
     @RequirePermissions({ entityType: 'customers', action: 'Read' })
     @ApiOperation({ summary: 'Get a specific customer by ID' })
@@ -220,6 +343,25 @@ export class CustomersController {
             Number(id),
             req.user.tenantId,
             fiscalConfigurationId,
+        );
+    }
+
+    @Get(':id/sales-stats')
+    @RequirePermissions({ entityType: 'customers', action: 'Read' })
+    @ApiOperation({ summary: 'Resumen de ventas del cliente' })
+    @ApiParam({ name: 'id', type: 'number' })
+    salesStats(@Param('id') id: string, @Req() req) {
+        return this.customersService.getSalesStats(Number(id), req.user.tenantId);
+    }
+
+    @Get(':id/purchase-trend')
+    @RequirePermissions({ entityType: 'customers', action: 'Read' })
+    @ApiOperation({ summary: 'Compras del cliente en los últimos 12 meses' })
+    @ApiParam({ name: 'id', type: 'number' })
+    purchaseTrend(@Param('id') id: string, @Req() req) {
+        return this.customersService.getPurchaseTrend(
+            Number(id),
+            req.user.tenant_id ?? req.user.tenantId,
         );
     }
 

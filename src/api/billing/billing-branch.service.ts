@@ -14,6 +14,10 @@ import { UpdateBillingBranchDto } from './dto/update-billing-branch.dto';
 import { BranchWarehouseDto } from './dto/branch-warehouse.dto';
 import { normalizeDocumentPrefix } from '../../common/utils/document-prefix.util';
 import { randomUUID } from 'crypto';
+import {
+  assertWarehouseLocation,
+  mapWarehousePersistError,
+} from '../warehouse/utils/warehouse-address.util';
 
 type BranchWarehouseResponse = {
   id: string;
@@ -61,7 +65,9 @@ export class BillingBranchService {
 
     const existingBranch = await this.branchRepository
       .createQueryBuilder('branch')
-      .where('branch.fiscal_configuration_id = :fiscalConfigId', { fiscalConfigId })
+      .where('branch.fiscal_configuration_id = :fiscalConfigId', {
+        fiscalConfigId,
+      })
       .andWhere('LOWER(branch.code) = LOWER(:name)', { name })
       .getOne();
 
@@ -72,6 +78,10 @@ export class BillingBranchService {
     }
 
     const { warehouses, name: _name, code: _code, ...branchData } = dto;
+
+    if (warehouses?.length) {
+      await this.assertIncomingWarehouses(null, warehouses);
+    }
 
     const branch = this.branchRepository.create({
       ...branchData,
@@ -98,7 +108,9 @@ export class BillingBranchService {
 
     const branches = await this.branchRepository
       .createQueryBuilder('branch')
-      .where('branch.fiscal_configuration_id = :fiscalConfigId', { fiscalConfigId })
+      .where('branch.fiscal_configuration_id = :fiscalConfigId', {
+        fiscalConfigId,
+      })
       .loadRelationCountAndMap('branch.warehousesCount', 'branch.warehouses')
       .orderBy('branch.code', 'ASC')
       .getMany();
@@ -163,10 +175,15 @@ export class BillingBranchService {
     }
 
     if (incomingName !== undefined || branchData.code !== undefined) {
-      const name = this.resolveBranchName({ name: incomingName, code: branchData.code });
+      const name = this.resolveBranchName({
+        name: incomingName,
+        code: branchData.code,
+      });
       const existingBranch = await this.branchRepository
         .createQueryBuilder('branch')
-        .where('branch.fiscal_configuration_id = :fiscalConfigId', { fiscalConfigId })
+        .where('branch.fiscal_configuration_id = :fiscalConfigId', {
+          fiscalConfigId,
+        })
         .andWhere('LOWER(branch.code) = LOWER(:name)', { name })
         .andWhere('branch.id != :id', { id })
         .getOne();
@@ -175,6 +192,10 @@ export class BillingBranchService {
         throw new ConflictException('Ya existe una sucursal con ese nombre');
       }
       branchData.code = name;
+    }
+
+    if (warehouses !== undefined) {
+      await this.assertIncomingWarehouses(id, warehouses, tenantId);
     }
 
     Object.assign(branch, branchData);
@@ -198,7 +219,10 @@ export class BillingBranchService {
       throw new NotFoundException('Sucursal no encontrada');
     }
 
-    await this.warehouseRepository.delete({ billing_branch_id: id, tenant_id: tenantId });
+    await this.warehouseRepository.delete({
+      billing_branch_id: id,
+      tenant_id: tenantId,
+    });
     await this.branchRepository.remove(branch);
   }
 
@@ -250,7 +274,9 @@ export class BillingBranchService {
     });
 
     const incomingIds = new Set(
-      warehouses.filter((warehouse) => warehouse.id).map((warehouse) => warehouse.id!),
+      warehouses
+        .filter((warehouse) => warehouse.id)
+        .map((warehouse) => warehouse.id!),
     );
 
     const toDelete = existing.filter((warehouse) => !incomingIds.has(warehouse.id));
@@ -269,7 +295,13 @@ export class BillingBranchService {
         }
 
         Object.assign(warehouse, this.toWarehouseUpdatePayload(item, branchId));
-        await this.warehouseRepository.save(warehouse);
+        const location = assertWarehouseLocation(warehouse);
+        Object.assign(warehouse, location);
+        try {
+          await this.warehouseRepository.save(warehouse);
+        } catch (error) {
+          mapWarehousePersistError(error, warehouse.name);
+        }
         continue;
       }
 
@@ -277,15 +309,62 @@ export class BillingBranchService {
         throw new BadRequestException('El nombre del almacén es obligatorio');
       }
 
+      const location = assertWarehouseLocation({
+        ...item,
+        name: item.name,
+      });
+
       const created = this.warehouseRepository.create({
         ...this.toWarehouseCreatePayload(item, branchId),
+        ...location,
         tenant_id: tenantId,
         name: item.name.trim(),
         status: item.status ?? 'active',
       });
       created.code = created.id || randomUUID();
 
-      await this.warehouseRepository.save(created);
+      try {
+        await this.warehouseRepository.save(created);
+      } catch (error) {
+        mapWarehousePersistError(error, item.name);
+      }
+    }
+  }
+
+  private async assertIncomingWarehouses(
+    branchId: string | null,
+    warehouses: BranchWarehouseDto[],
+    tenantId?: string,
+  ): Promise<void> {
+    const existing =
+      branchId && tenantId
+        ? await this.warehouseRepository.find({
+            where: { billing_branch_id: branchId, tenant_id: tenantId },
+          })
+        : [];
+
+    for (const item of warehouses) {
+      if (item.id) {
+        const current = existing.find((row) => row.id === item.id);
+        if (!current) {
+          throw new BadRequestException('El almacén no pertenece a esta sucursal');
+        }
+        const payload = this.toWarehouseUpdatePayload(item, branchId as string);
+        assertWarehouseLocation({
+          ...current,
+          ...payload,
+          name: payload.name ?? current.name,
+        });
+        continue;
+      }
+
+      if (!item.name?.trim()) {
+        throw new BadRequestException('El nombre del almacén es obligatorio');
+      }
+      if (item.prefix !== undefined) {
+        normalizeDocumentPrefix(item.prefix);
+      }
+      assertWarehouseLocation({ ...item, name: item.name });
     }
   }
 
@@ -294,7 +373,9 @@ export class BillingBranchService {
     branchId: string,
   ): Partial<Warehouse> {
     const prefix =
-      item.prefix !== undefined ? normalizeDocumentPrefix(item.prefix) : undefined;
+      item.prefix !== undefined
+        ? normalizeDocumentPrefix(item.prefix)
+        : undefined;
     return {
       billing_branch_id: branchId,
       prefix,

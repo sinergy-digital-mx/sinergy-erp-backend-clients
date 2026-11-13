@@ -1,15 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import PdfPrinter from 'pdfmake';
 import * as path from 'path';
+import * as QRCode from 'qrcode';
 import { S3Service } from '../../../common/services/s3.service';
 import { DocumentLanguage } from '../../../common/enums/document-language.enum';
 import { SalesOrder } from '../../../entities/sales-orders/sales-order.entity';
+import { invoiceMonthDeadlineLabel } from '../utils/invoice-month-deadline.util';
 import {
   getSalesOrderPdfLabels,
   SalesOrderPdfLabels,
   translateGeneralStatus,
   translatePaymentStatus,
 } from './sales-order-pdf-labels';
+import { isFiscalFlagOn } from '../../billing/utils/fiscal-tax-policy.util';
+import { lineConceptName } from '../utils/sales-order-line-name.util';
 
 const COLORS = {
   primary: '#1E3A5F',
@@ -27,6 +31,21 @@ const COLORS = {
   info: '#2563EB',
 };
 
+export interface SalesOrderPdfSelfInvoice {
+  code: string;
+  url: string;
+  soldAt: Date | string;
+}
+
+interface SalesOrderPdfOptions {
+  title?: string;
+  subtitle?: string;
+  hidePayment?: boolean;
+  notesPrefix?: string;
+  notesEmpty?: string;
+  selfInvoice?: SalesOrderPdfSelfInvoice;
+}
+
 @Injectable()
 export class SalesOrderPdfService {
   private fonts = {
@@ -43,13 +62,7 @@ export class SalesOrderPdfService {
   async generatePdf(
     salesOrder: SalesOrder,
     language: DocumentLanguage = DocumentLanguage.ES,
-    options?: {
-      title?: string;
-      subtitle?: string;
-      hidePayment?: boolean;
-      notesPrefix?: string;
-      notesEmpty?: string;
-    },
+    options?: SalesOrderPdfOptions,
   ): Promise<Buffer> {
     return this.buildDocument(salesOrder, language, 'original', options);
   }
@@ -65,13 +78,7 @@ export class SalesOrderPdfService {
     salesOrder: SalesOrder,
     language: DocumentLanguage,
     kind: 'original' | 'delivery',
-    options?: {
-      title?: string;
-      subtitle?: string;
-      hidePayment?: boolean;
-      notesPrefix?: string;
-      notesEmpty?: string;
-    },
+    options?: SalesOrderPdfOptions,
   ): Promise<Buffer> {
     const printer = new PdfPrinter(this.fonts);
     const labels: SalesOrderPdfLabels = {
@@ -97,6 +104,9 @@ export class SalesOrderPdfService {
         this.buildPartyCards(salesOrder, labels),
         this.buildProductsSection(salesOrder, labels),
         this.buildNotesAndTotals(salesOrder, labels),
+        ...(options?.selfInvoice
+          ? [await this.buildSelfInvoiceSection(options.selfInvoice, labels, language)]
+          : []),
       ],
       footer: (currentPage: number, pageCount: number) => ({
         columns: [
@@ -354,7 +364,8 @@ export class SalesOrderPdfService {
       tableBody.push([
         {
           stack: [
-            { text: item.product?.name || 'N/A', fontSize: 9, bold: true, color: COLORS.text },
+            { text: lineConceptName(item, 'N/A'), fontSize: 9, bold: true, color: COLORS.text },
+            ...this.lineNoteBlock(item.notes),
             {
               text: `${labels.unitPrefix}: ${uomName}`,
               fontSize: 7.5,
@@ -388,7 +399,7 @@ export class SalesOrderPdfService {
         {
           table: {
             headerRows: 1,
-            widths: ['*', 78, 78, 58, 78],
+            widths: ['*', 62, 70, 48, 72],
             body: tableBody,
           },
           layout: {
@@ -399,10 +410,10 @@ export class SalesOrderPdfService {
             hLineWidth: () => 0.4,
             vLineWidth: () => 0,
             hLineColor: () => COLORS.line,
-            paddingTop: () => 6,
-            paddingBottom: () => 6,
-            paddingLeft: () => 8,
-            paddingRight: () => 8,
+            paddingTop: () => 5,
+            paddingBottom: () => 5,
+            paddingLeft: () => 4,
+            paddingRight: () => 4,
           },
         },
       ],
@@ -436,13 +447,13 @@ export class SalesOrderPdfService {
               ],
               fillColor: COLORS.light,
               border: [false, false, false, false],
-              margin: [14, 14, 16, 14],
+              margin: [8, 8, 8, 8],
             },
             {
               stack: [this.buildTotalsTable(salesOrder, labels)],
               fillColor: COLORS.light,
               border: [false, false, false, false],
-              margin: [10, 12, 12, 12],
+              margin: [8, 8, 8, 8],
             },
           ],
         ],
@@ -467,11 +478,14 @@ export class SalesOrderPdfService {
       rows.push(this.totalRow(labels.discountTotal, 0));
     }
 
-    rows.push(
-      this.totalRow(labels.vat, Number(salesOrder.iva_total) || 0),
-      this.totalRow(labels.ieps, Number(salesOrder.ieps_total) || 0),
-      this.totalRow(labels.totalLabel, Number(salesOrder.total) || 0, true),
-    );
+    const fiscal = salesOrder.fiscal_configuration;
+    if (isFiscalFlagOn(fiscal?.iva_enabled, true)) {
+      rows.push(this.totalRow(labels.vat, Number(salesOrder.iva_total) || 0));
+    }
+    if (isFiscalFlagOn(fiscal?.ieps_enabled, true) && Number(salesOrder.ieps_total) !== 0) {
+      rows.push(this.totalRow(labels.ieps, Number(salesOrder.ieps_total) || 0));
+    }
+    rows.push(this.totalRow(labels.totalLabel, Number(salesOrder.total) || 0, true));
 
     return {
       table: {
@@ -571,6 +585,18 @@ export class SalesOrderPdfService {
     };
   }
 
+  private lineNoteBlock(notes?: string | null): any[] {
+    const text = notes?.trim();
+    if (!text) return [];
+    return [{
+      text,
+      fontSize: 7.5,
+      italics: true,
+      color: '#92400e',
+      margin: [0, 2, 0, 0],
+    }];
+  }
+
   private thCell(alignment: 'left' | 'center' | 'right'): Record<string, unknown> {
     return {
       fontSize: 7.5,
@@ -619,6 +645,75 @@ export class SalesOrderPdfService {
       '$' +
       amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })
     );
+  }
+
+  private async buildSelfInvoiceSection(
+    block: SalesOrderPdfSelfInvoice,
+    labels: SalesOrderPdfLabels,
+    language: DocumentLanguage,
+  ): Promise<any> {
+    const qr = await QRCode.toDataURL(block.url, {
+      errorCorrectionLevel: 'M',
+      margin: 1,
+      width: 220,
+    });
+    const deadline = invoiceMonthDeadlineLabel(
+      block.soldAt,
+      language === DocumentLanguage.EN ? 'en' : 'es',
+    );
+    return {
+      margin: [0, 16, 0, 0],
+      table: {
+        widths: ['*'],
+        body: [
+          [
+            {
+              fillColor: COLORS.light,
+              margin: [12, 12, 12, 12],
+              columns: [
+                { image: qr, width: 84, height: 84 },
+                {
+                  width: '*',
+                  margin: [14, 4, 0, 0],
+                  stack: [
+                    {
+                      text: labels.invoiceYourPurchase,
+                      bold: true,
+                      fontSize: 11,
+                      color: COLORS.primary,
+                      margin: [0, 0, 0, 4],
+                    },
+                    { text: deadline, fontSize: 9, margin: [0, 0, 0, 8] },
+                    {
+                      text: labels.invoiceScanOrOpen,
+                      fontSize: 8,
+                      color: COLORS.muted,
+                      margin: [0, 0, 0, 2],
+                    },
+                    {
+                      text: block.url,
+                      link: block.url,
+                      fontSize: 8,
+                      color: COLORS.info,
+                      margin: [0, 0, 0, 6],
+                    },
+                    {
+                      text: `${labels.publicFolio}: ${block.code}`,
+                      bold: true,
+                      fontSize: 9,
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        ],
+      },
+      layout: {
+        hLineWidth: () => 0,
+        vLineWidth: () => 0,
+      },
+    };
   }
 
   private async getFiscalLogoImage(salesOrder: SalesOrder): Promise<string | null> {

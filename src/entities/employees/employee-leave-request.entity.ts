@@ -4,6 +4,7 @@ import {
   PrimaryGeneratedColumn,
   Column,
   ManyToOne,
+  OneToMany,
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
@@ -11,6 +12,7 @@ import {
 } from 'typeorm';
 import { RBACTenant } from '../rbac/tenant.entity';
 import { Employee } from './employee.entity';
+import { EmployeeLeaveDocument } from './employee-leave-document.entity';
 import { LeaveType } from './leave-type.enum';
 import { LeaveStatus } from './leave-status.enum';
 
@@ -74,6 +76,9 @@ export class EmployeeLeaveRequest {
 
   @Column({ type: 'varchar', length: 500, nullable: true })
   review_notes: string | null;
+
+  @OneToMany(() => EmployeeLeaveDocument, (document) => document.leave_request)
+  documents?: EmployeeLeaveDocument[];
 
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;

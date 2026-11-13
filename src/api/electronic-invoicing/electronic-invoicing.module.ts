@@ -20,6 +20,7 @@ import { ElectronicInvoiceService } from './services/electronic-invoice.service'
 import { ElectronicInvoicePdfService } from './services/electronic-invoice-pdf.service';
 import { ElectronicInvoiceSatSyncService } from './services/electronic-invoice-sat-sync.service';
 import { FiscalConfigurationFinkokService } from './services/fiscal-configuration-finkok.service';
+import { AdvanceCfdiService } from './services/advance-cfdi.service';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { FiscalConfigurationFinkokService } from './services/fiscal-configuratio
     ElectronicInvoicePdfService,
     ElectronicInvoiceSatSyncService,
     FiscalConfigurationFinkokService,
+    AdvanceCfdiService,
     S3Service,
   ],
   exports: [
@@ -54,6 +56,8 @@ import { FiscalConfigurationFinkokService } from './services/fiscal-configuratio
     FinkokProviderConfigurationService,
     FiscalConfigurationFinkokService,
     ElectronicInvoiceSatSyncService,
+    AdvanceCfdiService,
+    FinkokSoapClient,
   ],
 })
 export class ElectronicInvoicingModule {}

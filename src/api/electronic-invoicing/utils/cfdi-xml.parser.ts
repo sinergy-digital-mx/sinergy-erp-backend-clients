@@ -73,24 +73,34 @@ function readFirstTag(xml: string, localName: string): string {
   return match?.[0] ?? '';
 }
 
+function readAllOpeningTags(xml: string, localName: string): string[] {
+  return xml.match(new RegExp(`<(?:[\\w.-]+:)?${localName}\\b[^>]*>`, 'gi')) ?? [];
+}
+
 function readAllTags(xml: string, localName: string): string[] {
   const regex = new RegExp(`<(?:[\\w.-]+:)?${localName}\\b[^>]*(?:/>|>[\\s\\S]*?</(?:[\\w.-]+:)?${localName}>)`, 'gi');
   return xml.match(regex) ?? [];
 }
 
-function parseConceptoTraslados(conceptoXml: string): CfdiConceptoTraslado[] {
-  const trasladosBlock = readFirstTag(conceptoXml, 'Traslados');
-  if (!trasladosBlock) {
-    return [];
-  }
+function readComprobanteImpuestosTag(xml: string): string {
+  const tags = readAllOpeningTags(xml, 'Impuestos');
+  const withTotal = [...tags].reverse().find((tag) => /TotalImpuestosTrasladados=/i.test(tag));
+  return withTotal ?? tags[tags.length - 1] ?? '';
+}
 
-  return readAllTags(trasladosBlock, 'Traslado').map((tag) => ({
+function parseTraslados(xml: string): CfdiConceptoTraslado[] {
+  return readAllTags(xml, 'Traslado').map((tag) => ({
     impuesto: readAttr(tag, 'Impuesto'),
     tipoFactor: readAttr(tag, 'TipoFactor'),
     tasaOCuota: readAttr(tag, 'TasaOCuota'),
     base: readAttr(tag, 'Base'),
     importe: readAttr(tag, 'Importe'),
   }));
+}
+
+function sumTrasladados(traslados: CfdiConceptoTraslado[]): string {
+  const cents = traslados.reduce((acc, item) => acc + Math.round((Number(item.importe) || 0) * 100), 0);
+  return cents ? (cents / 100).toFixed(2) : '';
 }
 
 const EMPTY_TIMBRE: ParsedCfdi['timbre'] = {
@@ -144,7 +154,7 @@ export function parseCfdiXmlForPdf(xml: string): ParsedCfdi {
   const emisorTag = readFirstTag(normalized, 'Emisor');
   const receptorTag = readFirstTag(normalized, 'Receptor');
   const timbreTag = readFirstTag(normalized, 'TimbreFiscalDigital');
-  const impuestosTag = readFirstTag(normalized, 'Impuestos');
+  const impuestosTag = readComprobanteImpuestosTag(normalized);
   const conceptos = readAllTags(normalized, 'Concepto').map((conceptoTag) => ({
     cantidad: readAttr(conceptoTag, 'Cantidad'),
     claveUnidad: readAttr(conceptoTag, 'ClaveUnidad'),
@@ -155,8 +165,11 @@ export function parseCfdiXmlForPdf(xml: string): ParsedCfdi {
     importe: readAttr(conceptoTag, 'Importe'),
     descuento: readAttr(conceptoTag, 'Descuento'),
     objetoImp: readAttr(conceptoTag, 'ObjetoImp'),
-    traslados: parseConceptoTraslados(conceptoTag),
+    traslados: parseTraslados(conceptoTag),
   }));
+  const totalImpuestosTrasladados =
+    readAttr(impuestosTag, 'TotalImpuestosTrasladados') ||
+    sumTrasladados(conceptos.flatMap((concepto) => concepto.traslados));
 
   const timbre = timbreTag
     ? {
@@ -198,7 +211,7 @@ export function parseCfdiXmlForPdf(xml: string): ParsedCfdi {
       regimenFiscalReceptor: readAttr(receptorTag, 'RegimenFiscalReceptor'),
     },
     conceptos,
-    totalImpuestosTrasladados: readAttr(impuestosTag, 'TotalImpuestosTrasladados'),
+    totalImpuestosTrasladados,
     timbre,
   };
 }

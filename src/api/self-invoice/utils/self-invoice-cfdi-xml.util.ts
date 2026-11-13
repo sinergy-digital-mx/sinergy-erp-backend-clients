@@ -13,6 +13,7 @@ export interface SelfInvoiceCfdiLine {
   iepsPercentage: number;
   satClave?: string | null;
   uomName?: string | null;
+  identifier?: string | null;
 }
 
 export interface SelfInvoiceCfdiInput {
@@ -24,6 +25,13 @@ export interface SelfInvoiceCfdiInput {
   lugarExpedicion: string;
   subtotalBeforeDiscount?: number;
   globalDiscountAmount?: number;
+  currency?: string | null;
+  exchangeRate?: number | null;
+  informacionGlobal?: {
+    periodicidad: string;
+    meses: string;
+    anio: string;
+  } | null;
   emisor: { rfc: string; nombre: string; regimenFiscal: string };
   receptor: {
     rfc: string;
@@ -95,8 +103,10 @@ export function buildSelfInvoiceCfdiXml(input: SelfInvoiceCfdiInput): string {
     const claveProd = sanitizeSatClave(line.satClave) || DEFAULT_SAT_CLAVE_PROD_SERV;
     const claveUnidad = resolveClaveUnidad(line.uomName);
     const unidad = xmlAttr(line.uomName?.trim() || 'Pieza');
+    const identifier = line.identifier?.trim();
     const attrs = [
       `ClaveProdServ="${xmlAttr(claveProd)}"`,
+      identifier ? `NoIdentificacion="${xmlAttr(identifier)}"` : '',
       `Cantidad="${formatQty(qty)}"`,
       `ClaveUnidad="${xmlAttr(claveUnidad)}"`,
       `Unidad="${unidad}"`,
@@ -136,6 +146,12 @@ export function buildSelfInvoiceCfdiXml(input: SelfInvoiceCfdiInput): string {
   const buckets = [...impuestoBuckets.values()];
   const totalImpuestos = round2(buckets.reduce((sum, item) => sum + item.importe, 0));
   const total = round2(subTotal - descuentoTotal + totalImpuestos);
+  const currency = (input.currency ?? 'MXN').trim().toUpperCase() || 'MXN';
+  if (!/^[A-Z]{3}$/.test(currency)) {
+    throw new Error('Moneda inválida');
+  }
+  const tipoCambio = currency === 'MXN' ? '' : `TipoCambio="${formatTipoCambio(Number(input.exchangeRate))}"`;
+  const globalInfo = input.informacionGlobal;
 
   const comprobanteAttrs = [
     `xmlns:cfdi="http://www.sat.gob.mx/cfd/4"`,
@@ -148,7 +164,8 @@ export function buildSelfInvoiceCfdiXml(input: SelfInvoiceCfdiInput): string {
     `FormaPago="${xmlAttr(input.formaPago)}"`,
     `SubTotal="${formatMoney(subTotal)}"`,
     descuentoTotal > 0 ? `Descuento="${formatMoney(descuentoTotal)}"` : '',
-    `Moneda="MXN"`,
+    `Moneda="${currency}"`,
+    tipoCambio,
     `Total="${formatMoney(total)}"`,
     `TipoDeComprobante="I"`,
     `Exportacion="01"`,
@@ -157,6 +174,10 @@ export function buildSelfInvoiceCfdiXml(input: SelfInvoiceCfdiInput): string {
   ]
     .filter(Boolean)
     .join(' ');
+
+  const informacionGlobalXml = globalInfo
+    ? `  <cfdi:InformacionGlobal Periodicidad="${xmlAttr(globalInfo.periodicidad)}" Meses="${xmlAttr(globalInfo.meses)}" Año="${xmlAttr(globalInfo.anio)}"/>`
+    : '';
 
   const impuestosXml =
     buckets.length === 0
@@ -177,6 +198,7 @@ export function buildSelfInvoiceCfdiXml(input: SelfInvoiceCfdiInput): string {
     `<cfdi:Comprobante ${comprobanteAttrs}>`,
     `  <cfdi:Emisor Rfc="${xmlAttr(input.emisor.rfc)}" Nombre="${xmlAttr(input.emisor.nombre)}" RegimenFiscal="${xmlAttr(input.emisor.regimenFiscal)}"/>`,
     `  <cfdi:Receptor Rfc="${xmlAttr(input.receptor.rfc)}" Nombre="${xmlAttr(input.receptor.nombre)}" DomicilioFiscalReceptor="${xmlAttr(input.receptor.domicilioFiscal)}" RegimenFiscalReceptor="${xmlAttr(input.receptor.regimenFiscal)}" UsoCFDI="${xmlAttr(input.receptor.usoCfdi)}"/>`,
+    informacionGlobalXml,
     `  <cfdi:Conceptos>`,
     conceptos.join('\n'),
     `  </cfdi:Conceptos>`,
@@ -245,6 +267,13 @@ function formatQty(value: number): string {
 
 function formatRate(value: number): string {
   return value.toFixed(6);
+}
+
+function formatTipoCambio(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error('Falta el tipo de cambio para la moneda de la factura');
+  }
+  return (Math.round((value + Number.EPSILON) * 1_000_000) / 1_000_000).toFixed(6);
 }
 
 export function formatCfdiFecha(date: Date, timeZone = 'America/Tijuana'): string {

@@ -34,6 +34,66 @@ import { QueryVendorPriceImportDto } from './dto/query-vendor-price-import.dto';
 export class ProductVendorImportController {
   constructor(private readonly importService: ProductVendorImportService) {}
 
+  @Get('vendor-catalog/preview')
+  @RequirePermission('Product', 'Update')
+  @ApiOperation({ summary: 'Conteo de productos del proveedor para importar costos y precios' })
+  previewCatalog(@Query() query: QueryVendorPriceImportDto, @Request() req) {
+    return this.importService.previewCatalog(
+      req.user.tenant_id,
+      query.vendor_id,
+      query.price_list_id,
+    );
+  }
+
+  @Get('vendor-catalog/template')
+  @RequirePermission('Product', 'Update')
+  @ApiOperation({ summary: 'Descargar template Excel de costos y precios por proveedor' })
+  @ApiResponse({ status: 200, description: 'Archivo Excel generado' })
+  async exportCatalogTemplate(
+    @Query() query: QueryVendorPriceImportDto,
+    @Request() req,
+    @Res() res,
+  ) {
+    const { buffer, filename } = await this.importService.exportCatalogTemplate(
+      req.user.tenant_id,
+      query.vendor_id,
+      query.price_list_id,
+    );
+    this.sendExcel(res, buffer, filename);
+  }
+
+  @Post('vendor-catalog')
+  @RequirePermission('Product', 'Update')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Importar costos y precios por proveedor desde un solo Excel' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file', 'vendor_id', 'price_list_id'],
+      properties: {
+        file: { type: 'string', format: 'binary' },
+        vendor_id: { type: 'string', format: 'uuid' },
+        price_list_id: { type: 'string', format: 'uuid' },
+      },
+    },
+  })
+  importCatalog(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() dto: QueryVendorPriceImportDto,
+    @Request() req,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Adjunta el archivo Excel descargado');
+    }
+    return this.importService.importCatalog(
+      req.user.tenant_id,
+      dto.vendor_id,
+      dto.price_list_id,
+      file,
+    );
+  }
+
   @Get('vendor-costs/preview')
   @RequirePermission('Product', 'Update')
   @ApiOperation({ summary: 'Conteo de productos con costo de un proveedor' })

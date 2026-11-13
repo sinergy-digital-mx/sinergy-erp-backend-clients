@@ -1,4 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import PdfPrinter from 'pdfmake';
+import * as QRCode from 'qrcode';
+import * as path from 'path';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
@@ -30,6 +33,9 @@ import {
   wrapLines,
   observationTicketLines,
 } from '../utils/escpos.util';
+import { cardPaymentsForResponse } from '../../pos-shifts/utils/pos-card-payments.util';
+import { displayCashChange } from '../../pos-shifts/utils/pos-cash-payment.util';
+import { invoiceMonthDeadlineLine } from '../utils/invoice-month-deadline.util';
 
 export const SALES_ORDER_TICKET_RECIBO_NAMES = ['TICKET / RECIBO', 'TICKET_RECIBO'] as const;
 
@@ -143,6 +149,42 @@ export class SalesOrderPosReceiptService {
       publicInvoiceCode,
       selfInvoiceUrl,
     );
+  }
+
+  async getPosTicketPdf(
+    tenantId: string,
+    salesOrderId: string,
+    uploadedBy: string,
+  ): Promise<{ buffer: Buffer; fileName: string; generated: boolean }> {
+    const order = await this.salesOrderRepo.findOne({
+      where: { id: salesOrderId, tenant_id: tenantId },
+    });
+    if (!order) {
+      throw new NotFoundException('Orden de venta no encontrada');
+    }
+
+    let generated = false;
+    let receipt: PosReceiptResult;
+    try {
+      receipt = await this.getPosTicket(tenantId, salesOrderId);
+    } catch (error) {
+      if (!(error instanceof NotFoundException)) {
+        throw error;
+      }
+      receipt = await this.generateAndSavePosTicket(tenantId, salesOrderId, uploadedBy);
+      generated = true;
+    }
+
+    let text = receipt.plain_text?.trim() ?? '';
+    if (!text) {
+      receipt = await this.generateAndSavePosTicket(tenantId, salesOrderId, uploadedBy);
+      text = receipt.plain_text?.trim() || 'Ticket sin contenido';
+      generated = true;
+    }
+
+    const buffer = await this.renderThermalPdf(text, receipt.self_invoice_url);
+    const safeFolio = String(order.folio || salesOrderId).replace(/[^\w.-]+/g, '_');
+    return { buffer, fileName: `TICKET-${safeFolio}.pdf`, generated };
   }
 
   async getPosTicketRawBuffer(
@@ -284,17 +326,127 @@ export class SalesOrderPosReceiptService {
     );
   }
 
+  private async renderThermalPdf(
+    plainText: string,
+    selfInvoiceUrl?: string | null,
+  ): Promise<Buffer> {
+    const lines = plainText.split(/\r?\n/);
+    const qrUrl = selfInvoiceUrl?.trim() || this.findInvoiceUrl(lines);
+    const qrImage = qrUrl
+      ? await QRCode.toDataURL(qrUrl, {
+          errorCorrectionLevel: 'M',
+          margin: 1,
+          width: 320,
+        })
+      : null;
+    const content = this.buildThermalPdfContent(lines, qrUrl, qrImage);
+    const lineHeight = 10;
+    const qrBlock = qrImage ? 148 : 0;
+    const width = 226.77;
+    const height = Math.max(360, 36 + lines.length * lineHeight + qrBlock);
+    const printer = new PdfPrinter({
+      Roboto: {
+        normal: path.join(process.cwd(), 'src/_public/fonts/Roboto-Regular.ttf'),
+        bold: path.join(process.cwd(), 'src/_public/fonts/Roboto-Bold.ttf'),
+        italics: path.join(process.cwd(), 'src/_public/fonts/Roboto-Italic.ttf'),
+        bolditalics: path.join(process.cwd(), 'src/_public/fonts/Roboto-BoldItalic.ttf'),
+      },
+    });
+
+    return new Promise<Buffer>((resolve, reject) => {
+      try {
+        const pdfDoc = printer.createPdfKitDocument({
+          pageSize: { width, height },
+          pageMargins: [10, 12, 10, 12],
+          defaultStyle: { font: 'Roboto', fontSize: 7.5 },
+          content,
+        });
+        const chunks: Buffer[] = [];
+        pdfDoc.on('data', (chunk: Buffer) => chunks.push(chunk));
+        pdfDoc.on('end', () => resolve(Buffer.concat(chunks)));
+        pdfDoc.on('error', reject);
+        pdfDoc.end();
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  private buildThermalPdfContent(
+    lines: string[],
+    qrUrl: string | null,
+    qrImage: string | null,
+  ): any[] {
+    const content: any[] = [];
+    let qrPlaced = false;
+    for (const line of lines) {
+      if (qrImage && qrUrl && !qrPlaced && this.isInvoiceUrlStart(line, qrUrl)) {
+        content.push({
+          image: qrImage,
+          width: 132,
+          alignment: 'center',
+          margin: [0, 6, 0, 6],
+        });
+        qrPlaced = true;
+      }
+      content.push({
+        text: line.length ? line : ' ',
+        fontSize: 7.5,
+        margin: [0, 0, 0, 0],
+      });
+    }
+    if (qrImage && !qrPlaced) {
+      content.push({
+        image: qrImage,
+        width: 132,
+        alignment: 'center',
+        margin: [0, 6, 0, 4],
+      });
+    }
+    return content;
+  }
+
+  private findInvoiceUrl(lines: string[]): string | null {
+    for (let index = 0; index < lines.length; index += 1) {
+      const start = lines[index].trim();
+      if (!/^https?:\/\//i.test(start)) {
+        continue;
+      }
+      let url = start;
+      for (let next = index + 1; next < lines.length; next += 1) {
+        const part = lines[next].trim();
+        if (!part || /\s/.test(part) || !/^[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=%]+$/.test(part)) {
+          break;
+        }
+        url += part;
+      }
+      return url;
+    }
+    return null;
+  }
+
+  private isInvoiceUrlStart(line: string, qrUrl: string): boolean {
+    const text = line.trim();
+    return text.startsWith('http') && (qrUrl.startsWith(text) || text.startsWith(qrUrl));
+  }
+
   private async findExistingTicket(salesOrderId: string) {
     const documents = await this.documentsService.getDocuments(salesOrderId);
     const ticketTypeId = await this.resolveTicketDocumentTypeId();
+    const byType = documents.find((doc) => Number(doc.document_type_id) === ticketTypeId);
+    if (byType) return byType;
+    const byName = documents.find((doc) =>
+      SALES_ORDER_TICKET_RECIBO_NAMES.includes(
+        doc.document_type_name as (typeof SALES_ORDER_TICKET_RECIBO_NAMES)[number],
+      ),
+    );
+    if (byName) return byName;
     return (
-      documents.find((doc) => Number(doc.document_type_id) === ticketTypeId) ??
-      documents.find((doc) =>
-        SALES_ORDER_TICKET_RECIBO_NAMES.includes(
-          doc.document_type_name as (typeof SALES_ORDER_TICKET_RECIBO_NAMES)[number],
-        ),
-      ) ??
-      null
+      documents.find((doc) => {
+        const type = String(doc.document_type_name || '').toUpperCase();
+        const file = String(doc.document_name || doc.file_name || '').toUpperCase();
+        return type.includes('TICKET') || file.startsWith('TICKET_RECIBO');
+      }) ?? null
     );
   }
 
@@ -475,6 +627,12 @@ export class SalesOrderPosReceiptService {
     this.pushFooterLines(lines, 'Cajero(a):', this.formatUserName(collection.collected_by_user));
     this.pushFooterLines(lines, 'Lo atendio:', this.formatUserName(order.seller_user));
     this.pushFooterLines(lines, 'Cliente:', this.formatCustomerName(order));
+    if (order.walk_in_phone) {
+      this.pushFooterLines(lines, 'Tel:', order.walk_in_phone);
+    }
+    if (order.walk_in_rfc) {
+      this.pushFooterLines(lines, 'RFC:', order.walk_in_rfc);
+    }
     const observationLines = observationTicketLines(order.notes);
     if (observationLines.length) {
       lines.push('');
@@ -488,6 +646,7 @@ export class SalesOrderPosReceiptService {
     lines.push('!CB!NO HAY CAMBIOS NI DEVOLUCIONES');
     lines.push('');
     lines.push('!CB!FACTURA TU COMPRA');
+    lines.push(`!CB!${invoiceMonthDeadlineLine(soldAt)}`);
     lines.push('!C!Escanea el QR o entra a:');
     for (const part of wrapLines(selfInvoiceUrl, ESCPOS_CHARS_PER_LINE)) {
       lines.push(`!S!${part}`);
@@ -586,8 +745,15 @@ export class SalesOrderPosReceiptService {
     const cashUsd = Number(collection.amount_cash_usd) || 0;
     const transferMxn = Number(collection.amount_transfer_mxn) || 0;
     const cardMxn = Number(collection.amount_card_mxn) || 0;
+    const checkMxn = Number(collection.amount_check_mxn) || 0;
+    const checkUsd = Number(collection.amount_check_usd) || 0;
     const changeMxn = Number(collection.change_cash_mxn) || 0;
     const changeUsd = Number(collection.change_cash_usd) || 0;
+    const changeShown = displayCashChange(
+      changeMxn,
+      changeUsd,
+      Number(collection.usd_exchange_rate) || 0,
+    );
     const receivedMxn =
       Number(collection.received_cash_mxn) || (cashMxn > 0 ? cashMxn + changeMxn : 0);
     const receivedUsd =
@@ -604,6 +770,9 @@ export class SalesOrderPosReceiptService {
       lines.push(compactMoneyLine('Tarjeta:', formatMoney(cardMxn)));
     } else if (collection.payment_method === PosSalePaymentMethod.TRANSFER && transferMxn > 0) {
       lines.push(compactMoneyLine('Transferencia:', formatMoney(transferMxn)));
+    } else if (collection.payment_method === PosSalePaymentMethod.CHECK && (checkMxn > 0 || checkUsd > 0)) {
+      if (checkMxn > 0) lines.push(compactMoneyLine('Cheque:', formatMoney(checkMxn)));
+      if (checkUsd > 0) lines.push(compactMoneyLine('Cheque USD:', formatUsd(checkUsd)));
     } else if (collection.payment_method === PosSalePaymentMethod.CREDIT) {
       const creditMxn = Number(collection.amount_credit_mxn) || 0;
       if (creditMxn > 0) {
@@ -611,11 +780,29 @@ export class SalesOrderPosReceiptService {
       }
     } else if (collection.payment_method === PosSalePaymentMethod.MIXED) {
       if (transferMxn > 0) lines.push(compactMoneyLine('Transferencia:', formatMoney(transferMxn)));
-      if (cardMxn > 0) lines.push(compactMoneyLine('Tarjeta:', formatMoney(cardMxn)));
+      const cardPayments = cardPaymentsForResponse(
+        collection.card_payments,
+        cardMxn,
+        collection.card_reference,
+      );
+      if (cardPayments.length > 1) {
+        cardPayments.forEach((payment, index) => {
+          lines.push(compactMoneyLine(`Tarjeta ${index + 1}:`, formatMoney(payment.amount_mxn)));
+        });
+      } else if (cardMxn > 0) {
+        lines.push(compactMoneyLine('Tarjeta:', formatMoney(cardMxn)));
+      }
+      if (checkMxn > 0) {
+        lines.push(compactMoneyLine('Cheque:', formatMoney(checkMxn)));
+      }
+      if (checkUsd > 0) {
+        lines.push(compactMoneyLine('Cheque USD:', formatUsd(checkUsd)));
+      }
     }
 
-    lines.push(compactMoneyLine('Cambio Pesos:', formatMoney(changeMxn)));
-    lines.push(compactMoneyLine('Cambio Dolares:', formatUsd(changeUsd)));
+    lines.push(...payerTicketLines(collection));
+    lines.push(compactMoneyLine('Cambio Pesos:', formatMoney(changeShown.mxn)));
+    lines.push(compactMoneyLine('Cambio Dolares:', formatUsd(changeShown.usd)));
 
     return lines;
   }
@@ -640,6 +827,10 @@ export class SalesOrderPosReceiptService {
   }
 
   private formatCustomerName(order: SalesOrder): string {
+    const walkInName = order.walk_in_name?.trim();
+    if (walkInName) {
+      return walkInName.toUpperCase();
+    }
     const customer = order.customer;
     if (!customer) return 'MOSTRADOR';
     if (customer.company_name) return customer.company_name.toUpperCase();
@@ -669,6 +860,15 @@ export class SalesOrderPosReceiptService {
 
   private formatQuantity(value: number): string {
     return Number.isInteger(value) ? String(value) : value.toFixed(3).replace(/\.?0+$/, '');
+  }
+
+  async assignPublicInvoiceCode(order: SalesOrder): Promise<{ code: string; url: string }> {
+    const branch = order.billing_branch ?? order.warehouse?.billing_branch ?? null;
+    const code = await this.ensurePublicInvoiceCode(order, branch);
+    return {
+      code,
+      url: this.buildPortalUrl(code, order.customer?.email),
+    };
   }
 
   private async ensurePublicInvoiceCode(
@@ -727,4 +927,31 @@ export class SalesOrderPosReceiptService {
       .replace(/[^\x20-\x7E\n\r]/g, '')
       .trim();
   }
+}
+
+function payerTicketLines(collection: PosSaleCollection): string[] {
+  const lines: string[] = [];
+  const transferMxn = Number(collection.amount_transfer_mxn) || 0;
+  const cardMxn = Number(collection.amount_card_mxn) || 0;
+  const checkMxn = Number(collection.amount_check_mxn) || 0;
+  const checkUsd = Number(collection.amount_check_usd) || 0;
+  if (transferMxn > 0 && collection.transfer_payer_name) {
+    lines.push(...leftLabelLines('Nombre transf.:', collection.transfer_payer_name));
+  }
+  if (transferMxn > 0 && collection.transfer_payer_business_name) {
+    lines.push(...leftLabelLines('Razon social:', collection.transfer_payer_business_name));
+  }
+  if (cardMxn > 0 && collection.card_payer_name) {
+    lines.push(...leftLabelLines('Nombre tarjeta:', collection.card_payer_name));
+  }
+  if (cardMxn > 0 && collection.card_payer_phone) {
+    lines.push(...leftLabelLines('Tel. tarjeta:', collection.card_payer_phone));
+  }
+  if ((checkMxn > 0 || checkUsd > 0) && collection.check_payer_name) {
+    lines.push(...leftLabelLines('Nombre cheque:', collection.check_payer_name));
+  }
+  if ((checkMxn > 0 || checkUsd > 0) && collection.check_payer_phone) {
+    lines.push(...leftLabelLines('Tel. cheque:', collection.check_payer_phone));
+  }
+  return lines;
 }

@@ -37,9 +37,11 @@ const STATUS_LABELS: Record<string, string> = {
 
 const OUTCOME_LABELS: Record<string, string> = {
   satisfied: 'Satisfecho',
+  unsatisfied: 'No satisfecho',
   issue_resolved: 'Problema resuelto',
   escalated: 'Escalado',
   follow_up_needed: 'Requiere seguimiento',
+  none: 'Sin resultado',
 };
 
 const ATTENTION_LABELS: Record<string, string> = {
@@ -109,7 +111,7 @@ export class CrmInboxExportService {
   private mapRow(row: CrmActivityItemDto): Record<string, unknown> {
     return {
       customer_name: row.customer?.display_name || `#${row.customer_id}`,
-      seller_name: row.user?.display_name || '',
+      seller_name: row.seller?.display_name || row.user?.display_name || '',
       type_label: TYPE_LABELS[row.type] ?? row.type,
       title: row.title ?? '',
       description: row.description ?? '',
@@ -136,6 +138,9 @@ export class CrmInboxExportService {
     }
     if (query.status) {
       parts.push(`Estado: ${STATUS_LABELS[query.status] ?? query.status}`);
+    }
+    if (query.outcome) {
+      parts.push(`Resultado: ${OUTCOME_LABELS[query.outcome] ?? query.outcome}`);
     }
     if (query.attention) {
       parts.push(`Atención: ${ATTENTION_LABELS[query.attention]}`);

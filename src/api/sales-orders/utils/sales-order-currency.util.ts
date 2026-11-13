@@ -1,0 +1,93 @@
+export type SalesOrderCurrency = 'MXN' | 'USD';
+
+export function normalizeSalesOrderCurrency(value: string | null | undefined): SalesOrderCurrency {
+  return value === 'USD' ? 'USD' : 'MXN';
+}
+
+function roundMoney(value: number): number {
+  return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+}
+
+export function canDocumentOrderInUsd(usdAppliedMxn: number, mxnApplied: number): boolean {
+  return roundMoney(usdAppliedMxn) > roundMoney(mxnApplied) + 0.009;
+}
+
+export function resolvePosDocumentCurrency(input: {
+  requested?: string | null;
+  amountCashMxn: number;
+  amountCashUsd: number;
+  usdExchangeRate: number | null;
+  amountTransferMxn: number;
+  amountCardMxn: number;
+  amountCheckMxn: number;
+  amountCheckUsd?: number;
+  amountCreditMxn: number;
+  /** Cobro 100 % a crédito: la moneda del documento se elige libremente (MXN o USD). */
+  isCredit?: boolean;
+}): { currency: SalesOrderCurrency; exchangeRate: number | null; error: string | null } {
+  const requested = normalizeSalesOrderCurrency(input.requested);
+  const rate = Number(input.usdExchangeRate ?? 0);
+  const checkUsd = Number(input.amountCheckUsd || 0);
+  const usdAppliedMxn =
+    (input.amountCashUsd > 0 && rate > 0 ? input.amountCashUsd * rate : 0) +
+    (checkUsd > 0 && rate > 0 ? checkUsd * rate : 0);
+  const mxnApplied =
+    Number(input.amountCashMxn || 0) +
+    Number(input.amountTransferMxn || 0) +
+    Number(input.amountCardMxn || 0) +
+    Number(input.amountCheckMxn || 0) +
+    Number(input.amountCreditMxn || 0);
+
+  if (requested !== 'USD') {
+    return { currency: 'MXN', exchangeRate: null, error: null };
+  }
+  if (!input.isCredit && !canDocumentOrderInUsd(usdAppliedMxn, mxnApplied)) {
+    return {
+      currency: 'MXN',
+      exchangeRate: null,
+      error: 'La orden solo puede ser en dólares si el pago en dólares es mayor que el pago en pesos.',
+    };
+  }
+  if (!(rate > 0)) {
+    return {
+      currency: 'MXN',
+      exchangeRate: null,
+      error: 'No hay tipo de cambio para dejar la orden en dólares.',
+    };
+  }
+  return { currency: 'USD', exchangeRate: Number(rate.toFixed(6)), error: null };
+}
+
+export function readCfdiAttribute(xml: string, name: string): string {
+  const match = String(xml || '').match(new RegExp(`\\b${name}="([^"]*)"`, 'i'));
+  return match?.[1]?.trim() ?? '';
+}
+
+export function invoiceCurrencyMismatchMessage(
+  orderCurrency: string | null | undefined,
+  xml: string,
+  exchangeRate: number | string | null | undefined,
+): string | null {
+  const expected = normalizeSalesOrderCurrency(orderCurrency);
+  const moneda = readCfdiAttribute(xml, 'Moneda').toUpperCase();
+  if (moneda !== expected) {
+    return expected === 'USD'
+      ? 'La factura debe ser en dólares porque la orden es en dólares.'
+      : 'La factura debe ser en pesos porque la orden es en pesos.';
+  }
+  if (expected !== 'USD') {
+    return null;
+  }
+  const tipoCambio = Number(readCfdiAttribute(xml, 'TipoCambio'));
+  const stored = Number(exchangeRate);
+  if (!(tipoCambio > 0)) {
+    return 'La factura en dólares necesita tipo de cambio.';
+  }
+  if (!(stored > 0)) {
+    return 'La orden en dólares no tiene tipo de cambio.';
+  }
+  if (Math.abs(tipoCambio - stored) > 0.000001) {
+    return 'El tipo de cambio de la factura no coincide con el de la orden.';
+  }
+  return null;
+}

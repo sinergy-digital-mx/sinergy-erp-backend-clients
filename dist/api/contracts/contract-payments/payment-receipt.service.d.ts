@@ -192,7 +192,7 @@ export declare class PaymentReceiptService {
         attachment_name: string;
     }>;
     pdf(organizationId: string, contractId: string, paymentId: string, kind?: ReceiptKind): Promise<{
-        buffer: Buffer;
+        buffer: Buffer<ArrayBufferLike>;
         filename: string;
     }>;
     send(organizationId: string, contractId: string, paymentId: string, dto: {

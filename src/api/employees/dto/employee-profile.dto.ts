@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   IsEnum,
   IsISO8601,
@@ -9,9 +10,11 @@ import {
   Matches,
   Min,
   ValidateIf,
+  ValidateNested,
 } from 'class-validator';
 import { EmployeeStatus } from '../../../entities/employees/employee-status.enum';
 import { EmployeePaymentFrequency } from '../../../entities/employees/employee-payment-frequency.enum';
+import { UpsertWorkScheduleDto } from './upsert-work-schedule.dto';
 
 /** True si el valor viene vacío (null/undefined/''). */
 function isEmpty(value: unknown): boolean {
@@ -122,4 +125,10 @@ export class EmployeeProfileDto {
   @IsNumber({}, { message: 'Los días de arrastre deben ser un número' })
   @Min(0, { message: 'Los días de arrastre no pueden ser negativos' })
   vacation_carryover_days?: number;
+
+  @ApiProperty({ required: false, type: UpsertWorkScheduleDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => UpsertWorkScheduleDto)
+  work_schedule?: UpsertWorkScheduleDto;
 }

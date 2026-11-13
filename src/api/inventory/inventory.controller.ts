@@ -16,6 +16,7 @@ import { PosSessionInventorySummaryResponseDto } from './dto/pos-session-invento
 import { InventoryLocationTreeResponseDto } from './dto/inventory-location-tree-response.dto';
 import { InventoryStatsFilterDto } from './dto/inventory-stats-filter.dto';
 import { InventoryStatsResponseDto } from './dto/inventory-stats-response.dto';
+import { ProductMarginResponseDto } from './dto/inventory-margin.dto';
 import { InventoryExportService } from './services/inventory-export.service';
 import { InventoryStockFlowService } from './services/inventory-stock-flow.service';
 import {
@@ -24,6 +25,8 @@ import {
 } from './dto/query-inventory-export.dto';
 import { QueryStockFlowDto, StockFlowView } from './dto/query-stock-flow.dto';
 import { StockFlowResponseDto } from './dto/stock-flow-response.dto';
+import { userCanViewPurchaseOrderRealCost } from '../purchase-orders/constants/purchase-order-real-cost-permission';
+import { omitPurchaseOrderRealCost } from '../purchase-orders/utils/omit-purchase-order-real-cost.util';
 
 @Controller('tenant/inventory')
 @ApiTags('Inventory')
@@ -128,13 +131,14 @@ export class InventoryController {
   }
 
   @Get('stats')
-  @RequirePermissions({ entityType: 'inventory', action: 'read' })
+  @RequirePermissions({ entityType: 'inventory', action: 'ViewStats' })
   @ApiOperation({
     summary: 'KPIs de inventario para cards',
     description:
-      'Totales de lotes, costo vs precio de venta, precio promedio y márgenes. Mismos filtros de ubicación que el listado.',
+      'Totales de lotes, costo vs precio de venta, precio promedio y márgenes. Mismos filtros de ubicación que el listado. Permiso inventory:ViewStats.',
   })
   @ApiResponse({ status: 200, type: InventoryStatsResponseDto })
+  @ApiResponse({ status: 403, description: 'Sin permiso ViewStats' })
   @ApiQuery({ name: 'fiscal_configuration_id', required: false, type: String })
   @ApiQuery({ name: 'billing_branch_id', required: false, type: String })
   @ApiQuery({ name: 'warehouse_id', required: false, type: String })
@@ -202,6 +206,22 @@ export class InventoryController {
   ): Promise<InventorySummaryResponseDto> {
     const tenantId = req.user.tenant_id;
     return this.inventoryService.getInventorySummary(tenantId, filters);
+  }
+
+  @Get('products/:productId/margin')
+  @RequirePermissions({ entityType: 'inventory', action: 'read' })
+  @ApiOperation({
+    summary: 'Margen general de un producto',
+    description:
+      'Promedio simple de los lotes con existencia. Cada lote usa su compra; si no tiene, el costo configurado en pesos.',
+  })
+  @ApiParam({ name: 'productId', description: 'Product ID', type: String })
+  @ApiResponse({ status: 200, type: ProductMarginResponseDto })
+  async getProductMargin(
+    @Param('productId') productId: string,
+    @Req() req: any,
+  ): Promise<ProductMarginResponseDto> {
+    return this.inventoryService.getProductMargin(req.user.tenant_id, productId);
   }
 
   @Get('pos/summary')
@@ -292,7 +312,11 @@ export class InventoryController {
     @Req() req: any,
   ): Promise<BatchDetailResponseDto> {
     const tenantId = req.user.tenant_id;
-    return this.inventoryService.findById(id, tenantId);
+    const batch = await this.inventoryService.findById(id, tenantId);
+    if (userCanViewPurchaseOrderRealCost(req.user)) {
+      return batch;
+    }
+    return omitPurchaseOrderRealCost(batch);
   }
 
   @Patch('batches/:id')

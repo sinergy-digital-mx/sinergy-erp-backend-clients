@@ -6,6 +6,7 @@ import {
   Param,
   Post,
   Put,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
@@ -18,12 +19,14 @@ import { GenerateDownpaymentPaymentsDto } from './dto/generate-downpayment-payme
 import { UpdateDownpaymentPaymentDto } from './dto/update-downpayment-payment.dto';
 import { UpdateDownpaymentTargetDto } from './dto/update-downpayment-target.dto';
 import { DownpaymentPaymentsService } from './downpayment-payments.service';
+import { PaymentReceiptService } from '../contract-payments/payment-receipt.service';
 
 @Controller('tenant/contracts/:contractId/downpayment-payments')
 @UseGuards(JwtAuthGuard, PermissionGuard)
 export class DownpaymentPaymentsController {
   constructor(
     private readonly downpaymentPaymentsService: DownpaymentPaymentsService,
+    private readonly paymentReceiptService: PaymentReceiptService,
     private readonly tenantContext: TenantContextService,
   ) {}
 
@@ -100,6 +103,55 @@ export class DownpaymentPaymentsController {
       dto.payment_method,
       dto.reference_number,
       dto.notes,
+    );
+  }
+
+  @Get(':paymentId/receipt.pdf')
+  @RequirePermissions({ entityType: 'Contract', action: 'Read' })
+  async downloadReceipt(
+    @Param('contractId') contractId: string,
+    @Param('paymentId') paymentId: string,
+    @Res() res: any,
+  ) {
+    const { buffer, filename } = await this.paymentReceiptService.pdf(
+      this.getTenantIdOrThrow(),
+      contractId,
+      paymentId,
+      'downpayment',
+    );
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
+  }
+
+  @Get(':paymentId/receipt/compose')
+  @RequirePermissions({ entityType: 'Contract', action: 'Read' })
+  composeReceipt(
+    @Param('contractId') contractId: string,
+    @Param('paymentId') paymentId: string,
+  ) {
+    return this.paymentReceiptService.compose(
+      this.getTenantIdOrThrow(),
+      contractId,
+      paymentId,
+      '',
+      'downpayment',
+    );
+  }
+
+  @Post(':paymentId/receipt/send')
+  @RequirePermissions({ entityType: 'Contract', action: 'Update' })
+  sendReceipt(
+    @Param('contractId') contractId: string,
+    @Param('paymentId') paymentId: string,
+    @Body() body: { to_email?: string; cc?: string[]; extra_message?: string },
+  ) {
+    return this.paymentReceiptService.send(
+      this.getTenantIdOrThrow(),
+      contractId,
+      paymentId,
+      body,
+      'downpayment',
     );
   }
 

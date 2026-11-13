@@ -18,6 +18,8 @@ import { Module } from '../../../entities/rbac/module.entity';
 import { TenantModule } from '../../../entities/rbac/tenant-module.entity';
 import { Permission } from '../../../entities/rbac/permission.entity';
 import { v4 as uuidv4 } from 'uuid';
+import { MADERERIA_ORGANIZATION_ID } from '../../madereria-inventory-import/madereria-inventory-import.constants';
+import { PURCHASE_ORDER_REAL_COST_MODULE_CODE } from '../../purchase-orders/constants/purchase-order-real-cost-permission';
 
 /**
  * ADMIN ONLY - Temporary controller for managing tenant modules
@@ -157,6 +159,12 @@ export class AdminTenantModulesController {
       let enabledCount = 0;
 
       for (const module of allModules) {
+        if (
+          module.code === PURCHASE_ORDER_REAL_COST_MODULE_CODE &&
+          tenantId !== MADERERIA_ORGANIZATION_ID
+        ) {
+          continue;
+        }
         try {
           await this.moduleService.enableModuleForTenant(tenantId, module.id, {
             skipPermissionRefresh: true,

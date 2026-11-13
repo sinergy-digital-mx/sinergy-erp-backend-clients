@@ -7,9 +7,10 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, QueryRunner, Repository } from 'typeorm';
+import { DataSource, In, QueryRunner, Repository, SelectQueryBuilder } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { SalesOrder } from '../../../entities/sales-orders/sales-order.entity';
+import { Quotation } from '../../../entities/quotations/quotation.entity';
 import { SalesOrderSaleScope } from '../../../entities/sales-orders/sales-order-sale-scope.enum';
 import { SalesOrderPosStage } from '../../../entities/sales-orders/sales-order-pos-stage.enum';
 import { SalesOrderDetail } from '../../../entities/sales-orders/sales-order-detail.entity';
@@ -18,7 +19,20 @@ import { ProductItemKind } from '../../../entities/products/product-item-kind.en
 import { SalesOrderBatchAllocation } from '../../../entities/sales-orders/sales-order-batch-allocation.entity';
 import { SalesOrderPayment } from '../../../entities/sales-orders/sales-order-payment.entity';
 import { SalesOrderPaymentDocument } from '../../../entities/sales-orders/sales-order-payment-document.entity';
+import {
+  ResolvedProductUom,
+  resolveProductUomForLine,
+} from '../../products/utils/resolve-product-uom.util';
 import { CreateSalesOrderDto, CreateSalesOrderLineItemDto } from '../dto/create-sales-order.dto';
+import { CloneSalesOrderDto } from '../dto/clone-sales-order.dto';
+import {
+  buildCloneSalesOrderDto,
+  carryOverCustomDescriptions,
+} from '../utils/sales-order-clone.util';
+import {
+  buildPurchaseTrend,
+  rollingWindowStart,
+} from '../../customers/utils/customer-purchase-trend.util';
 import { UpdateSalesOrderLineItemDto } from '../dto/update-sales-order-line-item.dto';
 import { QuerySalesOrderDto } from '../dto/query-sales-order.dto';
 import { FulfillSalesOrderDto } from '../dto/fulfill-sales-order.dto';
@@ -27,9 +41,18 @@ import { CreateSalesOrderPaymentDto } from '../dto/create-sales-order-payment.dt
 import { PosSalePaymentMethod } from '../../../entities/pos/pos-sale-payment-method.enum';
 import { User } from '../../../entities/users/user.entity';
 import { Customer } from '../../../entities/customers/customer.entity';
+import { CustomerDebtLedgerService } from '../../accounting/services/customer-debt-ledger.service';
+import { CustomerCreditService } from '../../customers/services/customer-credit.service';
+import { advanceCreditPending } from '../../customers/utils/advance-credit.util';
+import { ExchangeRateService } from '../../exchange-rate/exchange-rate.service';
+import { normalizeSalesOrderCurrency } from '../utils/sales-order-currency.util';
 import { S3Service } from '../../../common/services/s3.service';
 import { buildSelfInvoicePortalUrl } from '../../../common/utils/public-invoice-code.util';
 import { roundUnitAmount } from '../../../common/utils/unit-amount.util';
+import {
+  clampTaxPercentages,
+  loadFiscalTaxPolicy,
+} from '../../billing/utils/fiscal-tax-policy.util';
 import {
   quotedGlobalDiscountAmount,
   quotedLineDiscountAmounts,
@@ -37,7 +60,10 @@ import {
 } from '../utils/quoted-pricing.util';
 import { SalesOrderFolioService } from './sales-order-folio.service';
 import { SalesOrderFulfillmentService } from './sales-order-fulfillment.service';
-import { SalesOrderPdfService } from './sales-order-pdf.service';
+import {
+  SalesOrderPdfSelfInvoice,
+  SalesOrderPdfService,
+} from './sales-order-pdf.service';
 import { SalesOrderDocumentsService } from './sales-order-documents.service';
 import { SalesOrderPosReceiptService } from './sales-order-pos-receipt.service';
 import { PosShiftsService } from '../../pos-shifts/pos-shifts.service';
@@ -61,12 +87,47 @@ import { DocumentLanguage } from '../../../common/enums/document-language.enum';
 import { PosSaleCollection } from '../../../entities/pos/pos-sale-collection.entity';
 import {
   formatCustomerDisplayName,
+  isWalkInCustomer,
   mapPosCustomer,
   mapPosSaleCollection,
   mapPosUser,
 } from '../../pos-shifts/mappers/pos-sale-collection.mapper';
+import {
+  normalizeWalkInName,
+  normalizeWalkInRfc,
+} from '../../pos-shifts/utils/walk-in-ticket.util';
 import { ElectronicInvoiceService } from '../../electronic-invoicing/services/electronic-invoice.service';
+import {
+  isCreditableIncomeInvoice,
+  isIncomeCoveredByCreditNotes,
+  splitCreditNoteEffect,
+  sumVigenteCommercialCreditNotes,
+} from '../utils/credit-note.util';
+import { ElectronicInvoice } from '../../../entities/electronic-invoicing/electronic-invoice.entity';
+import { SalesOrderDocument } from '../../../entities/sales-orders/sales-order-document.entity';
+import {
+  buildOrderDownloads,
+  emptyOrderDownloads,
+  OrderDownloadDocumentRow,
+  OrderDownloads,
+} from '../utils/sales-order-downloads.util';
+import {
+  AdvanceCfdiService,
+  AdvanceInvoiceSummary,
+} from '../../electronic-invoicing/services/advance-cfdi.service';
+import {
+  CollectionActionState,
+  resolveCollectionActions,
+} from '../utils/quotation-collection.util';
 import { BillingBranch } from '../../../entities/billing/billing-branch.entity';
+import { FiscalConfiguration } from '../../../entities/billing/fiscal-configuration.entity';
+import { UserBillingBranch } from '../../../entities/users/user-billing-branch.entity';
+import { SalesOrderCreationSettings } from '../../../entities/sales-orders/sales-order-creation-settings.entity';
+import {
+  normalizeSalesOrderCreationFields,
+  resolveDeliveryDateDefault,
+  SalesOrderCreationFields,
+} from '../utils/sales-order-creation-settings.util';
 import { Warehouse } from '../../../entities/warehouse/warehouse.entity';
 import { ControlDeskLifecycleService } from '../../warehouse-control/control-desk-lifecycle.service';
 import { WarehouseControlService } from '../../warehouse-control/warehouse-control.service';
@@ -123,9 +184,48 @@ export class SalesOrderService {
     @InjectRepository(Warehouse)
     private readonly warehouseRepo: Repository<Warehouse>,
     private readonly electronicInvoiceService: ElectronicInvoiceService,
+    private readonly advanceCfdi: AdvanceCfdiService,
     private readonly controlDeskLifecycle: ControlDeskLifecycleService,
     private readonly warehouseControlService: WarehouseControlService,
+    private readonly debtLedger: CustomerDebtLedgerService,
+    private readonly exchangeRateService: ExchangeRateService,
+    private readonly customerCreditService: CustomerCreditService,
   ) {}
+
+  private async resolveDocumentCurrency(
+    tenantId: string,
+    dto: CreateSalesOrderDto,
+    isPosSale: boolean,
+  ): Promise<{ currency: 'MXN' | 'USD'; exchangeRate: number | null }> {
+    if (isPosSale || normalizeSalesOrderCurrency(dto.currency) !== 'USD') {
+      return { currency: 'MXN', exchangeRate: null };
+    }
+    const daily = await this.exchangeRateService.getDailyRate(tenantId);
+    const rate = Number(daily?.exchange_rate ?? 0);
+    if (!(rate > 0)) {
+      throw new BadRequestException(
+        'No hay tipo de cambio. Captúralo antes de crear una orden en dólares.',
+      );
+    }
+    return { currency: 'USD', exchangeRate: Number(rate.toFixed(6)) };
+  }
+
+  private async resolveWalkInTicketFields(
+    tenantId: string,
+    customerId: number,
+    dto: { walk_in_name?: string | null; walk_in_rfc?: string | null },
+  ): Promise<{ walk_in_name: string | null; walk_in_rfc: string | null }> {
+    const customer = await this.customerRepo.findOne({
+      where: { id: customerId, tenant_id: tenantId },
+    });
+    if (!customer || !isWalkInCustomer(customer)) {
+      return { walk_in_name: null, walk_in_rfc: null };
+    }
+    return {
+      walk_in_name: normalizeWalkInName(dto.walk_in_name),
+      walk_in_rfc: normalizeWalkInRfc(dto.walk_in_rfc),
+    };
+  }
 
   private async deleteDocumentsByType(
     salesOrderId: string,
@@ -169,6 +269,22 @@ export class SalesOrderService {
       .getOne();
   }
 
+  private async resolveSelfInvoiceForPdf(
+    order: SalesOrder,
+  ): Promise<SalesOrderPdfSelfInvoice | undefined> {
+    try {
+      const assigned = await this.posReceiptService.assignPublicInvoiceCode(order);
+      return {
+        code: assigned.code,
+        url: assigned.url,
+        soldAt: order.created_at ?? new Date(),
+      };
+    } catch (error) {
+      this.logger.warn(`[PDF] Sin folio público para ${order.folio}: ${error}`);
+      return undefined;
+    }
+  }
+
   private async generateAndUploadPdf(
     salesOrderId: string,
     tenantId: string,
@@ -182,7 +298,9 @@ export class SalesOrderService {
         return;
       }
 
-      const pdfBuffer = await this.pdfService.generatePdf(fullOrder, language);
+      const pdfBuffer = await this.pdfService.generatePdf(fullOrder, language, {
+        selfInvoice: await this.resolveSelfInvoiceForPdf(fullOrder),
+      });
       const uploadResult = await this.pdfService.uploadPdfToS3(
         fullOrder,
         pdfBuffer,
@@ -239,36 +357,13 @@ export class SalesOrderService {
    * Accepts either product_uom.id (preferred) or uom_catalog.id (fallback).
    * Returns the resolved ProductUoM row used by sales-order logic.
    */
-  private async resolveProductUom(
+  private resolveProductUom(
     qr: QueryRunner,
     productId: string,
     providedUomId: string,
-  ): Promise<{ id: string; factor: number; is_base: boolean; uom_catalog_id: string }> {
-    const [productUomRow] = await qr.manager.query(
-      `SELECT pu.id, pu.factor, pu.is_base, pu.uom_catalog_id
-       FROM product_uoms pu
-       WHERE pu.id = ? AND pu.product_id = ?
-       LIMIT 1`,
-      [providedUomId, productId],
-    );
-
-    if (productUomRow) {
-      return productUomRow;
-    }
-
-    const [productUomByCatalog] = await qr.manager.query(
-      `SELECT pu.id, pu.factor, pu.is_base, pu.uom_catalog_id
-       FROM product_uoms pu
-       WHERE pu.product_id = ? AND pu.uom_catalog_id = ?
-       LIMIT 1`,
-      [productId, providedUomId],
-    );
-
-    if (productUomByCatalog) {
-      return productUomByCatalog;
-    }
-
-    throw new BadRequestException(`UOM no encontrado: ${providedUomId}`);
+    tenantId: string,
+  ): Promise<ResolvedProductUom> {
+    return resolveProductUomForLine(qr, productId, providedUomId, tenantId);
   }
 
   private async resolveLineDiscountAmounts(
@@ -346,7 +441,11 @@ export class SalesOrderService {
     dto: CreateSalesOrderDto,
     tenantId: string,
     userId: string,
-    options?: { fromQuotation?: boolean; quotedGlobalDiscountAmount?: number },
+    options?: {
+      fromQuotation?: boolean;
+      quotedGlobalDiscountAmount?: number;
+      allowAssignedSellerWithoutPosCode?: boolean;
+    },
   ): Promise<SalesOrder> {
     const isPosSale = dto.sales_order_type === 'POS';
     const fromQuotation = options?.fromQuotation === true;
@@ -355,15 +454,14 @@ export class SalesOrderService {
     let collectedByUserId: string | null = null;
     let posQueued = false;
 
-    if (!isPosSale && dto.customer_id == null) {
-      throw new BadRequestException('Las órdenes manuales requieren customer_id');
-    }
+    const customerId = await this.resolveSalesOrderCustomerId(
+      tenantId,
+      dto.customer_id,
+      isPosSale,
+    );
 
-    const customerId = isPosSale
-      ? dto.customer_id ?? (await this.posShiftsService.resolveWalkInCustomerId(tenantId))
-      : dto.customer_id!;
-
-    const location = await this.resolveSalesOrderLocation(tenantId, dto, isPosSale);
+    await this.applyCreationDefaults(tenantId, dto, isPosSale);
+    const location = await this.resolveSalesOrderLocation(tenantId, dto, isPosSale, userId);
     if (isPosSale && !dto.seller_user_id) {
       throw new BadRequestException('Las ventas POS requieren seller_user_id');
     }
@@ -373,6 +471,7 @@ export class SalesOrderService {
       customerId,
       sellerUserId,
       dto.assigned_seller_user_id,
+      { allowWithoutPosCode: options?.allowAssignedSellerWithoutPosCode === true },
     );
 
     if (isPosSale && !fromQuotation) {
@@ -380,6 +479,7 @@ export class SalesOrderService {
         tenantId,
         userId,
         location.warehouseId!,
+        location.billingBranchId ?? undefined,
       );
 
       const { shift, terminalUser, queued } =
@@ -388,6 +488,7 @@ export class SalesOrderService {
           userId,
           sellerUserId,
           dto.pos_daily_shift_id,
+          location.billingBranchId ?? undefined,
         );
 
       posQueued = queued;
@@ -402,7 +503,20 @@ export class SalesOrderService {
 
     if (isPosSale && fromQuotation) {
       paymentStatus = 'Pendiente';
+      const caja = await this.posShiftsService.resolveBranchCajaShift(
+        tenantId,
+        location.billingBranchId!,
+      );
+      if (!caja.shift || caja.queued) {
+        throw new BadRequestException(
+          'No hay corte abierto en la sucursal. Crea la orden sin cobro y envíala a cobranza cuando abran el corte.',
+        );
+      }
+      posQueued = false;
+      posDailyShiftId = caja.shift.id;
     }
+
+    const documentCurrency = await this.resolveDocumentCurrency(tenantId, dto, isPosSale);
 
     const qr = this.dataSource.createQueryRunner();
     await qr.connect();
@@ -437,14 +551,20 @@ export class SalesOrderService {
         billing_branch_id: location.billingBranchId,
         warehouse_id: location.warehouseId,
         customer_id: customerId,
-        expected_delivery_date: new Date(dto.expected_delivery_date),
+        expected_delivery_date: new Date(
+          dto.expected_delivery_date || resolveDeliveryDateDefault('today'),
+        ),
         sales_order_type: salesOrderType,
         fiscal_razon_social: dto.fiscal_razon_social,
         payment_status: paymentStatus,
         general_status: initialStatus,
         notes: dto.notes,
+        ...(await this.resolveWalkInTicketFields(tenantId, customerId, dto)),
         sale_scope: saleScope,
+        currency: documentCurrency.currency,
+        exchange_rate: documentCurrency.exchangeRate,
         requires_selection_assembly: requiresSelectionAssembly,
+        for_shipping: !!dto.for_shipping,
         created_by: userId,
         terminal_user_id: isPosSale ? userId : null,
         // Manual: vendedor = el que crea (o seller_user_id si viene en el body)
@@ -459,12 +579,18 @@ export class SalesOrderService {
       const savedDetails: SalesOrderDetail[] = [];
 
       let subtotal = 0, iva_total = 0, ieps_total = 0, discount_total = 0;
+      const taxPolicy = await loadFiscalTaxPolicy(
+        qr.manager,
+        dto.fiscal_configuration_id,
+        tenantId,
+      );
 
       for (const item of dto.line_items) {
         const productUomRow = await this.resolveProductUom(
           qr,
           item.product_id,
           item.product_uom_id,
+          tenantId,
         );
 
         const discountAmounts = fromQuotation
@@ -478,8 +604,13 @@ export class SalesOrderService {
         const line_subtotal = Number(item.quantity) * quotedUnitPrice(item.unit_price);
         const line_discount = discountAmounts.line_discount;
         const taxable_subtotal = Math.max(line_subtotal - line_discount, 0);
-        const iva_pct = Number(item.iva_percentage || 0);
-        const ieps_pct = Number(item.ieps_percentage || 0);
+        const taxes = clampTaxPercentages(
+          Number(item.iva_percentage || 0),
+          Number(item.ieps_percentage || 0),
+          taxPolicy,
+        );
+        const iva_pct = taxes.ivaPercentage;
+        const ieps_pct = taxes.iepsPercentage;
         const line_iva = (taxable_subtotal * iva_pct) / 100;
         const line_ieps = (taxable_subtotal * ieps_pct) / 100;
 
@@ -503,6 +634,8 @@ export class SalesOrderService {
           sales_order_id: savedSO.id,
           product_id: item.product_id,
           product_uom_id: productUomRow.id,
+          custom_description: item.custom_description?.trim() || null,
+          notes: item.notes?.trim() || null,
           quantity: item.quantity,
           quantity_base_uom: qty_base,
           base_uom_id: baseUomRow.uom_catalog_id,
@@ -576,9 +709,31 @@ export class SalesOrderService {
         savedSO.general_status = posQueued ? 'En cola' : 'Surtida';
         await qr.manager.save(SalesOrder, savedSO);
         this.logger.log(`POS sales order ${folio} auto-fulfilled by user ${userId}`);
+      } else {
+        await this.holdManualInventoryIfNeeded(qr, savedSO, savedDetails, userId);
       }
 
+      await qr.manager.update(
+        SalesOrder,
+        { id: savedSO.id },
+        {
+          customer_id: customerId,
+          ...(await this.resolveWalkInTicketFields(tenantId, customerId, dto)),
+        },
+      );
+
       await qr.commitTransaction();
+
+      if (!isPosSale && paymentStatus === 'Pendiente' && !fromQuotation) {
+        await this.captureDebtQuietly(
+          this.debtLedger.captureCharge({
+            tenantId,
+            salesOrderId: savedSO.id,
+            userId,
+          }),
+          `cargo ${folio}`,
+        );
+      }
 
       this.generateAndUploadPdf(savedSO.id, tenantId, userId).catch((err) => {
         this.logger.error('[PDF] Error in async PDF generation:', err);
@@ -603,6 +758,10 @@ export class SalesOrderService {
       line_items: CreateSalesOrderLineItemDto[];
       customer_id?: number;
       global_discount_id?: string | null;
+      walk_in_name?: string | null;
+      walk_in_rfc?: string | null;
+      for_shipping?: boolean;
+      notes?: string | null;
     },
     tenantId: string,
     userId: string,
@@ -680,10 +839,17 @@ export class SalesOrderService {
         dto.line_items,
         userId,
         tenantId,
+        so.fiscal_configuration_id,
       );
 
       so.global_discount_id = dto.global_discount_id ?? null;
       so.updated_by = userId;
+      const walkInTicket = isWalkInCustomer(customer)
+        ? {
+            walk_in_name: normalizeWalkInName(dto.walk_in_name),
+            walk_in_rfc: normalizeWalkInRfc(dto.walk_in_rfc),
+          }
+        : { walk_in_name: null, walk_in_rfc: null };
       await qr.manager.update(
         SalesOrder,
         { id: so.id },
@@ -691,6 +857,9 @@ export class SalesOrderService {
           customer_id: customerId,
           global_discount_id: so.global_discount_id,
           updated_by: userId,
+          ...walkInTicket,
+          ...(dto.for_shipping !== undefined ? { for_shipping: !!dto.for_shipping } : {}),
+          ...(dto.notes !== undefined ? { notes: dto.notes?.trim() || null } : {}),
         },
       );
       await this.recomputeTotals(qr, so.id, tenantId, userId);
@@ -731,6 +900,121 @@ export class SalesOrderService {
   }
 
   async findAll(tenantId: string, filters: QuerySalesOrderDto) {
+    const { sort_by = 'created_at', sort_order = 'DESC' } = filters;
+    const pageNum = Math.max(1, Math.trunc(Number(filters.page) || 1));
+    const limitNum = Math.min(100, Math.max(1, Math.trunc(Number(filters.limit) || 20)));
+
+    const qb = this.soRepo
+      .createQueryBuilder('so')
+      .where('so.tenant_id = :tenantId', { tenantId });
+    this.applyListFilters(qb, filters);
+
+    const total = Number(await qb.clone().getCount()) || 0;
+    const totalPages = total > 0 ? Math.ceil(total / limitNum) : 0;
+
+    const sortCol = sort_by === 'total' ? 'so.total' : sort_by === 'folio' ? 'so.folio' : 'so.created_at';
+    const idRows = await qb
+      .clone()
+      .select('so.id', 'id')
+      .orderBy(sortCol, sort_order)
+      .addOrderBy('so.id', 'DESC')
+      .offset((pageNum - 1) * limitNum)
+      .limit(limitNum)
+      .getRawMany<{ id?: string; so_id?: string }>();
+
+    const ids: string[] = [];
+    const seen = new Set<string>();
+    for (const row of idRows) {
+      const id = row.id ?? row.so_id;
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      ids.push(id);
+    }
+
+    let rows: SalesOrder[] = [];
+    if (ids.length) {
+      const loaded = await this.soRepo
+        .createQueryBuilder('so')
+        .leftJoinAndSelect('so.customer', 'customer')
+        .leftJoinAndSelect('so.fiscal_configuration', 'fiscal_configuration')
+        .leftJoinAndSelect('so.billing_branch', 'billing_branch')
+        .leftJoinAndSelect('so.warehouse', 'warehouse')
+        .where('so.tenant_id = :tenantId', { tenantId })
+        .andWhere('so.id IN (:...ids)', { ids })
+        .getMany();
+      const byId = new Map(loaded.map((so) => [so.id, so]));
+      rows = ids
+        .map((id) => byId.get(id))
+        .filter((so): so is SalesOrder => !!so);
+    }
+
+    const paymentByOrderId = await this.getPaymentDisplayByOrderIds(tenantId, rows);
+    const orderIds = rows.map((so) => so.id);
+    const downloadsByOrder = filters.with_downloads
+      ? await this.loadOrderDownloads(tenantId, orderIds)
+      : null;
+    const invoiceByOrder = downloadsByOrder
+      ? null
+      : await this.loadOrderInvoiceShortcuts(tenantId, orderIds);
+
+    return {
+      data: rows.map((so) => {
+        const paymentInfo = paymentByOrderId.get(so.id);
+        const paymentDisplay =
+          paymentInfo?.display ??
+          buildSalesOrderPaymentDisplay({ isCredit: !!so.is_credit });
+        const customerSummary = mapPosCustomer(so.customer);
+        return {
+          ...this.mapOrderLocation(so),
+          customer_display_name:
+            customerSummary?.display_name ?? formatCustomerDisplayName(so.customer),
+          customer_summary: customerSummary,
+          payment_method: paymentDisplay.payment_method,
+          payment_method_label: paymentDisplay.payment_method_label,
+          payment_breakdown_label: paymentDisplay.payment_breakdown_label,
+          payment_display: paymentDisplay,
+          collection_channel: paymentInfo?.collection_channel ?? null,
+          collection_channel_label: paymentInfo?.collection_channel_label ?? null,
+          ...(downloadsByOrder
+            ? { downloads: downloadsByOrder.get(so.id) ?? emptyOrderDownloads() }
+            : { invoice: invoiceByOrder?.get(so.id) ?? null }),
+        };
+      }),
+      total,
+      page: pageNum,
+      limit: limitNum,
+      totalPages,
+      hasNext: pageNum < totalPages,
+      hasPrev: pageNum > 1,
+    };
+  }
+
+  async getSalesTrend(tenantId: string, filters: QuerySalesOrderDto) {
+    const windowFrom = new Date(rollingWindowStart().getTime() - 24 * 60 * 60 * 1000);
+    const requestedFrom = filters.created_from ? new Date(filters.created_from) : null;
+    const from =
+      requestedFrom && !Number.isNaN(requestedFrom.getTime()) && requestedFrom > windowFrom
+        ? requestedFrom
+        : windowFrom;
+
+    const qb = this.soRepo
+      .createQueryBuilder('so')
+      .select('so.created_at', 'created_at')
+      .addSelect('so.total', 'total')
+      .where('so.tenant_id = :tenantId', { tenantId });
+    this.applyListFilters(qb, { ...filters, created_from: from.toISOString() });
+
+    const rows = await qb.getRawMany<{ created_at: Date | string; total: number | string | null }>();
+    return {
+      currency: 'MXN',
+      ...buildPurchaseTrend(rows),
+    };
+  }
+
+  private applyListFilters(
+    qb: SelectQueryBuilder<SalesOrder>,
+    filters: QuerySalesOrderDto,
+  ): void {
     const {
       search,
       general_status,
@@ -744,22 +1028,10 @@ export class SalesOrderService {
       customer_id,
       created_from,
       created_to,
-      page = 1,
-      limit = 20,
-      sort_by = 'created_at',
-      sort_order = 'DESC',
     } = filters;
 
-    const qb = this.soRepo
-      .createQueryBuilder('so')
-      .leftJoinAndSelect('so.customer', 'customer')
-      .leftJoinAndSelect('so.fiscal_configuration', 'fiscal_configuration')
-      .leftJoinAndSelect('so.billing_branch', 'billing_branch')
-      .leftJoinAndSelect('so.warehouse', 'warehouse')
-      .where('so.tenant_id = :tenantId', { tenantId });
-
     if (search) {
-      qb.andWhere(
+      qb.leftJoin('so.customer', 'customer').andWhere(
         '(so.folio LIKE :s OR customer.name LIKE :s OR customer.lastname LIKE :s OR CONCAT(customer.name, \' \', COALESCE(customer.lastname, \'\')) LIKE :s)',
         { s: `%${search}%` },
       );
@@ -788,7 +1060,7 @@ export class SalesOrderService {
       });
     }
     if (billing_branch_id) {
-      qb.andWhere(
+      qb.leftJoin('so.warehouse', 'warehouse').andWhere(
         '(so.billing_branch_id = :billing_branch_id OR (so.billing_branch_id IS NULL AND warehouse.billing_branch_id = :billing_branch_id))',
         { billing_branch_id },
       );
@@ -796,34 +1068,151 @@ export class SalesOrderService {
     if (customer_id) qb.andWhere('so.customer_id = :customer_id', { customer_id });
     if (created_from) qb.andWhere('so.created_at >= :created_from', { created_from: new Date(created_from) });
     if (created_to) qb.andWhere('so.created_at <= :created_to', { created_to: new Date(created_to) });
+  }
 
-    const sortCol = sort_by === 'total' ? 'so.total' : sort_by === 'folio' ? 'so.folio' : 'so.created_at';
-    qb.orderBy(sortCol, sort_order).skip((page - 1) * limit).take(limit);
+  private async loadOrderInvoiceShortcuts(
+    tenantId: string,
+    orderIds: string[],
+  ): Promise<Map<string, OrderDownloads['invoice']>> {
+    if (!orderIds.length) return new Map();
+    const invoices = await this.dataSource.getRepository(ElectronicInvoice).find({
+      where: {
+        tenant_id: tenantId,
+        source_module: 'sales_orders',
+        source_id: In(orderIds),
+      },
+      select: [
+          'id',
+          'source_id',
+          'uuid',
+          'rfc_emisor',
+          'series',
+          'folio',
+          'tipo_comprobante',
+          'rfc_receptor',
+          'receptor_nombre',
+          'total',
+          'currency',
+          'stamp_status',
+          'sat_status',
+          'stamped_at',
+          'updated_at',
+          'sat_last_sync_at',
+          'created_at',
+        ],
+    });
+    const built = buildOrderDownloads(orderIds, invoices, []);
+    const shortcuts = new Map<string, OrderDownloads['invoice']>();
+    for (const orderId of orderIds) {
+      shortcuts.set(orderId, built.get(orderId)?.invoice ?? null);
+    }
+    return shortcuts;
+  }
 
-    const [rows, total] = await qb.getManyAndCount();
-    const paymentByOrderId = await this.getPaymentDisplayByOrderIds(tenantId, rows);
+  private async loadOrderDownloads(
+    tenantId: string,
+    orderIds: string[],
+  ): Promise<
+    Map<
+      string,
+      {
+        invoice: OrderDownloads['invoice'];
+        ticket: { id: string; file_name: string } | null;
+        order_document: {
+          id: string;
+          file_name: string;
+          kind: 'original' | 'delivery';
+          url: string | null;
+        } | null;
+      }
+    >
+  > {
+    if (!orderIds.length) return new Map();
+    const invoices = await this.dataSource.getRepository(ElectronicInvoice).find({
+      where: {
+        tenant_id: tenantId,
+        source_module: 'sales_orders',
+        source_id: In(orderIds),
+      },
+      select: [
+          'id',
+          'source_id',
+          'uuid',
+          'rfc_emisor',
+          'series',
+          'folio',
+          'tipo_comprobante',
+          'rfc_receptor',
+          'receptor_nombre',
+          'total',
+          'currency',
+          'stamp_status',
+          'sat_status',
+          'stamped_at',
+          'updated_at',
+          'sat_last_sync_at',
+          'created_at',
+        ],
+    });
+    const documents = await this.dataSource
+      .getRepository(SalesOrderDocument)
+      .createQueryBuilder('doc')
+      .innerJoin('doc.document_type', 'docType')
+      .select('doc.id', 'id')
+      .addSelect('doc.sales_order_id', 'sales_order_id')
+      .addSelect('doc.file_name', 'file_name')
+      .addSelect('doc.file_path', 'file_path')
+      .addSelect('doc.created_at', 'created_at')
+      .addSelect('docType.name', 'type_name')
+      .where('doc.sales_order_id IN (:...orderIds)', { orderIds })
+      .getRawMany<OrderDownloadDocumentRow>();
 
-    return {
-      data: rows.map((so) => {
-        const paymentInfo = paymentByOrderId.get(so.id);
-        const paymentDisplay =
-          paymentInfo?.display ??
-          buildSalesOrderPaymentDisplay({ isCredit: !!so.is_credit });
-        return {
-          ...this.mapOrderLocation(so),
-          payment_method: paymentDisplay.payment_method,
-          payment_method_label: paymentDisplay.payment_method_label,
-          payment_breakdown_label: paymentDisplay.payment_breakdown_label,
-          payment_display: paymentDisplay,
-          collection_channel: paymentInfo?.collection_channel ?? null,
-          collection_channel_label: paymentInfo?.collection_channel_label ?? null,
-        };
+    const built = buildOrderDownloads(orderIds, invoices, documents);
+    const signed = new Map<
+      string,
+      {
+        invoice: OrderDownloads['invoice'];
+        ticket: { id: string; file_name: string } | null;
+        order_document: {
+          id: string;
+          file_name: string;
+          kind: 'original' | 'delivery';
+          url: string | null;
+        } | null;
+      }
+    >();
+    await Promise.all(
+      orderIds.map(async (orderId) => {
+        const downloads = built.get(orderId) ?? emptyOrderDownloads();
+        const orderDocument = downloads.order_document;
+        const orderKind: 'original' | 'delivery' =
+          orderDocument?.kind === 'delivery' ? 'delivery' : 'original';
+        let url: string | null = null;
+        if (orderDocument?.file_path && orderDocument.kind !== 'ticket') {
+          try {
+            url = await this.s3Service.getSignedUrl(orderDocument.file_path, 900);
+          } catch {
+            url = null;
+          }
+        }
+        signed.set(orderId, {
+          invoice: downloads.invoice,
+          ticket: downloads.ticket
+            ? { id: downloads.ticket.id, file_name: downloads.ticket.file_name }
+            : null,
+          order_document:
+            orderDocument && orderDocument.kind !== 'ticket'
+              ? {
+                  id: orderDocument.id,
+                  file_name: orderDocument.file_name,
+                  kind: orderKind,
+                  url,
+                }
+              : null,
+        });
       }),
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
+    );
+    return signed;
   }
 
   async linkConvertedFromQuotation(
@@ -886,6 +1275,8 @@ export class SalesOrderService {
         so.sales_order_type === 'POS' && !!so.collected_by_user_id,
     });
     const cancelBlockedReason = await this.getCancelBlockedReason(so, tenantId);
+    const collectionActions = await this.collectionActions(so, tenantId);
+    const advance = await this.describeAdvance(so, tenantId);
     const controlDesk = await this.warehouseControlService.getSalesOrderSummary(
       so.id,
       tenantId,
@@ -918,7 +1309,16 @@ export class SalesOrderService {
       discount_summary: discountSummary,
       can_cancel: cancelBlockedReason === null,
       cancel_blocked_reason: cancelBlockedReason,
-      can_edit_lines: this.resolveCanEditLines(so.general_status, controlDesk),
+      can_send_to_collection: collectionActions.canSend,
+      can_withdraw_from_collection: collectionActions.canWithdraw,
+      collection_send_blocked_reason: collectionActions.sendBlockedReason,
+      collection_withdraw_blocked_reason: collectionActions.withdrawBlockedReason,
+      advance_invoicing_enabled: Boolean(so.fiscal_configuration?.advance_invoicing_enabled),
+      can_stamp_advance: advance.canStamp,
+      can_apply_advance: advance.canApply,
+      advance_invoice: advance.summary,
+      can_edit_lines:
+        this.resolveCanEditLines(so.general_status, controlDesk) && !advance.summary,
       control_desk: controlDesk,
     };
 
@@ -988,11 +1388,12 @@ export class SalesOrderService {
     const existing = await this.paymentRepo.find({
       where: { sales_order_id: salesOrderId, tenant_id: tenantId },
     });
-    const currentSummary = this.buildPaymentSummary(order, existing);
+    const creditNotesTotal = await this.vigenteCreditNotesTotal(order);
+    const currentSummary = this.buildPaymentSummary(order, existing, creditNotesTotal);
 
     if (dto.amount > currentSummary.amount_pending + 0.001) {
       throw new BadRequestException(
-        `El monto excede el saldo pendiente (${currentSummary.amount_pending.toFixed(2)} MXN)`,
+        `El monto excede el saldo pendiente (${currentSummary.amount_pending.toFixed(2)} ${currentSummary.currency})`,
       );
     }
 
@@ -1011,9 +1412,19 @@ export class SalesOrderService {
     });
 
     await this.paymentRepo.save(payment);
+    await this.captureDebtQuietly(
+      this.debtLedger.capturePayment({
+        tenantId,
+        salesOrderId,
+        paymentId: payment.id,
+        userId,
+        source,
+      }),
+      `abono ${payment.id}`,
+    );
 
     const updatedPayments = [...existing, payment];
-    const summary = this.buildPaymentSummary(order, updatedPayments);
+    const summary = this.buildPaymentSummary(order, updatedPayments, creditNotesTotal);
     order.payment_status = summary.payment_status;
     order.updated_by = userId;
     if (summary.payment_status === 'Pagado' && source === 'manual') {
@@ -1042,9 +1453,11 @@ export class SalesOrderService {
       throw new NotFoundException(`Pago no encontrado: ${paymentId}`);
     }
 
-    if (payment.source === 'pos_cobranza') {
+    if (payment.source === 'pos_cobranza' || payment.source === 'advance') {
       throw new BadRequestException(
-        'No se puede eliminar un pago registrado desde cobranza POS',
+        payment.source === 'advance'
+          ? 'El anticipo se reversa cancelando la factura, mientras el corte siga abierto'
+          : 'No se puede eliminar un pago registrado desde cobranza POS',
       );
     }
 
@@ -1056,6 +1469,14 @@ export class SalesOrderService {
       }
     }
 
+    await this.captureDebtQuietly(
+      this.debtLedger.capturePaymentReversal({
+        tenantId,
+        paymentId,
+        userId,
+      }),
+      `reversa ${paymentId}`,
+    );
     await this.paymentRepo.remove(payment);
 
     const paymentData = await this.getPaymentsForOrder(order);
@@ -1274,9 +1695,10 @@ export class SalesOrderService {
     });
 
     const mapped = await Promise.all(payments.map((p) => this.mapPaymentWithDocuments(p)));
+    const creditNotesTotal = await this.vigenteCreditNotesTotal(order);
     return {
       payments: mapped,
-      summary: this.buildPaymentSummary(order, payments),
+      summary: this.buildPaymentSummary(order, payments, creditNotesTotal),
     };
   }
 
@@ -1305,8 +1727,19 @@ export class SalesOrderService {
     customerId: number,
     sellerUserId: string,
     explicitAssignedSellerId?: string,
+    options?: { allowWithoutPosCode?: boolean },
   ): Promise<string> {
     if (explicitAssignedSellerId) {
+      if (options?.allowWithoutPosCode) {
+        const explicit = await this.userRepo.findOne({
+          where: { id: explicitAssignedSellerId, tenant_id: tenantId },
+          select: ['id'],
+        });
+        if (!explicit) {
+          throw new BadRequestException('Comisionado no válido');
+        }
+        return explicit.id;
+      }
       const explicit = await this.assertPosSellerUser(
         explicitAssignedSellerId,
         tenantId,
@@ -1364,25 +1797,45 @@ export class SalesOrderService {
     };
   }
 
+  private async vigenteCreditNotesTotal(order: SalesOrder): Promise<number> {
+    const invoices = await this.electronicInvoiceService.findBySource(
+      order.tenant_id,
+      'sales_orders',
+      order.id,
+    );
+    return sumVigenteCommercialCreditNotes(invoices);
+  }
+
   private buildPaymentSummary(
     order: SalesOrder,
     payments: SalesOrderPayment[],
+    creditNotesTotal = 0,
   ): {
     amount_paid: number;
     amount_pending: number;
     payment_status: string;
     currency: string;
     order_total: number;
+    credit_notes_total: number;
+    customer_credit: number;
   } {
     const orderTotal = Number(order.total || 0);
     const amountPaid = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-    const amountPending = Math.max(Number((orderTotal - amountPaid).toFixed(2)), 0);
+    const cashPending = Math.max(Number((orderTotal - amountPaid).toFixed(2)), 0);
+    const effect = splitCreditNoteEffect({
+      orderTotal,
+      amountPaid,
+      creditNotesTotal,
+    });
+    const currency = order.currency === 'USD' ? 'USD' : 'MXN';
     return {
       amount_paid: Number(amountPaid.toFixed(2)),
-      amount_pending: amountPending,
-      payment_status: amountPending <= 0 ? 'Pagado' : 'Pendiente',
-      currency: 'MXN',
+      amount_pending: effect.pendingAfter,
+      payment_status: cashPending <= 0 ? 'Pagado' : 'Pendiente',
+      currency,
       order_total: Number(orderTotal.toFixed(2)),
+      credit_notes_total: Number(Number(creditNotesTotal || 0).toFixed(2)),
+      customer_credit: effect.customerCredit,
     };
   }
 
@@ -1456,6 +1909,25 @@ export class SalesOrderService {
     return this.findOne(id, tenantId);
   }
 
+  async updateForShipping(
+    id: string,
+    forShipping: boolean,
+    tenantId: string,
+    userId: string,
+  ): Promise<SalesOrder> {
+    const so = await this.findOne(id, tenantId);
+
+    if (so.general_status === 'Cancelada') {
+      throw new BadRequestException('No se puede cambiar el envío de una orden cancelada');
+    }
+
+    so.for_shipping = !!forShipping;
+    so.updated_by = userId;
+    await this.soRepo.save(so);
+
+    return this.findOne(id, tenantId);
+  }
+
   /**
    * Cambia el vendedor de la orden (usuario con pos_user_code).
    * Disponible en cualquier estado excepto Cancelada.
@@ -1465,8 +1937,14 @@ export class SalesOrderService {
     sellerUserId: string,
     tenantId: string,
     userId: string,
-  ) {
-    const so = await this.findOne(id, tenantId);
+  ): Promise<void> {
+    const so = await this.soRepo.findOne({
+      where: { id, tenant_id: tenantId },
+      select: ['id', 'general_status'],
+    });
+    if (!so) {
+      throw new NotFoundException(`Sales order not found: ${id}`);
+    }
 
     if (so.general_status === 'Cancelada') {
       throw new BadRequestException('No se puede cambiar el vendedor de una orden cancelada');
@@ -1478,8 +1956,6 @@ export class SalesOrderService {
       { id, tenant_id: tenantId },
       { seller_user_id: seller.id, updated_by: userId },
     );
-
-    return this.findOneDetail(id, tenantId);
   }
 
   /**
@@ -1491,8 +1967,14 @@ export class SalesOrderService {
     assignedSellerUserId: string,
     tenantId: string,
     userId: string,
-  ) {
-    const so = await this.findOne(id, tenantId);
+  ): Promise<void> {
+    const so = await this.soRepo.findOne({
+      where: { id, tenant_id: tenantId },
+      select: ['id', 'general_status'],
+    });
+    if (!so) {
+      throw new NotFoundException(`Sales order not found: ${id}`);
+    }
 
     if (so.general_status === 'Cancelada') {
       throw new BadRequestException(
@@ -1510,8 +1992,6 @@ export class SalesOrderService {
       { id, tenant_id: tenantId },
       { assigned_seller_user_id: assigned.id, updated_by: userId },
     );
-
-    return this.findOneDetail(id, tenantId);
   }
 
   /**
@@ -1537,14 +2017,25 @@ export class SalesOrderService {
     await qr.startTransaction();
 
     try {
-      await this.fulfillOrderLines(
-        qr,
-        id,
-        this.allocationScope(so),
-        so.line_items,
-        userId,
-        dto.notes ?? so.notes ?? undefined,
+      const existingAllocations = (so.line_items ?? []).flatMap(
+        (line) => line.batch_allocations ?? [],
       );
+      if (existingAllocations.length) {
+        await qr.manager.update(SalesOrder, { id }, {
+          general_status: 'Surtida',
+          ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
+          updated_by: userId,
+        });
+      } else {
+        await this.fulfillOrderLines(
+          qr,
+          id,
+          this.allocationScope(so),
+          so.line_items,
+          userId,
+          dto.notes ?? so.notes ?? undefined,
+        );
+      }
 
       await qr.commitTransaction();
       this.logger.log(`Sales order ${so.folio} fulfilled by user ${userId}`);
@@ -1589,14 +2080,63 @@ export class SalesOrderService {
         updated_by: userId,
       });
 
+      if (so.converted_from_quotation_id) {
+        await qr.manager.update(
+          Quotation,
+          {
+            id: so.converted_from_quotation_id,
+            tenant_id: tenantId,
+            converted_to_sales_order_id: id,
+            general_status: 'Convertida',
+          },
+          {
+            general_status: 'Creada',
+            converted_to_sales_order_id: null,
+            updated_by: userId,
+          },
+        );
+      }
+
       await qr.commitTransaction();
       this.logger.log(`Sales order ${so.folio} cancelled by user ${userId}`);
+      await this.captureDebtQuietly(
+        this.debtLedger.captureChargeReversal({
+          tenantId,
+          salesOrderId: id,
+          userId,
+        }),
+        `cancelación ${so.folio}`,
+      );
       return this.findOne(id, tenantId);
     } catch (err) {
       await qr.rollbackTransaction();
       throw err;
     } finally {
       await qr.release();
+    }
+  }
+
+  async captureCreditCharge(
+    salesOrderId: string,
+    tenantId: string,
+    userId: string,
+  ): Promise<void> {
+    await this.captureDebtQuietly(
+      this.debtLedger.captureCharge({
+        tenantId,
+        salesOrderId,
+        userId,
+      }),
+      `crédito ${salesOrderId}`,
+    );
+  }
+
+  private async captureDebtQuietly(action: Promise<unknown>, context: string): Promise<void> {
+    try {
+      await action;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Flujo de deuda no capturado (${context}): ${message}`);
     }
   }
 
@@ -1608,18 +2148,40 @@ export class SalesOrderService {
       return 'La orden ya está cancelada';
     }
 
+    if (so.converted_from_quotation_id) {
+      if (so.payment_status === 'Pagado') {
+        return 'La orden ya fue cobrada. No se puede cancelar ni regresar la cotización.';
+      }
+      const collection = await this.posCollectionRepo.findOne({
+        where: { sales_order_id: so.id, tenant_id: tenantId },
+      });
+      if (collection) {
+        return 'La orden ya fue cobrada en caja. No se puede cancelar ni regresar la cotización.';
+      }
+      const payments = await this.paymentRepo.count({ where: { sales_order_id: so.id } });
+      if (payments > 0) {
+        return 'La orden tiene pagos. Elimínalos antes de cancelar para regresar la cotización.';
+      }
+    }
+
     const vigentes = await this.electronicInvoiceService.findVigenteBySource(
       tenantId,
       'sales_orders',
       so.id,
     );
-    if (!vigentes.length) {
+    const blockers = vigentes.filter((invoice) => {
+      const tipo = (invoice.tipo_comprobante || 'I').toUpperCase();
+      if (tipo !== 'I') return false;
+      if (!isCreditableIncomeInvoice(invoice)) return true;
+      return !isIncomeCoveredByCreditNotes(invoice, vigentes);
+    });
+    if (!blockers.length) {
       return null;
     }
 
-    const first = vigentes[0];
+    const first = blockers[0];
     const uuidLabel = first.uuid ? ` (UUID ${first.uuid})` : '';
-    return `No se puede cancelar la orden: tiene una factura CFDI vigente${uuidLabel}. Cancela la factura primero.`;
+    return `No se puede cancelar la orden: tiene una factura CFDI vigente${uuidLabel}. Cancela la factura primero o cubre el total con una nota de crédito.`;
   }
 
   async getPosReturnBlockedReason(
@@ -1683,7 +2245,8 @@ export class SalesOrderService {
     }
 
     const isPosSale = (dto.sales_order_type || existing.sales_order_type) === 'POS';
-    const location = await this.resolveSalesOrderLocation(tenantId, dto, isPosSale);
+    await this.applyCreationDefaults(tenantId, dto, isPosSale);
+    const location = await this.resolveSalesOrderLocation(tenantId, dto, isPosSale, userId);
 
     const qr = this.dataSource.createQueryRunner();
     await qr.connect();
@@ -1697,6 +2260,17 @@ export class SalesOrderService {
       );
       this.controlDeskLifecycle.assertJobEditable(existingJob);
 
+      const existingAllocations = await qr.manager
+        .createQueryBuilder(SalesOrderBatchAllocation, 'alloc')
+        .innerJoin('alloc.sales_order_detail', 'detail')
+        .where('detail.sales_order_id = :id', { id })
+        .getMany();
+      if (existingAllocations.length) {
+        await this.fulfillmentService.releaseAllocations(existingAllocations, qr.manager);
+      }
+
+      carryOverCustomDescriptions(existing.line_items ?? [], dto.line_items);
+
       await qr.manager.delete(SalesOrderDetail, { sales_order_id: id });
       const so = await qr.manager.findOne(SalesOrder, { where: { id, tenant_id: tenantId } });
       if (!so) {
@@ -1709,7 +2283,9 @@ export class SalesOrderService {
       if (dto.customer_id != null) {
         so.customer_id = dto.customer_id;
       }
-      so.expected_delivery_date = new Date(dto.expected_delivery_date);
+      so.expected_delivery_date = new Date(
+        dto.expected_delivery_date || resolveDeliveryDateDefault('today'),
+      );
       so.sales_order_type = dto.sales_order_type || so.sales_order_type || 'MANUAL';
       if (dto.fiscal_razon_social !== undefined) {
         so.fiscal_razon_social = dto.fiscal_razon_social;
@@ -1731,6 +2307,9 @@ export class SalesOrderService {
       const hasGoodsLines = [...lineKinds.values()].some(
         (kind) => kind === ProductItemKind.Goods,
       );
+      if (dto.for_shipping !== undefined) {
+        so.for_shipping = !!dto.for_shipping;
+      }
       if (dto.requires_selection_assembly !== undefined && so.sales_order_type === 'MANUAL') {
         so.requires_selection_assembly =
           saleScope !== SalesOrderSaleScope.Services &&
@@ -1754,6 +2333,7 @@ export class SalesOrderService {
         dto.line_items,
         userId,
         tenantId,
+        so.fiscal_configuration_id,
       );
       await this.recomputeTotals(qr, so.id, tenantId, userId);
 
@@ -1764,6 +2344,7 @@ export class SalesOrderService {
         details: savedDetails,
         requiresSelection: !!so.requires_selection_assembly,
       });
+      await this.holdManualInventoryIfNeeded(qr, so, savedDetails, userId);
 
       await qr.commitTransaction();
 
@@ -1778,6 +2359,32 @@ export class SalesOrderService {
     } finally {
       await qr.release();
     }
+  }
+
+  async cloneOrder(
+    id: string,
+    dto: CloneSalesOrderDto,
+    tenantId: string,
+    userId: string,
+  ): Promise<SalesOrder> {
+    const source = await this.findOne(id, tenantId);
+    if (source.sales_order_type !== 'MANUAL') {
+      throw new BadRequestException('Solo se pueden clonar órdenes manuales');
+    }
+    const today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Mexico_City',
+    }).format(new Date());
+
+    let createDto: CreateSalesOrderDto;
+    try {
+      createDto = buildCloneSalesOrderDto(source, dto, today);
+    } catch (err) {
+      throw new BadRequestException((err as Error).message);
+    }
+
+    return this.create(createDto, tenantId, userId, {
+      allowAssignedSellerWithoutPosCode: true,
+    });
   }
 
   async addLineItem(
@@ -1801,7 +2408,15 @@ export class SalesOrderService {
       const lineKinds = await this.loadProductKinds(qr, [dto.product_id]);
       this.assertLineItemsMatchSaleScope([dto], saleScope, lineKinds);
 
-      await this.insertSalesOrderLineItems(qr, so.id, [dto], userId, tenantId);
+      const added = await this.insertSalesOrderLineItems(
+        qr,
+        so.id,
+        [dto],
+        userId,
+        tenantId,
+        so.fiscal_configuration_id,
+      );
+      await this.holdManualInventoryIfNeeded(qr, so, added, userId);
       await this.recomputeTotals(qr, so.id, tenantId, userId);
       const details = await qr.manager.find(SalesOrderDetail, {
         where: { sales_order_id: so.id },
@@ -1847,9 +2462,16 @@ export class SalesOrderService {
 
       const line = await qr.manager.findOne(SalesOrderDetail, {
         where: { id: lineItemId, sales_order_id: orderId },
+        relations: ['batch_allocations'],
       });
       if (!line) {
         throw new NotFoundException(`Línea no encontrada: ${lineItemId}`);
+      }
+
+      const allocationChanged = this.lineAllocationChanged(line, dto);
+      if (allocationChanged && line.batch_allocations?.length) {
+        await this.fulfillmentService.releaseAllocations(line.batch_allocations, qr.manager);
+        line.batch_allocations = [];
       }
 
       if (dto.quantity !== undefined) {
@@ -1858,15 +2480,36 @@ export class SalesOrderService {
       if (dto.unit_price !== undefined) {
         line.unit_price = roundUnitAmount(dto.unit_price);
       }
-      if (dto.iva_percentage !== undefined) {
-        line.iva_percentage = dto.iva_percentage;
+      const taxPolicy = await loadFiscalTaxPolicy(
+        qr.manager,
+        so.fiscal_configuration_id,
+        tenantId,
+      );
+      if (dto.iva_percentage !== undefined || !taxPolicy.ivaEnabled) {
+        line.iva_percentage = clampTaxPercentages(
+          Number(dto.iva_percentage ?? line.iva_percentage ?? 0),
+          0,
+          taxPolicy,
+        ).ivaPercentage;
       }
-      if (dto.ieps_percentage !== undefined) {
-        line.ieps_percentage = dto.ieps_percentage;
+      if (dto.ieps_percentage !== undefined || !taxPolicy.iepsEnabled) {
+        line.ieps_percentage = clampTaxPercentages(
+          0,
+          Number(dto.ieps_percentage ?? line.ieps_percentage ?? 0),
+          taxPolicy,
+        ).iepsPercentage;
+      }
+      if (dto.notes !== undefined) {
+        line.notes = dto.notes?.trim() || null;
       }
 
       const productUomId = dto.product_uom_id || line.product_uom_id;
-      const productUomRow = await this.resolveProductUom(qr, line.product_id, productUomId);
+      const productUomRow = await this.resolveProductUom(
+        qr,
+        line.product_id,
+        productUomId,
+        tenantId,
+      );
       line.product_uom_id = productUomRow.id;
       const factor = productUomRow.factor || 1;
       line.quantity_base_uom = productUomRow.is_base
@@ -1896,6 +2539,9 @@ export class SalesOrderService {
 
       this.applyPersistedLineTaxes(line);
       await qr.manager.save(SalesOrderDetail, line);
+      if (allocationChanged) {
+        await this.holdManualInventoryIfNeeded(qr, so, [line], userId);
+      }
       await this.recomputeTotals(qr, so.id, tenantId, userId);
 
       const details = await qr.manager.find(SalesOrderDetail, {
@@ -1941,6 +2587,7 @@ export class SalesOrderService {
 
       const line = await qr.manager.findOne(SalesOrderDetail, {
         where: { id: lineItemId, sales_order_id: orderId },
+        relations: ['batch_allocations'],
       });
       if (!line) {
         throw new NotFoundException(`Línea no encontrada: ${lineItemId}`);
@@ -1951,6 +2598,10 @@ export class SalesOrderService {
       });
       if (remaining <= 1) {
         throw new BadRequestException('La orden debe tener al menos un producto');
+      }
+
+      if (line.batch_allocations?.length) {
+        await this.fulfillmentService.releaseAllocations(line.batch_allocations, qr.manager);
       }
 
       await qr.manager.delete(SalesOrderDetail, { id: lineItemId, sales_order_id: orderId });
@@ -1977,6 +2628,30 @@ export class SalesOrderService {
     this.regenerateDocumentoOriginalPreservingLanguage(orderId, tenantId, userId).catch((err) => {
       this.logger.error('[PDF] Error regenerating DOCUMENTO_ORIGINAL after remove line:', err);
     });
+  }
+
+  private async holdManualInventoryIfNeeded(
+    qr: QueryRunner,
+    so: SalesOrder,
+    details: SalesOrderDetail[],
+    userId: string,
+  ): Promise<void> {
+    if (so.sales_order_type === 'POS' || so.requires_selection_assembly) {
+      return;
+    }
+    const goods = await this.filterGoodsDetails(qr, details);
+    if (!goods.length) {
+      return;
+    }
+    await this.fulfillOrderLines(
+      qr,
+      so.id,
+      { billingBranchId: so.billing_branch_id },
+      goods,
+      userId,
+      undefined,
+      true,
+    );
   }
 
   private async fulfillOrderLines(
@@ -2058,13 +2733,20 @@ export class SalesOrderService {
     lineItems: CreateSalesOrderLineItemDto[],
     userId: string,
     tenantId: string,
+    fiscalConfigurationId?: string | null,
   ): Promise<SalesOrderDetail[]> {
+    const taxPolicy = await loadFiscalTaxPolicy(
+      qr.manager,
+      fiscalConfigurationId || '',
+      tenantId,
+    );
     const saved: SalesOrderDetail[] = [];
     for (const item of lineItems) {
       const productUomRow = await this.resolveProductUom(
         qr,
         item.product_id,
         item.product_uom_id,
+        tenantId,
       );
 
       const discountAmounts = await this.resolveLineDiscountAmounts(
@@ -2076,8 +2758,13 @@ export class SalesOrderService {
       const line_subtotal = Number(item.quantity) * Number(item.unit_price);
       const line_discount = discountAmounts.line_discount;
       const taxable_subtotal = Math.max(line_subtotal - line_discount, 0);
-      const iva_pct = Number(item.iva_percentage || 0);
-      const ieps_pct = Number(item.ieps_percentage || 0);
+      const taxes = clampTaxPercentages(
+        Number(item.iva_percentage || 0),
+        Number(item.ieps_percentage || 0),
+        taxPolicy,
+      );
+      const iva_pct = taxes.ivaPercentage;
+      const ieps_pct = taxes.iepsPercentage;
       const line_iva = (taxable_subtotal * iva_pct) / 100;
       const line_ieps = (taxable_subtotal * ieps_pct) / 100;
 
@@ -2100,6 +2787,8 @@ export class SalesOrderService {
         sales_order_id: salesOrderId,
         product_id: item.product_id,
         product_uom_id: productUomRow.id,
+        custom_description: item.custom_description?.trim() || null,
+        notes: item.notes?.trim() || null,
         quantity: item.quantity,
         quantity_base_uom: qty_base,
         base_uom_id: baseUomRow.uom_catalog_id,
@@ -2133,6 +2822,19 @@ export class SalesOrderService {
       return false;
     }
     return (controlDesk.progress?.warehouses_done ?? 0) <= 0;
+  }
+
+  private lineAllocationChanged(
+    line: SalesOrderDetail,
+    dto: UpdateSalesOrderLineItemDto,
+  ): boolean {
+    if (dto.product_uom_id !== undefined && dto.product_uom_id !== line.product_uom_id) {
+      return true;
+    }
+    if (dto.quantity === undefined) {
+      return false;
+    }
+    return Math.abs(Number(dto.quantity) - Number(line.quantity)) > 0.0000001;
   }
 
   private async assertLineItemsEditable(
@@ -2174,6 +2876,7 @@ export class SalesOrderService {
     if (!so) {
       throw new NotFoundException(`Sales order not found: ${salesOrderId}`);
     }
+    const previousTotal = Number(so.total || 0);
 
     const details = await qr.manager.find(SalesOrderDetail, { where: { sales_order_id: salesOrderId } });
     let subtotal = 0;
@@ -2213,8 +2916,75 @@ export class SalesOrderService {
       iva_total,
       ieps_total,
     );
-    so.updated_by = userId;
-    await qr.manager.save(SalesOrder, so);
+    await this.assertOrderAdvanceCredit(so, tenantId, previousTotal, Number(so.total || 0));
+    await qr.manager.update(
+      SalesOrder,
+      { id: salesOrderId },
+      {
+        subtotal: so.subtotal,
+        discount_total: so.discount_total,
+        global_discount_amount: so.global_discount_amount,
+        iva_total: so.iva_total,
+        ieps_total: so.ieps_total,
+        total: so.total,
+        updated_by: userId,
+      },
+    );
+  }
+
+  private async assertOrderAdvanceCredit(
+    order: SalesOrder,
+    tenantId: string,
+    previousTotal: number,
+    nextTotal: number,
+  ): Promise<void> {
+    if (!order.is_credit || !order.customer_id || !order.fiscal_configuration_id) {
+      return;
+    }
+    if (Math.abs(nextTotal - previousTotal) <= 0.009) {
+      return;
+    }
+    const coverage = await this.customerCreditService.advanceCoverageForOrder(tenantId, order.id);
+    if (!coverage.hasAdvance) {
+      return;
+    }
+    await this.customerCreditService.assertAdvanceCreditFits({
+      tenantId,
+      customerId: order.customer_id,
+      fiscalConfigurationId: order.fiscal_configuration_id,
+      currency: order.currency,
+      exchangeRate: Number(order.exchange_rate),
+      createdAt: order.created_at,
+      previousPending: advanceCreditPending(previousTotal, coverage.requested, coverage.paid),
+      nextPending: advanceCreditPending(nextTotal, coverage.requested, coverage.paid),
+    });
+  }
+
+  private async resolveSalesOrderCustomerId(
+    tenantId: string,
+    rawCustomerId: number | null | undefined,
+    isPosSale: boolean,
+  ): Promise<number> {
+    if (rawCustomerId != null && Number(rawCustomerId) > 0) {
+      const id = Math.floor(Number(rawCustomerId));
+      const byId = await this.customerRepo.findOne({
+        where: { id, tenant_id: tenantId },
+      });
+      if (byId) {
+        return byId.id;
+      }
+      const byLegacy = await this.customerRepo.findOne({
+        where: { legacy_customer_id: id, tenant_id: tenantId },
+      });
+      if (byLegacy) {
+        return byLegacy.id;
+      }
+      throw new BadRequestException('Cliente no válido');
+    }
+    if (!isPosSale) {
+      throw new BadRequestException('Las órdenes manuales requieren customer_id');
+    }
+    return this.posShiftsService.resolveWalkInCustomerId(tenantId);
   }
 
   async regenerateDocumentoOriginal(
@@ -2236,7 +3006,9 @@ export class SalesOrderService {
       throw new NotFoundException(`Sales order not found: ${id}`);
     }
 
-    const pdfBuffer = await this.pdfService.generatePdf(fullOrder, language);
+    const pdfBuffer = await this.pdfService.generatePdf(fullOrder, language, {
+      selfInvoice: await this.resolveSelfInvoiceForPdf(fullOrder),
+    });
     const uploadResult = await this.pdfService.uploadPdfToS3(
       fullOrder,
       pdfBuffer,
@@ -2276,6 +3048,244 @@ export class SalesOrderService {
     return this.regenerateDocumentoOriginal(id, tenantId, userId, language);
   }
 
+  private async collectionActions(
+    so: SalesOrder,
+    tenantId: string,
+  ): Promise<CollectionActionState> {
+    const branchId = so.billing_branch_id;
+    let hasOpenShift = false;
+    let onOpenShift = false;
+    if (branchId) {
+      const caja = await this.posShiftsService.resolveBranchCajaShift(tenantId, branchId);
+      hasOpenShift = !!caja.shift && !caja.queued;
+      onOpenShift =
+        hasOpenShift &&
+        so.pos_daily_shift_id === caja.shift?.id &&
+        so.general_status === 'Surtida';
+    }
+    const hasCollection = !!(await this.posCollectionRepo.findOne({
+      where: { sales_order_id: so.id, tenant_id: tenantId },
+    }));
+    const hasPayments =
+      (await this.paymentRepo.count({ where: { sales_order_id: so.id } })) > 0;
+    const vigentes = await this.electronicInvoiceService.findVigenteBySource(
+      tenantId,
+      'sales_orders',
+      so.id,
+    );
+    return resolveCollectionActions({
+      fromQuotation: !!so.converted_from_quotation_id,
+      generalStatus: so.general_status,
+      paymentStatus: so.payment_status,
+      salesOrderType: so.sales_order_type,
+      onOpenShift,
+      hasCollection,
+      hasPayments,
+      hasVigenteInvoice: vigentes.length > 0,
+      hasOpenShift,
+    });
+  }
+
+  private async describeAdvance(
+    so: SalesOrder,
+    tenantId: string,
+  ): Promise<{
+    summary: AdvanceInvoiceSummary | null;
+    canStamp: boolean;
+    canApply: boolean;
+  }> {
+    const enabled = Boolean(so.fiscal_configuration?.advance_invoicing_enabled);
+    let invoice = so.advance_invoice_id
+      ? await this.electronicInvoiceService.findOne(so.advance_invoice_id, tenantId).catch(() => null)
+      : null;
+    if (!invoice) {
+      invoice = await this.advanceCfdi.findVigenteAdvance(tenantId, 'sales_orders', so.id);
+    }
+    const summary = await this.advanceCfdi.summarize(tenantId, invoice);
+    const vigente =
+      !!summary && summary.sat_status !== 'Cancelado' && summary.stamp_status !== 'cancelled';
+    return {
+      summary: vigente ? summary : null,
+      canStamp:
+        enabled && so.general_status !== 'Cancelada' && !vigente && !!so.customer?.fiscal_rfc,
+      canApply:
+        enabled && so.general_status !== 'Cancelada' && !!summary && !summary.applied && vigente,
+    };
+  }
+
+  async setControlDesk(
+    id: string,
+    enabled: boolean,
+    tenantId: string,
+    userId: string,
+  ): Promise<SalesOrder> {
+    const qr = this.dataSource.createQueryRunner();
+    await qr.connect();
+    await qr.startTransaction();
+    try {
+      const so = await qr.manager.findOne(SalesOrder, {
+        where: { id, tenant_id: tenantId },
+        relations: ['line_items', 'line_items.batch_allocations'],
+      });
+      if (!so) {
+        throw new NotFoundException('Orden de venta no encontrada');
+      }
+      if (so.sales_order_type === 'POS' || so.sale_scope === SalesOrderSaleScope.Services) {
+        throw new BadRequestException('Esta orden no pasa por Mesa de Control');
+      }
+      if (!so.billing_branch_id) {
+        throw new BadRequestException('La orden necesita sucursal para entrar a Mesa de Control');
+      }
+      const allowed = enabled
+        ? ['Creada', 'En Selección']
+        : ['En Selección'];
+      if (!allowed.includes(so.general_status)) {
+        throw new BadRequestException(
+          enabled
+            ? 'Solo se puede enviar a Mesa de Control una orden creada'
+            : 'Esta orden ya no se puede sacar de Mesa de Control',
+        );
+      }
+      if (enabled && so.requires_selection_assembly && so.general_status === 'En Selección') {
+        await qr.commitTransaction();
+        return this.findOne(id, tenantId);
+      }
+
+      const details = so.line_items ?? [];
+      if (enabled) {
+        const allocations = details.flatMap((line) => line.batch_allocations ?? []);
+        if (allocations.length) {
+          await this.fulfillmentService.releaseAllocations(allocations, qr.manager);
+        }
+        so.requires_selection_assembly = true;
+        so.general_status = 'En Selección';
+      } else {
+        so.requires_selection_assembly = false;
+        so.general_status = 'Creada';
+      }
+      so.updated_by = userId;
+      await qr.manager.save(SalesOrder, so);
+
+      await this.controlDeskLifecycle.syncJobForSalesOrder(qr.manager, {
+        tenantId,
+        userId,
+        salesOrder: so,
+        details,
+        requiresSelection: enabled,
+      });
+
+      if (!enabled) {
+        const goods = await this.filterGoodsDetails(qr, details);
+        if (goods.length) {
+          await this.fulfillOrderLines(
+            qr,
+            so.id,
+            { billingBranchId: so.billing_branch_id },
+            goods,
+            userId,
+            undefined,
+            true,
+          );
+        }
+      }
+
+      await qr.commitTransaction();
+      return this.findOne(id, tenantId);
+    } catch (err) {
+      await qr.rollbackTransaction();
+      throw err;
+    } finally {
+      await qr.release();
+    }
+  }
+
+  async sendToCollection(id: string, tenantId: string, userId: string): Promise<SalesOrder> {
+    const so = await this.findOne(id, tenantId);
+    const actions = await this.collectionActions(so, tenantId);
+    if (!actions.canSend) {
+      throw new BadRequestException(actions.sendBlockedReason || 'No se puede enviar a cobranza');
+    }
+    const branchId = so.billing_branch_id;
+    if (!branchId) {
+      throw new BadRequestException('La orden no tiene sucursal');
+    }
+    const caja = await this.posShiftsService.resolveBranchCajaShift(tenantId, branchId);
+    if (!caja.shift || caja.queued) {
+      throw new BadRequestException('No hay corte abierto en la sucursal');
+    }
+
+    const qr = this.dataSource.createQueryRunner();
+    await qr.connect();
+    await qr.startTransaction();
+    try {
+      const allocations = (so.line_items ?? []).flatMap((line) => line.batch_allocations ?? []);
+      if (!allocations.length) {
+        try {
+          await this.fulfillOrderLines(
+            qr,
+            so.id,
+            { billingBranchId: branchId },
+            so.line_items ?? [],
+            userId,
+            undefined,
+            true,
+          );
+        } catch (error) {
+          const message = error instanceof Error ? error.message : '';
+          if (!message.includes('no tiene líneas de inventario')) {
+            throw error;
+          }
+        }
+      }
+      await qr.manager.update(SalesOrder, { id: so.id }, {
+        sales_order_type: 'POS',
+        pos_stage: SalesOrderPosStage.Caja,
+        pos_daily_shift_id: caja.shift.id,
+        general_status: 'Surtida',
+        payment_status: 'Pendiente',
+        updated_by: userId,
+      });
+      await qr.commitTransaction();
+      return this.findOne(id, tenantId);
+    } catch (error) {
+      await qr.rollbackTransaction();
+      throw error;
+    } finally {
+      await qr.release();
+    }
+  }
+
+  async withdrawFromCollection(id: string, tenantId: string, userId: string): Promise<SalesOrder> {
+    const so = await this.findOne(id, tenantId);
+    const actions = await this.collectionActions(so, tenantId);
+    if (!actions.canWithdraw) {
+      throw new BadRequestException(
+        actions.withdrawBlockedReason || 'No se puede quitar de cobranza',
+      );
+    }
+
+    const qr = this.dataSource.createQueryRunner();
+    await qr.connect();
+    await qr.startTransaction();
+    try {
+      await qr.manager.update(SalesOrder, { id: so.id }, {
+        sales_order_type: 'MANUAL',
+        pos_stage: null,
+        pos_daily_shift_id: null,
+        general_status: 'Creada',
+        payment_status: 'Pendiente',
+        updated_by: userId,
+      });
+      await qr.commitTransaction();
+      return this.findOne(id, tenantId);
+    } catch (error) {
+      await qr.rollbackTransaction();
+      throw error;
+    } finally {
+      await qr.release();
+    }
+  }
+
   private allocationScope(so: {
     warehouse_id?: string | null;
     billing_branch_id?: string | null;
@@ -2291,10 +3301,103 @@ export class SalesOrderService {
     return { billingBranchId: so.billing_branch_id };
   }
 
+  private async loadCreationFields(tenantId: string): Promise<SalesOrderCreationFields> {
+    try {
+      const row = await this.dataSource.getRepository(SalesOrderCreationSettings).findOne({
+        where: { tenant_id: tenantId },
+      });
+      return normalizeSalesOrderCreationFields(row?.fields);
+    } catch {
+      return normalizeSalesOrderCreationFields(undefined);
+    }
+  }
+
+  private async applyCreationDefaults(
+    tenantId: string,
+    dto: CreateSalesOrderDto,
+    isPosSale: boolean,
+  ): Promise<void> {
+    if (isPosSale) {
+      if (!dto.expected_delivery_date) {
+        throw new BadRequestException('La fecha de entrega es obligatoria');
+      }
+      return;
+    }
+
+    const fields = await this.loadCreationFields(tenantId);
+
+    if (!dto.expected_delivery_date) {
+      const field = fields.expected_delivery_date;
+      if (field.visible && field.required) {
+        throw new BadRequestException('La fecha de entrega es obligatoria');
+      }
+      dto.expected_delivery_date = resolveDeliveryDateDefault(field.default_value);
+    }
+    if (!dto.sale_scope && !fields.sale_scope.visible) {
+      const value = fields.sale_scope.default_value;
+      if (value === 'inventory' || value === 'services' || value === 'combined') {
+        dto.sale_scope = value;
+      }
+    }
+    if (!dto.currency && !fields.currency.visible) {
+      dto.currency = fields.currency.default_value === 'USD' ? 'USD' : 'MXN';
+    }
+    if (dto.requires_selection_assembly == null && !fields.requires_selection_assembly.visible) {
+      dto.requires_selection_assembly = fields.requires_selection_assembly.default_value === true;
+    }
+    if (dto.for_shipping == null && !fields.for_shipping.visible) {
+      dto.for_shipping = fields.for_shipping.default_value === true;
+    }
+    if ((dto.notes == null || dto.notes === '') && !fields.notes.visible) {
+      const note = fields.notes.default_value;
+      if (typeof note === 'string' && note.trim()) {
+        dto.notes = note.trim();
+      }
+    }
+  }
+
+  private async resolveImplicitBillingBranchId(
+    tenantId: string,
+    fiscalConfigurationId: string,
+    userId: string,
+    fields: SalesOrderCreationFields,
+  ): Promise<string | null> {
+    const fiscal = await this.dataSource.getRepository(FiscalConfiguration).findOne({
+      where: { id: fiscalConfigurationId, tenant_id: tenantId },
+    });
+    if (!fiscal) return null;
+
+    const branches = await this.billingBranchRepo.find({
+      where: { fiscal_configuration_id: fiscalConfigurationId },
+      order: { code: 'ASC' },
+    });
+    if (!branches.length) return null;
+
+    const hidden = !fields.billing_branch_id.visible;
+    if (!hidden && branches.length !== 1) return null;
+
+    const assignments = await this.dataSource.getRepository(UserBillingBranch).find({
+      where: { tenant_id: tenantId, user_id: userId },
+    });
+    const primaryId =
+      assignments.find((row) => row.is_primary)?.billing_branch_id ??
+      assignments[0]?.billing_branch_id ??
+      null;
+    const inFiscal = (id: string | null) => !!id && branches.some((branch) => branch.id === id);
+    if (inFiscal(primaryId)) return primaryId;
+
+    const assigned = branches.find((branch) =>
+      assignments.some((row) => row.billing_branch_id === branch.id),
+    );
+    if (assigned) return assigned.id;
+    return branches[0].id;
+  }
+
   private async resolveSalesOrderLocation(
     tenantId: string,
     dto: CreateSalesOrderDto,
     isPosSale: boolean,
+    userId?: string,
   ): Promise<{
     fiscalConfigurationId: string;
     billingBranchId: string;
@@ -2351,8 +3454,18 @@ export class SalesOrderService {
       billingBranchId = warehouse.billing_branch_id;
     }
 
+    if (!billingBranchId && userId) {
+      const fields = await this.loadCreationFields(tenantId);
+      billingBranchId = await this.resolveImplicitBillingBranchId(
+        tenantId,
+        dto.fiscal_configuration_id,
+        userId,
+        fields,
+      );
+    }
+
     if (!billingBranchId) {
-      throw new BadRequestException('Las órdenes manuales requieren billing_branch_id');
+      throw new BadRequestException('La sucursal es obligatoria');
     }
 
     const branch = await this.billingBranchRepo.findOne({

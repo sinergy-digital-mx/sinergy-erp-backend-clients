@@ -38,6 +38,15 @@ export class InventoryLocationFiscalDto {
   @ApiProperty({ enum: ['active', 'inactive'] })
   status: string;
 
+  @ApiProperty()
+  iva_enabled: boolean;
+
+  @ApiProperty()
+  ieps_enabled: boolean;
+
+  @ApiProperty({ description: 'Transferencias multi razón social habilitadas' })
+  multi_fiscal_transfers_enabled: boolean;
+
   @ApiProperty({ type: [InventoryLocationBranchDto] })
   branches: InventoryLocationBranchDto[];
 }

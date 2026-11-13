@@ -15,6 +15,8 @@ export const PURCHASE_ORDER_PDF_LABELS_EN: PurchaseOrderPdfLabels = {
   vendor: 'Vendor',
   rfcPrefix: 'Tax ID',
   addressPrefix: 'Address',
+  vendorInvoicePrefix: 'Invoice',
+  vendorInvoiceEmpty: 'No vendor invoice',
   destinationWarehouse: 'Destination warehouse',
   branchPrefix: 'Branch',
   requestedProductsDetail: 'Requested products detail',

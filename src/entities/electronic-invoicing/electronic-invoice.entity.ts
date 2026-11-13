@@ -12,7 +12,13 @@ import { RBACTenant } from '../rbac/tenant.entity';
 import { FiscalConfiguration } from '../billing/fiscal-configuration.entity';
 import { User } from '../users/user.entity';
 
-export type ElectronicInvoiceSourceModule = 'sales_orders';
+export type ElectronicInvoiceSourceModule = 'sales_orders' | 'quotations' | 'global_invoices';
+export type ElectronicInvoiceRole =
+  | 'standard'
+  | 'advance'
+  | 'merchandise'
+  | 'advance_application'
+  | 'credit_note';
 export type ElectronicInvoiceStampStatus =
   | 'pending_stamp'
   | 'stamped'
@@ -58,6 +64,18 @@ export class ElectronicInvoice {
   /** ID del documento origen (ej. sales_order.id) */
   @Column({ type: 'varchar', length: 36 })
   source_id: string;
+
+  @Column({ type: 'varchar', length: 32, default: 'standard' })
+  invoice_role: ElectronicInvoiceRole;
+
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  related_advance_invoice_id: string | null;
+
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  related_invoice_id: string | null;
+
+  @Column({ type: 'varchar', length: 2, nullable: true })
+  relation_type: string | null;
 
   @Column({ type: 'varchar', length: 36, nullable: true })
   uuid: string | null;

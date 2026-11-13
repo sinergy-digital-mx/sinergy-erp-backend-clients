@@ -15,6 +15,7 @@ import { User } from '../users/user.entity';
 import { EmployeeStatus } from './employee-status.enum';
 import { EmployeePaymentFrequency } from './employee-payment-frequency.enum';
 import { EmployeeLeaveRequest } from './employee-leave-request.entity';
+import { EmployeeOvertimeRequest } from './employee-overtime-request.entity';
 
 @Entity('employees')
 @Index('IDX_employees_tenant', ['tenant_id'])
@@ -107,10 +108,16 @@ export class Employee {
   termination_date: string | null;
 
   @Column({ type: 'json', nullable: true })
+  work_schedule: Record<string, any> | null;
+
+  @Column({ type: 'json', nullable: true })
   metadata: Record<string, any> | null;
 
   @OneToMany(() => EmployeeLeaveRequest, (request) => request.employee)
   leave_requests: EmployeeLeaveRequest[];
+
+  @OneToMany(() => EmployeeOvertimeRequest, (request) => request.employee)
+  overtime_requests: EmployeeOvertimeRequest[];
 
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;

@@ -11,7 +11,9 @@ import { InventoryAuditLine } from '../../../entities/inventory/inventory-audit-
 import { InventoryAuditStatus } from '../../../entities/inventory/inventory-audit-status.enum';
 import { SalesOrderBatchAllocation } from '../../../entities/sales-orders/sales-order-batch-allocation.entity';
 import { User } from '../../../entities/users/user.entity';
+import { parseDbDateTimeAsUtc } from '../../../common/utils/api-datetime.util';
 import { formatUserDisplayName } from '../utils/user-display-name.util';
+import { vendorCompanyName } from '../../vendor/utils/vendor-profile.util';
 import { PurchaseOrderActivityService } from './purchase-order-activity.service';
 import {
   GENERATED_PURCHASE_ORDER_DOCUMENT_TYPE_IDS,
@@ -149,7 +151,7 @@ export class PurchaseOrderMovementsService {
         id: `created:${order.id}`,
         occurred_at: order.created_at,
         type: PURCHASE_ORDER_MOVEMENT_TYPES.CREATED,
-        description: `Se creó la orden ${order.folio}${order.vendor?.name ? ` para ${order.vendor.name}` : ''}.`,
+        description: `Se creó la orden ${order.folio}${vendorCompanyName(order.vendor) ? ` para ${vendorCompanyName(order.vendor)}` : ''}.`,
         actor_id: order.created_by,
         actor_name: formatUserDisplayName(order.creator),
         metadata: { folio: order.folio, status: 'Creada' },
@@ -341,7 +343,7 @@ export class PurchaseOrderMovementsService {
     const type = activity.type as PurchaseOrderMovementType;
     return {
       id: `activity:${activity.id}`,
-      occurred_at: activity.occurred_at,
+      occurred_at: parseDbDateTimeAsUtc(activity.occurred_at) ?? new Date(0),
       type,
       type_label: PURCHASE_ORDER_MOVEMENT_TYPE_LABELS[type] ?? activity.title,
       title: activity.title,
@@ -365,7 +367,7 @@ export class PurchaseOrderMovementsService {
   }): PurchaseOrderMovement {
     return {
       id: input.id,
-      occurred_at: input.occurred_at,
+      occurred_at: parseDbDateTimeAsUtc(input.occurred_at) ?? new Date(0),
       type: input.type,
       type_label: PURCHASE_ORDER_MOVEMENT_TYPE_LABELS[input.type],
       title: PURCHASE_ORDER_MOVEMENT_TYPE_LABELS[input.type],

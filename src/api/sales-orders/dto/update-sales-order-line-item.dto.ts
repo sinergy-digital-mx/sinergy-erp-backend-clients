@@ -1,5 +1,14 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNumber, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import {
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+  ValidateIf,
+} from 'class-validator';
 
 export class UpdateSalesOrderLineItemDto {
   @ApiPropertyOptional({ description: 'Cantidad en la UOM de la línea' })
@@ -44,4 +53,14 @@ export class UpdateSalesOrderLineItemDto {
   @Max(100)
   @IsOptional()
   ieps_percentage?: number;
+
+  @ApiPropertyOptional({
+    description: 'Nota de la línea. null o vacío la borra.',
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(500)
+  notes?: string | null;
 }

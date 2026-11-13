@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
   ValidateIf,
 } from 'class-validator';
@@ -21,6 +22,8 @@ export enum CrmReportPeriod {
   YEAR = 'year',
   RANGE = 'range',
 }
+
+export const CRM_OUTCOME_NONE = 'none';
 
 export enum CrmAttentionFilter {
   FOLLOW_UP_PENDING = 'follow_up_pending',
@@ -54,6 +57,11 @@ export class QueryCrmActivityDto {
   @IsOptional()
   @IsEnum(CustomerActivityStatus)
   status?: CustomerActivityStatus;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  outcome?: string;
 
   @IsOptional()
   @IsString()

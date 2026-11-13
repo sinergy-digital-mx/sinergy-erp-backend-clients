@@ -34,12 +34,20 @@ import { BillingBranch } from '../../entities/billing/billing-branch.entity';
 import { Warehouse } from '../../entities/warehouse/warehouse.entity';
 import { User } from '../../entities/users/user.entity';
 import { Customer } from '../../entities/customers/customer.entity';
+import { ElectronicInvoice } from '../../entities/electronic-invoicing';
+import { ServiceSubscriptionPeriod } from '../../entities/service-subscriptions/service-subscription-period.entity';
+import { SalesOrderCreationSettings } from '../../entities/sales-orders/sales-order-creation-settings.entity';
+import { SalesOrderCreationSettingsService } from './services/sales-order-creation-settings.service';
 import { ElectronicInvoicingModule } from '../electronic-invoicing/electronic-invoicing.module';
 import { SalesOrderInvoicingService } from './services/sales-order-invoicing.service';
 import { ShippingsModule } from '../shippings/shippings.module';
 import { WarehouseControlModule } from '../warehouse-control/warehouse-control.module';
 import { MailerConfigurationModule } from '../mailer-configuration/mailer-configuration.module';
 import { SalesOrderInvoiceEmailService } from './services/sales-order-invoice-email.service';
+import { CustomerDebtLedgerModule } from '../accounting/customer-debt-ledger.module';
+import { ExchangeRateModule } from '../exchange-rate/exchange-rate.module';
+import { WhatsappModule } from '../whatsapp/whatsapp.module';
+import { CustomersModule } from '../customers/customers.module';
 
 @Module({
   imports: [
@@ -59,6 +67,9 @@ import { SalesOrderInvoiceEmailService } from './services/sales-order-invoice-em
       Warehouse,
       User,
       Customer,
+      ElectronicInvoice,
+      ServiceSubscriptionPeriod,
+      SalesOrderCreationSettings,
     ]),
     AuthModule,
     RBACModule,
@@ -71,6 +82,10 @@ import { SalesOrderInvoiceEmailService } from './services/sales-order-invoice-em
     ShippingsModule,
     WarehouseControlModule,
     MailerConfigurationModule,
+    CustomerDebtLedgerModule,
+    ExchangeRateModule,
+    WhatsappModule,
+    CustomersModule,
   ],
   controllers: [SalesOrderController],
   providers: [
@@ -84,6 +99,7 @@ import { SalesOrderInvoiceEmailService } from './services/sales-order-invoice-em
     SalesOrderInvoicingService,
     SalesOrderProductsPickerService,
     SalesOrderInvoiceEmailService,
+    SalesOrderCreationSettingsService,
     S3Service,
   ],
   exports: [

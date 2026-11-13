@@ -5,8 +5,9 @@ import {
   IsEnum,
   Min,
   Max,
+  IsBoolean,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { VendorType } from '../../../entities/vendor/vendor-type.enum';
 
 export class QueryVendorDto {
@@ -40,4 +41,9 @@ export class QueryVendorDto {
   @IsOptional()
   @IsEnum(VendorType)
   vendor_type?: VendorType;
+
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true' || value === '1')
+  @IsBoolean()
+  similar_only?: boolean;
 }

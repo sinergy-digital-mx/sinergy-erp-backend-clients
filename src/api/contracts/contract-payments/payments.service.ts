@@ -5,12 +5,26 @@ import { Payment } from '../../../entities/contracts/payment.entity';
 import { Contract } from '../../../entities/contracts/contract.entity';
 import { ContractDownpaymentPayment } from '../../../entities/contracts/contract-downpayment-payment.entity';
 import {
+  buildInstallmentAmounts,
   computeFinancedAmount,
+  computeMonthlyPayment,
   getDownPaymentTarget,
   resolveContractFinancials,
 } from '../contract-financial.util';
 import { GenerateContractPaymentsDto } from './dto/generate-contract-payments.dto';
+import { UpdateLateInterestDto } from './dto/update-late-interest.dto';
 import { resolveStoredContractCurrency } from '../contract-currency.util';
+import {
+  applyPaymentSettlement,
+  countActiveOverduePayments,
+  isDownPaymentTargetMet,
+  settlePaymentAmounts,
+  sumActiveOverdueAmount,
+} from '../utils/contract-payment-settlement.util';
+import {
+  resolveLateInterest,
+  resolveLateInterestConfig,
+} from '../utils/late-interest.util';
 
 export interface PaymentSchedulePreview {
   start_date: string;
@@ -19,6 +33,10 @@ export interface PaymentSchedulePreview {
   payment_day: number;
   payments_count: number;
   monthly_payment: number;
+  last_installment_amount: number;
+  total_price: number;
+  down_payment_basis: number;
+  balance_after_down_payment: number;
   currency: string;
 }
 
@@ -124,10 +142,12 @@ export class PaymentsService {
       );
     }
 
+    const plan = this.installmentPlan(contract);
     const payments: Payment[] = [];
 
     for (let i = 0; i < paymentMonths; i++) {
       const dueDate = this.addMonthsClamped(startDate, i);
+      const amount = plan.amounts[i] ?? plan.monthlyPayment;
 
       payments.push(
         this.paymentRepo.create({
@@ -136,9 +156,9 @@ export class PaymentsService {
           payment_number: String(i + 1),
           payment_date: dueDate,
           due_date: dueDate,
-          amount: contract.monthly_payment,
+          amount,
           amount_paid: 0,
-          amount_pending: contract.monthly_payment,
+          amount_pending: amount,
           payment_method: 'transferencia',
           status: 'pendiente',
           is_overdue: false,
@@ -151,7 +171,10 @@ export class PaymentsService {
 
     await this.contractRepo.update(
       { id: contract.id, tenant_id: tenantId },
-      { first_payment_date: schedule.start_date as unknown as Date },
+      {
+        first_payment_date: schedule.start_date as unknown as Date,
+        monthly_payment: schedule.monthly_payment,
+      },
     );
 
     return {
@@ -174,16 +197,19 @@ export class PaymentsService {
       .select([
         'p.id', 'p.payment_number', 'p.status', 'p.is_overdue', 
         'p.amount', 'p.amount_paid', 'p.amount_pending', 
-        'p.due_date', 'p.paid_date', 'p.payment_method', 'p.notes'
+        'p.due_date', 'p.paid_date', 'p.payment_method', 'p.notes',
+        'p.late_interest_amount', 'p.late_interest_waived',
       ])
       .where('p.tenant_id = :tenantId', { tenantId })
       .andWhere('p.contract_id = :contractId', { contractId })
       .orderBy('CAST(p.payment_number AS UNSIGNED)', 'ASC') // Fix: Order by number as integer
       .getMany();
 
+    const interestConfig = resolveLateInterestConfig(contract);
     return payments.map((payment) => ({
       ...payment,
       currency,
+      ...resolveLateInterest(payment, interestConfig),
     }));
   }
 
@@ -260,19 +286,21 @@ export class PaymentsService {
       return sum;
     }, 0);
 
-    const overdueAmount = payments.reduce((sum, p) => {
-      if (!p.is_overdue || p.status === 'cancelado' || p.status === 'pagado') {
-        return sum;
-      }
-      if (p.status === 'parcial') {
-        return sum + Number(p.amount_pending || 0);
-      }
-      return sum + Number(p.amount_pending ?? p.amount ?? 0);
-    }, 0);
+    const overdueAmount = sumActiveOverdueAmount(payments);
 
     const paidOrPartialCount = payments.filter(
       (p) => p.status === 'pagado' || p.status === 'parcial',
     ).length;
+
+    const interestConfig = resolveLateInterestConfig(contract);
+    const lateInterestPayments = payments
+      .filter((p) => Number(p.late_interest_amount || 0) > 0)
+      .map((p) => ({
+        payment_number: Number(p.payment_number),
+        amount: Math.round(Number(p.late_interest_amount) * 100) / 100,
+      }));
+    const lateInterestPendingAmount =
+      Math.round(lateInterestPayments.reduce((sum, row) => sum + row.amount, 0) * 100) / 100;
 
     const stats = {
       currency: resolveStoredContractCurrency(contract.currency),
@@ -283,7 +311,7 @@ export class PaymentsService {
       pending_count: payments.filter(p => p.status === 'pendiente' && !p.is_overdue).length,
       pending_overdue_count: payments.filter(p => p.status === 'pendiente' && p.is_overdue).length,
       pending_full_payments: pendingFullPayments, // Frontend expects this
-      overdue_count: payments.filter(p => p.is_overdue).length, // Total overdue (partial + pending)
+      overdue_count: countActiveOverduePayments(payments), // Total overdue (partial + pending)
       overdue_amount: Math.round(overdueAmount * 100) / 100,
       cancelled_count: payments.filter(p => p.status === 'cancelado').length,
       
@@ -321,6 +349,15 @@ export class PaymentsService {
             ? `Hay ${paidOrPartialCount} pago(s) pagado(s) o parcial(es). Debes revertirlos antes de regenerar.`
             : null,
       schedule: this.resolveScheduleFromPayments(contract, payments),
+      late_interest_rate_percent: interestConfig.ratePercent,
+      late_interest_grace_days: interestConfig.graceDays,
+      late_interest_pending_amount: lateInterestPendingAmount,
+      late_interest_pending_count: lateInterestPayments.length,
+      late_interest_payments: lateInterestPayments,
+      total_pending_with_interest:
+        Math.round(
+          (Math.round(totalPendingFromFinanced * 100) / 100 + lateInterestPendingAmount) * 100,
+        ) / 100,
 
       // Partial payment details for frontend
       partial_payment: partialPayment ? {
@@ -379,18 +416,9 @@ export class PaymentsService {
     // Calculate new amounts with proper number handling
     const currentAmountPaid = Number(payment.amount_paid) || 0;
     const totalAmount = Number(payment.amount) || 0;
-    const newAmountPaid = currentAmountPaid + paymentAmount;
-    const newAmountPending = Math.max(0, totalAmount - newAmountPaid);
-
-    // Determine new status based on amounts
-    let newStatus: string;
-    if (newAmountPaid >= totalAmount) {
-      newStatus = 'pagado'; // Fully paid (or overpaid)
-    } else if (newAmountPaid > 0) {
-      newStatus = 'parcial'; // Partially paid
-    } else {
-      newStatus = 'pendiente'; // Still pending
-    }
+    const settled = settlePaymentAmounts(totalAmount, currentAmountPaid + paymentAmount);
+    const newAmountPaid = settled.amount_paid;
+    const newStatus = settled.status;
 
     // VALIDATION: Only allow one partial payment per contract
     if (newStatus === 'parcial' && existingPartialPayments.length > 0) {
@@ -408,8 +436,7 @@ export class PaymentsService {
 
     // Update payment
     payment.amount_paid = newAmountPaid;
-    payment.amount_pending = newAmountPending;
-    payment.status = newStatus;
+    applyPaymentSettlement(payment);
     payment.paid_date = new Date(paymentDate);
     payment.payment_method = paymentMethod;
 
@@ -493,14 +520,8 @@ export class PaymentsService {
       const difference = newAmountPaid - oldAmountPaid;
       
       // Calculate new status
-      let newStatus: string;
-      if (newAmountPaid >= expectedAmount) {
-        newStatus = 'pagado';
-      } else if (newAmountPaid > 0) {
-        newStatus = 'parcial';
-      } else {
-        newStatus = 'pendiente';
-      }
+      const settled = settlePaymentAmounts(expectedAmount, newAmountPaid);
+      const newStatus = settled.status;
 
       // VALIDATION: Only allow one partial payment per contract
       if (newStatus === 'parcial' && payment.status !== 'parcial') {
@@ -524,8 +545,7 @@ export class PaymentsService {
       
       // Update payment amounts
       payment.amount_paid = newAmountPaid;
-      payment.amount_pending = Math.max(0, expectedAmount - newAmountPaid);
-      payment.status = newStatus;
+      applyPaymentSettlement(payment);
 
       // Update contract balance based on the difference in amount_paid
       if (!isNaN(difference) && difference !== 0) {
@@ -571,6 +591,42 @@ export class PaymentsService {
     return this.paymentRepo.save(payment);
   }
 
+  async updateLateInterest(
+    tenantId: string,
+    paymentId: string,
+    dto: UpdateLateInterestDto,
+  ): Promise<any> {
+    const payment = await this.getPayment(tenantId, paymentId);
+    if (!payment) {
+      throw new NotFoundException('Payment not found');
+    }
+    if (payment.status === 'cancelado') {
+      throw new BadRequestException('No se puede editar el interés de un pago cancelado');
+    }
+
+    if (dto.waived === true || dto.amount === 0) {
+      payment.late_interest_waived = true;
+      payment.late_interest_amount = 0;
+    } else if (dto.amount === null) {
+      payment.late_interest_waived = false;
+      payment.late_interest_amount = null;
+    } else if (dto.amount != null) {
+      payment.late_interest_waived = false;
+      payment.late_interest_amount = Math.round(Number(dto.amount) * 100) / 100;
+    } else if (dto.waived === false) {
+      payment.late_interest_waived = false;
+      payment.late_interest_amount = null;
+    }
+
+    const saved = await this.paymentRepo.save(payment);
+    const contract = await this.getContractOrThrow(tenantId, saved.contract_id);
+    return {
+      ...saved,
+      currency: resolveStoredContractCurrency(contract.currency),
+      ...resolveLateInterest(saved, resolveLateInterestConfig(contract)),
+    };
+  }
+
   /**
    * Cancel a payment
    */
@@ -601,6 +657,7 @@ export class PaymentsService {
 
     // Update payment status
     payment.status = 'cancelado';
+    payment.is_overdue = false;
     payment.notes = payment.notes ? `${payment.notes}\nPago cancelado el ${new Date().toISOString().split('T')[0]}` : `Pago cancelado el ${new Date().toISOString().split('T')[0]}`;
 
     return this.paymentRepo.save(payment);
@@ -648,12 +705,10 @@ export class PaymentsService {
 
     // Store the amount that was paid to restore contract balance
     const previousAmountPaid = Number(payment.amount_paid) || 0;
-    const expectedAmount = Number(payment.amount) || 0;
 
     // Reset payment to unpaid state
     payment.amount_paid = 0;
-    payment.amount_pending = expectedAmount;
-    payment.status = 'pendiente';
+    applyPaymentSettlement(payment);
     payment.paid_date = null as any; // TypeScript fix
     payment.first_partial_payment_date = null as any; // TypeScript fix
 
@@ -758,6 +813,7 @@ export class PaymentsService {
     }
 
     const endDate = this.addMonthsClamped(startDate, paymentMonths - 1);
+    const plan = this.installmentPlan(contract);
 
     return {
       start_date: this.formatDateOnly(startDate),
@@ -765,8 +821,36 @@ export class PaymentsService {
       payment_months: paymentMonths,
       payment_day: startDate.getDate(),
       payments_count: paymentMonths,
-      monthly_payment: Math.round(Number(contract.monthly_payment || 0) * 100) / 100,
+      monthly_payment: plan.monthlyPayment,
+      last_installment_amount: plan.lastInstallmentAmount,
+      total_price: plan.totalPrice,
+      down_payment_basis: plan.downPaymentBasis,
+      balance_after_down_payment: plan.balanceAfterDownPayment,
       currency: resolveStoredContractCurrency(contract.currency),
+    };
+  }
+
+  private installmentPlan(contract: Contract): {
+    amounts: number[];
+    monthlyPayment: number;
+    lastInstallmentAmount: number;
+    totalPrice: number;
+    downPaymentBasis: number;
+    balanceAfterDownPayment: number;
+  } {
+    const totalPrice = Math.round(Number(contract.total_price || 0) * 100) / 100;
+    const months = Number(contract.payment_months) || 0;
+    const downPaymentBasis = Math.round(getDownPaymentTarget(contract) * 100) / 100;
+    const balanceAfterDownPayment = computeFinancedAmount(totalPrice, contract);
+    const amounts = buildInstallmentAmounts(balanceAfterDownPayment, months);
+    const monthlyPayment = computeMonthlyPayment(totalPrice, contract, months);
+    return {
+      amounts,
+      monthlyPayment,
+      lastInstallmentAmount: amounts.length ? amounts[amounts.length - 1] : monthlyPayment,
+      totalPrice,
+      downPaymentBasis,
+      balanceAfterDownPayment,
     };
   }
 
@@ -789,6 +873,10 @@ export class PaymentsService {
         payment_day: firstDue.getDate(),
         payments_count: payments.length,
         monthly_payment: Math.round(Number(contract.monthly_payment || 0) * 100) / 100,
+        last_installment_amount: Math.round(Number(contract.monthly_payment || 0) * 100) / 100,
+        total_price: Math.round(Number(contract.total_price || 0) * 100) / 100,
+        down_payment_basis: Math.round(getDownPaymentTarget(contract) * 100) / 100,
+        balance_after_down_payment: computeFinancedAmount(Number(contract.total_price) || 0, contract),
         currency: resolveStoredContractCurrency(contract.currency),
       };
     }
@@ -915,36 +1003,21 @@ export class PaymentsService {
     });
 
     const totalPaid = paymentRows.reduce((sum, row) => {
-      if (row.status === 'pagado') {
-        return sum + Number(row.amount || 0);
+      if (row.status === 'cancelado') {
+        return sum;
       }
-      if (row.status === 'parcial') {
-        return sum + Number(row.amount_paid || 0);
-      }
-      return sum;
+      const settled = settlePaymentAmounts(
+        Number(row.amount || 0),
+        Number(row.amount_paid || 0),
+      );
+      return sum + (settled.status === 'pagado' ? settled.amount : settled.amount_paid);
     }, 0);
-
-    if (!contract.down_payment_financed) {
-      return false;
-    }
 
     const downPaymentTarget =
       contract.down_payment_target != null
         ? Number(contract.down_payment_target)
         : null;
 
-    if (downPaymentTarget == null || downPaymentTarget <= 0) {
-      return true;
-    }
-
-    if (totalPaid < downPaymentTarget) {
-      return true;
-    }
-
-    const pendingOrPartial = paymentRows.filter(
-      (row) => row.status === 'pendiente' || row.status === 'parcial',
-    ).length;
-
-    return pendingOrPartial > 0;
+    return !isDownPaymentTargetMet(downPaymentTarget, totalPaid);
   }
 }

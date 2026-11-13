@@ -142,6 +142,27 @@ export class CreateUserDto {
 
   @ApiProperty({
     required: false,
+    description: 'Chofer. Si es true, licencia y RFC son obligatorios para carta porte.',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  is_driver?: boolean;
+
+  @ApiProperty({ required: false, description: 'Número de licencia del chofer' })
+  @ValidateIf((dto: CreateUserDto) => dto.is_driver === true)
+  @IsString()
+  @IsNotEmpty()
+  driver_license_number?: string;
+
+  @ApiProperty({ required: false, description: 'RFC del chofer para carta porte' })
+  @ValidateIf((dto: CreateUserDto) => dto.is_driver === true)
+  @IsString()
+  @IsNotEmpty()
+  driver_rfc?: string;
+
+  @ApiProperty({
+    required: false,
     type: EmployeeProfileDto,
     description: 'Datos de RH/nómina. Requerido cuando is_employee es true.',
   })

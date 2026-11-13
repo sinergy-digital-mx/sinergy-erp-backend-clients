@@ -198,7 +198,8 @@ export class InventoryExportService {
       .leftJoinAndSelect('batch.warehouse', 'warehouse')
       .leftJoinAndSelect('batch.uom', 'uom')
       .leftJoinAndSelect('batch.measure_uom', 'measure_uom')
-      .where('batch.tenant_id = :tenantId', { tenantId });
+      .where('batch.tenant_id = :tenantId', { tenantId })
+      .andWhere('product.is_active = :productActive', { productActive: true });
 
     joinInventoryLocation(qb);
     assertInventoryLocationCascade(filters);
@@ -236,7 +237,8 @@ export class InventoryExportService {
         0,
       );
       const totalInitial = batchGroup.reduce((sum, b) => sum + num(b.initial_quantity), 0);
-      const measureTotals = buildMeasureTotals(batchGroup);
+      const stocked = batchGroup.filter((batch) => num(batch.available_quantity) > 0);
+      const measureTotals = buildMeasureTotals(stocked);
 
       rows.push({
         product_sku: first.product?.sku ?? '',
@@ -247,7 +249,7 @@ export class InventoryExportService {
         uom_name: first.uom?.name ?? '',
         total_available_quantity: totalAvailable,
         total_initial_quantity: totalInitial,
-        total_batches: batchGroup.length,
+        total_batches: stocked.length,
         measure_totals: formatMeasureTotalsLabel(measureTotals),
         suggested_unit_price: null,
       });

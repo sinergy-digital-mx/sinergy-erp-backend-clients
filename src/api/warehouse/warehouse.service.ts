@@ -8,6 +8,10 @@ import { QueryWarehouseDto } from './dto/query-warehouse.dto';
 import { PaginatedWarehouseDto } from './dto/paginated-warehouse.dto';
 import { normalizeDocumentPrefix } from '../../common/utils/document-prefix.util';
 import { randomUUID } from 'crypto';
+import {
+  assertWarehouseLocation,
+  mapWarehousePersistError,
+} from './utils/warehouse-address.util';
 
 @Injectable()
 export class WarehouseService {
@@ -18,14 +22,20 @@ export class WarehouseService {
 
   async create(dto: CreateWarehouseDto, tenantId: string): Promise<Warehouse> {
     const prefix = normalizeDocumentPrefix(dto.prefix);
+    const location = assertWarehouseLocation(dto);
     const warehouse = this.repo.create({
       ...dto,
+      ...location,
       prefix,
       tenant_id: tenantId,
       status: dto.status || 'active',
     });
     warehouse.code = dto.code?.trim() || warehouse.id || randomUUID();
-    return this.repo.save(warehouse);
+    try {
+      return await this.repo.save(warehouse);
+    } catch (error) {
+      mapWarehousePersistError(error, dto.name);
+    }
   }
 
   async findAll(
@@ -43,6 +53,8 @@ export class WarehouseService {
 
     const queryBuilder = this.repo
       .createQueryBuilder('warehouse')
+      .leftJoinAndSelect('warehouse.billing_branch', 'billing_branch')
+      .leftJoinAndSelect('billing_branch.fiscal_configuration', 'fiscal_configuration')
       .where('warehouse.tenant_id = :tenantId', { tenantId });
 
     if (query?.search) {
@@ -53,7 +65,9 @@ export class WarehouseService {
     }
 
     if (query?.status) {
-      queryBuilder.andWhere('warehouse.status = :status', { status: query.status });
+      queryBuilder.andWhere('warehouse.status = :status', {
+        status: query.status,
+      });
     }
 
     if (query?.state) {
@@ -61,7 +75,9 @@ export class WarehouseService {
     }
 
     if (query?.country) {
-      queryBuilder.andWhere('warehouse.country = :country', { country: query.country });
+      queryBuilder.andWhere('warehouse.country = :country', {
+        country: query.country,
+      });
     }
 
     if (query?.billing_branch_id) {
@@ -95,6 +111,7 @@ export class WarehouseService {
   async findOne(id: string, tenantId: string): Promise<Warehouse> {
     const warehouse = await this.repo.findOne({
       where: { id, tenant_id: tenantId },
+      relations: ['billing_branch', 'billing_branch.fiscal_configuration'],
     });
 
     if (!warehouse) {
@@ -111,9 +128,17 @@ export class WarehouseService {
   ): Promise<Warehouse> {
     const warehouse = await this.findOne(id, tenantId);
     const prefix =
-      dto.prefix !== undefined ? normalizeDocumentPrefix(dto.prefix) : warehouse.prefix;
+      dto.prefix !== undefined
+        ? normalizeDocumentPrefix(dto.prefix)
+        : warehouse.prefix;
     Object.assign(warehouse, dto, { prefix });
-    return this.repo.save(warehouse);
+    const location = assertWarehouseLocation(warehouse);
+    Object.assign(warehouse, location);
+    try {
+      return await this.repo.save(warehouse);
+    } catch (error) {
+      mapWarehousePersistError(error, warehouse.name);
+    }
   }
 
   async remove(id: string, tenantId: string): Promise<void> {

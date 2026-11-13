@@ -14,6 +14,25 @@ function roundMoney(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+export function resolveCreateDownPaymentTarget(params: {
+  financed: boolean;
+  downPayment?: number | null;
+  downPaymentTarget?: number | null;
+}): number | null {
+  if (!params.financed) {
+    return null;
+  }
+  const explicit = Number(params.downPaymentTarget);
+  if (params.downPaymentTarget != null && Number.isFinite(explicit) && explicit > 0) {
+    return roundMoney(explicit);
+  }
+  const fromDownPayment = Number(params.downPayment);
+  if (Number.isFinite(fromDownPayment) && fromDownPayment > 0) {
+    return roundMoney(fromDownPayment);
+  }
+  return null;
+}
+
 /** Meta de enganche (contrato normal) o base del plan mensual (enganche financiado). */
 export function getDownPaymentTarget(contract: ContractFinancialFields): number {
   if (contract.down_payment_financed) {
@@ -62,12 +81,11 @@ export function computeFinancedAmount(
   totalPrice: number,
   contract: ContractFinancialFields,
 ): number {
-  if (contract.down_payment_financed) {
-    // Enganche financiado: las mensualidades amortizan la meta, no (total - meta).
-    return Math.round(getDownPaymentTarget(contract) * 100) / 100;
+  if (contract.down_payment_financed && getDownPaymentTarget(contract) <= 0) {
+    return 0;
   }
   const baseline = getDownPaymentTarget(contract);
-  return Math.round((totalPrice - baseline) * 100) / 100;
+  return Math.max(0, Math.round((totalPrice - baseline) * 100) / 100);
 }
 
 export function computeMonthlyPayment(
@@ -75,19 +93,27 @@ export function computeMonthlyPayment(
   contract: ContractFinancialFields,
   paymentMonths: number,
 ): number {
-  if (contract.down_payment_financed) {
-    const target = getDownPaymentTarget(contract);
-    if (target <= 0 || !Number.isFinite(paymentMonths) || paymentMonths < 1) {
-      return 0;
-    }
-    return Math.round((target / paymentMonths) * 100) / 100;
-  }
-
   const financed = computeFinancedAmount(totalPrice, contract);
   if (financed <= 0 || !Number.isFinite(paymentMonths) || paymentMonths < 1) {
     return 0;
   }
   return Math.round((financed / paymentMonths) * 100) / 100;
+}
+
+export function buildInstallmentAmounts(balance: number, months: number): number[] {
+  const count = Math.max(0, Math.floor(months));
+  if (count < 1) {
+    return [];
+  }
+  const total = Math.max(0, Math.round(balance * 100) / 100);
+  if (total <= 0) {
+    return Array.from({ length: count }, () => 0);
+  }
+  const base = Math.round((total / count) * 100) / 100;
+  const amounts = Array.from({ length: count }, () => base);
+  const allocated = Math.round(base * (count - 1) * 100) / 100;
+  amounts[count - 1] = Math.round((total - allocated) * 100) / 100;
+  return amounts;
 }
 
 export function sumPaidFromPaymentRows(

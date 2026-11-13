@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository } from 'typeorm';
 import axios from 'axios';
 import { DivinoReservationFormat } from '../../entities/divino-reservation-formats/divino-reservation-format.entity';
+import { FiscalConfiguration } from '../../entities/billing/fiscal-configuration.entity';
 import { Property } from '../../entities/properties/property.entity';
 import { User } from '../../entities/users/user.entity';
 import { CreateDivinoReservationFormatDto } from './dto/create-divino-reservation-format.dto';
@@ -36,6 +37,8 @@ export class DivinoReservationFormatService {
     private propertyRepo: Repository<Property>,
     @InjectRepository(User)
     private userRepo: Repository<User>,
+    @InjectRepository(FiscalConfiguration)
+    private fiscalRepo: Repository<FiscalConfiguration>,
     private pdfService: DivinoReservationFormatPdfService,
     private mailerConfigurationService: MailerConfigurationService,
   ) {}
@@ -47,17 +50,24 @@ export class DivinoReservationFormatService {
   ): Promise<DivinoReservationFormat> {
     const property = await this.getPropertyOrFail(tenantId, dto.property_id);
     const creatorName = await this.resolveUserName(tenantId, userId);
+    const fiscal = await this.resolveFiscalConfiguration(
+      tenantId,
+      dto.fiscal_configuration_id,
+    );
+    const payableTo =
+      dto.payable_to?.trim() || fiscal?.razon_social || DIVINO_RESERVATION_BRAND.defaultPayableTo;
 
     const entity = this.repo.create({
       ...dto,
       tenant_id: tenantId,
+      fiscal_configuration_id: fiscal?.id ?? null,
       folio: await this.generateFolio(tenantId),
       block: dto.block ?? property.block ?? null,
       lot_number: dto.lot_number ?? property.lot_number ?? null,
       surface: dto.surface ?? property.total_area ?? null,
       purchase_price: dto.purchase_price ?? property.total_price ?? null,
       currency: dto.currency ?? property.currency ?? 'USD',
-      payable_to: dto.payable_to ?? DIVINO_RESERVATION_BRAND.defaultPayableTo,
+      payable_to: payableTo,
       status: 'draft',
       created_by: userId,
       created_by_name: creatorName,
@@ -128,6 +138,25 @@ export class DivinoReservationFormatService {
       hasNext: page < totalPages,
       hasPrev: page > 1,
     };
+  }
+
+  private async resolveFiscalConfiguration(
+    organizationId: string,
+    fiscalConfigurationId?: string,
+  ): Promise<FiscalConfiguration | null> {
+    if (fiscalConfigurationId) {
+      const selected = await this.fiscalRepo.findOne({
+        where: { id: fiscalConfigurationId, tenant_id: organizationId },
+      });
+      if (!selected) {
+        throw new BadRequestException('La razón social no existe.');
+      }
+      return selected;
+    }
+    return this.fiscalRepo.findOne({
+      where: { tenant_id: organizationId, status: 'active' },
+      order: { created_at: 'ASC' },
+    });
   }
 
   async findOne(

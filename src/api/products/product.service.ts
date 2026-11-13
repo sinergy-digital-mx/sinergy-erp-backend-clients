@@ -10,7 +10,6 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { QueryProductDto } from './dto/query-product.dto';
 import { PaginatedProductDto } from './dto/paginated-product.dto';
-import { ToggleStatusDto } from './dto/toggle-status.dto';
 import { S3Service } from '../../common/services/s3.service';
 import { UoMCatalogService } from '../uom-catalog/uom-catalog.service';
 import {
@@ -255,13 +254,6 @@ export class ProductService {
     
     // Recargar con relaciones actualizadas
     return await this.findOne(id, tenantId);
-  }
-
-  async toggleStatus(id: string, dto: ToggleStatusDto, tenantId: string): Promise<Product> {
-    const product = await this.getByIdOrFail(id, tenantId);
-    product.is_active = dto.is_active;
-    const saved = await this.productRepository.save(product);
-    return this.toResponseWithPhotoUrl(saved);
   }
 
   async remove(id: string, tenantId: string): Promise<void> {

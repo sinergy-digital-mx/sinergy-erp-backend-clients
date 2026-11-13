@@ -25,6 +25,7 @@ import { RequirePermissions } from '../rbac/decorators/require-permissions.decor
 import { InventoryTransferService } from './services/inventory-transfer.service';
 import { InventoryTransferPdfService } from './services/inventory-transfer-pdf.service';
 import { CreateInventoryTransferDto } from './dto/create-inventory-transfer.dto';
+import { ReceiveInventoryTransferDto } from './dto/receive-inventory-transfer.dto';
 import { QueryInventoryTransferDto } from './dto/query-inventory-transfer.dto';
 import { TransferContextQueryDto } from './dto/transfer-context-query.dto';
 import {
@@ -59,6 +60,7 @@ export class InventoryTransferController {
       req.user.tenant_id,
       query.product_id,
       query.warehouse_id,
+      query.uom_id,
     );
   }
 
@@ -117,7 +119,7 @@ export class InventoryTransferController {
   @ApiOperation({
     summary: 'Crear transferencia de inventario',
     description:
-      'Toma cantidad de uno o más lotes en almacén origen y crea lotes destino. Requiere Inventory:Transfer (no Write genérico).',
+      'Aparta la cantidad en el almacén origen y deja la transferencia pendiente. El destino la recibe después del envío. Requiere Inventory:Transfer.',
   })
   @ApiResponse({ status: 201, type: InventoryTransferResponseDto })
   create(
@@ -125,5 +127,30 @@ export class InventoryTransferController {
     @Req() req: any,
   ): Promise<InventoryTransferResponseDto> {
     return this.transferService.create(dto, req.user.tenant_id, req.user.id);
+  }
+
+  @Post(':id/receive')
+  @RequirePermissions({ entityType: 'Inventory', action: 'Transfer' })
+  @ApiOperation({
+    summary: 'Recibir transferencia',
+    description:
+      'El almacén destino cuenta cada línea. Si la cantidad difiere, la transferencia queda recibida con diferencia.',
+  })
+  receive(
+    @Param('id') id: string,
+    @Body() dto: ReceiveInventoryTransferDto,
+    @Req() req: any,
+  ): Promise<InventoryTransferResponseDto> {
+    return this.transferService.receive(id, dto, req.user.tenant_id, req.user.id);
+  }
+
+  @Post(':id/cancel')
+  @RequirePermissions({ entityType: 'Inventory', action: 'Transfer' })
+  @ApiOperation({
+    summary: 'Cancelar transferencia pendiente',
+    description: 'Devuelve el stock al almacén origen. No aplica si ya tiene envío.',
+  })
+  cancel(@Param('id') id: string, @Req() req: any): Promise<InventoryTransferResponseDto> {
+    return this.transferService.cancel(id, req.user.tenant_id, req.user.id);
   }
 }

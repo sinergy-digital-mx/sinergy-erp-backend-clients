@@ -12,6 +12,7 @@ import {
   Req,
   HttpCode,
   HttpStatus,
+  Res,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
@@ -20,6 +21,7 @@ import { SalesOrderProductsPickerService } from '../../sales-orders/services/sal
 import { QuotationService } from '../services/quotation.service';
 import { QuotationDocumentsService } from '../services/quotation-documents.service';
 import { QuotationEmailService } from '../services/quotation-email.service';
+import { QuotationAdvanceInvoiceService } from '../services/quotation-advance-invoice.service';
 import { RegenerateDocumentDto } from '../../../common/dto/regenerate-document.dto';
 import {
   CreateQuotationDto,
@@ -28,11 +30,16 @@ import {
   UpdateQuotationNotesDto,
   QueryQuotationProductsSummaryDto,
   SendQuotationEmailDto,
+  CreateQuotationLineItemDto,
+  UpdateQuotationLineItemDto,
 } from '../dto';
+import { StampAdvanceInvoiceDto } from '../../electronic-invoicing/dto/stamp-advance-invoice.dto';
+import { CancelElectronicInvoiceDto } from '../../electronic-invoicing/dto/cancel-electronic-invoice.dto';
 import { resolveRequestUserId } from '../../../common/utils/request-user.util';
 import {
   QuotationSellerAccess,
   userCanViewAllQuotations,
+  userCanViewAllQuotationBranches,
 } from '../utils/quotation-seller-scope.util';
 
 @ApiTags('Quotations')
@@ -45,6 +52,7 @@ export class QuotationController {
     private readonly documentsService: QuotationDocumentsService,
     private readonly emailService: QuotationEmailService,
     private readonly productsPicker: SalesOrderProductsPickerService,
+    private readonly advanceInvoices: QuotationAdvanceInvoiceService,
   ) {}
 
   @Post()
@@ -94,11 +102,76 @@ export class QuotationController {
     );
   }
 
+  @Post(':id/line-items')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Agregar una línea a la cotización',
+    description:
+      'Solo Creada. No usar PUT para una sola línea. Recalcula totales y regenera el PDF.',
+  })
+  async addLineItem(
+    @Param('id') id: string,
+    @Body() dto: CreateQuotationLineItemDto,
+    @Req() req: any,
+  ) {
+    await this.quotationService.addLineItem(
+      id,
+      dto,
+      req.user.tenant_id,
+      req.user.id,
+      this.sellerAccess(req),
+    );
+    return this.findOne(id, req);
+  }
+
+  @Patch(':id/line-items/:lineItemId')
+  @ApiOperation({
+    summary: 'Editar una línea de la cotización',
+    description: 'Cantidad, precio, IVA e IEPS. Recalcula totales. Solo Creada.',
+  })
+  async updateLineItem(
+    @Param('id') id: string,
+    @Param('lineItemId') lineItemId: string,
+    @Body() dto: UpdateQuotationLineItemDto,
+    @Req() req: any,
+  ) {
+    await this.quotationService.updateLineItem(
+      id,
+      lineItemId,
+      dto,
+      req.user.tenant_id,
+      req.user.id,
+      this.sellerAccess(req),
+    );
+    return this.findOne(id, req);
+  }
+
+  @Delete(':id/line-items/:lineItemId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Eliminar una línea de la cotización',
+    description: 'Recalcula totales. Debe quedar al menos un producto.',
+  })
+  async removeLineItem(
+    @Param('id') id: string,
+    @Param('lineItemId') lineItemId: string,
+    @Req() req: any,
+  ) {
+    await this.quotationService.removeLineItem(
+      id,
+      lineItemId,
+      req.user.tenant_id,
+      req.user.id,
+      this.sellerAccess(req),
+    );
+    return this.findOne(id, req);
+  }
+
   @Get()
   @ApiOperation({
     summary: 'Listar cotizaciones',
     description:
-      'Sin Quotation:ViewAll: solo las suyas (vendedor POS o comisionado). Con ViewAll: todas, con filtro opcional assigned_seller_user_id.',
+      'Sin ViewAll: solo las suyas (vendedor o comisionado). Sin ViewAllBranches: solo sucursales asignadas.',
   })
   findAll(@Query() query: QueryQuotationDto, @Req() req: any) {
     const access = this.sellerAccess(req);
@@ -106,6 +179,7 @@ export class QuotationController {
       req.user.tenant_id,
       access.userId,
       access.canViewAll,
+      access.canViewAllBranches,
       query,
     );
   }
@@ -167,7 +241,7 @@ export class QuotationController {
   @ApiOperation({
     summary: 'Convertir cotización a orden de venta',
     description:
-      'Crea una OV con los mismos unit_price, impuestos y descuentos. POS descuenta inventario; MANUAL queda Creada.',
+      'Crea una OV con los mismos unit_price, impuestos y descuentos. send_to_pos_caja envía a caja POS de la sucursal de la cotización.',
   })
   convert(
     @Param('id') id: string,
@@ -178,8 +252,92 @@ export class QuotationController {
       id,
       dto ?? {},
       req.user.tenant_id,
-      req.user.id,
+      resolveRequestUserId(req.user),
       this.sellerAccess(req),
+    );
+  }
+
+  @Get(':id/collection-preview')
+  @ApiOperation({
+    summary: 'Corte abierto de la sucursal para cobrar al convertir',
+  })
+  collectionPreview(@Param('id') id: string, @Req() req: any) {
+    return this.advanceInvoices.collectionPreview(id, req.user.tenant_id);
+  }
+
+  @Get(':id/invoices')
+  @ApiOperation({ summary: 'Facturas de anticipo de la cotización' })
+  listInvoices(@Param('id') id: string, @Req() req: any) {
+    return this.advanceInvoices.list(id, req.user.tenant_id);
+  }
+
+  @Post(':id/invoices/stamp-advance')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Timbrar CFDI de anticipo de la cotización' })
+  stampAdvance(
+    @Param('id') id: string,
+    @Body() dto: StampAdvanceInvoiceDto,
+    @Req() req: any,
+  ) {
+    return this.advanceInvoices.stamp(
+      id,
+      req.user.tenant_id,
+      req.user.id,
+      dto,
+    );
+  }
+
+  @Get(':id/invoices/:invoiceId/pdf')
+  @ApiOperation({ summary: 'PDF de la factura de anticipo de la cotización' })
+  getAdvancePdf(
+    @Param('id') id: string,
+    @Param('invoiceId') invoiceId: string,
+    @Query('regenerate') regenerate: string | undefined,
+    @Query('preview') preview: string | undefined,
+    @Req() req: any,
+  ) {
+    return this.advanceInvoices.getPdf(
+      id,
+      invoiceId,
+      req.user.tenant_id,
+      regenerate === 'true' || regenerate === '1',
+      preview === 'true' || preview === '1',
+    );
+  }
+
+  @Get(':id/invoices/:invoiceId/xml')
+  @ApiOperation({ summary: 'XML de la factura de anticipo de la cotización' })
+  async getAdvanceXml(
+    @Param('id') id: string,
+    @Param('invoiceId') invoiceId: string,
+    @Req() req: any,
+    @Res() res: any,
+  ) {
+    const { xml, fileName } = await this.advanceInvoices.getXml(
+      id,
+      invoiceId,
+      req.user.tenant_id,
+    );
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.send(xml);
+  }
+
+  @Post(':id/invoices/:invoiceId/cancel')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Cancelar CFDI de anticipo de la cotización' })
+  cancelAdvance(
+    @Param('id') id: string,
+    @Param('invoiceId') invoiceId: string,
+    @Body() dto: CancelElectronicInvoiceDto,
+    @Req() req: any,
+  ) {
+    return this.advanceInvoices.cancel(
+      id,
+      invoiceId,
+      req.user.tenant_id,
+      req.user.id,
+      dto,
     );
   }
 
@@ -247,6 +405,7 @@ export class QuotationController {
     return {
       userId: resolveRequestUserId(req.user),
       canViewAll: userCanViewAllQuotations(req.user),
+      canViewAllBranches: userCanViewAllQuotationBranches(req.user),
     };
   }
 }

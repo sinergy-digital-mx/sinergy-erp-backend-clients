@@ -19,6 +19,8 @@ import { CollectPosSaleDto } from './dto/collect-pos-sale.dto';
 import { ReplacePosSaleCartDto } from './dto/replace-pos-sale-cart.dto';
 import { SalesOrderPosReceiptService, PosReceiptResult } from '../sales-orders/services/sales-order-pos-receipt.service';
 import { SalesOrderService } from '../sales-orders/services/sales-order.service';
+import { PosCardPayment } from './utils/pos-card-payments.util';
+import { PayerContact } from './utils/pos-payer-contact.util';
 import { CustomerCreditService } from '../customers/services/customer-credit.service';
 import { AdvanceShiftPaymentService } from './services/advance-shift-payment.service';
 import { ExchangeRateService } from '../exchange-rate/exchange-rate.service';
@@ -704,7 +706,7 @@ export declare class PosShiftsService {
     }>;
     resolveWalkInCustomerId(tenantId: string): Promise<number>;
     getPendingSales(tenantId: string, terminalUserId: string, billingBranchId?: string): Promise<({
-        kind: "sale";
+        kind: string;
         id: string;
         folio: string;
         quotation_folio: string | null;
@@ -742,7 +744,7 @@ export declare class PosShiftsService {
             pos_user_type: import("../../entities/users/pos-user-type.enum").PosUserType | null;
         } | null;
     } | {
-        kind: "advance";
+        kind: string;
         id: string;
         folio: string;
         quotation_folio: null;
@@ -833,7 +835,7 @@ export declare class PosShiftsService {
                 card_reference: string | null;
                 card_payer_name: string | null;
                 card_payer_phone: string | null;
-                card_payments: import("./utils/pos-card-payments.util").PosCardPayment[];
+                card_payments: PosCardPayment[];
                 received_cash_mxn: number;
                 received_cash_usd: number;
                 change_cash_mxn: number;
@@ -933,7 +935,7 @@ export declare class PosShiftsService {
             card_reference: string | null;
             card_payer_name: string | null;
             card_payer_phone: string | null;
-            card_payments: import("./utils/pos-card-payments.util").PosCardPayment[];
+            card_payments: PosCardPayment[];
             received_cash_mxn: number;
             received_cash_usd: number;
             change_cash_mxn: number;
@@ -1002,18 +1004,19 @@ export declare class PosShiftsService {
         checkReference: string | null;
         amountCreditMxn: number;
         cardReference: string | null;
-        cardPayments: import("./utils/pos-card-payments.util").PosCardPayment[];
+        cardPayments: PosCardPayment[];
         receivedCashMxn: number;
         receivedCashUsd: number;
         changeCashMxn: number;
         changeCashUsd: number;
-        payer: import("./utils/pos-payer-contact.util").PayerContact;
+        payer: PayerContact;
     }>;
     private validateAndNormalizePayment;
     private assertPaymentMethodShape;
     private assertCustomerCanUseCredit;
     private exchangeRateByOrderMoment;
     private exchangeRateForOrderDate;
+    private creditDocumentExchangeRate;
     private creditExchangeRateToStore;
     private mapCollectedSaleRow;
     private buildCollectedSalesSummary;
@@ -1055,7 +1058,7 @@ export declare class PosShiftsService {
             card_reference: string | null;
             card_payer_name: string | null;
             card_payer_phone: string | null;
-            card_payments: import("./utils/pos-card-payments.util").PosCardPayment[];
+            card_payments: PosCardPayment[];
             received_cash_mxn: number;
             received_cash_usd: number;
             change_cash_mxn: number;
@@ -1111,7 +1114,7 @@ export declare class PosShiftsService {
     returnQuotationToVentas(tenantId: string, terminalUserId: string, quotationId: string): Promise<{
         message: string;
         quotation: {
-            kind: "advance";
+            kind: string;
             id: string;
             folio: string;
             total: number;
@@ -1236,7 +1239,7 @@ export declare class PosShiftsService {
                 product_uom_id: string | null;
             } | null;
         }[];
-        kind: "advance";
+        kind: string;
         id: string;
         folio: string;
         total: number;
@@ -1368,7 +1371,7 @@ export declare class PosShiftsService {
     sendQuotationToCaja(tenantId: string, terminalUserId: string, quotationId: string, dto?: SendQuotationToCajaDto): Promise<{
         message: string;
         quotation: {
-            kind: "advance";
+            kind: string;
             id: string;
             folio: string;
             total: number;

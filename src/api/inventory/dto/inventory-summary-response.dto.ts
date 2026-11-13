@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { InventoryMarginDto } from './inventory-margin.dto';
 
 export class BatchBreakdownDto {
   @ApiProperty() batch_id: string;
@@ -17,6 +18,7 @@ export class BatchBreakdownDto {
   @ApiProperty() initial_quantity: string;
   @ApiProperty() purchase_order_folio: string | null;
   @ApiProperty() created_at: Date;
+  @ApiProperty({ type: InventoryMarginDto }) margin: InventoryMarginDto;
 }
 
 export class MeasureTotalDto {
@@ -79,7 +81,8 @@ export class ProductInventorySummaryDto {
   @ApiProperty() total_initial_quantity: string;
   
   /** Number of batches contributing to this total */
-  @ApiProperty() total_batches: number;
+  @ApiProperty({ description: 'Lotes con existencia mayor a 0. No incluye agotados.' })
+  total_batches: number;
 
   /**
    * Existencia agrupada por medida (8 vs 12 del mismo SKU).
@@ -91,6 +94,9 @@ export class ProductInventorySummaryDto {
   /** Breakdown of each batch contributing to this product's inventory */
   @ApiProperty({ type: [BatchBreakdownDto] })
   batches: BatchBreakdownDto[];
+
+  @ApiProperty({ type: InventoryMarginDto })
+  margin: InventoryMarginDto;
 }
 
 export class InventorySummaryResponseDto {

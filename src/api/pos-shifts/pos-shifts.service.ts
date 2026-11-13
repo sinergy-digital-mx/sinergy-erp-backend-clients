@@ -9,7 +9,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository, SelectQueryBuilder } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { PosDailyShift } from '../../entities/pos/pos-daily-shift.entity';
 import { PosPartialShift } from '../../entities/pos/pos-partial-shift.entity';
@@ -21,6 +21,7 @@ import { User } from '../../entities/users/user.entity';
 import { UserBillingBranch } from '../../entities/users/user-billing-branch.entity';
 import { canPosCollect, canPosSell } from '../../entities/users/pos-user-type.enum';
 import { SalesOrder } from '../../entities/sales-orders/sales-order.entity';
+import { Quotation } from '../../entities/quotations/quotation.entity';
 import {
   SalesOrderPosStage,
   isPosStageInCaja,
@@ -33,12 +34,20 @@ import { QueryDailyShiftDto } from './dto/query-daily-shift.dto';
 import { CloseDailyShiftDto } from './dto/close-daily-shift.dto';
 import { CollectPosSaleDto } from './dto/collect-pos-sale.dto';
 import { ReplacePosSaleCartDto } from './dto/replace-pos-sale-cart.dto';
+import { resolvePosDocumentCurrency } from '../sales-orders/utils/sales-order-currency.util';
+import {
+  amountInCreditCurrency,
+  creditConversionRate,
+  creditRateDate,
+  normalizeCreditCurrency,
+} from '../customers/utils/credit-currency.util';
 import {
   SalesOrderPosReceiptService,
   PosReceiptResult,
 } from '../sales-orders/services/sales-order-pos-receipt.service';
 import { SalesOrderService } from '../sales-orders/services/sales-order.service';
 import {
+  formatCustomerDisplayName,
   mapPosCustomer,
   mapPosSaleCollection,
   isWalkInCustomer,
@@ -49,12 +58,40 @@ import {
   roundPosMoney,
 } from './utils/cash-drawer';
 import {
+  firstCardReference,
+  normalizeCardPayments,
+  PosCardPayment,
+  sumCardPayments,
+} from './utils/pos-card-payments.util';
+import {
+  cashReceivedEquivalentMxn,
+  splitCashPayment,
+  usdCentToleranceMxn,
+} from './utils/pos-cash-payment.util';
+import { PayerContact, resolvePayerContact } from './utils/pos-payer-contact.util';
+import {
+  normalizeWalkInName,
+  normalizeWalkInPhone,
+  normalizeWalkInRfc,
+} from './utils/walk-in-ticket.util';
+import {
   buildUnclosedShiftAlert,
   getTodayDateString,
   isPreviousDayOpenShift,
+  toDateOnlyString,
 } from './utils/unclosed-shift-alert';
 import { CustomerCreditService } from '../customers/services/customer-credit.service';
+import { creditChargeUsesExceedWaiver } from '../customers/utils/customer-credit.util';
+import { AdvanceShiftPaymentService } from './services/advance-shift-payment.service';
+import { ExchangeRateService } from '../exchange-rate/exchange-rate.service';
 import { getFiscalInvoiceReadiness } from '../customers/utils/fiscal-invoice-readiness.util';
+import { QuotationService } from '../quotations/services/quotation.service';
+import { AdvanceCfdiService } from '../electronic-invoicing/services/advance-cfdi.service';
+import {
+  getQuotationReturnToSalesBlockedReason,
+  getQuotationSendToCajaBlockedReason,
+} from './utils/quotation-advance-pos.util';
+import { SendQuotationToCajaDto } from './dto/send-quotation-to-caja.dto';
 
 const WALK_IN_FISCAL_NAME = 'VENTA DE MOSTRADOR';
 const WALK_IN_DISPLAY_NAME = 'Público en General';
@@ -74,6 +111,8 @@ export class PosShiftsService {
     private readonly branchAssignmentRepo: Repository<UserBillingBranch>,
     @InjectRepository(SalesOrder)
     private readonly salesOrderRepo: Repository<SalesOrder>,
+    @InjectRepository(Quotation)
+    private readonly quotationRepo: Repository<Quotation>,
     @InjectRepository(Customer)
     private readonly customerRepo: Repository<Customer>,
     @InjectRepository(Warehouse)
@@ -84,15 +123,26 @@ export class PosShiftsService {
     private readonly posReceiptService: SalesOrderPosReceiptService,
     @Inject(forwardRef(() => SalesOrderService))
     private readonly salesOrderService: SalesOrderService,
+    @Inject(forwardRef(() => QuotationService))
+    private readonly quotationService: QuotationService,
+    private readonly advanceCfdi: AdvanceCfdiService,
     private readonly customerCreditService: CustomerCreditService,
+    private readonly advanceShiftPayments: AdvanceShiftPaymentService,
+    private readonly exchangeRateService: ExchangeRateService,
   ) {}
 
-  async validateSellerCode(tenantId: string, terminalUserId: string, code: number) {
+  async validateSellerCode(
+    tenantId: string,
+    terminalUserId: string,
+    code: number,
+    billingBranchId?: string,
+  ) {
     const terminalUser = await this.requirePosTerminal(tenantId, terminalUserId);
-    const dailyShift = await this.getBranchOpenDailyShift(
-      tenantId,
-      terminalUser.billing_branch_id!,
+    const branchId = await this.resolveAccessibleBranchId(
+      terminalUser,
+      billingBranchId,
     );
+    const dailyShift = await this.getBranchOpenDailyShift(tenantId, branchId);
 
     const seller = await this.userRepo.findOne({
       where: {
@@ -143,20 +193,34 @@ export class PosShiftsService {
       ? await this.findDailyShiftById(shift.id, tenantId)
       : null;
     const unclosedShiftAlert = buildUnclosedShiftAlert(shift);
+    const usdRate = await this.exchangeRateService.getDailyRate(tenantId);
 
     return {
       daily_shift: dailyShift,
       requires_previous_close: Boolean(unclosedShiftAlert),
       unclosed_shift_alert: unclosedShiftAlert,
+      usd_exchange_rate: usdRate ? Number(usdRate.exchange_rate) : null,
+      usd_exchange_rate_date: usdRate?.rate_date ?? null,
     };
   }
 
-  async resolveOpenDailyShiftId(tenantId: string, terminalUserId: string) {
+  private async resolveUsdExchangeRate(tenantId: string): Promise<number | null> {
+    const usdRate = await this.exchangeRateService.getDailyRate(tenantId);
+    const value = Number(usdRate?.exchange_rate ?? 0);
+    return value > 0 ? value : null;
+  }
+
+  async resolveOpenDailyShiftId(
+    tenantId: string,
+    terminalUserId: string,
+    billingBranchId?: string,
+  ) {
     const terminalUser = await this.requirePosTerminal(tenantId, terminalUserId);
-    const shift = await this.getBranchOpenDailyShift(
-      tenantId,
-      terminalUser.billing_branch_id!,
+    const branchId = await this.resolveAccessibleBranchId(
+      terminalUser,
+      billingBranchId,
     );
+    const shift = await this.getBranchOpenDailyShift(tenantId, branchId);
 
     if (!shift) {
       throw new BadRequestException(
@@ -165,6 +229,17 @@ export class PosShiftsService {
     }
 
     return shift.id;
+  }
+
+  async resolveBranchCajaShift(
+    tenantId: string,
+    billingBranchId: string,
+  ): Promise<{ shift: PosDailyShift | null; queued: boolean }> {
+    const shift = await this.getBranchOpenDailyShift(tenantId, billingBranchId);
+    if (!shift || isPreviousDayOpenShift(shift.shift_date)) {
+      return { shift: null, queued: true };
+    }
+    return { shift, queued: false };
   }
 
   async getBranchOpenDailyShift(tenantId: string, billingBranchId: string) {
@@ -203,7 +278,10 @@ export class PosShiftsService {
   ) {
     const terminalUser = await this.requireCobranzaTerminal(tenantId, terminalUserId);
     const shiftDate = getTodayDateString();
-    const billingBranchId = terminalUser.billing_branch_id!;
+    const billingBranchId = await this.resolveAccessibleBranchId(
+      terminalUser,
+      dto.billing_branch_id,
+    );
 
     const openShift = await this.getBranchOpenDailyShift(
       tenantId,
@@ -230,7 +308,7 @@ export class PosShiftsService {
     const saved = await this.dailyShiftRepo.save(shift);
     const queuedSalesAssigned = await this.assignQueuedSalesToShift(
       tenantId,
-      terminalUser.billing_branch_id!,
+      billingBranchId,
       saved.id,
     );
     const detail = await this.findDailyShiftById(saved.id, tenantId);
@@ -412,61 +490,47 @@ export class PosShiftsService {
     terminalUserId: string,
     sellerUserId: string,
     dailyShiftId?: string,
+    billingBranchId?: string,
   ) {
     const terminalUser = await this.requirePosTerminal(tenantId, terminalUserId);
     await this.requireSellerUser(tenantId, sellerUserId);
-
     let shift: PosDailyShift | null = null;
-
     if (dailyShiftId) {
       shift = await this.dailyShiftRepo.findOne({
         where: {
           id: dailyShiftId,
           tenant_id: tenantId,
-          billing_branch_id: terminalUser.billing_branch_id!,
           status: PosDailyShiftStatus.OPEN,
         },
         relations: ['terminal_user'],
       });
-
       if (!shift) {
-        throw new BadRequestException(
-          'No hay un corte global abierto válido para esta sucursal',
-        );
+        throw new BadRequestException('No hay un corte global abierto válido para esta sucursal');
       }
-
+      const canAccessShift = await this.userCanAccessBranch(terminalUser, shift.billing_branch_id);
+      if (!canAccessShift) {
+        throw new BadRequestException('Este corte no pertenece a una sucursal asignada a tu usuario');
+      }
       if (!canPosCollect(shift.terminal_user?.pos_user_type)) {
-        throw new BadRequestException(
-          'El corte global debe pertenecer a una terminal de caja',
-        );
+        throw new BadRequestException('El corte global debe pertenecer a una terminal de caja');
       }
-    } else {
-      shift = await this.getBranchOpenDailyShift(
-        tenantId,
-        terminalUser.billing_branch_id!,
-      );
     }
-
+    else {
+      const branchId = await this.resolveAccessibleBranchId(terminalUser, billingBranchId);
+      shift = await this.getBranchOpenDailyShift(tenantId, branchId);
+    }
     if (!shift) {
       if (!canPosCollect(terminalUser.pos_user_type)) {
         return { shift: null, terminalUser, queued: true };
       }
-
-      throw new BadRequestException(
-        'No hay corte global abierto en la sucursal. La terminal de caja debe abrir el corte del día.',
-      );
+      throw new BadRequestException('No hay corte global abierto en la sucursal. La terminal de caja debe abrir el corte del día.');
     }
-
     if (isPreviousDayOpenShift(shift.shift_date)) {
       if (!canPosCollect(terminalUser.pos_user_type)) {
         return { shift: null, terminalUser, queued: true };
       }
-
-      throw new BadRequestException(
-        'Hay un corte abierto de un día anterior. Ciérralo antes de continuar.',
-      );
+      throw new BadRequestException('Hay un corte abierto de un día anterior. Ciérralo antes de continuar.');
     }
-
     return { shift, terminalUser, queued: false };
   }
 
@@ -474,29 +538,21 @@ export class PosShiftsService {
     tenantId: string,
     terminalUserId: string,
     warehouseId: string,
+    billingBranchId?: string,
   ): Promise<void> {
     const terminalUser = await this.requirePosTerminal(tenantId, terminalUserId);
-
-    if (!terminalUser.billing_branch_id) {
-      throw new BadRequestException('El usuario POS no tiene una sucursal asignada');
-    }
-
+    const branchId = await this.resolveAccessibleBranchId(terminalUser, billingBranchId);
     const warehouse = await this.warehouseRepo.findOne({
       where: { id: warehouseId, tenant_id: tenantId },
     });
-
     if (!warehouse) {
       throw new BadRequestException('Almacén no encontrado');
     }
-
-    if (warehouse.billing_branch_id !== terminalUser.billing_branch_id) {
-      throw new BadRequestException(
-        `El almacén "${warehouse.name}" no pertenece a la sucursal de esta terminal POS`,
-      );
+    if (warehouse.billing_branch_id !== branchId) {
+      throw new BadRequestException(`El almacén "${warehouse.name}" no pertenece a la sucursal seleccionada`);
     }
   }
 
-  /** @deprecated Usar resolvePosSaleContext */
   async assertOpenShiftForSale(
     tenantId: string,
     terminalUserId: string,
@@ -537,11 +593,13 @@ export class PosShiftsService {
     return walkIn.id;
   }
 
-  async getPendingSales(tenantId: string, terminalUserId: string) {
+  async getPendingSales(tenantId: string, terminalUserId: string, billingBranchId?: string) {
     const terminalUser = await this.requireCobranzaTerminal(tenantId, terminalUserId);
-    const branchId = terminalUser.billing_branch_id!;
+    const branchId = await this.resolveAccessibleBranchId(terminalUser, billingBranchId);
     const openShift = await this.getBranchOpenDailyShift(tenantId, branchId);
-
+    if (openShift) {
+      await this.assignQueuedSalesToShift(tenantId, branchId, openShift.id);
+    }
     const qb = this.salesOrderRepo
       .createQueryBuilder('so')
       .leftJoinAndSelect('so.seller_user', 'seller_user')
@@ -552,81 +610,165 @@ export class PosShiftsService {
       .andWhere('so.general_status = :generalStatus', { generalStatus: 'Surtida' })
       .andWhere('so.payment_status = :paymentStatus', { paymentStatus: 'Pendiente' })
       .andWhere('(so.pos_stage IS NULL OR so.pos_stage = :posStage)', {
-        posStage: SalesOrderPosStage.Caja,
-      })
-      .andWhere(
-        `NOT EXISTS (
+      posStage: SalesOrderPosStage.Caja,
+    })
+      .andWhere(`NOT EXISTS (
           SELECT 1 FROM pos_sale_collections col
           WHERE col.sales_order_id = so.id
-        )`,
-      );
-
+        )`);
     if (openShift) {
-      // Misma fuente que sales_summary del corte: órdenes ligadas al corte abierto.
       qb.andWhere('so.pos_daily_shift_id = :shiftId', { shiftId: openShift.id });
-    } else {
-      qb.innerJoin('so.warehouse', 'warehouse').andWhere(
-        'warehouse.billing_branch_id = :branchId',
-        { branchId },
-      );
     }
-
+    else {
+      this.applySalesOrderBranchScope(qb, branchId);
+    }
     const orders = await qb.orderBy('so.created_at', 'ASC').getMany();
-    const pendingByOrder = await this.salesOrderService.getAmountPendingMap(
-      orders,
-      tenantId,
-    );
-    const creditEnabledByFiscal = await this.customerCreditService.getEnabledByFiscalMap(
-      tenantId,
-      orders
-        .filter((order) => order.customer_id && order.fiscal_configuration_id)
-        .map((order) => ({
-          customerId: order.customer_id,
-          fiscalConfigurationId: order.fiscal_configuration_id,
-        })),
-    );
-
-    return orders.map((order) => ({
+    const quotationIds = [
+      ...new Set(orders
+        .map((order) => order.converted_from_quotation_id)
+        .filter((value) => !!value)),
+    ];
+    const quotationFolio = new Map<string, string>();
+    if (quotationIds.length) {
+      const rows = await this.salesOrderRepo.manager
+        .createQueryBuilder()
+        .select('q.id', 'id')
+        .addSelect('q.folio', 'folio')
+        .from('inv_s_quotations', 'q')
+        .where('q.id IN (:...ids)', { ids: quotationIds })
+        .getRawMany();
+      for (const row of rows) {
+        quotationFolio.set(row.id, row.folio);
+      }
+    }
+    const pendingByOrder = await this.salesOrderService.getAmountPendingMap(orders, tenantId);
+    const exchangeRateByOrder = await this.exchangeRateByOrderMoment(tenantId, orders);
+    const creditEnabledByFiscal = await this.customerCreditService.getEnabledByFiscalMap(tenantId, orders
+      .filter((order) => order.customer_id && order.fiscal_configuration_id)
+      .map((order) => ({
+      customerId: order.customer_id,
+      fiscalConfigurationId: order.fiscal_configuration_id,
+    })));
+    const sales = orders.map((order) => ({
+      kind: 'sale',
       id: order.id,
       folio: order.folio,
+      quotation_folio: order.converted_from_quotation_id
+        ? quotationFolio.get(order.converted_from_quotation_id) ?? null
+        : null,
       total: Number(order.total),
+      currency: order.currency === 'USD' ? 'USD' : 'MXN',
+      exchange_rate: exchangeRateByOrder.get(order.id) ?? null,
       amount_pending: pendingByOrder.get(order.id) ?? Number(order.total),
       subtotal: Number(order.subtotal),
       created_at: order.created_at,
       notes: order.notes,
+      walk_in_name: order.walk_in_name,
+      walk_in_rfc: order.walk_in_rfc,
+      for_shipping: !!order.for_shipping,
       fiscal_configuration_id: order.fiscal_configuration_id,
       customer: order.customer
         ? {
-            id: order.customer.id,
-            name: order.customer.name,
-            lastname: order.customer.lastname,
-            company_name: order.customer.company_name,
-            fiscal_razon_social: order.customer.fiscal_razon_social,
-            is_walk_in: isWalkInCustomer(order.customer),
-            credit_enabled: Boolean(
-              order.fiscal_configuration_id &&
-                creditEnabledByFiscal.get(
-                  `${order.customer.id}:${order.fiscal_configuration_id}`,
-                ),
-            ),
-          }
+          id: order.customer.id,
+          name: order.customer.name,
+          lastname: order.customer.lastname,
+          company_name: order.customer.company_name,
+          fiscal_razon_social: order.customer.fiscal_razon_social,
+          display_name: formatCustomerDisplayName(order.customer),
+          is_walk_in: isWalkInCustomer(order.customer),
+          credit_enabled: Boolean(order.fiscal_configuration_id &&
+            creditEnabledByFiscal.get(`${order.customer.id}:${order.fiscal_configuration_id}`)),
+        }
         : null,
       seller_user: order.seller_user
         ? {
-            id: order.seller_user.id,
-            first_name: order.seller_user.first_name,
-            last_name: order.seller_user.last_name,
-            pos_user_code: order.seller_user.pos_user_code,
-          }
+          id: order.seller_user.id,
+          first_name: order.seller_user.first_name,
+          last_name: order.seller_user.last_name,
+          pos_user_code: order.seller_user.pos_user_code,
+        }
         : null,
       terminal_user: order.terminal_user
         ? {
-            id: order.terminal_user.id,
-            first_name: order.terminal_user.first_name,
-            last_name: order.terminal_user.last_name,
-            pos_user_type: order.terminal_user.pos_user_type,
-          }
+          id: order.terminal_user.id,
+          first_name: order.terminal_user.first_name,
+          last_name: order.terminal_user.last_name,
+          pos_user_type: order.terminal_user.pos_user_type,
+        }
         : null,
+    }));
+    const advances = await this.listPendingAdvanceQuotations(tenantId, branchId);
+    return [...sales, ...advances].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  }
+
+  private async listPendingAdvanceQuotations(tenantId: string, billingBranchId: string) {
+    let rows: Quotation[] = [];
+    try {
+      rows = await this.quotationRepo
+        .createQueryBuilder('q')
+        .leftJoinAndSelect('q.customer', 'customer')
+        .leftJoinAndSelect('q.seller_user', 'seller_user')
+        .where('q.tenant_id = :tenantId', { tenantId })
+        .andWhere('q.billing_branch_id = :billingBranchId', { billingBranchId })
+        .andWhere('q.general_status = :status', { status: 'Creada' })
+        .andWhere('q.advance_requested_total > 0')
+        .andWhere('(q.pos_stage IS NULL OR q.pos_stage = :posStage)', {
+        posStage: SalesOrderPosStage.Caja,
+      })
+        .andWhere(`NOT EXISTS (
+          SELECT 1 FROM electronic_invoices inv
+          WHERE inv.tenant_id = q.tenant_id
+            AND inv.source_module = 'quotations'
+            AND inv.source_id = q.id
+            AND inv.invoice_role = 'advance'
+            AND (inv.sat_status IS NULL OR inv.sat_status <> 'Cancelado')
+            AND (
+              inv.sat_status = 'Vigente'
+              OR inv.stamp_status IN ('stamped', 'cancel_pending', 'cancel_error')
+            )
+        )`)
+        .orderBy('q.created_at', 'ASC')
+        .getMany();
+    }
+    catch (error) {
+      this.logger.error('No se pudieron listar anticipos por cobrar. Corre la migración 1793300000000-add-quotation-pos-stage.', error instanceof Error ? error.stack : error);
+    }
+    return rows.map((quotation) => ({
+      kind: 'advance',
+      id: quotation.id,
+      folio: quotation.folio,
+      quotation_folio: null,
+      total: Number(quotation.total),
+      amount_pending: Number(quotation.advance_requested_total),
+      advance_uso_cfdi: quotation.advance_uso_cfdi ?? 'G03',
+      advance_metodo_pago: quotation.advance_metodo_pago ?? 'PUE',
+      subtotal: Number(quotation.subtotal),
+      created_at: quotation.created_at,
+      notes: quotation.notes,
+      walk_in_name: null,
+      walk_in_rfc: null,
+      fiscal_configuration_id: quotation.fiscal_configuration_id,
+      customer: quotation.customer
+        ? {
+          id: quotation.customer.id,
+          name: quotation.customer.name,
+          lastname: quotation.customer.lastname,
+          company_name: quotation.customer.company_name,
+          fiscal_razon_social: quotation.customer.fiscal_razon_social,
+          display_name: formatCustomerDisplayName(quotation.customer),
+          is_walk_in: isWalkInCustomer(quotation.customer),
+          credit_enabled: false,
+        }
+        : null,
+      seller_user: quotation.seller_user
+        ? {
+          id: quotation.seller_user.id,
+          first_name: quotation.seller_user.first_name,
+          last_name: quotation.seller_user.last_name,
+          pos_user_code: quotation.seller_user.pos_user_code,
+        }
+        : null,
+      terminal_user: null,
     }));
   }
 
@@ -634,30 +776,29 @@ export class PosShiftsService {
     tenantId: string,
     terminalUserId: string,
     dailyShiftId?: string,
+    billingBranchId?: string,
   ) {
     const terminalUser = await this.requireCobranzaTerminal(tenantId, terminalUserId);
-
-    let shift: PosDailyShift | null;
-
+    let shift;
     if (dailyShiftId) {
       shift = await this.dailyShiftRepo.findOne({
         where: {
           id: dailyShiftId,
           tenant_id: tenantId,
-          billing_branch_id: terminalUser.billing_branch_id!,
         },
       });
-
       if (!shift) {
         throw new NotFoundException('Corte global no encontrado en esta sucursal');
       }
-    } else {
-      shift = await this.getBranchOpenDailyShift(
-        tenantId,
-        terminalUser.billing_branch_id!,
-      );
+      const canAccessShift = await this.userCanAccessBranch(terminalUser, shift.billing_branch_id);
+      if (!canAccessShift) {
+        throw new NotFoundException('Corte global no encontrado en esta sucursal');
+      }
     }
-
+    else {
+      const branchId = await this.resolveAccessibleBranchId(terminalUser, billingBranchId);
+      shift = await this.getBranchOpenDailyShift(tenantId, branchId);
+    }
     if (!shift) {
       return {
         daily_shift: null,
@@ -665,7 +806,6 @@ export class PosShiftsService {
         summary: this.buildCollectedSalesSummary([]),
       };
     }
-
     const collections = await this.collectionRepo.find({
       where: { tenant_id: tenantId, pos_daily_shift_id: shift.id },
       relations: [
@@ -677,11 +817,7 @@ export class PosShiftsService {
       ],
       order: { created_at: 'DESC' },
     });
-
-    const collectedSales = collections.map((row) =>
-      this.mapCollectedSaleRow(row),
-    );
-
+    const collectedSales = collections.map((row) => this.mapCollectedSaleRow(row));
     return {
       daily_shift: this.mapDailyShiftSummary(shift),
       collected_sales: collectedSales,
@@ -696,99 +832,82 @@ export class PosShiftsService {
     dto: CollectPosSaleDto,
   ) {
     const cobranzaUser = await this.requireCobranzaTerminal(tenantId, cobranzaUserId);
-
     const order = await this.salesOrderRepo.findOne({
       where: { id: salesOrderId, tenant_id: tenantId },
       relations: ['warehouse', 'seller_user', 'terminal_user', 'customer'],
     });
-
     if (!order) {
       throw new NotFoundException('Orden de venta no encontrada');
     }
-
     if (order.sales_order_type !== 'POS') {
       throw new BadRequestException('Solo se pueden cobrar órdenes POS');
     }
-
     if (!isPosStageInCaja(order.pos_stage)) {
-      throw new BadRequestException(
-        'La orden está en ventas. Debe enviarse a caja antes de cobrar',
-      );
+      throw new BadRequestException('La orden está en ventas. Debe enviarse a caja antes de cobrar');
     }
-
     if (order.general_status !== 'Surtida' || order.payment_status !== 'Pendiente') {
-      throw new BadRequestException(
-        'La orden no está pendiente de cobro (debe estar Surtida y Pendiente)',
-      );
+      throw new BadRequestException('La orden no está pendiente de cobro (debe estar Surtida y Pendiente)');
     }
-
-    const shift = await this.getBranchOpenDailyShift(
-      tenantId,
-      cobranzaUser.billing_branch_id!,
-    );
+    const branchId = await this.resolveAccessibleBranchId(cobranzaUser, dto.billing_branch_id);
+    const shift = await this.getBranchOpenDailyShift(tenantId, branchId);
     if (!shift) {
-      throw new BadRequestException(
-        'Debe haber un corte global abierto para cobrar ventas',
-      );
+      throw new BadRequestException('Debe haber un corte global abierto para cobrar ventas');
     }
-
     const belongsToOpenShift = order.pos_daily_shift_id === shift.id;
-    const belongsToBranch =
-      order.warehouse?.billing_branch_id === cobranzaUser.billing_branch_id;
-
+    const orderBranchId = order.billing_branch_id || order.warehouse?.billing_branch_id;
+    const belongsToBranch = orderBranchId === branchId;
     if (!belongsToOpenShift && !belongsToBranch) {
-      throw new BadRequestException(
-        'La orden no pertenece a la sucursal de esta terminal de caja',
-      );
+      throw new BadRequestException('La orden no pertenece a la sucursal de esta terminal de caja');
     }
-
     const existingCollection = await this.collectionRepo.findOne({
       where: { sales_order_id: order.id },
     });
     if (existingCollection) {
       throw new ConflictException('Esta orden ya fue cobrada');
     }
-
     const orderTotal = Number(order.total);
     const amountPending = await this.salesOrderService.getAmountPending(order.id, tenantId);
     if (amountPending <= 0) {
       throw new BadRequestException('La orden ya no tiene saldo pendiente');
     }
-
-    const customerId = await this.resolveCollectionCustomerId(
-      tenantId,
-      order,
-      dto.customer_id,
-    );
+    const customerId = await this.resolveCollectionCustomerId(tenantId, order, dto.customer_id);
     const customer = await this.customerRepo.findOne({
       where: { id: customerId, tenant_id: tenantId },
     });
     if (!customer) {
       throw new BadRequestException('Cliente no válido');
     }
-
     const isCredit = dto.payment_method === PosSalePaymentMethod.CREDIT;
-    if (isCredit) {
-      await this.assertCustomerCanUseCredit(
-        customer,
-        amountPending,
-        order.fiscal_configuration_id,
-      );
-    }
-
+    const creditCharge = isCredit
+      ? await this.assertCustomerCanUseCredit(customer, amountPending, order)
+      : null;
+    const creditWaiverUsed = creditCharge?.usesWaiver ?? false;
     const fiscal = getFiscalInvoiceReadiness(customer);
     if (dto.generate_invoice) {
       if (isWalkInCustomer(customer) || !fiscal.fiscal_ready_for_invoice) {
-        throw new BadRequestException(
-          `No se puede generar factura: faltan ${
-            fiscal.fiscal_missing_fields.join(', ') || 'datos fiscales'
-          }`,
-        );
+        throw new BadRequestException(`No se puede generar factura: faltan ${fiscal.fiscal_missing_fields.join(', ') || 'datos fiscales'}`);
       }
     }
-
-    const payment = this.validateAndNormalizePayment(dto, amountPending);
-
+    const payment = await this.validateAndNormalizePayment(tenantId, dto, amountPending);
+    const creditDocumentRate =
+      isCredit && dto.order_currency === 'USD'
+        ? await this.creditDocumentExchangeRate(tenantId, dto, creditCharge?.exchangeRate ?? null)
+        : null;
+    const documentCurrency = resolvePosDocumentCurrency({
+      requested: dto.order_currency,
+      isCredit,
+      amountCashMxn: payment.amountCashMxn,
+      amountCashUsd: payment.amountCashUsd,
+      usdExchangeRate: isCredit ? creditDocumentRate : payment.usdExchangeRate,
+      amountTransferMxn: payment.amountTransferMxn,
+      amountCardMxn: payment.amountCardMxn,
+      amountCheckMxn: payment.amountCheckMxn,
+      amountCheckUsd: payment.amountCheckUsd,
+      amountCreditMxn: payment.amountCreditMxn,
+    });
+    if (documentCurrency.error) {
+      throw new BadRequestException(documentCurrency.error);
+    }
     const collection = this.collectionRepo.create({
       id: uuidv4(),
       tenant_id: tenantId,
@@ -804,9 +923,17 @@ export class PosShiftsService {
       transfer_reference: payment.transferReference,
       amount_card_mxn: payment.amountCardMxn,
       amount_check_mxn: payment.amountCheckMxn,
+      amount_check_usd: payment.amountCheckUsd,
       check_reference: payment.checkReference ?? null,
       amount_credit_mxn: payment.amountCreditMxn,
       card_reference: payment.cardReference ?? null,
+      card_payments: payment.cardPayments.length > 1 ? payment.cardPayments : null,
+      transfer_payer_name: payment.payer.transferPayerName,
+      transfer_payer_business_name: payment.payer.transferPayerBusinessName,
+      card_payer_name: payment.payer.cardPayerName,
+      card_payer_phone: payment.payer.cardPayerPhone,
+      check_payer_name: payment.payer.checkPayerName,
+      check_payer_phone: payment.payer.checkPayerPhone,
       received_cash_mxn: payment.receivedCashMxn,
       received_cash_usd: payment.receivedCashUsd,
       change_cash_mxn: payment.changeCashMxn,
@@ -814,66 +941,72 @@ export class PosShiftsService {
       collected_by_user_id: cobranzaUserId,
       notes: dto.notes ?? null,
     });
-
     await this.collectionRepo.save(collection);
-
-    const referenceNumber =
-      payment.transferReference ||
+    const referenceNumber = payment.transferReference ||
       payment.checkReference ||
       payment.cardReference ||
       null;
-
     if (!isCredit) {
-      await this.salesOrderService.createPayment(
-        order.id,
-        {
-          amount: amountPending,
-          payment_date: new Date().toISOString().slice(0, 10),
-          payment_method: dto.payment_method,
-          currency: 'MXN',
-          reference_number: referenceNumber ?? undefined,
-          notes: dto.notes,
-        },
-        tenantId,
-        cobranzaUserId,
-        'pos_cobranza',
-      );
+      await this.salesOrderService.createPayment(order.id, {
+        amount: amountPending,
+        payment_date: getTodayDateString(),
+        payment_method: dto.payment_method,
+        currency: 'MXN',
+        reference_number: referenceNumber ?? undefined,
+        notes: dto.notes,
+      }, tenantId, cobranzaUserId, 'pos_cobranza');
     }
-
     const paymentStatus = isCredit ? 'Pendiente' : 'Pagado';
-
-    // update() evita que TypeORM revierta customer_id por la relación customer cargada al crear la orden
-    await this.salesOrderRepo.update(
-      { id: order.id, tenant_id: tenantId },
-      {
-        payment_status: paymentStatus,
-        is_credit: isCredit,
-        invoice_requested: Boolean(dto.generate_invoice),
-        collected_by_user_id: cobranzaUserId,
-        customer_id: customerId,
-        pos_daily_shift_id: shift.id,
-      },
-    );
-
+    const creditInUsd = isCredit && documentCurrency.currency === 'USD';
+    const storedCurrency = isCredit && !creditInUsd
+      ? normalizeCreditCurrency(order.currency)
+      : documentCurrency.currency;
+    const storedExchangeRate = isCredit && !creditInUsd
+      ? this.creditExchangeRateToStore(order, creditCharge?.exchangeRate ?? null)
+      : documentCurrency.exchangeRate;
+    await this.salesOrderRepo.update({ id: order.id, tenant_id: tenantId }, {
+      payment_status: paymentStatus,
+      is_credit: isCredit,
+      currency: storedCurrency,
+      exchange_rate: storedExchangeRate,
+      invoice_requested: Boolean(dto.generate_invoice),
+      collected_by_user_id: cobranzaUserId,
+      customer_id: customerId,
+      pos_daily_shift_id: shift.id,
+      walk_in_name: isWalkInCustomer(customer)
+        ? dto.walk_in_name !== undefined
+          ? normalizeWalkInName(dto.walk_in_name)
+          : order.walk_in_name
+        : null,
+      walk_in_phone: isWalkInCustomer(customer)
+        ? dto.walk_in_phone !== undefined
+          ? normalizeWalkInPhone(dto.walk_in_phone)
+          : order.walk_in_phone
+        : null,
+      walk_in_rfc: isWalkInCustomer(customer)
+        ? dto.walk_in_rfc !== undefined
+          ? normalizeWalkInRfc(dto.walk_in_rfc)
+          : order.walk_in_rfc
+        : null,
+    });
+    if (isCredit) {
+      await this.salesOrderService.captureCreditCharge(order.id, tenantId, cobranzaUserId);
+      if (creditWaiverUsed && order.fiscal_configuration_id) {
+        await this.customerCreditService.consumeExceedWaiver(tenantId, customer.id, order.fiscal_configuration_id);
+      }
+    }
     collection.customer = customer;
     collection.collected_by_user = cobranzaUser;
-
     let receipt: PosReceiptResult | null = null;
     let receipt_error: string | null = null;
     try {
-      receipt = await this.posReceiptService.generateAndSavePosTicket(
-        tenantId,
-        order.id,
-        cobranzaUserId,
-      );
-    } catch (error) {
+      receipt = await this.posReceiptService.generateAndSavePosTicket(tenantId, order.id, cobranzaUserId);
+    }
+    catch (error) {
       receipt_error =
         error instanceof Error ? error.message : 'Error desconocido al generar ticket';
-      this.logger.error(
-        `Venta cobrada pero fallo generacion de ticket ${order.id}: ${receipt_error}`,
-      );
+      this.logger.error(`Venta cobrada pero fallo generacion de ticket ${order.id}: ${receipt_error}`);
     }
-
     return {
       message: isCredit
         ? 'Venta registrada a crédito correctamente'
@@ -900,6 +1033,8 @@ export class PosShiftsService {
         customer: mapPosCustomer(customer),
         pos_daily_shift_id: shift.id,
         total: orderTotal,
+        currency: storedCurrency,
+        exchange_rate: storedExchangeRate,
         amount_collected: isCredit ? 0 : amountPending,
         amount_on_credit: isCredit ? amountPending : 0,
       },
@@ -911,48 +1046,44 @@ export class PosShiftsService {
     billingBranchId: string,
     shiftId: string,
   ): Promise<number> {
-    const shiftDate = getTodayDateString();
+    const shift = await this.dailyShiftRepo.findOne({
+      where: { id: shiftId, tenant_id: tenantId },
+    });
+    if (!shift) {
+      return 0;
+    }
     const queued = await this.salesOrderRepo
       .createQueryBuilder('so')
-      .innerJoin('so.warehouse', 'warehouse')
       .where('so.tenant_id = :tenantId', { tenantId })
       .andWhere('so.sales_order_type = :type', { type: 'POS' })
       .andWhere('so.general_status = :queued', { queued: 'En cola' })
       .andWhere('so.payment_status = :pending', { pending: 'Pendiente' })
       .andWhere('(so.pos_stage IS NULL OR so.pos_stage = :posStage)', {
-        posStage: SalesOrderPosStage.Caja,
-      })
-      .andWhere('DATE(so.created_at) = :shiftDate', { shiftDate })
-      .andWhere('warehouse.billing_branch_id = :billingBranchId', { billingBranchId })
-      .getMany();
-
+      posStage: SalesOrderPosStage.Caja,
+    })
+      .andWhere(this.uncollectedSaleSql())
+      .andWhere(this.applySalesOrderBranchScopeSql());
+    this.bindSalesOrderBranch(queued, billingBranchId);
+    const queuedOrders = await queued.getMany();
     const leftoverUnpaid = await this.salesOrderRepo
       .createQueryBuilder('so')
-      .innerJoin('so.warehouse', 'warehouse')
+      .leftJoin('so.pos_daily_shift', 'linked_shift')
       .where('so.tenant_id = :tenantId', { tenantId })
       .andWhere('so.sales_order_type = :type', { type: 'POS' })
       .andWhere('so.general_status = :surtida', { surtida: 'Surtida' })
       .andWhere('so.payment_status = :pending', { pending: 'Pendiente' })
       .andWhere('(so.pos_stage IS NULL OR so.pos_stage = :posStage)', {
-        posStage: SalesOrderPosStage.Caja,
-      })
-      .andWhere('warehouse.billing_branch_id = :billingBranchId', { billingBranchId })
-      .andWhere('(so.pos_daily_shift_id IS NULL OR so.pos_daily_shift_id != :shiftId)', {
-        shiftId,
-      })
-      .andWhere(
-        `NOT EXISTS (
-          SELECT 1 FROM pos_sale_collections col
-          WHERE col.sales_order_id = so.id
-        )`,
-      )
-      .getMany();
-
-    const toAssign = [...queued, ...leftoverUnpaid];
+      posStage: SalesOrderPosStage.Caja,
+    })
+      .andWhere('(so.pos_daily_shift_id IS NULL OR linked_shift.status = :closedStatus)', { closedStatus: PosDailyShiftStatus.CLOSED })
+      .andWhere(this.uncollectedSaleSql())
+      .andWhere(this.applySalesOrderBranchScopeSql());
+    this.bindSalesOrderBranch(leftoverUnpaid, billingBranchId);
+    const leftoverOrders = await leftoverUnpaid.getMany();
+    const toAssign = [...queuedOrders, ...leftoverOrders];
     if (!toAssign.length) {
       return 0;
     }
-
     const seen = new Set<string>();
     const unique = toAssign.filter((order) => {
       if (seen.has(order.id)) {
@@ -961,14 +1092,38 @@ export class PosShiftsService {
       seen.add(order.id);
       return true;
     });
-
-    for (const order of unique) {
-      order.general_status = 'Surtida';
-      order.pos_daily_shift_id = shiftId;
-    }
-
-    await this.salesOrderRepo.save(unique);
+    await this.salesOrderRepo.update({ id: In(unique.map((order) => order.id)) }, {
+      general_status: 'Surtida',
+      pos_daily_shift_id: shiftId,
+    });
     return unique.length;
+  }
+
+  private applySalesOrderBranchScopeSql(): string {
+    return '(so.billing_branch_id = :billingBranchId OR warehouse.billing_branch_id = :billingBranchId)';
+  }
+
+  private applySalesOrderBranchScope(
+    qb: SelectQueryBuilder<SalesOrder>,
+    billingBranchId: string,
+  ): void {
+    qb.leftJoin('so.warehouse', 'warehouse').andWhere(this.applySalesOrderBranchScopeSql(), {
+      billingBranchId,
+    });
+  }
+
+  private bindSalesOrderBranch(
+    qb: SelectQueryBuilder<SalesOrder>,
+    billingBranchId: string,
+  ): void {
+    qb.leftJoin('so.warehouse', 'warehouse').setParameter('billingBranchId', billingBranchId);
+  }
+
+  private uncollectedSaleSql(): string {
+    return `NOT EXISTS (
+      SELECT 1 FROM pos_sale_collections col
+      WHERE col.sales_order_id = so.id
+    )`;
   }
 
   private async requireSellerUser(tenantId: string, sellerUserId: string) {
@@ -1017,87 +1172,122 @@ export class PosShiftsService {
     return order.customer_id;
   }
 
-  private validateAndNormalizePayment(dto: CollectPosSaleDto, orderTotal: number) {
+  normalizeCollectPayment(tenantId: string, dto: CollectPosSaleDto, orderTotal: number) {
+    return this.validateAndNormalizePayment(tenantId, dto, orderTotal);
+  }
+
+  private async validateAndNormalizePayment(
+    tenantId: string,
+    dto: CollectPosSaleDto,
+    orderTotal: number,
+  ) {
     const amountCashMxn = Number(dto.amount_cash_mxn ?? 0);
     const amountCashUsd = Number(dto.amount_cash_usd ?? 0);
     const amountTransferMxn = Number(dto.amount_transfer_mxn ?? 0);
-    const amountCardMxn = Number(dto.amount_card_mxn ?? 0);
+    const cardPayments = normalizeCardPayments({
+      card_payments: dto.card_payments,
+      amount_card_mxn: dto.amount_card_mxn,
+      card_reference: dto.card_reference,
+    });
+    const amountCardMxn = sumCardPayments(cardPayments);
+    if (dto.amount_card_mxn != null &&
+      cardPayments.length > 0 &&
+      Math.abs(amountCardMxn - Number(dto.amount_card_mxn)) > 0.01) {
+      throw new BadRequestException('amount_card_mxn debe coincidir con la suma de card_payments');
+    }
     const amountCheckMxn = Number(dto.amount_check_mxn ?? 0);
-    const amountCreditMxn =
-      dto.payment_method === PosSalePaymentMethod.CREDIT
-        ? Number(dto.amount_credit_mxn ?? orderTotal)
-        : Number(dto.amount_credit_mxn ?? 0);
-    const usdExchangeRate =
-      amountCashUsd > 0 ? Number(dto.usd_exchange_rate ?? 0) : null;
-
-    if (amountCashUsd > 0 && (!usdExchangeRate || usdExchangeRate <= 0)) {
-      throw new BadRequestException(
-        'usd_exchange_rate es obligatorio cuando se cobra en USD',
-      );
+    const amountCheckUsd = Number(dto.amount_check_usd ?? 0);
+    const amountCreditMxn = dto.payment_method === PosSalePaymentMethod.CREDIT
+      ? Number(dto.amount_credit_mxn ?? orderTotal)
+      : Number(dto.amount_credit_mxn ?? 0);
+    const receivedCashMxn = Number(dto.received_cash_mxn ?? amountCashMxn);
+    const receivedCashUsd = Number(dto.received_cash_usd ?? amountCashUsd);
+    const needsUsdRate = amountCashUsd > 0 || receivedCashUsd > 0 || amountCheckUsd > 0;
+    let usdExchangeRate = needsUsdRate ? Number(dto.usd_exchange_rate ?? 0) : null;
+    if (needsUsdRate && (!usdExchangeRate || usdExchangeRate <= 0)) {
+      usdExchangeRate = await this.resolveUsdExchangeRate(tenantId);
     }
-
+    if (needsUsdRate && (!usdExchangeRate || usdExchangeRate <= 0)) {
+      throw new BadRequestException('No hay tipo de cambio. Captúralo en Tipo de Cambio o indícalo al cobrar en USD');
+    }
     if (amountTransferMxn > 0 && !dto.transfer_reference?.trim()) {
-      throw new BadRequestException(
-        'transfer_reference es obligatorio para pagos por transferencia',
-      );
+      throw new BadRequestException('transfer_reference es obligatorio para pagos por transferencia');
     }
-
-    if (amountCheckMxn > 0 && !dto.check_reference?.trim()) {
-      throw new BadRequestException(
-        'check_reference es obligatorio para pagos con cheque',
-      );
+    if ((amountCheckMxn > 0 || amountCheckUsd > 0) && !dto.check_reference?.trim()) {
+      throw new BadRequestException('check_reference es obligatorio para pagos con cheque');
     }
-
-    const paidMxn =
-      amountCashMxn +
-      amountCashUsd * (usdExchangeRate ?? 0) +
-      amountTransferMxn +
-      amountCardMxn +
-      amountCheckMxn +
-      amountCreditMxn;
-
-    if (Math.abs(paidMxn - orderTotal) > 0.01) {
-      throw new BadRequestException(
-        `El monto cubierto (${paidMxn.toFixed(2)}) debe coincidir con el total de la orden (${orderTotal.toFixed(2)})`,
-      );
+    const payer = resolvePayerContact(dto, {
+      transferMxn: amountTransferMxn,
+      cardMxn: amountCardMxn,
+      checkMxn: amountCheckMxn,
+      checkUsd: amountCheckUsd,
+    });
+    if (payer.error) {
+      throw new BadRequestException(payer.error);
     }
-
+    let appliedCashMxn = amountCashMxn;
+    let appliedCashUsd = amountCashUsd;
+    let changeCashMxn = Math.max(0, roundPosMoney(receivedCashMxn - amountCashMxn));
+    let changeCashUsd = Math.max(0, roundPosMoney(receivedCashUsd - amountCashUsd));
+    if (dto.payment_method === PosSalePaymentMethod.CASH) {
+      const split = splitCashPayment(orderTotal, receivedCashMxn, receivedCashUsd, usdExchangeRate ?? 0);
+      if (!split.covers) {
+        const receivedEq = cashReceivedEquivalentMxn(receivedCashMxn, receivedCashUsd, usdExchangeRate ?? 0);
+        throw new BadRequestException(`El efectivo recibido (${receivedEq.toFixed(2)}) no cubre el total de la orden (${orderTotal.toFixed(2)})`);
+      }
+      appliedCashMxn = split.amountCashMxn;
+      appliedCashUsd = split.amountCashUsd;
+      changeCashMxn = split.changeCashMxn;
+      changeCashUsd = split.changeCashUsd;
+    }
+    else {
+      const paidMxn = amountCashMxn +
+        amountCashUsd * (usdExchangeRate ?? 0) +
+        amountTransferMxn +
+        amountCardMxn +
+        amountCheckMxn +
+        amountCheckUsd * (usdExchangeRate ?? 0) +
+        amountCreditMxn;
+      const usdLegs = (amountCashUsd > 0 ? 1 : 0) + (amountCheckUsd > 0 ? 1 : 0);
+      const tolerance = usdLegs > 0 ? usdCentToleranceMxn(usdExchangeRate ?? 0) * usdLegs : 0.01;
+      if (Math.abs(paidMxn - orderTotal) > tolerance + 0.001) {
+        throw new BadRequestException(`El monto cubierto (${paidMxn.toFixed(2)}) debe coincidir con el total de la orden (${orderTotal.toFixed(2)})`);
+      }
+    }
     this.assertPaymentMethodShape(dto.payment_method, {
-      amountCashMxn,
-      amountCashUsd,
+      amountCashMxn: appliedCashMxn,
+      amountCashUsd: appliedCashUsd,
       amountTransferMxn,
       amountCardMxn,
       amountCheckMxn,
+      amountCheckUsd,
       amountCreditMxn,
+      cardPaymentCount: cardPayments.length,
     });
-
-    const receivedCashMxn = Number(dto.received_cash_mxn ?? amountCashMxn);
-    const receivedCashUsd = Number(dto.received_cash_usd ?? amountCashUsd);
-    const changeCashMxn = Math.max(0, receivedCashMxn - amountCashMxn);
-    const changeCashUsd = Math.max(0, receivedCashUsd - amountCashUsd);
-
-    if (receivedCashMxn + 0.0001 < amountCashMxn) {
+    if (receivedCashMxn + 0.0001 < appliedCashMxn) {
       throw new BadRequestException('received_cash_mxn es menor al monto en efectivo MXN');
     }
-    if (receivedCashUsd + 0.0001 < amountCashUsd) {
+    if (receivedCashUsd + 0.0001 < appliedCashUsd) {
       throw new BadRequestException('received_cash_usd es menor al monto en efectivo USD');
     }
-
     return {
-      amountCashMxn,
-      amountCashUsd,
+      amountCashMxn: appliedCashMxn,
+      amountCashUsd: appliedCashUsd,
       usdExchangeRate,
       amountTransferMxn,
       transferReference: dto.transfer_reference?.trim() ?? null,
       amountCardMxn,
       amountCheckMxn,
+      amountCheckUsd,
       checkReference: dto.check_reference?.trim() ?? null,
       amountCreditMxn,
-      cardReference: dto.card_reference?.trim() ?? null,
+      cardReference: firstCardReference(cardPayments) ?? dto.card_reference?.trim() ?? null,
+      cardPayments,
       receivedCashMxn,
       receivedCashUsd,
       changeCashMxn,
       changeCashUsd,
+      payer: payer.contact,
     };
   }
 
@@ -1109,92 +1299,69 @@ export class PosShiftsService {
       amountTransferMxn: number;
       amountCardMxn: number;
       amountCheckMxn: number;
+      amountCheckUsd: number;
       amountCreditMxn: number;
+      cardPaymentCount: number;
     },
   ) {
-    const {
-      amountCashMxn,
-      amountCashUsd,
-      amountTransferMxn,
-      amountCardMxn,
-      amountCheckMxn,
-      amountCreditMxn,
-    } = amounts;
+    const { amountCashMxn, amountCashUsd, amountTransferMxn, amountCardMxn, amountCheckMxn, amountCheckUsd, amountCreditMxn, cardPaymentCount, } = amounts;
     const cashTotal = amountCashMxn + amountCashUsd;
-    const nonZeroMethods = [
-      cashTotal > 0,
-      amountTransferMxn > 0,
-      amountCardMxn > 0,
-      amountCheckMxn > 0,
-    ].filter(Boolean).length;
-
+    const checkTotal = amountCheckMxn + amountCheckUsd;
+    const cardParts = cardPaymentCount > 0 ? cardPaymentCount : amountCardMxn > 0 ? 1 : 0;
+    const mixedParts = [cashTotal > 0, amountTransferMxn > 0, checkTotal > 0].filter(Boolean).length +
+      cardParts;
     switch (method) {
       case PosSalePaymentMethod.CASH:
-        if (
-          cashTotal <= 0 ||
+        if (cashTotal <= 0 ||
           amountTransferMxn > 0 ||
           amountCardMxn > 0 ||
-          amountCheckMxn > 0 ||
-          amountCreditMxn > 0
-        ) {
-          throw new BadRequestException(
-            'payment_method cash requiere montos en efectivo MXN y/o USD',
-          );
+          checkTotal > 0 ||
+          amountCreditMxn > 0) {
+          throw new BadRequestException('payment_method cash requiere montos en efectivo MXN y/o USD');
         }
         break;
       case PosSalePaymentMethod.TRANSFER:
-        if (
-          amountTransferMxn <= 0 ||
+        if (amountTransferMxn <= 0 ||
           cashTotal > 0 ||
           amountCardMxn > 0 ||
-          amountCheckMxn > 0 ||
-          amountCreditMxn > 0
-        ) {
-          throw new BadRequestException(
-            'payment_method transfer requiere amount_transfer_mxn',
-          );
+          checkTotal > 0 ||
+          amountCreditMxn > 0) {
+          throw new BadRequestException('payment_method transfer requiere amount_transfer_mxn');
         }
         break;
       case PosSalePaymentMethod.CARD:
-        if (
-          amountCardMxn <= 0 ||
+        if (cardParts > 1) {
+          throw new BadRequestException('Varias tarjetas se cobran en mixto. Envía payment_method mixed con card_payments');
+        }
+        if (amountCardMxn <= 0 ||
           cashTotal > 0 ||
           amountTransferMxn > 0 ||
-          amountCheckMxn > 0 ||
-          amountCreditMxn > 0
-        ) {
+          checkTotal > 0 ||
+          amountCreditMxn > 0) {
           throw new BadRequestException('payment_method card requiere amount_card_mxn');
         }
         break;
       case PosSalePaymentMethod.CHECK:
-        if (
-          amountCheckMxn <= 0 ||
+        if (checkTotal <= 0 ||
           cashTotal > 0 ||
           amountTransferMxn > 0 ||
           amountCardMxn > 0 ||
-          amountCreditMxn > 0
-        ) {
-          throw new BadRequestException('payment_method check requiere amount_check_mxn');
+          amountCreditMxn > 0) {
+          throw new BadRequestException('payment_method check requiere amount_check_mxn o amount_check_usd');
         }
         break;
       case PosSalePaymentMethod.MIXED:
-        if (nonZeroMethods < 2 || amountCreditMxn > 0) {
-          throw new BadRequestException(
-            'payment_method mixed requiere al menos dos formas de pago entre efectivo, transferencia, tarjeta y cheque',
-          );
+        if (mixedParts < 2 || amountCreditMxn > 0) {
+          throw new BadRequestException('payment_method mixed requiere al menos dos formas de pago (efectivo, transferencia, cheque o dos o más tarjetas)');
         }
         break;
       case PosSalePaymentMethod.CREDIT:
-        if (
-          amountCreditMxn <= 0 ||
+        if (amountCreditMxn <= 0 ||
           cashTotal > 0 ||
           amountTransferMxn > 0 ||
           amountCardMxn > 0 ||
-          amountCheckMxn > 0
-        ) {
-          throw new BadRequestException(
-            'payment_method credit requiere amount_credit_mxn y no admite otras formas de pago',
-          );
+          checkTotal > 0) {
+          throw new BadRequestException('payment_method credit requiere amount_credit_mxn y no admite otras formas de pago');
         }
         break;
       default:
@@ -1205,33 +1372,106 @@ export class PosShiftsService {
   private async assertCustomerCanUseCredit(
     customer: Customer,
     amount: number,
-    fiscalConfigurationId?: string | null,
-  ) {
+    order: SalesOrder,
+  ): Promise<{ usesWaiver: boolean; exchangeRate: number | null }> {
     if (isWalkInCustomer(customer)) {
-      throw new BadRequestException(
-        'El cliente de mostrador no puede pagar a crédito',
-      );
+      throw new BadRequestException('El cliente de mostrador no puede pagar a crédito');
     }
-    if (!fiscalConfigurationId) {
-      throw new BadRequestException(
-        'La orden no tiene razón social para aplicar crédito',
-      );
+    if (!order.fiscal_configuration_id) {
+      throw new BadRequestException('La orden no tiene razón social para aplicar crédito');
     }
-
-    const snapshot = await this.customerCreditService.getSnapshotForFiscal(
-      customer,
-      fiscalConfigurationId,
-    );
+    const snapshot = await this.customerCreditService.getSnapshotForFiscal(customer, order.fiscal_configuration_id);
     if (!snapshot.credit_enabled) {
-      throw new BadRequestException(
-        'El cliente no tiene crédito activo con esta razón social',
-      );
+      throw new BadRequestException('El cliente no tiene crédito activo con esta razón social');
     }
-    if (amount - snapshot.credit_available > 0.01) {
-      throw new BadRequestException(
-        `Crédito insuficiente. Disponible: ${snapshot.credit_available.toFixed(2)} MXN`,
-      );
+    const storedRate = Number(order.exchange_rate);
+    const momentRate = storedRate > 0
+      ? storedRate
+      : await this.exchangeRateForOrderDate(customer.tenant_id, order.created_at);
+    // Los importes de la orden siempre están en MXN; `currency` solo indica la moneda del documento.
+    const exchangeRate = creditConversionRate({
+      orderCurrency: 'MXN',
+      creditCurrency: snapshot.credit_currency,
+      orderExchangeRate: storedRate,
+      dailyExchangeRate: momentRate,
+    });
+    const converted = amountInCreditCurrency({
+      amount,
+      orderCurrency: 'MXN',
+      creditCurrency: snapshot.credit_currency,
+      exchangeRate,
+    });
+    if (converted.error || converted.amount == null) {
+      throw new BadRequestException(converted.error || 'No hay tipo de cambio para convertir el crédito de la orden');
     }
+    const usesWaiver = creditChargeUsesExceedWaiver(converted.amount, snapshot.credit_available, snapshot.allow_credit_exceed);
+    if (converted.amount - snapshot.credit_available > 0.01 && !usesWaiver) {
+      throw new BadRequestException(`Crédito insuficiente. Disponible: ${snapshot.credit_available.toFixed(2)} ${snapshot.credit_currency}`);
+    }
+    return {
+      usesWaiver,
+      exchangeRate: snapshot.credit_currency === 'MXN' ? null : exchangeRate,
+    };
+  }
+
+  private async exchangeRateByOrderMoment(
+    tenantId: string,
+    orders: SalesOrder[],
+  ): Promise<Map<string, number | null>> {
+    const rates = new Map<string, number | null>();
+    const byDate = new Map<string, number | null>();
+    for (const order of orders) {
+      const stored = Number(order.exchange_rate);
+      if (stored > 0) {
+        rates.set(order.id, stored);
+        continue;
+      }
+      const date = creditRateDate(order.created_at);
+      if (!date) {
+        rates.set(order.id, null);
+        continue;
+      }
+      if (!byDate.has(date)) {
+        byDate.set(date, await this.exchangeRateForOrderDate(tenantId, order.created_at));
+      }
+      rates.set(order.id, byDate.get(date) ?? null);
+    }
+    return rates;
+  }
+
+  private async exchangeRateForOrderDate(
+    tenantId: string,
+    createdAt: Date | string | null | undefined,
+  ): Promise<number | null> {
+    const date = creditRateDate(createdAt);
+    const row = await this.exchangeRateService.getDailyRate(tenantId, date ?? undefined);
+    const value = Number(row?.exchange_rate ?? 0);
+    return value > 0 ? value : null;
+  }
+
+  /** T.C. para dejar en USD una venta a crédito: el usado para el crédito, el del cobro o el del día. */
+  private async creditDocumentExchangeRate(
+    tenantId: string,
+    dto: CollectPosSaleDto,
+    creditRate: number | null,
+  ): Promise<number | null> {
+    if (creditRate != null && creditRate > 0) {
+      return creditRate;
+    }
+    const requested = Number(dto.usd_exchange_rate ?? 0);
+    if (requested > 0) {
+      return requested;
+    }
+    const daily = await this.resolveUsdExchangeRate(tenantId);
+    return daily && daily > 0 ? daily : null;
+  }
+
+  private creditExchangeRateToStore(order: SalesOrder, creditRate: number | null): number | null {
+    if (normalizeCreditCurrency(order.currency) === 'USD') {
+      const stored = Number(order.exchange_rate);
+      return stored > 0 ? stored : creditRate;
+    }
+    return creditRate;
   }
 
   private mapCollectedSaleRow(collection: PosSaleCollection) {
@@ -1248,6 +1488,9 @@ export class PosShiftsService {
             total: Number(order.total),
             subtotal: Number(order.subtotal),
             created_at: order.created_at,
+            walk_in_name: order.walk_in_name,
+            walk_in_rfc: order.walk_in_rfc,
+            for_shipping: !!order.for_shipping,
             seller_user: order.seller_user
               ? {
                   id: order.seller_user.id,
@@ -1295,6 +1538,7 @@ export class PosShiftsService {
       transfer_mxn: 0,
       card_mxn: 0,
       check_mxn: 0,
+      check_usd: 0,
       credit_mxn: 0,
     };
 
@@ -1305,16 +1549,28 @@ export class PosShiftsService {
       summary.transfer_mxn += Number(collection.amount_transfer_mxn);
       summary.card_mxn += Number(collection.amount_card_mxn);
       summary.check_mxn += Number(collection.amount_check_mxn ?? 0);
+      summary.check_usd += Number(collection.amount_check_usd ?? 0);
       summary.credit_mxn += Number(collection.amount_credit_mxn ?? 0);
     }
 
     return summary;
   }
 
-  async getSaleReceipt(tenantId: string, salesOrderId: string) {
-    return {
-      receipt: await this.posReceiptService.getPosTicket(tenantId, salesOrderId),
-    };
+  async getSaleReceipt(tenantId: string, salesOrderId: string, userId: string) {
+    try {
+      return {
+        receipt: await this.posReceiptService.getPosTicket(tenantId, salesOrderId),
+      };
+    }
+    catch (error) {
+      if (!(error instanceof NotFoundException) ||
+        error.message !== 'Ticket de recibo no generado para esta orden') {
+        throw error;
+      }
+      return {
+        receipt: await this.posReceiptService.generateAndSavePosTicket(tenantId, salesOrderId, userId),
+      };
+    }
   }
 
   async getSaleReceiptRaw(tenantId: string, salesOrderId: string, res: any) {
@@ -1374,10 +1630,46 @@ export class PosShiftsService {
     };
   }
 
-  async getSalesInProgress(tenantId: string, terminalUserId: string) {
-    const terminalUser = await this.requireVentasTerminal(tenantId, terminalUserId);
-    const branchId = terminalUser.billing_branch_id!;
+  async returnQuotationToVentas(
+    tenantId: string,
+    terminalUserId: string,
+    quotationId: string,
+  ) {
+    const cajaUser = await this.requireCobranzaTerminal(tenantId, terminalUserId);
+    const quotation = await this.quotationRepo.findOne({
+      where: { id: quotationId, tenant_id: tenantId },
+      relations: ['customer', 'seller_user', 'warehouse'],
+    });
+    if (!quotation) {
+      throw new NotFoundException('Cotización no encontrada');
+    }
+    await this.assertQuotationBelongsToTerminalBranch(quotation, cajaUser);
+    const vigente = await this.advanceCfdi.findVigenteAdvance(tenantId, 'quotations', quotation.id);
+    const blocked = getQuotationReturnToSalesBlockedReason({
+      generalStatus: quotation.general_status,
+      advanceRequestedTotal: quotation.advance_requested_total,
+      posStage: quotation.pos_stage,
+      hasVigenteAdvance: Boolean(vigente),
+    });
+    if (blocked) {
+      throw new BadRequestException(blocked);
+    }
+    quotation.pos_stage = SalesOrderPosStage.Ventas;
+    quotation.updated_by = terminalUserId;
+    await this.quotationRepo.save(quotation);
+    return {
+      message: 'El anticipo se regresó a ventas',
+      quotation: this.mapQuotationTicketSummary(quotation),
+    };
+  }
 
+  async getSalesInProgress(
+    tenantId: string,
+    terminalUserId: string,
+    billingBranchId?: string,
+  ) {
+    const terminalUser = await this.requireVentasTerminal(tenantId, terminalUserId);
+    const branchId = await this.resolveAccessibleBranchId(terminalUser, billingBranchId);
     const orders = await this.salesOrderRepo
       .createQueryBuilder('so')
       .leftJoinAndSelect('so.seller_user', 'seller_user')
@@ -1395,15 +1687,48 @@ export class PosShiftsService {
       .andWhere('so.pos_stage = :posStage', { posStage: SalesOrderPosStage.Ventas })
       .andWhere('so.payment_status = :paymentStatus', { paymentStatus: 'Pendiente' })
       .andWhere('so.general_status != :cancelled', { cancelled: 'Cancelada' })
-      .andWhere(
-        '(so.billing_branch_id = :branchId OR warehouse.billing_branch_id = :branchId)',
-        { branchId },
-      )
+      .andWhere('(so.billing_branch_id = :branchId OR warehouse.billing_branch_id = :branchId)', { branchId })
       .orderBy('so.updated_at', 'DESC')
       .addOrderBy('line_items.created_at', 'ASC')
       .getMany();
+    const quotations = await this.listQuotationTicketsInVentas(tenantId, branchId);
+    return [
+      ...orders.map((order) => this.mapPosTicketForVentas(order)),
+      ...quotations.map((quotation) => this.mapQuotationTicketForVentas(quotation)),
+    ].sort((a, b) => new Date(b.updated_at ?? b.created_at ?? 0).getTime() -
+      new Date(a.updated_at ?? a.created_at ?? 0).getTime());
+  }
 
-    return orders.map((order) => this.mapPosTicketForVentas(order));
+  private async listQuotationTicketsInVentas(
+    tenantId: string,
+    branchId: string,
+  ): Promise<Quotation[]> {
+    try {
+      return await this.quotationRepo
+        .createQueryBuilder('q')
+        .leftJoinAndSelect('q.seller_user', 'seller_user')
+        .leftJoinAndSelect('q.terminal_user', 'terminal_user')
+        .leftJoinAndSelect('q.customer', 'customer')
+        .leftJoinAndSelect('q.global_discount', 'global_discount')
+        .leftJoinAndSelect('q.line_items', 'line_items')
+        .leftJoinAndSelect('line_items.product', 'product')
+        .leftJoinAndSelect('line_items.product_uom', 'product_uom')
+        .leftJoinAndSelect('product_uom.uom', 'uom')
+        .leftJoinAndSelect('line_items.product_discount', 'product_discount')
+        .leftJoin('q.warehouse', 'warehouse')
+        .where('q.tenant_id = :tenantId', { tenantId })
+        .andWhere('q.quotation_type = :type', { type: 'POS' })
+        .andWhere('q.pos_stage = :posStage', { posStage: SalesOrderPosStage.Ventas })
+        .andWhere('q.general_status = :status', { status: 'Creada' })
+        .andWhere('(q.billing_branch_id = :branchId OR warehouse.billing_branch_id = :branchId)', { branchId })
+        .orderBy('q.updated_at', 'DESC')
+        .addOrderBy('line_items.created_at', 'ASC')
+        .getMany();
+    }
+    catch (error) {
+      this.logger.error('No se pudieron listar cotizaciones en ventas. Corre la migración 1793300000000-add-quotation-pos-stage.', error instanceof Error ? error.stack : error);
+      return [];
+    }
   }
 
   async replaceSaleCart(
@@ -1467,10 +1792,14 @@ export class PosShiftsService {
       throw new BadRequestException('Las ventas POS requieren vendedor');
     }
 
+    const orderBranchId =
+      order.billing_branch_id || order.warehouse?.billing_branch_id || undefined;
     const { shift, queued } = await this.resolvePosSaleContext(
       tenantId,
       terminalUserId,
       order.seller_user_id,
+      undefined,
+      orderBranchId,
     );
 
     order.pos_stage = SalesOrderPosStage.Caja;
@@ -1487,19 +1816,100 @@ export class PosShiftsService {
     };
   }
 
-  private assertOrderBelongsToTerminalBranch(order: SalesOrder, terminalUser: User) {
-    const branchId = terminalUser.billing_branch_id;
+  async sendQuotationToCaja(
+    tenantId: string,
+    terminalUserId: string,
+    quotationId: string,
+    dto: SendQuotationToCajaDto = {},
+  ) {
+    const terminalUser = await this.requireVentasTerminal(tenantId, terminalUserId);
+    const quotation = await this.quotationRepo.findOne({
+      where: { id: quotationId, tenant_id: tenantId },
+      relations: ['warehouse', 'seller_user', 'customer'],
+    });
+    if (!quotation) {
+      throw new NotFoundException('Cotización no encontrada');
+    }
+    await this.assertQuotationBelongsToTerminalBranch(quotation, terminalUser);
+    const vigente = await this.advanceCfdi.findVigenteAdvance(tenantId, 'quotations', quotation.id);
+    const blocked = getQuotationSendToCajaBlockedReason({
+      generalStatus: quotation.general_status,
+      posStage: quotation.pos_stage,
+      hasVigenteAdvance: Boolean(vigente),
+    });
+    if (blocked) {
+      throw new BadRequestException(blocked);
+    }
+    if (dto.line_items?.length) {
+      const deliveryDate = this.toIsoDate(quotation.expected_delivery_date);
+      await this.quotationService.replace(quotation.id, {
+        fiscal_configuration_id: quotation.fiscal_configuration_id,
+        warehouse_id: dto.warehouse_id ?? quotation.warehouse_id ?? undefined,
+        customer_id: dto.customer_id ?? quotation.customer_id,
+        expected_delivery_date: deliveryDate,
+        quotation_type: 'POS',
+        seller_user_id: quotation.seller_user_id ?? undefined,
+        notes: dto.notes ?? quotation.notes ?? undefined,
+        global_discount_id: dto.global_discount_id,
+        line_items: dto.line_items,
+      }, tenantId, terminalUserId);
+    }
+    const advanceAmount = dto.advance_amount ?? Number(quotation.advance_requested_total ?? 0);
+    if (advanceAmount > 0) {
+      await this.quotationService.requestAdvanceFromPos(quotation.id, tenantId, advanceAmount, {
+        usoCfdi: dto.advance_uso_cfdi ?? quotation.advance_uso_cfdi ?? undefined,
+        metodoPago: dto.advance_metodo_pago ?? quotation.advance_metodo_pago ?? undefined,
+      });
+    }
+    else {
+      throw new BadRequestException('El anticipo debe ser mayor a 0 para enviarlo otra vez a caja');
+    }
+    const updated = await this.quotationRepo.findOne({
+      where: { id: quotation.id, tenant_id: tenantId },
+      relations: ['customer', 'seller_user'],
+    });
+    return {
+      message: 'Anticipo enviado a caja',
+      quotation: this.mapQuotationTicketSummary(updated ?? quotation),
+    };
+  }
+
+  private async assertOrderBelongsToTerminalBranch(order: SalesOrder, terminalUser: User) {
     const orderBranch =
       order.billing_branch_id || order.warehouse?.billing_branch_id || null;
-    if (branchId && orderBranch && orderBranch !== branchId) {
+    if (!orderBranch) {
+      return;
+    }
+    const canAccess = await this.userCanAccessBranch(terminalUser, orderBranch);
+    if (!canAccess) {
       throw new BadRequestException(
-        'La orden no pertenece a la sucursal de esta terminal',
+        'La orden no pertenece a una sucursal asignada a esta terminal',
       );
     }
   }
 
+  private async assertQuotationBelongsToTerminalBranch(quotation: Quotation, terminalUser: User) {
+    const quotationBranch = quotation.billing_branch_id || quotation.warehouse?.billing_branch_id || null;
+    if (!quotationBranch) {
+      return;
+    }
+    const canAccess = await this.userCanAccessBranch(terminalUser, quotationBranch);
+    if (!canAccess) {
+      throw new BadRequestException('La cotización no pertenece a una sucursal asignada a esta terminal');
+    }
+  }
+
+  private toIsoDate(value: Date | string | null | undefined): string {
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      return value.toISOString().slice(0, 10);
+    }
+    const raw = String(value ?? '').slice(0, 10);
+    return raw || new Date().toISOString().slice(0, 10);
+  }
+
   private mapPosTicketSummary(order: SalesOrder) {
     return {
+      kind: 'sale' as const,
       id: order.id,
       folio: order.folio,
       total: Number(order.total),
@@ -1510,6 +1920,9 @@ export class PosShiftsService {
       payment_status: order.payment_status,
       pos_stage: order.pos_stage,
       notes: order.notes,
+      walk_in_name: order.walk_in_name,
+      walk_in_rfc: order.walk_in_rfc,
+      for_shipping: !!order.for_shipping,
       fiscal_configuration_id: order.fiscal_configuration_id,
       customer: order.customer
         ? {
@@ -1518,6 +1931,7 @@ export class PosShiftsService {
             lastname: order.customer.lastname,
             company_name: order.customer.company_name,
             fiscal_razon_social: order.customer.fiscal_razon_social,
+            display_name: formatCustomerDisplayName(order.customer),
             is_walk_in: isWalkInCustomer(order.customer),
           }
         : null,
@@ -1529,6 +1943,85 @@ export class PosShiftsService {
             pos_user_code: order.seller_user.pos_user_code,
           }
         : null,
+    };
+  }
+
+  private mapQuotationTicketSummary(quotation: Quotation) {
+    return {
+      kind: 'advance',
+      id: quotation.id,
+      folio: quotation.folio,
+      total: Number(quotation.total),
+      subtotal: Number(quotation.subtotal),
+      amount_pending: Number(quotation.advance_requested_total ?? 0),
+      advance_uso_cfdi: quotation.advance_uso_cfdi ?? 'G03',
+      advance_metodo_pago: quotation.advance_metodo_pago ?? 'PUE',
+      created_at: quotation.created_at,
+      updated_at: quotation.updated_at,
+      general_status: quotation.general_status,
+      pos_stage: quotation.pos_stage,
+      notes: quotation.notes,
+      fiscal_configuration_id: quotation.fiscal_configuration_id,
+      customer: quotation.customer
+        ? {
+          id: quotation.customer.id,
+          name: quotation.customer.name,
+          lastname: quotation.customer.lastname,
+          company_name: quotation.customer.company_name,
+          fiscal_razon_social: quotation.customer.fiscal_razon_social,
+          display_name: formatCustomerDisplayName(quotation.customer),
+          is_walk_in: isWalkInCustomer(quotation.customer),
+        }
+        : null,
+      seller_user: quotation.seller_user
+        ? {
+          id: quotation.seller_user.id,
+          first_name: quotation.seller_user.first_name,
+          last_name: quotation.seller_user.last_name,
+          pos_user_code: quotation.seller_user.pos_user_code,
+        }
+        : null,
+    };
+  }
+
+  private mapQuotationTicketForVentas(quotation: Quotation) {
+    return {
+      ...this.mapQuotationTicketSummary(quotation),
+      customer_id: quotation.customer_id,
+      global_discount_id: quotation.global_discount_id,
+      global_discount: quotation.global_discount
+        ? {
+          id: quotation.global_discount.id,
+          name: quotation.global_discount.name,
+          discount_type: quotation.global_discount.discount_type,
+          value: Number(quotation.global_discount.value),
+          is_active: quotation.global_discount.is_active,
+        }
+        : null,
+      line_items: (quotation.line_items ?? []).map((line) => ({
+        id: line.id,
+        product_id: line.product_id,
+        product_name: line.product?.name ?? '',
+        product_sku: line.product?.sku ?? '',
+        product_uom_id: line.product_uom_id,
+        uom_id: line.base_uom_id ?? line.product_uom_id,
+        uom_name: line.product_uom?.uom?.name ?? line.base_uom?.name ?? '',
+        quantity: Number(line.quantity),
+        unit_price: Number(line.unit_price),
+        iva_percentage: Number(line.iva_percentage ?? 0),
+        ieps_percentage: Number(line.ieps_percentage ?? 0),
+        discount_percentage: Number(line.discount_percentage ?? 0),
+        product_discount_id: line.product_discount_id,
+        selected_discount: line.product_discount
+          ? {
+            id: line.product_discount.id,
+            name: line.product_discount.name,
+            discount_type: line.product_discount.discount_type,
+            value: Number(line.product_discount.value),
+            product_uom_id: line.product_discount.product_uom_id ?? null,
+          }
+          : null,
+      })),
     };
   }
 
@@ -1710,28 +2203,31 @@ export class PosShiftsService {
   private async getShiftCashTotals(dailyShiftId: string) {
     const result = await this.collectionRepo
       .createQueryBuilder('collection')
-      .select('COALESCE(SUM(collection.amount_cash_mxn), 0)', 'cash_mxn')
-      .addSelect('COALESCE(SUM(collection.amount_cash_usd), 0)', 'cash_usd')
+      .select(`COALESCE(SUM(CASE
+          WHEN collection.received_cash_mxn = 0 AND collection.change_cash_mxn = 0
+          THEN collection.amount_cash_mxn
+          ELSE collection.received_cash_mxn - collection.change_cash_mxn
+        END), 0)`, 'cash_mxn')
+            .addSelect(`COALESCE(SUM(CASE
+          WHEN collection.received_cash_usd = 0 AND collection.change_cash_usd = 0
+          THEN collection.amount_cash_usd
+          ELSE collection.received_cash_usd - collection.change_cash_usd
+        END), 0)`, 'cash_usd')
       .addSelect('COALESCE(SUM(collection.amount_transfer_mxn), 0)', 'transfer_mxn')
       .addSelect('COALESCE(SUM(collection.amount_card_mxn), 0)', 'card_mxn')
       .addSelect('COALESCE(SUM(collection.amount_check_mxn), 0)', 'check_mxn')
+      .addSelect('COALESCE(SUM(collection.amount_check_usd), 0)', 'check_usd')
       .addSelect('COALESCE(SUM(collection.amount_credit_mxn), 0)', 'credit_mxn')
       .where('collection.pos_daily_shift_id = :dailyShiftId', { dailyShiftId })
-      .getRawOne<{
-        cash_mxn: string;
-        cash_usd: string;
-        transfer_mxn: string;
-        card_mxn: string;
-        check_mxn: string;
-        credit_mxn: string;
-      }>();
-
+      .getRawOne();
+    const advances = await this.advanceShiftPayments.sumActiveByShift(dailyShiftId);
     return {
-      cash_mxn: Number(result?.cash_mxn ?? 0),
+      cash_mxn: Number(result?.cash_mxn ?? 0) + advances.cash_mxn,
       cash_usd: Number(result?.cash_usd ?? 0),
-      transfer_mxn: Number(result?.transfer_mxn ?? 0),
-      card_mxn: Number(result?.card_mxn ?? 0),
-      check_mxn: Number(result?.check_mxn ?? 0),
+      transfer_mxn: Number(result?.transfer_mxn ?? 0) + advances.transfer_mxn,
+      card_mxn: Number(result?.card_mxn ?? 0) + advances.card_mxn,
+      check_mxn: Number(result?.check_mxn ?? 0) + advances.check_mxn,
+      check_usd: Number(result?.check_usd ?? 0),
       credit_mxn: Number(result?.credit_mxn ?? 0),
     };
   }
@@ -1798,7 +2294,6 @@ export class PosShiftsService {
     };
   }
 
-
   private mapSeller(user: User) {
     return {
       id: user.id,
@@ -1836,7 +2331,7 @@ export class PosShiftsService {
   private mapDailyShiftSummary(shift: PosDailyShift) {
     return {
       id: shift.id,
-      shift_date: shift.shift_date,
+      shift_date: toDateOnlyString(shift.shift_date),
       status: shift.status,
       opening_cash_mxn: Number(shift.opening_cash_mxn),
       opening_cash_usd: Number(shift.opening_cash_usd),
@@ -1877,7 +2372,7 @@ export class PosShiftsService {
 
     return {
       id: shift.id,
-      shift_date: shift.shift_date,
+      shift_date: toDateOnlyString(shift.shift_date),
       status: shift.status,
       is_previous_day:
         shift.status === PosDailyShiftStatus.OPEN &&
@@ -1929,6 +2424,7 @@ export class PosShiftsService {
         collected_transfer_mxn: cashTotals.transfer_mxn,
         collected_card_mxn: cashTotals.card_mxn,
         collected_check_mxn: cashTotals.check_mxn,
+        collected_check_usd: cashTotals.check_usd,
         collected_credit_mxn: cashTotals.credit_mxn,
         removed_total_mxn: removedMxn,
         removed_total_usd: removedUsd,
@@ -1952,6 +2448,7 @@ export class PosShiftsService {
             : Number(shift.cash_difference_usd),
         closing_denominations: shift.closing_denominations ?? null,
       },
+      advance_payments: await this.advanceShiftPayments.listActive(shift.id),
     };
   }
 
