@@ -12,6 +12,7 @@ const typeorm_1 = require("@nestjs/typeorm");
 const contract_entity_1 = require("../../../entities/contracts/contract.entity");
 const contract_hoa_payment_entity_1 = require("../../../entities/contracts/contract-hoa-payment.entity");
 const rbac_module_1 = require("../../rbac/rbac.module");
+const payments_module_1 = require("../contract-payments/payments.module");
 const hoa_payments_controller_1 = require("./hoa-payments.controller");
 const hoa_payments_service_1 = require("./hoa-payments.service");
 let HoaPaymentsModule = class HoaPaymentsModule {
@@ -19,7 +20,7 @@ let HoaPaymentsModule = class HoaPaymentsModule {
 exports.HoaPaymentsModule = HoaPaymentsModule;
 exports.HoaPaymentsModule = HoaPaymentsModule = __decorate([
     (0, common_1.Module)({
-        imports: [typeorm_1.TypeOrmModule.forFeature([contract_hoa_payment_entity_1.ContractHoaPayment, contract_entity_1.Contract]), rbac_module_1.RBACModule],
+        imports: [typeorm_1.TypeOrmModule.forFeature([contract_hoa_payment_entity_1.ContractHoaPayment, contract_entity_1.Contract]), rbac_module_1.RBACModule, payments_module_1.PaymentsModule],
         providers: [hoa_payments_service_1.HoaPaymentsService],
         controllers: [hoa_payments_controller_1.HoaPaymentsController],
         exports: [hoa_payments_service_1.HoaPaymentsService],

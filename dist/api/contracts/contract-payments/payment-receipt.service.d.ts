@@ -1,21 +1,23 @@
 import { Repository } from 'typeorm';
 import { Payment } from '../../../entities/contracts/payment.entity';
 import { ContractDownpaymentPayment } from '../../../entities/contracts/contract-downpayment-payment.entity';
+import { ContractHoaPayment } from '../../../entities/contracts/contract-hoa-payment.entity';
 import { S3Service } from '../../../common/services/s3.service';
 import { EmailTemplate } from '../../../entities/email-templates/email-template.entity';
 import { FiscalConfiguration } from '../../../entities/billing/fiscal-configuration.entity';
 import { RBACTenant } from '../../../entities/rbac/tenant.entity';
 import { MailerConfigurationService } from '../../mailer-configuration/services/mailer-configuration.service';
-export type ReceiptKind = 'payment' | 'downpayment';
+export type ReceiptKind = 'payment' | 'downpayment' | 'hoa';
 export declare class PaymentReceiptService {
     private readonly paymentRepo;
     private readonly downpaymentRepo;
+    private readonly hoaRepo;
     private readonly templateRepo;
     private readonly fiscalRepo;
     private readonly tenantRepo;
     private readonly mailerConfigurationService;
     private readonly s3Service;
-    constructor(paymentRepo: Repository<Payment>, downpaymentRepo: Repository<ContractDownpaymentPayment>, templateRepo: Repository<EmailTemplate>, fiscalRepo: Repository<FiscalConfiguration>, tenantRepo: Repository<RBACTenant>, mailerConfigurationService: MailerConfigurationService, s3Service: S3Service);
+    constructor(paymentRepo: Repository<Payment>, downpaymentRepo: Repository<ContractDownpaymentPayment>, hoaRepo: Repository<ContractHoaPayment>, templateRepo: Repository<EmailTemplate>, fiscalRepo: Repository<FiscalConfiguration>, tenantRepo: Repository<RBACTenant>, mailerConfigurationService: MailerConfigurationService, s3Service: S3Service);
     getTemplate(organizationId: string, contractId?: string): Promise<{
         id: string;
         subject: string;
@@ -188,6 +190,7 @@ export declare class PaymentReceiptService {
             concept: string;
             status: string;
             extra_message: string;
+            property_link: string;
         };
         attachment_name: string;
     }>;

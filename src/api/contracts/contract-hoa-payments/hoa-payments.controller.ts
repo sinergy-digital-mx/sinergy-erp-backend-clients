@@ -6,6 +6,7 @@ import {
   Param,
   Post,
   Put,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
@@ -16,12 +17,14 @@ import { GenerateHoaPaymentsDto } from './dto/generate-hoa-payments.dto';
 import { RecordHoaPaymentDto } from './dto/record-hoa-payment.dto';
 import { UpdateHoaPaymentDto } from './dto/update-hoa-payment.dto';
 import { HoaPaymentsService } from './hoa-payments.service';
+import { PaymentReceiptService } from '../contract-payments/payment-receipt.service';
 
 @Controller('tenant/contracts/:contractId/hoa-payments')
 @UseGuards(JwtAuthGuard, PermissionGuard)
 export class HoaPaymentsController {
   constructor(
     private readonly hoaPaymentsService: HoaPaymentsService,
+    private readonly paymentReceiptService: PaymentReceiptService,
     private readonly tenantContext: TenantContextService,
   ) {}
 
@@ -47,6 +50,55 @@ export class HoaPaymentsController {
   async getHoaPaymentStats(@Param('contractId') contractId: string) {
     const tenantId = this.getTenantIdOrThrow();
     return this.hoaPaymentsService.getHoaPaymentStats(tenantId, contractId);
+  }
+
+  @Get(':paymentId/receipt.pdf')
+  @RequirePermissions({ entityType: 'Contract', action: 'Read' })
+  async downloadReceipt(
+    @Param('contractId') contractId: string,
+    @Param('paymentId') paymentId: string,
+    @Res() res: any,
+  ) {
+    const { buffer, filename } = await this.paymentReceiptService.pdf(
+      this.getTenantIdOrThrow(),
+      contractId,
+      paymentId,
+      'hoa',
+    );
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
+  }
+
+  @Get(':paymentId/receipt/compose')
+  @RequirePermissions({ entityType: 'Contract', action: 'Read' })
+  composeReceipt(
+    @Param('contractId') contractId: string,
+    @Param('paymentId') paymentId: string,
+  ) {
+    return this.paymentReceiptService.compose(
+      this.getTenantIdOrThrow(),
+      contractId,
+      paymentId,
+      '',
+      'hoa',
+    );
+  }
+
+  @Post(':paymentId/receipt/send')
+  @RequirePermissions({ entityType: 'Contract', action: 'Update' })
+  sendReceipt(
+    @Param('contractId') contractId: string,
+    @Param('paymentId') paymentId: string,
+    @Body() body: { to_email?: string; cc?: string[]; extra_message?: string },
+  ) {
+    return this.paymentReceiptService.send(
+      this.getTenantIdOrThrow(),
+      contractId,
+      paymentId,
+      body,
+      'hoa',
+    );
   }
 
   @Get(':paymentId')

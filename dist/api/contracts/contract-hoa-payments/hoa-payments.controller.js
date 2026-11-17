@@ -22,11 +22,14 @@ const generate_hoa_payments_dto_1 = require("./dto/generate-hoa-payments.dto");
 const record_hoa_payment_dto_1 = require("./dto/record-hoa-payment.dto");
 const update_hoa_payment_dto_1 = require("./dto/update-hoa-payment.dto");
 const hoa_payments_service_1 = require("./hoa-payments.service");
+const payment_receipt_service_1 = require("../contract-payments/payment-receipt.service");
 let HoaPaymentsController = class HoaPaymentsController {
     hoaPaymentsService;
+    paymentReceiptService;
     tenantContext;
-    constructor(hoaPaymentsService, tenantContext) {
+    constructor(hoaPaymentsService, paymentReceiptService, tenantContext) {
         this.hoaPaymentsService = hoaPaymentsService;
+        this.paymentReceiptService = paymentReceiptService;
         this.tenantContext = tenantContext;
     }
     async generateHoaPayments(contractId, dto) {
@@ -40,6 +43,18 @@ let HoaPaymentsController = class HoaPaymentsController {
     async getHoaPaymentStats(contractId) {
         const tenantId = this.getTenantIdOrThrow();
         return this.hoaPaymentsService.getHoaPaymentStats(tenantId, contractId);
+    }
+    async downloadReceipt(contractId, paymentId, res) {
+        const { buffer, filename } = await this.paymentReceiptService.pdf(this.getTenantIdOrThrow(), contractId, paymentId, 'hoa');
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(buffer);
+    }
+    composeReceipt(contractId, paymentId) {
+        return this.paymentReceiptService.compose(this.getTenantIdOrThrow(), contractId, paymentId, '', 'hoa');
+    }
+    sendReceipt(contractId, paymentId, body) {
+        return this.paymentReceiptService.send(this.getTenantIdOrThrow(), contractId, paymentId, body, 'hoa');
     }
     async getHoaPayment(contractId, paymentId) {
         const tenantId = this.getTenantIdOrThrow();
@@ -109,6 +124,35 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], HoaPaymentsController.prototype, "getHoaPaymentStats", null);
 __decorate([
+    (0, common_1.Get)(':paymentId/receipt.pdf'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Contract', action: 'Read' }),
+    __param(0, (0, common_1.Param)('contractId')),
+    __param(1, (0, common_1.Param)('paymentId')),
+    __param(2, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object]),
+    __metadata("design:returntype", Promise)
+], HoaPaymentsController.prototype, "downloadReceipt", null);
+__decorate([
+    (0, common_1.Get)(':paymentId/receipt/compose'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Contract', action: 'Read' }),
+    __param(0, (0, common_1.Param)('contractId')),
+    __param(1, (0, common_1.Param)('paymentId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], HoaPaymentsController.prototype, "composeReceipt", null);
+__decorate([
+    (0, common_1.Post)(':paymentId/receipt/send'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Contract', action: 'Update' }),
+    __param(0, (0, common_1.Param)('contractId')),
+    __param(1, (0, common_1.Param)('paymentId')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object]),
+    __metadata("design:returntype", void 0)
+], HoaPaymentsController.prototype, "sendReceipt", null);
+__decorate([
     (0, common_1.Get)(':paymentId'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Contract', action: 'Read' }),
     __param(0, (0, common_1.Param)('contractId')),
@@ -176,6 +220,7 @@ exports.HoaPaymentsController = HoaPaymentsController = __decorate([
     (0, common_1.Controller)('tenant/contracts/:contractId/hoa-payments'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     __metadata("design:paramtypes", [hoa_payments_service_1.HoaPaymentsService,
+        payment_receipt_service_1.PaymentReceiptService,
         tenant_context_service_1.TenantContextService])
 ], HoaPaymentsController);
 //# sourceMappingURL=hoa-payments.controller.js.map

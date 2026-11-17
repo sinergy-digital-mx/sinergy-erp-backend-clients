@@ -10,6 +10,7 @@ import PdfPrinter from 'pdfmake';
 import { Payment } from '../../../entities/contracts/payment.entity';
 import { Contract } from '../../../entities/contracts/contract.entity';
 import { ContractDownpaymentPayment } from '../../../entities/contracts/contract-downpayment-payment.entity';
+import { ContractHoaPayment } from '../../../entities/contracts/contract-hoa-payment.entity';
 import { S3Service } from '../../../common/services/s3.service';
 import { EmailTemplate } from '../../../entities/email-templates/email-template.entity';
 import { FiscalConfiguration } from '../../../entities/billing/fiscal-configuration.entity';
@@ -25,9 +26,9 @@ import {
   renderPaymentReceiptTemplate,
 } from './payment-receipt.template';
 
-export type ReceiptKind = 'payment' | 'downpayment';
+export type ReceiptKind = 'payment' | 'downpayment' | 'hoa';
 
-type ReceiptPayment = (Payment | ContractDownpaymentPayment) & {
+type ReceiptPayment = (Payment | ContractDownpaymentPayment | ContractHoaPayment) & {
   kind: ReceiptKind;
   payment_date: Date | null;
 };
@@ -54,6 +55,7 @@ type ReceiptValues = {
   concept: string;
   status: string;
   extra_message: string;
+  property_link: string;
   logo_data: string;
 };
 
@@ -75,6 +77,8 @@ export class PaymentReceiptService {
     private readonly paymentRepo: Repository<Payment>,
     @InjectRepository(ContractDownpaymentPayment)
     private readonly downpaymentRepo: Repository<ContractDownpaymentPayment>,
+    @InjectRepository(ContractHoaPayment)
+    private readonly hoaRepo: Repository<ContractHoaPayment>,
     @InjectRepository(EmailTemplate)
     private readonly templateRepo: Repository<EmailTemplate>,
     @InjectRepository(FiscalConfiguration)
@@ -236,16 +240,13 @@ export class PaymentReceiptService {
     kind: ReceiptKind,
   ): Promise<ReceiptPayment> {
     const relations = ['contract', 'contract.customer', 'contract.property'];
+    const where = { id: paymentId, contract_id: contractId, tenant_id: organizationId };
     const payment =
       kind === 'downpayment'
-        ? await this.downpaymentRepo.findOne({
-            where: { id: paymentId, contract_id: contractId, tenant_id: organizationId },
-            relations: [...relations],
-          })
-        : await this.paymentRepo.findOne({
-            where: { id: paymentId, contract_id: contractId, tenant_id: organizationId },
-            relations: [...relations],
-          });
+        ? await this.downpaymentRepo.findOne({ where, relations: [...relations] })
+        : kind === 'hoa'
+          ? await this.hoaRepo.findOne({ where, relations: [...relations] })
+          : await this.paymentRepo.findOne({ where, relations: [...relations] });
     if (!payment) {
       throw new NotFoundException('No se encontró el pago.');
     }
@@ -259,7 +260,10 @@ export class PaymentReceiptService {
   ): Promise<ReceiptValues> {
     const fiscal = await this.resolveFiscal(organizationId, payment.contract?.fiscal_configuration_id);
     const organization = await this.tenantRepo.findOne({ where: { id: organizationId } });
-    const currency = resolveStoredContractCurrency(payment.contract?.currency);
+    const currency =
+      payment.kind === 'hoa' && 'currency' in payment && payment.currency
+        ? String(payment.currency).toUpperCase()
+        : resolveStoredContractCurrency(payment.contract?.currency);
     const customer = payment.contract?.customer;
     const property = payment.contract?.property;
     const customerName = [customer?.name, customer?.lastname].filter(Boolean).join(' ').trim();
@@ -269,9 +273,12 @@ export class PaymentReceiptService {
     const concept =
       payment.kind === 'downpayment'
         ? (partial ? 'pago parcial de enganche' : 'pago de enganche')
-        : (partial ? 'pago parcial' : 'pago');
+        : payment.kind === 'hoa'
+          ? (partial ? 'pago parcial de cuota de mantenimiento (HOA)' : 'pago de cuota de mantenimiento (HOA)')
+          : (partial ? 'pago parcial' : 'pago');
     const paymentMonth = this.formatMonthYear(payment.due_date || payment.payment_date);
-    const paymentKindLabel = payment.kind === 'downpayment' ? 'Enganche' : 'Pago';
+    const paymentKindLabel =
+      payment.kind === 'downpayment' ? 'Enganche' : payment.kind === 'hoa' ? 'Cuota HOA' : 'Pago';
     const paymentReference = paymentMonth
       ? `${paymentKindLabel} ${payment.payment_number} · ${paymentMonth}`
       : `${paymentKindLabel} ${payment.payment_number}`;
@@ -306,6 +313,7 @@ export class PaymentReceiptService {
       concept,
       status: payment.status || '',
       extra_message: extraMessage,
+      property_link: payment.kind === 'hoa' ? 'del' : 'por la compraventa del',
       logo_data: logo,
     };
   }
@@ -350,7 +358,7 @@ export class PaymentReceiptService {
           { text: values.customer_name, bold: true },
           ' la cantidad de ',
           { text: values.amount_paid, bold: true },
-          ` (${values.amount_words}), recibida mediante ${values.payment_method}, como ${values.concept} número ${values.payment_number}${values.payment_month ? `, correspondiente al mes de ${values.payment_month}` : ''}, por la compraventa del ${values.lot_phrase || values.property_code}${values.cadastral_key ? `, clave catastral ${values.cadastral_key}` : ''}.`,
+          ` (${values.amount_words}), recibida mediante ${values.payment_method}, como ${values.concept} número ${values.payment_number}${values.payment_month ? `, correspondiente al mes de ${values.payment_month}` : ''}, ${values.property_link} ${values.lot_phrase || values.property_code}${values.cadastral_key ? `, clave catastral ${values.cadastral_key}` : ''}.`,
         ],
         alignment: 'justify',
         fontSize: 12,
@@ -395,7 +403,7 @@ export class PaymentReceiptService {
 
   private fileName(payment: ReceiptPayment): string {
     const safe = String(payment.payment_number || 'pago').replace(/[^\w.-]+/g, '-');
-    return `recibo-${safe}.pdf`;
+    return `recibo-${payment.kind === 'hoa' ? 'hoa-' : ''}${safe}.pdf`;
   }
 
   private money(amount: number, currency: string): string {

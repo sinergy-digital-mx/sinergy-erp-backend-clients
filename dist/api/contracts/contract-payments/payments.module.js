@@ -12,6 +12,7 @@ const typeorm_1 = require("@nestjs/typeorm");
 const payment_entity_1 = require("../../../entities/contracts/payment.entity");
 const contract_entity_1 = require("../../../entities/contracts/contract.entity");
 const contract_downpayment_payment_entity_1 = require("../../../entities/contracts/contract-downpayment-payment.entity");
+const contract_hoa_payment_entity_1 = require("../../../entities/contracts/contract-hoa-payment.entity");
 const email_template_entity_1 = require("../../../entities/email-templates/email-template.entity");
 const fiscal_configuration_entity_1 = require("../../../entities/billing/fiscal-configuration.entity");
 const tenant_entity_1 = require("../../../entities/rbac/tenant.entity");
@@ -31,6 +32,7 @@ exports.PaymentsModule = PaymentsModule = __decorate([
                 payment_entity_1.Payment,
                 contract_entity_1.Contract,
                 contract_downpayment_payment_entity_1.ContractDownpaymentPayment,
+                contract_hoa_payment_entity_1.ContractHoaPayment,
                 email_template_entity_1.EmailTemplate,
                 fiscal_configuration_entity_1.FiscalConfiguration,
                 tenant_entity_1.RBACTenant,

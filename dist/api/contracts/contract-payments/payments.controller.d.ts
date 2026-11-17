@@ -256,6 +256,7 @@ export declare class PaymentsController {
             concept: string;
             status: string;
             extra_message: string;
+            property_link: string;
         };
         attachment_name: string;
     }>;

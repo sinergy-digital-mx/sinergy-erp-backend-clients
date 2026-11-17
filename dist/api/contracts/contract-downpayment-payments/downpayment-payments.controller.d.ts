@@ -47,6 +47,7 @@ export declare class DownpaymentPaymentsController {
             concept: string;
             status: string;
             extra_message: string;
+            property_link: string;
         };
         attachment_name: string;
     }>;

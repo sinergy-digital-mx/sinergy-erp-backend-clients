@@ -3,11 +3,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Contract } from '../../../entities/contracts/contract.entity';
 import { ContractHoaPayment } from '../../../entities/contracts/contract-hoa-payment.entity';
 import { RBACModule } from '../../rbac/rbac.module';
+import { PaymentsModule } from '../contract-payments/payments.module';
 import { HoaPaymentsController } from './hoa-payments.controller';
 import { HoaPaymentsService } from './hoa-payments.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ContractHoaPayment, Contract]), RBACModule],
+  imports: [TypeOrmModule.forFeature([ContractHoaPayment, Contract]), RBACModule, PaymentsModule],
   providers: [HoaPaymentsService],
   controllers: [HoaPaymentsController],
   exports: [HoaPaymentsService],

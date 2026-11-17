@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Payment } from '../../../entities/contracts/payment.entity';
 import { Contract } from '../../../entities/contracts/contract.entity';
 import { ContractDownpaymentPayment } from '../../../entities/contracts/contract-downpayment-payment.entity';
+import { ContractHoaPayment } from '../../../entities/contracts/contract-hoa-payment.entity';
 import { EmailTemplate } from '../../../entities/email-templates/email-template.entity';
 import { FiscalConfiguration } from '../../../entities/billing/fiscal-configuration.entity';
 import { RBACTenant } from '../../../entities/rbac/tenant.entity';
@@ -19,6 +20,7 @@ import { S3Service } from '../../../common/services/s3.service';
       Payment,
       Contract,
       ContractDownpaymentPayment,
+      ContractHoaPayment,
       EmailTemplate,
       FiscalConfiguration,
       RBACTenant,
