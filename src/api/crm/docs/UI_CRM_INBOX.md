@@ -1,5 +1,10 @@
 # UI — Portal CRM (inbox de actividades)
 
+## Cambios
+
+- 2026-11-02: Cada fila trae `seller` y lo muestra como **Vendedor**. Es el autor de la actividad; si la nota no tiene autor, el vendedor asignado al cliente; si tampoco, quien lo registró. El Excel usa el mismo nombre.
+- 2026-10-15: Filtro y columna **Resultado** en el inbox. Query `outcome`. `none` = sin resultado. Valores: `satisfied`, `unsatisfied`, `issue_resolved`, `escalated`, `follow_up_needed`.
+
 Contrato para Pollux. Las actividades se siguen capturando en el detalle del cliente. Este módulo es el inbox / portal de seguimiento.
 
 Ruta UI: `/crm`
@@ -49,8 +54,9 @@ Mismos query params en list y stats (salvo `attention`, que solo aplica al lista
 | Param | Valores | Default |
 |-------|---------|---------|
 | `search` | texto en nota, título o descripción | — |
-| `type` | `call` `email` `meeting` `note` `task` `follow_up` `purchase` `support` | — |
+| `type` | `call` `whatsapp` `email` `home_visit` `store_visit` `meeting` `note` `task` `follow_up` `purchase` `support` | — |
 | `status` | `completed` `scheduled` `cancelled` `in_progress` | — |
+| `outcome` | `satisfied` `unsatisfied` `issue_resolved` `escalated` `follow_up_needed` `none` | — |
 | `user_id` | uuid del vendedor | admin CRM filtra a cualquiera; si no, solo el propio |
 | `period` | `today` `week` `month` `year` `range` | `month` |
 | `date_from` / `date_to` | `YYYY-MM-DD` | solo si `period=range` |
@@ -86,10 +92,31 @@ GET /api/tenant/crm/activities?attention=follow_up_overdue
         "name": "Ana",
         "lastname": "López",
         "company_name": null,
-        "display_name": "Ana López"
+        "display_name": "Ana López",
+        "created_by": {
+          "id": "uuid-alta",
+          "first_name": "María",
+          "last_name": "García",
+          "email": "maria@acme.mx",
+          "display_name": "María García"
+        },
+        "assigned_seller": {
+          "id": "uuid-vendedor",
+          "first_name": "Luis",
+          "last_name": "Nava",
+          "email": "luis@acme.mx",
+          "display_name": "Luis Nava"
+        }
       },
       "user_id": "uuid-autor",
       "user": {
+        "id": "uuid-autor",
+        "first_name": "Carlos",
+        "last_name": "Ruiz",
+        "email": "carlos@acme.mx",
+        "display_name": "Carlos Ruiz"
+      },
+      "seller": {
         "id": "uuid-autor",
         "first_name": "Carlos",
         "last_name": "Ruiz",
@@ -124,7 +151,7 @@ GET /api/tenant/crm/activities?attention=follow_up_overdue
 
 Cliente: navegar a `/customers/detail/:customer_id`.
 
-El vendedor es `user_id` de la sesión al crear la nota. Si una fila no trae `user`, es una nota vieja (antes no se persistía el autor).
+Bajo el nombre del cliente, **Vendedor** es `seller`. Orden: autor de la actividad (`user`), vendedor asignado al cliente (`customer.assigned_seller`), quien dio de alta al cliente (`customer.created_by`). Si los tres vienen vacíos, no mostrar la línea. `user` sigue siendo el autor real; en notas viejas puede ser `null`.
 
 ---
 
@@ -209,7 +236,7 @@ UI: autocomplete **Vendedor** con búsqueda local (mismo patrón que proveedor e
 ## UI
 
 1. Header **CRM** + **Descargar Excel** (filtros actuales, ver `UI_CRM_EXPORT.md`) + chip de periodo (`app-report-period-selector`).
-2. Filtros: search de nota, tipo, estado, vendedor (autocomplete).
+2. Filtros: search de nota, tipo, estado, resultado, vendedor (autocomplete).
 3. Cuatro KPIs. El de pendientes/vencidos se ilumina si hay conteo > 0.
-4. Tabla: cliente + creador (misma columna, el creador en pill gris), tipo, título/nota, estado, fecha (`dd/MM/yyyy`), seguimiento (`dd/MM/yyyy` + tag Vencido), acciones.
-5. Editar abre el modal de actividad del cliente. Completar seguimiento: `PATCH` con `status: completed`.
+4. Tabla: cliente + vendedor (misma columna, el vendedor en pill gris: `Vendedor {seller.display_name}`), tipo, título/nota, estado, resultado, fecha (`dd/MM/yyyy`), seguimiento (`dd/MM/yyyy` + tag Vencido). Sin columna de acciones. Resultado vacío se muestra como "—". El filtro **Sin resultado** manda `outcome=none`.
+5. Clic en la fila abre el mismo modal de actividad del cliente (`customers:Update`). El nombre del cliente abre su detalle. La palomita para completar el seguimiento está en ese modal (`PATCH` con `status: completed`), no en la tabla. No se muestra si la actividad ya está completada o cancelada.

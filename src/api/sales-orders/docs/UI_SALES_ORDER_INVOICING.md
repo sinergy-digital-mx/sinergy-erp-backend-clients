@@ -6,6 +6,18 @@ Guía de implementación para Pollux. Una OV puede tener **varias facturas** tim
 
 **Config Finkok por cliente:** ver `src/api/electronic-invoicing/docs/UI_FINKOK_CONFIGURATION.md` (sección global en Configuración Fiscal, no por razón emisora).
 
+**2026-10-31 — IVA en el PDF.** El IVA del comprobante sí se calcula y va en el XML, pero el PDF leía el nodo `Impuestos` del concepto (sin `TotalImpuestosTrasladados`) y pintaba `$0.00`. Ya toma el del comprobante. PDFs viejos: `GET .../invoices/{invoiceId}/pdf?regenerate=true`.
+
+**2026-10-27 — nota de crédito.** Sobre una factura de ingreso vigente, botón **Nota de crédito**. Egreso con relación `01` al UUID. Ver `UI_SALES_ORDER_CREDIT_NOTE.md`. En el header, badge **Nota de crédito** y, si aplica, **Saldo a favor**.
+
+**2026-10-19 — cancelación en proceso.** `POST .../cancel` consulta al SAT al terminar. Si `sat_estatus_cancelacion` trae “En proceso” (o `stamp_status` queda `cancel_pending`), el badge de sistema es **En proceso de cancelación**, aviso en la card y toast: “La factura está en proceso de cancelación.” No marcarla como cancelada mientras el SAT siga `Vigente`. Si la respuesta de cancelar no trae `sat_last_sync_at` nuevo, Pollux llama `sync-sat` enseguida.
+
+**2026-10-09 — CEP:** cuando la orden está pagada y la factura es PPD, el tab Pagos timbra el comprobante electrónico de pago. Ver `UI_SALES_ORDER_PAYMENT_COMPLEMENT.md`.
+
+**2026-10-14 — moneda.** La factura no se elige aparte: si la orden es `USD`, el CFDI va en dólares (`Moneda="USD"` y `TipoCambio` = `header.exchange_rate`). Si la orden es `MXN`, el CFDI va en pesos. El wizard lo muestra bloqueado. El API rechaza un XML con otra moneda.
+
+**2026-10-09 — régimen receptor:** el wizard arma `RegimenFiscalReceptor` según el RFC del cliente. 12 caracteres (persona moral) abre en 601; 13 caracteres (persona física) abre en 612 y el selector ya no incluye 601 ni 603. El SAT rechaza esa combinación con CFDI40158. El régimen del emisor no se toca. Público en general sigue en 616.
+
 ---
 
 ## 1. Dónde va en pantalla
@@ -63,7 +75,7 @@ Si `finkok_registration_status !== 'registered'` → bloquear timbrado y mostrar
 | Razón social | `data.header.customer.fiscal_razon_social` | `cfdi:Receptor/@Nombre` |
 | Uso CFDI | Campo editable en wizard (catálogo SAT) | `cfdi:Receptor/@UsoCFDI` |
 | Domicilio fiscal | `data.header.customer.fiscal_postal_code` | CFDI 4.0 `DomicilioFiscalReceptor` |
-| Régimen receptor | Selector en wizard | CFDI 4.0 `RegimenFiscalReceptor` |
+| Régimen receptor | Selector filtrado por el RFC del cliente (moral 601, física 612) | CFDI 4.0 `RegimenFiscalReceptor` |
 
 Si `fiscal_rfc` vacío → bloquear y link a editar cliente.  
 Si `fiscal_postal_code` vacío o no son 5 dígitos → bloquear y link a Información Fiscal del cliente.
@@ -107,7 +119,7 @@ Reglas que Finkok aplica:
 | IVA total | `data.header.iva_total` | Impuestos traslados |
 | IEPS total | `data.header.ieps_total` | Impuestos (si aplica) |
 | Total | `data.header.total` | `@Total` |
-| Moneda | `MXN` (default) | `@Moneda` |
+| Moneda | `header.currency` (`MXN` o `USD`). No es editable. | `@Moneda` y, si es USD, `@TipoCambio` = `header.exchange_rate` |
 | Forma de pago | Selector wizard (`01` efectivo, `03` transferencia, etc.) | `@FormaPago` |
 | Método de pago | `PUE` o `PPD` según `payment_status` | `@MetodoPago` |
 
@@ -200,7 +212,7 @@ Respuesta JSON:
 
 Pollux: abrir `signedUrl` en pestaña nueva o `<a href={signedUrl} target="_blank">`. No uses el título `OV_FACTURA_....pdf` como archivo: es solo label.
 
-Si no hay PDF en S3, el API lo genera en ese GET. `?regenerate=true` fuerza uno nuevo.
+Si no hay PDF en S3, el API lo genera en ese GET. `?regenerate=true` fuerza uno nuevo. Tras el fix del IVA (2026-10-31) hay que regenerar los PDFs que ya estaban en S3.
 
 El PDF anterior falló porque el XML venía `&lt;cfdi:` (mismo bug que Chrome). Ya se desescapa; el primer **PDF** debe armarlo.
 
@@ -295,7 +307,7 @@ Body vacío. Respuesta `200`: la factura actualizada.
 
 Si SAT confirma `Cancelado` → `stamp_status` pasa a `cancelled` (el badge sistema deja de ser “Cancelación pendiente”).
 
-Caso de la pantalla: sistema `cancel_pending` + SAT `Vigente` es normal tras `sign_cancel` 201. El botón consulta Finkok `get_sat_status` (y si falla, WS SAT). En **demo** el SAT productivo a veces no ve el UUID (`No Encontrado`); no es un bug de Pollux.
+Caso de la pantalla: sistema **En proceso de cancelación** (`cancel_pending`) + SAT `Vigente` + estatus cancelación `En proceso` es normal cuando el CFDI es cancelable con aceptación. El `POST .../cancel` ya dispara el sync; el botón **Sincronizar SAT** sigue disponible para volver a consultar. En **demo** el SAT productivo a veces no ve el UUID (`No Encontrado`); no es un bug de Pollux.
 
 Spinner 2–5 s. `400` si no hay UUID.
 

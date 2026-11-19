@@ -10,6 +10,7 @@
 | `scope` | `period` \| `all_time` | Default `period` |
 | `year` | number | Requerido si `scope=period` |
 | `month` | number? | 1-12, solo con `scope=period` |
+| `group_id` | uuid? | Grupo de proyecto del lote. Vacío = todos |
 
 - All time: `?scope=all_time`
 - Año: `?scope=period&year=2026`

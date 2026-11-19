@@ -1,5 +1,13 @@
 # Transferencias de Inventario — Guía para UI
 
+## 2026-11-03 — Envío desde el detalle
+
+El detalle de la transferencia muestra el envío y, si sigue pendiente, permite crear uno o agregarla a un envío ya creado. Un envío puede llevar varias transferencias. El flujo está en `UI_TRANSFER_SHIPMENT.md`.
+
+## 2026-10-16 — Salida, envío y recepción
+
+Crear la transferencia ya no ingresa el stock al destino. Queda **pendiente**, se aparta en el origen, se sube a un envío y el destino la recibe con conteo. El detalle del flujo, la carta porte y el cierre del envío está en `UI_TRANSFER_SHIPMENT.md`.
+
 Documento de referencia para implementar transferencias de stock entre almacenes, con soporte **totalizado** (desde resumen de inventario) y **por lote** (desde detalle de lote).
 
 > **UI:** el modal actual (sucursal + almacén planos) se **reemplaza**. Destino es cascada razón social → sucursal → almacén. Listado y detalle muestran los 3 niveles en origen y destino.
@@ -21,14 +29,14 @@ Organización
 | Concepto | Descripción |
 |----------|-------------|
 | **Vista totalizada** | Stock agrupado por `producto + almacén`. La cantidad mostrada es la **suma** de todos los lotes disponibles en ese almacén. |
-| **Transferencia** | Documento `TRF-000001` que mueve cantidad de uno o más lotes origen hacia un almacén destino. |
+| **Transferencia** | Documento `TRF-000001` que mueve uno o varios productos, tomando cantidad de uno o más lotes origen, hacia un almacén destino. |
 | **Línea de transferencia** | Cantidad tomada de un lote origen específico → genera un **nuevo lote destino** en el almacén de llegada. |
 | **Trazabilidad** | Cada lote destino guarda `transferred_from_batch_id` apuntando al lote origen. La OC de compra original se preserva. |
 
 ### Reglas del backend
 
 1. Origen y destino deben ser **almacenes distintos** (pueden ser de la misma o distinta sucursal).
-2. Todas las líneas deben ser del **mismo producto y UOM** que el encabezado.
+2. Las líneas pueden mezclar productos y unidades. `product_id` y `uom_id` del encabezado se guardan solo si todas las líneas comparten el mismo producto y la misma unidad; si no, quedan nulos. El detalle va en `products[]` y en cada línea. Si el POST envía `product_id` o `uom_id`, todas las líneas deben coincidir.
 3. Cada lote solo puede aparecer **una vez** en las líneas.
 4. La cantidad por línea no puede exceder `available_quantity` del lote.
 5. Al confirmar: se descuenta origen, se crea lote nuevo en destino con número `{razon}-{sucursal}-{almacen}-{5 dígitos}` (ej. `MZN-SBA-BDGA-00011`). El almacén destino debe tener prefijos de razón, sucursal y almacén. Copia `measure` del lote origen (ver `UI_INVENTORY_MEASURE.md`).
@@ -98,7 +106,7 @@ Cada fila representa un **producto en un almacén**:
 | Almacén | `warehouse_name` |
 | UOM | `uom_name` |
 | Stock total | `total_available_quantity` |
-| # Lotes | `total_batches` |
+| # Lotes | `total_batches` (solo lotes con existencia > 0; los agotados no cuentan ni salen en el detalle) |
 | Acciones | Ver lotes · **Transferir** |
 
 ### Botón «Transferir»
@@ -109,7 +117,21 @@ Abre modal/página de transferencia precargando:
 
 ---
 
-## Parte 2 — Modal / pantalla de transferencia (flujo principal)
+## Parte 2 — Modal de transferencia
+
+Un solo modal, sin wizard. Izquierda: origen y destino en cascada razón social → sucursal → almacén, más notas. Derecha: buscador de productos con stock en el almacén origen y una lista que se va armando.
+
+- Se puede transferir **un producto o varios** en el mismo folio.
+- **Agregar** mete el producto con sus lotes (por defecto, todo el disponible; se puede bajar la cantidad o desmarcar lotes).
+- Si el producto ya está en la lista, no se duplica.
+- Cambiar el almacén de origen vacía la lista.
+- Origen y destino no pueden ser el mismo almacén.
+- Al confirmar se refresca el stock y se hace **un** `POST /transfers`. `product_id` y `uom_id` no se envían: el backend los toma de cada lote.
+- Si se abre desde un lote, ese lote llega preseleccionado y se pueden sumar más productos del mismo almacén.
+
+Catálogo de ubicaciones: `GET /api/tenant/inventory/locations`. El almacén origen se excluye del árbol destino. Lotes de un producto: `GET /transfers/context?product_id=&warehouse_id=&uom_id=`.
+
+### Referencia — origen que trae el context
 
 ### Paso 1 — Origen (solo lectura)
 
@@ -183,9 +205,9 @@ Almacén:       [ Mostrador                               ▼ ]
 
 El POST **sigue** enviando solo `destination_warehouse_id`. Razón y sucursal son UX.
 
-### Paso 3b — Rediseño del modal (obligatorio)
+### Paso 3b — Layout vigente
 
-El modal actual (dos dropdowns + tabla gris) **no se itera: se reemplaza**.
+El compositor (ruta a la izquierda, productos a la derecha) **reemplaza** el wizard de 3 pasos.
 
 Layout sugerido, full-height ~720px:
 
@@ -235,17 +257,17 @@ POST /api/tenant/inventory/transfers
 
 ```json
 {
-  "product_id": "uuid-producto",
-  "uom_id": "uuid-uom",
   "source_warehouse_id": "uuid-almacen-origen",
   "destination_warehouse_id": "uuid-almacen-destino",
   "notes": "Traslado para surtir tienda centro",
   "lines": [
-    { "inventory_batch_id": "uuid-lote-1", "quantity": 50 },
-    { "inventory_batch_id": "uuid-lote-2", "quantity": 50 }
+    { "inventory_batch_id": "uuid-lote-producto-a", "quantity": 50 },
+    { "inventory_batch_id": "uuid-lote-producto-b", "quantity": 4 }
   ]
 }
 ```
+
+`product_id` y `uom_id` son opcionales. Si se omiten, cada línea usa el producto y la unidad de su lote. La respuesta incluye `products[]` (`product_id`, `product_name`, `product_sku`, `uom_name`, `quantity`, `lines_count`) y `products_count`. Con un solo producto, `product_name` del encabezado sigue lleno. Con varios, el listado muestra «N productos».
 
 **Respuesta exitosa (201):**
 
@@ -382,6 +404,8 @@ Catálogo de filtros: `GET /api/tenant/inventory/locations` (igual que el listad
 ### Columnas
 
 | Folio | Producto | Cantidad | Origen | Destino | Usuario | Fecha |
+
+Si `products_count > 1`, la celda de producto muestra «N productos» y los nombres; la cantidad lista el total de cada uno (no sumes piezas con kilogramos).
 |-------|----------|----------|--------|---------|---------|-------|
 
 **Origen / Destino** — celda de 3 líneas, no un string plano:
@@ -507,5 +531,5 @@ Sugerencia de menú:
 3. **Sucursal/almacén vacíos:** el árbol `destinations` ya omite nodos sin almacén activo. No pidas warehouses extra.
 4. **Mismo almacén:** el origen no viene en `destinations`. Aun así valida en cliente antes de POST.
 5. El stock totalizado en resumen **baja automáticamente** tras transferencia exitosa; no hace falta cálculo local persistente.
-6. Para destino de otra razón social o sucursal no se requiere permiso extra — solo `Inventory:Transfer`.
+6. Para destino de otra sucursal de la **misma** razón social no se requiere permiso extra — solo `Inventory:Transfer`. Otra razón social solo si la razón **origen** tiene **Transferencias multi razón social habilitadas** (`multi_fiscal_transfers_enabled`). Si está apagado, el árbol destino solo trae esa razón y el POST responde 400 si el almacén destino es de otra. Ver `src/api/billing/docs/UI_FISCAL_TAX_TRANSFERS.md` (2026-10-09).
 7. **No** uses `GET /tenant/warehouses` ni `GET /tenant/billing/branches` en este flujo. Todo sale de `/transfers/context` (modal) y `/inventory/locations` (filtros del historial).

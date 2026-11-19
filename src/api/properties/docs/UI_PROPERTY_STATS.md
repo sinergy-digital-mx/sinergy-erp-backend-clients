@@ -1,5 +1,19 @@
 # UI — Stats y filtros del listado de lotes
 
+## 2026-11-10 — Filtro por manzana
+
+Dropdown **Manzana** junto a grupo y estado. `GET /api/tenant/properties/blocks` devuelve las manzanas que ya tienen lotes, orden numérico (`2` antes de `10`).
+
+El filtro es exacto: `block=15` no trae la 150. Aplica a la tabla y a las cards.
+
+```
+GET /api/tenant/properties?block=15&page=1&limit=20
+GET /api/tenant/properties/stats?block=15
+```
+
+Omitir `block` = todas las manzanas. Se combina con `group_id`, `status` y `search`.
+
+
 Contrato para Pollux: **un solo catálogo** — **Grupo de cliente**. No hay “Proyecto”.
 
 `property_groups` ya no aplica a lotes. `properties.group_id` es un UUID de `customer_groups` (el mismo de Clientes y Contratos).
@@ -13,7 +27,7 @@ Máximo **4 cards**. No clonar el grid de 12 del Divino Dashboard.
 ```
 [ Título Lotes ]                         [ + Crear Lote ]
 
-[ Buscar… ] [ Grupo de cliente ▼ ] [ Estado ▼ ]
+[ Buscar… ] [ Grupo de cliente ▼ ] [ Manzana ▼ ] [ Estado ▼ ]
 
 [ TOTAL ] [ DISPONIBLES ] [ ACTIVOS EN PAGO ] [ PRECIO PROM. $/M² ]
 
@@ -31,12 +45,13 @@ Misma familia visual que Contratos: tira de 4, borde superior de color, valor gr
 | UI | Query param | Catálogo |
 |----|-------------|----------|
 | **Grupo de cliente** | `group_id` | `GET /api/tenant/customers/groups` |
+| **Manzana** | `block` | `GET /api/tenant/properties/blocks` |
 | Estado | `status` | `disponible` \| `vendido` \| `reservado` \| `cancelado` |
 | Búsqueda | `search` | ya existe |
 
 Mismo GET de grupos que Clientes y Contratos. Nunca un array fijo ni UUIDs de Divino.
 
-“Todos los grupos de cliente” / “Todos los estados” = **omitir** el param.
+“Todos los grupos de cliente” / “Todas las manzanas” / “Todos los estados” = **omitir** el param.
 
 Compat (no usar en código nuevo): `groupId` y `customer_group_id` se tratan como `group_id`.
 
@@ -52,6 +67,7 @@ Filtrar por grupo incluye lotes **disponibles** de ese grupo (el grupo vive en e
 |-----|------|---------|
 | Tabla | `GET /api/tenant/properties` | `Property:Read` |
 | Cards | `GET /api/tenant/properties/stats` | `Property:Read` |
+| Manzanas | `GET /api/tenant/properties/blocks` | `Property:Read` |
 | Grupos | `GET /api/tenant/customers/groups` | `customers:Read` |
 
 ```

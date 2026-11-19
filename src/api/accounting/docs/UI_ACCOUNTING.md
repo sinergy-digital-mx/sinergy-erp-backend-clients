@@ -1,8 +1,88 @@
 # UI — Cobranza / Contabilidad
 
-Guía para Pollux: nuevo módulo **Cobranza / Contabilidad** con tres pestañas. Los filtros superiores replican el patrón del **Reporte de Ventas Zona Norte** (`zona_norte_custom_report`).
+Guía para Pollux: módulo **Cobranza / Contabilidad** con cuatro pestañas. Los filtros superiores replican el patrón del **Reporte de Ventas Zona Norte** (`zona_norte_custom_report`).
 
 > **Estado backend:** API disponible en `/api/tenant/accounting/*`. Permiso: `Accounting:Read` + `ViewMenu`.
+
+## Historial
+
+### 2026-11-09
+Cuentas por pagar y cuentas por cobrar filtran por nuestra razón social (`fiscal_configuration_id`). Vacío significa todas. El detalle y el Excel respetan esa razón. Flujo de deuda ya no usa sucursal.
+
+Cuentas por cobrar: el clic en cualquier columna de la fila abre las órdenes de esa razón social. Antes solo abría el nombre.
+
+### 2026-11-04
+Cuentas por pagar vuelve a mostrar la **razón social** (el nombre comercial queda debajo si es distinto). Arriba está el selector de **Mes** y **Rango**. Al abrir se ve todo el saldo pendiente; al elegir mes o rango, la lista, el Excel y el detalle dejan solo las órdenes creadas en esas fechas.
+
+### 2026-11-03
+Flujo de deuda y Rep. Vent. Cost. Prom. leen la sucursal de `billing_branch_id`, la misma URL del resto de Cobranza. Cuentas por pagar no filtra por sucursal y no borra ese parámetro.
+
+Cobranza POS abre en el mes actual (día 1 al día de hoy). Bajo el folio se indica si la venta es **Anticipo**, **Crédito** o **Contado** (`sale_kind`: `advance`, `credit`, `cash`). El Excel trae la columna Venta.
+
+Cuentas por cobrar: el periodo solo ofrece **Mes** y **Rango**. Hoy y Semana no aparecen en esa pestaña.
+
+Anticipo y crédito: el anticipo no usa el crédito del cliente. En Cobranza POS la fila de anticipo muestra en **Total** y en **Pendiente** lo que falta por cobrar, y en **Anticipo** lo ya cobrado. Solo una orden a crédito descuenta el disponible. En caja, cada anticipo del corte también muestra lo pendiente.
+
+Cobranza POS: la pestaña vuelve a listar todas las ventas cobradas del periodo, con su forma de pago (efectivo, transferencia, tarjeta, cheque o mixto, y cuáles). De crédito solo entran los abonos ya cobrados; el cargo que sigue pendiente no sale. Arriba van las tarjetas de Transferencias, Efectivo, Tarjetas, Cheques y Crédito (ventas, monto y ticket). En la fila de Todas y Facturadas van Envío, Efectivo, Tarjeta, Transferencia, Cheque y Crédito, cada uno con su conteo y monto. Envío filtra `for_shipping`. Las ve quien abre Cobranza (`Accounting:Read`), sin otro permiso. `credit_scope=paid`. El detalle de la terminal en Puntos de venta sigue mostrando todos los cobros, incluido el cargo a crédito. `credit_only=true` queda para el filtro de clientes con crédito habilitado.
+
+La pestaña de Cobranza se llama **Factura público en general**.
+
+Facturas globales: sobre la lista se indica que son las órdenes que el cliente no facturó y que la factura a público en general se emite con todas.
+
+Facturas globales: por sucursal y mes. El selector es la sucursal y **Generar facturas** timbra solo las órdenes sin facturar de esa sucursal. Una vigente por sucursal. Detalle en `UI_GLOBAL_INVOICES.md`.
+
+Facturas globales: pestaña nueva en Cobranza. Por mes lista las órdenes de clientes sin factura de ingreso vigente (folio, fecha, cliente, estado, totales y forma de pago; si es mixto, las dos formas). Generar facturas timbra un solo CFDI a público en general. Mientras siga vigente no se puede emitir otra de esa sucursal. Al cancelarse, las órdenes vuelven y se puede timbrar otra. Detalle en `UI_GLOBAL_INVOICES.md`.
+
+### 2026-11-02
+Cobranza POS: junto a Todas, Público en General y Facturadas van filtros con ícono de Efectivo, Transferencia, Tarjeta, Cheque y Crédito (`payment_method`). Las columnas de arriba hacen el mismo filtro y Crédito entra en `summary.by_payment_method.credit` (ventas, monto, ticket). Un mixto cuenta en cada forma con importe. El Excel respeta el filtro.
+
+Puntos de venta: `summary.orders_for_shipping`, `summary.amount_for_shipping` y `summary.orders_for_shipping_pending` cuentan las órdenes del día con `for_shipping`. Cada fila de `entered_orders` trae `for_shipping`. En Cobranza POS la fila y el Excel traen la misma bandera (`Para envío`: Sí / No).
+
+Cobranza POS: cada fila separa **fecha de pago** (`payment_date`, día del abono) y **fecha de cobro** (`collected_at`, cuándo se cobró en caja). Si la orden es a crédito y todavía no tiene abono, la fecha de pago va vacía. El Excel trae la columna Fecha pago.
+
+Cobranza POS: si el cobro tiene importe, el ojo junto al folio abre el ticket de venta. Vendedor y cajero muestran solo el nombre, sin código. El Excel igual.
+
+Cobranza POS: el cheque en dólares entra al monto de cheque ya convertido con el tipo de cambio del cobro, igual que el efectivo en USD.
+
+Cobranza POS: en cada línea, un cobro mixto de POS Caja muestra las formas usadas (`payment_breakdown_label`, p. ej. `Efectivo + Tarjeta`, `Tarjeta + Cheque`). El Excel usa el mismo texto en Método de pago.
+
+La sucursal queda en la URL (`billing_branch_id`) y la leen todas las pestañas: Puntos de venta, Cobranza POS, Cuentas por cobrar, Flujo de deuda, Rep. Vent. Cost. Prom. y Factura público en general. `all` significa Todas. Cuentas por pagar no filtra por sucursal, pero no borra la de la URL. Flujo de deuda, si quedó en Todas, guarda la razón social en `fiscal_configuration_id`.
+
+### 2026-10-28
+Rep. Vent. Cost. Prom: el folio de una cotización (anticipo o nota) abre la cotización, igual que el folio de una orden abre la orden. La fila trae `quotation_id`.
+
+### 2026-10-26
+Cuentas por cobrar: la razón social queda más compacta y el RFC va debajo, en un badge. Ya no hay columna RFC.
+
+Cobranza POS: `summary.by_payment_method` trae **Ventas / Monto / Ticket** por efectivo, transferencia, tarjeta y cheque. Un cobro mixto suma el importe en cada forma usada. El efectivo y el cheque en USD se convierten con el tipo de cambio del cobro.
+
+Cuentas por pagar: columna y cards **Saldo a favor** (`credit_balance_mxn` / `credit_balance_usd`, `summary.total_credit_balance_mxn` / `total_credit_balance_usd`). Un proveedor sin OC pendientes pero con crédito sí aparece. El Excel trae la misma columna. El clic sigue abriendo las OC pendientes.
+
+### 2026-10-22
+Cobranza POS: la columna Cliente se estrecha (nombre negro en una línea) y el espacio extra pasa a Vendedor / cajero para que se lean nombre y código.
+
+### 2026-10-21
+Rep. Vent. Cost. Prom: al abrir la pestaña siempre se selecciona el **mes actual** (rango día 1 → hoy, botón Mes activo). Al volver a Puntos de venta el periodo regresa a Hoy.
+
+Rep. Vent. Cost. Prom: la tabla muestra las 12 columnas a todos los usuarios con `Accounting:Read`; no hay columnas por permiso. En pantallas chicas o con zoom la tabla tiene scroll horizontal. Ahora la barra horizontal queda visible (alto máximo con scroll), el encabezado y la columna Cliente quedan fijos, y el ancho mínimo bajó de 1500 px a 1310 px.
+
+### 2026-10-19
+Cuentas por pagar (lista, detalle y Excel) toma el adeudo del **total factura** cuando la OC tiene costo real: mercancía + gastos con casilla Factura, en la moneda de pago. Sin costo real sigue el total de catálogo (recibido si está Recibida; si no, el solicitado). A ese total se le restan los pagos ya registrados.
+
+Click en un proveedor abre un **modal** en Cobranza con sus OC pendientes (`GET /accounts-payable/vendors/{vendorId}`). El folio abre el detalle de la orden encima, sin ir al listado de compras. En Pesos o Dólares el modal solo muestra esa moneda.
+
+### 2026-10-14
+Cobranza POS filtra por **fecha de cobro** (`date_basis=collected`), no por la fecha del corte. Cada fila trae `billing_branch` (sucursal de la venta) y `shift_date`. `summary` alimenta los chips con el mismo criterio; `filtered_amount` es el monto de la lista. El modal de Puntos de venta sigue en `date_basis=shift`.
+
+Pestaña **Rep. Vent. Cost. Prom** (`average-cost`). Reporte de ventas a costo promedio por sucursal y periodo: cliente, documento, fecha, tipo, estatus, importe, descuento, impuesto, total de venta, total de costo y margen. `GET /tenant/accounting/average-cost-report` y Excel en `.../export/excel`.
+
+> **2026-10-14 — Cuentas por pagar por moneda.** Cada proveedor separa adeudo y OC pendientes en MXN y USD. La lista acepta `currency=all|mxn|usd`. El Excel (`GET /accounts-payable/export/excel`) en `all` trae dos hojas (pesos y dólares); `mxn` y `usd` descargan una sola lista.
+
+> **2026-10-14 — Total en pesos y tipo de cambio del día.** La lista y las tarjetas agregan `exchange_rate`, `exchange_rate_date` y el total en pesos (`amount_pending_total_mxn` / `summary.total_amount_pending_total_mxn`): pesos + dólares × TC del día. Sin TC y con dólares, el total llega `null`. El Excel de `all` abre en la hoja **Ambos** (pesos, dólares y total al tipo de cambio del sistema). Arriba de cada hoja va ese tipo de cambio.
+
+> **2026-10-14 — Cuentas por cobrar por moneda.** La lista acepta `currency=all|mxn|usd` y separa el adeudo en MXN y USD. El total en pesos usa el tipo de cambio del sistema. Excel: `GET /accounts-receivable/export/excel`. En `all` abre en la hoja **Ambos** y sigue con pesos y dólares; arriba va el tipo de cambio del sistema.
+
+> **2026-10-14 — Hoja Ambos detallado.** En `currency=all`, el Excel de cuentas por cobrar y de cuentas por pagar agrega la hoja **Ambos detallado** justo después de Ambos. Una fila por orden pendiente, agrupada por razón social y ordenada por fecha: folio, factura, tipo de pago, moneda y monto.
 
 ---
 
@@ -14,23 +94,24 @@ Guía para Pollux: nuevo módulo **Cobranza / Contabilidad** con tres pestañas.
 | Entidad | `Accounting` |
 | Permisos mínimos | `ViewMenu`, `Read` |
 | Ruta sugerida | `/accounting` o `/cobranza` |
+| Flujo de deuda | `/accounting/flujo-deuda` — antigüedad de saldos y kardex de abonos. Ver `UI_DEBT_FLOW.md`. |
 
 ---
 
-## Layout general (aplica a las 3 tabs)
+## Layout general (aplica a las 4 tabs)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  Cobranza / Contabilidad                                        │
 ├─────────────────────────────────────────────────────────────────┤
-│  ⚠ Banner si unclosed_shift_alert (corte de día anterior)       │
+│  Sucursal: [ dropdown ]     [ Hoy | Otro día ]                  │
 ├─────────────────────────────────────────────────────────────────┤
-│  [ Hoy | Semana | Mes | Rango ▼ ]     Sucursal: [ dropdown ▼ ] │
-│  (si Rango: [ Fecha inicio ] — [ Fecha fin ] )                  │
+│  Entraron (n · monto)   Cobrado   Por cobrar                    │
 ├─────────────────────────────────────────────────────────────────┤
-│  [ Puntos de venta ] [ Cuentas por pagar ] [ Cuentas por cobrar ]│
+│  [ Puntos de venta ] [ Cobranza POS ] [ CxP ] [ CxC ]           │
+│                                          [ Flujo de deuda ]     │
 ├─────────────────────────────────────────────────────────────────┤
-│  ... contenido de la tab activa ...                             │
+│  Órdenes que entraron                          Card de cobranza │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -40,10 +121,12 @@ Reutilizar el **mismo componente** que ya usa el reporte de ventas Maderería Zo
 
 | Opción UI | Query param `period` | Comportamiento |
 |-----------|----------------------|----------------|
-| Hoy | `today` | 00:00 – 23:59 del día actual |
-| Semana | `week` | Lunes de esta semana – hoy |
-| Mes | `month` | Día 1 del mes – hoy |
-| Rango | `range` | Requiere `date_from` y `date_to` (ISO date `YYYY-MM-DD`) |
+| Hoy | `today` | Día calendario `America/Tijuana`, de 00:00 a 23:59. No usa el día UTC del servidor ni `new Date('YYYY-MM-DD')`. |
+| Semana | `week` | Lunes de esa misma zona – hoy |
+| Mes | `month` | Día 1 del mes – hoy, en esa misma zona |
+| Rango / Otro día | `range` | `date_from` y `date_to` como `YYYY-MM-DD` de calendario. En Puntos de venta ambos son el mismo día. |
+
+En **Cuentas por cobrar** la barra solo muestra Mes y Rango.
 
 **Default:** `month`.
 
@@ -55,9 +138,11 @@ Reutilizar el **mismo componente** que ya usa el reporte de ventas Maderería Zo
 | Valor | `id` del branch (UUID) → enviar como `billing_branch_id` |
 | Label | `display_name` o `{city} ({code})` |
 
-**Obligatorio** en Tab 1 (Puntos de venta). Opcional en Tab 3 (Cuentas por cobrar).
+**Obligatorio** en Tab 1 (Puntos de venta), Cobranza POS y Rep. Vent. Cost. Prom. Opcional en Cuentas por cobrar.
 
 Al cambiar periodo o sucursal → recargar la tab activa.
+
+La sucursal elegida se guarda en la query de la página (`billing_branch_id`). Un UUID vuelve a dejar esa sucursal al recargar en todas las pestañas que filtran por sucursal, incluido Flujo de deuda y Rep. Vent. Cost. Prom. `all` es Todas. Si el parámetro no viene, se usa la sucursal de la sesión o la única sucursal, salvo en Flujo de deuda: ahí Todas no hereda la de la sesión. Con Todas, el flujo guarda `fiscal_configuration_id` para la razón social.
 
 ### Alerta: corte de un día anterior sin cerrar
 
@@ -156,6 +241,21 @@ GET /api/tenant/accounting/pos-summary?billing_branch_id={uuid}&period=month
 
 | UI | Path JSON |
 |----|-----------|
+| Resumen — órdenes que entraron | `response.summary.orders_entered` |
+| Resumen — monto de esas órdenes | `response.summary.amount_entered` |
+| Resumen — cobrado | `response.summary.amount_collected` |
+| Resumen — por cobrar | `response.summary.amount_pending` |
+| Resumen — órdenes para envío | `response.summary.orders_for_shipping` |
+| Resumen — monto de esas órdenes | `response.summary.amount_for_shipping` |
+| Resumen — de envío que siguen por cobrar | `response.summary.orders_for_shipping_pending` |
+| Lista de órdenes del día (caja y sucursal) | `response.entered_orders[]` |
+| Es para envío | `entered_orders[i].for_shipping` |
+| Origen | `entered_orders[i].channel` → `caja` \| `branch` |
+| Folio | `entered_orders[i].folio` |
+| Cliente | `entered_orders[i].customer_display_name` |
+| Terminal | `entered_orders[i].terminal_name` |
+| Total de la orden | `entered_orders[i].total` |
+| Ya cobrado de esa orden | `entered_orders[i].amount_collected` |
 | Tabla terminales venta | `response.sales_terminals[]` |
 | Nombre terminal | `sales_terminals[i].terminal_name` |
 | # ventas | `sales_terminals[i].sales_count` |
@@ -195,16 +295,17 @@ GET /api/tenant/accounting/pos-summary?billing_branch_id={uuid}&period=month
 | Síntoma | Causa |
 |---------|-------|
 | `sales_terminals: []` | No hay ventas POS en el periodo para esa sucursal, o las órdenes no tienen `terminal_user_id` |
-| `orders_collected: 0` | No se cobró nada en el periodo (fecha del cobro = `pos_sale_collections.created_at`) |
+| `orders_collected: 0` | No hay cobros en un corte cuya `shift_date` cae en el periodo |
 | Error 400 | Falta `billing_branch_id` o periodo `range` sin fechas |
 | Error 403 | Usuario sin permiso `Accounting:Read` |
 
 **Datos que SÍ cuenta el backend para terminales venta:**
 - `sales_order_type = 'POS'`
 - `general_status != 'Cancelada'`
-- `warehouse.billing_branch_id` = sucursal seleccionada
-- `terminal_user.pos_user_type = 'VENTAS'`
-- `created_at` dentro del periodo
+- `billing_branch_id` de la orden o, si falta, el del almacén = sucursal seleccionada
+- Día de `created_at` en calendario de Tijuana, no el día UTC del servidor
+
+**Órdenes del día (`entered_orders`):** POS (`channel = caja`) y manuales de la sucursal (`channel = branch`). Misma sucursal y mismo día. Canceladas no entran. También entra una orden cobrada en un corte de ese día aunque `created_at` caiga en otro.
 
 #### 1B) Detalle al click en una terminal
 
@@ -246,42 +347,89 @@ GET /api/tenant/accounting/pos-terminals/{terminal_user_id}/sales
 
 **Click folio** → `GET /api/tenant/sales-orders/{data[i].id}` → leer `response.data.header`, `response.data.line_items`.
 
+#### 1D) Consultar cortes globales y parciales
+
+```http
+GET /api/tenant/accounting/pos-daily-shifts?billing_branch_id={uuid}&period=month
+GET /api/tenant/accounting/pos-daily-shifts/{id}
+```
+
+Click en **Cortes globales** / **Cortes parciales** / **Corte abierto** de la card Cobranza. El listado es de consulta (no cierra el corte). **Ver corte** abre el detalle con historial de parciales.
+
 ---
 
 ### Tab 2 — Cuentas por pagar
 
-**No usa** sucursal ni periodo.
+**No filtra por sucursal.** El periodo es **Mes** o **Rango** (`period=month|range`). Sin `period`, el saldo pendiente completo.
 
 #### 2A) Lista
 
 ```http
-GET /api/tenant/accounting/accounts-payable?page=1&limit=20&search=madera
+GET /api/tenant/accounting/accounts-payable?page=1&limit=20&search=madera&currency=all&period=range&date_from=2026-11-01&date_to=2026-11-04
 ```
 
 | Query param | Requerido | Notas |
 |-------------|-----------|-------|
 | `search` | No | Filtra `vendor.name`, `razon_social`, `company_name` |
+| `currency` | No (default `all`) | `all` pesos y dólares, `mxn` solo pesos, `usd` solo dólares |
+| `period` | No | `month` o `range`. Sin valor, no recorta por fecha |
+| `date_from` / `date_to` | Si `period=range` | `YYYY-MM-DD`. La orden entra por su fecha de alta |
 | `page` | No (default 1) | |
 | `limit` | No (default 20) | |
+
+**Vistas UI:** Ambos / Pesos / Dólares. Cada una tiene su botón **Descargar Excel**.
 
 **Qué leer:**
 
 | UI | Path JSON |
 |----|-----------|
 | Filas tabla | `response.data[]` |
-| Nombre proveedor | `data[i].razon_social` ?? `data[i].company_name` ?? `data[i].vendor_name` |
-| # OCs pendientes | `data[i].pending_order_count` |
-| Monto debe | `data[i].amount_pending` |
-| Progress bar | `data[i].progress_percentage` |
+| Razón social | `data[i].razon_social` ?? `data[i].company_name` ?? `data[i].vendor_name`. El nombre comercial va debajo si es distinto |
+| Monto adeudado MXN + badge OC | `data[i].amount_pending_mxn`, `data[i].pending_order_count_mxn` |
+| Monto adeudado USD + badge OC | `data[i].amount_pending_usd`, `data[i].pending_order_count_usd` |
+| Barra MXN | `data[i].progress_percentage_mxn` |
+| Barra USD | `data[i].progress_percentage_usd` |
+| Tipo de cambio del día | `response.summary.exchange_rate` (misma cifra en cada fila). Fecha: `summary.exchange_rate_date` |
+| Total en pesos | `data[i].amount_pending_total_mxn`. Tarjeta: `summary.total_amount_pending_total_mxn` |
+| Saldo a favor | `data[i].credit_balance_mxn`, `data[i].credit_balance_usd`. Tarjetas: `summary.total_credit_balance_mxn`, `summary.total_credit_balance_usd` |
 | ID para detalle | `data[i].vendor_id` |
-| Totales header | `response.summary.total_vendors`, `response.summary.total_amount_pending` |
+| Totales | `response.summary.total_vendors`, `total_amount_pending_mxn`, `total_amount_pending_usd`, `total_pending_orders_mxn`, `total_pending_orders_usd`, `total_amount_pending_total_mxn` |
 | Paginación | `response.total`, `response.page`, `response.totalPages` |
+
+En **Ambos** van las dos columnas de monto (cada una con su badge de OC), la columna **Tipo de cambio**, **Total en pesos** y dos barras de progreso. En **Pesos** o **Dólares** solo esa moneda, más tipo de cambio y total.
+
+**Total en pesos:** en Ambos es `MXN + USD × exchange_rate`. En Pesos es solo el adeudo MXN. En Dólares es `USD × exchange_rate`. Si hay dólares y no hay tipo de cambio del día, el total es `null` (la UI muestra —).
+
+**Excel (misma búsqueda y vista, sin paginación):**
+
+```http
+GET /api/tenant/accounting/accounts-payable/export/excel?currency=all&search=madera
+```
+
+| `currency` | Archivo |
+|------------|---------|
+| `all` | `cuentas-por-pagar-YYYY-MM-DD.xlsx` con hojas **Ambos**, **Ambos detallado**, **Pesos MXN** y **Dólares USD** |
+| `mxn` | `cuentas-por-pagar-mxn-YYYY-MM-DD.xlsx` |
+| `usd` | `cuentas-por-pagar-usd-YYYY-MM-DD.xlsx` |
+
+Arriba de cada hoja, en amarillo: **Tipo de cambio del sistema** (el del día que tiene el sistema) y su fecha. La hoja **Ambos** trae Adeudado en pesos, Adeudado en dólares y Total en pesos (`MXN + USD × TC`), más una fila Total. **Ambos detallado** lista cada OC pendiente: razón social, fecha, folio, factura del proveedor, tipo de pago, moneda y por pagar. Pesos y Dólares conservan Proveedor, OC pendientes, Monto adeudado, Total en pesos y Progreso.
 
 **Respuesta vacía válida:**
 
 ```json
 {
-  "summary": { "total_vendors": 0, "total_amount_pending": 0 },
+  "summary": {
+    "currency": "all",
+    "total_vendors": 0,
+    "total_amount_pending": 0,
+    "total_amount_pending_mxn": 0,
+    "total_amount_pending_usd": 0,
+    "total_pending_orders_mxn": 0,
+    "total_pending_orders_usd": 0,
+    "exchange_rate": 16.8,
+    "exchange_rate_date": "2026-10-14",
+    "total_amount_pending_total_mxn": 0
+  },
   "data": [],
   "total": 0,
   "page": 1,
@@ -300,7 +448,9 @@ GET /api/tenant/accounting/accounts-payable?page=1&limit=20&search=madera
 
 **Solo entran OCs con:** `payment_status = 'Pendiente'`, `general_status != 'Cancelada'`, y saldo real pendiente después de restar pagos registrados.
 
-#### 2B) Detalle proveedor (click fila)
+**De dónde sale el monto (2026-10-19):** con costo real, `amount_pending` es el total factura de la moneda de pago menos lo pagado. Sin costo real, es el total de catálogo (recibido si la OC está Recibida; solicitado si no) menos lo pagado. El costo final (gastos operativos incluidos) no es el adeudo.
+
+#### 2B) Detalle proveedor (modal, click fila)
 
 ```http
 GET /api/tenant/accounting/accounts-payable/vendors/{vendor_id}
@@ -314,9 +464,12 @@ GET /api/tenant/accounting/accounts-payable/vendors/{vendor_id}
 | Filas OC | `response.orders[]` |
 | Folio OC | `orders[i].folio` |
 | Pendiente | `orders[i].amount_pending` |
-| ID para link | `orders[i].id` |
+| Moneda | `orders[i].payment_currency` |
+| ID para el detalle de la OC | `orders[i].id` |
 
 404 si ese proveedor ya no tiene saldo pendiente.
+
+El click no navega a Órdenes de compra. El modal se queda en Cobranza. En la vista Pesos solo se listan OC en MXN; en Dólares, solo USD.
 
 ---
 
@@ -325,25 +478,46 @@ GET /api/tenant/accounting/accounts-payable/vendors/{vendor_id}
 #### 3A) Lista por razón social
 
 ```http
-GET /api/tenant/accounting/accounts-receivable?page=1&limit=20&billing_branch_id={uuid}
+GET /api/tenant/accounting/accounts-receivable?page=1&limit=20&billing_branch_id={uuid}&currency=all
 ```
 
 | Query param | Requerido | Notas |
 |-------------|-----------|-------|
 | `billing_branch_id` | No | Filtra por sucursal del almacén de la OV |
 | `search` | No | Razón social o RFC |
+| `currency` | No (default `all`) | `all` pesos y dólares, `mxn` solo pesos, `usd` solo dólares |
 | `page`, `limit` | No | Paginación |
+
+**Vistas UI:** Ambos / Pesos / Dólares. Cada una tiene **Descargar Excel**.
 
 **Qué leer:**
 
 | UI | Path JSON |
 |----|-----------|
 | Filas tabla | `response.data[]` |
-| Razón social | `data[i].razon_social` |
+| Razón social | `data[i].razon_social`. El RFC (`fiscal_rfc`) va debajo, en badge |
 | RFC | `data[i].fiscal_rfc` |
-| # órdenes | `data[i].pending_order_count` |
-| Adeudo | `data[i].amount_pending` |
-| Totales | `response.summary.total_accounts`, `response.summary.total_amount_pending` |
+| Por cobrar MXN + badge OV | `data[i].amount_pending_mxn`, `data[i].pending_order_count_mxn` |
+| Por cobrar USD + badge OV | `data[i].amount_pending_usd`, `data[i].pending_order_count_usd` |
+| Tipo de cambio del día | `response.summary.exchange_rate`. Fecha: `summary.exchange_rate_date` |
+| Total en pesos | `data[i].amount_pending_total_mxn`. Tarjeta: `summary.total_amount_pending_total_mxn` |
+| Totales | `summary.total_accounts`, `total_amount_pending_mxn`, `total_amount_pending_usd`, `total_pending_orders_mxn`, `total_pending_orders_usd` |
+
+En **Ambos** el total es `MXN + USD × exchange_rate`. En **Pesos** es solo MXN. En **Dólares** es `USD × exchange_rate`. Sin tipo de cambio y con dólares, el total es `null`.
+
+**Excel:**
+
+```http
+GET /api/tenant/accounting/accounts-receivable/export/excel?currency=all
+```
+
+| `currency` | Archivo |
+|------------|---------|
+| `all` | `cuentas-por-cobrar-YYYY-MM-DD.xlsx` con hojas **Ambos**, **Ambos detallado**, **Pesos MXN** y **Dólares USD** |
+| `mxn` | `cuentas-por-cobrar-mxn-YYYY-MM-DD.xlsx` |
+| `usd` | `cuentas-por-cobrar-usd-YYYY-MM-DD.xlsx` |
+
+Arriba de cada hoja va el tipo de cambio del sistema. La hoja **Ambos** trae por cobrar en pesos, por cobrar en dólares y total en pesos, más una fila Total. **Ambos detallado** lista cada orden pendiente: razón social, fecha, folio, factura, tipo de pago, moneda y por cobrar.
 
 **Respuesta vacía válida:** mismo patrón que CxP (`data: []`, summary en 0).
 
@@ -378,9 +552,11 @@ GET /api/tenant/accounting/accounts-receivable/by-razon-social/CONSTRUCTORA%20RO
 |----|-----------|
 | Header razón social | `response.razon_social` |
 | RFC | `response.fiscal_rfc` |
-| Total debe | `response.amount_pending` |
-| # órdenes | `response.pending_order_count` |
+| Total debe MXN | `response.amount_pending_mxn` |
+| Total debe USD | `response.amount_pending_usd` |
+| # órdenes | `response.pending_order_count`, `pending_order_count_mxn`, `pending_order_count_usd` |
 | Filas | `response.orders[]` |
+| Moneda de la OV | `orders[i].currency` (`MXN` o `USD`). El `total` está en esa moneda |
 | Folio | `orders[i].folio` |
 | ID detalle | `orders[i].id` |
 | Vendedor | `orders[i].seller_user` |
@@ -559,9 +735,10 @@ Card resumen debajo o al lado de las terminales de venta:
 | Total cobrado | `amount_collected` | Suma MXN de `pos_sale_collections` | (opcional) mismo modal `all` |
 | Público en General | `walk_in_count` | Cobro a mostrador **sin** CFDI timbrado | Abrir modal con `customer_type=walk_in` |
 | Facturadas | `invoiced_count` | Orden con CFDI timbrado (`stamp_status` stamped / cancel_pending / cancelled) | Abrir modal con `customer_type=invoiced` |
-| Cortes globales | `daily_shifts_count` | Cortes del día abiertos/cerrados en el periodo | (opcional) link a historial POS |
-| Cortes parciales | `partial_shifts_count` | Retiros parciales en el periodo | (opcional) link a historial POS |
-| Corte abierto | `open_daily_shift` | Corte global actual de la sucursal | Chip si `status === 'open'`. Si `is_previous_day === true`, chip rojo “Sin cerrar desde {shift_date}” |
+| Crédito | `credit_count` | Cobros con importe a crédito | El chip Crédito del modal manda `payment_method=credit` |
+| Cortes globales | `daily_shifts_count` | Cortes del día abiertos/cerrados en el periodo | Click → listado consultable (`GET pos-daily-shifts`) |
+| Cortes parciales | `partial_shifts_count` | Retiros parciales en el periodo | Click → listado de parciales; **Ver corte** abre el detalle |
+| Corte abierto | `open_daily_shift` | Corte `open` cuya `shift_date` cae en el día o rango consultado. Un corte abierto de otro día no se pinta aquí | Click → mismo listado y abre el detalle. Si `is_previous_day === true`, chip rojo “Sin cerrar desde {shift_date}” |
 
 **Definición "facturada" vs "Público en General":**
 
@@ -573,7 +750,7 @@ Card resumen debajo o al lado de las terminales de venta:
 
 > **Importante:** ya no basta con que el cliente sea distinto de “Público en General”. **Facturada** = timbrado real en `electronic_invoices`.
 
-> **Nota:** este conteo usa fecha de **cobro**, no de venta. Puede ser mayor que `# VENTAS` de una terminal (órdenes vendidas antes y cobradas en el periodo, u otras terminales).
+> **Nota:** el total cobrado es del **corte de ese día** (`pos_daily_shifts.shift_date`). Un cobro hecho después de medianoche sobre el corte de ayer sigue en el corte de ayer y no entra en Hoy. La hora de la orden se muestra en `America/Tijuana`. `YYYY-MM-DD` no se parsea con `new Date`, porque en esta zona eso cae en el día anterior.
 
 #### 1C) Detalle al click en card de cobranza
 
@@ -593,6 +770,7 @@ GET /api/tenant/accounting/pos-collections
 | `period` | No (default `month`) | `today`, `week`, `month`, `range` |
 | `date_from` / `date_to` | Si `period=range` | ISO date |
 | `customer_type` | No (default `all`) | `all`, `walk_in`, `invoiced` |
+| `payment_method` | No | `cash`, `transfer`, `card`, `check`, `credit` |
 | `page` / `limit` | No | Paginación |
 
 **Qué leer:**
@@ -604,6 +782,7 @@ GET /api/tenant/accounting/pos-collections
 | Filas | `response.data[]` |
 | Folio / ID orden | `data[i].folio` / `data[i].id` |
 | Fecha venta | `data[i].created_at` |
+| Fecha pago | `data[i].payment_date` | Día del abono (`YYYY-MM-DD`). `null` si aún no hay pago |
 | Fecha cobro | `data[i].collected_at` |
 | Cliente empresa | `data[i].customer_company_name` |
 | Cliente persona | `data[i].customer_person_name` |
@@ -612,6 +791,8 @@ GET /api/tenant/accounting/pos-collections
 | Vendedor | `data[i].seller_user` |
 | Cajero | `data[i].collected_by_user` |
 | Método pago | `data[i].payment_method` |
+| Etiqueta método | `data[i].payment_method_label` | `Efectivo`, `Tarjeta`, `Mixto` |
+| Detalle mixto | `data[i].payment_breakdown_label` | `Efectivo + Tarjeta`. Igual al label si es una sola forma |
 | Total | `data[i].total` |
 | Estatus pago | `data[i].payment_status` |
 
@@ -624,8 +805,8 @@ GET /api/tenant/accounting/pos-collections
 ├─────────────────────────────────────────────────────────────┤
 │ [ Todas (7) ]  [ Público en General (2) ]  [ Facturadas (5)]│
 ├─────────────────────────────────────────────────────────────┤
-│ FOLIO      FECHA VENTA  FECHA COBRO  CLIENTE  TOTAL  PAGO  │
-│ OSV-000010 25 jun 2026  25 jun 2026  Sinergy  $12.95 Pagado │
+│ FOLIO      FECHA VENTA  FECHA PAGO   FECHA COBRO  CLIENTE  TOTAL  PAGO  │
+│ OSV-000010 25 jun 2026  25 jun 2026  25 jun 2026  Sinergy  $12.95 Pagado │
 │ ...                                                         │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -637,18 +818,21 @@ GET /api/tenant/accounting/pos-collections
 | Todas | `all` | `orders_collected` |
 | Público en General | `walk_in` | `walk_in_count` |
 | Facturadas | `invoiced` | `invoiced_count` |
+| Crédito | `payment_method=credit` | `collection_terminal.credit_count` |
 
-Al cambiar chip → volver a llamar `pos-collections` con el mismo periodo/sucursal y el nuevo `customer_type`.
+Crédito no reemplaza el tipo de cliente: se puede ver, por ejemplo, facturadas a crédito. El ícono va en cada chip. Al cambiar chip de cliente → volver a llamar `pos-collections` con el mismo periodo/sucursal y el nuevo `customer_type`.
 
 **Columnas sugeridas:**
 
 | Columna | Campo |
 |---------|-------|
-| Folio | `folio` (click → `GET /sales-orders/{id}`) |
+| Folio | `folio` (click → `GET /sales-orders/{id}`). Si `total` > 0, el ojo abre `GET /sales-orders/{id}/ticket-recibo` |
 | Fecha venta | `created_at` |
+| Fecha pago | `payment_date` (último abono; vacío si la orden sigue sin pago) |
 | Fecha cobro | `collected_at` (útil para ver por qué hay más cobros que ventas) |
 | Cliente | 2 líneas: `customer_company_name` arriba, `customer_person_name` abajo; chip Mostrador si `is_walk_in` |
-| Vendedor | `seller_user.first_name` + `last_name` + `(pos_user_code)` |
+| Vendedor | `seller_user.first_name` + `last_name` (sin código) |
+| Cajero | `collected_by_user.first_name` + `last_name` (sin código) |
 | Total | `total` |
 | Estatus pago | `payment_status` |
 
@@ -691,48 +875,116 @@ openCollectionsModal('invoiced');
 
 ---
 
+## Tab — Cobranza POS (todas las órdenes por sucursal)
+
+Vista de listado (no modal). Sucursal obligatoria, **Descargar Excel**. El periodo se aplica a la **fecha de cobro** (`America/Tijuana`), no a la fecha del corte: un cobro del 5 de octubre no entra en el rango del 29 aunque el corte siga abierto desde ese día. `shift_date` viaja en la fila para mostrarlo cuando no coincide con el cobro.
+
+```
+GET /api/tenant/accounting/pos-collections
+  ?billing_branch_id={uuid}
+  &period=range
+  &date_from=2026-09-29
+  &date_to=2026-09-29
+  &date_basis=collected
+  &customer_type=all
+  &credit_scope=paid
+  &search=OV-000123
+  &page=1&limit=20
+```
+
+| Query | Requerido | Notas |
+|-------|-----------|-------|
+| `billing_branch_id` | Sí | Sucursal del corte donde se cobró |
+| `period` | No (default `month`) | `today`, `week`, `month`, `range` |
+| `date_from` / `date_to` | Si `period=range` | ISO date |
+| `date_basis` | No (default `shift`) | En esta pestaña enviar `collected`. `shift` queda para el modal de Puntos de venta |
+| `customer_type` | No | `all`, `walk_in`, `invoiced` |
+| `payment_method` | No | `cash`, `transfer`, `card`, `check`, `credit`. Se combina con el tipo de cliente |
+| `credit_scope` | No | `paid` en esta pestaña: todas las ventas cobradas y, de crédito, solo abonos. Sin el parámetro el listado sigue trayendo también el cargo a crédito |
+| `for_shipping` | No | `true` deja solo ventas marcadas para envío. `summary.shipping_count` y `summary.shipping_amount` no cambian con ese filtro |
+| `search` | No | Folio, cliente, nombre/RFC de mostrador |
+| `page` / `limit` | No | Paginación |
+
+`summary` (ignora chip y búsqueda): `orders_collected`, `amount_collected`, `walk_in_count`, `invoiced_count`, `by_payment_method`. `filtered_amount` respeta chip y búsqueda. `filters_applied.date_from` / `date_to` es el rango que aplicó el servidor. `data[i].billing_branch`: `{ id, code, city, label }` de la venta (si no hay, almacén y luego sucursal del corte).
+
+`by_payment_method` (2026-11-03, `credit_scope=paid`): `{ cash, transfer, card, check, credit }`. Cada uno: `orders`, `amount` (MXN) y `ticket`. Efectivo, transferencia, tarjeta y cheque suman el importe de esa forma, incluidos los abonos pagados así. Un mixto reparte el monto. Crédito cuenta solo abonos ya cobrados (el mismo importe también está en la forma con que se pagó). El cargo a crédito sin abono no entra. Las tarjetas las muestra la pestaña a quien tiene `Accounting:Read`.
+
+`payment_method` (opcional): `cash | transfer | card | check | credit`. Filtra la lista, `filtered_amount` y el Excel. `summary` no cambia: las columnas y los conteos de los chips siguen siendo del periodo completo. Sin valor, entran todas las formas. Volver a pulsar la forma activa la quita.
+
+**UI:** tarjetas de Efectivo, Transferencia, Tarjeta, Cheque y Crédito (Ventas, Monto, Ticket) y chips Todas / Público en General / Facturadas. Pulsar una tarjeta filtra `payment_method`; volver a pulsarla lo quita. Buscador y tabla: folio, fechas, sucursal, cliente, vendedor y cajero, pago con badge. Si es mixto, debajo van las formas (`payment_breakdown_label`). Si la fila es un abono, lleva la etiqueta Abono y `total` es el importe de ese pago; `id` es el pago y `sales_order_id` abre la orden. Click folio → detalle de OV. Si `total` es mayor a 0, el ojo abre el ticket. `payment_date` del abono es el día de ese pago.
+
+Pago (2026-11-02): el badge usa `payment_method_label`. Si el cobro de POS Caja es mixto, debajo va `payment_breakdown_label` (`Efectivo + Tarjeta`, `Tarjeta + Cheque`, `Tarjeta + Tarjeta`, etc.). Una sola forma no repite el texto. El Excel escribe ese detalle en Método de pago.
+
+**Excel (mismos filtros, sin paginación):**
+
+```
+GET /api/tenant/accounting/pos-collections/export/excel
+  ?billing_branch_id={uuid}&period=month&customer_type=all
+```
+
+Respuesta: `.xlsx` (`cobranza-pos-YYYY-MM-DD.xlsx`). Columnas: Folio, Venta (Anticipo, Crédito o Contado), Sucursal, Fecha venta, Fecha pago, Fecha cobro, Fecha corte, Cliente, RFC ticket, Tipo, Vendedor, Cajero, Método de pago, Total, Anticipo, Pendiente, Estatus pago, Para envío. En un abono, Método de pago lleva `Abono ·` más la forma (`Abono · Efectivo`) y Total es el importe de ese pago. Un mixto usa el desglose (`Efectivo + Tarjeta`). La pestaña manda `credit_scope=paid`.
+
+---
+
 ## Tab 2 — Cuentas por pagar
 
-No usa filtro de fecha ni sucursal (saldo global del tenant).
+No filtra por sucursal. Mes y Rango recortan las órdenes pendientes por su fecha de alta. Sin `period`, el saldo es el completo.
 
 ### API lista
 
 ```
 GET /api/tenant/accounting/accounts-payable
   ?search=proveedor
+  &currency=all
+  &period=month
   &page=1&limit=20
 ```
 
+`currency`: `all` (default), `mxn` o `usd`. `period`: `month` o `range` (`date_from`, `date_to`).
+
 ### UI
 
+Tres vistas, una a la vez: **Ambos**, **Pesos**, **Dólares**. Cada una descarga su Excel.
+
 ```
-┌──────────────────────────────────────────┐
-│  🔍 Buscar por nombre o razón social     │
-├──────────────────────────────────────────┤
-│  Proveedor          Debe        Progreso │
-│  Maderas del Norte  $45,000     ████░░   │
-│  Ferretería XYZ     $12,300     ██░░░░   │
-└──────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│  [ Ambos | Pesos | Dólares ]                      [ Descargar Excel ]│
+├──────────────────────────────────────────────────────────────────────┤
+│  Razón social  Adeudado MXN    Adeudado USD    TC      Total MXN   Progreso │
+│  Maderas SA    $45,000  3 OC   US$1,200  1 OC  16.80   $65,160     MXN ██   │
+└──────────────────────────────────────────────────────────────────────┘
 ```
+
+Tarjetas: proveedores con saldo, adeudado en pesos, adeudado en dólares y **Total en pesos** (con el TC del día).
 
 | Columna | Campo | Notas |
 |---------|-------|-------|
-| Proveedor | `vendor_name` / `razon_social` / `company_name` | Mostrar el más descriptivo disponible |
-| # OC pendientes | `pending_order_count` | |
-| Monto adeudado | `amount_pending` | MXN |
-| Progress bar | `progress_percentage` | Ver abajo |
+| Razón social | `razon_social` / `company_name` / `vendor_name` | Click abre las OC pendientes del periodo. El nombre comercial va debajo |
+| Monto adeudado en pesos | `amount_pending_mxn` | Badge `pending_order_count_mxn` OC. Solo en Ambos y Pesos |
+| Monto adeudado en dólares | `amount_pending_usd` | Badge `pending_order_count_usd` OC. Solo en Ambos y Dólares |
+| Tipo de cambio | `summary.exchange_rate` | TC USD→MXN del día. Misma cifra en todas las filas |
+| Total en pesos | `amount_pending_total_mxn` | Ambos: MXN + USD × TC. Pesos: solo MXN. Dólares: USD × TC |
+| Progreso | `progress_percentage_mxn` / `progress_percentage_usd` | Ambos: dos barras. Pesos o Dólares: una barra |
 
 **Progress bar:**
 
-- Si el proveedor tiene `credit_limit` → `amount_pending / credit_limit * 100`
-- Si no → `amount_pending / total_committed * 100` (pendiente vs total comprometido en OCs abiertas)
-- Color sugerido: verde < 50%, amarillo 50–80%, rojo > 80%
+- MXN: si el proveedor tiene `credit_limit` → `amount_pending_mxn / credit_limit * 100`. Si no → `amount_pending_mxn / total_committed_mxn * 100`
+- USD: `amount_pending_usd / total_committed_usd * 100`. El límite de crédito no tiene moneda, así que no se usa en dólares
+- Color: verde < 50%, amarillo 50–80%, rojo > 80%
 
-**Search:** filtra por `name`, `razon_social` o `company_name` del proveedor (debounce 300ms).
+**Search:** filtra por `name`, `razon_social` o `company_name` del proveedor (debounce 300ms). La descarga respeta la búsqueda, la vista activa y el periodo.
 
-### Detalle proveedor (drawer o modal)
+**Excel:**
 
-Click en fila:
+```
+GET /api/tenant/accounting/accounts-payable/export/excel?currency=all
+```
+
+En `all`, la primera hoja es **Ambos** (pesos, dólares y total al tipo de cambio del sistema) y siguen **Pesos MXN** y **Dólares USD**. En `mxn` o `usd`, una sola hoja. Arriba de cada hoja va el tipo de cambio del sistema y su fecha.
+
+### Detalle proveedor (modal)
+
+Click en fila abre un modal en la misma pantalla de Cobranza:
 
 ```
 GET /api/tenant/accounting/accounts-payable/vendors/{vendorId}
@@ -740,10 +992,10 @@ GET /api/tenant/accounting/accounts-payable/vendors/{vendorId}
 
 Tabla de órdenes de compra pendientes:
 
-| Folio OC | Fecha | Entrega esperada | Pagado | Pendiente | Estatus |
-|----------|-------|------------------|--------|-----------|---------|
+| Folio OC | Fecha | Entrega esperada | Moneda | Pagado | Pendiente | Estatus |
+|----------|-------|------------------|--------|--------|-----------|---------|
 
-Link folio → pantalla existente de Purchase Orders (`/purchase-orders/{id}`).
+Link folio → modal de detalle de la orden de compra (no cambia de ruta).
 
 ---
 
@@ -759,29 +1011,42 @@ Opcional: filtrar por sucursal con el mismo dropdown superior (`billing_branch_i
 GET /api/tenant/accounting/accounts-receivable
   ?billing_branch_id={uuid}   (opcional)
   &search=ROMR960614
+  &currency=all
   &page=1&limit=20
 ```
 
+`currency`: `all` (default), `mxn` o `usd`.
+
 ### UI
 
+El buscador va en la barra superior, **a la izquierda de Sucursal**. En la pestaña: **Ambos / Pesos / Dólares** y **Descargar Excel**. No hay enlace a flujo de deuda en esta vista: esa sección es la pestaña **Flujo de deuda**.
+
 ```
-┌────────────────────────────────────────────────────────┐
-│  🔍 Buscar por razón social o RFC                      │
-├────────────────────────────────────────────────────────┤
-│  Razón social              RFC           # Órdenes  Debe │
-│  CONSTRUCTORA ROMERO SA    ROMR9606149GA   3      $28,500│
-│  FERRETERIA LA ESQUINA     FEL850101ABC    1       $4,200│
-└────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│  [ Ambos | Pesos | Dólares ]                      [ Descargar Excel ]│
+├──────────────────────────────────────────────────────────────────────┤
+│  Razón social              Pesos          Dólares     TC    Total  │
+│  ROMERO SA                $28,500  2 OV  US$100  1 OV 16.80 $30,180│
+│  [ROMR960614]                                                      │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
-| Columna | Campo |
-|---------|-------|
-| Razón social | `razon_social` |
-| RFC | `fiscal_rfc` |
-| # Órdenes | `pending_order_count` |
-| Adeudo | `amount_pending` |
+Tarjetas: cuentas con saldo, por cobrar en pesos, por cobrar en dólares y **Total en pesos** (con el TC del sistema).
 
-**Search:** filtra por razón social o RFC.
+| Columna | Campo | Notas |
+|---------|-------|-------|
+| Razón social | `razon_social` | Texto compacto. El clic en cualquier columna de la fila abre las OV pendientes |
+| RFC | `fiscal_rfc` | Badge debajo de la razón social. Sin RFC: «Sin RFC» |
+| Por cobrar en pesos | `amount_pending_mxn` | Badge `pending_order_count_mxn` OV. Solo en Ambos y Pesos |
+| Por cobrar en dólares | `amount_pending_usd` | Badge `pending_order_count_usd` OV. Solo en Ambos y Dólares |
+| Tipo de cambio | `summary.exchange_rate` | TC USD→MXN del sistema |
+| Total en pesos | `amount_pending_total_mxn` | Ambos: MXN + USD × TC. Pesos: solo MXN. Dólares: USD × TC |
+
+**Search:** filtra por razón social o RFC. La descarga respeta la búsqueda, la sucursal y la vista activa.
+
+**Excel** `GET /tenant/accounting/accounts-receivable/export/excel?currency=all`. En `all`, la primera hoja es **Ambos**, sigue **Ambos detallado** y después **Pesos MXN** y **Dólares USD**. Arriba de cada hoja va el tipo de cambio del sistema.
+
+**Ambos detallado** (también en cuentas por pagar): razón social, fecha, folio, factura, tipo de pago, moneda y monto. Las órdenes de la misma razón social van juntas, de la más antigua a la más reciente. En cobrar, la factura es el folio fiscal timbrado y el tipo de pago sale de los cobros (o Crédito / Pendiente). En pagar, la factura es el número de factura del proveedor y el tipo de pago sale de los abonos de la OC.
 
 **Excluidos del listado:** clientes mostrador (`Público en General` / `VENTA DE MOSTRADOR`) y órdenes canceladas o en cola.
 
@@ -798,13 +1063,15 @@ Header del drawer:
 
 - Razón social
 - RFC
-- Total adeudado (`amount_pending`)
-- Cantidad de órdenes (`pending_order_count`)
+- Adeudo MXN (`amount_pending_mxn`) y USD (`amount_pending_usd`)
+- Cantidad de órdenes por moneda
 
 Tabla de órdenes:
 
-| Folio | Fecha | Cliente | Vendedor | Total | Entrega |
-|-------|-------|---------|----------|-------|---------|
+| Folio | Fecha | Cliente | Vendedor | Moneda | Total | Entrega |
+|-------|-------|---------|----------|--------|-------|---------|
+
+`orders[i].currency` es `MXN` o `USD`. `orders[i].total` está en esa moneda.
 
 - **Click folio** → detalle sales order existente.
 
@@ -919,12 +1186,68 @@ Si no se envía `seller_user_id`, el backend responde 400.
 | POS resumen | `GET /tenant/accounting/pos-summary` | Accounting:Read |
 | POS detalle terminal | `GET /tenant/accounting/pos-terminals/:id/sales` | Accounting:Read |
 | POS órdenes cobradas | `GET /tenant/accounting/pos-collections` | Accounting:Read |
+| POS cobranza Excel | `GET /tenant/accounting/pos-collections/export/excel` | Accounting:Read |
+| POS cortes sucursal | `GET /tenant/accounting/pos-daily-shifts` | Accounting:Read |
+| POS detalle corte | `GET /tenant/accounting/pos-daily-shifts/:id` | Accounting:Read |
 | CxP lista | `GET /tenant/accounting/accounts-payable` | Accounting:Read |
+| CxP Excel | `GET /tenant/accounting/accounts-payable/export/excel` | Accounting:Read |
 | CxP detalle | `GET /tenant/accounting/accounts-payable/vendors/:vendorId` | Accounting:Read |
 | CxC lista | `GET /tenant/accounting/accounts-receivable` | Accounting:Read |
+| CxC Excel | `GET /tenant/accounting/accounts-receivable/export/excel` | Accounting:Read |
 | CxC detalle | `GET /tenant/accounting/accounts-receivable/by-razon-social/:razonSocial/orders` | Accounting:Read |
+| Ventas a costo promedio | `GET /tenant/accounting/average-cost-report` | Accounting:Read |
+| Ventas a costo promedio Excel | `GET /tenant/accounting/average-cost-report/export/excel` | Accounting:Read |
 | Sucursales | `GET /tenant/billing/branches` | FiscalConfiguration:Read |
 | Detalle OV | `GET /tenant/sales-orders/:id` | SalesOrders existente |
+
+---
+
+## Rep. Vent. Cost. Prom
+
+Pestaña `average-cost`. Título corto en el menú: **Rep. Vent. Cost. Prom**. Usa la sucursal y el periodo de Cobranza (hoy, semana, mes o rango).
+
+Una fila por documento de venta cobrado o a crédito. El costo es la salida del kardex de esa orden, al costo del lote. Si el kardex no trae costo unitario, se usa el costo del lote (costo real en pesos, o el costo de compra). Si el lote tampoco tiene costo, se usa el costo promedio del producto en pesos. Si la orden está cancelada, el reporte deja el documento original y agrega la cancelación: el importe sigue positivo y el impuesto, el total de venta y el costo van en negativo.
+
+| Tipo | Documento |
+|------|-----------|
+| 1 | Recibo. Venta de contado sin factura timbrada |
+| 2 | Dev. efectivo. Reservado; este reporte no lo emite |
+| 3 | Cancelación de recibo |
+| 5 | Recibo a crédito, sin factura timbrada |
+| 6 | Factura. Hay CFDI de ingreso timbrado (también si después se canceló) |
+| 7 | Nota de crédito. El importe, el impuesto y el total van en negativo |
+| 8 | Cancelación de factura |
+| 9 | Cancelación de nota de crédito. Revierte la nota |
+| 18 | Apartado. Reservado; este reporte no lo emite |
+| 19 | Abono o anticipo. CFDI de anticipo, sin costo de inventario |
+
+| Estatus | Significado |
+|---------|-------------|
+| 1 | Contado |
+| 2 | Crédito, saldo abierto |
+| 3 | Cancelado |
+| 4 | Pagado. Era crédito y ya se liquidó |
+| 5 | Devolución. Nota de crédito |
+
+| Columna | Origen |
+|---------|--------|
+| Cliente | Razón social de la orden, o el nombre de mostrador |
+| Documento | Folio de la orden. En nota y anticipo, serie y folio del CFDI |
+| Fecha | Día de la venta en America/Tijuana. La cancelación usa el día en que se canceló |
+| Importe | Subtotal, antes de descuento e impuesto |
+| Descto | Descuento de línea más descuento global |
+| Impuesto | IVA + IEPS |
+| Moneda | Moneda original. `MXN`, o `USD` con el tipo de cambio de esa venta |
+| Total venta | Total del documento, convertido a pesos con el tipo de cambio de esa venta |
+| Total costo | Costo MXN del kardex (`sale` o `sale_reversal`). Si el snapshot viene en cero, costo del lote; si el lote no tiene costo, costo promedio del producto en pesos |
+| Margen | Precio sin impuesto − costo. `margin_amount` en pesos y `margin_percent` sobre ese precio. Null si el precio sin impuesto es 0 |
+
+La utilidad del resumen es total de venta − impuesto − costo. `summary.margin_percent` es esa utilidad sobre el precio sin impuesto. Importe, descuento, impuesto, total, costo y margen van en pesos. `source_currency` y `exchange_rate` dicen si el documento nació en dólares y con qué tasa se convirtió. Si la venta en dólares no trae tasa, se usa la del día de esa venta. Sin tasa, el importe se queda en dólares y el resumen marca `has_foreign_currency`.
+
+| Acción | Endpoint |
+|--------|----------|
+| Lista | `GET /tenant/accounting/average-cost-report?billing_branch_id&period&date_from&date_to&page&limit&search` |
+| Excel | `GET /tenant/accounting/average-cost-report/export/excel` con los mismos filtros |
 
 ---
 
@@ -934,8 +1257,21 @@ Si no se envía `seller_user_id`, el backend responde 400.
 - [ ] Componente periodo reutilizado de Reporte Ventas Zona Norte
 - [ ] Dropdown sucursal con `billing-branches/all`
 - [ ] Tab 1: tabla terminales + card cobranza + drill-down ventas y órdenes cobradas (`pos-collections` con filtro `customer_type`)
-- [ ] Tab 2: search proveedores + progress bar + detalle OCs
-- [ ] Tab 3: lista por razón social + drawer con órdenes pendientes
+- [ ] Tab Cobranza POS: listado de todas las órdenes cobradas por sucursal + periodo + **Descargar Excel**
+- [ ] Tab CxP: vistas Ambos / Pesos / Dólares, badge de OC en el monto, dos barras en Ambos y Excel por vista
+- [ ] Tab CxC: lista por razón social + drawer con órdenes pendientes
 - [ ] Detalle sales order: mostrar `seller_user`, `terminal_user`, `collected_by_user`
 - [ ] Reporte ventas: validar columna vendedor post-fix backend
 - [ ] POS ventas: confirmar envío de `seller_user_id` en create
+
+---
+
+## Cambios — 2026-10-14
+
+Cuentas por cobrar: el buscador quedó a la izquierda de la sucursal. Se quitó el enlace «Ver flujo de deuda» de esa vista; la pestaña superior ya abre el flujo.
+
+Rep. Vent. Cost. Prom: la pestaña de Cobranza lista ventas a costo promedio (cliente, documento, fecha, tipo, estatus, importe, descuento, impuesto, total de venta y costo). Ya no es el listado de artículos con pedimento.
+
+Rep. Vent. Cost. Prom: cada línea trae `margin_amount` y `margin_percent` (precio sin impuesto − costo). El tipo y el estatus se muestran como badge. Si el kardex no tiene costo unitario, el costo sale del lote; si el lote tampoco tiene, del costo promedio del producto en pesos.
+
+Rep. Vent. Cost. Prom: la columna Moneda muestra `MXN` o `USD` con el tipo de cambio de esa venta. Importe, descuento, impuesto, total, costo y margen van convertidos a pesos.

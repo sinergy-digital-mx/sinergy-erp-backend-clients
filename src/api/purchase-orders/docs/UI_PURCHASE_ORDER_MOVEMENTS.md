@@ -1,6 +1,16 @@
 # UI — Historial de movimientos de la orden de compra
 
-Contrato para Pollux. Tab nuevo en el detalle de la OC, a la derecha de **Pagos**: **Historial de movimientos**.
+## 2026-10-09 — presentación
+
+El tab es una línea de tiempo, agrupada por día en `America/Tijuana`.
+
+- Día: **Hoy**, **Ayer**, o `7 de agosto` (con el año si no es el actual).
+- Hora: `2:35 p.m.` El tooltip lleva la fecha completa.
+- Filtros: chips con conteo, no un select.
+- Badge de color por `type`.
+- El texto que se pinta sale de `description`, limpio en el cliente: códigos `DOCUMENTO_ORIGINAL` / `RECEPCIÓN`, el nombre del PDF generado, ceros de más (`1.000` → `1`) y `lote(s)`. Los `changes` se pintan tal cual. El API no cambia.
+
+Contrato para Pollux. Tab en el detalle de la OC, a la derecha de **Pagos**: **Historial de movimientos**.
 
 Cubre creación, estatus, cambios de producto/precio/IVA, notas, pedimento, recibo, migraciones de lote, documentos, pagos, ajustes de inventario y salidas por venta. Quién y cuándo en cada fila.
 
@@ -36,10 +46,10 @@ Orden: **más reciente primero**.
 | Título | `title` (ya en español) |
 | Texto | `description` |
 | Usuario | `actor_name` (si null: `—`) |
-| Fecha | `occurred_at` |
+| Fecha | `occurred_at` (UTC). Pintar en `America/Tijuana`: día humano + hora `2:35 p.m.` |
 | Diff | `changes[]` si `length > 0` |
 
-No construyas el copy en el cliente. Pinta `title` + `description`.
+Pinta `description` (con la limpieza de arriba). `title` solo si no hay descripción.
 
 ---
 
@@ -114,19 +124,14 @@ No es obligatorio pintarlo. Útil si la fila se abre:
 Timeline vertical (igual que actividades de cliente):
 
 ```
-●  Cambio de estatus · María López · 31/08/2026 11:04
-   La orden pasó de Creada a Recibida.
-   Estatus  Creada → Recibida
+7 de agosto
 
-●  Lote migrado · Ana · 12/01/2026 10:00
-   Se migraron 1314.000 del lote MZN-CTIJ-BDG-00005 al lote MZN-CTR-BDG-01493
-   (Torreón · Bodega Torreón). Folio TRF-000010.
+2:35 p.m.   [Salida por venta]
+            Salieron 1 del lote F-LOTE-000001 por la venta OSV-000003.
+            RP  Rodolfo Pruebas
 
-●  Documento generado · Sistema · 10/01/2026 09:12
-   Se generó DOCUMENTO_ORIGINAL (DOCUMENTO_ORIGINAL_ODC-000020_es.pdf).
-
-●  Orden creada · Miguel Arriaga · 10/01/2026 09:00
-   Se creó la orden ODC-000020 para TURMAN MERCER SAWMILLS.
+12:48 p.m.  [Documento generado]
+            Se generó el PDF original.
 ```
 
 Vacío: *Sin movimientos.* No debería pasar: siempre hay `created`.

@@ -1,5 +1,7 @@
 # UI — Vendedor vs Comisionado en la orden de venta
 
+Cambio 2026-10-10: `PATCH /seller` y `PATCH /assigned-seller` responden el mismo detalle que `GET /sales-orders/:id` (`data.header.seller_user` y `data.header.assigned_seller_user`).
+
 En el detalle hay **dos personas distintas**. No uses “Vendedor asignado” en la OV: se confunde con Vendedor.
 
 | UI | Campo API | Qué es |

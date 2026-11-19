@@ -6,7 +6,9 @@ Cada solicitud terminada entra en **Pendientes**. `npm run deploy:both` y `npm r
 
 ## Pendientes
 
-No hay solicitudes pendientes de deploy.
+- **2026-11-12** · servidor · Se configuró el punto de venta de verdulería en la sucursal TIJ-1: terminal de ventas, terminal de caja y vendedor de prueba con código 1001, con el rol de madería.
+- **2026-11-13** · aplicación y servidor · Rutas de reparto por organización, apagadas hasta activarlas. La orden hereda la ruta del cliente, pide fecha tentativa solo si requiere envío, y lo mismo aplica en el alta admin, POS Ventas y POS Caja.
+- **2026-11-18** · aplicación y servidor · En la configuración del alta de órdenes, el valor por defecto de la fecha solo ofrecía Hoy y se cortaba si había un día fijo. Quedó la opción Fecha fija y se muestra el día guardado.
 
 ## Enviados
 

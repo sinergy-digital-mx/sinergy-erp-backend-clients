@@ -2,6 +2,7 @@ import {
   buildUnclosedShiftAlert,
   getTodayDateString,
   isPreviousDayOpenShift,
+  resolvePosCalendarRange,
 } from './unclosed-shift-alert';
 
 describe('unclosed-shift-alert', () => {
@@ -57,12 +58,43 @@ describe('unclosed-shift-alert', () => {
     );
   });
 
-  it('formats today as YYYY-MM-DD in America/Mexico_City', () => {
+  it('keeps a picked calendar day instead of shifting YYYY-MM-DD through UTC', () => {
+    expect(resolvePosCalendarRange('range', '2026-10-01', '2026-10-01')).toEqual({
+      from: '2026-10-01',
+      to: '2026-10-01',
+    });
+  });
+
+  it('keeps Hoy on the POS calendar day even after midnight UTC', () => {
+    const lateUtc = new Date('2026-09-27T05:30:00.000Z');
+    expect(resolvePosCalendarRange('today', undefined, undefined, lateUtc)).toEqual({
+      from: '2026-09-26',
+      to: '2026-09-26',
+    });
+  });
+
+  it('starts the week on Monday of the POS calendar', () => {
+    const saturday = new Date('2026-09-26T20:00:00.000Z');
+    expect(resolvePosCalendarRange('week', undefined, undefined, saturday)).toEqual({
+      from: '2026-09-21',
+      to: '2026-09-26',
+    });
+    expect(resolvePosCalendarRange('month', undefined, undefined, saturday)).toEqual({
+      from: '2026-09-01',
+      to: '2026-09-26',
+    });
+  });
+
+  it('formats today as YYYY-MM-DD in America/Tijuana', () => {
     expect(getTodayDateString(new Date('2026-08-17T18:50:00.000Z'))).toBe(
       '2026-08-17',
     );
     expect(getTodayDateString(new Date('2026-08-18T04:00:00.000Z'))).toBe(
       '2026-08-17',
+    );
+    // 06:30 UTC ya es el día siguiente en Ciudad de México y sigue siendo el mismo día en Tijuana.
+    expect(getTodayDateString(new Date('2026-10-02T06:30:00.000Z'))).toBe(
+      '2026-10-01',
     );
   });
 });

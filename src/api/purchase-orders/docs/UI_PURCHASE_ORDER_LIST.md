@@ -1,5 +1,12 @@
 # UI — Órdenes de compra (razón → sucursal → almacén)
 
+## Cambios
+
+- 2026-11-10: Al abrir el listado, **Razón social** y **Sucursal** quedan en la sucursal principal del usuario. Limpiar filtros muestra todas.
+- 2026-11-02: El pedimento de la OC se valida con 15 dígitos y se guarda con la máscara `26  47  3807  6000123`.
+- 2026-10-19: La columna **Total** usa `payable_total`. Con costo real es el total factura de la moneda de pago (lo que se le paga al proveedor). Sin costo real es el total de catálogo: recibido si la OC está Recibida, solicitado si no.
+- 2026-10-15: La tabla del listado hace scroll horizontal dentro de la tarjeta. Pago y Fecha quedan a la derecha; la barra va abajo de las columnas, no en la página ni en el menú.
+
 Contrato para Pollux. A diferencia de OV, la OC **sí tiene almacén destino**. Crear, listar y detalle muestran el árbol **razón social → sucursal → almacén**.
 
 ---
@@ -20,34 +27,41 @@ Moneda de la OC (`payment_currency` MXN | USD): badge, no mezclar productos, y s
 
 ### Combos
 
-**Razón social**
+Un solo catálogo (no requiere permiso de Configuración fiscal):
 
 ```
-GET /api/tenant/fiscal-configurations?status=active&limit=100
+GET /api/tenant/purchase-orders/locations
 ```
 
-Label: `razon_social` · Value: `id`  
-Placeholder: `Selecciona una razón social`  
-Sucursal y almacén **deshabilitados** hasta elegir razón.
-
-**Sucursal** (solo de la razón)
-
+```json
+{
+  "data": [
+    {
+      "id": "uuid-razon",
+      "razon_social": "MADERERIA ZONA NORTE",
+      "rfc": "MZN010101XXX",
+      "status": "active",
+      "branches": [
+        {
+          "id": "uuid-sucursal",
+          "name": "Ensenada",
+          "status": 1,
+          "warehouses": [{ "id": "uuid-almacen", "name": "CEDIS Bodega Ensenada", "status": "active" }]
+        }
+      ]
+    }
+  ],
+  "unassigned_warehouses": [{ "id": "uuid", "name": "Bodega sin sucursal", "status": "active" }]
+}
 ```
-GET /api/tenant/fiscal-configurations/{fiscalConfigId}/branches
-```
 
-Label: `code` (ej. `SUCURSAL BUENOS AIRES`) · Value: `id`  
-Placeholder: `Selecciona una sucursal`  
-Almacén **deshabilitado** hasta elegir sucursal.
+**Razón social** — Label: `razon_social` · Value: `id` · solo `status === 'active'`.  
+**Sucursal** — Label: `name` · Value: `id` · solo `status === 1`.  
+**Almacén** — Label: `name` · Value: `id` · solo `status === 'active'` de esa sucursal.
 
-**Almacén** (solo de la sucursal)
+Buscador **Buscar almacén** (ej. CEDIS Bodega Ensenada): si el almacén tiene sucursal, llena razón + sucursal + almacén. Si está en `unassigned_warehouses`, avisar: *no tiene sucursal ni razón social; asígnala en Configuración → Almacenes*.
 
-```
-GET /api/tenant/warehouses?billing_branch_id={branchId}&status=active&limit=100
-```
-
-Label: `name` · Value: `id`  
-Placeholder: `Selecciona un almacén`
+Sucursal y almacén **deshabilitados** hasta elegir el padre. No uses `GET /fiscal-configurations` ni `GET /warehouses` en este modal.
 
 ### Cascada
 
@@ -70,16 +84,16 @@ POST /api/tenant/purchase-orders
   "expected_delivery_date": "2026-08-20",
   "payment_currency": "MXN",
   "notes": "opcional",
-  "pedimento_number": "162430010001234",
+  "pedimento_number": "26  47  3807  6000123",
   "line_items": []
 }
 ```
 
 `billing_branch_id` es opcional en API (si no va, se toma del almacén), **mándalo siempre** desde el modal. Si almacén ≠ sucursal o sucursal ≠ razón → **400**.
 
-`pedimento_number` es opcional y **solo aplica si el proveedor es internacional** (`vendor.vendor_type === 'INTERNATIONAL'`). Si el proveedor es nacional y se envía pedimento → **400**. Ver `UI_PURCHASE_ORDER_PEDIMENTO.md`.
+`pedimento_number` es opcional y **solo aplica si el proveedor es internacional** (`vendor.vendor_type === 'INTERNATIONAL'`). Si el proveedor es nacional y se envía pedimento → **400**. Si viene con valor, tienen que ser los 15 dígitos del Anexo 22 (`26  47  3807  6000123`). Ver `UI_PURCHASE_ORDER_PEDIMENTO.md`.
 
-`vendor_invoice_number` es opcional y aplica a **cualquier** proveedor. Ver `UI_PURCHASE_ORDER_VENDOR_INVOICE.md`.
+`vendor_invoice_numbers` es opcional (máx. 20) y aplica a **cualquier** proveedor. `vendor_invoice_number` sigue aceptándose como una sola factura. Ver `UI_PURCHASE_ORDER_VENDOR_INVOICE.md`.
 
 ---
 
@@ -95,7 +109,7 @@ El backend **ignora** params que no existen en esta tabla. No copiar nombres de 
 
 | Parámetro | Tipo | Valores | Default visual |
 |-----------|------|---------|----------------|
-| `search` | string | Folio, proveedor o pedimento | — |
+| `search` | string | Folio, proveedor, pedimento o factura | — |
 | `general_status` | enum | `Creada` \| `Recibida` \| `Cancelada` | Todos |
 | `payment_status` | enum | `Pendiente` \| `Pagado` | Todos |
 | `vendor_id` | uuid | Id del proveedor | Todos. El combo es buscador (nombre/RFC) y lista A–Z, igual que al crear OC |
@@ -127,9 +141,9 @@ GET /api/tenant/purchase-orders?fiscal_configuration_id={uuid}&billing_branch_id
 GET /api/tenant/purchase-orders?payment_status=Pendiente&vendor_id={uuid}
 ```
 
-La respuesta trae `data`, `total` y **`stats`** (montos partidos MXN / USD). Las cards **Por Estado** y **Estado de Pago** usan `stats`, no suman la tabla. Ver `UI_PURCHASE_ORDER_STATS.md`.
+La respuesta trae `data`, `total` y, si la sesión tiene `purchase_orders:ViewStats`, **`stats`** (montos partidos MXN / USD). Las cards **Por Estado** y **Estado de Pago** usan `stats`, no suman la tabla. Sin el permiso no vienen y no se pintan. Ver `UI_PURCHASE_ORDER_STATS.md`.
 
-Cascada de filtros igual que el modal: cambia razón → reset sucursal y almacén. Cambia sucursal → reset almacén. Catálogos: mismos GET de la sección 1. Filtro sucursal sin razón: `GET /api/tenant/billing/branches`. Filtro almacén sin sucursal: `GET /api/tenant/warehouses?status=active&limit=100`.
+Cascada de filtros igual que el modal: cambia razón → reset sucursal y almacén. Cambia sucursal → reset almacén. Catálogo: `GET /api/tenant/purchase-orders/locations`. Sin razón, el combo sucursal lista todas las sucursales del árbol; sin sucursal, el combo almacén lista los almacenes de las sucursales visibles.
 
 ### Barra vs modal
 
@@ -155,7 +169,7 @@ El modal repite los de la barra: si eliges proveedor afuera, sale seleccionado a
 | Sucursal | `sucursal` o `billing_branch.code` |
 | Almacén | `warehouse.name` |
 | Estado | `general_status` |
-| Total | `requested_total` |
+| Total | `payable_total` |
 | Moneda | `payment_currency` (`MXN` \| `USD`) |
 | Pago | `payment_status` |
 | Fecha | `created_at` |

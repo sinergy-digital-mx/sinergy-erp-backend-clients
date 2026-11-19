@@ -1,5 +1,28 @@
 # UI — Mesa de Control
 
+## 2026-10-09 — Flujo corto de Mesa de Control
+
+Una orden entra a la mesa con el checkbox del alta o con **Enviar a Mesa de Control** en el detalle de la OV. Sin eso no aparece.
+
+| Paso | Qué es |
+|------|--------|
+| Por surtir | En la cola, sin posición |
+| Picking | Ya tiene posición. Sigue hasta que cada almacén surta lo suyo |
+| Armando | Todos los almacenes cerraron. Se arma la caja |
+| Armadas | Lista para un viaje en **Creado**. **Hoy** resume las del día |
+
+El combo de estados se quitó: las pastillas son el filtro.
+
+**Marcar como armada** está en la fila de la orden, en el tablero. Aparece cuando todos los almacenes ya surtieron. **Agregar a viaje** queda en la misma fila cuando ya está armada. El detalle de la orden tiene los mismos botones.
+
+## 2026-10-09 — Barra de Mesa de Control
+
+Título, filtros y Configurar van en la misma fila. Los conteos de estado van en grupos con líneas divisorias. El mapa de piso y los colores de posición no cambian.
+
+## 2026-10-09 — Panel denso
+
+El detalle de la orden es una franja: folio, estado y cliente en la misma línea. El faltante es una línea. Cada producto es una fila de una línea (nombre y SKU juntos) para que quepan unas 30 líneas sin perder el encabezado.
+
 Picking por almacén, posiciones de piso y armado. Solo OV MANUAL con checkbox **Necesita proceso de selección y armado**.
 
 Ruta API: `/api/tenant/warehouse-control`  
@@ -158,7 +181,7 @@ Cards de **su** almacén: `stats.warehouse.pending`, `in_progress`, `picked_toda
 
 `jobs[]` → cada job trae `pick_tasks[]` (solo su almacén). **Una card por job**, no por producto.
 
-**No listar productos en la card.** Una OV puede tener decenas de líneas y la lista se vuelve inusable (el “Pedido 0” inline es el error). Los productos van en el **drawer izquierda**, igual que el panel de la OV del admin.
+**No listar productos en la card.** Una OV puede tener decenas de líneas y la lista se vuelve inusable. La card lleva el resumen y **Ver productos**, que abre un **modal centrado**. El panel admin de la OV sigue siendo drawer lateral.
 
 Card:
 
@@ -172,7 +195,7 @@ Card:
 | Resumen (una línea) | `{pick_tasks[0].lines_count} productos · Pedido {pick_tasks[0].quantity_requested_total}` |
 | Iniciar | `POST /:jobId/tasks/:taskId/start` — `taskId` = `pick_tasks[0].id` |
 | Surtir 100% | `POST /:jobId/tasks/:taskId/complete` sin `lines` |
-| Ajustar / ver pedido | abre el drawer |
+| Ver productos | modal centrado. Ahí se agregan las cantidades y se confirma |
 
 Click en la card o **Ajustar** → drawer desde la **izquierda** (mismo patrón que el panel admin). Ahí sí las líneas.
 
@@ -284,8 +307,14 @@ Editar líneas solo si el picking no empezó (400 si ya hay tarea `in_progress` 
 - [ ] Tablero admin: cards + mapa + cola
 - [ ] Panel OV: progreso por almacén, faltantes, armar, corroborar
 - [ ] Vista jefe: cards compactas (folio + resumen, **sin** listar productos)
-- [ ] Drawer izquierda (igual que admin) con `lines[].quantity` = Pedido
-- [ ] Start / complete / ajustar desde el drawer
+- [ ] Modal centrado **Ver productos** con `lines[].quantity` = Pedido
+- [ ] Start / complete / ajustar desde el modal
+- [ ] Admin: pestaña Avance (almacenes y pedidos)
+
+## Cambios
+
+### 2026-10-09
+Jefe: filtros por estado de tarea y por `position.code`. Productos solo en el modal de surtido. Admin: pestaña Avance aparte de la mesa, con `stats` y el desglose de `tasks[]`.
 - [ ] Configurar posiciones
 - [ ] Tab almacenes en usuario (`UI_USER_WAREHOUSES.md`)
 - [ ] Checkbox OV + helper

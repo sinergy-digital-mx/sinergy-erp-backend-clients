@@ -19,7 +19,7 @@ async function seedEmployeePortalModule() {
       moduleCode: EMPLOYEE_PORTAL_MODULE_CODE,
       entityCode: EMPLOYEE_PORTAL_ENTITY_CODE,
       description:
-        'Autoservicio del empleado: perfil, foto, contraseña y solicitudes de vacaciones',
+        'Autoservicio del empleado: perfil, foto, contraseña, vacaciones y horas extras',
       actions: EMPLOYEE_PORTAL_ACTIONS,
     });
   } finally {

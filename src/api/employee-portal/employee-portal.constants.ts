@@ -9,5 +9,5 @@ export const EMPLOYEE_PORTAL_ACTIONS = [
   'ViewMenu',
   'Read', // ver mi información
   'Update', // actualizar mi perfil / foto / contraseña
-  'RequestLeave', // solicitar vacaciones / reportar faltas
+  'RequestLeave', // solicitar vacaciones, faltas u horas extras
 ];

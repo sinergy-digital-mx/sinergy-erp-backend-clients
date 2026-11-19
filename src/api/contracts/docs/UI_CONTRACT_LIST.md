@@ -1,5 +1,10 @@
 # UI — Listado de contratos: grupo de cliente y stats filtrados
 
+## Historial
+
+- 2026-10-23: En **Siguiente pago** la UI pinta `next_payment_amount` y la fecha corta `dd/MM/yyyy`, tanto en fase contrato como enganche.
+- 2026-10-23: Cada fila indica fase **Enganche** / **Contrato**. Si el siguiente pago es de enganche, se pinta distinto y se marca cuando es el último activo. La card **Vencidos** suma contrato + enganche y también los muestra aparte. El Excel lleva las mismas columnas y el desglose de vencidos. `hasOverdue` incluye vencidos de enganche.
+
 Contrato para Pollux: el listado de **Contratos** filtra por **grupo de cliente** y las 4 cards de arriba se recalculan con **los mismos filtros** que la tabla (no con toda la organización).
 
 Las cards ya existen. El cambio es: **refetch de stats cada vez que cambia un filtro**, incluyendo el nuevo grupo.
@@ -52,6 +57,7 @@ Query params (todos opcionales):
 | `search` | string | Número, cliente, lote, clave catastral |
 | `status` | string | `activo` \| `completado` \| `cancelado` \| `suspendido` |
 | `hasOverdue` | `true` | Solo con pagos vencidos. Omitir si no aplica |
+| `downPaymentFinanced` | `true` | Solo con enganche financiado. Omitir si no aplica |
 | `customerId` | number | Ya existía |
 | `propertyId` | uuid | Ya existía |
 | `page` / `limit` | number | Solo en la lista |
@@ -94,7 +100,9 @@ Shape (igual que ahora, más moneda):
   "overdue": {
     "contracts_count": 16,
     "payments_count": 51,
-    "value": 21995
+    "value": 21995,
+    "contract": { "contracts_count": 13, "payments_count": 45, "value": 18400 },
+    "down_payment": { "contracts_count": 4, "payments_count": 6, "value": 3595 }
   }
 }
 ```
@@ -104,7 +112,7 @@ Shape (igual que ahora, más moneda):
 | 1 | TOTAL · Todos los contratos | `total.value` | `total.count` contratos |
 | 2 | COMPLETADOS · Pagados en su totalidad | `completed.value` | `completed.count` |
 | 3 | ACTIVOS · En proceso de pago | `pending.value` | Pagado `pending.paid` · Pendiente `pending.remaining` · `pending.count` |
-| 4 | VENCIDOS · Con pagos atrasados | `overdue.value` | Contratos `overdue.contracts_count` · Pagos `overdue.payments_count` |
+| 4 | VENCIDOS · Con pagos atrasados | `overdue.value` (contrato + enganche) | Contratos `overdue.contracts_count` · Pagos `overdue.payments_count`. Aparte: Contrato `overdue.contract` · Enganche `overdue.down_payment` |
 
 Montos según `currency` de cada fila / de stats (`USD` hoy). Vacío = 0 / `$0.00`. Ver `UI_CONTRACT_CURRENCY.md`.
 
@@ -116,7 +124,19 @@ Sin `status` en el query, `total` es activo + completado (igual que hoy). Con `s
 
 `customer.group` viene en el listado (`id`, `name`) si el cliente tiene grupo. Columna opcional: `customer.group?.name ?? '—'`.
 
-**Precio Total** y **Saldo Pendiente**: badge `currency` (`USD` \| `MXN`). No `MX$`. Ver `UI_CONTRACT_CURRENCY.md`.
+**Precio Total** y **Saldo Pendiente**: badge `currency` (`USD` \| `MXN`). No `MX$`. Ver `UI_CONTRACT_CURRENCY.md`. El saldo no cambia de color.
+
+| Campo | Uso |
+|--------|-----|
+| `payment_phase` | `down_payment` \| `contract`. Badge **Enganche** / **Contrato** |
+| `next_payment_kind` | `down_payment` \| `contract` \| `null`. Colorea **Siguiente pago** |
+| `next_payment_is_last_down_payment` | `true` si el siguiente es el último enganche activo |
+| `next_payment_date` / `next_payment_amount` | Primero cuotas de enganche pendientes; si no, mensualidad |
+| `overdue_payments_count` | Vencidos de contrato |
+| `overdue_down_payment_count` | Vencidos de enganche |
+| `has_overdue` | Cualquiera de los dos |
+
+Excel: columnas **Fase**, **Tipo Próximo Pago**, **Último Enganche**, **Vencidos Enganche**. Resumen: VENCIDOS (total) + VENCIDOS CONTRATO + VENCIDOS ENGANCHE.
 
 ---
 

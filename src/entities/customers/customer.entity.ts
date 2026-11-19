@@ -192,6 +192,10 @@ export class Customer {
     @Column({ type: 'int', nullable: true })
     legacy_customer_id: number;
 
+    /** Ruta de reparto habitual. La orden puede usar otra. */
+    @Column({ type: 'varchar', length: 36, nullable: true })
+    default_route_id: string | null;
+
     @OneToMany(() => CustomerAddress, address => address.customer)
     addresses: CustomerAddress[];
 

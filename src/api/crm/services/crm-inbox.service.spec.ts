@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { CustomerActivity, CustomerActivityStatus, CustomerActivityType } from '../../../entities/customers/customer-activity.entity';
 import { User } from '../../../entities/users/user.entity';
-import { CrmAttentionFilter, CrmReportPeriod } from '../dto/query-crm-activity.dto';
+import { CRM_OUTCOME_NONE, CrmAttentionFilter, CrmReportPeriod } from '../dto/query-crm-activity.dto';
 import { CrmInboxService } from './crm-inbox.service';
 
 describe('CrmInboxService', () => {
@@ -124,6 +124,22 @@ describe('CrmInboxService', () => {
       );
     });
 
+    it('filtra por resultado y por sin resultado', async () => {
+      const qb = mockQb({ count: 0, many: [] });
+      activityRepo.createQueryBuilder.mockReturnValue(qb);
+
+      await service.list(tenantId, actorId, true, { outcome: 'unsatisfied' });
+      expect(qb.andWhere).toHaveBeenCalledWith('activity.outcome = :outcome', {
+        outcome: 'unsatisfied',
+      });
+
+      qb.andWhere.mockClear();
+      await service.list(tenantId, actorId, true, { outcome: CRM_OUTCOME_NONE });
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        "(activity.outcome IS NULL OR activity.outcome = '')",
+      );
+    });
+
     it('marca seguimiento vencido', async () => {
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
@@ -133,7 +149,18 @@ describe('CrmInboxService', () => {
           {
             id: 'act-1',
             customer_id: 9,
-            customer: { id: 9, name: 'Ana', lastname: 'López', company_name: null },
+            customer: {
+              id: 9,
+              name: 'Ana',
+              lastname: 'López',
+              company_name: null,
+              registered_by_user: {
+                id: 'creator-1',
+                first_name: 'María',
+                last_name: 'García',
+                email: 'maria@x.mx',
+              },
+            },
             user_id: actorId,
             user: { id: actorId, first_name: 'Carlos', last_name: 'Ruiz', email: 'c@x.mx' },
             type: CustomerActivityType.CALL,
@@ -159,7 +186,95 @@ describe('CrmInboxService', () => {
 
       expect(result.activities[0].is_overdue_follow_up).toBe(true);
       expect(result.activities[0].customer?.display_name).toBe('Ana López');
+      expect(result.activities[0].customer?.created_by?.display_name).toBe('María García');
       expect(result.activities[0].user?.display_name).toBe('Carlos Ruiz');
+      expect(result.activities[0].seller?.display_name).toBe('Carlos Ruiz');
+    });
+
+    it('si la actividad no tiene autor usa el vendedor del cliente y luego quien lo registró', async () => {
+      userRepo.findOne.mockResolvedValue({ id: actorId, is_crm_admin: true });
+      const qb = mockQb({
+        count: 2,
+        many: [
+          {
+            id: 'act-old',
+            customer_id: 9,
+            customer: {
+              id: 9,
+              name: 'Ana',
+              lastname: 'López',
+              company_name: null,
+              assigned_seller_user: {
+                id: 'seller-1',
+                first_name: 'Luis',
+                last_name: 'Nava',
+                email: 'luis@x.mx',
+              },
+              registered_by_user: {
+                id: 'creator-1',
+                first_name: 'María',
+                last_name: 'García',
+                email: 'maria@x.mx',
+              },
+            },
+            user_id: null,
+            user: null,
+            type: CustomerActivityType.MEETING,
+            status: CustomerActivityStatus.SCHEDULED,
+            title: 'Cita',
+            description: null,
+            notes: null,
+            activity_date: new Date(),
+            follow_up_date: null,
+            duration_minutes: null,
+            outcome: null,
+            created_at: new Date(),
+            updated_at: new Date(),
+          },
+          {
+            id: 'act-older',
+            customer_id: 10,
+            customer: {
+              id: 10,
+              name: 'Pepe',
+              lastname: null,
+              company_name: null,
+              registered_by_user: {
+                id: 'creator-2',
+                first_name: 'Rita',
+                last_name: 'Sol',
+                email: 'rita@x.mx',
+              },
+            },
+            user_id: null,
+            user: null,
+            type: CustomerActivityType.NOTE,
+            status: CustomerActivityStatus.COMPLETED,
+            title: 'Nota vieja',
+            description: null,
+            notes: null,
+            activity_date: new Date(),
+            follow_up_date: null,
+            duration_minutes: null,
+            outcome: null,
+            created_at: new Date(),
+            updated_at: new Date(),
+          },
+        ],
+      });
+      activityRepo.createQueryBuilder.mockReturnValue(qb);
+
+      const result = await service.list(tenantId, actorId, true, {
+        period: CrmReportPeriod.MONTH,
+      });
+
+      expect(qb.leftJoinAndSelect).toHaveBeenCalledWith(
+        'customer.assigned_seller_user',
+        'assignedSeller',
+      );
+      expect(result.activities[0].seller?.display_name).toBe('Luis Nava');
+      expect(result.activities[0].customer?.assigned_seller?.display_name).toBe('Luis Nava');
+      expect(result.activities[1].seller?.display_name).toBe('Rita Sol');
     });
   });
 

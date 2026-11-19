@@ -53,7 +53,7 @@ Prefijo: `tenant/divino-reservation-formats`
 ### Selectores del UI
 
 - **LOTE**: usar `GET tenant/properties` (filtrar por `status=disponible`).
-- **Razón social (logo del PDF)**: usar `GET tenant/fiscal-configurations` y pasar el `id` como `fiscal_configuration_id`.
+- **Razón social (logo del PDF)**: usar `GET tenant/fiscal-configurations` y pasar el `id` como `fiscal_configuration_id`. El listado acepta `DivinoReservationFormat:Read` o `Create` (2026-10-26).
 
 ## Campos del formato
 

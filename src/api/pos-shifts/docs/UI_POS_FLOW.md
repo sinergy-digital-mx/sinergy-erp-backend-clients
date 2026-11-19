@@ -1,5 +1,11 @@
 # Flujo POS — Guía para UI
 
+**2026-11-12 — prueba en verdulería.** Sucursal TIJ-1, rol Punto de Venta (mismos permisos que madería). Terminal ventas `ventas.prueba@verduleria.com`, terminal caja `caja.prueba@verduleria.com`, contraseña `123`. En ventas se teclea el código `1001` (Vendedor Prueba, no inicia sesión como terminal). Rodolfo Pruebas sigue como gerente `AMBOS` con código `1425`. Seed: `src/database/seeds/seed-verduleria-pos.ts`.
+
+**2026-11-03 — observaciones al registrar venta.** El modal de **Registrar venta** pide observaciones (opcional). Se guardan en `notes` y el ticket imprime el bloque **OBSERVACIONES**. Si se dejan vacías, se conserva `POS Ventas - {terminal}`. Al reenviar un ticket, `PUT /pos/sales/:id/cart` acepta `notes` (vacío las borra; si se omite, se conservan).
+
+**2026-11-02 — para envío.** Al registrar la venta (y al reenviar un ticket a caja) se puede mandar `for_shipping`. En Caja, cada orden pendiente o cobrada se marca o se quita con `PATCH /tenant/sales-orders/:id/for-shipping`. Ver `src/api/sales-orders/docs/UI_SALES_ORDER_FOR_SHIPPING.md`.
+
 Documento de referencia del nuevo modelo POS. Reemplaza **Equipos** (`pos_configurations`) y **Sesiones** (`pos_sessions`).
 
 **Crédito, mixto por tipos y factura al cobrar:** `src/api/customers/docs/UI_CUSTOMER_CREDIT.md`.
@@ -217,8 +223,10 @@ Usuario: `POS Caja CIMA` (ejemplo). Token en todas las peticiones.
 
 ### Paso 2 — Verificar corte del día
 ```
-GET /api/tenant/pos/daily-shift/current
+GET /api/tenant/pos/daily-shift/current?billing_branch_id={sucursal-seleccionada}
 ```
+
+El corte que regresa es el de esa sucursal, no el de la sucursal principal del usuario.
 
 Respuesta si hay corte **de hoy**:
 ```json
@@ -237,7 +245,9 @@ Respuesta si hay corte **de hoy**:
     "totals": { "partial_shifts_count": 1, "removed_total_mxn": 5000, "sales_total_mxn": 8300 }
   },
   "requires_previous_close": false,
-  "unclosed_shift_alert": null
+  "unclosed_shift_alert": null,
+  "usd_exchange_rate": 16.8,
+  "usd_exchange_rate_date": "2026-08-16"
 }
 ```
 
@@ -308,7 +318,7 @@ Al entrar a `/pos/cobranza`, si `unclosed_shift_alert` viene con datos, mostrar 
 
 **UI Ventas (`/pos/ventas`):** mismo payload. Modal bloqueante: caja debe cerrar el corte de ayer. CTA **Entendido**. Las ventas nuevas **no** se ligan a ese corte; van a cola (`queued: true`) hasta que cierren el anterior y abran el de hoy.
 
-**Día calendario:** `shift_date` y “hoy” se calculan en `America/Mexico_City`.
+**Día calendario:** `shift_date` y “hoy” se calculan en `America/Tijuana`. `DATE(created_at)` no sirve: el servidor está en UTC y desde las 17:00 ya es el día siguiente.
 
 ### Paso 3 — Abrir corte global (solo COBRANZA)
 ```
@@ -318,9 +328,12 @@ POST /api/tenant/pos/daily-shift/open
 {
   "opening_cash_mxn": 1500,
   "opening_cash_usd": 0,
-  "notes": "Apertura turno matutino"
+  "notes": "Apertura turno matutino",
+  "billing_branch_id": "uuid-sucursal-seleccionada"
 }
 ```
+
+`billing_branch_id` es la sucursal **seleccionada** en POS (la del header). No uses la sucursal principal del usuario si eligió otra. El corte, la cola y el cobro quedan en esa sucursal.
 
 Reglas:
 - Varios cortes **completos** (abierto → cerrado) por **sucursal** el mismo día.
@@ -328,7 +341,7 @@ Reglas:
 - Tras cerrar un corte, se puede abrir otro el mismo día con nuevo efectivo inicial.
 - Si quedó un corte abierto de otro día, `GET daily-shift/current` lo devuelve con `unclosed_shift_alert` y `requires_previous_close: true`. La UI **debe** mostrar el modal bloqueante del Paso 2b y cerrarlo antes de abrir uno nuevo.
 
-**Al abrir el corte (automático):** el backend asigna al corte todas las órdenes POS de la **misma sucursal** que estén en cola (`general_status: En cola`, `pos_daily_shift_id: null`, del día). Pasan a `Surtida` + `Pendiente` con `pos_daily_shift_id` del corte nuevo.
+**Al abrir el corte y al listar pendientes (automático):** el backend asigna al corte solo las órdenes POS de la **misma sucursal y del mismo día del corte** (`DATE(created_at) = shift_date`) que estén en cola o surtidas sin corte y sin cobro. Pasan a `Surtida` + `Pendiente` con `pos_daily_shift_id` de ese corte. Una venta de otro día no entra a este corte.
 
 Respuesta sugerida:
 ```json
@@ -350,7 +363,7 @@ Si no había cola (`queued_sales_assigned: 0`), solo confirmar apertura y mostra
 
 | Sección | Endpoint |
 |---------|----------|
-| Resumen del corte | `GET /api/tenant/pos/daily-shift/current` |
+| Resumen del corte | `GET /api/tenant/pos/daily-shift/current?billing_branch_id=` |
 | Ventas por cobrar | `GET /api/tenant/pos/pending-sales` |
 | **Ventas cobradas** | `GET /api/tenant/pos/collected-sales` |
 | Inventario sucursal | `GET /api/tenant/inventory/pos/summary` |
@@ -379,6 +392,8 @@ Si hay corte abierto, no filtra por almacén: las órdenes ligadas al corte apar
       "subtotal": 715.00,
       "created_at": "...",
       "notes": null,
+      "walk_in_name": "Juan Pérez",
+      "walk_in_rfc": "XAXX010101000",
       "customer": {
         "id": 1,
         "name": "Público en General",
@@ -413,11 +428,19 @@ POST /api/tenant/pos/sales/:salesOrderId/collect
 ```json
 {
   "payment_method": "cash",
-  "amount_cash_usd": 50,
-  "usd_exchange_rate": 17.25,
-  "received_cash_usd": 50
+  "amount_cash_usd": 64.26,
+  "usd_exchange_rate": 16.80,
+  "received_cash_usd": 100
 }
 ```
+
+Los pesos cubren primero. El sobrante se devuelve en la misma moneda: si el cliente pagó de más en dólares, el cambio sale en USD.
+
+Ejemplo: total `$1,079.65`, el cliente da `100 USD` a `16.80`.
+`1,079.65 / 16.80 = 64.26 USD` aplicados. **Cambio `$35.74 USD`**.
+`64.26 × 16.80 = 1,079.57` (8 centavos de redondeo). El API lo acepta: la orden queda cubierta.
+
+Enviar `amount_cash_usd` = dólares aplicados (`64.26`) y `received_cash_usd` = lo que entregó (`100`). El API recalcula el cambio.
 
 #### Ejemplo — transferencia
 ```json
@@ -425,16 +448,21 @@ POST /api/tenant/pos/sales/:salesOrderId/collect
   "payment_method": "transfer",
   "amount_transfer_mxn": 830.50,
   "transfer_reference": "SPEI-123456",
+  "transfer_payer_business_name": "Maderería del Norte",
   "customer_id": 42
 }
 ```
+
+`transfer_payer_name` o `transfer_payer_business_name`: al menos uno. El teléfono no aplica.
 
 #### Ejemplo — tarjeta
 ```json
 {
   "payment_method": "card",
   "amount_card_mxn": 830.50,
-  "card_reference": "4242"
+  "card_reference": "VCH-847291",
+  "card_payer_name": "Ana López",
+  "card_payer_phone": "6641234567"
 }
 ```
 
@@ -443,9 +471,25 @@ POST /api/tenant/pos/sales/:salesOrderId/collect
 {
   "payment_method": "check",
   "amount_check_mxn": 830.50,
-  "check_reference": "CH-45821"
+  "check_reference": "CH-45821",
+  "check_payer_name": "Luis Gómez",
+  "check_payer_phone": "6640001122"
 }
 ```
+
+#### Ejemplo — cheque en dólares
+```json
+{
+  "payment_method": "check",
+  "amount_check_usd": 50,
+  "usd_exchange_rate": 16.80,
+  "check_reference": "CH-USD-19",
+  "check_payer_name": "Luis Gómez",
+  "check_payer_phone": "6640001122"
+}
+```
+
+`50 × 16.80 = 840.00` debe coincidir con el total de la orden (tolera un centavo de dólar).
 
 #### Ejemplo — mixto (efectivo + transferencia)
 ```json
@@ -459,21 +503,43 @@ POST /api/tenant/pos/sales/:salesOrderId/collect
 }
 ```
 
+#### Ejemplo — mixto (dos tarjetas)
+```json
+{
+  "payment_method": "mixed",
+  "amount_card_mxn": 830.50,
+  "card_reference": "VCH-847291",
+  "card_payments": [
+    { "amount_mxn": 400, "reference": "VCH-847291" },
+    { "amount_mxn": 430.50, "reference": "VCH-112233" }
+  ]
+}
+```
+
+`amount_card_mxn` es la **suma**. Cada plástico va en `card_payments` (2 a 8). Dos tarjetas ya son mixto; no hace falta efectivo ni transferencia.
+
 | Campo | Regla |
 |-------|--------|
 | `payment_method` | `cash` \| `card` \| `transfer` \| `check` \| `mixed` \| `credit` |
 | `customer_id` | Opcional. Si no se envía, se mantiene el de la orden (mostrador si Ventas no envió cliente) |
+| `walk_in_name` | Opcional. Nombre para el ticket si se cobra como Público en general. No crea cliente. Vacío lo borra. Si se omite, se conserva el de la orden. |
+| `walk_in_rfc` | Opcional. RFC 12/13 para el ticket (mostrador). Vacío lo borra. Si se omite, se conserva el de la orden. |
 | `generate_invoice` | Opcional. `true` solo si el cliente tiene RFC + razón social + CP de 5 dígitos |
+| `order_currency` | Opcional. `MXN` (default) o `USD`. **2026-10-14.** USD solo si el pago aplicado en dólares (convertido a pesos) es mayor que el pago en pesos. Si no, 400. La factura del cobro sale en esa moneda. |
 | Montos (`amount_*`) | La suma en MXN debe igualar el `total` de la orden |
-| `usd_exchange_rate` | Obligatorio si `amount_cash_usd` > 0 |
+| `usd_exchange_rate` | Obligatorio si `amount_cash_usd` > 0 o `amount_check_usd` > 0 |
 | `transfer_reference` | Obligatorio si `amount_transfer_mxn` > 0 |
+| `transfer_payer_name` / `transfer_payer_business_name` | **2026-11-01.** Si hay transferencia, al menos uno. Máx. 120 y 180. |
+| `card_payer_name` / `card_payer_phone` | **2026-11-01.** Obligatorios si `amount_card_mxn` > 0. Teléfono: mínimo 10 dígitos. |
+| `amount_check_usd` | **2026-11-02.** Cheque en dólares. Se convierte con `usd_exchange_rate`. |
+| `check_payer_name` / `check_payer_phone` | **2026-11-01.** Obligatorios si `amount_check_mxn` o `amount_check_usd` > 0. Teléfono: mínimo 10 dígitos. |
 | `received_cash_*` | Para calcular cambio (`change_cash_*` en respuesta) |
 
 **El backend:**
 1. Valida corte abierto en la sucursal.
 2. Crea registro en `pos_sale_collections` (auditoría de pago).
 3. Marca orden `payment_status: Pagado`, asigna `collected_by_user_id`, `pos_daily_shift_id` y `customer_id` final.
-4. Genera y guarda ticket térmico ESC/POS como documento de la orden (**tipo 9 — TICKET / RECIBO**). Si la OV tiene `notes`, el ticket incluye el bloque **OBSERVACIONES**.
+4. Genera y guarda ticket térmico ESC/POS como documento de la orden (**tipo 9 — TICKET / RECIBO**). Si la OV tiene `notes`, el ticket incluye el bloque **OBSERVACIONES**. Si hay `walk_in_name`, el renglón **Cliente** usa ese nombre; si hay `walk_in_rfc`, se imprime **RFC**.
 
 **Respuesta:**
 ```json
@@ -525,7 +591,7 @@ GET /api/tenant/pos/sales/:salesOrderId/collection
 GET /api/tenant/pos/sales/:salesOrderId/receipt
 ```
 
-Solo devuelve el ticket **ya generado al cobrar**. Si no existe → **404** (no se regenera; preserva auditoría).
+Devuelve el ticket **ya generado al cobrar**. Si la venta está cobrada y el archivo no existe, lo genera en ese momento (las ventas de hoy que fallaron al armar el ticket se recuperan al reimprimir).
 
 Si `receipt` es null tras collect, revisar `receipt_error` en la respuesta.
 
@@ -599,6 +665,8 @@ POST /api/tenant/pos/daily-shift/:id/partial-shifts
 
 **UI:** tabs **Pesos** / **Dólares** con inputs por denominación (20, 50, 100, 500, 1000 / 1, 5, 10, 20, 50, 100). Mostrar total calculado antes de confirmar.
 
+**2026-11-02.** El campo de cantidad de cada billete queda completo. En dólares la etiqueta (`USD 100`) es más ancha y el input se recortaba.
+
 El parcial queda ligado al corte global. El detalle del corte muestra historial:
 - Corte Parcial #1 — $X — desglose billetes
 - Corte Parcial #2 — ...
@@ -647,6 +715,78 @@ El corte es de la **sucursal**, no de quien lo abrió. Cualquier caja con esa su
 **Qué debe haber en caja (esperado):**
 `efectivo inicial + cobrado en efectivo − retiros de cortes parciales`
 
+## 2026-11-02 — Cheque en dólares
+
+En caja (venta y anticipo) el cheque puede ir en pesos o en dólares.
+
+- `amount_check_mxn`: cheque en pesos.
+- `amount_check_usd`: cheque en dólares. Obligatorio `usd_exchange_rate`. El importe en pesos es `amount_check_usd × usd_exchange_rate`. Una diferencia de hasta un centavo de dólar no bloquea el cobro.
+- `payment_method: check` admite una de las dos, o las dos. No admite efectivo, tarjeta, transferencia ni crédito.
+- En mixto, el cheque en dólares cuenta como una forma. El corte lo reporta en `summary.check_usd` y en `cash_drawer.collected_check_usd`. `check_mxn` sigue siendo solo los cheques en pesos.
+- Si el pago en dólares (efectivo o cheque, ya convertido) es mayor que el pago en pesos, la orden puede quedar en USD.
+- El cheque no entra a la caja física. En cobranza, el monto del cheque en dólares se convierte a pesos con el tipo de cambio del cobro.
+- Nombre y teléfono siguen siendo obligatorios si el cheque tiene monto. Migración `1794800000000-add-pos-check-usd`.
+
+## 2026-11-01 — Quién paga en transferencia, tarjeta y cheque
+
+En el cobro de caja (venta y anticipo):
+
+- Transferencia: `transfer_payer_name` y/o `transfer_payer_business_name`. Al menos uno.
+- Tarjeta: `card_payer_name` y `card_payer_phone` (mínimo 10 dígitos).
+- Cheque: `check_payer_name` y `check_payer_phone` (mínimo 10 dígitos).
+
+Si el monto de esa forma es 0, esos campos se ignoran. Efectivo y crédito no los piden. En mixto aplica cada forma que lleve monto.
+
+Migración: `1794600000000-add-pos-payer-contact` (`pos_sale_collections` y `advance_shift_payments`).
+
+## 2026-10-22 — RFC del anticipo en caja
+
+El régimen del CFDI de anticipo sale del RFC (12 = 601, 13 = 612), no del tipo de persona viejo del catálogo. En Caja, el folio COT lleva badge **Anticipo**. Se ve RFC / razón / CP / régimen; **Editar RFC** abre la ficha fiscal. `collect-advance` acepta `customer_id` y lo guarda en la COT antes de timbrar. **Regresar a ventas** sigue igual.
+
+## 2026-10-22 — Regresar anticipo a ventas
+
+El anticipo de cotización usa el mismo botón **Regresar a ventas** que una OV. Sale de por cobrar y Ventas lo ve en Tickets (`kind: "advance"`).
+
+```
+POST /api/tenant/pos/quotations/:id/return-to-sales
+```
+
+Mismo permiso `pos:ReturnToSales` y terminal de caja. Solo si la COT está `Creada`, tiene anticipo pedido y todavía no hay CFDI vigente. Pone `pos_stage = ventas`. Caja se queda en Caja.
+
+En POS Ventas se abre el folio, se corrige (productos, cliente o monto) y se reenvía:
+
+```
+POST /api/tenant/pos/quotations/:id/send-to-caja
+```
+
+Cuerpo opcional: `line_items`, `customer_id`, `advance_amount`, `advance_uso_cfdi`, `advance_metodo_pago`. Sin monto, se conserva el anticipo que se regresó. `pending-sales` no lista `pos_stage = ventas`. Cobrar ese id en ventas → 400.
+
+Migración: `1793300000000-add-quotation-pos-stage`. Las COT POS que ya estaban por cobrar quedan en `caja`. El desglose mixto del anticipo es `1793400000000-add-advance-shift-payment-splits`. Sin esas columnas, Ventas sigue listando tickets; no se cae el endpoint.
+
+## 2026-10-19 — Cotización de anticipo en por cobrar
+
+`GET /api/tenant/pos/pending-sales` mezcla órdenes y cotizaciones. La cotización llega con `kind: "advance"` cuando está Creada, tiene `advance_requested_total` y todavía no hay CFDI de anticipo vigente. `amount_pending` es ese anticipo, no el total de la COT.
+
+En la tarjeta se lee el folio y, en chico, **Anticipo**. El cobro es:
+
+```
+POST /api/tenant/pos/quotations/:quotationId/collect-advance
+```
+
+Mismo cuerpo que cobrar una venta. Admite efectivo, tarjeta, transferencia, cheque o mixto. No admite crédito. Al confirmar, se timbra la factura de anticipo y el neto entra al corte, igual que cualquier otro pago. La COT deja de salir en por cobrar.
+
+## 2026-10-22 — Mixto en cobro de anticipo
+
+Caja muestra el tab **Mixto** también en cotizaciones `kind: "advance"`. El cuerpo es el mismo de una venta mixta. Crédito sigue oculto.
+
+El corte guarda el desglose (`amount_cash_mxn`, `amount_transfer_mxn`, `amount_card_mxn`, `amount_check_mxn`). Solo la parte en efectivo entra al efectivo esperado.
+
+El CFDI no puede ir PUE + `99`. En mixto se timbra con la forma de mayor importe (`01`, `02`, `03` o `04`). Si empatan, gana efectivo.
+
+## 2026-10-19 — Anticipo de cotización en el corte
+
+El efectivo (o tarjeta, transferencia, cheque o mixto) del CFDI de anticipo entra al corte abierto y se suma en `cash_drawer`. Caja lo ve en **Anticipos** dentro de Cortes y de Órdenes cobradas. No es un pago manual de la orden. Al cerrar, «Cobrado en efectivo» ya lo incluye; no se arma solo con las ventas cobradas en POS.
+
 Tarjeta, transferencia, cheque y crédito **no** quedan en caja.
 
 **UI cierre:**
@@ -685,7 +825,7 @@ Usuario terminal VENTAS (ej. `POS Ventas 1 CIMA`). Debe tener **sucursal asignad
 
 ### Paso 2 — Verificar corte en la sucursal (informativo, no bloquea)
 ```
-GET /api/tenant/pos/daily-shift/current
+GET /api/tenant/pos/daily-shift/current?billing_branch_id={sucursal-seleccionada}
 ```
 
 - Terminal VENTAS consulta si en **su sucursal** hay corte abierto de una terminal COBRANZA.
@@ -730,7 +870,7 @@ GET /api/tenant/inventory/pos/summary?limit=40
 GET /api/tenant/inventory/pos/summary?search=10
 ```
 
-**Sucursal:** la toma del usuario POS logueado (`billing_branch_id` en login). No enviar sucursal en query.
+**Sucursal:** enviar `billing_branch_id` de la sucursal seleccionada en POS. Si se omite, el API usa la sucursal activa del usuario.
 
 **Almacén (`warehouse_id`):** opcional. Si se omite, el backend agrega inventario de **todos** los almacenes de esa sucursal. Si se envía, debe ser uno de los ids en `warehouses` de la respuesta (o del error 400).
 
@@ -770,7 +910,7 @@ El panel derecho **sí** puede preseleccionar cliente (mismo listado que Caja). 
 
 | Elemento | Acción UI |
 |----------|-----------|
-| Bloque **CLIENTE** / listado | **Opcional.** Default: Público en General. Si eligen uno, enviarlo en `customer_id`. |
+| Bloque **CLIENTE** / listado | **Opcional.** Default: Público en General. Si eligen uno, enviarlo en `customer_id`. Si queda mostrador, puede capturar `walk_in_name` y/o `walk_in_rfc` (solo ticket). |
 | Selector de método de pago | **Quitar** |
 | Campos efectivo MXN / USD / transferencia | **Quitar** |
 | Cálculo de cambio / generar factura | **Solo Caja** |
@@ -813,11 +953,24 @@ POST /api/tenant/sales-orders
   "warehouse_id": "uuid",
   "customer_id": 42,
   "expected_delivery_date": "2026-06-25",
+  "notes": "Cortar a 2.40 m",
   "line_items": [ ... ]
 }
 ```
 
-**`customer_id` es opcional en POS.** Si Ventas lo envía, Caja prellena ese cliente. Si se omite, el backend usa el cliente de mostrador (`Público en General` / razón social `VENTA DE MOSTRADOR`). Caja puede cambiarlo o asignarlo al cobrar. **No enviar método de pago ni `generate_invoice` desde Ventas.**
+**Observaciones (2026-11-03).** Campo opcional del modal **Registrar venta**. Si hay texto, `notes` es ese texto y el ticket lo imprime en **OBSERVACIONES**. Si queda vacío, el alta sigue mandando `notes: "POS Ventas - {terminal}"`.
+
+**`customer_id` es opcional en POS.** Si Ventas lo envía, Caja prellena ese cliente. Si se omite, el backend usa el cliente de mostrador (`Público en General` / razón social `VENTA DE MOSTRADOR`). En mostrador se pueden enviar `walk_in_name` y/o `walk_in_rfc` (opcionales, solo para el ticket; no crean cliente):
+
+```json
+{
+  "sales_order_type": "POS",
+  "walk_in_name": "Juan Pérez",
+  "walk_in_rfc": "XAXX010101000"
+}
+```
+
+Caja puede cambiar el cliente o asignarlo al cobrar. **No enviar método de pago ni `generate_invoice` desde Ventas.**
 
 **No es obligatorio** enviar `pos_daily_shift_id`; el backend lo resuelve si hay corte abierto en la sucursal.
 
@@ -886,8 +1039,8 @@ stateDiagram-v2
 | `sales_order_type` | `POS` en todos los casos | | |
 
 **Reglas:**
-- Solo órdenes de la **misma sucursal** (vía almacén / `billing_branch_id` de la terminal) entran en la cola del corte al abrir.
-- Solo órdenes del **mismo día calendario** se auto-asignan (definir timezone de sucursal si aplica).
+- Entran al corte las órdenes POS en caja de la sucursal (`billing_branch_id` de la orden o, si falta, el del almacén).
+- Al abrir el corte, y también al refrescar pendientes, se ligan las que están en cola y las surtidas sin cobrar que no tienen corte o quedaron en un corte ya cerrado.
 - `pending-sales` lista solo `Surtida` + `Pendiente` ya ligadas al corte (tras la asignación automática).
 - No se puede **cobrar** una orden en `En cola` (`pos_daily_shift_id` null).
 
@@ -923,7 +1076,7 @@ Al crear POS: `pos_stage = caja`. MANUAL: `null`. Backfill de POS existentes: `c
 
 **Editar carrito** (`PUT /pos/sales/:id/cart`):
 - Solo terminal Ventas y `pos_stage = ventas`
-- Mismo `line_items` que el alta POS. Libera FIFO (DELETE de asignaciones, no SET NULL) y vuelve a surtir. Recalcula totales. Se puede cambiar el cliente.
+- Mismo `line_items` que el alta POS. Libera FIFO (DELETE de asignaciones, no SET NULL) y vuelve a surtir. Recalcula totales. Se puede cambiar el cliente. Acepta `walk_in_name` / `walk_in_rfc` si el cliente es mostrador. Acepta `notes` (observaciones del ticket; vacío las borra).
 - Al **Enviar a caja** un ticket jalado otra vez: `PUT cart` + `POST send-to-caja`. El PUT no debe 500 aunque el folio ya tuviera lotes.
 - No habilita `can_edit_lines` en el detalle ERP para `Surtida`
 
@@ -956,7 +1109,7 @@ Base: `/api/tenant/...` — Header: `Authorization: Bearer <token>`
 | Método | Ruta | Quién | Descripción |
 |--------|------|-------|-------------|
 | POST | `pos/validate-seller-code` | VENTAS / COBRANZA | Validar código vendedor |
-| GET | `pos/daily-shift/current` | VENTAS / COBRANZA | Corte abierto (sucursal). Incluye `unclosed_shift_alert` si es de un día anterior |
+| GET | `pos/daily-shift/current` | VENTAS / COBRANZA | Corte abierto (sucursal). Incluye `unclosed_shift_alert` si es de un día anterior y `usd_exchange_rate` (hoy o el último capturado) |
 | POST | `pos/daily-shift/open` | COBRANZA | Abrir corte + auto-asignar cola de la sucursal |
 | GET | `pos/daily-shifts` | Backoffice | Listar cortes |
 | GET | `pos/daily-shift/:id` | Todos | Detalle con parciales |
@@ -967,6 +1120,8 @@ Base: `/api/tenant/...` — Header: `Authorization: Bearer <token>`
 | GET | `pos/collected-sales` | COBRANZA | Ventas cobradas del corte |
 | POST | `pos/sales/:id/collect` | COBRANZA | Cobrar venta (pago + cliente + ticket) |
 | POST | `pos/sales/:id/return-to-sales` | Caja + `pos:ReturnToSales` | Regresar ticket no cobrado a ventas |
+| POST | `pos/quotations/:id/return-to-sales` | Caja + `pos:ReturnToSales` | Regresar anticipo no cobrado a ventas |
+| POST | `pos/quotations/:id/send-to-caja` | VENTAS | Reenviar anticipo editado a caja |
 | PUT | `pos/sales/:id/cart` | VENTAS | Reemplazar carrito (inventario FIFO) |
 | POST | `pos/sales/:id/send-to-caja` | VENTAS | Reenviar ticket editado a caja |
 | GET | `pos/sales/:id/receipt` | COBRANZA | Ticket ESC/POS para reimpresión |
@@ -1073,12 +1228,12 @@ sequenceDiagram
 | `payment_method` | `cash` \| `card` \| `transfer` \| `check` \| `mixed` \| `credit` |
 | `amount_cash_mxn` / `amount_cash_usd` | Monto aplicado en efectivo |
 | `usd_exchange_rate` | TC si hay USD |
-| `amount_transfer_mxn` + `transfer_reference` | Transferencia |
-| `amount_card_mxn` + `card_reference` | Tarjeta |
-| `amount_check_mxn` + `check_reference` | Cheque |
+| `amount_transfer_mxn` + `transfer_reference` | Transferencia. También `transfer_payer_name` y/o `transfer_payer_business_name` |
+| `amount_card_mxn` + `card_reference` | Tarjeta. También `card_payer_name` y `card_payer_phone` |
+| `amount_check_mxn` / `amount_check_usd` + `check_reference` | Cheque en pesos o dólares. También `check_payer_name` y `check_payer_phone` |
 | `amount_credit_mxn` | Monto a crédito (si `payment_method = credit`) |
 | `received_cash_mxn` / `received_cash_usd` | Lo que entregó el cliente |
-| `change_cash_mxn` / `change_cash_usd` | Cambio calculado |
+| `change_cash_mxn` / `change_cash_usd` | Cambio físico (corte). En UI y ticket también se muestra el equivalente: 100 USD sobre $1,079.65 a TC 16.80 → **$35.74 USD** y **$600.43 MXN** |
 | `customer_id` | Cliente al momento del cobro |
 | `collected_by_user_id` | Terminal COBRANZA |
 | `pos_daily_shift_id` | Corte del día |
@@ -1102,9 +1257,13 @@ Si Ventas **no envía** `customer_id`, el backend asigna automáticamente el cli
 - Nombre: `Público en General`, o
 - Razón social: `VENTA DE MOSTRADOR`
 
-Debe existir ese cliente en el tenant (seed o alta manual). En `pending-sales`, las órdenes sin cliente real muestran `customer.is_walk_in: true`.
+Debe existir ese cliente en la organización (seed o alta manual). En `pending-sales`, las órdenes sin cliente real muestran `customer.is_walk_in: true`.
 
-En Caja, el cajero **puede dejar** el cliente que vino de Ventas (o mostrador) o buscar/cambiarlo antes de confirmar el cobro.
+**Nombre y RFC opcionales (sin alta de cliente):** Ventas y Caja pueden enviar `walk_in_name` (máx. 120) y/o `walk_in_rfc` (12 o 13, patrón SAT). Se guardan en `inv_s_sales_orders`. Si se elige un cliente registrado, ambos quedan `null`. En `pending-sales` y `sales-in-progress` viajan en la orden. El ticket imprime **Cliente** = `walk_in_name` si existe; si no, el cliente de catálogo / MOSTRADOR. Si hay RFC, renglón **RFC**.
+
+En Caja, el cajero **puede dejar** el cliente que vino de Ventas (o mostrador) o buscar/cambiarlo antes de confirmar el cobro. Si deja mostrador, prellena nombre/RFC de la orden y puede editarlos al cobrar.
+
+Migración: `1790500000000-add-sales-order-walk-in-ticket` (`walk_in_name`, `walk_in_rfc`).
 
 ---
 
@@ -1123,7 +1282,7 @@ En Caja, el cajero **puede dejar** el cliente que vino de Ventas (o mostrador) o
 │ [ Buscar folio... ]                    12 pendientes     │
 ├──────────────────────────────────────────────────────────┤
 │ OV-000123  $830.50  10:32  Vendedor: Pérez (33456)       │
-│            Cliente: Público en General (mostrador)  [>]  │
+│            Cliente: Juan Pérez · XAXX010101000      [>]  │
 ├──────────────────────────────────────────────────────────┤
 │ OV-000124  $1,200   10:45  Vendedor: López (123456) [>]  │
 └──────────────────────────────────────────────────────────┘
@@ -1131,7 +1290,7 @@ En Caja, el cajero **puede dejar** el cliente que vino de Ventas (o mostrador) o
 
 **Tap en fila** → abrir Pantalla 2 (Cobro).
 
-**Badge `is_walk_in: true`:** mostrar chip “Mostrador” hasta que el cajero asigne cliente.
+**Badge `is_walk_in: true`:** mostrar chip “Mostrador” hasta que el cajero asigne cliente. Si hay `walk_in_name`, usarlo como etiqueta de cliente.
 
 **Empty state:** *“No hay ventas pendientes de cobro.”*
 
@@ -1158,12 +1317,14 @@ En Caja, el cajero **puede dejar** el cliente que vino de Ventas (o mostrador) o
 ┌─────────────────────────────────────────┐
 │ CLIENTE                                 │
 │ ○ Público en General (mostrador)        │  ← default si is_walk_in
+│   Nombre [opcional]   RFC [opcional]    │
 │ ○ Buscar cliente...                     │
 │   [ Autocomplete GET /tenant/customers ]│
 └─────────────────────────────────────────┘
 ```
 
 - Pre-seleccionar mostrador si `customer.is_walk_in === true`.
+- Si mostrador: prellenar `walk_in_name` / `walk_in_rfc` de la orden; enviarlos en collect (vacío borra).
 - Al buscar cliente: `GET /api/tenant/customers?search=...`
 - Enviar `customer_id` en collect **siempre que** el cajero haya seleccionado un cliente (obligatorio para que la orden quede con ese cliente en backoffice).
 
@@ -1177,68 +1338,90 @@ Fila 2: Cheque · Mixto · Crédito (Crédito solo si aplica)
 **Tab Efectivo** → `payment_method: "cash"`
 
 ```
-Total a cobrar:     $830.50 MXN
+Total a cobrar:     $1,079.65 MXN
 
-Aplicar en MXN:     [ 830.50 ]
-Aplicar en USD:     [ 0      ]  TC: [ 17.25 ]  (solo si USD > 0)
-
-Recibió MXN:        [ 1000   ]  → Cambio: $169.50
-Recibió USD:        [ 0      ]  → Cambio: $0.00
+Recibió MXN:        [ 0      ]
+Recibió USD:        [ 100    ]  TC: [ 16.80 ]
+                    Aplican $64.26 USD a TC 16.80
+Cambio a entregar:  $35.74 USD / $600.43 MXN
 ```
 
+Cambio 2026-10-12: el cambio se **muestra siempre en USD y MXN** (equivalente con el TC). El corte sigue usando el cambio físico: si el sobrante fue en dólares, `change_cash_usd` es el que sale de caja.
+
 Reglas UI:
-- `amount_cash_mxn + amount_cash_usd * TC + ...` debe igualar `total` (validar antes de enviar).
-- Mostrar cambio en vivo: `received - amount`.
-- Si solo MXN: `amount_cash_mxn = total`, `received_cash_mxn >= amount_cash_mxn`.
+- Efectivo: los pesos cubren primero. El USD aplicado es `round(resto / TC, 2)`.
+- El sobrante se devuelve en la misma moneda. 100 USD a 16.80 sobre $1,079.65 → cambio **$35.74 USD** y se muestra también **$600.43 MXN**.
+- `64.26 × 16.80 = 1,079.57`. Esos 8 centavos no bloquean el cobro.
+- Si solo MXN: `received_cash_mxn >= total`, cambio = recibido − total.
+- Corte: efectivo en caja = `recibido − cambio` por moneda (entran 100 USD, salen 35.74 USD; quedan 64.26 USD).
 
 **Tab Transferencia** → `payment_method: "transfer"`
 
 ```
 Monto MXN:          [ 830.50 ]
 Referencia SPEI:    [ SPEI-123456 ]  (obligatorio)
+Nombre:             [          ]     nombre o razón social, uno basta
+Razón social:       [          ]
 ```
 
 **Tab Tarjeta** → `payment_method: "card"`
 
 ```
 Monto MXN:          [ 830.50 ]
-Referencia:         [ 4242 ]  (opcional)
+Número de voucher:  [ VCH-847291 ]  (opcional, ticket de la terminal)
+Nombre:             [          ]     obligatorio
+Teléfono:           [ 10 dígitos ]   obligatorio
 ```
 
 **Tab Cheque** → `payment_method: "check"`
 
 ```
-Monto MXN:          [ 830.50 ]
+[ Pesos (MXN) | Dólares (USD) ]
+
+Monto MXN:          [ 830.50 ]     o Monto USD + TC si eligió dólares
 Número de cheque:   [ CH-45821 ]  (obligatorio)
+Nombre:             [          ]  obligatorio
+Teléfono:           [ 10 dígitos ] obligatorio
 ```
 
-El cheque **no** entra a caja. Se reporta en el resumen del corte (`summary.check_mxn`) igual que transferencia/tarjeta.
+**2026-11-02.** El cheque es de una moneda. En dólares, el monto × TC cubre el total y se muestra el equivalente en pesos. En mixto, la tarjeta de cheque tiene el mismo selector.
+
+En mixto, los mismos datos van en la tarjeta de esa forma. Varias tarjetas comparten un nombre y un teléfono. Efectivo y crédito no los piden.
+
+Se guardan en `pos_sale_collections`. En anticipo, en `advance_shift_payments` y el corte los lista en `payer_summary`. El ticket imprime nombre, razón social y teléfono junto al pago. Migración `1794600000000-add-pos-payer-contact`.
+
+El cheque **no** entra a caja. Se reporta en el resumen del corte (`summary.check_mxn` y, si hay dólares, `summary.check_usd`) igual que transferencia/tarjeta.
 
 **Tab Mixto** → `payment_method: "mixed"`
 
-El cajero **elige** qué tipos usar con botones grandes (no checks sueltos). Mínimo dos. Cada tipo activo es **una tarjeta aparte**, numerada **Pago 1**, **Pago 2**.
+El cajero **elige** qué tipos usar con botones grandes (no checks sueltos). Mínimo **dos pagos**. Cada tipo activo es una tarjeta aparte, numerada **Pago 1**, **Pago 2**.
+
+**2026-11-02.** El efectivo del mixto acepta pesos y dólares a la vez: `amount_cash_mxn`, `received_cash_mxn`, `amount_cash_usd`, `received_cash_usd` y `usd_exchange_rate`. Los dólares se convierten con ese tipo de cambio y entran al total. En efectivo solo, la caja elige Pesos, Dólares o Ambas.
+
+**Varias tarjetas:** si solo marca Tarjeta, se abren **Tarjeta 1** y **Tarjeta 2**. Puede agregar más (hasta 8) con **Agregar otra tarjeta**. Cada cargo tiene monto y referencia. Dos plásticos cubren el mixto sin otra forma.
 
 ```
-Total $1,028.02   Aplicado $1,028.02   Estado Listo
+Total $830.50   Aplicado $830.50   Estado Listo
 
 [ Efectivo ] [ Transferencia ]
 [ Tarjeta  ] [ Cheque ]
 
-+-- Pago 1 · Efectivo ---- [Completar resto] --+
-| Aplica a la venta   Recibió                  |
-| [ 500.00 ]          [ 500.00 ]               |
-| Cambio a entregar $0.00                      |
++-- Pago 1 · Tarjeta 1 ---- [Completar resto] --+
+| Monto [ 400.00 ]                             |
+| Voucher [ VCH-847291 ]                       |
 +----------------------------------------------+
 
-+-- Pago 2 · Transferencia --------------------+
-| Monto [ 528.02 ]                             |
-| Ref. SPEI [ ........ ]                       |
++-- Pago 2 · Tarjeta 2 ------------------------+
+| Monto [ 430.50 ]                             |
+| Voucher [ VCH-112233 ]                       |
 +----------------------------------------------+
+
+[ + Agregar otra tarjeta ]
 ```
 
-**Resto automático:** al escribir un monto, el **último** método marcado recibe la diferencia (`total − suma de los demás`). Si falta saldo, esa tarjeta muestra el botoncito **Completar resto**. Si el cajero edita el último método, ese valor se respeta.
+**Resto automático:** al escribir un monto, el **último** pago (incluida la última tarjeta) recibe la diferencia (`total − suma de los demás`). Si falta saldo, esa tarjeta muestra **Completar resto**. Si el cajero edita el último pago, ese valor se respeta.
 
-Mínimo **dos** formas de pago con monto > 0 entre efectivo / transferencia / tarjeta / cheque. Crédito **no** va en mixto.
+Mínimo **dos** pagos con monto > 0: efectivo / transferencia / cheque y/o **cada cargo de tarjeta**. Crédito **no** va en mixto.
 
 **Tab Crédito** → `payment_method: "credit"` (solo si la OV tiene crédito en **su** razón social: `pending.customer.credit_enabled` o `GET /customers/:id?fiscal_configuration_id={order.fiscal_configuration_id}` → `credit_enabled`)
 
@@ -1252,7 +1435,7 @@ Toggle **Generar factura** (switch largo y fino) en la card del cliente: `genera
 [ Cancelar ]  [ Regresar a ventas ]           [ Confirmar cobro $830.50 ]
 ```
 
-**Regresar a ventas** → `POST /api/tenant/pos/sales/:id/return-to-sales`. Confirmación: el folio sale de caja; Ventas lo ve en Tickets. **Caja se queda en Caja** (no navegar a `/pos/ventas`). Ocultar si no hay `pos:ReturnToSales`. Ya cobrada → 400.
+**Regresar a ventas** → OV: `POST /api/tenant/pos/sales/:id/return-to-sales`. Anticipo: `POST /api/tenant/pos/quotations/:id/return-to-sales`. Confirmación: el folio sale de caja; Ventas lo ve en Tickets. **Caja se queda en Caja** (no navegar a `/pos/ventas`). Ocultar si no hay `pos:ReturnToSales`. Ya cobrada → 400.
 
 **Confirmar** → `POST /api/tenant/pos/sales/:id/collect` con body según tab.
 
@@ -1268,7 +1451,9 @@ Toggle **Generar factura** (switch largo y fino) en la card del cliente: `genera
 |-----|-----|
 | suma ≠ total | “Los montos deben cubrir exactamente $830.50” |
 | falta `transfer_reference` | “Ingresa referencia de transferencia” |
-| falta TC con USD | “Ingresa tipo de cambio” |
+| transferencia sin nombre ni razón social | “Ingresa el nombre o la razón social de la transferencia” |
+| tarjeta o cheque sin nombre o teléfono | “Ingresa el nombre…” / “Ingresa el teléfono… (10 dígitos)” |
+| falta TC con USD | “No hay tipo de cambio. Captúralo en Tipo de Cambio…” — el TC del módulo se aplica solo; caja no lo escribe |
 | orden en cola | “Esta venta aún no está asignada al corte. Abre el corte del día.” |
 | ya cobrada | “Esta orden ya fue cobrada” |
 
@@ -1306,11 +1491,11 @@ Función sugerida `buildCollectPayload(form, orderTotal)`:
 ```
 
 Validación cliente-side antes de POST:
-1. `Math.abs(paidTotal - orderTotal) <= 0.01`
-2. Si `amount_cash_usd > 0` → `usd_exchange_rate` requerido
+1. Efectivo: el USD aplicado es `round(resto MXN / TC, 2)` y el cambio es el sobrante en esa moneda. Una diferencia de hasta 1 centavo de dólar (64.26 × 16.80 = 1079.57 vs 1079.65) no bloquea. Cheque en dólares usa la misma holgura. Otros métodos: `Math.abs(paidTotal - orderTotal) <= 0.01`.
+2. Si hay USD recibido, o cheque en dólares → `usd_exchange_rate` requerido
 3. Si `amount_transfer_mxn > 0` → `transfer_reference` no vacío
-4. Si `payment_method === 'mixed'` → al menos 2 montos > 0 (efectivo / transferencia / tarjeta / cheque)
-5. Si `amount_check_mxn > 0` → `check_reference` no vacío
+4. Si `payment_method === 'mixed'` → al menos 2 pagos > 0 (efectivo / transferencia / cheque / cada cargo de tarjeta). Dos tarjetas bastan.
+5. Si `amount_check_mxn > 0` o `amount_check_usd > 0` → `check_reference` no vacío
 6. Si `payment_method === 'credit'` → crédito activo **en la razón social de la OV** (`fiscal_configuration_id`) y `credit_available >= amount_pending`
 
 ---
@@ -1425,9 +1610,9 @@ Pasar el mismo buffer ESC/POS decodificado al SDK del fabricante.
 | Momento | Acción UI |
 |---------|-----------|
 | Al confirmar cobro | Spinner en botón "Confirmar cobro" |
-| 200 + impresión OK | Toast *"Venta OV-000123 cobrada"* + ticket sale de la impresora |
-| 200 + impresión falla | Toast cobro OK + modal *"No se pudo imprimir. [Reintentar]"* |
-| `receipt === null` | Cobro OK; avisar que no hay ticket (no existe endpoint de regeneración) |
+| 200 + ticket | Toast cobro OK + modal de vista previa. Dropdown **Copias** (1–5). **Imprimir** manda N copias por QZ |
+| 200 + impresión falla | Toast cobro OK; el error se pinta en el modal |
+| `receipt === null` | Cobro OK; avisar con `receipt_error`. Reimprimir llama `GET pos/sales/:id/receipt`, que genera el ticket si la venta ya está cobrada |
 
 **No usar** `window.print()`, `plain_text`, ni pegar `escpos_base64` en un diálogo de texto — eso imprime "letritas" o basura, no el ticket.
 
@@ -1446,7 +1631,7 @@ Pasar el mismo buffer ESC/POS decodificado al SDK del fabricante.
 GET /api/tenant/pos/sales/:salesOrderId/receipt
 ```
 
-Mismo `printPosReceipt(receipt.escpos_base64)`. En **Órdenes cobradas**, acción **"Reimprimir ticket"** por renglón.
+Mismo modal de vista previa (elige copias y pulsa Imprimir). En **Órdenes cobradas**, **"Reimprimir ticket"** / **"Ver ticket"**.
 
 **404** → no hubo ticket al cobrar; mostrar mensaje y no intentar crear uno nuevo.
 
@@ -1474,7 +1659,7 @@ Mismo `printPosReceipt(receipt.escpos_base64)`. En **Órdenes cobradas**, acció
 
 **Terminal Caja (`COBRANZA`)**
 - [ ] Lista `pending-sales`
-- [ ] Botón **Regresar a ventas** (oculto sin `pos:ReturnToSales`)
+- [ ] Botón **Regresar a ventas** (oculto sin `pos:ReturnToSales`; también en anticipos)
 - [ ] Pantalla cobro con cliente + tabs pago
 - [ ] `POST collect` con validación de montos
 - [ ] Mostrar cambio en efectivo

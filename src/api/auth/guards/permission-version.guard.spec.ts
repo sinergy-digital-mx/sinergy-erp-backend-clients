@@ -107,6 +107,20 @@ describe('PermissionVersionGuard', () => {
       expect(permissionVersionService.getUserVersion).toHaveBeenCalledWith('user-123');
     });
 
+    it('should compare numeric versions when JWT or database sends strings', async () => {
+      const user = {
+        id: 'user-123',
+        permissions_version: '10',
+      };
+      const context = createMockExecutionContext(user, '/api/customers');
+
+      permissionVersionService.getUserVersion.mockResolvedValue('10' as unknown as number);
+
+      const result = await guard.canActivate(context);
+
+      expect(result).toBe(true);
+    });
+
     it('should throw UnauthorizedException when JWT version is less than database version', async () => {
       const user = {
         id: 'user-123',

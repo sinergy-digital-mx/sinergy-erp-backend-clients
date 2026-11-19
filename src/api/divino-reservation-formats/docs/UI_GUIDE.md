@@ -1,5 +1,11 @@
 # Guía de UI — Divino Formatos de Reservación
 
+## Historial
+
+- 2026-10-26: El selector de lote (`GET /tenant/properties`) acepta `DivinoReservationFormat:Read`, `Create` o `Update`. Sin `Property:Read` la respuesta solo trae código, nombre, estatus y precio (sin clientes ni contratos). El rol vendedor ya no necesita el módulo de propiedades.
+- 2026-10-26: El selector de razón social (`GET /tenant/fiscal-configurations`) acepta `DivinoReservationFormat:Read` o `Create`. El rol vendedor ya no necesita cotizaciones ni ventas para ver las razones.
+- 2026-10-26: Eliminar abre un modal propio (folio, comprador, lote, estatus) con **Cancelar** y **Eliminar formato**. Si el formato ya está `sent`, avisa que el correo enviado no se retira.
+
 Cómo consumir el módulo desde el frontend. Todos los endpoints requieren:
 
 - Header `Authorization: Bearer <token>`
@@ -27,6 +33,11 @@ Base URL del módulo: `/{apiPrefix}/tenant/divino-reservation-formats`
 GET /tenant/properties?status=disponible&search=A-12&page=1&limit=20
 ```
 
+Permiso: cualquiera de `Property:Read`, `DivinoReservationFormat:Read`,
+`DivinoReservationFormat:Create` o `DivinoReservationFormat:Update`. Sin
+`Property:Read` cada lote trae solo `id`, `code`, `name`, `block`, `lot_number`,
+`status`, `total_area`, `total_price`, `price_per_m2` y `currency`.
+
 Usa el `id` de la propiedad como `property_id`. El backend copia automáticamente
 `block` (Manzana), `lot_number` (Número de Lote) y `surface` (Superficie), y toma
 `purchase_price`/`currency` del lote si no los envías (puedes sobreescribirlos).
@@ -37,9 +48,14 @@ Usa el `id` de la propiedad como `property_id`. El backend copia automáticament
 GET /tenant/fiscal-configurations?status=active&page=1&limit=20
 ```
 
+Permiso: cualquiera de `FiscalConfiguration:Read`, `Quotation:Read`, `sales_orders:Read`,
+`DivinoReservationFormat:Read` o `DivinoReservationFormat:Create`. Sin `FiscalConfiguration:Read`
+la lista no incluye sello ni secretos.
+
 Muestra `razon_social` y el `logo` (viene como URL firmada) en el selector. Envía el
 `id` como `fiscal_configuration_id`. Ese logo y razón social se renderizan en el PDF.
-Si dejas nulo el `fiscal_configuration_id`, el PDF usa "Valdetierra SA de CV" por defecto.
+Si omites `fiscal_configuration_id`, el alta usa la razón social activa de la organización
+(Valdetierra SA de CV) y copia su nombre a `payable_to` cuando ese campo viene vacío.
 
 ---
 
@@ -169,6 +185,8 @@ DELETE /tenant/divino-reservation-formats/:id
 ```
 
 Respuesta: `{ "success": true }`.
+
+El botón de la tabla abre un modal de confirmación, no un alert genérico. Muestra folio, comprador, lote, estatus y fecha. Acciones: **Cancelar** y **Eliminar formato**. Si `status` es `sent`, el modal avisa que el correo ya enviado no se puede retirar. El DELETE corre al confirmar; al terminar bien se recarga la tabla.
 
 ---
 

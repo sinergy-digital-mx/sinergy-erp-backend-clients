@@ -38,8 +38,8 @@ Nunca pintes un `origin: migration` como fila de primer nivel. Eso es lo que hac
 | Producto | `product_name` + `product_sku` | |
 | Almacén | `sucursal` + `warehouse_name` | 2 líneas. También `razon_social` |
 | Costo | `unit_cost` + `payment_currency` del header | Hasta 4 decimales. Badge de moneda, no `"USD 2.22"` |
-| Costo real USD | `real_unit_cost_usd` | Rojo. Ocultar si `null`. Ver `UI_PURCHASE_ORDER_REAL_COST.md` |
-| Costo real MXN | `real_unit_cost_mxn` | Verde. Ocultar si `null` |
+| Costo real USD | `real_unit_cost_usd` | Rojo. Ocultar si `null` o sin permiso `purchase_order_real_cost:Read`. Ver `UI_PURCHASE_ORDER_REAL_COST.md` |
+| Costo real MXN | `real_unit_cost_mxn` | Verde. Ocultar si `null` o sin ese permiso |
 | Importe | `amount` | `unit_cost × received_quantity`. **Solo padres entran al TOTALES** |
 | Solicitadas | `ordered_quantity` + `uom_name` | Cantidad de la **línea**, no del lote |
 | Llegaron | `received_quantity` + `uom_name` | Lo que llegó en **este** lote |
@@ -162,4 +162,4 @@ Llegaron 1314 PT · Quedan 0 PT · Migrados 1314 PT  →
 - [ ] TOTALES desde `batches_summary`, sin sumar filas migradas
 - [ ] Moneda con badge de `payment_currency`
 - [ ] `measure_label` si viene
-- [ ] Costo real USD/MXN si `real_unit_cost_*` no es null
+- [ ] Costo real USD/MXN si `real_unit_cost_*` no es null y el usuario tiene `purchase_order_real_cost:Read`

@@ -193,7 +193,7 @@ Respuesta incluye `url` firmada (15 min) para previsualizar/descargar.
 | Pago `source = pos_cobranza` | No permitir eliminar (solo lectura) |
 | Pago `source = manual` | Permitir eliminar y recalcular saldo |
 | Chip estatus | `payments_summary.payment_status` |
-| Origen por pago | `source_label` (`POS Caja` / `Cobrada manual`) |
+| Origen por pago | `source_label` (`POS Caja` / `Anticipo` / `Cobrada manual`) |
 
 ### Función Pollux
 

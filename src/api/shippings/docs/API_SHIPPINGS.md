@@ -2,7 +2,11 @@
 
 Rutas de entrega del día: origen (sucursal con GPS) → órdenes surtidas → camión + chofer (usuario) → distancia Haversine.
 
-Scoped por organización vía JWT. No enviar `tenant_id` / `organization_id` en el body.
+Scoped por organización vía JWT. No enviar `organization_id` en el body.
+
+## Historial
+
+- 2026-10-09: Al crear un envío, la unidad no puede estar en otro envío `Creado` o `En Ruta`. Se libera al completarlo o cancelarlo.
 
 ## Permisos
 

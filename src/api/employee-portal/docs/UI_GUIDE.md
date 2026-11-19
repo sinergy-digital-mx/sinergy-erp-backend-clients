@@ -54,7 +54,14 @@ Devuelve el perfil completo del empleado autenticado:
     "biweekly_salary": 6000,
     "annual_salary": 144000
   },
-  "leave_requests": [ … ]
+  "leave_requests": [ … ],
+  "work_schedule": {
+    "weekly_hours": 45,
+    "notes": null,
+    "days": [
+      { "weekday": 1, "is_workday": true, "start_time": "09:00", "end_time": "18:00", "hours": 9 }
+    ]
+  }
 }
 ```
 
@@ -115,7 +122,22 @@ POST /tenant/employee-portal/me/leave-requests
 - Para `vacation`, si excedes tus días disponibles el backend responde `400`.
 - La solicitud queda en `pending` hasta que RH la apruebe/rechace.
 
-## 6. Cancelar una solicitud pendiente
+## 6. Comprobantes de incapacidad médica
+
+El perfil (`GET /me`) incluye `sick_leave` (días aprobados y en revisión del año) y `documents` en cada solicitud.
+
+```http
+POST /tenant/employee-portal/me/leave-requests/:requestId/documents
+Content-Type: multipart/form-data
+```
+
+Campo `file`: PDF o imagen, máx. 10 MB. Solo en una incapacidad propia, pendiente o aprobada.
+
+```http
+DELETE /tenant/employee-portal/me/leave-requests/:requestId/documents/:documentId
+```
+
+## 7. Cancelar una solicitud pendiente
 
 ```http
 PUT /tenant/employee-portal/me/leave-requests/:requestId/cancel
@@ -129,7 +151,44 @@ Solo puedes cancelar tus propias solicitudes en estatus `pending`.
 
 | Código | Causa                                                         |
 | ------ | ------------------------------------------------------------- |
-| 400    | Fechas inválidas o días de vacaciones insuficientes.         |
+| 400    | Fechas inválidas, horario empalmado o días de vacaciones insuficientes. |
 | 401    | Token ausente o inválido.                                    |
 | 403    | La cuenta no es de tipo empleado, o sin permiso `EmployeePortal:*`. |
 | 404    | Solicitud no encontrada.                                     |
+
+## 8. Horas extras
+
+```http
+POST /tenant/employee-portal/me/overtime-requests
+```
+
+```json
+{
+  "work_date": "2026-10-26",
+  "start_time": "18:00",
+  "end_time": "21:00",
+  "reason": "Cierre de caja",
+  "notes": "Opcional"
+}
+```
+
+La respuesta incluye `requested_hours` calculadas con el horario. `notes` es opcional. La fecha no puede ser futura.
+
+```http
+GET /tenant/employee-portal/me/overtime-requests?status=pending
+PUT /tenant/employee-portal/me/overtime-requests/:requestId
+```
+
+El `PUT` solo corrige una solicitud `pending` del empleado autenticado. El estatus (`pending`, `approved`, `rejected`, `paid`), quién autorizó (`reviewer_name`, `reviewed_at`) y cuánto se pagó (`amount`, `paid_amount`, `paid_at`) vienen en cada fila. La revisión y el pago los hace RH en el módulo de empleados.
+
+## 9. Mi horario laboral
+
+`GET /me` incluye `work_schedule` (`null` si aún no hay). El empleado lo guarda así:
+
+```http
+PUT /tenant/employee-portal/me/work-schedule
+```
+
+Cuerpo: `days` (1 lunes … 7 domingo, `is_workday`, `start_time`, `end_time`) y `notes` opcional. La respuesta es el perfil con `weekly_hours`.
+
+UI: sección **Horario laboral** debajo de las cards. Checkbox por día, entrada/salida, total de la semana y **Guardar horario**.

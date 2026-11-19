@@ -8,6 +8,7 @@ import {
   padLeft,
   padRight,
   observationTicketLines,
+  wrapLines,
 } from './escpos.util';
 
 describe('escpos.util', () => {
@@ -47,6 +48,13 @@ describe('escpos.util', () => {
     const lines = observationTicketLines('Entregar en mostrador. Cliente pide factura.');
     expect(lines[0]).toBe('OBSERVACIONES');
     expect(lines.join(' ')).toContain('Entregar en mostrador.');
+  });
+
+  it('parte una URL larga sin recortar el resto', () => {
+    const url = 'https://facturacion.sinergydigital.mx/facturar/MZN-BA-INV-000290?email=cliente@correo.com';
+    const lines = wrapLines(url, 48);
+    expect(lines.join('')).toBe(url);
+    expect(lines.every((line) => line.length <= 48)).toBe(true);
   });
 
   it('emits ESC/POS QR function commands', () => {

@@ -1,5 +1,21 @@
 # UI — Notas en órdenes de compra
 
+## 2026-11-11 — Nota por línea
+
+Cada producto puede llevar su nota (`line_items[].notes`, máximo 500). Es distinta de la nota general de abajo.
+
+En el detalle sale debajo del nombre, en un recuadro ámbar. Se escribe al crear la línea, al editarla o en el alta. Si tiene texto, el PDF la imprime bajo el producto, en lo solicitado y en lo recibido. Vacío o `null` la quita. Al reemplazar la orden hay que reenviar la nota de cada línea.
+
+```json
+{ "notes": "Pedir el rollo continuo" }
+```
+
+
+
+## Cambios
+
+- 2026-11-03: Guardar notas regenera el documento original. El PDF imprime esas notas y la unidad de cada línea (`Pie lineal`, no `UOM`).
+
 Guía para Pollux: sección **NOTAS** editable en el detalle de la orden de compra.
 
 Mismo patrón que ventas (`UI_SALES_ORDER_NOTES.md`).

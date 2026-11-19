@@ -13,6 +13,7 @@ describe('ProductVendorImportService', () => {
   let vendorCostRepo: {
     createQueryBuilder: jest.Mock;
     save: jest.Mock;
+    manager: { query: jest.Mock };
   };
   let productPriceRepo: {
     find: jest.Mock;
@@ -67,9 +68,11 @@ describe('ProductVendorImportService', () => {
   }
 
   beforeEach(async () => {
+    encinoCost.cost = 10;
     vendorCostRepo = {
       createQueryBuilder: jest.fn(),
       save: jest.fn(async (entity) => entity),
+      manager: { query: jest.fn().mockResolvedValue([{ ieps_enabled: 1 }]) },
     };
     productPriceRepo = {
       find: jest.fn().mockResolvedValue([]),
@@ -220,6 +223,121 @@ describe('ProductVendorImportService', () => {
         product_uom_id: 'uom-1',
         price: 99,
         iva_percentage: 16,
+      }),
+    );
+  });
+
+  it('importCatalog actualiza costo y precio en el mismo archivo', async () => {
+    vendorRepo.findOne.mockResolvedValue(vendor);
+    priceListRepo.findOne.mockResolvedValue(priceList);
+    mockCostQuery([encinoCost]);
+    productPriceRepo.find.mockResolvedValue([
+      {
+        id: 'price-1',
+        product_id: 'prod-1',
+        product_uom_id: 'uom-1',
+        price_list_id: priceListId,
+        price: 99,
+        iva_percentage: 16,
+        ieps_percentage: 0,
+      },
+    ]);
+
+    const buffer = await buildVendorImportTemplate({
+      kind: 'catalog',
+      title: 'Catálogo',
+      subtitle: '',
+      contextLines: [],
+      rows: [
+        {
+          sku: 'ENC16',
+          name: 'ENCINO',
+          uom: 'Pieza',
+          currency: 'MXN',
+          price_list: 'Mostrador',
+          current_cost: 10,
+          new_cost: 12.5,
+          current_price: 99,
+          new_price: 110,
+          _cost_id: 'cost-1',
+          _price_id: 'price-1',
+          _product_id: 'prod-1',
+          _product_uom_id: 'uom-1',
+          _price_list_id: priceListId,
+        },
+        {
+          sku: 'ENC16',
+          name: 'ENCINO',
+          uom: 'Pieza',
+          currency: 'MXN',
+          price_list: 'Mostrador',
+          current_cost: 10,
+          new_cost: null,
+          current_price: 99,
+          new_price: null,
+          _cost_id: 'cost-1',
+          _price_id: 'price-1',
+          _product_id: 'prod-1',
+          _product_uom_id: 'uom-1',
+          _price_list_id: priceListId,
+        },
+      ],
+    });
+
+    const result = await service.importCatalog(orgId, vendorId, priceListId, excelFile(buffer));
+    expect(result.costs_updated).toBe(1);
+    expect(result.prices_updated).toBe(1);
+    expect(result.updated).toBe(2);
+    expect(result.created).toBe(0);
+    expect(result.skipped).toBe(1);
+    expect(result.errors).toEqual([]);
+    expect(vendorCostRepo.save).toHaveBeenCalledTimes(1);
+    expect(vendorCostRepo.save.mock.calls[0][0].cost).toBe(12.5);
+    expect(productPriceRepo.save).toHaveBeenCalledTimes(1);
+    expect(productPriceRepo.save.mock.calls[0][0].price).toBe(110);
+  });
+
+  it('importCatalog crea precio si no existía y deja el costo vacío', async () => {
+    vendorRepo.findOne.mockResolvedValue(vendor);
+    priceListRepo.findOne.mockResolvedValue(priceList);
+    mockCostQuery([encinoCost]);
+    productPriceRepo.find.mockResolvedValue([]);
+
+    const buffer = await buildVendorImportTemplate({
+      kind: 'catalog',
+      title: 'Catálogo',
+      subtitle: '',
+      contextLines: [],
+      rows: [
+        {
+          sku: 'ENC16',
+          name: 'ENCINO',
+          uom: 'Pieza',
+          currency: 'MXN',
+          price_list: 'Mostrador',
+          current_cost: 10,
+          new_cost: null,
+          current_price: null,
+          new_price: 99,
+          _cost_id: 'cost-1',
+          _price_id: '',
+          _product_id: 'prod-1',
+          _product_uom_id: 'uom-1',
+          _price_list_id: priceListId,
+        },
+      ],
+    });
+
+    const result = await service.importCatalog(orgId, vendorId, priceListId, excelFile(buffer));
+    expect(result.costs_updated).toBe(0);
+    expect(result.prices_created).toBe(1);
+    expect(result.created).toBe(1);
+    expect(vendorCostRepo.save).not.toHaveBeenCalled();
+    expect(productPriceRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        product_id: 'prod-1',
+        price_list_id: priceListId,
+        price: 99,
       }),
     );
   });

@@ -1,5 +1,105 @@
 # UI — Logística (camiones + envíos)
 
+## 2026-11-12 — Choferes al crear un envío
+
+El combo de chofer ya no usa `GET /tenant/users`. Ese listado pide permiso de usuarios y el rol CEDIS no lo tiene, así que el combo salía vacío.
+
+```http
+GET /api/tenant/shippings/drivers
+```
+
+Permiso: `Shipping:Read`. Respuesta `{ data: [...] }` con usuarios marcados como chofer, activos, y `carta_porte_ready` / `carta_porte_missing`. Mismo origen en Nuevo viaje, en el viaje, en la transferencia y en el catálogo de choferes.
+
+## 2026-11-06 — Uso de la unidad en flota
+
+En **Flota y remolques** (`/logistics/trucks`) cada fila trae la columna **Uso**.
+
+- Sin envío Creado o En Ruta: badge verde **Disponible**.
+- Con envío activo: badge **En uso** y el folio corto del viaje (`#` + 8 caracteres del id). Índigo si está Creado, ámbar si está En ruta. El tooltip muestra estado, fecha y chofer. El badge abre el detalle del envío.
+
+Los datos ya vienen en el listado: `active_shipping_id`, `active_shipping_status`, `active_shipping_date`, `active_shipping_driver_name`.
+
+## 2026-11-03 — Varias transferencias por envío
+
+Un viaje en **Creado** acepta varias transferencias de su sucursal. En la ruta, **Agregar transferencia** abre las pendientes y las suma al mismo envío. El folio abre el detalle de la transferencia.
+
+Desde ese detalle también se puede crear el envío o agregarla a uno existente. El alta sigue siendo `POST /tenant/shippings/:id/transfers`.
+
+## 2026-10-28 — Chofer y camión editables
+
+Al crear el viaje y dentro de uno existente se ve si el chofer y el camión ya pueden carta porte. **Editar** abre la ficha después de elegirlos. En un viaje creado o en ruta también se pueden cambiar. Detalle en `UI_CARTA_PORTE.md`.
+
+## 2026-10-28 — Carta porte en demo
+
+En el envío, pestaña Carta porte, se puede timbrar en **Demo** para ver el PDF sin validez fiscal. El detalle está en `UI_CARTA_PORTE.md`.
+
+## 2026-10-16 — Unidad en otro envío
+
+En Nuevo viaje y en el envío de una transferencia, un camión en estado Creado o En Ruta no se puede elegir. La opción dice la fecha, el chofer y el estado de ese viaje. Si solo falta información de carta porte, la unidad sí se puede seleccionar.
+
+## 2026-10-16 — Envío de transferencia
+
+Un viaje puede ser entrega de órdenes, transferencia de inventario o ambas (`cargo_kind`: `order_delivery`, `inventory_transfer`, `mixed`). El alta acepta `inventory_transfer_ids`. La carta porte y el cierre están en `src/api/inventory/docs/UI_TRANSFER_SHIPMENT.md`. En Control logístico, debajo de Rastreo GPS, la pantalla Proceso de transferencia explica los pasos.
+
+## 2026-10-09 — Dirección de la parada
+
+La tarjeta de la orden muestra solo la dirección elegida. Un solo botón, **Dirección**, abre las del cliente: se elige una, se agrega otra o se edita el mapa de la fila. Al elegir una, el viaje en **Creado** hace `PATCH .../stops/:salesOrderId/address`. En el alta del viaje se vuelve a pedir el preview con ese `customer_address_id`. Si el viaje ya salió, el mismo botón solo corrige el mapa.
+
+## 2026-10-09 — Detalle de viaje
+
+El diálogo del viaje ocupa casi toda la pantalla. La fecha va en un bloque aparte del folio. Carta porte está en su pestaña; la ruta y el mapa quedan en **Ruta**.
+
+## 2026-10-09 — Viajes: calendario y lista
+
+Envíos deja de ser una pantalla del menú. Viajes y envíos son lo mismo.
+
+- `/logistics/trips` abre en **calendario**. Arriba se cambia a **lista**.
+- `/logistics/shippings` redirige a `/logistics/trips`.
+- La lista y el dashboard usan la misma tarjeta: fecha, origen → destino, y en una sola línea folio, unidad, chofer y km. Varios clientes se muestran como conteo.
+
+## 2026-10-09 — Rastreo GPS
+
+Módulo `gps_tracking`, habilitado solo en Verdulería y Maderería.
+
+- Configuración del sistema → **Rastreo GPS**: usuario y contraseña de 3D Tracking. Se prueba la conexión y queda una configuración activa.
+- Ejecución → **Rastreo GPS** (`/logistics/tracking`): lista de unidades y mapa. El camión se dibuja en su última posición.
+- En el camión, **Unidad GPS**. Si no se elige, el enlace es la placa contra el nombre de la unidad.
+- Al crear un envío, un camión en `Creado` o `En Ruta` no se puede volver a elegir.
+
+## 2026-10-09 — Control logístico
+
+Menú izquierdo del módulo (tema claro del ERP). No incluye costos de dedicado ni subcontratado, ni catálogos de clientes o evidencias.
+
+| Sección | Pantalla | Ruta |
+|---------|----------|------|
+| Ejecución | Dashboard: resumen de viajes abiertos (cualquier mes) y actividad del mes | `/logistics/dashboard` |
+| Ejecución | Viajes: calendario (por defecto) o lista | `/logistics/trips` |
+| Ejecución | Transferencias de inventario | `/logistics/transfers` |
+| Catálogos | Flota y remolques | `/logistics/trucks` |
+| Catálogos | Choferes: usuarios marcados como chofer | `/logistics/drivers` |
+
+**Nuevo viaje** abre el mismo wizard de creación. En la UI el viaje es un envío normal con camión y chofer del catálogo.
+
+Flota, choferes y transferencias usan la tabla `variant="modern"`. Viajes usa calendario o tarjetas. El dashboard usa la misma tarjeta.
+
+El botón de crear va en la fila del título. Búsqueda y estado van debajo, con el mismo alto y borde que los filtros de órdenes de venta.
+
+## 2026-10-09 — Dashboard
+
+El resumen es una sola barra horizontal: abiertos, km, paradas, unidades y el mes. Cada viaje abierto usa la tarjeta de Viajes: fecha, origen → destino y el estado a la derecha.
+
+## 2026-10-09 — Carta porte
+
+No había carta porte en el sistema. Finkok no tiene un método aparte: el complemento **Carta Porte 3.1** va dentro de un CFDI 4.0 de traslado y se timbra con el `sign_stamp` que ya usa la facturación.
+
+- Usuario: opción **Es chofer**. Si está activa, licencia y RFC son obligatorios.
+- Unidad y chofer exponen `carta_porte_ready` y la lista de lo que falta.
+- En el viaje: **Generar carta porte** (pide el peso de la carga en kg) y **Descargar PDF** cuando ya está timbrada.
+
+Detalle de campos y validaciones: `UI_CARTA_PORTE.md`.
+
+`GET /tenant/shippings` pagina igual que antes y, además, devuelve paradas con orden y cliente para armar origen → destino en las tarjetas.
+
 ## Pantallas mínimas
 
 1. **Catálogo camiones** — CRUD `/tenant/trucks`. Modal con tabs **General** + **Fotos** (mismo patrón que catálogo de productos). Ver `src/api/trucks/docs/UI_TRUCK_PHOTO.md`.
@@ -181,6 +281,16 @@ POST /api/tenant/shippings/preview
       "customer_address_id": 7,
       "address_type": "shipping",
       "address_summary": "Callejon Rio Bravo, Tijuana, Baja California",
+      "customer_addresses": [
+        {
+          "id": 7,
+          "type": "shipping",
+          "type_label": "Entrega",
+          "address_summary": "Callejon Rio Bravo, Tijuana, Baja California",
+          "is_primary": true,
+          "has_gps": true
+        }
+      ],
       "location_status": "ok",
       "delivery_latitude": 32.52,
       "delivery_longitude": -117.04,
@@ -206,11 +316,22 @@ POST /api/tenant/shippings/preview
 
 ### Cliente (parada)
 
-Preferencia del back: dirección `type = "shipping"` (UI: **Entrega**).
+Cada parada trae `customer_addresses[]` con todas las direcciones activas del cliente. Mostrarlas en la vista previa y en el detalle del envío. La marcada es `customer_address_id`.
+
+Al elegir otra en la vista previa, volver a `POST /preview` con ese `customer_address_id`. En un envío **Creado**:
+
+```http
+PATCH /api/tenant/shippings/:id/stops/:salesOrderId/address
+{ "customer_address_id": 7 }
+```
+
+Preferencia del back si no se envía id: dirección principal (`is_primary`). Si ninguna está marcada: Entrega con GPS, luego cualquier GPS, luego tipo Entrega, luego la primera.
 
 | Situación | UI |
 |-----------|-----|
-| `location_status === "without_location"` y **no** hay `customer_address_id` | Texto: **“Este cliente no tiene dirección de entrega registrada”** + botón **Agregar dirección** |
+| Hay dirección elegida | La tarjeta muestra esa dirección en una línea. |
+| Siempre que haya `customer_id` | Botón **Dirección**: lista las del cliente (o las trae de `GET /customers/:id/addresses`) y permite **Agregar dirección**. Al usar una, queda `customer_address_id`. |
+| `location_status === "without_location"` y **no** hay `customer_address_id` | Texto: **“Este cliente no tiene dirección de entrega registrada”** |
 | `without_location` pero sí hay `customer_address_id` | Texto: **“La dirección de entrega no tiene coordenadas”** + botón **Editar dirección** |
 | `location_status === "ok"` | Mostrar dirección + coords OK |
 
@@ -276,7 +397,13 @@ Los campos `fiscal_*` del customer **no** son la lista de Direcciones.
 
 ## Chofer (MVP)
 
-Selector de usuarios activos. `driver_id` = `user.id`.
+Selector de choferes activos. `driver_id` = `user.id`.
+
+```http
+GET /api/tenant/shippings/drivers
+```
+
+Permiso `Shipping:Read`. No uses `GET /tenant/users`: el rol CEDIS no lo tiene y el combo queda vacío.
 
 ## Órdenes elegibles
 

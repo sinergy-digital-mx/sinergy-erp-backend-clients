@@ -49,7 +49,7 @@ async function main() {
     const monthlyResult = await queryRunner.query(`
       UPDATE contracts c
       SET monthly_payment = ROUND(
-        COALESCE(c.down_payment_target, 0) / c.payment_months,
+        GREATEST(0, c.total_price - COALESCE(c.down_payment_target, 0)) / c.payment_months,
         2
       )
       WHERE c.down_payment_financed = 1

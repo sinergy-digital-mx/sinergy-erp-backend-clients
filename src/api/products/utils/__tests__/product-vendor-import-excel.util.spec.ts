@@ -99,4 +99,49 @@ describe('product-vendor-import-excel.util', () => {
       price_list_id: 'list-1',
     });
   });
+
+  it('arma un nombre de archivo unificado', () => {
+    expect(vendorImportFilename('catalog', 'Maderas Pérez', 'Mostrador')).toMatch(
+      /^costos-precios-proveedor-maderas-perez-mostrador-\d{4}-\d{2}-\d{2}\.xlsx$/,
+    );
+  });
+
+  it('genera template de catálogo con costo y precio y lo vuelve a leer', async () => {
+    const buffer = await buildVendorImportTemplate({
+      kind: 'catalog',
+      title: 'Costos y precios — Demo',
+      subtitle: 'Lista mostrador',
+      contextLines: ['Lista: Mostrador'],
+      rows: [
+        {
+          sku: 'ENC16',
+          name: 'ENCINO 1X6',
+          uom: 'Pieza',
+          currency: 'MXN',
+          price_list: 'Mostrador',
+          is_active: 'Sí',
+          current_cost: 2.215,
+          new_cost: 2.5,
+          current_price: 99.5,
+          new_price: 110,
+          _cost_id: 'cost-1',
+          _price_id: 'price-1',
+          _product_id: 'prod-1',
+          _product_uom_id: 'uom-1',
+          _price_list_id: 'list-1',
+        },
+      ],
+    });
+
+    const rows = parseVendorImportExcel(buffer, 'catalog');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      sku: 'ENC16',
+      new_cost: 2.5,
+      new_price: 110,
+      cost_id: 'cost-1',
+      price_id: 'price-1',
+      price_list_id: 'list-1',
+    });
+  });
 });

@@ -1,5 +1,9 @@
 # UI — Crear orden de venta (razón social → sucursal)
 
+**2026-11-02 — para envío.** Checkbox **Para envío** → `for_shipping`. También en POS al registrar la venta. Si no se marca, `PATCH /sales-orders/:id/for-shipping`. Ver `UI_SALES_ORDER_FOR_SHIPPING.md`.
+
+**2026-10-14 — moneda de la orden.** En el alta manual, combo **Moneda de la orden**: `MXN` (default) o `USD`. Body: `currency`. Si es `USD`, el API guarda el tipo de cambio del día en `exchange_rate`. Sin tipo de cambio responde 400. POS no manda `currency` aquí: se elige al cobrar. La factura sale en la misma moneda que la orden.
+
 Contrato para Pollux. Igual que OC en la cascada **razón social → sucursal**. A diferencia de OC, **no hay almacén** en el alta: la OV vende inventario de **todos los almacenes de esa sucursal**.
 
 **POS no cambia.** Sigue mandando `warehouse_id` + `fiscal_configuration_id`. Ver `src/api/pos-shifts/docs/UI_POS_FLOW.md`.
@@ -17,7 +21,9 @@ Dos combos en cascada (obligatorios), en este orden. **Quitar el dropdown Almac�
 | 3 | **Cliente** * | `customer_id` | Búsqueda de clientes |
 | 4 | **Fecha de entrega** * | `expected_delivery_date` | Date |
 | 5 | **Tipo de orden** * | `sale_scope` | `inventory` (Inventario) · `services` (Servicios) · `combined` (Productos y servicios). Default `inventory`. POS ignora el valor. |
+| 5b | **Moneda de la orden** * | `currency` | `MXN` o `USD`. Default `MXN`. Toda la orden y su factura. En USD hace falta tipo de cambio del día. |
 | 6 | Checkbox selección/armado | `requires_selection_assembly` | Solo si `sale_scope` no es `services` y `warehouse_control` está enabled. **No** en Divino. Ver `UI_SALES_ORDER_SELECTION_ASSEMBLY.md` |
+| 6b | Checkbox **Para envío** | `for_shipping` | Opcional. Solo la marca. No crea el envío. Ver `UI_SALES_ORDER_FOR_SHIPPING.md` |
 | 7 | **Notas** | `notes` | Texto opcional |
 
 No pintar **Almacén**. No enviar `warehouse_id` en MANUAL.
@@ -101,11 +107,13 @@ Respuesta (shape POS, agregado por sucursal):
 }
 ```
 
+**2026-10-31 — producto sin unidad.** Si la fila no trae unidad de medida, el cuadro del producto lo dice: necesita una para agregarlo a la venta. El botón **Agregar unidad** abre la ficha del producto en la pestaña UOMs. Al cerrarla, el selector toma la unidad recién asignada. No hace falta salir a Catálogos.
+
 Al agregar línea: `product_id`, `product_uom_id`, `quantity`, `unit_price`, impuestos. **No** mandar `warehouse_id` por línea.
 
 `unit_price` admite hasta **4 decimales** (p. ej. `2.150`). No redondear a 2 en el cliente ni en el API. Los totales de cabecera siguen a 2 decimales.
 
-Si `sale_scope=inventory` y `total_available_quantity` es 0, no dejar agregar (o avisar). El surtido/corroboración descuenta FIFO entre los almacenes de la sucursal.
+Si `sale_scope=inventory` y `total_available_quantity` es 0, no dejar agregar (o avisar). Al crear, si no lleva selección/armado, el API aparta lotes FIFO de la sucursal (baja `available_quantity`) y la orden queda `Creada`. Si no hay stock, el POST falla y no se guarda la orden. Con selección/armado, los lotes se apartan en Mesa de Control.
 
 Si `sale_scope=services`, el picker lista el catálogo `item_kind=service` (sin stock). `total_available_quantity` viene `null`. Cada fila trae `product_description` y `sat_clave`. Botón **Nuevo servicio**: `POST /tenant/products` con `item_kind=service`, `description`, `base_uom_catalog_id` y se agrega la línea (nombre, descripción, cantidad, precio, IVA).
 
@@ -130,6 +138,7 @@ POST /api/tenant/sales-orders
   "notes": "opcional",
   "sale_scope": "inventory",
   "requires_selection_assembly": false,
+  "for_shipping": false,
   "line_items": [
     {
       "product_id": "uuid",

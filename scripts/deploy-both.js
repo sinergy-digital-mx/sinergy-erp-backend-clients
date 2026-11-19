@@ -1,6 +1,8 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { collectChanges, mergeReleaseChanges } = require('./lib/release-notes');
+const { pendingEntries } = require('./lib/session-changelog');
 
 const thisRepo = path.resolve(__dirname, '..');
 const parent = path.dirname(thisRepo);
@@ -47,6 +49,23 @@ if (!fs.existsSync(frontendDir) || !fs.existsSync(backendDir)) {
 }
 
 ensureGitSshAuth();
+
+process.env.CHANGELOG_HOLD = '1';
+
+const pendingNotes = pendingEntries(backendDir);
+if (pendingNotes.length) {
+  console.log(`Changelog pendiente: ${pendingNotes.length} solicitud(es) para el commit.`);
+}
+
+const notesPath = path.join(backendDir, 'scripts', '.pending-release-notes.json');
+const changes = mergeReleaseChanges([
+  collectChanges(frontendDir, 'frontend'),
+  collectChanges(backendDir, 'backend'),
+]);
+fs.writeFileSync(notesPath, `${JSON.stringify({ channel: 'full', changes }, null, 2)}\n`);
+process.env.DEPLOY_BOTH = '1';
+process.env.RELEASE_NOTES_FILE = notesPath;
+console.log(`Notas de la versión combinada: ${changes.length} cambio(s).`);
 
 console.log('=== Frontend: build + commit + push ===');
 run('npm run build:deploy', frontendDir);

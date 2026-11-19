@@ -37,6 +37,10 @@ Campos opcionales: `code`, `serial_number` (número de serie / NIV, máx. 50), `
 
 Campos opcionales SCT / seguro: `permiso_sct`, `numero_permiso_sct`, `tipo_auto_transporte`, `aseguradora_rc`, `poliza_rc`, `subtipo_remolque1`, `placa_remolque1`.
 
+## 2026-10-16 — Unidad ocupada
+
+Listado y detalle incluyen `active_shipping_id`, `active_shipping_status`, `active_shipping_date` y `active_shipping_driver_name` cuando la unidad está en un envío Creado o En Ruta. Si hay varios, se devuelve el de fecha más reciente.
+
 ## Foto
 
 Misma mecánica que productos (`POST /tenant/products/:id/photo`).

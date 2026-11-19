@@ -13,8 +13,13 @@ describe('VendorService - Serialization', () => {
       create: jest.fn(),
       save: jest.fn(),
       findOne: jest.fn(),
+      find: jest.fn().mockResolvedValue([]),
       createQueryBuilder: jest.fn(),
       remove: jest.fn(),
+      manager: {
+        query: jest.fn().mockResolvedValue([]),
+        transaction: jest.fn(),
+      },
     };
 
     const module: TestingModule = await Test.createTestingModule({

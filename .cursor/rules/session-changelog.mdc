@@ -1,0 +1,26 @@
+---
+description: Anotar cada solicitud terminada en el changelog que publica el deploy
+alwaysApply: true
+---
+
+## Changelog de solicitudes
+
+Fuente: `scripts/changelog.json` de este repo. La lectura es `scripts/CHANGELOG.md`. No los edites a mano.
+
+Al terminar una solicitud que cambie código, comportamiento o documentación:
+
+1. Anota una sola línea en español, entendible por el equipo: qué se pidió y qué quedó.
+2. `scope` es `frontend`, `backend` o `both`.
+3. Corre el script del backend (resuelve solo su carpeta). En bash, con comillas simples:
+
+```bash
+node scripts/lib/session-changelog.js --scope both --message 'texto en una línea'
+```
+
+Si el texto lleva comillas, usa `CHANGELOG_MESSAGE='texto' node scripts/lib/session-changelog.js --scope both`.
+
+4. Eso lo deja en **Pendientes**. No lo pases a enviado.
+5. No dupliques: si ese texto ya está pendiente, el script no agrega otra. Una sola vez por solicitud.
+6. Una pregunta sin cambios de archivos no se registra.
+
+`npm run deploy:both` y `npm run deploy` del backend meten en el commit solo las pendientes y, al commitear, las pasan a **Enviados**.

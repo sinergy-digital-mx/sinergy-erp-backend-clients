@@ -1,5 +1,9 @@
 # UI — Editar / eliminar líneas de orden de venta
 
+Cambio 2026-10-10: guardar solo el precio, el IVA o el IEPS no vuelve a apartar lotes. El inventario se mueve solo si cambia la cantidad o la unidad.
+
+Cambio 2026-10-21: las líneas pueden traer `custom_description` (concepto libre que reemplaza el nombre del producto). Ver `UI_SALES_ORDER_CLONE.md`.
+
 El detalle de la OV **se edita por línea** en el mismo diálogo, igual que la orden de compra. No abrir `/sales-orders/:id/edit` ni otra pestaña para cambiar precio, IVA o productos.
 
 No uses `PUT /api/tenant/sales-orders/:id` para cambiar **una** línea: ese endpoint reemplaza **todas** las líneas. Usa PATCH/POST/DELETE de línea.
@@ -108,7 +112,9 @@ Lápiz. Prefill de la fila. Chips 0 / 8 / 16 + input para IVA e IEPS.
 
 ## Agregar producto
 
-Mismo buscador que al crear la OV (`GET /tenant/sales-orders/products-summary` con `fiscal_configuration_id` y `billing_branch_id` de la orden).
+Mismo buscador que al crear la OV (`GET /tenant/sales-orders/products-summary` con `fiscal_configuration_id` y `billing_branch_id` de la orden). El mismo diálogo se usa en cotizaciones.
+
+**2026-10-31 — producto sin unidad.** Si el producto o servicio no tiene unidad de medida, el cuadro lo indica y **Agregar unidad** abre la ficha en la pestaña UOMs. Al cerrar, la unidad queda en el selector de la línea.
 
 ---
 

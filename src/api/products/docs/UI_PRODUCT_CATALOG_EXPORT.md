@@ -1,5 +1,9 @@
 # UI — Descargar catálogo de productos
 
+## 2026-11-12
+
+El filtro **Estado** del listado (activos / deshabilitados) se manda como `is_active` en la descarga. Ver `UI_PRODUCT_STATUS.md`.
+
 Botón **Descargar catálogo** en el listado de Productos (junto a Categorías / Unidades / Listas de precios / Nuevo producto). Solo si el usuario tiene `Product:Export` (o es admin).
 
 ---

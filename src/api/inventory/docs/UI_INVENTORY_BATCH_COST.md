@@ -1,5 +1,9 @@
 # UI — Costo y precio en detalle de lote
 
+## 2026-10-09 — Permiso
+
+**Costo real** y **T.C. aduana** solo si el usuario tiene `purchase_order_real_cost:Read` (Madereria Zona Norte). Sin permiso esos campos llegan en null y la fila no se muestra. Costo proveedor y precio sugerido no cambian.
+
 Contrato para Pollux. El lote **no guarda** el costo real: lo lee de la línea de OC (igual que el pedimento).
 
 ---
@@ -54,12 +58,14 @@ PRECIO SUGERIDO     48.50  [MXN]
 | Condición | UI |
 |-----------|-----|
 | Sin OC | Ocultar costo proveedor y costo real |
-| OC sin tab de costo real (`real_unit_*` null) | Solo costo proveedor + precio sugerido |
+| OC sin tab de costo real (`real_unit_*` null) o sin permiso `purchase_order_real_cost:Read` | Solo costo proveedor + precio sugerido |
 | Sin lista de precios | Precio sugerido `—` |
 
 Solo lectura. El costo real se edita en la OC (`PUT /tenant/purchase-orders/:id/real-cost`). Tras guardar allá, recargar el lote.
 
-El margen de inventario / `GET /inventory/stats` **no cambia** en esta fase. Sigue usando costo proveedor.
+## 2026-10-14 — Inventario
+
+`GET /inventory/stats` usa `real_unit_cost_mxn` (costo final) cuando la OC lo tiene. El detalle del lote sigue mostrando costo proveedor y costo real por separado.
 
 ---
 

@@ -2,6 +2,8 @@
 
 Guía para Pollux. Botón de cancelación en el **menú lateral izquierdo del detalle** de la OV.
 
+**2026-10-27.** Una factura de ingreso vigente deja de bloquear la cancelación cuando las notas de crédito vigentes (`invoice_role = credit_note`) cubren su total. El CFDI de ingreso sigue vigente. Complemento de pago y la propia nota no bloquean. Un anticipo vigente sí bloquea. Si la orden viene de una cotización y ya está cobrada, cancelar sigue bloqueado. Ver `UI_SALES_ORDER_CREDIT_NOTE.md`.
+
 ---
 
 ## 1. Dónde va
@@ -87,9 +89,11 @@ Si el toast habla de CFDI vigente: link o hint al tab **Facturación** para canc
 ## 5. Qué hace el backend
 
 1. Bloquea si `general_status === 'Cancelada'`.
-2. Bloquea si hay factura CFDI **vigente** ligada a la OV:
+2. Bloquea si hay factura de **ingreso** vigente que no esté cubierta por notas de crédito:
    - `sat_status === 'Vigente'`, o
    - timbrada (`stamped` / `cancel_pending` / `cancel_error`) y SAT **no** ha confirmado `Cancelado`.
+   - Si la suma de notas vigentes ligadas a esa factura alcanza su total, no bloquea.
+   - Egreso y complemento de pago no bloquean. El anticipo vigente sí.
 3. Si hay lotes en `batch_allocations` (surtido, corroboración, etc.), los **libera** (cantidad de vuelta al lote) y borra las asignaciones.
 4. Pasa la OV a `Cancelada`.
 

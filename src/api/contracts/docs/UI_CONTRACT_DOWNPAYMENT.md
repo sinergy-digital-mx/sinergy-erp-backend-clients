@@ -1,5 +1,21 @@
 # UI — Enganche financiado
 
+- 2026-10-23: `overdue_count` solo cuenta cuotas abiertas (`pendiente`/`parcial`). Una cuota pagada no sigue como vencida. Si la meta ya está cubierta, se pueden generar las mensualidades aunque quede un renglón sucio.
+
+Al crear con `down_payment_financed: true`, la meta va en `down_payment_target`. `down_payment` es el abono inicial (0 si todavía no hay pagos). El detalle y la card **Meta de enganche** leen `down_payment_target`; si llega null, muestran “Sin definir”.
+
+```http
+POST /api/tenant/contracts
+```
+
+```json
+{
+  "down_payment_financed": true,
+  "down_payment": 0,
+  "down_payment_target": 36000
+}
+```
+
 Tab **Enganche** del detalle de contrato.
 
 Base: `/api/tenant/contracts/:contractId/downpayment-payments`  
@@ -31,6 +47,10 @@ Misma fila de conteos que HOA:
 | Card | Valor | Sub |
 |------|--------|-----|
 | Vencidos | `overdue_count` | `overdue_amount` |
+
+`overdue_count` **no** incluye cuotas `pagado` o `cancelado`, aunque `is_overdue` haya quedado encendido. `overdue_amount` es la suma de `amount_pending` de esas cuotas abiertas vencidas.
+
+`downpayment_financing_complete` es `true` cuando el pendiente de meta redondea a `0`. Con eso el tab **Pagos** habilita **Generar pagos**. No bloquea por una fila `parcial` con `$0.00` pendiente.
 
 ---
 

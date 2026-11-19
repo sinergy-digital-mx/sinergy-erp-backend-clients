@@ -48,6 +48,20 @@ describe('PurchaseOrderRealCostService', () => {
       create: jest.fn().mockImplementation((value) => value),
       save: jest.fn().mockResolvedValue(undefined),
     };
+    poRepo.manager = {
+      transaction: async (work: (manager: { getRepository: (entity: unknown) => unknown }) => Promise<void>) =>
+        work({
+          getRepository: (entity: unknown) => {
+            if (entity === PurchaseOrderLandedCostLine) {
+              return extraRepo;
+            }
+            if (entity === PurchaseOrderBatchDetail) {
+              return lineRepo;
+            }
+            return poRepo;
+          },
+        }),
+    };
 
     const module = await Test.createTestingModule({
       providers: [
@@ -82,7 +96,7 @@ describe('PurchaseOrderRealCostService', () => {
         customs_date: '2026-08-21',
         customs_exchange_rate: 16.9593,
         extra_costs: [
-          { concept: 'Honorarios', amount: 2800, currency: 'MXN' },
+          { concept: 'Honorarios', amount: 2800, currency: 'MXN', include_in_invoice: true },
           { concept: 'Maniobra nueva', amount: 500, currency: 'MXN' },
         ],
       },
@@ -96,8 +110,8 @@ describe('PurchaseOrderRealCostService', () => {
     });
     expect(extraRepo.save).toHaveBeenCalledWith(
       expect.arrayContaining([
-        expect.objectContaining({ concept: 'Honorarios', amount: 2800 }),
-        expect.objectContaining({ concept: 'Maniobra nueva', amount: 500 }),
+        expect.objectContaining({ concept: 'Honorarios', amount: 2800, include_in_invoice: true }),
+        expect.objectContaining({ concept: 'Maniobra nueva', amount: 500, include_in_invoice: false }),
       ]),
     );
     expect(lineRepo.update).toHaveBeenCalledWith(

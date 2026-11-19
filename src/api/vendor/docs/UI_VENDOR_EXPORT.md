@@ -16,7 +16,7 @@ Devuelve un archivo `.xlsx` (`Content-Type: application/vnd.openxmlformats-offic
 
 | Parámetro | Tipo | Descripción |
 |-----------|------|-------------|
-| `search` | string | Nombre, empresa, RFC, ID fiscal, nombre legal |
+| `search` | string | Empresa, RFC, ID fiscal, nombre legal |
 | `status` | enum | `active` / `inactive` |
 | `vendor_type` | enum | `NATIONAL` / `INTERNATIONAL` |
 | `state` | string | Estado (ubicación) |
@@ -34,7 +34,11 @@ GET /api/tenant/vendors/export/excel?search=acme&status=active&vendor_type=NATIO
 
 ### Proveedores (`proveedores-YYYY-MM-DD.xlsx`)
 
-Una fila por proveedor. Columnas: Código, Nombre, Empresa, Tipo, Estatus, RFC, Razón social, Tipo persona, ID fiscal, Nombre legal, Calle, Ciudad, Estado, CP, País, Banco, Titular, Cuenta, CLABE, SWIFT, IBAN, Moneda banco, Días crédito, Límite crédito, Fecha creación.
+Una fila por proveedor. Columnas: Código, Empresa, Tipo, Estatus, RFC, Razón social, Tipo persona, ID fiscal, Nombre legal, Calle, Ciudad, Estado, CP, País, Banco, Titular, Cuenta, CLABE, SWIFT, IBAN, Moneda banco, Días crédito, Límite crédito, Fecha creación.
+
+## 2026-11-02
+
+Se quitó la columna **Nombre**. **Empresa** es el nombre comercial (`company_name`, o `name` si la empresa estaba vacía).
 
 Estilo: título teal oscuro, encabezados teal (`#0D7377`), filas alternadas.
 

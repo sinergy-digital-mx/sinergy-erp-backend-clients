@@ -908,6 +908,33 @@
       "status": "shipped",
       "version": "0.0.119",
       "shippedAt": "2026-11-12T15:36:41-08:00"
+    },
+    {
+      "id": "20261112-160447",
+      "at": "2026-11-12T16:04:47-08:00",
+      "scope": "backend",
+      "message": "Se configuró el punto de venta de verdulería en la sucursal TIJ-1: terminal de ventas, terminal de caja y vendedor de prueba con código 1001, con el rol de madería.",
+      "status": "pending",
+      "version": null,
+      "shippedAt": null
+    },
+    {
+      "id": "20261113-075435",
+      "at": "2026-11-13T07:54:35-08:00",
+      "scope": "both",
+      "message": "Rutas de reparto por organización, apagadas hasta activarlas. La orden hereda la ruta del cliente, pide fecha tentativa solo si requiere envío, y lo mismo aplica en el alta admin, POS Ventas y POS Caja.",
+      "status": "pending",
+      "version": null,
+      "shippedAt": null
+    },
+    {
+      "id": "20261118-184504",
+      "at": "2026-11-18T18:45:04-08:00",
+      "scope": "both",
+      "message": "En la configuración del alta de órdenes, el valor por defecto de la fecha solo ofrecía Hoy y se cortaba si había un día fijo. Quedó la opción Fecha fija y se muestra el día guardado.",
+      "status": "pending",
+      "version": null,
+      "shippedAt": null
     }
   ]
 }

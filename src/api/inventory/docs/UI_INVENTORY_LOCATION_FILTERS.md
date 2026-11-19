@@ -1,5 +1,9 @@
 # UI — Filtros de inventario (razón social → sucursal → almacén)
 
+## 2026-11-10 — Búsqueda
+
+El buscador del listado filtra al dejar de escribir (300 ms) y también al pulsar Enter.
+
 Guía para Pollux: reemplazar el dropdown único **Todos los almacenes** por tres filtros en cascada.
 
 Jerarquía:

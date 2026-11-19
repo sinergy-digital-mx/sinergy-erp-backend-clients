@@ -36,6 +36,12 @@ describe('VendorService - Integration Tests', () => {
         );
         return Promise.resolve(vendor || null);
       }),
+      find: jest.fn((options) => {
+        const tenantId = options?.where?.tenant_id;
+        return Promise.resolve(
+          Array.from(vendors.values()).filter((v) => !tenantId || v.tenant_id === tenantId),
+        );
+      }),
       createQueryBuilder: jest.fn(() => ({
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
@@ -49,6 +55,16 @@ describe('VendorService - Integration Tests', () => {
         vendors.delete(vendor.id);
         return Promise.resolve();
       }),
+      manager: {
+        query: jest.fn().mockResolvedValue([]),
+        transaction: jest.fn(async (cb) =>
+          cb({
+            query: jest.fn().mockResolvedValue([]),
+            update: jest.fn(),
+            delete: jest.fn(),
+          }),
+        ),
+      },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -87,7 +103,8 @@ describe('VendorService - Integration Tests', () => {
       const created = await service.create(createDto, tenantId);
       expect(created).toBeDefined();
       expect(created.id).toBeDefined();
-      expect(created.name).toBe('Acme Corp');
+      expect(created.name).toBe('Acme Corporation');
+      expect(created.company_name).toBe('Acme Corporation');
       expect(created.status).toBe('active');
       expect(created.tenant_id).toBe(tenantId);
 

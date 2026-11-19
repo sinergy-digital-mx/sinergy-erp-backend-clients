@@ -1,0 +1,296 @@
+const { execSync } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+const CHANGELOG_JSON = 'scripts/changelog.json';
+const CHANGELOG_MD = 'scripts/CHANGELOG.md';
+
+function changelogPaths(repoDir) {
+  return {
+    json: path.join(repoDir, CHANGELOG_JSON),
+    md: path.join(repoDir, CHANGELOG_MD),
+  };
+}
+
+function localStamp(date) {
+  const pad = (part) => String(part).padStart(2, '0');
+  const tzMinutes = -date.getTimezoneOffset();
+  const sign = tzMinutes >= 0 ? '+' : '-';
+  const abs = Math.abs(tzMinutes);
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}${sign}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`;
+}
+
+function dayOf(value) {
+  const match = String(value || '').match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : '';
+}
+
+function normalizeScope(scope) {
+  if (scope === 'frontend' || scope === 'backend' || scope === 'both') {
+    return scope;
+  }
+  throw new Error('scope debe ser frontend, backend o both');
+}
+
+function scopeLabel(scope) {
+  if (scope === 'backend') return 'servidor';
+  if (scope === 'both') return 'aplicación y servidor';
+  return 'aplicación';
+}
+
+function normalizeEntry(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const message = String(raw.message ?? '').replace(/\s+/g, ' ').trim().slice(0, 240);
+  if (!message) return null;
+  let scope = 'frontend';
+  if (raw.scope === 'backend' || raw.scope === 'both' || raw.scope === 'frontend') {
+    scope = raw.scope;
+  }
+  return {
+    id: String(raw.id || message).slice(0, 80),
+    at: String(raw.at || ''),
+    scope,
+    message,
+    status: raw.status === 'shipped' ? 'shipped' : 'pending',
+    version: raw.version ? String(raw.version).slice(0, 32) : null,
+    shippedAt: raw.shippedAt ? String(raw.shippedAt) : null,
+  };
+}
+
+function readChangelog(repoDir) {
+  const file = changelogPaths(repoDir).json;
+  if (!fs.existsSync(file)) {
+    return { entries: [] };
+  }
+  try {
+    const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const entries = Array.isArray(parsed?.entries)
+      ? parsed.entries.map(normalizeEntry).filter(Boolean)
+      : [];
+    return { entries };
+  } catch {
+    return { entries: [] };
+  }
+}
+
+function renderMarkdown(log) {
+  const entries = Array.isArray(log?.entries) ? log.entries : [];
+  const pending = entries.filter((entry) => entry.status !== 'shipped');
+  const shipped = entries.filter((entry) => entry.status === 'shipped');
+  const lines = [
+    '# Changelog de solicitudes',
+    '',
+    'Generado desde `scripts/changelog.json`. No editar a mano.',
+    '',
+    'Cada solicitud terminada entra en **Pendientes**. `npm run deploy:both` y `npm run deploy` del backend escriben en el commit solo esas entradas y las pasan a **Enviados**.',
+    '',
+    '## Pendientes',
+    '',
+  ];
+
+  if (!pending.length) {
+    lines.push('No hay solicitudes pendientes de deploy.', '');
+  } else {
+    for (const entry of pending) {
+      lines.push(`- **${dayOf(entry.at)}** · ${scopeLabel(entry.scope)} · ${entry.message}`);
+    }
+    lines.push('');
+  }
+
+  lines.push('## Enviados', '');
+  if (!shipped.length) {
+    lines.push('Todavía no hay un deploy con este registro.', '');
+  } else {
+    const groups = new Map();
+    const order = [];
+    for (const entry of shipped) {
+      const key = entry.version || 'sin versión';
+      if (!groups.has(key)) {
+        groups.set(key, []);
+        order.push(key);
+      }
+      groups.get(key).push(entry);
+    }
+    for (const key of order.reverse()) {
+      const group = groups.get(key);
+      const day = dayOf(group[0].shippedAt || group[0].at);
+      lines.push(`### Versión ${key}${day ? ` · ${day}` : ''}`, '');
+      for (const entry of group) {
+        lines.push(`- ${scopeLabel(entry.scope)} · ${entry.message}`);
+      }
+      lines.push('');
+    }
+  }
+
+  return `${lines.join('\n').replace(/\n+$/, '')}\n`;
+}
+
+function writeChangelog(repoDir, log) {
+  const paths = changelogPaths(repoDir);
+  fs.mkdirSync(path.dirname(paths.json), { recursive: true });
+  const entries = (log?.entries || []).map(normalizeEntry).filter(Boolean);
+  const payload = { entries };
+  fs.writeFileSync(paths.json, `${JSON.stringify(payload, null, 2)}\n`);
+  fs.writeFileSync(paths.md, renderMarkdown(payload));
+  return payload;
+}
+
+function nextId(entries, date) {
+  const pad = (part) => String(part).padStart(2, '0');
+  const base = `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
+  const used = new Set(entries.map((entry) => entry.id));
+  let id = base;
+  let seq = 2;
+  while (used.has(id)) {
+    id = `${base}-${seq}`;
+    seq += 1;
+  }
+  return id;
+}
+
+function appendEntry(repoDir, input) {
+  const scope = normalizeScope(input?.scope);
+  const message = String(input?.message ?? '').replace(/\s+/g, ' ').trim().slice(0, 240);
+  if (!message) {
+    throw new Error('Falta el mensaje del changelog');
+  }
+  const data = readChangelog(repoDir);
+  const exists = data.entries.some(
+    (entry) => entry.status === 'pending' && entry.message.toLowerCase() === message.toLowerCase(),
+  );
+  if (exists) {
+    return data;
+  }
+  const now = new Date();
+  data.entries.push({
+    id: nextId(data.entries, now),
+    at: localStamp(now),
+    scope,
+    message,
+    status: 'pending',
+    version: null,
+    shippedAt: null,
+  });
+  return writeChangelog(repoDir, data);
+}
+
+function pendingEntries(repoDir) {
+  return readChangelog(repoDir).entries.filter((entry) => entry.status === 'pending');
+}
+
+function markPendingShipped(repoDir, input) {
+  const version = String(input?.version || '').slice(0, 32);
+  const releasedAt = input?.releasedAt || localStamp(new Date());
+  const data = readChangelog(repoDir);
+  const shipped = [];
+  for (const entry of data.entries) {
+    if (entry.status !== 'pending') continue;
+    entry.status = 'shipped';
+    entry.version = version || null;
+    entry.shippedAt = releasedAt;
+    shipped.push({ ...entry });
+  }
+  if (!shipped.length) return [];
+  writeChangelog(repoDir, data);
+  return shipped;
+}
+
+function restorePending(repoDir, ids) {
+  const wanted = new Set(ids || []);
+  if (!wanted.size) return readChangelog(repoDir);
+  const data = readChangelog(repoDir);
+  for (const entry of data.entries) {
+    if (!wanted.has(entry.id)) continue;
+    entry.status = 'pending';
+    entry.version = null;
+    entry.shippedAt = null;
+  }
+  return writeChangelog(repoDir, data);
+}
+
+function deployCommitMessage(title, entries) {
+  const subject = String(title || 'Deploy').replace(/\s+/g, ' ').trim();
+  const lines = [];
+  const seen = new Set();
+  for (const entry of entries || []) {
+    const message = String(entry?.message ?? entry ?? '').replace(/\s+/g, ' ').trim();
+    const key = message.toLowerCase();
+    if (!message || seen.has(key)) continue;
+    seen.add(key);
+    lines.push(`- ${message}`);
+    if (lines.length >= 80) break;
+  }
+  if (!lines.length) return subject;
+  return `${subject}\n\n${lines.join('\n')}\n`;
+}
+
+function commitWithMessage(repoDir, message, pathspec) {
+  const file = path.join(os.tmpdir(), `synergy-commit-${process.pid}-${Date.now()}.txt`);
+  const body = String(message || '').endsWith('\n') ? String(message) : `${message}\n`;
+  fs.writeFileSync(file, body, 'utf8');
+  const spec = Array.isArray(pathspec) && pathspec.length
+    ? ` -- ${pathspec.map((item) => `"${item}"`).join(' ')}`
+    : '';
+  console.log('> git commit (mensaje de deploy)');
+  try {
+    execSync(`git commit -F "${file}"${spec}`, {
+      stdio: 'inherit',
+      cwd: repoDir,
+      shell: true,
+      env: process.env,
+    });
+  } finally {
+    fs.rmSync(file, { force: true });
+  }
+}
+
+function shipPendingChangelog(repoDir, version) {
+  const shipped = markPendingShipped(repoDir, { version });
+  if (!shipped.length) return shipped;
+  const message = deployCommitMessage(`Changelog ${version}`, shipped);
+  try {
+    execSync('git add -- scripts/changelog.json scripts/CHANGELOG.md', {
+      stdio: 'inherit',
+      cwd: repoDir,
+      shell: true,
+      env: process.env,
+    });
+    commitWithMessage(repoDir, message, ['scripts/changelog.json', 'scripts/CHANGELOG.md']);
+  } catch (error) {
+    restorePending(repoDir, shipped.map((entry) => entry.id));
+    throw error;
+  }
+  console.log('Changelog marcado como enviado en un commit local del backend. Se publica en el próximo push de ese repo.');
+  return shipped;
+}
+
+function readFlag(name) {
+  const index = process.argv.indexOf(name);
+  if (index < 0) return '';
+  return process.argv[index + 1] || '';
+}
+
+if (require.main === module) {
+  const scope = readFlag('--scope') || 'both';
+  const message = readFlag('--message') || process.env.CHANGELOG_MESSAGE || '';
+  try {
+    appendEntry(path.resolve(__dirname, '..', '..'), { scope, message });
+    console.log('Solicitud anotada en scripts/CHANGELOG.md (pendiente).');
+  } catch (error) {
+    console.error(error.message || error);
+    process.exit(1);
+  }
+}
+
+module.exports = {
+  appendEntry,
+  pendingEntries,
+  markPendingShipped,
+  restorePending,
+  deployCommitMessage,
+  commitWithMessage,
+  shipPendingChangelog,
+  readChangelog,
+  renderMarkdown,
+};

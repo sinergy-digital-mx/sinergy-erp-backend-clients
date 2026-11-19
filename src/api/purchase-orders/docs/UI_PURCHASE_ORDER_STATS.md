@@ -1,6 +1,20 @@
 # UI — Stats de órdenes de compra (MXN / USD)
 
-Contrato para Pollux: las cards **Por Estado** y **Estado de Pago** no pueden sumar pesos y dólares. El listado ahora trae `stats` partido por moneda. No hay endpoint extra.
+## 2026-11-02 — Permiso ViewStats
+
+Las cards **Por estado** y **Estado de pago** solo se pintan con `purchase_orders:ViewStats`.
+
+Sin ese permiso el `GET` del listado sigue igual (`data` y `total`) y **no trae `stats`**. No calcular el resumen con la página.
+
+El rol Admin lo recibe en la migración. El resto se asigna en Roles.
+
+```bash
+npx ts-node -r tsconfig-paths/register src/database/seeds/seed-list-view-stats-permissions.ts
+```
+
+---
+
+Contrato para Pollux: las cards **Por Estado** y **Estado de Pago** no pueden sumar pesos y dólares. El listado trae `stats` partido por moneda solo si la sesión tiene el permiso. No hay endpoint extra.
 
 Nunca hagas `MXN + USD`. No conviertas. El monto es `requested_total` (misma cifra que la columna Total).
 
@@ -103,6 +117,7 @@ Barras: proporción **por conteo** (o por monto **dentro de la misma moneda**). 
 
 ## Checklist Pollux
 
+- [ ] Cards solo con `purchase_orders:ViewStats`; si no, no se pintan
 - [ ] Cards leen `response.stats`, no la página
 - [ ] Cada monto muestra MXN y USD por separado
 - [ ] Si no hay USD, se oculta el renglón USD (no se mezcla)

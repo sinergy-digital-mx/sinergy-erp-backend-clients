@@ -2,6 +2,10 @@
 
 Contrato para Pollux. El tipo de proveedor **ya existe** en el catálogo (`vendor_type`: `NATIONAL` | `INTERNATIONAL`). La OC no duplica ese flag: lo deriva del proveedor.
 
+## Cambios
+
+- 2026-11-02: El pedimento solo se guarda si cumple el Anexo 22 (15 dígitos). Se almacena y se muestra con la máscara `26  47  3807  6000123`. Vacío sigue permitido. Si no cumple, **400**.
+
 ---
 
 ## Qué mostrar
@@ -33,7 +37,7 @@ GET /api/tenant/purchase-orders/:id
         "vendor_type": "INTERNATIONAL"
       },
       "is_international_vendor": true,
-      "pedimento_number": "162430010001234",
+      "pedimento_number": "26  47  3807  6000123",
       "expected_delivery_date": "2026-08-11",
       "general_status": "Creada"
     }
@@ -66,7 +70,7 @@ RAZÓN SOCIAL       ...
 SUCURSAL           ...
 ALMACÉN            Bodega
 
-PEDIMENTO          16 24 3001 0001234  ← ✏️ editar (solo internacional)
+PEDIMENTO          26  47  3807  6000123  ← ✏️ editar (solo internacional)
                    Sin pedimento       ← vacío + ✏️
 NO. FACTURA DE PROVEEDOR  A-12345      ← ver UI_PURCHASE_ORDER_VENDOR_INVOICE.md
 
@@ -96,7 +100,7 @@ Content-Type: application/json
 
 ```json
 {
-  "pedimento_number": "162430010001234"
+  "pedimento_number": "26  47  3807  6000123"
 }
 ```
 
@@ -119,6 +123,9 @@ Orden completa (mismo shape que `GET /tenant/purchase-orders/:id` → `data.head
 | Orden cancelada | 400 | No se puede editar el pedimento de una orden cancelada |
 | Proveedor nacional | 400 | El número de pedimento solo aplica a compras de proveedor internacional |
 | Más de 30 caracteres | 400 | validación |
+| No son 15 dígitos o trae letras | 400 | El pedimento debe tener 15 dígitos con el formato del SAT… |
+| El 9.º dígito no es el último del año ni el del año anterior | 400 | El dígito de año del pedimento debe ser el último dígito del año de validación… |
+| Numeración `000000` | 400 | La numeración progresiva del pedimento debe iniciar en 000001 |
 
 Estados permitidos: **Creada**, **Recibida**.
 
@@ -138,7 +145,7 @@ Campo extra en el body:
 ```json
 {
   "vendor_id": "uuid",
-  "pedimento_number": "162430010001234"
+  "pedimento_number": "26  47  3807  6000123"
 }
 ```
 
@@ -181,7 +188,15 @@ async savePedimento() {
 }
 ```
 
-Input: texto corto, placeholder `Número de pedimento`, máximo 30 caracteres. No validar formato SAT en UI (el backend guarda el texto recortado).
+Input con máscara `00  00  0000  0000000`. Al escribir solo entran dígitos y se pintan los dos espacios entre año, aduana y patente. El dígito de año queda pegado a los 6 de la numeración.
+
+Ejemplo: `26  47  3807  6000123`.
+
+- Vacío → se guarda `null`.
+- 15 dígitos válidos → se guarda con la máscara (también si los pegaron sin espacios).
+- El 9.º dígito tiene que ser el último del año (el `6` de `26`) o el del año anterior si es consolidado (el `5`).
+- La numeración progresiva no puede ser `000000`.
+- Cualquier otro texto → no se puede guardar. El backend responde **400** con el mismo criterio.
 
 ---
 

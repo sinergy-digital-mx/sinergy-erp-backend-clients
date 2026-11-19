@@ -19,6 +19,7 @@ Devuelve un archivo `.xlsx` (`Content-Type: application/vnd.openxmlformats-offic
 | `search` | string | Nombre, email, teléfono, empresa, RFC, razón social, contratos, etc. |
 | `status_id` | number | Estatus del cliente |
 | `group_id` | string (uuid) | Grupo de clientes |
+| `registered_fiscal_configuration_id` | string (uuid) | Razón social de registro asignada al cliente |
 
 **No requiere rango de fechas.** Si no se envían filtros, exporta todos los clientes.
 
@@ -34,7 +35,11 @@ GET /api/tenant/customers/export/excel?search=acme&status_id=1&group_id=uuid-gru
 
 ### Clientes (`clientes-YYYY-MM-DD.xlsx`)
 
-Una fila por cliente. Columnas: ID, Nombre, Apellido, Empresa, Email, Teléfono, Estatus, Grupo, RFC, Razón social, Almacén, Crédito activo, Días crédito, Monto crédito, Generar factura, Fecha creación.
+Una fila por cliente. Columnas: ID, Nombre, Apellido, Empresa, Email, Teléfono, Estatus, Grupo, Razón asignada, RFC razón asignada, RFC, Razón social, Almacén, Crédito activo, Crédito por razón social, Generar factura, Fecha creación.
+
+## 2026-10-09
+
+El Excel respeta el filtro de razón asignada y agrega esas dos columnas.
 
 Estilo: título ámbar oscuro, encabezados ámbar (`#C47B2B`), filas alternadas.
 
@@ -82,7 +87,7 @@ Mismo diseño que órdenes de venta, sin selector de tipo (solo hay un reporte):
 
 | Regla | Comportamiento |
 |-------|----------------|
-| Filtros del listado | Reutilizar `search`, `status_id`, `group_id` activos en pantalla |
+| Filtros del listado | Reutilizar `search`, `status_id`, `group_id`, `registered_fiscal_configuration_id` activos en pantalla |
 | Resumen en modal | Mostrar filtros activos para que el usuario confirme qué se exportará |
 | Loading | Deshabilitar botón y mostrar spinner mientras descarga |
 | Éxito | Cerrar modal y guardar archivo con nombre del header `Content-Disposition` o fallback local |
@@ -96,6 +101,7 @@ interface CustomersExportFilters {
   search?: string;
   status_id?: number;
   group_id?: string;
+  registered_fiscal_configuration_id?: string;
 }
 
 function buildCustomersExportQuery(filters: CustomersExportFilters): URLSearchParams {
@@ -156,6 +162,7 @@ async confirmExport() {
       search: this.listFilters.search,
       status_id: this.listFilters.status_id,
       group_id: this.listFilters.group_id,
+      registered_fiscal_configuration_id: this.listFilters.registered_fiscal_configuration_id,
     };
 
     await downloadCustomersExcel(filters);

@@ -52,12 +52,13 @@ export async function seedVendorModule(dataSource: DataSource): Promise<void> {
     }
 
     // Step 3: Create vendor permissions
-    const vendorActions = ['Create', 'Read', 'Update', 'Delete'];
-    const permissionDescriptions = {
-      Create: 'Create new vendors',
-      Read: 'View vendor information',
-      Update: 'Edit vendor information',
-      Delete: 'Delete vendors'
+    const vendorActions = ['Create', 'Read', 'Update', 'Delete', 'ViewMenu'];
+    const permissionDescriptions: Record<string, string> = {
+      Create: 'Crear proveedores',
+      Read: 'Ver proveedores',
+      Update: 'Editar proveedores',
+      Delete: 'Eliminar proveedores',
+      ViewMenu: 'Ver menú de Proveedores',
     };
 
     let createdPermissions = 0;

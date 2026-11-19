@@ -1,5 +1,21 @@
 # UI — Cards de stats de inventario
 
+## 2026-11-02 — Permiso ViewStats
+
+Las cinco cards de arriba solo se pintan con `inventory:ViewStats`. Sin ese permiso no se llama `GET /tenant/inventory/stats` y el API responde 403.
+
+El rol Admin lo recibe en la migración. El resto se asigna en Roles. Quien solo tiene `inventory:Read` ve el listado, no el resumen.
+
+```bash
+npx ts-node -r tsconfig-paths/register src/database/seeds/seed-list-view-stats-permissions.ts
+```
+
+Después de aplicarla, la sesión refresca permisos (`permissions_version`).
+
+## 2026-10-14 — Costo real
+
+`total_cost` y el margen usan el costo real MXN de la orden de compra cuando existe (`real_unit_cost_mxn`: mercancía + aduana, transporte y demás gastos). Si la OC no tiene costo real, sigue el costo proveedor.
+
 Guía para Pollux: fila de **KPI cards modernas** arriba del listado (pestañas **Por Lotes** y **Totalizado**).
 
 Los números respetan la cascada razón social → sucursal → almacén. **No** cambian con search ni paginación.
@@ -30,7 +46,7 @@ Al cambiar razón / sucursal / almacén: recargar **stats + listado** en paralel
 GET /api/tenant/inventory/stats
 ```
 
-Permiso: `inventory:read`.
+Permiso: `inventory:ViewStats`. No basta `inventory:Read`.
 
 | Query param | Obligatorio | Default |
 |-------------|-------------|---------|
@@ -84,7 +100,7 @@ Montos: string 2 decimales. Cantidades: string 3 decimales. Contadores: number.
 
 | Campo | Fórmula |
 |-------|---------|
-| `total_cost` | Σ existencia × costo. Prioridad: costo de OC; si no hay, costo promedio de proveedores (`product_vendor_costs`, p. ej. COSTO PROM de importación) |
+| `total_cost` | Σ existencia × costo. Prioridad: costo real MXN de la OC; si no hay, costo proveedor de la OC; si no hay, costo promedio de proveedores (`product_vendor_costs`) |
 | `total_sale_value` | Σ existencia × precio sugerido (primera lista activa, mismo que el totalizado) |
 | `average_unit_cost` | `total_cost / total_available_quantity` |
 | `average_unit_price` | `total_sale_value / total_available_quantity` |
@@ -186,7 +202,8 @@ No mezclar stats de “todas las razones” con un listado ya filtrado.
 
 ## Checklist Pollux
 
-- [ ] 5 cards modernas arriba, compartidas por Lotes y Totalizado
+- [ ] 5 cards modernas arriba, compartidas por Lotes y Totalizado, solo con `inventory:ViewStats`
+- [ ] Sin ese permiso no se pintan las cards ni se llama el GET
 - [ ] `GET /tenant/inventory/stats` al entrar y al cambiar razón / sucursal / almacén
 - [ ] Mismos query params de ubicación que el listado
 - [ ] MXN + % con color en margen

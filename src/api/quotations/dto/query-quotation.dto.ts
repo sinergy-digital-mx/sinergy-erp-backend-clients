@@ -37,6 +37,7 @@ export class QueryQuotationDto {
   @IsUUID()
   fiscal_configuration_id?: string;
 
+  /** Sin ViewAllBranches debe ser una sucursal asignada. */
   @IsOptional()
   @IsUUID()
   billing_branch_id?: string;

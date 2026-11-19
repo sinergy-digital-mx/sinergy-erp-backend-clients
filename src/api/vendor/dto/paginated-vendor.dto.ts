@@ -1,7 +1,7 @@
-import { Vendor } from '../../../entities/vendor/vendor.entity';
+import { VendorView } from './vendor-view.dto';
 
 export class PaginatedVendorDto {
-  data: Vendor[];
+  data: VendorView[];
   total: number;
   page: number;
   limit: number;

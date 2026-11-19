@@ -1,5 +1,9 @@
 # UI — Moneda de contratos (USD / MXN)
 
+## Historial
+
+- 2026-10-23: `overdue` de stats incluye el total y el desglose `contract` / `down_payment`.
+
 Contrato para Pollux: cada contrato es **todo en dólares o todo en pesos**. Los montos **no se convierten**. La moneda sale de `currency` (`USD` | `MXN`).
 
 Hasta ahora los contratos existentes (incluye mensualidades, enganche y HOA) son **USD**. El default de alta también es **USD**. MXN solo si el lote o el POST lo mandan.
@@ -57,7 +61,9 @@ $27,500.00  [USD]
   "overdue": {
     "contracts_count": 13,
     "payments_count": 51,
-    "value": 19640.13
+    "value": 19640.13,
+    "contract": { "contracts_count": 13, "payments_count": 45, "value": 16040.13 },
+    "down_payment": { "contracts_count": 2, "payments_count": 6, "value": 3600 }
   }
 }
 ```

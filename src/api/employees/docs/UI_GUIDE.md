@@ -1,5 +1,11 @@
 # Guía de UI — Empleados
 
+## Historial
+
+- 2026-10-29: El horario se captura en el modal de usuario (tab Empleado, `employee.work_schedule`) y con Editar en el expediente. El empleado lo ve en el portal.
+- 2026-10-27: Horas extras. Formulario con fecha, horario y motivo; el total de horas lo calcula el backend. Revisión con horas autorizadas, comentarios e importe. Estatus pendiente, aprobada, rechazada o pagada.
+- 2026-10-26: Incapacidad médica en el expediente. Cabecera con días del año (`sick_leave`) y comprobantes en la misma solicitud.
+
 Cómo consumir el módulo desde el frontend. Todos los endpoints requieren:
 
 - Header `Authorization: Bearer <token>`
@@ -11,7 +17,7 @@ Base URL: `/{apiPrefix}/tenant/employees`
 
 ## 1. Marcar un usuario como empleado (modal de usuario, tab "Empleado")
 
-El perfil de empleado se administra desde el modal de usuario existente. Al activar el toggle **Empleado**, muestra los campos de RH/nómina y envíalos dentro del objeto `employee` al crear/editar el usuario.
+El perfil de empleado se administra desde el modal de usuario existente. Al activar el toggle **Empleado**, muestra los campos de RH/nómina (incluido el **horario laboral**) y envíalos dentro del objeto `employee` al crear/editar el usuario.
 
 ```http
 POST /tenant/users
@@ -41,14 +47,21 @@ PUT  /tenant/users/:userId
     "payment_frequency": "biweekly",
     "bank_name": "BBVA",
     "clabe": "012345678901234567",
-    "bank_account": "0123456789"
+    "bank_account": "0123456789",
+    "work_schedule": {
+      "notes": "Turno matutino",
+      "days": [
+        { "weekday": 1, "is_workday": true, "start_time": "09:00", "end_time": "18:00" },
+        { "weekday": 7, "is_workday": false }
+      ]
+    }
   }
 }
 ```
 
 - Si `is_employee` es `true`, el backend hace **upsert** del perfil y marca al usuario como empleado.
 - Si `is_employee` es `false`, se desmarca al usuario (se conserva el historial del empleado).
-- La respuesta de `GET /tenant/users/:userId` incluye `is_employee` y el objeto `employee` (con `vacation`, `payroll` y `photo_url`) para precargar el modal.
+- La respuesta de `GET /tenant/users/:userId` incluye `is_employee` y el objeto `employee` (con `vacation`, `payroll`, `photo_url` y `work_schedule`) para precargar el modal.
 
 > Alternativa: también puedes crear el empleado directamente con `POST /tenant/employees` enviando `user_id` + los campos anteriores.
 
@@ -191,6 +204,34 @@ PUT /tenant/employees/leave-requests/:requestId/review
 PUT /tenant/employees/leave-requests/:requestId/cancel
 ```
 
+## 8. Incapacidad médica
+
+En el detalle (`GET /tenant/employees/:id`) viene `sick_leave` para la cabecera del año y, dentro de cada solicitud, `documents`.
+
+La solicitud se crea igual que las demás, con `type: "sick_leave"`, fechas y `reason` (comentarios). Los días son naturales. Un solo día puede mandarse como `days: 0.5`.
+
+Adjuntar el comprobante en esa solicitud:
+
+```http
+POST /tenant/employees/leave-requests/:requestId/documents
+Content-Type: multipart/form-data
+```
+
+Campo: `file`. PDF, JPG, PNG o WEBP. Máximo 10 MB y 8 archivos. La respuesta es la solicitud con `documents` actualizados. La `url` abre el archivo.
+
+```http
+DELETE /tenant/employees/leave-requests/:requestId/documents/:documentId
+```
+
+Quien solo ve su expediente (`ViewOwn`) adjunta y quita los propios. RH con `Update` o `ManageLeave` puede hacerlo en cualquier empleado.
+
+En el portal del empleado las mismas acciones viven en:
+
+```http
+POST   /tenant/employee-portal/me/leave-requests/:requestId/documents
+DELETE /tenant/employee-portal/me/leave-requests/:requestId/documents/:documentId
+```
+
 ---
 
 ## Permisos que controlan el UI
@@ -200,4 +241,132 @@ PUT /tenant/employees/leave-requests/:requestId/cancel
 - `Employee:Read` → lista y detalle.
 - `Employee:Update` → editar datos, arrastre de vacaciones, subir foto, registrar o corregir solicitudes.
 - `Employee:Delete` → eliminar perfil.
-- `Employee:ManageLeave` → aprobar/rechazar/cancelar solicitudes.
+- `Employee:ManageLeave` → aprobar, rechazar o marcar como pagadas vacaciones, ausencias y horas extras.
+
+## 9. Horas extras
+
+El empleado llena fecha, hora de inicio, hora de término, motivo y observaciones (opcionales). No envíes las horas: el backend las calcula y la respuesta trae `requested_hours`.
+
+```http
+POST /tenant/employees/:id/overtime-requests
+```
+
+```json
+{
+  "work_date": "2026-10-26",
+  "start_time": "18:00",
+  "end_time": "21:00",
+  "reason": "Inventario",
+  "notes": "Opcional"
+}
+```
+
+Lista de RH:
+
+```http
+GET /tenant/employees/overtime-requests/all?status=pending&page=1&limit=20
+```
+
+Cada solicitud incluye `employee` (nombre, puesto, departamento, `monthly_salary`, `daily_salary`, `hourly_rate`), `status`, `reviewer_name`, `reviewed_at`, `review_notes`, `amount`, `paid_amount`, `payer_name` y `paid_at`.
+
+Antes de confirmar, calcula el importe:
+
+```http
+GET /tenant/employees/overtime-requests/:requestId/preview?approved_hours=2.5
+```
+
+```json
+{
+  "requested_hours": 3,
+  "approved_hours": 2.5,
+  "payment": {
+    "hourly_rate": 50,
+    "double_hours": 2.5,
+    "excess_hours": 0,
+    "double_multiplier": 2,
+    "excess_multiplier": 3,
+    "amount": 250,
+    "is_estimate": true,
+    "prior_week_hours": 0,
+    "week_start": "2026-10-26",
+    "week_end": "2026-11-01"
+  }
+}
+```
+
+Aprobar o rechazar:
+
+```http
+PUT /tenant/employees/overtime-requests/:requestId/review
+```
+
+```json
+{ "status": "approved", "approved_hours": 2.5, "review_notes": "Se autorizan 2.5 h" }
+```
+
+`approved_hours` solo aplica al aprobar. Si se omite, se autorizan las horas solicitadas. Rechazar:
+
+```json
+{ "status": "rejected", "review_notes": "No estaba programado" }
+```
+
+Cuando nómina paga:
+
+```http
+PUT /tenant/employees/overtime-requests/:requestId/pay
+```
+
+El estatus pasa a `paid` y `paid_amount` queda igual al `amount` autorizado.
+
+Reglas de pago (pantalla de RH, permiso `Update`):
+
+```http
+GET /tenant/employees/overtime/policy
+PUT /tenant/employees/overtime/policy
+```
+
+```json
+{
+  "workday_hours": 8,
+  "daily_double_hours": 3,
+  "weekly_double_hours": 9,
+  "double_multiplier": 2,
+  "excess_multiplier": 3
+}
+```
+
+`is_custom: false` significa que aún no se guardó nada y están los defaults de la LFT: jornada de 8 h, primeras 3 h del día y 9 h de la semana al doble, el excedente al triple. La tarifa por hora es el salario diario (`mensual / 30`) dividido entre `workday_hours`.
+
+Mientras está `pending`, se puede corregir con `PUT /tenant/employees/overtime-requests/:requestId`.
+
+En el portal, el mismo cuerpo se manda a `POST /tenant/employee-portal/me/overtime-requests`.
+
+## 10. Horario laboral
+
+El perfil (`GET /:id` y `GET /tenant/employee-portal/me`) incluye `work_schedule`. Si aún no se configuró, viene `null`.
+
+```http
+PUT /tenant/employees/:id/work-schedule
+PUT /tenant/employee-portal/me/work-schedule
+```
+
+```json
+{
+  "notes": "Turno matutino",
+  "days": [
+    { "weekday": 1, "is_workday": true, "start_time": "09:00", "end_time": "18:00" },
+    { "weekday": 2, "is_workday": true, "start_time": "09:00", "end_time": "18:00" },
+    { "weekday": 3, "is_workday": true, "start_time": "09:00", "end_time": "18:00" },
+    { "weekday": 4, "is_workday": true, "start_time": "09:00", "end_time": "18:00" },
+    { "weekday": 5, "is_workday": true, "start_time": "09:00", "end_time": "18:00" },
+    { "weekday": 6, "is_workday": false },
+    { "weekday": 7, "is_workday": false }
+  ]
+}
+```
+
+`weekday`: 1 lunes … 7 domingo. En un día laboral, `start_time` y `end_time` son `HH:mm`. Si la salida es menor que la entrada, el turno cruza medianoche. Al menos un día debe ser laboral.
+
+La respuesta es el empleado con `work_schedule.weekly_hours` y `hours` por día.
+
+UI: tabla lun–dom, checkbox laboral, dos `input type="time"`, total de la semana y notas. En el portal el empleado puede guardarlo. En el expediente, RH con `Employee:Update`.

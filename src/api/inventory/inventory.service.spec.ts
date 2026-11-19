@@ -557,7 +557,7 @@ describe('InventoryService', () => {
       expect(result).toHaveProperty('can_edit_tag');
       expect(result).toHaveProperty('can_edit_measure');
       expect(result).toHaveProperty('can_transfer');
-      expect(result.pedimento_number).toBe('162430010001234');
+      expect(result.pedimento_number).toBe('16  24  3001  0001234');
       expect(result.payment_currency).toBe('USD');
       expect(result.unit_cost).toBe(1.8);
       expect(result.real_unit_cost_usd).toBe(1.9005);

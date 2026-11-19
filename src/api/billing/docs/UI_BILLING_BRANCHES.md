@@ -1,5 +1,7 @@
 # UI — Sucursales de configuración fiscal
 
+**2026-10-31 — dirección del almacén.** Cada almacén necesita calle, ciudad, estado, código postal y país. Si falta o el dato no es válido (C.P. de México distinto de 5 dígitos, coordenada suelta, texto demasiado largo), guardar responde **400** con el nombre del almacén y qué falta. Ejemplo: `El almacén "Bodega Norte" necesita dirección (calle, ciudad, estado, código postal, país). Usa la de la sucursal o captura una.` No debe verse un error genérico del servidor. En el sub-modal, el aviso queda en Ubicación y el botón **Usar misma dirección que la sucursal** copia la de la sucursal. GPS sigue siendo opcional, pero latitud y longitud van juntas.
+
 Guía para Pollux: pestaña **Sucursales** en el modal **Editar Configuración Fiscal**.
 
 Los **almacenes** ya no se gestionan en un módulo aparte dentro de esta pantalla: viven anidados en la sucursal (igual que las sucursales viven en la config fiscal).
@@ -267,13 +269,13 @@ Reutilizar el **mismo componente de dirección + Google Maps** que direcciones d
 | `name` | string | Sí (al crear) | Nombre del almacén |
 | `prefix` | string | No | Prefijo de lote (máx. 10, sin guiones). Ej. `BDGA`. Obligatorio antes de recibir OC. **No enviar `code`.** Ver `UI_DOCUMENT_PREFIXES.md` |
 | `description` | string | No | |
-| `street` | string | No | Calle |
-| `city` | string | No | Ciudad |
-| `state` | string | No | Estado |
-| `zip_code` | string | No | C.P. |
-| `country` | string | No | País |
-| `latitude` | number \| null | No | GPS (Google Maps) |
-| `longitude` | number \| null | No | GPS (Google Maps) |
+| `street` | string | Sí | Calle (mín. 5). Si falta, 400 con el nombre del almacén |
+| `city` | string | Sí | Ciudad |
+| `state` | string | Sí | Estado |
+| `zip_code` | string | Sí | C.P. En México, 5 dígitos |
+| `country` | string | Sí | País |
+| `latitude` | number \| null | No | GPS. Si se envía, también `longitude` |
+| `longitude` | number \| null | No | GPS. Si se envía, también `latitude` |
 | `status` | `active` \| `inactive` | No | Default `active` |
 | `metadata` | object | No | Extensible |
 

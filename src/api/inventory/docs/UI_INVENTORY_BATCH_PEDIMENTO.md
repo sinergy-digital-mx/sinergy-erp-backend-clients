@@ -1,6 +1,10 @@
 # UI — Pedimento en detalle de lote
 
-El pedimento **no se guarda en el lote**. Vive en la orden de compra. El lote ya apunta a esa OC (`purchase_order_batch_id`); al recibir se copia esa relación, y al transferir se conserva.
+## Cambios
+
+- 2026-11-02: Si el número tiene 15 dígitos, la respuesta lo trae con la máscara del SAT (`26  47  3807  6000123`).
+
+El pedimento de una orden de compra vive en la OC. El lote apunta a esa OC (`purchase_order_batch_id`); al recibir se copia esa relación, y al transferir se conserva.
 
 ## Endpoint
 
@@ -22,7 +26,7 @@ Sigue igual: `purchase_order_id`, `purchase_order_folio`.
   "batch_number": "MZN-ENS-BDG-00003",
   "purchase_order_id": "uuid-oc",
   "purchase_order_folio": "OC-000012",
-  "pedimento_number": "162430010001234",
+  "pedimento_number": "26  47  3807  6000123",
   "warehouse_name": "Bodega",
   "product_name": "ENCINO 1X6"
 }
@@ -36,7 +40,7 @@ En la card **REQUISICIÓN** (junto al folio), o una card **PEDIMENTO** al lado.
 
 ```
 REQUISICIÓN          OC-000012
-PEDIMENTO            16 24 3001 0001234
+PEDIMENTO            26  47  3807  6000123
 ```
 
 Bindings:

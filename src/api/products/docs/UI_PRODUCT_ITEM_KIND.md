@@ -1,5 +1,11 @@
 # UI — Tipo de catálogo: producto o servicio
 
+## 2026-11-02 — Menú principal
+
+Productos ya no está en Configuración. Vive en el menú principal, sección Operación, ruta `/products`. El acceso al menú es `products:ViewMenu` (o `Product:ViewMenu` si el JWT trae la entidad `Product`).
+
+
+
 Contrato para Pollux. El catálogo (`products`) distingue mercancía de servicio. No hay flag por empresa: cualquier organización puede dar de alta ambos.
 
 ## Campo

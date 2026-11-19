@@ -1,5 +1,11 @@
 # Portal de empleado
 
+## Historial
+
+- 2026-10-29: Horario laboral semanal en `GET /me` (`work_schedule`) y `PUT /me/work-schedule`.
+- 2026-10-27: El empleado solicita horas extras en `GET/POST /me/overtime-requests` y puede corregir una pendiente con `PUT /me/overtime-requests/:requestId`.
+- 2026-10-26: Comprobantes de incapacidad médica en `POST/DELETE /me/leave-requests/:requestId/documents`. El perfil incluye `sick_leave`.
+
 Autoservicio para usuarios de tipo **empleado**. Desde configuración, un usuario con perfil de empleado puede ver su información, actualizar su nombre/teléfono/contraseña, subir su foto, consultar sus días de vacaciones disponibles y meter/cancelar solicitudes.
 
 - Solo accesible para usuarios que tengan perfil de empleado (`is_employee = true`). Si un usuario sin perfil de empleado accede, recibe `403`.
@@ -42,6 +48,12 @@ Prefijo: `tenant/employee-portal`
 | GET    | `/me/leave-requests`              | `EmployeePortal:Read`       | Ver mis solicitudes.                           |
 | POST   | `/me/leave-requests`              | `EmployeePortal:RequestLeave` | Solicitar vacaciones / reportar falta.       |
 | PUT    | `/me/leave-requests/:requestId/cancel` | `EmployeePortal:RequestLeave` | Cancelar una de mis solicitudes pendientes. |
+| POST   | `/me/leave-requests/:requestId/documents` | `EmployeePortal:RequestLeave` | Adjuntar comprobante a mi incapacidad (`file`). |
+| DELETE | `/me/leave-requests/:requestId/documents/:documentId` | `EmployeePortal:RequestLeave` | Quitar un comprobante propio. |
+| GET    | `/me/overtime-requests`           | `EmployeePortal:Read`         | Ver mis horas extras.                              |
+| POST   | `/me/overtime-requests`           | `EmployeePortal:RequestLeave` | Solicitar horas extras.                            |
+| PUT    | `/me/overtime-requests/:requestId`| `EmployeePortal:RequestLeave` | Corregir una solicitud pendiente propia.           |
+| PUT    | `/me/work-schedule`               | `EmployeePortal:Update`       | Guardar mi horario laboral semanal.                |
 
 ## Detección en el login
 

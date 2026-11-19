@@ -63,9 +63,10 @@ En el ticket: **Recibo No** = este folio público (no el `OSV-…` interno).
 Tras cobro, `receipt.escpos_base64` **ya trae**:
 
 1. Texto `FACTURA TU COMPRA`
-2. URL completa (fuente chica)
-3. **QR ESC/POS** (Bixolon 80mm)
-4. `Folio: MZN-CENT-INV-000012`
+2. `Solo este mes. Te quedan N dias.` (N = último día del mes − día de la venta, `America/Tijuana`; el 25 de un mes de 30 → 5. El último día: `Ultimo dia.`)
+3. URL completa (fuente chica)
+4. **QR ESC/POS** (Bixolon 80mm)
+5. `Folio: MZN-CENT-INV-000012`
 
 Imprimir RAW igual que hoy. No generar QR en el frontend del POS.
 

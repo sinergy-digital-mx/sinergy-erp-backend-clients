@@ -4,6 +4,10 @@ Tab **Sucursales asignadas** en el modal de usuario (`Configuración → Usuario
 
 Un usuario puede tener **varias sucursales**. Una se marca como **principal**. En POS, `billing_branch_id` es la **sucursal activa** (inventario y corte).
 
+## 2026-11-10 — Razón social en listados
+
+Órdenes de venta, órdenes de compra y cotizaciones abren con la razón social y la sucursal **principal** ya seleccionadas. Si no hay sucursales asignadas, usan la sucursal activa.
+
 ---
 
 ## Configurar (backoffice)

@@ -19,8 +19,13 @@ describe('VendorService', () => {
       create: jest.fn(),
       save: jest.fn(),
       findOne: jest.fn(),
+      find: jest.fn().mockResolvedValue([]),
       createQueryBuilder: jest.fn(),
       remove: jest.fn(),
+      manager: {
+        query: jest.fn().mockResolvedValue([]),
+        transaction: jest.fn(),
+      },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -75,6 +80,8 @@ describe('VendorService', () => {
       expect(mockRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
           ...dto,
+          name: 'Test Company',
+          company_name: 'Test Company',
           tenant_id: tenantId,
           status: 'active',
           vendor_type: VendorType.NATIONAL,
@@ -384,6 +391,77 @@ describe('VendorService', () => {
         );
         resolve();
       });
+    });
+  });
+
+  describe('remove', () => {
+    const tenantId = 'tenant-123';
+
+    function nationalVendor(overrides: Partial<Vendor>): Vendor {
+      return {
+        id: 'vendor-source',
+        tenant_id: tenantId,
+        vendor_type: VendorType.NATIONAL,
+        name: 'Acme',
+        company_name: 'Acme',
+        rfc: 'ACM010101AAA',
+        status: 'active',
+        created_at: new Date(),
+        updated_at: new Date(),
+        tenant: null,
+        ...overrides,
+      } as Vendor;
+    }
+
+    it('borra si no hay compras ni parecido', async () => {
+      const vendor = nationalVendor({ rfc: 'UNQ010101AAA', name: 'Unico' });
+      mockRepository.findOne.mockResolvedValue(vendor);
+      mockRepository.find.mockResolvedValue([vendor]);
+      mockRepository.manager.query.mockResolvedValue([]);
+
+      const result = await service.remove(vendor.id, tenantId);
+
+      expect(result.action).toBe('deleted');
+      expect(mockRepository.remove).toHaveBeenCalledWith(vendor);
+    });
+
+    it('desactiva si hay compras y no hay parecido', async () => {
+      const vendor = nationalVendor({ rfc: 'UNQ010101AAA', name: 'Unico' });
+      mockRepository.findOne.mockResolvedValue(vendor);
+      mockRepository.find.mockResolvedValue([vendor]);
+      mockRepository.manager.query.mockResolvedValue([{ vendor_id: vendor.id, cnt: 3 }]);
+      mockRepository.save.mockImplementation((entity) => Promise.resolve(entity));
+
+      const result = await service.remove(vendor.id, tenantId);
+
+      expect(result.action).toBe('deactivated');
+      expect(vendor.status).toBe('inactive');
+      expect(mockRepository.remove).not.toHaveBeenCalled();
+    });
+
+    it('consolida compras en el parecido y borra el duplicado', async () => {
+      const source = nationalVendor({ id: 'vendor-source', name: 'Acme SA' });
+      const target = nationalVendor({ id: 'vendor-target', name: 'ACME' });
+      mockRepository.findOne.mockResolvedValue(source);
+      mockRepository.find.mockResolvedValue([source, target]);
+      mockRepository.manager.query
+        .mockResolvedValueOnce([{ vendor_id: source.id, cnt: 4 }])
+        .mockResolvedValueOnce([{ vendor_id: target.id, cnt: 8 }]);
+
+      const tx = {
+        query: jest.fn().mockResolvedValue([{ ok: 1 }]),
+        update: jest.fn(),
+        delete: jest.fn(),
+      };
+      mockRepository.manager.transaction.mockImplementation(async (cb) => cb(tx));
+
+      const result = await service.remove(source.id, tenantId);
+
+      expect(result.action).toBe('merged');
+      expect(result.merged_into?.id).toBe(target.id);
+      expect(result.purchase_orders_reassigned).toBe(4);
+      expect(tx.delete).toHaveBeenCalled();
+      expect(mockRepository.remove).not.toHaveBeenCalled();
     });
   });
 });

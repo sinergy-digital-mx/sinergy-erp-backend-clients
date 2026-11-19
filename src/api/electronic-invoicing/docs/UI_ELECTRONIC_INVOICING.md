@@ -63,6 +63,8 @@ Query listado: `?source_module=sales_orders&source_id={uuid}&stamp_status=stampe
 
 El PDF de representación impresa **siempre** pinta SubTotal, Descuento, IVA y Total, aunque sean `$0.00`. Columna Descuento en conceptos también. No ocultar ceros.
 
+**2026-10-31.** El parser del XML para el PDF toma `TotalImpuestosTrasladados` del nodo `Impuestos` del comprobante (después de Conceptos). El primer `Impuestos` es el del concepto y no trae ese total: el IVA salía en `$0.00`. Los traslados por línea también se leen del bloque completo del concepto. Facturas ya generadas: `GET /:id/pdf?regenerate=true`.
+
 **Datos del comprobante** van en el encabezado (junto al emisor): solo título + pares alineados, sin recuadro ni fondo. Cliente y conceptos siguen en tablitas. CSD/SAT en el recuadro FACTURA. PDFs ya generados: `GET /:id/pdf?regenerate=true`.
 
 ---
@@ -104,6 +106,12 @@ Si Finkok rechaza: **`400`**, sin insertar fila ni PDF. `message` incluye códig
 ```
 
 Motivos SAT: `01`–`04`.
+
+**2026-10-19.** Después de `sign_cancel` exitoso el API corre sync SAT (`get_sat_status` / consulta CFDI) y regresa la factura ya actualizada.
+
+- SAT `Cancelado` → `stamp_status = cancelled`.
+- `sat_estatus_cancelacion` con “En proceso”, o código Finkok `201` sin confirmación de cancelado → `stamp_status = cancel_pending`. El comprobante sigue vigente hasta que el receptor acepte o venza el plazo.
+- Pollux: toast “La factura está en proceso de cancelación.” y no pintarla como cancelada. Si `sat_last_sync_at` no cambió, llamar `POST .../sync-sat`.
 
 ---
 

@@ -1,5 +1,7 @@
 # UI — Enviar factura por correo
 
+**2026-11-02 — WhatsApp.** En la misma card, botón **Enviar por WhatsApp**. Ver `UI_SALES_ORDER_INVOICE_WHATSAPP.md`.
+
 Guía para Pollux. Cada factura timbrada de la OV se puede enviar por correo con PDF + XML. La plantilla es **una por organización** y se edita en el tab **Correo**.
 
 **Permiso:** `electronic_invoices:Read` (mismo tab Facturación).  

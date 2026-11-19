@@ -12,10 +12,10 @@ Texto de ayuda: “La orden se surtirá por almacén (picking y armado en Mesa d
 
 **No** pedir almacén por línea. El back parte el pedido según el stock de cada almacén de la sucursal.
 
-| Valor | `general_status` al crear |
-|-------|---------------------------|
-| `false` (default) | `Creada` |
-| `true` | `En Selección` + job en Mesa de Control |
+| Valor | `general_status` al crear | Inventario |
+|-------|---------------------------|------------|
+| `false` (default) | `Creada` | Aparta lotes FIFO de la sucursal al crear |
+| `true` | `En Selección` + job en Mesa de Control | Los lotes se apartan al surtir en Mesa de Control |
 
 Solo MANUAL. POS ignora el flag.
 

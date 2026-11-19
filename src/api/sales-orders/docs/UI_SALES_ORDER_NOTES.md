@@ -1,5 +1,19 @@
 # UI — Notas en órdenes de venta
 
+## 2026-11-11 — Nota por línea
+
+Cada producto puede llevar su nota (`line_items[].notes`, máximo 500). Es distinta de la nota general de abajo.
+
+En el detalle sale debajo del nombre, en un recuadro ámbar. Se escribe al crear la línea, al editarla o en el alta. Si tiene texto, el PDF la imprime bajo el producto. Vacío o `null` la quita.
+
+```json
+{ "notes": "Entregar cortada a 2.40" }
+```
+
+
+
+**2026-11-03.** En POS Ventas, **Registrar venta** captura observaciones y las guarda en `notes`. El ticket las imprime en **OBSERVACIONES**. Si el vendedor no escribe nada, el alta deja `POS Ventas - {terminal}`.
+
 Guía para Pollux: sección **NOTAS** editable en el detalle de la orden (`#OSV-000010`, etc.).
 
 ---

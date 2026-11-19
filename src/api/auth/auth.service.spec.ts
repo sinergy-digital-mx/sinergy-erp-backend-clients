@@ -22,6 +22,7 @@ describe('AuthService', () => {
   const mockUserRepo = {
     findOne: jest.fn(),
     save: jest.fn(),
+    update: jest.fn().mockResolvedValue({ affected: 1 }),
     query: jest.fn().mockResolvedValue([{ c: 1 }]),
   };
 

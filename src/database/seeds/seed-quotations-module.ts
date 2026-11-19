@@ -24,6 +24,7 @@ async function seedQuotationsModule(tenantId?: string) {
         'Convert',
         'Send',
         'ViewAll',
+        'ViewAllBranches',
       ],
       tenantId,
     });

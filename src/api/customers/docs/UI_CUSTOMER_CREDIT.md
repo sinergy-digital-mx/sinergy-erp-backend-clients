@@ -2,6 +2,10 @@
 
 Contrato para Pollux. Backend ya guarda y valida todo esto.
 
+## 2026-11-03 — Anticipo no usa crédito
+
+El anticipo no descuenta crédito. En Cobranza POS el total de esa fila es lo que falta por cobrar del documento. Solo una orden marcada a crédito suma al utilizado. Si esa orden además tiene anticipo, el tramo de anticipo no entra y el resto sí.
+
 ---
 
 ## 1. Tab Crédito (detalle / editar cliente)
@@ -23,6 +27,7 @@ Si prefieren un select: opciones = razón social (value = `fiscal_configuration_
 │ Maderería Zona Norte                        │
 │ RFC ABC123456789                            │
 │ Activar crédito          [========●]        │
+│ Permitir exceder crédito [○]                │
 │ Días de crédito          [ 30 ]             │
 │ Monto de crédito         [ 15000 ]          │
 │ Utilizado $3,200.50 / Límite $15,000.00     │
@@ -36,7 +41,9 @@ Switch **largo, delgado y elegante**. Color activo: púrpura de marca (`#4B3E8E`
 | Estado | UI |
 |--------|----|
 | Off | Ocultar días, monto y barra. Mostrar “—” |
-| On | Mostrar **Días de crédito**, **Monto de crédito** y barra de uso |
+| On | Mostrar **Días de crédito**, **Monto de crédito**, barra de uso y el switch **Permitir exceder crédito** |
+
+`allow_credit_exceed` es una autorización de **una sola venta** en esa razón social. Administración lo enciende cuando caja avisa que el cliente ya llegó al tope. Si el cobro a crédito supera `credit_available`, el backend lo apaga al guardar el cobro. La siguiente venta que vuelva a exceder se bloquea hasta que lo enciendan otra vez. Si el monto todavía cabe en el disponible, el switch se queda encendido.
 
 ### Lectura
 
@@ -161,7 +168,8 @@ Junto a Efectivo / Transferencia / Tarjeta / Mixto. Visible **solo** si `credit_
 └─────────────────────────────────────────────┘
 ```
 
-- Si `credit_available < por cobrar` → deshabilitar confirmar. Texto: *Crédito insuficiente*.
+- Si `credit_available < por cobrar` y `allow_credit_exceed` es `false` → deshabilitar confirmar. Texto: *Crédito insuficiente*.
+- Si `allow_credit_exceed` es `true` y el monto supera el disponible → permitir confirmar. Texto: *Excepción autorizada para esta venta. Al cobrar se apaga.* Al éxito, `allow_credit_exceed` vuelve a `false`.
 - Link **Configurar crédito del cliente** → `/customers/detail/{id}?tab=credit`. Al volver a POS, **refetch** `GET /customers/:id?fiscal_configuration_id=...`.
 
 Payload:
@@ -244,14 +252,27 @@ Si `invoice.requested === true`: abrir el flujo de timbrado existente (`POST ...
 
 Tab Mixto **no** muestre siempre los 3 montos. Primero chips/checks:
 
-Botones: `Efectivo` / `Transferencia` / `Tarjeta` / `Cheque`. Mínimo **dos**. Cada tipo activo se muestra en su propia tarjeta (monto + referencia o efectivo/cambio).
+Botones: `Efectivo` / `Transferencia` / `Tarjeta` / `Cheque`. Mínimo **dos pagos**. Cada tipo activo se muestra en su propia tarjeta (monto + referencia o efectivo/cambio).
 
-Al capturar un monto, el **último** método marcado recibe el resto automáticamente (`total − lo ya capturado`).
+**Varias tarjetas:** Tarjeta sola abre Tarjeta 1 y Tarjeta 2. Botón **Agregar otra tarjeta**. Payload:
+
+```json
+{
+  "payment_method": "mixed",
+  "amount_card_mxn": 830.50,
+  "card_payments": [
+    { "amount_mxn": 400, "reference": "4242" },
+    { "amount_mxn": 430.50, "reference": "1111" }
+  ]
+}
+```
+
+Al capturar un monto, el **último** pago (incluida la última tarjeta) recibe el resto automáticamente (`total − lo ya capturado`).
 
 | Selección | `payment_method` |
 |-----------|------------------|
-| 1 tipo | No es mixto: usar `cash` / `transfer` / `card` / `check` |
-| 2 o más tipos | `mixed` |
+| 1 tipo (1 tarjeta) | No es mixto: usar `cash` / `transfer` / `card` / `check` |
+| 2 o más tipos, o 2+ cargos de tarjeta | `mixed` |
 
 ```json
 {
@@ -355,3 +376,23 @@ Excel de clientes: columna **Crédito por razón social** (no un solo monto glob
 - [ ] Chip **Crédito** en detalle OV, listado OV y tabla de OV del cliente
 - [ ] Tab **Crédito** en detalle OV: barra de la razón social de esa venta (`GET /customers/:id?fiscal_configuration_id=`)
 - [ ] Excel OV muestra columna Crédito
+
+---
+
+## 9. 2026-11-01 — Moneda de la línea
+
+Cada razón social tiene una sola línea: `credit_currency` `MXN` o `USD`. Se elige al activar el crédito. Los créditos que ya existían quedan en `MXN`.
+
+Migración: `1794700000000-add-customer-credit-currency`.
+
+`GET /customers/:id/credits` y el cliente aplanado con `?fiscal_configuration_id=` incluyen `credit_currency`. `PUT /customers/:id/credits` acepta `credit_currency`. Si hay saldo utilizado, no se puede cambiar la moneda.
+
+En caja, el saldo de la orden se compara contra `credit_available` ya convertido a esa moneda:
+
+| Orden | Crédito | Conversión |
+|-------|---------|------------|
+| Misma moneda | Misma moneda | El monto se queda |
+| USD | MXN | monto × TC de la orden |
+| MXN | USD | monto ÷ TC del día en que se creó la orden |
+
+El TC queda guardado en `exchange_rate` de la orden. La barra y el disponible se muestran en `credit_currency`. Si no hay TC, el cobro se bloquea: *No hay tipo de cambio para convertir el crédito de la orden*. *Crédito insuficiente* muestra el disponible con el código de la moneda.

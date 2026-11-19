@@ -1,5 +1,19 @@
 # UI — Tab Registro (razón, sucursal, vendedor asignado e historial)
 
+## 2026-10-09 — Listado
+
+En **Clientes**, el filtro **Razón social** usa la razón de registro (`registered_fiscal_configuration_id`). El mismo filtro entra en el resumen y en el Excel.
+
+## 2026-10-09 — Columna Razón social del listado
+
+La columna muestra la razón del cliente (`fiscal_razon_social`) y, debajo, su RFC (`fiscal_rfc`). La razón emisora de registro queda solo en el filtro y en el tab Registro.
+
+```http
+GET /api/tenant/customers?registered_fiscal_configuration_id=uuid
+```
+
+
+
 Guía para Pollux: tab **Registro** en el modal Crear / Editar cliente.
 
 Hay **dos bloques distintos**:
@@ -13,12 +27,13 @@ Hay **dos bloques distintos**:
 
 ## Ubicación
 
-Cuarto tab del modal **Crear Cliente** / **Editar Cliente**:
+Tercer tab del modal **Crear Cliente** / **Editar Cliente**:
 
 1. Información del Cliente
-2. Credito — `src/api/customers/docs/UI_CUSTOMER_CREDIT.md`
-3. Información Fiscal
-4. **Registro**
+2. Información Fiscal
+3. **Registro**
+
+El crédito no va en este modal. Se configura en el detalle del cliente, tab **Credito** (`src/api/customers/docs/UI_CUSTOMER_CREDIT.md`).
 
 Ningún campo de este tab es obligatorio.
 
@@ -26,8 +41,8 @@ Ningún campo de este tab es obligatorio.
 ┌─────────────────────────────────────────────────────┐
 │ Editar Cliente                                [ X ] │
 ├─────────────────────────────────────────────────────┤
-│ Información del Cliente   Credito   Información     │
-│ Fiscal                    Registro                  │
+│ Información del Cliente   Información Fiscal        │
+│ Registro                                              │
 ├─────────────────────────────────────────────────────┤
 │ Razón social de registro                            │
 │ [ Sin razón social                          ▼ ]     │

@@ -28,6 +28,19 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
   let mockBatchCreatorService: Partial<BatchCreatorService>;
   let mockTotalCalculatorService: Partial<TotalCalculatorService>;
   let mockQueryRunner: any;
+  let mockInventoryBatchRepository: { find: jest.Mock; count: jest.Mock };
+
+  const stubCreatedPurchaseOrder = (overrides: Record<string, unknown> = {}) => {
+    (mockPurchaseOrderRepository.findOne as jest.Mock).mockResolvedValue({
+      id: 'po-123',
+      tenant_id: 'tenant-123',
+      general_status: 'Creada',
+      line_items: [],
+      fiscal_configuration_id: null,
+      additional_receipt_open: false,
+      ...overrides,
+    });
+  };
 
   beforeEach(async () => {
     // Mock QueryRunner
@@ -97,7 +110,10 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
         },
         {
           provide: getRepositoryToken(InventoryBatch),
-          useValue: { count: jest.fn().mockResolvedValue(0) },
+          useValue: (mockInventoryBatchRepository = {
+            count: jest.fn().mockResolvedValue(0),
+            find: jest.fn().mockResolvedValue([]),
+          }),
         },
         {
           provide: getRepositoryToken(UoMCatalog),
@@ -179,6 +195,7 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
       (mockTenantValidatorService.validatePOBelongsToTenant as jest.Mock).mockResolvedValue(
         undefined,
       );
+      stubCreatedPurchaseOrder({ id: poId, tenant_id: tenantId });
       (mockReceiptValidatorService.validateReceivedItems as jest.Mock).mockRejectedValue(
         new NotFoundException(`Línea no encontrada: ${lineItemId}`),
       );
@@ -186,10 +203,6 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
       await expect(
         service.receive(poId, dto, tenantId, userId),
       ).rejects.toThrow(NotFoundException);
-
-      // Verify transaction was rolled back
-      expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled();
-      expect(mockQueryRunner.release).toHaveBeenCalled();
     });
 
     it('should log error context when line item not found', async () => {
@@ -214,16 +227,10 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
         ],
       };
 
-      const mockPO = {
-        id: poId,
-        tenant_id: tenantId,
-        line_items: [],
-      };
-
       (mockTenantValidatorService.validatePOBelongsToTenant as jest.Mock).mockResolvedValue(
         undefined,
       );
-      (mockQueryRunner.manager.findOne as jest.Mock).mockResolvedValue(mockPO);
+      stubCreatedPurchaseOrder({ id: poId, tenant_id: tenantId });
       (mockReceiptValidatorService.validateReceivedItems as jest.Mock).mockRejectedValue(
         new NotFoundException(`Línea no encontrada: ${lineItemId}`),
       );
@@ -265,10 +272,6 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
       await expect(
         service.receive(poId, dto, tenantId, userId),
       ).rejects.toThrow(NotFoundException);
-
-      // Verify transaction was rolled back
-      expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled();
-      expect(mockQueryRunner.release).toHaveBeenCalled();
     });
 
     it('should catch database errors and rollback transaction', async () => {
@@ -292,16 +295,10 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
         ],
       };
 
-      const mockPO = {
-        id: poId,
-        tenant_id: tenantId,
-        line_items: [],
-      };
-
       (mockTenantValidatorService.validatePOBelongsToTenant as jest.Mock).mockResolvedValue(
         undefined,
       );
-      (mockQueryRunner.manager.findOne as jest.Mock).mockResolvedValue(mockPO);
+      stubCreatedPurchaseOrder({ id: poId, tenant_id: tenantId });
       (mockReceiptValidatorService.validateReceivedItems as jest.Mock).mockResolvedValue(
         undefined,
       );
@@ -346,18 +343,11 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
         ],
       };
 
-      const mockPO = {
-        id: poId,
-        tenant_id: tenantId,
-        line_items: [],
-      };
-
       (mockTenantValidatorService.validatePOBelongsToTenant as jest.Mock).mockResolvedValue(
         undefined,
       );
-      (mockQueryRunner.manager.findOne as jest.Mock).mockResolvedValue(mockPO);
+      stubCreatedPurchaseOrder({ id: poId, tenant_id: tenantId });
 
-      // Mock validator to throw BadRequestException
       (mockReceiptValidatorService.validateReceivedItems as jest.Mock).mockRejectedValue(
         new BadRequestException('La cantidad recibida no puede ser negativa'),
       );
@@ -365,10 +355,6 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
       await expect(
         service.receive(poId, dto, tenantId, userId),
       ).rejects.toThrow(BadRequestException);
-
-      // Verify transaction was rolled back
-      expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled();
-      expect(mockQueryRunner.release).toHaveBeenCalled();
     });
 
     it('should log validation errors with context', async () => {
@@ -392,18 +378,12 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
         ],
       };
 
-      const loggerSpy = jest.spyOn(service['logger'], 'warn');
-
-      const mockPO = {
-        id: poId,
-        tenant_id: tenantId,
-        line_items: [],
-      };
+      const loggerSpy = jest.spyOn(service['logger'], 'error');
 
       (mockTenantValidatorService.validatePOBelongsToTenant as jest.Mock).mockResolvedValue(
         undefined,
       );
-      (mockQueryRunner.manager.findOne as jest.Mock).mockResolvedValue(mockPO);
+      stubCreatedPurchaseOrder({ id: poId, tenant_id: tenantId });
 
       (mockReceiptValidatorService.validateReceivedItems as jest.Mock).mockRejectedValue(
         new BadRequestException('Se debe recibir al menos un producto'),
@@ -415,11 +395,11 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
         // Expected to throw
       }
 
-      // Verify warning was logged with context
       expect(loggerSpy).toHaveBeenCalled();
       const calls = loggerSpy.mock.calls;
-      const hasValidationError = calls.some(call => 
-        call[0].includes('Validation failed')
+      const hasValidationError = calls.some(call =>
+        String(call[0]).includes('Error al procesar recepción') &&
+        String(call[0]).includes(poId),
       );
       expect(hasValidationError).toBe(true);
     });
@@ -445,16 +425,10 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
         ],
       };
 
-      const mockPO = {
-        id: poId,
-        tenant_id: tenantId,
-        line_items: [],
-      };
-
       (mockTenantValidatorService.validatePOBelongsToTenant as jest.Mock).mockResolvedValue(
         undefined,
       );
-      (mockQueryRunner.manager.findOne as jest.Mock).mockResolvedValue(mockPO);
+      stubCreatedPurchaseOrder({ id: poId, tenant_id: tenantId });
       (mockReceiptValidatorService.validateReceivedItems as jest.Mock).mockResolvedValue(
         undefined,
       );
@@ -514,7 +488,7 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
 
       // Verify error was logged with full context
       expect(loggerSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Error processing receipt'),
+        expect.stringContaining('Error al procesar recepción'),
         expect.any(String),
       );
 
@@ -590,16 +564,10 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
         ],
       };
 
-      const mockPO = {
-        id: poId,
-        tenant_id: tenantId,
-        line_items: [],
-      };
-
       (mockTenantValidatorService.validatePOBelongsToTenant as jest.Mock).mockResolvedValue(
         undefined,
       );
-      (mockQueryRunner.manager.findOne as jest.Mock).mockResolvedValue(mockPO);
+      stubCreatedPurchaseOrder({ id: poId, tenant_id: tenantId });
 
       (mockReceiptValidatorService.validateReceivedItems as jest.Mock).mockRejectedValue(
         new BadRequestException('Se debe recibir al menos un producto'),
@@ -634,9 +602,11 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
         ],
       };
 
-      (mockTenantValidatorService.validatePOBelongsToTenant as jest.Mock).mockRejectedValue(
-        new Error('Unexpected error'),
+      (mockTenantValidatorService.validatePOBelongsToTenant as jest.Mock).mockResolvedValue(
+        undefined,
       );
+      stubCreatedPurchaseOrder({ id: poId, tenant_id: tenantId });
+      (mockReceiptValidatorService.validateReceivedItems as jest.Mock).mockResolvedValue(undefined);
 
       try {
         await service.receive(poId, dto, tenantId, userId);
@@ -644,7 +614,6 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
         // Expected to throw
       }
 
-      // Verify rollback was called
       expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled();
     });
 
@@ -669,9 +638,11 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
         ],
       };
 
-      (mockTenantValidatorService.validatePOBelongsToTenant as jest.Mock).mockRejectedValue(
-        new Error('Test error'),
+      (mockTenantValidatorService.validatePOBelongsToTenant as jest.Mock).mockResolvedValue(
+        undefined,
       );
+      stubCreatedPurchaseOrder({ id: poId, tenant_id: tenantId });
+      (mockReceiptValidatorService.validateReceivedItems as jest.Mock).mockResolvedValue(undefined);
 
       try {
         await service.receive(poId, dto, tenantId, userId);
@@ -679,7 +650,6 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
         // Expected to throw
       }
 
-      // Verify connection was released
       expect(mockQueryRunner.release).toHaveBeenCalled();
     });
   });
@@ -735,16 +705,10 @@ describe('ReceiptService - Error Handling (Requirements 10.1, 10.2, 10.3, 10.4)'
         ],
       };
 
-      const mockPO = {
-        id: poId,
-        tenant_id: tenantId,
-        line_items: [],
-      };
-
       (mockTenantValidatorService.validatePOBelongsToTenant as jest.Mock).mockResolvedValue(
         undefined,
       );
-      (mockQueryRunner.manager.findOne as jest.Mock).mockResolvedValue(mockPO);
+      stubCreatedPurchaseOrder({ id: poId, tenant_id: tenantId });
 
       (mockReceiptValidatorService.validateReceivedItems as jest.Mock).mockRejectedValue(
         new BadRequestException('La cantidad recibida no puede ser negativa'),

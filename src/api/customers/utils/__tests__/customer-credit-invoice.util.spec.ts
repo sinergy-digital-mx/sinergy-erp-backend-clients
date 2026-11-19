@@ -1,4 +1,4 @@
-import { buildCreditSnapshot, extractCreditPatchFromBody } from '../customer-credit.util';
+import { buildCreditSnapshot, creditChargeUsesExceedWaiver, extractCreditPatchFromBody } from '../customer-credit.util';
 import { getFiscalInvoiceReadiness } from '../fiscal-invoice-readiness.util';
 import { Customer } from '../../../../entities/customers/customer.entity';
 
@@ -33,6 +33,7 @@ describe('extractCreditPatchFromBody', () => {
       extractCreditPatchFromBody({ credit_days: 30, credit_amount: 15000 }),
     ).toEqual({
       credit_enabled: true,
+      allow_credit_exceed: false,
       credit_days: 30,
       credit_amount: 15000,
     });
@@ -45,6 +46,7 @@ describe('extractCreditPatchFromBody', () => {
       }),
     ).toEqual({
       credit_enabled: true,
+      allow_credit_exceed: false,
       credit_days: 15,
       credit_amount: 5000,
     });
@@ -52,6 +54,17 @@ describe('extractCreditPatchFromBody', () => {
 
   it('ignora solo warehouse_id', () => {
     expect(extractCreditPatchFromBody({ warehouse_id: 'abc' })).toBeNull();
+  });
+});
+
+describe('creditChargeUsesExceedWaiver', () => {
+  it('no usa la autorización si el monto cabe en el disponible', () => {
+    expect(creditChargeUsesExceedWaiver(100, 500, true)).toBe(false);
+  });
+
+  it('usa la autorización solo cuando supera el disponible y está encendida', () => {
+    expect(creditChargeUsesExceedWaiver(600, 500, true)).toBe(true);
+    expect(creditChargeUsesExceedWaiver(600, 500, false)).toBe(false);
   });
 });
 

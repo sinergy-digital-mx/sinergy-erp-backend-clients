@@ -6,6 +6,26 @@ Modal **Crear Orden de Venta:** `src/api/sales-orders/docs/UI_SALES_ORDER_CREATE
 
 **POS no cambia.** Crear/cobrar/surtir sigue usando `warehouse_id`. Este listado no aplica a Punto de Venta.
 
+## 2026-11-10 — Razón social inicial
+
+Al abrir el listado, **Razón social** y **Sucursal** quedan en la sucursal principal del usuario. Si la URL ya trae esos filtros, se respetan. Limpiar filtros vuelve a mostrar todas.
+
+## 2026-11-02 — Permiso ViewStats
+
+El bloque de arriba (Por Estado, Estado de Pago y la gráfica de 12 meses) solo se pinta con `sales_orders:ViewStats`.
+
+Sin ese permiso no se llama `GET /tenant/sales-orders/sales-trend` (403) y no se muestran las tarjetas. El listado sigue con `sales_orders:Read`.
+
+El rol Admin lo recibe en la migración. El resto se asigna en Roles.
+
+```bash
+npx ts-node -r tsconfig-paths/register src/database/seeds/seed-list-view-stats-permissions.ts
+```
+
+## 2026-10-19 — Búsqueda en la URL del listado
+
+El buscador de Órdenes de Venta se escribe en el query de la pantalla, igual que razón social, sucursal y cliente: `?search=rodolfo`. Si se borra, el param se quita. Al abrir esa URL el campo queda lleno y el GET del listado manda `search`.
+
 ---
 
 ## 1. Qué quitar
@@ -403,7 +423,7 @@ Este cambio **no** aplica a Punto de Venta.
 - [ ] Detalle y listado: **Forma de pago** (efectivo / mixto / tarjeta…) — `UI_SALES_ORDER_PAYMENTS.md`
 - [ ] Columna Pago: chip **POS Caja** / **Cobrada manual** con `collection_channel_label`
 - [ ] Filtro **Origen cobro** (`collection_channel`). No meterlo en “Todos los pagos”
-- [ ] Excel: columna **Origen cobro** — `UI_SALES_ORDER_EXPORT.md`
+- [ ] Excel: columna **Origen cobro** y columnas de factura CFDI — `UI_SALES_ORDER_EXPORT.md`
 - [ ] Crear OV: ver `UI_SALES_ORDER_CREATE.md`
 - [ ] POS sin cambios
 - [ ] Fechas GET: `created_at` / `collected_at` UTC→local; `delivery_date` / `payment_date` calendario
@@ -421,3 +441,34 @@ Mismo contrato en OC, OV, inventario, historiales y POS.
 | ISO con `Z` u offset | Instante. Pintar en hora local. |
 
 Pollux: `apiDate` / `formatApiDate`. No usar el pipe `date` de Angular ni `new Date(valor)` directo.
+
+---
+
+## Gráfica de los últimos 12 meses
+
+En el listado, arriba de la tabla, convive con las tarjetas **Por Estado** y **Estado de Pago**. Dos puntos arriba a la derecha cambian la vista cada 10 segundos. Un clic en un punto deja fija esa vista.
+
+Permiso: `sales_orders:ViewStats`. Sin él no se pinta el bloque ni se llama este GET.
+
+```http
+GET /api/tenant/sales-orders/sales-trend
+```
+
+Mismos query params que el listado (`search`, `general_status`, `payment_status`, `fiscal_configuration_id`, `billing_branch_id`, `sale_scope`, `collection_channel`, `created_from`, `created_to`, etc.). No usa `page` ni `limit`.
+
+Sin fechas, la ventana es móvil: mes actual en `America/Mexico_City` y 11 meses atrás. Si hay `created_from` / `created_to`, se cruzan con esa ventana. La respuesta siempre trae 12 puntos.
+
+```json
+{
+  "currency": "MXN",
+  "from": "2025-11",
+  "to": "2026-10",
+  "total": 16204.96,
+  "orders_count": 293,
+  "months": [
+    { "month": "2025-11", "label": "nov 25", "total": 0, "orders_count": 0 }
+  ]
+}
+```
+
+`total` suma `sales_orders.total` de las órdenes que entran en los filtros. Incluye canceladas salvo que el filtro de estado las deje fuera.

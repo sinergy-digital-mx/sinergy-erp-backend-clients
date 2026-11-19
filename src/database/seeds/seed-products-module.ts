@@ -67,6 +67,7 @@ async function seedProductsModule() {
       { action: 'Update', description: 'Actualizar productos' },
       { action: 'Delete', description: 'Eliminar productos' },
       { action: 'Export', description: 'Descargar catálogo de productos' },
+      { action: 'ViewMenu', description: 'Ver menú de Productos' },
     ];
 
     let createdPermissions = 0;

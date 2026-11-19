@@ -55,13 +55,36 @@ GET /api/tenant/sales-orders/export/excel/details?created_from=2026-06-01&create
 
 ### Cabeceras (`ventas-cabeceras-YYYY-MM-DD.xlsx`)
 
-Columnas: Folio, Fecha creación, Tipo, Estado, Pago, Origen cobro, Crédito (Sí/No), Cliente, Razón social, Sucursal, Entrega esperada, Subtotal, Descuento, IVA, IEPS, Total, Vendedor, Notas.
+Columnas: Folio, Fecha creación, Tipo, Estado, Pago, Origen cobro, Crédito (Sí/No), Cliente, Razón social, Sucursal, Entrega esperada, Subtotal, Descuento, IVA, IEPS, Total, Vendedor, Comisionado, Notas.
+
+**Factura CFDI** (al final, misma fila; si hay varias se usa la vigente / última timbrada):
+
+| Columna | Campo |
+|---------|--------|
+| Facturado | Sí / No |
+| Facturas | Cantidad de CFDIs visibles (`stamped`, `cancel_pending`, `cancelled`, `cancel_error`) |
+| UUID | Folio fiscal de la factura principal |
+| UUIDs | Todos los UUID de esa OV, separados por `; ` |
+| Serie / Folio factura / Serie-Folio | `series`, `folio` |
+| Tipo CFDI | `I` → Ingreso, etc. |
+| RFC emisor / RFC receptor / Receptor | Emisor y receptor del CFDI |
+| Subtotal factura / Total factura / Moneda | Montos del CFDI |
+| Ambiente | `DEMO` / `PROD` (`metadata.finkok_environment`) |
+| Fecha timbrado | `stamped_at` |
+| Estatus timbrado | Activa en sistema, Cancelación pendiente, Cancelada… |
+| Estatus SAT | Vigente / Cancelado / Sin verificar |
+| Cancelable SAT / Estatus cancel. SAT / Código SAT | Respuesta SAT |
+| Última sync SAT | `sat_last_sync_at` |
+| Motivo cancelación / UUID sustituto | Si se canceló |
+| Error timbrado | Solo si hay mensaje |
+
+Sin factura: Facturado = No y el resto vacío.
 
 Estilo: título verde oscuro, encabezados verde (`#1B7F5E`), filas alternadas.
 
 ### Detalle (`ventas-detalle-YYYY-MM-DD_YYYY-MM-DD.xlsx`)
 
-Una fila por línea de producto. Columnas: Folio orden, Fecha orden, Estado orden, Pago, Origen cobro, Crédito (Sí/No), Cliente, Razón social, Sucursal, SKU, Producto, UOM, Cantidad, Precio unit., Desc. %, Desc. unit., Descuento, IVA %, Subtotal línea, Total línea.
+Una fila por línea de producto. Columnas de la línea + **las mismas columnas de factura CFDI** que en cabecera (se repiten en cada línea de la OV).
 
 Estilo: verde más claro en encabezados (`#2E8B57`).
 
@@ -287,6 +310,7 @@ async confirmExport() {
 - [ ] Fechas obligatorias solo en modo **Detalle**
 - [ ] Reutilizar filtros activos del listado en la query (incluye `collection_channel`)
 - [ ] Columna **Origen cobro** en cabecera y detalle
+- [ ] Columnas de factura CFDI (UUID, serie, folio, RFC, montos, SAT, cancelación) en cabecera y detalle
 - [ ] Descarga vía `responseType: 'blob'`
 - [ ] Nombre de archivo desde `Content-Disposition` o fallback
 - [ ] Estados loading / error / éxito

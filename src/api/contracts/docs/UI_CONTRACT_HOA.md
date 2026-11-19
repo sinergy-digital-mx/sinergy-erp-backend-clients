@@ -1,5 +1,7 @@
 # UI — Cuotas HOA / mantenimiento
 
+- 2026-10-23: `overdue_count` solo cuenta cuotas abiertas. Una cuota pagada no sigue como vencida.
+
 Tab **HOA** del detalle de contrato. Las cuotas se listan **por mes calendario**, no por el número con el que se generaron.
 
 Base: `/api/tenant/contracts/:contractId/hoa-payments`  

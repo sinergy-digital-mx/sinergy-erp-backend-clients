@@ -11,15 +11,21 @@ El ID fiscal (`tax_id`) es el identificador tributario **extranjero** (VAT, EIN,
 Formulario **Crear / Editar proveedor**, bloque de tipo internacional (`vendor_type === 'INTERNATIONAL'`).
 
 ```
-Tipo de proveedor    [ Internacional ▼ ]
+Tipo de proveedor       [ Internacional ▼ ]
 
-Nombre legal *       [ … ]
-País *               [ … ]
-ID fiscal            [ … ]     ← visible, sin asterisco, sin bloquear Guardar
+Nombre de empresa *     [ … ]
+Nombre legal *          [ … ]
+ID fiscal               [ … ]     ← visible, sin asterisco, sin bloquear Guardar
+País *                  [ … ]
 ```
+
+## 2026-11-02
+
+El nombre comercial es `company_name`. `name` se acepta solo como alias si no viene empresa.
 
 | UI | Body | Cuándo se muestra | Obligatorio |
 |----|------|-------------------|-------------|
+| Nombre de empresa | `company_name` | Siempre | Sí |
 | RFC | `rfc` | `NATIONAL` | No |
 | ID fiscal | `tax_id` | `INTERNATIONAL` | **No** |
 | Nombre legal | `legal_name` | `INTERNATIONAL` | Sí |
@@ -42,7 +48,7 @@ Con o sin `tax_id`:
 ```json
 {
   "vendor_type": "INTERNATIONAL",
-  "name": "US Supplier",
+  "company_name": "US Supplier",
   "legal_name": "US Supplier LLC",
   "country": "US"
 }
@@ -53,7 +59,7 @@ Con ID fiscal:
 ```json
 {
   "vendor_type": "INTERNATIONAL",
-  "name": "US Supplier",
+  "company_name": "US Supplier",
   "legal_name": "US Supplier LLC",
   "country": "US",
   "tax_id": "12-3456789"

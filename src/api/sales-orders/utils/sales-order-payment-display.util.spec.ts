@@ -33,6 +33,19 @@ describe('buildSalesOrderPaymentDisplay', () => {
     ]);
   });
 
+  it('labels a dollar check', () => {
+    const display = buildSalesOrderPaymentDisplay({
+      collection: {
+        payment_method: PosSalePaymentMethod.CHECK,
+        amount_check_usd: 64.26,
+      },
+    });
+
+    expect(display.lines).toEqual([
+      { method: 'check', label: 'Cheque', amount_mxn: 0, amount_usd: 64.26 },
+    ]);
+  });
+
   it('breaks down mixed cash + card', () => {
     const display = buildSalesOrderPaymentDisplay({
       collection: {
@@ -46,6 +59,23 @@ describe('buildSalesOrderPaymentDisplay', () => {
     expect(display.payment_method_label).toBe('Mixto');
     expect(display.payment_breakdown_label).toBe('Efectivo + Tarjeta');
     expect(display.lines.map((line) => line.method)).toEqual(['cash', 'card']);
+  });
+
+  it('breaks down mixed two cards', () => {
+    const display = buildSalesOrderPaymentDisplay({
+      collection: {
+        payment_method: PosSalePaymentMethod.MIXED,
+        amount_card_mxn: 830.5,
+        card_payments: [{ amount_mxn: 400 }, { amount_mxn: 430.5 }],
+      },
+    });
+
+    expect(display.payment_method).toBe('mixed');
+    expect(display.payment_breakdown_label).toBe('Tarjeta + Tarjeta');
+    expect(display.lines).toEqual([
+      { method: 'card', label: 'Tarjeta', amount_mxn: 400, amount_usd: 0 },
+      { method: 'card', label: 'Tarjeta', amount_mxn: 430.5, amount_usd: 0 },
+    ]);
   });
 
   it('falls back to order payments when there is no POS collection', () => {
