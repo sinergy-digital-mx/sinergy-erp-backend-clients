@@ -1016,6 +1016,33 @@
       "status": "shipped",
       "version": "0.0.134",
       "shippedAt": "2026-11-19T20:51:28-08:00"
+    },
+    {
+      "id": "20261119-210025",
+      "at": "2026-11-19T21:00:25-08:00",
+      "scope": "frontend",
+      "message": "El modal de Contado vs financiado en el dashboard ya tiene margen, tarjetas con fondo y la lista dentro de un recuadro.",
+      "status": "shipped",
+      "version": "0.0.136",
+      "shippedAt": "2026-11-20T09:18:04-08:00"
+    },
+    {
+      "id": "20261120-001956",
+      "at": "2026-11-20T00:19:56-08:00",
+      "scope": "both",
+      "message": "En inventario totalizado la unidad queda pegada a la derecha de la cantidad, y precio y costo pasan a columnas propias para que el margen no estire la fila.",
+      "status": "shipped",
+      "version": "0.0.136",
+      "shippedAt": "2026-11-20T09:18:04-08:00"
+    },
+    {
+      "id": "20261120-002324",
+      "at": "2026-11-20T00:23:24-08:00",
+      "scope": "both",
+      "message": "En inventario totalizado los encabezados y los montos quedan con el mismo estilo del listado de órdenes de compra.",
+      "status": "shipped",
+      "version": "0.0.136",
+      "shippedAt": "2026-11-20T09:18:04-08:00"
     }
   ]
 }

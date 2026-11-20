@@ -1333,6 +1333,38 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-20T04:50:42.339Z"
+    },
+    {
+        "releaseKey": "frontend:0.0.135:0.0.135-1795150832370",
+        "version": "0.0.135",
+        "buildId": "0.0.135-1795150832370",
+        "channel": "frontend",
+        "title": "Versión 0.0.135",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "Cambios en Divino"
+            }
+        ],
+        "releasedAt": "2026-11-20T05:00:32.370Z"
+    },
+    {
+        "releaseKey": "full:0.0.136:0.0.136-1795195016186",
+        "version": "0.0.136",
+        "buildId": "0.0.136-1795195016186",
+        "channel": "full",
+        "title": "Versión 0.0.136",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "Cambios en inventario"
+            },
+            {
+                "scope": "backend",
+                "message": "Cambios en Divino"
+            }
+        ],
+        "releasedAt": "2026-11-20T17:16:56.186Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map

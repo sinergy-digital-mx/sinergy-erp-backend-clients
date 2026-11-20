@@ -10,6 +10,12 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.136 · 2026-11-20
+
+- aplicación · El modal de Contado vs financiado en el dashboard ya tiene margen, tarjetas con fondo y la lista dentro de un recuadro.
+- aplicación y servidor · En inventario totalizado la unidad queda pegada a la derecha de la cantidad, y precio y costo pasan a columnas propias para que el margen no estire la fila.
+- aplicación y servidor · En inventario totalizado los encabezados y los montos quedan con el mismo estilo del listado de órdenes de compra.
+
 ### Versión 0.0.134 · 2026-11-19
 
 - aplicación · Métricas: cada filtro de la lista explica al pasar el cursor qué incluye, y el texto de meses anteriores ya se lee completo.
