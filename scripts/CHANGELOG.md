@@ -10,6 +10,12 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.139 · 2026-11-20
+
+- aplicación y servidor · En inventario totalizado la cantidad de lotes abre el detalle, el origen del margen queda en un ícono al pasar el mouse y los tabs quedan pegados a la línea.
+- aplicación y servidor · En los lotes de inventario totalizado la fecha queda corta, 18/08/2026, y más chica.
+- aplicación y servidor · La fecha del lote en inventario totalizado queda humana y corta: Ago 18 26, en 11px.
+
 ### Versión 0.0.138 · 2026-11-20
 
 - aplicación · En inventario totalizado el nombre, la sucursal, la razón social, la unidad y la pastilla de margen quedan más chicos.
