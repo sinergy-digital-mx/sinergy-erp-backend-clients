@@ -10,6 +10,10 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.138 · 2026-11-20
+
+- aplicación · En inventario totalizado el nombre, la sucursal, la razón social, la unidad y la pastilla de margen quedan más chicos.
+
 ### Versión 0.0.137 · 2026-11-20
 
 - servidor · El recibo de pago ya no llama proyecto al nombre del lote: solo dice manzana y número de lote, sin el código.
