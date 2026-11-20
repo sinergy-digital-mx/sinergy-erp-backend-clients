@@ -10,6 +10,10 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.127 · 2026-11-19
+
+- aplicación y servidor · Métricas de contratos: el ingreso del mes ya no falla por la collation, y el listado solo tiene el enlace Métricas, sin repetir Contratos.
+
 ### Versión 0.0.125 · 2026-11-19
 
 - servidor · Se configuró el punto de venta de verdulería en la sucursal TIJ-1: terminal de ventas, terminal de caja y vendedor de prueba con código 1001, con el rol de madería.

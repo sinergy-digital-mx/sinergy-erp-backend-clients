@@ -60,9 +60,7 @@ let ContractMonthlyIncomeService = class ContractMonthlyIncomeService {
         p.amount_paid,
         p.status
       FROM contract_payments p
-      INNER JOIN contracts c
-        ON c.id = p.contract_id
-        AND c.tenant_id = p.tenant_id
+      INNER JOIN contracts c ON c.id = p.contract_id
       LEFT JOIN customers cu ON cu.id = c.customer_id
       LEFT JOIN properties pr ON pr.id = c.property_id
       WHERE c.tenant_id = ?
