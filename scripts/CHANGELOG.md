@@ -10,6 +10,10 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.134 · 2026-11-19
+
+- aplicación · Métricas: cada filtro de la lista explica al pasar el cursor qué incluye, y el texto de meses anteriores ya se lee completo.
+
 ### Versión 0.0.132 · 2026-11-19
 
 - aplicación · Métricas del mes: los conteos abren la lista filtrada y numerada. Se explica qué es una cuota y se quitó la cartera activa.

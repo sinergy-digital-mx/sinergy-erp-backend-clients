@@ -1007,6 +1007,15 @@
       "status": "shipped",
       "version": "0.0.132",
       "shippedAt": "2026-11-19T20:03:31-08:00"
+    },
+    {
+      "id": "20261119-204912",
+      "at": "2026-11-19T20:49:12-08:00",
+      "scope": "frontend",
+      "message": "Métricas: cada filtro de la lista explica al pasar el cursor qué incluye, y el texto de meses anteriores ya se lee completo.",
+      "status": "shipped",
+      "version": "0.0.134",
+      "shippedAt": "2026-11-19T20:51:28-08:00"
     }
   ]
 }

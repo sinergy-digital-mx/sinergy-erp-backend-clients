@@ -1311,5 +1311,33 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-11-20T04:02:44.364Z"
+  },
+  {
+    "releaseKey": "frontend:0.0.133:0.0.133-1795150161246",
+    "version": "0.0.133",
+    "buildId": "0.0.133-1795150161246",
+    "channel": "frontend",
+    "title": "Versión 0.0.133",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "Cambios en contratos"
+      }
+    ],
+    "releasedAt": "2026-11-20T04:49:21.246Z"
+  },
+  {
+    "releaseKey": "full:0.0.134:0.0.134-1795150242339",
+    "version": "0.0.134",
+    "buildId": "0.0.134-1795150242339",
+    "channel": "full",
+    "title": "Versión 0.0.134",
+    "changes": [
+      {
+        "scope": "backend",
+        "message": "Cambios en contratos"
+      }
+    ],
+    "releasedAt": "2026-11-20T04:50:42.339Z"
   }
 ];
