@@ -10,6 +10,11 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.132 · 2026-11-19
+
+- aplicación · Métricas del mes: los conteos abren la lista filtrada y numerada. Se explica qué es una cuota y se quitó la cartera activa.
+- aplicación · Listado de contratos: el alta dice Crear, Métricas es un texto junto al título y el título ya no va tan grande.
+
 ### Versión 0.0.129 · 2026-11-19
 
 - aplicación · Métricas de contratos: el monto del mes baja de tamaño y las tarjetas se acomodan al ancho disponible.

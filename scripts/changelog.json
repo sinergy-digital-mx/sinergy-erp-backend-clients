@@ -989,6 +989,24 @@
       "status": "shipped",
       "version": "0.0.129",
       "shippedAt": "2026-11-19T19:31:56-08:00"
+    },
+    {
+      "id": "20261119-195441",
+      "at": "2026-11-19T19:54:41-08:00",
+      "scope": "frontend",
+      "message": "Métricas del mes: los conteos abren la lista filtrada y numerada. Se explica qué es una cuota y se quitó la cartera activa.",
+      "status": "shipped",
+      "version": "0.0.132",
+      "shippedAt": "2026-11-19T20:03:31-08:00"
+    },
+    {
+      "id": "20261119-195546",
+      "at": "2026-11-19T19:55:46-08:00",
+      "scope": "frontend",
+      "message": "Listado de contratos: el alta dice Crear, Métricas es un texto junto al título y el título ya no va tan grande.",
+      "status": "shipped",
+      "version": "0.0.132",
+      "shippedAt": "2026-11-19T20:03:31-08:00"
     }
   ]
 }
