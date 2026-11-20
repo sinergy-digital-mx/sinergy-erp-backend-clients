@@ -1043,6 +1043,15 @@
       "status": "shipped",
       "version": "0.0.136",
       "shippedAt": "2026-11-20T09:18:04-08:00"
+    },
+    {
+      "id": "20261120-092508",
+      "at": "2026-11-20T09:25:08-08:00",
+      "scope": "backend",
+      "message": "El recibo de pago ya no llama proyecto al nombre del lote: solo dice manzana y número de lote, sin el código.",
+      "status": "shipped",
+      "version": "0.0.137",
+      "shippedAt": "2026-11-20T09:35:13-08:00"
     }
   ]
 }

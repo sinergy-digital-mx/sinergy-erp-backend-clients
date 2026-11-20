@@ -42,7 +42,10 @@ export declare class PaymentsController {
             readonly label: "Contrato";
         }, {
             readonly key: "property_code";
-            readonly label: "Lote";
+            readonly label: "Código del lote";
+        }, {
+            readonly key: "lot_phrase";
+            readonly label: "Manzana y lote";
         }, {
             readonly key: "cadastral_key";
             readonly label: "Clave catastral";
@@ -116,7 +119,10 @@ export declare class PaymentsController {
             readonly label: "Contrato";
         }, {
             readonly key: "property_code";
-            readonly label: "Lote";
+            readonly label: "Código del lote";
+        }, {
+            readonly key: "lot_phrase";
+            readonly label: "Manzana y lote";
         }, {
             readonly key: "cadastral_key";
             readonly label: "Clave catastral";
@@ -185,7 +191,10 @@ export declare class PaymentsController {
             readonly label: "Contrato";
         }, {
             readonly key: "property_code";
-            readonly label: "Lote";
+            readonly label: "Código del lote";
+        }, {
+            readonly key: "lot_phrase";
+            readonly label: "Manzana y lote";
         }, {
             readonly key: "cadastral_key";
             readonly label: "Clave catastral";

@@ -8,7 +8,8 @@ exports.PAYMENT_RECEIPT_VARIABLES = [
     { key: 'organization_rfc', label: 'RFC' },
     { key: 'customer_name', label: 'Cliente' },
     { key: 'contract_number', label: 'Contrato' },
-    { key: 'property_code', label: 'Lote' },
+    { key: 'property_code', label: 'Código del lote' },
+    { key: 'lot_phrase', label: 'Manzana y lote' },
     { key: 'cadastral_key', label: 'Clave catastral' },
     { key: 'payment_number', label: 'Número de pago' },
     { key: 'payment_month', label: 'Mes del pago' },
@@ -46,7 +47,7 @@ exports.DEFAULT_PAYMENT_RECEIPT_HTML = `<!DOCTYPE html>
             <td style="padding:28px 32px 8px;">
               <p style="margin:0 0 14px;font-size:16px;line-height:1.6;">Hola <strong>{{customer_name}}</strong>,</p>
               <p style="margin:0 0 18px;font-size:14px;line-height:1.7;color:#334155;">
-                Este es el recibo del <strong>{{payment_reference}}</strong> del contrato <strong>{{contract_number}}</strong>, lote <strong>{{property_code}}</strong>.
+                Este es el recibo del <strong>{{payment_reference}}</strong> del contrato <strong>{{contract_number}}</strong>, <strong>{{lot_phrase}}</strong>.
                 {{cadastral_line}}
               </p>
               {{extra_message}}

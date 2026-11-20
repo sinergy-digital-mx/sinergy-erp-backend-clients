@@ -1371,5 +1371,19 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-11-20T17:16:56.186Z"
+  },
+  {
+    "releaseKey": "full:0.0.137:0.0.137-1795196064436",
+    "version": "0.0.137",
+    "buildId": "0.0.137-1795196064436",
+    "channel": "full",
+    "title": "Versión 0.0.137",
+    "changes": [
+      {
+        "scope": "backend",
+        "message": "Cambios en contratos"
+      }
+    ],
+    "releasedAt": "2026-11-20T17:34:24.436Z"
   }
 ];

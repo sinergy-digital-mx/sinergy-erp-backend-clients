@@ -10,6 +10,10 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.137 · 2026-11-20
+
+- servidor · El recibo de pago ya no llama proyecto al nombre del lote: solo dice manzana y número de lote, sin el código.
+
 ### Versión 0.0.136 · 2026-11-20
 
 - aplicación · El modal de Contado vs financiado en el dashboard ya tiene margen, tarjetas con fondo y la lista dentro de un recuadro.

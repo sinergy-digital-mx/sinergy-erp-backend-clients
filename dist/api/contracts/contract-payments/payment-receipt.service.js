@@ -110,6 +110,7 @@ let PaymentReceiptService = class PaymentReceiptService {
         const { logo_data: _logo, ...publicValues } = values;
         const customer = payment.contract?.customer;
         let body = this.withReceiptPeriod(template.body_html);
+        body = body.replace(', lote <strong>{{property_code}}</strong>', ', <strong>{{lot_phrase}}</strong>');
         if (publicValues.cadastral_key && !body.includes('cadastral_line') && !body.includes('cadastral_key')) {
             body = body.includes('{{property_code}}</strong>.')
                 ? body.replace('{{property_code}}</strong>.', '{{property_code}}</strong>.{{cadastral_line}}')
@@ -205,9 +206,8 @@ let PaymentReceiptService = class PaymentReceiptService {
             ? `${paymentKindLabel} ${payment.payment_number} · ${paymentMonth}`
             : `${paymentKindLabel} ${payment.payment_number}`;
         const lotBits = [
-            property?.lot_number ? `lote ${property.lot_number}` : property?.code ? `lote ${property.code}` : '',
+            property?.lot_number ? `lote ${property.lot_number}` : '',
             property?.block ? `manzana ${property.block}` : '',
-            property?.name ? `del proyecto ${property.name}` : '',
         ].filter(Boolean);
         const logo = await this.loadLogo(fiscal?.logo);
         return {
@@ -245,6 +245,7 @@ let PaymentReceiptService = class PaymentReceiptService {
             customer_name: 'Ana López',
             contract_number: 'CONT-1-01',
             property_code: 'LOT-1-01',
+            lot_phrase: 'lote 1, manzana 6',
             cadastral_key: '02-0Q3-011',
             cadastral_line: ' Clave catastral 02-0Q3-011.',
             payment_number: '12',
@@ -275,7 +276,7 @@ let PaymentReceiptService = class PaymentReceiptService {
                 { text: values.customer_name, bold: true },
                 ' la cantidad de ',
                 { text: values.amount_paid, bold: true },
-                ` (${values.amount_words}), recibida mediante ${values.payment_method}, como ${values.concept} número ${values.payment_number}${values.payment_month ? `, correspondiente al mes de ${values.payment_month}` : ''}, ${values.property_link} ${values.lot_phrase || values.property_code}${values.cadastral_key ? `, clave catastral ${values.cadastral_key}` : ''}.`,
+                ` (${values.amount_words}), recibida mediante ${values.payment_method}, como ${values.concept} número ${values.payment_number}${values.payment_month ? `, correspondiente al mes de ${values.payment_month}` : ''}${values.lot_phrase ? `, ${values.property_link} ${values.lot_phrase}` : ''}${values.cadastral_key ? `, clave catastral ${values.cadastral_key}` : ''}.`,
             ],
             alignment: 'justify',
             fontSize: 12,
