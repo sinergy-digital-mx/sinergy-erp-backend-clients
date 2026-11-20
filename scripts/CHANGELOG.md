@@ -10,6 +10,10 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.129 · 2026-11-19
+
+- aplicación · Métricas de contratos: el monto del mes baja de tamaño y las tarjetas se acomodan al ancho disponible.
+
 ### Versión 0.0.127 · 2026-11-19
 
 - aplicación y servidor · Métricas de contratos: el ingreso del mes ya no falla por la collation, y el listado solo tiene el enlace Métricas, sin repetir Contratos.

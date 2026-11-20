@@ -1232,5 +1232,33 @@
       }
     ],
     "releasedAt": "2026-11-20T03:07:47.327Z"
+  },
+  {
+    "releaseKey": "frontend:0.0.128:0.0.128-1795145033907",
+    "version": "0.0.128",
+    "buildId": "0.0.128-1795145033907",
+    "channel": "frontend",
+    "title": "Versión 0.0.128",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "Cambios en contratos"
+      }
+    ],
+    "releasedAt": "2026-11-20T03:23:53.907Z"
+  },
+  {
+    "releaseKey": "full:0.0.129:0.0.129-1795145462568",
+    "version": "0.0.129",
+    "buildId": "0.0.129-1795145462568",
+    "channel": "full",
+    "title": "Versión 0.0.129",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "Actualización de la plataforma."
+      }
+    ],
+    "releasedAt": "2026-11-20T03:31:02.568Z"
   }
 ]

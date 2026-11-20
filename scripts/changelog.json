@@ -980,6 +980,15 @@
       "status": "shipped",
       "version": "0.0.127",
       "shippedAt": "2026-11-19T19:08:34-08:00"
+    },
+    {
+      "id": "20261119-192344",
+      "at": "2026-11-19T19:23:44-08:00",
+      "scope": "frontend",
+      "message": "Métricas de contratos: el monto del mes baja de tamaño y las tarjetas se acomodan al ancho disponible.",
+      "status": "shipped",
+      "version": "0.0.129",
+      "shippedAt": "2026-11-19T19:31:56-08:00"
     }
   ]
 }
