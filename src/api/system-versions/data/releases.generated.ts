@@ -1213,5 +1213,19 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-11-20T02:54:36.051Z"
+  },
+  {
+    "releaseKey": "full:0.0.126:0.0.126-1795143362226",
+    "version": "0.0.126",
+    "buildId": "0.0.126-1795143362226",
+    "channel": "full",
+    "title": "Versión 0.0.126",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "Actualización de la plataforma."
+      }
+    ],
+    "releasedAt": "2026-11-20T02:56:02.226Z"
   }
 ];
