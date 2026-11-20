@@ -54,6 +54,7 @@ const contract_entity_1 = require("../../entities/contracts/contract.entity");
 const contract_list_filters_util_1 = require("./contract-list-filters.util");
 const contract_list_insight_util_1 = require("./contract-list-insight.util");
 const contract_financial_util_1 = require("./contract-financial.util");
+const contract_sale_type_util_1 = require("./utils/contract-sale-type.util");
 let ContractsExportService = class ContractsExportService {
     contractRepo;
     constructor(contractRepo) {
@@ -122,7 +123,7 @@ let ContractsExportService = class ContractsExportService {
                 'Lote': contract.property?.code || '',
                 'Fecha Inicio': this.formatDate(contract.contract_date),
                 'Moneda': (contract.currency || 'USD').toString().trim().toUpperCase() || 'USD',
-                'Fase': insight.payment_phase === 'down_payment' ? 'Enganche' : 'Contrato',
+                'Tipo': (0, contract_sale_type_util_1.contractSaleTypeLabel)(contract),
                 'Precio Total': totalPrice,
                 'Enganche': downPayment,
                 'Monto Financiado': financedAmount,
@@ -148,7 +149,7 @@ let ContractsExportService = class ContractsExportService {
             'Lote': '',
             'Fecha Inicio': '',
             'Moneda': '',
-            'Fase': '',
+            'Tipo': '',
             'Precio Total': '',
             'Enganche': '',
             'Monto Financiado': '',

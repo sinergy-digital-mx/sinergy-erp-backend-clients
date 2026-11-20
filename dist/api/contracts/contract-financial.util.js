@@ -65,6 +65,9 @@ function computeFinancedAmount(totalPrice, contract) {
     return Math.max(0, Math.round((totalPrice - baseline) * 100) / 100);
 }
 function computeMonthlyPayment(totalPrice, contract, paymentMonths) {
+    if (contract.sale_type === 'cash') {
+        return 0;
+    }
     const financed = computeFinancedAmount(totalPrice, contract);
     if (financed <= 0 || !Number.isFinite(paymentMonths) || paymentMonths < 1) {
         return 0;

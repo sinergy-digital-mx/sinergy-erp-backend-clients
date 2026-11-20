@@ -7,6 +7,7 @@ export declare class ContractsService {
     private contractRepo;
     constructor(contractRepo: Repository<Contract>);
     create(tenantId: string, dto: CreateContractDto): Promise<Contract>;
+    private createCashContract;
     private computeFinancing;
     private generateContractNumber;
     findAll(tenantId: string, filters?: ContractListFilters, page?: number, limit?: number): Promise<any>;

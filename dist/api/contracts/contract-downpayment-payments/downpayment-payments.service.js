@@ -29,7 +29,7 @@ let DownpaymentPaymentsService = class DownpaymentPaymentsService {
         this.contractRepo = contractRepo;
     }
     async createManualDownpaymentPayment(tenantId, contractId, dto) {
-        await this.getFinancedContractOrThrow(tenantId, contractId);
+        await this.getContractThatAllowsDownPaymentsOrThrow(tenantId, contractId);
         const amount = Math.round(Number(dto.amount) * 100) / 100;
         const dueDate = new Date(dto.due_date);
         if (Number.isNaN(dueDate.getTime())) {
@@ -454,14 +454,25 @@ let DownpaymentPaymentsService = class DownpaymentPaymentsService {
         }
         return healed;
     }
-    async getFinancedContractOrThrow(tenantId, contractId) {
+    async getContractOrThrow(tenantId, contractId) {
         const contract = await this.contractRepo.findOne({
             where: { id: contractId, tenant_id: tenantId },
         });
         if (!contract) {
             throw new common_1.NotFoundException('Contract not found');
         }
-        if (!contract.down_payment_financed) {
+        return contract;
+    }
+    async getContractThatAllowsDownPaymentsOrThrow(tenantId, contractId) {
+        const contract = await this.getContractOrThrow(tenantId, contractId);
+        if (contract.sale_type !== 'cash' && !contract.down_payment_financed) {
+            throw new common_1.BadRequestException('Este contrato no registra abonos de enganche. El enganche ya quedó capturado al crearlo.');
+        }
+        return contract;
+    }
+    async getFinancedContractOrThrow(tenantId, contractId) {
+        const contract = await this.getContractOrThrow(tenantId, contractId);
+        if (contract.sale_type === 'cash' || !contract.down_payment_financed) {
             throw new common_1.BadRequestException('Este contrato no tiene configurado financiamiento de enganche');
         }
         return contract;
@@ -478,9 +489,48 @@ let DownpaymentPaymentsService = class DownpaymentPaymentsService {
     async syncContractDownPaymentApplied(tenantId, contractId) {
         const contract = await this.contractRepo.findOne({
             where: { id: contractId, tenant_id: tenantId },
-            select: ['id', 'down_payment_financed'],
+            select: [
+                'id',
+                'sale_type',
+                'status',
+                'total_price',
+                'down_payment',
+                'down_payment_financed',
+            ],
         });
-        if (!contract?.down_payment_financed) {
+        if (!contract) {
+            return;
+        }
+        if (contract.sale_type === 'cash') {
+            const paymentRows = await this.downpaymentRepo.find({
+                where: { tenant_id: tenantId, contract_id: contractId },
+                select: ['status', 'amount', 'amount_paid'],
+            });
+            if (paymentRows.length === 0) {
+                return;
+            }
+            const applied = paymentRows.reduce((sum, row) => {
+                if (row.status === 'pagado') {
+                    return sum + Number(row.amount || 0);
+                }
+                if (row.status === 'parcial') {
+                    return sum + Number(row.amount_paid || 0);
+                }
+                return sum;
+            }, 0);
+            const rounded = Math.round(applied * 100) / 100;
+            const total = Number(contract.total_price) || 0;
+            await this.contractRepo.update({ id: contractId, tenant_id: tenantId }, {
+                down_payment: rounded,
+                remaining_balance: contract.status === 'completado'
+                    ? 0
+                    : Math.max(0, Math.round((total - rounded) * 100) / 100),
+                monthly_payment: 0,
+                payment_months: 0,
+            });
+            return;
+        }
+        if (!contract.down_payment_financed) {
             return;
         }
         const paymentRows = await this.downpaymentRepo.find({

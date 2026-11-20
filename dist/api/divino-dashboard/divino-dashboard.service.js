@@ -18,6 +18,7 @@ const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const contract_entity_1 = require("../../entities/contracts/contract.entity");
 const divino_dashboard_constants_1 = require("./divino-dashboard.constants");
+const contract_sale_type_util_1 = require("../contracts/utils/contract-sale-type.util");
 let DivinoDashboardService = class DivinoDashboardService {
     contractRepo;
     constructor(contractRepo) {
@@ -34,6 +35,7 @@ let DivinoDashboardService = class DivinoDashboardService {
         const result = {
             filters: this.filtersMeta(query),
             kpis: this.computeKpisFromSales(sales),
+            sale_mix: this.mapSaleMix(sales),
         };
         if (this.isAllTime(query)) {
             result.yearly_breakdown = this.buildYearlyBreakdown(sales);
@@ -197,9 +199,8 @@ let DivinoDashboardService = class DivinoDashboardService {
             if (area > 0) {
                 pricePerM2.push(close / area);
             }
-            const isFinanced = Number(row.down_payment_financed) === 1 ||
-                Number(row.payment_months) > 0;
-            if (isFinanced) {
+            const isCash = (0, contract_sale_type_util_1.isCashContract)({ sale_type: row.sale_type });
+            if (!isCash) {
                 financedCount += 1;
                 const enganche = Number(row.down_payment_target ?? row.down_payment ?? 0);
                 if (enganche > 0) {
@@ -238,6 +239,31 @@ let DivinoDashboardService = class DivinoDashboardService {
             avg_monthly_payment: monthlyCount > 0 ? this.round(monthlySum / monthlyCount) : 0,
         };
     }
+    mapSaleMix(sales) {
+        return sales.map((row) => {
+            const sale = {
+                sale_type: row.sale_type,
+                down_payment_financed: row.down_payment_financed === true || Number(row.down_payment_financed) === 1,
+            };
+            const cash = (0, contract_sale_type_util_1.isCashContract)(sale);
+            return {
+                contract_id: row.contract_id,
+                contract_number: row.contract_number,
+                contract_date: row.contract_date,
+                customer_name: (row.customer_name || '').trim() || 'Sin cliente',
+                property_code: row.property_code || '—',
+                total_price: this.round(Number(row.total_price) || 0),
+                currency: (row.currency || 'USD').toString().trim().toUpperCase() || 'USD',
+                sale_type: cash ? 'cash' : 'financed',
+                down_payment_financed: !cash && sale.down_payment_financed,
+                sale_label: (0, contract_sale_type_util_1.contractSaleTypeLabel)(sale),
+                sale_hint: (0, contract_sale_type_util_1.contractSaleTypeHint)(sale),
+                down_payment: this.round(Number(row.down_payment) || 0),
+                payment_months: cash ? 0 : Number(row.payment_months) || 0,
+                monthly_payment: cash ? 0 : this.round(Number(row.monthly_payment) || 0),
+            };
+        });
+    }
     buildYearlyBreakdown(sales) {
         const byYear = new Map();
         for (const row of sales) {
@@ -271,8 +297,11 @@ let DivinoDashboardService = class DivinoDashboardService {
         return this.contractRepo.manager.query(`
       SELECT
         c.id AS contract_id,
+        c.contract_number,
         c.contract_date,
         c.total_price,
+        c.currency,
+        c.sale_type,
         COALESCE(c.list_price, p.list_price, p.total_price) AS list_price,
         c.down_payment,
         c.down_payment_target,
@@ -280,6 +309,7 @@ let DivinoDashboardService = class DivinoDashboardService {
         c.payment_months,
         c.monthly_payment,
         p.total_area,
+        TRIM(CONCAT(COALESCE(cu.name, ''), ' ', COALESCE(cu.lastname, ''))) AS customer_name,
         c.seller_id,
         u.first_name AS seller_first_name,
         u.last_name AS seller_last_name,
@@ -288,6 +318,7 @@ let DivinoDashboardService = class DivinoDashboardService {
         p.code AS property_code
       FROM contracts c
       INNER JOIN properties p ON p.id = c.property_id
+      LEFT JOIN customers cu ON cu.id = c.customer_id
       LEFT JOIN users u ON u.id = c.seller_id
       LEFT JOIN lead_groups lg ON lg.id = c.lead_group_id
       LEFT JOIN leads l ON l.id = c.lead_id

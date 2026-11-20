@@ -23,6 +23,8 @@ class CreateContractDto {
     contract_number;
     contract_date;
     total_price;
+    sale_type;
+    cash_paid_in_full;
     down_payment;
     down_payment_target;
     down_payment_financed;
@@ -86,6 +88,16 @@ __decorate([
     __metadata("design:type", Number)
 ], CreateContractDto.prototype, "total_price", void 0);
 __decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['cash', 'financed']),
+    __metadata("design:type", String)
+], CreateContractDto.prototype, "sale_type", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], CreateContractDto.prototype, "cash_paid_in_full", void 0);
+__decorate([
     (0, class_validator_1.IsNumber)(),
     __metadata("design:type", Number)
 ], CreateContractDto.prototype, "down_payment", void 0);
@@ -125,6 +137,7 @@ __decorate([
     __metadata("design:type", Number)
 ], CreateContractDto.prototype, "payment_months", void 0);
 __decorate([
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsDate)(),
     (0, class_transformer_1.Type)(() => Date),
     __metadata("design:type", Date)

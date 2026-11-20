@@ -8,6 +8,7 @@ export declare class DivinoDashboardController {
     getSummary(query: QueryDivinoDashboardDto): Promise<{
         filters: ReturnType<DivinoDashboardService["filtersMeta"]>;
         kpis: import("./divino-dashboard.service").DivinoDashboardKpis;
+        sale_mix: ReturnType<DivinoDashboardService["mapSaleMix"]>;
         yearly_breakdown?: ({
             avg_price_per_m2: number;
             total_sold_amount: number;

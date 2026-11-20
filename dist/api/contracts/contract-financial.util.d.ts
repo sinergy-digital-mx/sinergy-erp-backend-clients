@@ -1,5 +1,7 @@
 import { Contract } from '../../entities/contracts/contract.entity';
-type ContractFinancialFields = Pick<Contract, 'down_payment' | 'down_payment_target' | 'down_payment_financed' | 'total_price' | 'payment_months' | 'status'>;
+type ContractFinancialFields = Pick<Contract, 'down_payment' | 'down_payment_target' | 'down_payment_financed' | 'total_price' | 'payment_months' | 'status'> & {
+    sale_type?: Contract['sale_type'] | null;
+};
 export declare function resolveCreateDownPaymentTarget(params: {
     financed: boolean;
     downPayment?: number | null;

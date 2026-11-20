@@ -1158,5 +1158,51 @@
       }
     ],
     "releasedAt": "2026-11-12T23:35:56.835Z"
+  },
+  {
+    "releaseKey": "full:0.0.125:0.0.125-1795143276051",
+    "version": "0.0.125",
+    "buildId": "0.0.125-1795143276051",
+    "channel": "full",
+    "title": "Versión 0.0.125",
+    "changes": [
+      {
+        "scope": "backend",
+        "message": "Publicar el trabajo local que no estaba en main."
+      },
+      {
+        "scope": "backend",
+        "message": "Recibos de pago para cuotas HOA"
+      },
+      {
+        "scope": "backend",
+        "message": "Ticket POS en dólares cuando la orden es en USD"
+      },
+      {
+        "scope": "backend",
+        "message": "Compilar dist desde src (crédito en USD en POS)"
+      },
+      {
+        "scope": "backend",
+        "message": "POS: permitir orden/factura en USD en cobros a crédito"
+      },
+      {
+        "scope": "backend",
+        "message": "Reconstruir src/ desde el dist de producción (v0.0.111 + fix IGI)"
+      },
+      {
+        "scope": "backend",
+        "message": "Costo real: sumar IGI% a GTOS% e incluir IGI en total costo final"
+      },
+      {
+        "scope": "backend",
+        "message": "Cambios en contratos"
+      },
+      {
+        "scope": "backend",
+        "message": "Cambios en Divino"
+      }
+    ],
+    "releasedAt": "2026-11-20T02:54:36.051Z"
   }
 ]

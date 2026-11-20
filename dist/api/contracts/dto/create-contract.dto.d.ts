@@ -9,6 +9,8 @@ export declare class CreateContractDto {
     contract_number?: string;
     contract_date: Date;
     total_price: number;
+    sale_type?: 'cash' | 'financed';
+    cash_paid_in_full?: boolean;
     down_payment: number;
     down_payment_target?: number;
     down_payment_financed?: boolean;
@@ -16,7 +18,7 @@ export declare class CreateContractDto {
     down_payment_first_payment_date?: Date;
     down_payment_payment_day?: number;
     payment_months: number;
-    first_payment_date: Date;
+    first_payment_date?: Date;
     interest_rate?: number | null;
     payment_due_day?: number | null;
     currency?: 'USD' | 'MXN';

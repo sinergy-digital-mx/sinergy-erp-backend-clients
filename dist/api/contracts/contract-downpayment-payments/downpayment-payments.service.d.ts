@@ -29,6 +29,8 @@ export declare class DownpaymentPaymentsService {
     getDownPaymentTarget(contract: Pick<Contract, 'down_payment_target' | 'down_payment' | 'down_payment_financed'>): number | null;
     recalculateContractFinancing(tenantId: string, contractId: string): Promise<void>;
     private healSettledDownpayments;
+    private getContractOrThrow;
+    private getContractThatAllowsDownPaymentsOrThrow;
     private getFinancedContractOrThrow;
     private getNextPaymentNumber;
     syncContractDownPaymentApplied(tenantId: string, contractId: string): Promise<void>;

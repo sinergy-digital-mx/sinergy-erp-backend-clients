@@ -60,6 +60,7 @@ export declare class Customer {
     credit_amount: number | null;
     auto_generate_invoice: boolean;
     legacy_customer_id: number;
+    default_route_id: string | null;
     addresses: CustomerAddress[];
     activities: CustomerActivity[];
     contracts: Contract[];

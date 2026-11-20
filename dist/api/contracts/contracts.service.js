@@ -33,6 +33,19 @@ let ContractsService = class ContractsService {
         if (!contractNumber) {
             contractNumber = await this.generateContractNumber(tenantId, dto.property_id);
         }
+        if (dto.sale_type === 'cash') {
+            const propertyRows = await this.contractRepo.manager.query(`SELECT total_price, list_price, currency FROM properties WHERE id = ? AND tenant_id = ? LIMIT 1`, [dto.property_id, tenantId]);
+            const propertyListPrice = propertyRows[0]
+                ? Number(propertyRows[0].list_price ?? propertyRows[0].total_price)
+                : Number(dto.total_price);
+            const contractListPrice = dto.list_price != null ? Number(dto.list_price) : propertyListPrice;
+            const currency = (0, contract_currency_util_1.normalizeContractCurrency)(dto.currency, propertyRows[0]?.currency || contract_currency_util_1.DEFAULT_CONTRACT_CURRENCY);
+            await this.assertFiscalConfiguration(tenantId, dto.fiscal_configuration_id);
+            return this.createCashContract(tenantId, dto, contractNumber, contractListPrice, currency);
+        }
+        if (!dto.first_payment_date) {
+            throw new common_1.BadRequestException('Indica la fecha del primer pago');
+        }
         const financed = !!dto.down_payment_financed;
         const downPaymentConfig = this.buildDownPaymentConfig(dto);
         const downPaymentApplied = financed ? 0 : Number(dto.down_payment);
@@ -52,8 +65,10 @@ let ContractsService = class ContractsService {
         const contractListPrice = dto.list_price != null ? Number(dto.list_price) : propertyListPrice;
         const currency = (0, contract_currency_util_1.normalizeContractCurrency)(dto.currency, propertyRows[0]?.currency || contract_currency_util_1.DEFAULT_CONTRACT_CURRENCY);
         await this.assertFiscalConfiguration(tenantId, dto.fiscal_configuration_id);
+        const { cash_paid_in_full: _cashPaidInFull, ...contractDto } = dto;
         const contract = this.contractRepo.create({
-            ...dto,
+            ...contractDto,
+            sale_type: 'financed',
             interest_rate: dto.interest_rate == null
                 ? late_interest_util_1.DEFAULT_LATE_INTEREST_RATE_PERCENT
                 : (0, late_interest_util_1.normalizeInterestRatePercent)(dto.interest_rate),
@@ -70,6 +85,45 @@ let ContractsService = class ContractsService {
             payment_months,
             remaining_balance,
             monthly_payment,
+        });
+        return this.contractRepo.save(contract);
+    }
+    async createCashContract(tenantId, dto, contractNumber, listPrice, currency) {
+        if (dto.down_payment_financed) {
+            throw new common_1.BadRequestException('Un contrato de contado no lleva enganche financiado ni mensualidades');
+        }
+        const total = Math.round(Number(dto.total_price) * 100) / 100;
+        const paidInFull = !!dto.cash_paid_in_full;
+        const contract = this.contractRepo.create({
+            customer_id: dto.customer_id,
+            property_id: dto.property_id,
+            seller_id: dto.seller_id,
+            lead_id: dto.lead_id ?? null,
+            lead_group_id: dto.lead_group_id ?? null,
+            fiscal_configuration_id: dto.fiscal_configuration_id,
+            contract_number: contractNumber,
+            contract_date: dto.contract_date,
+            total_price: total,
+            list_price: listPrice,
+            down_payment: paidInFull ? total : 0,
+            down_payment_target: null,
+            down_payment_financed: false,
+            down_payment_months: null,
+            down_payment_monthly_amount: null,
+            down_payment_first_payment_date: null,
+            down_payment_payment_day: null,
+            remaining_balance: paidInFull ? 0 : total,
+            payment_months: 0,
+            monthly_payment: 0,
+            first_payment_date: dto.contract_date,
+            payment_due_day: null,
+            interest_rate: null,
+            currency,
+            status: paidInFull ? 'completado' : 'activo',
+            notes: dto.notes,
+            metadata: dto.metadata,
+            sale_type: 'cash',
+            tenant_id: tenantId,
         });
         return this.contractRepo.save(contract);
     }
@@ -312,6 +366,7 @@ let ContractsService = class ContractsService {
             list_price: contract.list_price,
             lead_id: contract.lead_id,
             lead_group_id: contract.lead_group_id,
+            sale_type: contract.sale_type,
             down_payment_financed: contract.down_payment_financed,
             down_payment_months: contract.down_payment_months,
             down_payment_monthly_amount: contract.down_payment_monthly_amount,
@@ -446,6 +501,28 @@ let ContractsService = class ContractsService {
         }
         if (dto.fiscal_configuration_id) {
             await this.assertFiscalConfiguration(tenantId, dto.fiscal_configuration_id);
+        }
+        if (contract.sale_type === 'cash') {
+            if (dto.down_payment_financed) {
+                throw new common_1.BadRequestException('Un contrato de contado no lleva enganche financiado ni mensualidades');
+            }
+            const total = dto.total_price !== undefined ? Number(dto.total_price) : Number(contract.total_price);
+            const applied = Number(contract.down_payment) || 0;
+            const { down_payment: _down, payment_months: _months, down_payment_financed: _financed, ...rest } = dto;
+            Object.assign(contract, rest, {
+                sale_type: 'cash',
+                down_payment_financed: false,
+                payment_months: 0,
+                monthly_payment: 0,
+                down_payment: applied,
+                interest_rate: null,
+                payment_due_day: null,
+            });
+            contract.remaining_balance =
+                contract.status === 'completado'
+                    ? 0
+                    : Math.max(0, Math.round((total - applied) * 100) / 100);
+            return this.contractRepo.save(contract);
         }
         const financed = dto.down_payment_financed !== undefined
             ? dto.down_payment_financed

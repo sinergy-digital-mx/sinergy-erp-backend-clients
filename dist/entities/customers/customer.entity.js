@@ -73,6 +73,7 @@ let Customer = class Customer {
     credit_amount;
     auto_generate_invoice;
     legacy_customer_id;
+    default_route_id;
     addresses;
     activities;
     contracts;
@@ -291,6 +292,10 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'int', nullable: true }),
     __metadata("design:type", Number)
 ], Customer.prototype, "legacy_customer_id", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 36, nullable: true }),
+    __metadata("design:type", Object)
+], Customer.prototype, "default_route_id", void 0);
 __decorate([
     (0, typeorm_1.OneToMany)(() => customer_address_entity_1.CustomerAddress, address => address.customer),
     __metadata("design:type", Array)

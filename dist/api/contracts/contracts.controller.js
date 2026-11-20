@@ -19,18 +19,22 @@ const permission_guard_1 = require("../rbac/guards/permission.guard");
 const require_permissions_decorator_1 = require("../rbac/decorators/require-permissions.decorator");
 const tenant_context_service_1 = require("../rbac/services/tenant-context.service");
 const contracts_service_1 = require("./contracts.service");
+const contract_monthly_income_service_1 = require("./contract-monthly-income.service");
 const contracts_export_service_1 = require("./contracts-export.service");
 const contract_pdf_service_1 = require("./contract-pdf.service");
 const create_contract_dto_1 = require("./dto/create-contract.dto");
 const update_contract_dto_1 = require("./dto/update-contract.dto");
 const query_contracts_dto_1 = require("./dto/query-contracts.dto");
+const query_monthly_income_dto_1 = require("./dto/query-monthly-income.dto");
 let ContractsController = class ContractsController {
     contractsService;
+    monthlyIncomeService;
     contractsExportService;
     contractPdfService;
     tenantContext;
-    constructor(contractsService, contractsExportService, contractPdfService, tenantContext) {
+    constructor(contractsService, monthlyIncomeService, contractsExportService, contractPdfService, tenantContext) {
         this.contractsService = contractsService;
+        this.monthlyIncomeService = monthlyIncomeService;
         this.contractsExportService = contractsExportService;
         this.contractPdfService = contractPdfService;
         this.tenantContext = tenantContext;
@@ -57,6 +61,13 @@ let ContractsController = class ContractsController {
             throw new Error('Tenant context is required');
         }
         return this.contractsService.getContractStats(tenantId, this.toContractFilters(query));
+    }
+    async getMonthlyIncome(query) {
+        const tenantId = this.tenantContext.getCurrentTenantId();
+        if (!tenantId) {
+            throw new Error('Tenant context is required');
+        }
+        return this.monthlyIncomeService.getMonthlyIncome(tenantId, query);
     }
     async findByNumber(contractNumber, req) {
         const tenantId = this.tenantContext.getCurrentTenantId();
@@ -148,6 +159,14 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], ContractsController.prototype, "getStats", null);
 __decorate([
+    (0, common_1.Get)('monthly-income'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Contract', action: 'Read' }),
+    __param(0, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [query_monthly_income_dto_1.QueryMonthlyIncomeDto]),
+    __metadata("design:returntype", Promise)
+], ContractsController.prototype, "getMonthlyIncome", null);
+__decorate([
     (0, common_1.Get)('by-number/:contractNumber'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Contract', action: 'Read' }),
     __param(0, (0, common_1.Param)('contractNumber')),
@@ -208,6 +227,7 @@ exports.ContractsController = ContractsController = __decorate([
     (0, common_1.Controller)('tenant/contracts'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     __metadata("design:paramtypes", [contracts_service_1.ContractsService,
+        contract_monthly_income_service_1.ContractMonthlyIncomeService,
         contracts_export_service_1.ContractsExportService,
         contract_pdf_service_1.ContractPdfService,
         tenant_context_service_1.TenantContextService])

@@ -3,14 +3,17 @@ import { Contract } from '../../entities/contracts/contract.entity';
 import { QueryDivinoDashboardDto, QueryRevenueSeriesDto } from './dto/query-divino-dashboard.dto';
 interface SaleRow {
     contract_id: string;
+    contract_number: string;
     contract_date: string;
     total_price: number;
     list_price: number;
+    currency: string | null;
     down_payment: number;
     down_payment_target: number | null;
-    down_payment_financed: number;
+    down_payment_financed: number | boolean;
     payment_months: number;
     monthly_payment: number;
+    sale_type: string | null;
     total_area: number;
     seller_id: string | null;
     seller_first_name: string | null;
@@ -18,6 +21,7 @@ interface SaleRow {
     lead_group_id: string | null;
     origin_name: string | null;
     property_code: string | null;
+    customer_name: string | null;
 }
 export type DivinoDashboardKpis = ReturnType<DivinoDashboardService['computeKpisFromSales']>;
 export declare class DivinoDashboardService {
@@ -27,6 +31,7 @@ export declare class DivinoDashboardService {
     getSummary(tenantId: string, query: QueryDivinoDashboardDto): Promise<{
         filters: ReturnType<DivinoDashboardService["filtersMeta"]>;
         kpis: DivinoDashboardKpis;
+        sale_mix: ReturnType<DivinoDashboardService["mapSaleMix"]>;
         yearly_breakdown?: Array<DivinoDashboardKpis & {
             year: number;
         }>;
@@ -116,6 +121,22 @@ export declare class DivinoDashboardService {
         avg_down_payment: number;
         avg_monthly_payment: number;
     };
+    mapSaleMix(sales: SaleRow[]): {
+        contract_id: string;
+        contract_number: string;
+        contract_date: string;
+        customer_name: string;
+        property_code: string;
+        total_price: number;
+        currency: string;
+        sale_type: string;
+        down_payment_financed: boolean;
+        sale_label: string;
+        sale_hint: string;
+        down_payment: number;
+        payment_months: number;
+        monthly_payment: number;
+    }[];
     private buildYearlyBreakdown;
     private fetchSales;
     private fetchToursBySeller;

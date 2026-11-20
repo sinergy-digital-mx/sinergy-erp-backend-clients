@@ -53,6 +53,7 @@ let Contract = class Contract {
     interest_rate;
     currency;
     status;
+    sale_type;
     notes;
     metadata;
     created_at;
@@ -206,6 +207,14 @@ __decorate([
     }),
     __metadata("design:type", String)
 ], Contract.prototype, "status", void 0);
+__decorate([
+    (0, typeorm_1.Column)({
+        type: 'enum',
+        enum: ['cash', 'financed'],
+        default: 'financed',
+    }),
+    __metadata("design:type", String)
+], Contract.prototype, "sale_type", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'text', nullable: true }),
     __metadata("design:type", String)

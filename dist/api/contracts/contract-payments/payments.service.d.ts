@@ -28,6 +28,7 @@ export declare class PaymentsService {
     previewPaymentSchedule(tenantId: string, contractId: string, startDateRaw?: string): Promise<PaymentSchedulePreview>;
     generatePaymentsForContract(tenantId: string, contractId: string, dto?: GenerateContractPaymentsDto): Promise<GeneratedPaymentsResult>;
     regeneratePaymentsForContract(tenantId: string, contractId: string, dto?: GenerateContractPaymentsDto): Promise<GeneratedPaymentsResult>;
+    private assertNotCashContract;
     private createPaymentsForContract;
     getContractPayments(tenantId: string, contractId: string): Promise<any[]>;
     getPayment(tenantId: string, paymentId: string): Promise<Payment | null>;

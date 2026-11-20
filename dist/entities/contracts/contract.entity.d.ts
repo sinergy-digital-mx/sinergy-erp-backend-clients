@@ -40,6 +40,7 @@ export declare class Contract {
     interest_rate: number | null;
     currency: string;
     status: string;
+    sale_type: 'cash' | 'financed';
     notes: string;
     metadata: Record<string, any>;
     created_at: Date;

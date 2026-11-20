@@ -914,27 +914,63 @@
       "at": "2026-11-12T16:04:47-08:00",
       "scope": "backend",
       "message": "Se configuró el punto de venta de verdulería en la sucursal TIJ-1: terminal de ventas, terminal de caja y vendedor de prueba con código 1001, con el rol de madería.",
-      "status": "pending",
-      "version": null,
-      "shippedAt": null
+      "status": "shipped",
+      "version": "0.0.125",
+      "shippedAt": "2026-11-19T18:55:29-08:00"
     },
     {
       "id": "20261113-075435",
       "at": "2026-11-13T07:54:35-08:00",
       "scope": "both",
       "message": "Rutas de reparto por organización, apagadas hasta activarlas. La orden hereda la ruta del cliente, pide fecha tentativa solo si requiere envío, y lo mismo aplica en el alta admin, POS Ventas y POS Caja.",
-      "status": "pending",
-      "version": null,
-      "shippedAt": null
+      "status": "shipped",
+      "version": "0.0.125",
+      "shippedAt": "2026-11-19T18:55:29-08:00"
     },
     {
       "id": "20261118-184504",
       "at": "2026-11-18T18:45:04-08:00",
       "scope": "both",
       "message": "En la configuración del alta de órdenes, el valor por defecto de la fecha solo ofrecía Hoy y se cortaba si había un día fijo. Quedó la opción Fecha fija y se muestra el día guardado.",
-      "status": "pending",
-      "version": null,
-      "shippedAt": null
+      "status": "shipped",
+      "version": "0.0.125",
+      "shippedAt": "2026-11-19T18:55:29-08:00"
+    },
+    {
+      "id": "20261119-160116",
+      "at": "2026-11-19T16:01:16-08:00",
+      "scope": "both",
+      "message": "Contratos: etiqueta Contado o Financiado (E+F o F). Los que no tienen pagos de contrato quedan de contado, sin mensualidad. El alta va por pasos y, en contado, no pide enganche ni calendario; los abonos siguen en Enganche.",
+      "status": "shipped",
+      "version": "0.0.125",
+      "shippedAt": "2026-11-19T18:55:29-08:00"
+    },
+    {
+      "id": "20261119-160643",
+      "at": "2026-11-19T16:06:43-08:00",
+      "scope": "both",
+      "message": "Dashboard Divino: Contado vs financiado usa el tipo de venta y al clic abre los contratos del periodo.",
+      "status": "shipped",
+      "version": "0.0.125",
+      "shippedAt": "2026-11-19T18:55:29-08:00"
+    },
+    {
+      "id": "20261119-161509",
+      "at": "2026-11-19T16:15:09-08:00",
+      "scope": "both",
+      "message": "Contratos: pantalla de métricas por mes. Muestra lo que deberían entrar las mensualidades, lo ya cobrado, lo que falta y, aparte, los atrasos de meses anteriores.",
+      "status": "shipped",
+      "version": "0.0.125",
+      "shippedAt": "2026-11-19T18:55:29-08:00"
+    },
+    {
+      "id": "20261119-182212",
+      "at": "2026-11-19T18:22:12-08:00",
+      "scope": "frontend",
+      "message": "Build de contratos: el saldo de contado se deshabilita con el tipo que espera el input, y se cerró la función de logística en la orden de venta.",
+      "status": "shipped",
+      "version": "0.0.125",
+      "shippedAt": "2026-11-19T18:55:29-08:00"
     }
   ]
 }

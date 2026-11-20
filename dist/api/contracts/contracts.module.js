@@ -15,6 +15,7 @@ const payment_entity_1 = require("../../entities/contracts/payment.entity");
 const contract_downpayment_payment_entity_1 = require("../../entities/contracts/contract-downpayment-payment.entity");
 const payment_document_entity_1 = require("../../entities/contracts/payment-document.entity");
 const contracts_service_1 = require("./contracts.service");
+const contract_monthly_income_service_1 = require("./contract-monthly-income.service");
 const contracts_controller_1 = require("./contracts.controller");
 const contracts_export_service_1 = require("./contracts-export.service");
 const contract_pdf_service_1 = require("./contract-pdf.service");
@@ -48,6 +49,7 @@ exports.ContractsModule = ContractsModule = __decorate([
         ],
         providers: [
             contracts_service_1.ContractsService,
+            contract_monthly_income_service_1.ContractMonthlyIncomeService,
             contracts_export_service_1.ContractsExportService,
             contract_pdf_service_1.ContractPdfService,
             contract_documents_service_1.ContractDocumentsService,

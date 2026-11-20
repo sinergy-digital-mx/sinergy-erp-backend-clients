@@ -34,11 +34,13 @@ let PaymentsService = class PaymentsService {
     }
     async previewPaymentSchedule(tenantId, contractId, startDateRaw) {
         const contract = await this.getContractOrThrow(tenantId, contractId);
+        this.assertNotCashContract(contract);
         const startDate = this.resolveStartDate(startDateRaw, contract);
         return this.buildSchedulePreview(contract, startDate);
     }
     async generatePaymentsForContract(tenantId, contractId, dto = {}) {
         const contract = await this.getContractOrThrow(tenantId, contractId);
+        this.assertNotCashContract(contract);
         if (await this.hasPendingDownpaymentPayments(tenantId, contractId)) {
             throw new common_1.BadRequestException('No se pueden generar pagos normales hasta liquidar completamente el enganche financiado');
         }
@@ -53,6 +55,7 @@ let PaymentsService = class PaymentsService {
     }
     async regeneratePaymentsForContract(tenantId, contractId, dto = {}) {
         const contract = await this.getContractOrThrow(tenantId, contractId);
+        this.assertNotCashContract(contract);
         if (await this.hasPendingDownpaymentPayments(tenantId, contractId)) {
             throw new common_1.BadRequestException('No se pueden regenerar pagos normales hasta liquidar completamente el enganche financiado');
         }
@@ -67,7 +70,13 @@ let PaymentsService = class PaymentsService {
         const startDate = this.resolveStartDate(dto.start_date, contract);
         return this.createPaymentsForContract(tenantId, contract, startDate);
     }
+    assertNotCashContract(contract) {
+        if (contract.sale_type === 'cash') {
+            throw new common_1.BadRequestException('Un contrato de contado no tiene mensualidades. Los abonos se registran en enganche.');
+        }
+    }
     async createPaymentsForContract(tenantId, contract, startDate) {
+        this.assertNotCashContract(contract);
         const paymentMonths = Number(contract.payment_months);
         if (!paymentMonths || paymentMonths < 1) {
             throw new common_1.BadRequestException('El contrato no tiene meses de pago definidos para generar el calendario');
