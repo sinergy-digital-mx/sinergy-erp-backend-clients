@@ -8,6 +8,7 @@ export declare class PriceList {
     margin_percent: number | null;
     description: string;
     is_active: boolean;
+    is_margin_default: boolean;
     created_at: Date;
     updated_at: Date;
 }

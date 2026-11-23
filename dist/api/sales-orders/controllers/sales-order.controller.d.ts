@@ -132,6 +132,7 @@ export declare class SalesOrderController {
                     check_payer_name: string | null;
                     check_payer_phone: string | null;
                     card_reference: string | null;
+                    card_kind: "credit" | "debit" | null;
                     card_payer_name: string | null;
                     card_payer_phone: string | null;
                     card_payments: import("../../pos-shifts/utils/pos-card-payments.util").PosCardPayment[];
@@ -410,6 +411,8 @@ export declare class SalesOrderController {
                 pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
                 pos_daily_shift_id: string | null;
                 pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
+                pos_caja_opened_at: Date | null;
+                pos_caja_opened_by: string | null;
                 collected_by_user_id: string | null;
                 created_at: Date;
                 updated_by: string;
@@ -449,6 +452,7 @@ export declare class SalesOrderController {
                 check_payer_name: string | null;
                 check_payer_phone: string | null;
                 card_reference: string | null;
+                card_kind: "credit" | "debit" | null;
                 card_payer_name: string | null;
                 card_payer_phone: string | null;
                 card_payments: import("../../pos-shifts/utils/pos-card-payments.util").PosCardPayment[];
@@ -623,6 +627,7 @@ export declare class SalesOrderController {
                     check_payer_name: string | null;
                     check_payer_phone: string | null;
                     card_reference: string | null;
+                    card_kind: "credit" | "debit" | null;
                     card_payer_name: string | null;
                     card_payer_phone: string | null;
                     card_payments: import("../../pos-shifts/utils/pos-card-payments.util").PosCardPayment[];
@@ -901,6 +906,8 @@ export declare class SalesOrderController {
                 pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
                 pos_daily_shift_id: string | null;
                 pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
+                pos_caja_opened_at: Date | null;
+                pos_caja_opened_by: string | null;
                 collected_by_user_id: string | null;
                 created_at: Date;
                 updated_by: string;
@@ -940,6 +947,7 @@ export declare class SalesOrderController {
                 check_payer_name: string | null;
                 check_payer_phone: string | null;
                 card_reference: string | null;
+                card_kind: "credit" | "debit" | null;
                 card_payer_name: string | null;
                 card_payer_phone: string | null;
                 card_payments: import("../../pos-shifts/utils/pos-card-payments.util").PosCardPayment[];
@@ -1114,6 +1122,7 @@ export declare class SalesOrderController {
                     check_payer_name: string | null;
                     check_payer_phone: string | null;
                     card_reference: string | null;
+                    card_kind: "credit" | "debit" | null;
                     card_payer_name: string | null;
                     card_payer_phone: string | null;
                     card_payments: import("../../pos-shifts/utils/pos-card-payments.util").PosCardPayment[];
@@ -1392,6 +1401,8 @@ export declare class SalesOrderController {
                 pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
                 pos_daily_shift_id: string | null;
                 pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
+                pos_caja_opened_at: Date | null;
+                pos_caja_opened_by: string | null;
                 collected_by_user_id: string | null;
                 created_at: Date;
                 updated_by: string;
@@ -1431,6 +1442,7 @@ export declare class SalesOrderController {
                 check_payer_name: string | null;
                 check_payer_phone: string | null;
                 card_reference: string | null;
+                card_kind: "credit" | "debit" | null;
                 card_payer_name: string | null;
                 card_payer_phone: string | null;
                 card_payments: import("../../pos-shifts/utils/pos-card-payments.util").PosCardPayment[];
@@ -1607,6 +1619,7 @@ export declare class SalesOrderController {
                     check_payer_name: string | null;
                     check_payer_phone: string | null;
                     card_reference: string | null;
+                    card_kind: "credit" | "debit" | null;
                     card_payer_name: string | null;
                     card_payer_phone: string | null;
                     card_payments: import("../../pos-shifts/utils/pos-card-payments.util").PosCardPayment[];
@@ -1885,6 +1898,8 @@ export declare class SalesOrderController {
                 pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
                 pos_daily_shift_id: string | null;
                 pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
+                pos_caja_opened_at: Date | null;
+                pos_caja_opened_by: string | null;
                 collected_by_user_id: string | null;
                 created_at: Date;
                 updated_by: string;
@@ -1924,6 +1939,7 @@ export declare class SalesOrderController {
                 check_payer_name: string | null;
                 check_payer_phone: string | null;
                 card_reference: string | null;
+                card_kind: "credit" | "debit" | null;
                 card_payer_name: string | null;
                 card_payer_phone: string | null;
                 card_payments: import("../../pos-shifts/utils/pos-card-payments.util").PosCardPayment[];
@@ -2098,6 +2114,7 @@ export declare class SalesOrderController {
                     check_payer_name: string | null;
                     check_payer_phone: string | null;
                     card_reference: string | null;
+                    card_kind: "credit" | "debit" | null;
                     card_payer_name: string | null;
                     card_payer_phone: string | null;
                     card_payments: import("../../pos-shifts/utils/pos-card-payments.util").PosCardPayment[];
@@ -2376,6 +2393,8 @@ export declare class SalesOrderController {
                 pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
                 pos_daily_shift_id: string | null;
                 pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
+                pos_caja_opened_at: Date | null;
+                pos_caja_opened_by: string | null;
                 collected_by_user_id: string | null;
                 created_at: Date;
                 updated_by: string;
@@ -2415,6 +2434,7 @@ export declare class SalesOrderController {
                 check_payer_name: string | null;
                 check_payer_phone: string | null;
                 card_reference: string | null;
+                card_kind: "credit" | "debit" | null;
                 card_payer_name: string | null;
                 card_payer_phone: string | null;
                 card_payments: import("../../pos-shifts/utils/pos-card-payments.util").PosCardPayment[];
@@ -2843,6 +2863,8 @@ export declare class SalesOrderController {
             pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
             pos_daily_shift_id: string | null;
             pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
+            pos_caja_opened_at: Date | null;
+            pos_caja_opened_by: string | null;
             collected_by_user: import("../../../entities/users/user.entity").User;
             collected_by_user_id: string | null;
             created_at: Date;
@@ -2933,6 +2955,8 @@ export declare class SalesOrderController {
             pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
             pos_daily_shift_id: string | null;
             pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
+            pos_caja_opened_at: Date | null;
+            pos_caja_opened_by: string | null;
             collected_by_user: import("../../../entities/users/user.entity").User;
             collected_by_user_id: string | null;
             created_at: Date;
@@ -3154,6 +3178,7 @@ export declare class SalesOrderController {
                     check_payer_name: string | null;
                     check_payer_phone: string | null;
                     card_reference: string | null;
+                    card_kind: "credit" | "debit" | null;
                     card_payer_name: string | null;
                     card_payer_phone: string | null;
                     card_payments: import("../../pos-shifts/utils/pos-card-payments.util").PosCardPayment[];
@@ -3432,6 +3457,8 @@ export declare class SalesOrderController {
                 pos_daily_shift: import("../../../entities/pos/pos-daily-shift.entity").PosDailyShift;
                 pos_daily_shift_id: string | null;
                 pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
+                pos_caja_opened_at: Date | null;
+                pos_caja_opened_by: string | null;
                 collected_by_user_id: string | null;
                 created_at: Date;
                 updated_by: string;
@@ -3471,6 +3498,7 @@ export declare class SalesOrderController {
                 check_payer_name: string | null;
                 check_payer_phone: string | null;
                 card_reference: string | null;
+                card_kind: "credit" | "debit" | null;
                 card_payer_name: string | null;
                 card_payer_phone: string | null;
                 card_payments: import("../../pos-shifts/utils/pos-card-payments.util").PosCardPayment[];

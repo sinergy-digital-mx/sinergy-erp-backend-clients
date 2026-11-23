@@ -5,6 +5,7 @@ import { PosSalePaymentMethod } from '../../../entities/pos/pos-sale-payment-met
 import { SalesOrder } from '../../../entities/sales-orders/sales-order.entity';
 import { SalesOrderPayment } from '../../../entities/sales-orders/sales-order-payment.entity';
 import { PayerContact } from '../utils/pos-payer-contact.util';
+import { PosCardPayment } from '../utils/pos-card-payments.util';
 export interface RecordAdvanceShiftPaymentInput {
     tenantId: string;
     userId: string;
@@ -19,6 +20,7 @@ export interface RecordAdvanceShiftPaymentInput {
     amountTransferMxn?: number;
     amountCardMxn?: number;
     amountCheckMxn?: number;
+    cardPayments?: PosCardPayment[] | null;
     payer?: PayerContact | null;
 }
 export declare class AdvanceShiftPaymentService {

@@ -50,6 +50,7 @@ export declare function mapPosSaleCollection(collection: PosSaleCollection): {
     check_payer_name: string | null;
     check_payer_phone: string | null;
     card_reference: string | null;
+    card_kind: "credit" | "debit" | null;
     card_payer_name: string | null;
     card_payer_phone: string | null;
     card_payments: import("../utils/pos-card-payments.util").PosCardPayment[];

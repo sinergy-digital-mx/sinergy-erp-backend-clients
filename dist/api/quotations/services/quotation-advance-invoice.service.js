@@ -105,7 +105,7 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
             throw new common_1.BadRequestException('La cotización ya no está pendiente de anticipo');
         }
         if (!(0, sales_order_pos_stage_enum_1.isPosStageInCaja)(quotation.pos_stage)) {
-            throw new common_1.BadRequestException('La cotización está en ventas. Debe enviarse a caja antes de cobrar');
+            throw new common_1.ConflictException('Ventas regresó esta venta a POS Ventas');
         }
         const readiness = (0, fiscal_invoice_readiness_util_1.getFiscalInvoiceReadiness)(quotation.customer);
         if (!readiness.fiscal_ready_for_invoice) {
@@ -125,6 +125,7 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
             transferMxn: payment.amountTransferMxn,
             cardMxn: payment.amountCardMxn,
             checkMxn,
+            cardFormaPago: (0, advance_payment_method_util_1.cardFormaPagoFromKinds)(payment.cardPayments.map((item) => item.card_kind)),
         });
         if (!formaPago) {
             throw new common_1.BadRequestException('El anticipo se cobra en efectivo, tarjeta, transferencia, cheque o mixto');
@@ -146,6 +147,7 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
             amountTransferMxn: payment.amountTransferMxn,
             amountCardMxn: payment.amountCardMxn,
             amountCheckMxn: checkMxn,
+            cardPayments: payment.cardPayments,
             payer: payment.payer,
         });
         return {
@@ -160,6 +162,9 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
     }
     async stamp(id, tenantId, userId, dto, collected) {
         const quotation = await this.requireQuotation(id, tenantId);
+        if (quotation.pos_stage === sales_order_pos_stage_enum_1.SalesOrderPosStage.Ventas) {
+            throw new common_1.ConflictException('Ventas regresó esta venta a POS Ventas');
+        }
         if (!quotation.fiscal_configuration?.advance_invoicing_enabled) {
             throw new common_1.BadRequestException('Esta razón social no tiene activada la factura de anticipo');
         }
@@ -209,6 +214,7 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
             amountTransferMxn: collected?.amountTransferMxn,
             amountCardMxn: collected?.amountCardMxn,
             amountCheckMxn: collected?.amountCheckMxn,
+            cardPayments: collected?.cardPayments,
             payer: collected?.payer,
             documentFolio: quotation.folio,
             quotationId: quotation.id,

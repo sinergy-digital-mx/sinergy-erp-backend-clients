@@ -17,6 +17,7 @@ const pos_sale_payment_method_enum_1 = require("../../../entities/pos/pos-sale-p
 class CollectCardPaymentDto {
     amount_mxn;
     reference;
+    card_kind;
 }
 exports.CollectCardPaymentDto = CollectCardPaymentDto;
 __decorate([
@@ -33,6 +34,12 @@ __decorate([
     (0, class_validator_1.MaxLength)(120),
     __metadata("design:type", String)
 ], CollectCardPaymentDto.prototype, "reference", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false, enum: ['debit', 'credit'], description: 'Débito o crédito' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['debit', 'credit']),
+    __metadata("design:type", String)
+], CollectCardPaymentDto.prototype, "card_kind", void 0);
 class CollectPosSaleDto {
     billing_branch_id;
     customer_id;
@@ -46,6 +53,7 @@ class CollectPosSaleDto {
     transfer_payer_business_name;
     amount_card_mxn;
     card_reference;
+    card_kind;
     card_payer_name;
     card_payer_phone;
     card_payments;
@@ -170,6 +178,16 @@ __decorate([
     (0, class_validator_1.MaxLength)(120),
     __metadata("design:type", String)
 ], CollectPosSaleDto.prototype, "card_reference", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        enum: ['debit', 'credit'],
+        description: 'Débito o crédito. Obligatorio si hay un solo cargo de tarjeta.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['debit', 'credit']),
+    __metadata("design:type", String)
+], CollectPosSaleDto.prototype, "card_kind", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
         required: false,

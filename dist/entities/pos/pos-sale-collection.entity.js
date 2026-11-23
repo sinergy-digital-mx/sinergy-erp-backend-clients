@@ -44,6 +44,7 @@ let PosSaleCollection = class PosSaleCollection {
     check_payer_phone;
     amount_credit_mxn;
     card_reference;
+    card_kind;
     card_payer_name;
     card_payer_phone;
     card_payments;
@@ -168,6 +169,10 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 120, nullable: true }),
     __metadata("design:type", Object)
 ], PosSaleCollection.prototype, "card_reference", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 10, nullable: true }),
+    __metadata("design:type", Object)
+], PosSaleCollection.prototype, "card_kind", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 120, nullable: true }),
     __metadata("design:type", Object)

@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.paymentMethodFromFormaPago = paymentMethodFromFormaPago;
 exports.formaPagoFromPaymentMethod = formaPagoFromPaymentMethod;
+exports.cardFormaPagoFromKinds = cardFormaPagoFromKinds;
 exports.formaPagoFromAdvancePayment = formaPagoFromAdvancePayment;
 exports.predominantFormaPago = predominantFormaPago;
 exports.advanceShiftAmountSplits = advanceShiftAmountSplits;
@@ -36,7 +37,17 @@ function formaPagoFromPaymentMethod(method) {
             return null;
     }
 }
+function cardFormaPagoFromKinds(kinds) {
+    const known = kinds.filter((kind) => kind === 'debit' || kind === 'credit');
+    if (known.length > 0 && known.every((kind) => kind === 'debit')) {
+        return '28';
+    }
+    return '04';
+}
 function formaPagoFromAdvancePayment(method, amounts) {
+    if (method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CARD) {
+        return amounts?.cardFormaPago === '28' ? '28' : '04';
+    }
     if (method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.MIXED) {
         return predominantFormaPago(amounts);
     }
@@ -49,7 +60,7 @@ function predominantFormaPago(amounts) {
     const parts = [
         { code: '01', amount: Number(amounts.cashMxn || 0) },
         { code: '03', amount: Number(amounts.transferMxn || 0) },
-        { code: '04', amount: Number(amounts.cardMxn || 0) },
+        { code: amounts.cardFormaPago === '28' ? '28' : '04', amount: Number(amounts.cardMxn || 0) },
         { code: '02', amount: Number(amounts.checkMxn || 0) },
     ];
     const best = parts.reduce((current, part) => part.amount > current.amount ? part : current);

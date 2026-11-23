@@ -601,7 +601,9 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
         lines.push((0, escpos_util_1.compactMoneyLine)('Recibido Pesos:', (0, escpos_util_1.formatMoney)(receivedMxn)));
         lines.push((0, escpos_util_1.compactMoneyLine)('Recibido Dolares:', (0, escpos_util_1.formatUsd)(receivedUsd)));
         if (collection.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CARD && cardMxn > 0) {
-            lines.push((0, escpos_util_1.compactMoneyLine)('Tarjeta:', (0, escpos_util_1.formatMoney)(cardMxn)));
+            const cards = (0, pos_card_payments_util_1.cardPaymentsForResponse)(collection.card_payments, cardMxn, collection.card_reference, collection.card_kind);
+            const label = (0, pos_card_payments_util_1.cardTicketLabel)(cards[0]?.card_kind ?? collection.card_kind, 0, false);
+            lines.push((0, escpos_util_1.compactMoneyLine)(`${label}:`, (0, escpos_util_1.formatMoney)(cardMxn)));
         }
         else if (collection.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.TRANSFER && transferMxn > 0) {
             lines.push((0, escpos_util_1.compactMoneyLine)('Transferencia:', (0, escpos_util_1.formatMoney)(transferMxn)));
@@ -623,14 +625,16 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
         else if (collection.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.MIXED) {
             if (transferMxn > 0)
                 lines.push((0, escpos_util_1.compactMoneyLine)('Transferencia:', (0, escpos_util_1.formatMoney)(transferMxn)));
-            const cardPayments = (0, pos_card_payments_util_1.cardPaymentsForResponse)(collection.card_payments, cardMxn, collection.card_reference);
+            const cardPayments = (0, pos_card_payments_util_1.cardPaymentsForResponse)(collection.card_payments, cardMxn, collection.card_reference, collection.card_kind);
             if (cardPayments.length > 1) {
                 cardPayments.forEach((payment, index) => {
-                    lines.push((0, escpos_util_1.compactMoneyLine)(`Tarjeta ${index + 1}:`, (0, escpos_util_1.formatMoney)(payment.amount_mxn)));
+                    const label = (0, pos_card_payments_util_1.cardTicketLabel)(payment.card_kind, index, true);
+                    lines.push((0, escpos_util_1.compactMoneyLine)(`${label}:`, (0, escpos_util_1.formatMoney)(payment.amount_mxn)));
                 });
             }
             else if (cardMxn > 0) {
-                lines.push((0, escpos_util_1.compactMoneyLine)('Tarjeta:', (0, escpos_util_1.formatMoney)(cardMxn)));
+                const label = (0, pos_card_payments_util_1.cardTicketLabel)(cardPayments[0]?.card_kind ?? collection.card_kind, 0, false);
+                lines.push((0, escpos_util_1.compactMoneyLine)(`${label}:`, (0, escpos_util_1.formatMoney)(cardMxn)));
             }
             if (checkMxn > 0) {
                 lines.push((0, escpos_util_1.compactMoneyLine)('Cheque:', (0, escpos_util_1.formatMoney)(checkMxn)));

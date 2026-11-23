@@ -1413,5 +1413,49 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-11-20T17:56:39.042Z"
+  },
+  {
+    "releaseKey": "full:0.0.140:0.0.140-1795471376213",
+    "version": "0.0.140",
+    "buildId": "0.0.140-1795471376213",
+    "channel": "full",
+    "title": "Versión 0.0.140",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "Cambios en inventario"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en configuración"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en productos"
+      },
+      {
+        "scope": "backend",
+        "message": "Cambios en cotizaciones"
+      }
+    ],
+    "releasedAt": "2026-11-23T22:02:56.213Z"
+  },
+  {
+    "releaseKey": "full:0.0.141:0.0.141-1795471771755",
+    "version": "0.0.141",
+    "buildId": "0.0.141-1795471771755",
+    "channel": "full",
+    "title": "Versión 0.0.141",
+    "changes": [
+      {
+        "scope": "backend",
+        "message": "Cambios en inventario"
+      }
+    ],
+    "releasedAt": "2026-11-23T22:09:31.755Z"
   }
 ];

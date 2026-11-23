@@ -110,6 +110,8 @@ export declare class QuotationService {
             advance_uso_cfdi: string | null;
             advance_metodo_pago: "PUE" | "PPD" | null;
             pos_stage: SalesOrderPosStage | null;
+            pos_caja_opened_at: Date | null;
+            pos_caja_opened_by: string | null;
             created_by: string;
             terminal_user_id: string | null;
             seller_user_id: string | null;
@@ -280,6 +282,8 @@ export declare class QuotationService {
             advance_uso_cfdi: string | null;
             advance_metodo_pago: "PUE" | "PPD" | null;
             pos_stage: SalesOrderPosStage | null;
+            pos_caja_opened_at: Date | null;
+            pos_caja_opened_by: string | null;
             created_by: string;
             terminal_user_id: string | null;
             seller_user_id: string | null;
@@ -514,6 +518,8 @@ export declare class QuotationService {
             advance_uso_cfdi: string | null;
             advance_metodo_pago: "PUE" | "PPD" | null;
             pos_stage: SalesOrderPosStage | null;
+            pos_caja_opened_at: Date | null;
+            pos_caja_opened_by: string | null;
             created_by: string;
             terminal_user_id: string | null;
             seller_user_id: string | null;
@@ -754,6 +760,8 @@ export declare class QuotationService {
                 advance_uso_cfdi: string | null;
                 advance_metodo_pago: "PUE" | "PPD" | null;
                 pos_stage: SalesOrderPosStage | null;
+                pos_caja_opened_at: Date | null;
+                pos_caja_opened_by: string | null;
                 created_by: string;
                 terminal_user_id: string | null;
                 seller_user_id: string | null;

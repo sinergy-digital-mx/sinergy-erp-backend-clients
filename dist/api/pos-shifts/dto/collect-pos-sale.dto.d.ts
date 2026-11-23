@@ -2,6 +2,7 @@ import { PosSalePaymentMethod } from '../../../entities/pos/pos-sale-payment-met
 export declare class CollectCardPaymentDto {
     amount_mxn: number;
     reference?: string;
+    card_kind?: 'debit' | 'credit';
 }
 export declare class CollectPosSaleDto {
     billing_branch_id?: string;
@@ -16,6 +17,7 @@ export declare class CollectPosSaleDto {
     transfer_payer_business_name?: string;
     amount_card_mxn?: number;
     card_reference?: string;
+    card_kind?: 'debit' | 'credit';
     card_payer_name?: string;
     card_payer_phone?: string;
     card_payments?: CollectCardPaymentDto[];

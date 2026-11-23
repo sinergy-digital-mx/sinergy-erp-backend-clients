@@ -10,6 +10,7 @@ import { CollectPosSaleDto } from './dto/collect-pos-sale.dto';
 import { QueryCollectedSalesDto } from './dto/query-collected-sales.dto';
 import { ReplacePosSaleCartDto } from './dto/replace-pos-sale-cart.dto';
 import { SendQuotationToCajaDto } from './dto/send-quotation-to-caja.dto';
+import { UpdatePosCustomerDto } from './dto/update-pos-customer.dto';
 export declare class PosShiftsController {
     private readonly posShiftsService;
     private readonly quotationAdvances;
@@ -687,6 +688,7 @@ export declare class PosShiftsController {
                 is_walk_in: boolean;
                 credit_enabled: boolean;
             } | null;
+            caja_open: boolean;
             seller_user: {
                 id: string;
                 first_name: string;
@@ -731,6 +733,7 @@ export declare class PosShiftsController {
                 pos_user_code: number | null;
             } | null;
             terminal_user: null;
+            caja_open: boolean;
         })[];
     }>;
     getSalesInProgress(query: QueryPosBranchDto, req: any): Promise<{
@@ -915,6 +918,7 @@ export declare class PosShiftsController {
                 check_payer_name: string | null;
                 check_payer_phone: string | null;
                 card_reference: string | null;
+                card_kind: "credit" | "debit" | null;
                 card_payer_name: string | null;
                 card_payer_phone: string | null;
                 card_payments: import("./utils/pos-card-payments.util").PosCardPayment[];
@@ -1015,6 +1019,7 @@ export declare class PosShiftsController {
             check_payer_name: string | null;
             check_payer_phone: string | null;
             card_reference: string | null;
+            card_kind: "credit" | "debit" | null;
             card_payer_name: string | null;
             card_payer_phone: string | null;
             card_payments: import("./utils/pos-card-payments.util").PosCardPayment[];
@@ -1142,6 +1147,204 @@ export declare class PosShiftsController {
                 pos_user_code: number | null;
             } | null;
         };
+    }>;
+    getSalesAwaitingCaja(query: QueryPosBranchDto, req: any): Promise<{
+        sales_in_caja: ({
+            kind: string;
+            id: string;
+            folio: string;
+            quotation_folio: string | null;
+            total: number;
+            currency: string;
+            exchange_rate: number | null;
+            amount_pending: number;
+            subtotal: number;
+            created_at: Date;
+            notes: string | null;
+            walk_in_name: string | null;
+            walk_in_rfc: string | null;
+            for_shipping: boolean;
+            fiscal_configuration_id: string;
+            customer: {
+                id: number;
+                name: string;
+                lastname: string;
+                company_name: string;
+                fiscal_razon_social: string;
+                display_name: string | null;
+                is_walk_in: boolean;
+                credit_enabled: boolean;
+            } | null;
+            caja_open: boolean;
+            seller_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+            } | null;
+            terminal_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_type: import("../../entities/users/pos-user-type.enum").PosUserType | null;
+            } | null;
+        } | {
+            kind: string;
+            id: string;
+            folio: string;
+            quotation_folio: null;
+            total: number;
+            amount_pending: number;
+            advance_uso_cfdi: string;
+            advance_metodo_pago: "PUE" | "PPD";
+            subtotal: number;
+            created_at: Date;
+            notes: string | null;
+            walk_in_name: null;
+            walk_in_rfc: null;
+            fiscal_configuration_id: string;
+            customer: {
+                id: number;
+                name: string;
+                lastname: string;
+                company_name: string;
+                fiscal_razon_social: string;
+                display_name: string | null;
+                is_walk_in: boolean;
+                credit_enabled: boolean;
+            } | null;
+            seller_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+            } | null;
+            terminal_user: null;
+            caja_open: boolean;
+        })[];
+    }>;
+    recallSaleFromCaja(salesOrderId: string, req: any): Promise<{
+        message: string;
+        caja_was_open: boolean;
+        sales_order: {
+            kind: "sale";
+            id: string;
+            folio: string;
+            total: number;
+            subtotal: number;
+            created_at: Date;
+            updated_at: Date;
+            general_status: string;
+            payment_status: string;
+            pos_stage: import("../../entities/sales-orders").SalesOrderPosStage | null;
+            notes: string | null;
+            walk_in_name: string | null;
+            walk_in_rfc: string | null;
+            for_shipping: boolean;
+            fiscal_configuration_id: string;
+            customer: {
+                id: number;
+                name: string;
+                lastname: string;
+                company_name: string;
+                fiscal_razon_social: string;
+                display_name: string | null;
+                is_walk_in: boolean;
+            } | null;
+            seller_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+            } | null;
+        };
+    }>;
+    recallQuotationFromCaja(quotationId: string, req: any): Promise<{
+        message: string;
+        caja_was_open: boolean;
+        quotation: {
+            kind: string;
+            id: string;
+            folio: string;
+            total: number;
+            subtotal: number;
+            amount_pending: number;
+            advance_uso_cfdi: string;
+            advance_metodo_pago: "PUE" | "PPD";
+            created_at: Date;
+            updated_at: Date;
+            general_status: string;
+            pos_stage: import("../../entities/sales-orders").SalesOrderPosStage | null;
+            notes: string | null;
+            fiscal_configuration_id: string;
+            customer: {
+                id: number;
+                name: string;
+                lastname: string;
+                company_name: string;
+                fiscal_razon_social: string;
+                display_name: string | null;
+                is_walk_in: boolean;
+            } | null;
+            seller_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+            } | null;
+        };
+    }>;
+    touchSaleCajaPresence(salesOrderId: string, req: any): Promise<{
+        in_caja: boolean;
+        reason: string;
+        message: string;
+    } | {
+        in_caja: boolean;
+        reason: null;
+        message: null;
+    }>;
+    releaseSaleCajaPresence(salesOrderId: string, req: any): Promise<{
+        released: boolean;
+    }>;
+    touchQuotationCajaPresence(quotationId: string, req: any): Promise<{
+        in_caja: boolean;
+        reason: string;
+        message: string;
+    } | {
+        in_caja: boolean;
+        reason: null;
+        message: null;
+    }>;
+    releaseQuotationCajaPresence(quotationId: string, req: any): Promise<{
+        released: boolean;
+    }>;
+    updateSaleCustomer(salesOrderId: string, dto: UpdatePosCustomerDto, req: any): Promise<{
+        message: string;
+        customer_id: number;
+        customer: {
+            id: number;
+            name: string;
+            lastname: string;
+            company_name: string;
+            fiscal_razon_social: string;
+            display_name: string | null;
+            is_walk_in: boolean;
+        } | null;
+        walk_in_name: string | null;
+        walk_in_rfc: string | null;
+    }>;
+    updateQuotationCustomer(quotationId: string, dto: UpdatePosCustomerDto, req: any): Promise<{
+        message: string;
+        customer_id: number;
+        customer: {
+            id: number;
+            name: string;
+            lastname: string;
+            company_name: string;
+            fiscal_razon_social: string;
+            display_name: string | null;
+            is_walk_in: boolean;
+        } | null;
     }>;
     replaceSaleCart(salesOrderId: string, dto: ReplacePosSaleCartDto, req: any): Promise<{
         customer_id: number;
@@ -1307,6 +1510,7 @@ export declare class PosShiftsController {
             check_payer_name: string | null;
             check_payer_phone: string | null;
             card_reference: string | null;
+            card_kind: "credit" | "debit" | null;
             card_payer_name: string | null;
             card_payer_phone: string | null;
             card_payments: import("./utils/pos-card-payments.util").PosCardPayment[];

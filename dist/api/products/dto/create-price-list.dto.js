@@ -26,6 +26,7 @@ class CreatePriceListDto {
     list_number;
     margin_percent;
     description;
+    is_margin_default;
 }
 exports.CreatePriceListDto = CreatePriceListDto;
 __decorate([
@@ -61,4 +62,13 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreatePriceListDto.prototype, "description", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        example: true,
+        description: 'Precio de referencia de los márgenes. No cambia ventas ni punto de venta.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], CreatePriceListDto.prototype, "is_margin_default", void 0);
 //# sourceMappingURL=create-price-list.dto.js.map

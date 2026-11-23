@@ -1088,6 +1088,87 @@
       "status": "shipped",
       "version": "0.0.139",
       "shippedAt": "2026-11-20T09:57:29-08:00"
+    },
+    {
+      "id": "20261120-104221",
+      "at": "2026-11-20T10:42:21-08:00",
+      "scope": "both",
+      "message": "El ícono de margen en inventario totalizado muestra el origen con el tooltip del sistema al pasar el mouse.",
+      "status": "shipped",
+      "version": "0.0.141",
+      "shippedAt": "2026-11-23T14:10:28-08:00"
+    },
+    {
+      "id": "20261120-121144",
+      "at": "2026-11-20T12:11:44-08:00",
+      "scope": "frontend",
+      "message": "El menú cerrado ya no dibuja dos líneas por sección y la P del logo no queda cortada.",
+      "status": "shipped",
+      "version": "0.0.141",
+      "shippedAt": "2026-11-23T14:10:28-08:00"
+    },
+    {
+      "id": "20261120-205304",
+      "at": "2026-11-20T20:53:04-08:00",
+      "scope": "both",
+      "message": "Se puede marcar una lista de precios como predeterminada de márgenes. Inventario y el margen del producto usan ese precio; si no hay, siguen con la lista activa más antigua. Ventas no cambian.",
+      "status": "shipped",
+      "version": "0.0.141",
+      "shippedAt": "2026-11-23T14:10:28-08:00"
+    },
+    {
+      "id": "20261121-094256",
+      "at": "2026-11-21T09:42:56-08:00",
+      "scope": "backend",
+      "message": "PDF del proceso de factura de anticipo para la madereria: desde la cotizacion en POS, el cobro en caja y la aplicacion al entregar la madera.",
+      "status": "shipped",
+      "version": "0.0.141",
+      "shippedAt": "2026-11-23T14:10:28-08:00"
+    },
+    {
+      "id": "20261121-100739",
+      "at": "2026-11-21T10:07:39-08:00",
+      "scope": "backend",
+      "message": "El PDF de anticipo de la maderería ahora explica que la diferencia se cobra en POS Caja, sobre la orden, después de convertir.",
+      "status": "shipped",
+      "version": "0.0.141",
+      "shippedAt": "2026-11-23T14:10:28-08:00"
+    },
+    {
+      "id": "20261121-100916",
+      "at": "2026-11-21T10:09:16-08:00",
+      "scope": "backend",
+      "message": "El PDF de factura de anticipo de la maderería quedó en lenguaje de usuario: habla de productos, no de líneas ni de solo madera.",
+      "status": "shipped",
+      "version": "0.0.141",
+      "shippedAt": "2026-11-23T14:10:28-08:00"
+    },
+    {
+      "id": "20261121-102221",
+      "at": "2026-11-21T10:22:21-08:00",
+      "scope": "backend",
+      "message": "El PDF de anticipo ahora trae los clics de caja para cobrar la diferencia: Por cobrar, Ya pagado y Confirmar cobro.",
+      "status": "shipped",
+      "version": "0.0.141",
+      "shippedAt": "2026-11-23T14:10:28-08:00"
+    },
+    {
+      "id": "20261123-135319",
+      "at": "2026-11-23T13:53:19-08:00",
+      "scope": "both",
+      "message": "POS Ventas: atajos F1 cliente y tecleo de producto, F5 para regresar lo que está en caja (si caja la tiene abierta se le quita y le avisa), título POS con ayuda, vista tarjetas o lista guardada, y consulta de otra sucursal sin vender. POS C",
+      "status": "shipped",
+      "version": "0.0.141",
+      "shippedAt": "2026-11-23T14:10:28-08:00"
+    },
+    {
+      "id": "20261123-140915",
+      "at": "2026-11-23T14:09:15-08:00",
+      "scope": "backend",
+      "message": "Se corrigió el build: el margen del producto volvía a usar el mapa de precios tipado, así que price y price_list_name compilan.",
+      "status": "shipped",
+      "version": "0.0.141",
+      "shippedAt": "2026-11-23T14:10:28-08:00"
     }
   ]
 }

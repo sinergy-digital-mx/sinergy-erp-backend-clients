@@ -10,6 +10,18 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.141 · 2026-11-23
+
+- aplicación y servidor · El ícono de margen en inventario totalizado muestra el origen con el tooltip del sistema al pasar el mouse.
+- aplicación · El menú cerrado ya no dibuja dos líneas por sección y la P del logo no queda cortada.
+- aplicación y servidor · Se puede marcar una lista de precios como predeterminada de márgenes. Inventario y el margen del producto usan ese precio; si no hay, siguen con la lista activa más antigua. Ventas no cambian.
+- servidor · PDF del proceso de factura de anticipo para la madereria: desde la cotizacion en POS, el cobro en caja y la aplicacion al entregar la madera.
+- servidor · El PDF de anticipo de la maderería ahora explica que la diferencia se cobra en POS Caja, sobre la orden, después de convertir.
+- servidor · El PDF de factura de anticipo de la maderería quedó en lenguaje de usuario: habla de productos, no de líneas ni de solo madera.
+- servidor · El PDF de anticipo ahora trae los clics de caja para cobrar la diferencia: Por cobrar, Ya pagado y Confirmar cobro.
+- aplicación y servidor · POS Ventas: atajos F1 cliente y tecleo de producto, F5 para regresar lo que está en caja (si caja la tiene abierta se le quita y le avisa), título POS con ayuda, vista tarjetas o lista guardada, y consulta de otra sucursal sin vender. POS C
+- servidor · Se corrigió el build: el margen del producto volvía a usar el mapa de precios tipado, así que price y price_list_name compilan.
+
 ### Versión 0.0.139 · 2026-11-20
 
 - aplicación y servidor · En inventario totalizado la cantidad de lotes abre el detalle, el origen del margen queda en un ícono al pasar el mouse y los tabs quedan pegados a la línea.

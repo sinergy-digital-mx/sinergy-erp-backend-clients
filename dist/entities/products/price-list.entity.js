@@ -21,6 +21,7 @@ let PriceList = class PriceList {
     margin_percent;
     description;
     is_active;
+    is_margin_default;
     created_at;
     updated_at;
 };
@@ -58,6 +59,10 @@ __decorate([
     (0, typeorm_1.Column)({ default: true }),
     __metadata("design:type", Boolean)
 ], PriceList.prototype, "is_active", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ default: false }),
+    __metadata("design:type", Boolean)
+], PriceList.prototype, "is_margin_default", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)({ type: 'timestamp' }),
     __metadata("design:type", Date)

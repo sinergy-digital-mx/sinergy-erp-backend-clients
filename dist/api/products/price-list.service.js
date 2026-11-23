@@ -29,15 +29,22 @@ let PriceListService = class PriceListService {
         if (existing) {
             throw new common_1.ConflictException(`Lista de precios "${dto.name}" ya existe`);
         }
-        const priceList = this.priceListRepository.create({
-            name: dto.name,
-            description: dto.description,
-            list_number: dto.list_number ?? null,
-            margin_percent: dto.margin_percent ?? null,
-            tenant_id: tenantId,
-            is_active: true,
+        return this.priceListRepository.manager.transaction(async (manager) => {
+            const repo = manager.getRepository(price_list_entity_1.PriceList);
+            if (dto.is_margin_default === true) {
+                await repo.update({ tenant_id: tenantId }, { is_margin_default: false });
+            }
+            const priceList = repo.create({
+                name: dto.name,
+                description: dto.description,
+                list_number: dto.list_number ?? null,
+                margin_percent: dto.margin_percent ?? null,
+                tenant_id: tenantId,
+                is_active: true,
+                is_margin_default: dto.is_margin_default === true,
+            });
+            return this.normalize(await repo.save(priceList));
         });
-        return this.normalize(await this.priceListRepository.save(priceList));
     }
     async findAll(tenantId) {
         const rows = await this.priceListRepository.find({
@@ -78,11 +85,22 @@ let PriceListService = class PriceListService {
             priceList.list_number = dto.list_number;
         if (dto.margin_percent !== undefined)
             priceList.margin_percent = dto.margin_percent;
+        if (dto.is_margin_default !== undefined) {
+            priceList.is_margin_default = dto.is_margin_default === true;
+        }
+        if (dto.is_margin_default === true) {
+            await this.priceListRepository.manager.transaction(async (manager) => {
+                await manager.update(price_list_entity_1.PriceList, { tenant_id: tenantId }, { is_margin_default: false });
+                await manager.save(priceList);
+            });
+            return this.normalize(priceList);
+        }
         return this.normalize(await this.priceListRepository.save(priceList));
     }
     normalize(list) {
         list.list_number = list.list_number == null ? null : Number(list.list_number);
         list.margin_percent = list.margin_percent == null ? null : Number(list.margin_percent);
+        list.is_margin_default = list.is_margin_default === true || Number(list.is_margin_default) === 1;
         return list;
     }
     async remove(id, tenantId) {

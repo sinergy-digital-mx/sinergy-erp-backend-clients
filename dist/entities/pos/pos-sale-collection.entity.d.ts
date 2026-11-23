@@ -31,11 +31,13 @@ export declare class PosSaleCollection {
     check_payer_phone: string | null;
     amount_credit_mxn: number;
     card_reference: string | null;
+    card_kind: 'debit' | 'credit' | null;
     card_payer_name: string | null;
     card_payer_phone: string | null;
     card_payments: Array<{
         amount_mxn: number;
         reference: string | null;
+        card_kind?: 'debit' | 'credit' | null;
     }> | null;
     received_cash_mxn: number;
     received_cash_usd: number;

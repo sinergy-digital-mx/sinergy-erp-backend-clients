@@ -4,9 +4,11 @@ export interface AdvancePaymentAmounts {
     transferMxn: number;
     cardMxn: number;
     checkMxn: number;
+    cardFormaPago?: '04' | '28' | null;
 }
 export declare function paymentMethodFromFormaPago(formaPago: string | undefined | null): PosSalePaymentMethod | null;
 export declare function formaPagoFromPaymentMethod(method: string | undefined | null): string | null;
+export declare function cardFormaPagoFromKinds(kinds: Array<string | null | undefined>): '04' | '28';
 export declare function formaPagoFromAdvancePayment(method: string | undefined | null, amounts?: AdvancePaymentAmounts): string | null;
 export declare function predominantFormaPago(amounts: AdvancePaymentAmounts | undefined | null): string | null;
 export declare function advanceShiftAmountSplits(method: string, amountMxn: number, amounts?: Partial<AdvancePaymentAmounts> | null): AdvancePaymentAmounts;

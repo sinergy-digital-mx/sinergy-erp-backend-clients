@@ -63,6 +63,8 @@ export declare class SalesOrder {
     pos_daily_shift: PosDailyShift;
     pos_daily_shift_id: string | null;
     pos_stage: SalesOrderPosStage | null;
+    pos_caja_opened_at: Date | null;
+    pos_caja_opened_by: string | null;
     collected_by_user: User;
     collected_by_user_id: string | null;
     created_at: Date;

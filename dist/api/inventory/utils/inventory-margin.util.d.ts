@@ -74,4 +74,7 @@ export declare function resolveLotMargin(purchase: MarginPurchaseInput | null, c
 };
 export declare function explainLotAverage(lots: LotMarginRef[], price: MarginPriceInput, configLines: MarginConfigLineInput[], scope: string): MarginExplanation;
 export declare function explainConfigurationOnly(configLines: MarginConfigLineInput[], price: MarginPriceInput, uomName: string | null): MarginExplanation;
+export declare function pickMarginPriceOption<T extends {
+    is_margin_default?: boolean;
+}>(options: T[] | null | undefined): T | null;
 export {};

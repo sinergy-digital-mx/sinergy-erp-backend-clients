@@ -3,4 +3,5 @@ export declare class CreatePriceListDto {
     list_number?: number | null;
     margin_percent?: number | null;
     description?: string;
+    is_margin_default?: boolean;
 }

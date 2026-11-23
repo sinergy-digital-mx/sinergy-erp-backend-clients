@@ -76,6 +76,8 @@ let SalesOrder = class SalesOrder {
     pos_daily_shift;
     pos_daily_shift_id;
     pos_stage;
+    pos_caja_opened_at;
+    pos_caja_opened_by;
     collected_by_user;
     collected_by_user_id;
     created_at;
@@ -333,6 +335,14 @@ __decorate([
     }),
     __metadata("design:type", Object)
 ], SalesOrder.prototype, "pos_stage", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'timestamp', nullable: true }),
+    __metadata("design:type", Object)
+], SalesOrder.prototype, "pos_caja_opened_at", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 36, nullable: true }),
+    __metadata("design:type", Object)
+], SalesOrder.prototype, "pos_caja_opened_by", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => user_entity_1.User, { onDelete: 'SET NULL', nullable: true }),
     (0, typeorm_1.JoinColumn)({ name: 'collected_by_user_id' }),

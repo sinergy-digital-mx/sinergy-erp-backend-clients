@@ -396,6 +396,13 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
     }
     async getPendingSales(tenantId, terminalUserId, billingBranchId) {
         const terminalUser = await this.requireCobranzaTerminal(tenantId, terminalUserId);
+        return this.listPendingCajaTickets(tenantId, terminalUser, billingBranchId);
+    }
+    async getSalesAwaitingCaja(tenantId, terminalUserId, billingBranchId) {
+        const terminalUser = await this.requireVentasTerminal(tenantId, terminalUserId);
+        return this.listPendingCajaTickets(tenantId, terminalUser, billingBranchId);
+    }
+    async listPendingCajaTickets(tenantId, terminalUser, billingBranchId) {
         const branchId = await this.resolveAccessibleBranchId(terminalUser, billingBranchId);
         const openShift = await this.getBranchOpenDailyShift(tenantId, branchId);
         if (openShift) {
@@ -481,6 +488,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                         creditEnabledByFiscal.get(`${order.customer.id}:${order.fiscal_configuration_id}`)),
                 }
                 : null,
+            caja_open: this.cajaHasItOpen(order.pos_caja_opened_at),
             seller_user: order.seller_user
                 ? {
                     id: order.seller_user.id,
@@ -569,6 +577,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 }
                 : null,
             terminal_user: null,
+            caja_open: this.cajaHasItOpen(quotation.pos_caja_opened_at),
         }));
     }
     async getCollectedSales(tenantId, terminalUserId, dailyShiftId, billingBranchId) {
@@ -653,6 +662,13 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         if (existingCollection) {
             throw new common_1.ConflictException('Esta orden ya fue cobrada');
         }
+        const stillInCaja = await this.salesOrderRepo.findOne({
+            where: { id: order.id, tenant_id: tenantId },
+            select: { id: true, pos_stage: true },
+        });
+        if (!stillInCaja || !(0, sales_order_pos_stage_enum_1.isPosStageInCaja)(stillInCaja.pos_stage)) {
+            throw new common_1.ConflictException('Ventas regresó esta venta a POS Ventas');
+        }
         const orderTotal = Number(order.total);
         const amountPending = await this.salesOrderService.getAmountPending(order.id, tenantId);
         if (amountPending <= 0) {
@@ -709,12 +725,13 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             amount_transfer_mxn: payment.amountTransferMxn,
             transfer_reference: payment.transferReference,
             amount_card_mxn: payment.amountCardMxn,
+            card_kind: (0, pos_card_payments_util_1.sharedCardKind)(payment.cardPayments),
             amount_check_mxn: payment.amountCheckMxn,
             amount_check_usd: payment.amountCheckUsd,
             check_reference: payment.checkReference ?? null,
             amount_credit_mxn: payment.amountCreditMxn,
             card_reference: payment.cardReference ?? null,
-            card_payments: payment.cardPayments.length > 1 ? payment.cardPayments : null,
+            card_payments: payment.cardPayments.length > 0 ? payment.cardPayments : null,
             transfer_payer_name: payment.payer.transferPayerName,
             transfer_payer_business_name: payment.payer.transferPayerBusinessName,
             card_payer_name: payment.payer.cardPayerName,
@@ -728,6 +745,13 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             collected_by_user_id: cobranzaUserId,
             notes: dto.notes ?? null,
         });
+        const stageNow = await this.salesOrderRepo.findOne({
+            where: { id: order.id, tenant_id: tenantId },
+            select: { id: true, pos_stage: true, payment_status: true },
+        });
+        if (!stageNow || !(0, sales_order_pos_stage_enum_1.isPosStageInCaja)(stageNow.pos_stage) || stageNow.payment_status !== 'Pendiente') {
+            throw new common_1.ConflictException('Ventas regresó esta venta a POS Ventas');
+        }
         await this.collectionRepo.save(collection);
         const referenceNumber = payment.transferReference ||
             payment.checkReference ||
@@ -938,8 +962,12 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             card_payments: dto.card_payments,
             amount_card_mxn: dto.amount_card_mxn,
             card_reference: dto.card_reference,
+            card_kind: dto.card_kind,
         });
         const amountCardMxn = (0, pos_card_payments_util_1.sumCardPayments)(cardPayments);
+        if (amountCardMxn > 0 && cardPayments.some((item) => !item.card_kind)) {
+            throw new common_1.BadRequestException('Indica si la tarjeta es de débito o crédito');
+        }
         if (dto.amount_card_mxn != null &&
             cardPayments.length > 0 &&
             Math.abs(amountCardMxn - Number(dto.amount_card_mxn)) > 0.01) {
@@ -1348,6 +1376,215 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             quotation: this.mapQuotationTicketSummary(quotation),
         };
     }
+    async recallSaleFromCaja(tenantId, terminalUserId, salesOrderId) {
+        const ventasUser = await this.requireVentasTerminal(tenantId, terminalUserId);
+        const order = await this.salesOrderRepo.findOne({
+            where: { id: salesOrderId, tenant_id: tenantId },
+            relations: ['warehouse', 'seller_user', 'terminal_user', 'customer'],
+        });
+        if (!order) {
+            throw new common_1.NotFoundException('Orden de venta no encontrada');
+        }
+        await this.assertOrderBelongsToTerminalBranch(order, ventasUser);
+        const existingCollection = await this.collectionRepo.findOne({
+            where: { sales_order_id: order.id },
+        });
+        if (existingCollection) {
+            throw new common_1.ConflictException('Esta orden ya fue cobrada');
+        }
+        const blocked = await this.salesOrderService.getPosReturnBlockedReason(order, tenantId);
+        if (blocked) {
+            throw new common_1.BadRequestException(blocked);
+        }
+        const cajaWasOpen = this.cajaHasItOpen(order.pos_caja_opened_at);
+        order.pos_stage = sales_order_pos_stage_enum_1.SalesOrderPosStage.Ventas;
+        order.pos_caja_opened_at = null;
+        order.pos_caja_opened_by = null;
+        order.updated_by = terminalUserId;
+        await this.salesOrderRepo.save(order);
+        return {
+            message: cajaWasOpen
+                ? 'Ventas regresó esta venta a POS Ventas. Caja la tenía abierta.'
+                : 'El ticket se regresó a ventas',
+            caja_was_open: cajaWasOpen,
+            sales_order: this.mapPosTicketSummary(order),
+        };
+    }
+    async recallQuotationFromCaja(tenantId, terminalUserId, quotationId) {
+        const ventasUser = await this.requireVentasTerminal(tenantId, terminalUserId);
+        const quotation = await this.quotationRepo.findOne({
+            where: { id: quotationId, tenant_id: tenantId },
+            relations: ['customer', 'seller_user', 'warehouse'],
+        });
+        if (!quotation) {
+            throw new common_1.NotFoundException('Cotización no encontrada');
+        }
+        await this.assertQuotationBelongsToTerminalBranch(quotation, ventasUser);
+        const vigente = await this.advanceCfdi.findVigenteAdvance(tenantId, 'quotations', quotation.id);
+        const blocked = (0, quotation_advance_pos_util_1.getQuotationReturnToSalesBlockedReason)({
+            generalStatus: quotation.general_status,
+            advanceRequestedTotal: quotation.advance_requested_total,
+            posStage: quotation.pos_stage,
+            hasVigenteAdvance: Boolean(vigente),
+        });
+        if (blocked) {
+            throw new common_1.BadRequestException(blocked);
+        }
+        const cajaWasOpen = this.cajaHasItOpen(quotation.pos_caja_opened_at);
+        quotation.pos_stage = sales_order_pos_stage_enum_1.SalesOrderPosStage.Ventas;
+        quotation.pos_caja_opened_at = null;
+        quotation.pos_caja_opened_by = null;
+        quotation.updated_by = terminalUserId;
+        await this.quotationRepo.save(quotation);
+        return {
+            message: cajaWasOpen
+                ? 'Ventas regresó esta venta a POS Ventas. Caja la tenía abierta.'
+                : 'El anticipo se regresó a ventas',
+            caja_was_open: cajaWasOpen,
+            quotation: this.mapQuotationTicketSummary(quotation),
+        };
+    }
+    async touchSaleCajaPresence(tenantId, terminalUserId, salesOrderId) {
+        const cajaUser = await this.requireCobranzaTerminal(tenantId, terminalUserId);
+        const order = await this.salesOrderRepo.findOne({
+            where: { id: salesOrderId, tenant_id: tenantId },
+            relations: ['warehouse'],
+        });
+        if (!order) {
+            throw new common_1.NotFoundException('Orden de venta no encontrada');
+        }
+        await this.assertOrderBelongsToTerminalBranch(order, cajaUser);
+        return this.markCajaPresence(order, terminalUserId, true);
+    }
+    async releaseSaleCajaPresence(tenantId, terminalUserId, salesOrderId) {
+        const cajaUser = await this.requireCobranzaTerminal(tenantId, terminalUserId);
+        const order = await this.salesOrderRepo.findOne({
+            where: { id: salesOrderId, tenant_id: tenantId },
+            relations: ['warehouse'],
+        });
+        if (!order) {
+            return { released: false };
+        }
+        await this.assertOrderBelongsToTerminalBranch(order, cajaUser);
+        if (order.pos_caja_opened_by === terminalUserId) {
+            order.pos_caja_opened_at = null;
+            order.pos_caja_opened_by = null;
+            await this.salesOrderRepo.save(order);
+        }
+        return { released: true };
+    }
+    async touchQuotationCajaPresence(tenantId, terminalUserId, quotationId) {
+        const cajaUser = await this.requireCobranzaTerminal(tenantId, terminalUserId);
+        const quotation = await this.quotationRepo.findOne({
+            where: { id: quotationId, tenant_id: tenantId },
+            relations: ['warehouse'],
+        });
+        if (!quotation) {
+            throw new common_1.NotFoundException('Cotización no encontrada');
+        }
+        await this.assertQuotationBelongsToTerminalBranch(quotation, cajaUser);
+        return this.markCajaPresence(quotation, terminalUserId, false);
+    }
+    async releaseQuotationCajaPresence(tenantId, terminalUserId, quotationId) {
+        const cajaUser = await this.requireCobranzaTerminal(tenantId, terminalUserId);
+        const quotation = await this.quotationRepo.findOne({
+            where: { id: quotationId, tenant_id: tenantId },
+            relations: ['warehouse'],
+        });
+        if (!quotation) {
+            return { released: false };
+        }
+        await this.assertQuotationBelongsToTerminalBranch(quotation, cajaUser);
+        if (quotation.pos_caja_opened_by === terminalUserId) {
+            quotation.pos_caja_opened_at = null;
+            quotation.pos_caja_opened_by = null;
+            await this.quotationRepo.save(quotation);
+        }
+        return { released: true };
+    }
+    async updateSaleCustomer(tenantId, terminalUserId, salesOrderId, dto) {
+        const terminalUser = await this.requirePosTerminal(tenantId, terminalUserId);
+        const order = await this.salesOrderRepo.findOne({
+            where: { id: salesOrderId, tenant_id: tenantId },
+            relations: ['warehouse', 'customer'],
+        });
+        if (!order) {
+            throw new common_1.NotFoundException('Orden de venta no encontrada');
+        }
+        await this.assertOrderBelongsToTerminalBranch(order, terminalUser);
+        this.assertCanEditPosCustomer(terminalUser, order.pos_stage);
+        if (order.sales_order_type !== 'POS') {
+            throw new common_1.BadRequestException('Solo se puede cambiar el cliente de una orden POS');
+        }
+        if (order.payment_status !== 'Pendiente' || order.general_status === 'Cancelada') {
+            throw new common_1.BadRequestException('La orden ya no se puede modificar');
+        }
+        const existingCollection = await this.collectionRepo.findOne({
+            where: { sales_order_id: order.id },
+        });
+        if (existingCollection) {
+            throw new common_1.ConflictException('Esta orden ya fue cobrada');
+        }
+        const customerId = await this.resolvePosCustomerUpdateId(tenantId, dto.customer_id);
+        const customer = await this.customerRepo.findOne({
+            where: { id: customerId, tenant_id: tenantId },
+        });
+        if (!customer) {
+            throw new common_1.BadRequestException('Cliente no válido');
+        }
+        const walkIn = (0, pos_sale_collection_mapper_1.isWalkInCustomer)(customer);
+        order.customer_id = customer.id;
+        order.customer = customer;
+        order.walk_in_name = walkIn ? (0, walk_in_ticket_util_1.normalizeWalkInName)(dto.walk_in_name) : null;
+        order.walk_in_phone = walkIn ? (0, walk_in_ticket_util_1.normalizeWalkInPhone)(dto.walk_in_phone) : null;
+        order.walk_in_rfc = walkIn ? (0, walk_in_ticket_util_1.normalizeWalkInRfc)(dto.walk_in_rfc) : null;
+        order.updated_by = terminalUserId;
+        await this.salesOrderRepo.save(order);
+        return {
+            message: 'Cliente actualizado',
+            customer_id: customer.id,
+            customer: (0, pos_sale_collection_mapper_1.mapPosCustomer)(customer),
+            walk_in_name: order.walk_in_name,
+            walk_in_rfc: order.walk_in_rfc,
+        };
+    }
+    async updateQuotationCustomer(tenantId, terminalUserId, quotationId, dto) {
+        const terminalUser = await this.requirePosTerminal(tenantId, terminalUserId);
+        const quotation = await this.quotationRepo.findOne({
+            where: { id: quotationId, tenant_id: tenantId },
+            relations: ['warehouse', 'customer'],
+        });
+        if (!quotation) {
+            throw new common_1.NotFoundException('Cotización no encontrada');
+        }
+        await this.assertQuotationBelongsToTerminalBranch(quotation, terminalUser);
+        this.assertCanEditPosCustomer(terminalUser, quotation.pos_stage);
+        if (quotation.general_status !== 'Creada') {
+            throw new common_1.BadRequestException('La cotización ya no se puede modificar');
+        }
+        const vigente = await this.advanceCfdi.findVigenteAdvance(tenantId, 'quotations', quotation.id);
+        if (vigente) {
+            throw new common_1.BadRequestException('Ese anticipo ya fue cobrado');
+        }
+        if (dto.customer_id == null) {
+            throw new common_1.BadRequestException('El anticipo necesita un cliente del catálogo');
+        }
+        const customer = await this.customerRepo.findOne({
+            where: { id: Number(dto.customer_id), tenant_id: tenantId },
+        });
+        if (!customer) {
+            throw new common_1.BadRequestException('Cliente no válido');
+        }
+        quotation.customer_id = customer.id;
+        quotation.customer = customer;
+        quotation.updated_by = terminalUserId;
+        await this.quotationRepo.save(quotation);
+        return {
+            message: 'Cliente actualizado',
+            customer_id: customer.id,
+            customer: (0, pos_sale_collection_mapper_1.mapPosCustomer)(customer),
+        };
+    }
     async getSalesInProgress(tenantId, terminalUserId, billingBranchId) {
         const terminalUser = await this.requireVentasTerminal(tenantId, terminalUserId);
         const branchId = await this.resolveAccessibleBranchId(terminalUser, billingBranchId);
@@ -1695,6 +1932,57 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                     : null,
             })),
         };
+    }
+    cajaHasItOpen(openedAt) {
+        if (!openedAt)
+            return false;
+        const time = new Date(openedAt).getTime();
+        return Number.isFinite(time) && Date.now() - time <= 20_000;
+    }
+    async markCajaPresence(row, terminalUserId, isSale) {
+        const inCaja = (0, sales_order_pos_stage_enum_1.isPosStageInCaja)(row.pos_stage);
+        if (!inCaja) {
+            const collected = isSale
+                ? await this.collectionRepo.findOne({ where: { sales_order_id: row.id } })
+                : null;
+            return {
+                in_caja: false,
+                reason: collected ? 'collected' : 'recalled',
+                message: collected
+                    ? 'Esta venta ya se cobró'
+                    : 'Ventas regresó esta venta a POS Ventas',
+            };
+        }
+        row.pos_caja_opened_at = new Date();
+        row.pos_caja_opened_by = terminalUserId;
+        if (isSale) {
+            await this.salesOrderRepo.save(row);
+        }
+        else {
+            await this.quotationRepo.save(row);
+        }
+        return { in_caja: true, reason: null, message: null };
+    }
+    assertCanEditPosCustomer(user, posStage) {
+        if ((0, sales_order_pos_stage_enum_1.isPosStageInCaja)(posStage)) {
+            if (!(0, pos_user_type_enum_1.canPosCollect)(user.pos_user_type)) {
+                throw new common_1.ForbiddenException('Esta operación solo está disponible en terminales de caja');
+            }
+            return;
+        }
+        if (posStage === sales_order_pos_stage_enum_1.SalesOrderPosStage.Ventas) {
+            if (!(0, pos_user_type_enum_1.canPosSell)(user.pos_user_type)) {
+                throw new common_1.ForbiddenException('Esta operación solo está disponible en terminales de ventas');
+            }
+            return;
+        }
+        throw new common_1.BadRequestException('La orden no está en punto de venta');
+    }
+    async resolvePosCustomerUpdateId(tenantId, customerId) {
+        if (customerId != null && !Number.isNaN(Number(customerId)) && Number(customerId) > 0) {
+            return Number(customerId);
+        }
+        return this.resolveWalkInCustomerId(tenantId);
     }
     async requireCobranzaTerminal(tenantId, userId) {
         const user = await this.requirePosTerminal(tenantId, userId);

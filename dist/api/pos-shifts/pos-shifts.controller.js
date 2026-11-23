@@ -30,6 +30,7 @@ const collect_pos_sale_dto_1 = require("./dto/collect-pos-sale.dto");
 const query_collected_sales_dto_1 = require("./dto/query-collected-sales.dto");
 const replace_pos_sale_cart_dto_1 = require("./dto/replace-pos-sale-cart.dto");
 const send_quotation_to_caja_dto_1 = require("./dto/send-quotation-to-caja.dto");
+const update_pos_customer_dto_1 = require("./dto/update-pos-customer.dto");
 let PosShiftsController = class PosShiftsController {
     posShiftsService;
     quotationAdvances;
@@ -96,6 +97,34 @@ let PosShiftsController = class PosShiftsController {
     }
     async returnQuotationToVentas(quotationId, req) {
         return this.posShiftsService.returnQuotationToVentas(req.user.tenant_id, req.user.id, quotationId);
+    }
+    async getSalesAwaitingCaja(query, req) {
+        const sales = await this.posShiftsService.getSalesAwaitingCaja(req.user.tenant_id, req.user.id, query.billing_branch_id);
+        return { sales_in_caja: sales };
+    }
+    async recallSaleFromCaja(salesOrderId, req) {
+        return this.posShiftsService.recallSaleFromCaja(req.user.tenant_id, req.user.id, salesOrderId);
+    }
+    async recallQuotationFromCaja(quotationId, req) {
+        return this.posShiftsService.recallQuotationFromCaja(req.user.tenant_id, req.user.id, quotationId);
+    }
+    async touchSaleCajaPresence(salesOrderId, req) {
+        return this.posShiftsService.touchSaleCajaPresence(req.user.tenant_id, req.user.id, salesOrderId);
+    }
+    async releaseSaleCajaPresence(salesOrderId, req) {
+        return this.posShiftsService.releaseSaleCajaPresence(req.user.tenant_id, req.user.id, salesOrderId);
+    }
+    async touchQuotationCajaPresence(quotationId, req) {
+        return this.posShiftsService.touchQuotationCajaPresence(req.user.tenant_id, req.user.id, quotationId);
+    }
+    async releaseQuotationCajaPresence(quotationId, req) {
+        return this.posShiftsService.releaseQuotationCajaPresence(req.user.tenant_id, req.user.id, quotationId);
+    }
+    async updateSaleCustomer(salesOrderId, dto, req) {
+        return this.posShiftsService.updateSaleCustomer(req.user.tenant_id, req.user.id, salesOrderId, dto);
+    }
+    async updateQuotationCustomer(quotationId, dto, req) {
+        return this.posShiftsService.updateQuotationCustomer(req.user.tenant_id, req.user.id, quotationId, dto);
     }
     async replaceSaleCart(salesOrderId, dto, req) {
         return this.posShiftsService.replaceSaleCart(req.user.tenant_id, req.user.id, salesOrderId, dto);
@@ -294,6 +323,106 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], PosShiftsController.prototype, "returnQuotationToVentas", null);
+__decorate([
+    (0, common_1.Get)('sales-in-caja'),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Read' }, { entityType: 'pos', action: 'Read' }, { entityType: 'pos', action: 'Create' }, { entityType: 'pos', action: 'Update' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Ventas que están en caja',
+        description: 'Solo terminal VENTAS. Misma lista que pendientes de cobro, para regresarlas a ventas.',
+    }),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [query_pos_branch_dto_1.QueryPosBranchDto, Object]),
+    __metadata("design:returntype", Promise)
+], PosShiftsController.prototype, "getSalesAwaitingCaja", null);
+__decorate([
+    (0, common_1.Post)('sales/:salesOrderId/recall-from-caja'),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'pos', action: 'Create' }, { entityType: 'pos', action: 'Update' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Ventas regresa un folio que está en caja',
+        description: 'Sale de POS Caja. Si caja lo tenía abierto, el siguiente latido se lo quita.',
+    }),
+    __param(0, (0, common_1.Param)('salesOrderId')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], PosShiftsController.prototype, "recallSaleFromCaja", null);
+__decorate([
+    (0, common_1.Post)('quotations/:quotationId/recall-from-caja'),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'pos', action: 'Create' }, { entityType: 'pos', action: 'Update' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Ventas regresa un anticipo que está en caja' }),
+    __param(0, (0, common_1.Param)('quotationId')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], PosShiftsController.prototype, "recallQuotationFromCaja", null);
+__decorate([
+    (0, common_1.Post)('sales/:salesOrderId/caja-presence'),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Update' }, { entityType: 'pos', action: 'Update' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Caja avisa que tiene el folio abierto' }),
+    __param(0, (0, common_1.Param)('salesOrderId')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], PosShiftsController.prototype, "touchSaleCajaPresence", null);
+__decorate([
+    (0, common_1.Post)('sales/:salesOrderId/caja-release'),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Update' }, { entityType: 'pos', action: 'Update' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Caja suelta el folio' }),
+    __param(0, (0, common_1.Param)('salesOrderId')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], PosShiftsController.prototype, "releaseSaleCajaPresence", null);
+__decorate([
+    (0, common_1.Post)('quotations/:quotationId/caja-presence'),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Update' }, { entityType: 'pos', action: 'Update' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Caja avisa que tiene el anticipo abierto' }),
+    __param(0, (0, common_1.Param)('quotationId')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], PosShiftsController.prototype, "touchQuotationCajaPresence", null);
+__decorate([
+    (0, common_1.Post)('quotations/:quotationId/caja-release'),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Update' }, { entityType: 'pos', action: 'Update' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Caja suelta el anticipo' }),
+    __param(0, (0, common_1.Param)('quotationId')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], PosShiftsController.prototype, "releaseQuotationCajaPresence", null);
+__decorate([
+    (0, common_1.Patch)('sales/:salesOrderId/customer'),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Update' }, { entityType: 'pos', action: 'Create' }, { entityType: 'pos', action: 'Update' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Cambia el cliente de una orden POS sin cobrar' }),
+    (0, swagger_1.ApiBody)({ type: update_pos_customer_dto_1.UpdatePosCustomerDto }),
+    __param(0, (0, common_1.Param)('salesOrderId')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, update_pos_customer_dto_1.UpdatePosCustomerDto, Object]),
+    __metadata("design:returntype", Promise)
+], PosShiftsController.prototype, "updateSaleCustomer", null);
+__decorate([
+    (0, common_1.Patch)('quotations/:quotationId/customer'),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Update' }, { entityType: 'pos', action: 'Create' }, { entityType: 'pos', action: 'Update' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Cambia el cliente de un anticipo POS sin cobrar' }),
+    (0, swagger_1.ApiBody)({ type: update_pos_customer_dto_1.UpdatePosCustomerDto }),
+    __param(0, (0, common_1.Param)('quotationId')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, update_pos_customer_dto_1.UpdatePosCustomerDto, Object]),
+    __metadata("design:returntype", Promise)
+], PosShiftsController.prototype, "updateQuotationCustomer", null);
 __decorate([
     (0, common_1.Put)('sales/:salesOrderId/cart'),
     (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Read' }, { entityType: 'pos', action: 'Read' }, { entityType: 'pos', action: 'Create' }, { entityType: 'pos', action: 'Update' }),

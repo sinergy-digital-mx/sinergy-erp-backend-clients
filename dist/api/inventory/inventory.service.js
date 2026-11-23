@@ -206,7 +206,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
             const poCost = this.parseDecimal(row.po_cost);
             const qtyWithPoCost = this.parseDecimal(row.qty_with_po_cost);
             const batches = this.parseIntSafe(row.batches);
-            const suggested = priceMap.get(`${row.product_id}|${row.uom_id}`)?.[0];
+            const suggested = (0, inventory_margin_util_1.pickMarginPriceOption)(priceMap.get(`${row.product_id}|${row.uom_id}`));
             const unitPrice = suggested ? this.parseDecimal(suggested.price) : 0;
             const vendorUnitCost = costMaps.byProductUom.get(`${row.product_id}|${row.uom_id}`)
                 ?? costMaps.byProduct.get(row.product_id)
@@ -479,7 +479,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
                 suggested_unit_price: suggestedPrice?.price ?? null,
                 suggested_iva_percentage: suggestedPrice?.iva_percentage ?? null,
                 suggested_ieps_percentage: suggestedPrice?.ieps_percentage ?? null,
-                pricing_options: pricingOptions,
+                pricing_options: pricingOptions.map(({ is_margin_default: _marginDefault, ...option }) => option),
                 product_uom_id: productUomId,
                 has_applicable_discounts: applicableDiscounts.length > 0,
                 applicable_discounts: applicableDiscounts,
@@ -666,6 +666,8 @@ let InventoryService = InventoryService_1 = class InventoryService {
             options.push({
                 price_list_id: price.price_list_id,
                 price_list_name: price.price_list?.name ?? 'N/A',
+                is_margin_default: price.price_list?.is_margin_default === true
+                    || Number(price.price_list?.is_margin_default) === 1,
                 price: Number(price.price ?? 0).toFixed(2),
                 iva_percentage: Number(price.iva_percentage ?? 0).toFixed(2),
                 ieps_percentage: Number(price.ieps_percentage ?? 0).toFixed(2),
@@ -1035,7 +1037,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
                 const key = `${row.product_id}|${row.warehouse_id}`;
                 const stocked = (batchesByGroup.get(key) ?? []).filter((batch) => this.hasAvailableStock(batch.available_quantity));
                 const pricingOptions = priceMap.get(`${row.product_id}|${row.uom_id}`) || [];
-                const suggestedPrice = pricingOptions[0] || null;
+                const suggestedPrice = (0, inventory_margin_util_1.pickMarginPriceOption)(pricingOptions);
                 const photoKey = row.product_photo ?? null;
                 const priceInput = {
                     amount: suggestedPrice ? this.parseDecimal(suggestedPrice.price) : null,
@@ -1072,7 +1074,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
                     suggested_unit_price: suggestedPrice?.price ?? null,
                     suggested_iva_percentage: suggestedPrice?.iva_percentage ?? null,
                     suggested_ieps_percentage: suggestedPrice?.ieps_percentage ?? null,
-                    pricing_options: pricingOptions,
+                    pricing_options: pricingOptions.map(({ is_margin_default: _marginDefault, ...option }) => option),
                     total_available_quantity: this.formatQty(this.parseDecimal(row.total_available)),
                     total_initial_quantity: this.formatQty(this.parseDecimal(row.total_initial)),
                     total_batches: batches.length,
@@ -1448,7 +1450,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
         }
         const uomIds = Array.from(uomNames.keys());
         const [priceMap, configLines] = await Promise.all([
-            uomIds.length ? this.buildPriceMap([productId], uomIds) : Promise.resolve(new Map()),
+            this.buildPriceMap([productId], uomIds),
             this.loadMarginConfigLines([productId]),
         ]);
         const rowsByUom = new Map();
@@ -1469,7 +1471,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
             const uomName = uomNames.get(uomId) || 'Unidad';
             const stocked = rowsByUom.get(uomId) ?? [];
             const lines = configLines.byProductUom.get(`${productId}|${uomId}`) ?? [];
-            const suggested = priceMap.get(`${productId}|${uomId}`)?.[0];
+            const suggested = (0, inventory_margin_util_1.pickMarginPriceOption)(priceMap.get(`${productId}|${uomId}`));
             const priceInput = {
                 amount: suggested ? this.parseDecimal(suggested.price) : null,
                 listName: suggested?.price_list_name ?? null,
@@ -1509,7 +1511,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
         if (!productId || !uomId) {
             return { amount: null, listName: null };
         }
-        const suggested = (await this.buildPriceMap([productId], [uomId])).get(`${productId}|${uomId}`)?.[0];
+        const suggested = (0, inventory_margin_util_1.pickMarginPriceOption)((await this.buildPriceMap([productId], [uomId])).get(`${productId}|${uomId}`));
         if (!suggested) {
             return { amount: null, listName: null };
         }

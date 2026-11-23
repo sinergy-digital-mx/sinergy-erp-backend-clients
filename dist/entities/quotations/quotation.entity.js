@@ -50,6 +50,8 @@ let Quotation = class Quotation {
     advance_uso_cfdi;
     advance_metodo_pago;
     pos_stage;
+    pos_caja_opened_at;
+    pos_caja_opened_by;
     creator;
     created_by;
     terminal_user;
@@ -200,6 +202,14 @@ __decorate([
     }),
     __metadata("design:type", Object)
 ], Quotation.prototype, "pos_stage", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'timestamp', nullable: true }),
+    __metadata("design:type", Object)
+], Quotation.prototype, "pos_caja_opened_at", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 36, nullable: true }),
+    __metadata("design:type", Object)
+], Quotation.prototype, "pos_caja_opened_by", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => user_entity_1.User, { onDelete: 'SET NULL', nullable: true }),
     (0, typeorm_1.JoinColumn)({ name: 'created_by' }),

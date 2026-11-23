@@ -26,6 +26,7 @@ const advance_credit_util_1 = require("../../customers/utils/advance-credit.util
 const sales_order_payment_entity_1 = require("../../../entities/sales-orders/sales-order-payment.entity");
 const advance_payment_method_util_1 = require("../utils/advance-payment-method.util");
 const pos_payer_contact_util_1 = require("../utils/pos-payer-contact.util");
+const pos_card_payments_util_1 = require("../utils/pos-card-payments.util");
 let AdvanceShiftPaymentService = class AdvanceShiftPaymentService {
     paymentRepo;
     shiftRepo;
@@ -69,6 +70,8 @@ let AdvanceShiftPaymentService = class AdvanceShiftPaymentService {
             amount_cash_mxn: splits.cashMxn,
             amount_transfer_mxn: splits.transferMxn,
             amount_card_mxn: splits.cardMxn,
+            card_kind: (0, pos_card_payments_util_1.sharedCardKind)(input.cardPayments ?? []),
+            card_payments: input.cardPayments?.length ? input.cardPayments : null,
             amount_check_mxn: splits.checkMxn,
             transfer_payer_name: input.payer?.transferPayerName ?? null,
             transfer_payer_business_name: input.payer?.transferPayerBusinessName ?? null,

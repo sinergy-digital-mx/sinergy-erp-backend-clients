@@ -28,6 +28,8 @@ let AdvanceShiftPayment = class AdvanceShiftPayment {
     amount_cash_mxn;
     amount_transfer_mxn;
     amount_card_mxn;
+    card_kind;
+    card_payments;
     amount_check_mxn;
     transfer_payer_name;
     transfer_payer_business_name;
@@ -96,6 +98,14 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'decimal', precision: 12, scale: 2, default: 0 }),
     __metadata("design:type", Number)
 ], AdvanceShiftPayment.prototype, "amount_card_mxn", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 10, nullable: true }),
+    __metadata("design:type", Object)
+], AdvanceShiftPayment.prototype, "card_kind", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'json', nullable: true }),
+    __metadata("design:type", Object)
+], AdvanceShiftPayment.prototype, "card_payments", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'decimal', precision: 12, scale: 2, default: 0 }),
     __metadata("design:type", Number)

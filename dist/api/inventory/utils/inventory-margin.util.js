@@ -5,6 +5,7 @@ exports.resolvePurchaseUnitCost = resolvePurchaseUnitCost;
 exports.resolveLotMargin = resolveLotMargin;
 exports.explainLotAverage = explainLotAverage;
 exports.explainConfigurationOnly = explainConfigurationOnly;
+exports.pickMarginPriceOption = pickMarginPriceOption;
 const SOURCE_LABEL = {
     purchase: 'Compra',
     configuration: 'Configuración',
@@ -518,5 +519,10 @@ function explainConfigurationOnly(configLines, price, uomName) {
             : 'No hay compras con existencia ni costo configurado en pesos.',
         groups,
     };
+}
+function pickMarginPriceOption(options) {
+    if (!options?.length)
+        return null;
+    return options.find((option) => option.is_margin_default) ?? options[0];
 }
 //# sourceMappingURL=inventory-margin.util.js.map

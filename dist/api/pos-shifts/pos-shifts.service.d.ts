@@ -27,6 +27,7 @@ import { ExchangeRateService } from '../exchange-rate/exchange-rate.service';
 import { QuotationService } from '../quotations/services/quotation.service';
 import { AdvanceCfdiService } from '../electronic-invoicing/services/advance-cfdi.service';
 import { SendQuotationToCajaDto } from './dto/send-quotation-to-caja.dto';
+import { UpdatePosCustomerDto } from './dto/update-pos-customer.dto';
 export declare class PosShiftsService {
     private readonly dailyShiftRepo;
     private readonly partialShiftRepo;
@@ -731,6 +732,7 @@ export declare class PosShiftsService {
             is_walk_in: boolean;
             credit_enabled: boolean;
         } | null;
+        caja_open: boolean;
         seller_user: {
             id: string;
             first_name: string;
@@ -775,7 +777,82 @@ export declare class PosShiftsService {
             pos_user_code: number | null;
         } | null;
         terminal_user: null;
+        caja_open: boolean;
     })[]>;
+    getSalesAwaitingCaja(tenantId: string, terminalUserId: string, billingBranchId?: string): Promise<({
+        kind: string;
+        id: string;
+        folio: string;
+        quotation_folio: string | null;
+        total: number;
+        currency: string;
+        exchange_rate: number | null;
+        amount_pending: number;
+        subtotal: number;
+        created_at: Date;
+        notes: string | null;
+        walk_in_name: string | null;
+        walk_in_rfc: string | null;
+        for_shipping: boolean;
+        fiscal_configuration_id: string;
+        customer: {
+            id: number;
+            name: string;
+            lastname: string;
+            company_name: string;
+            fiscal_razon_social: string;
+            display_name: string | null;
+            is_walk_in: boolean;
+            credit_enabled: boolean;
+        } | null;
+        caja_open: boolean;
+        seller_user: {
+            id: string;
+            first_name: string;
+            last_name: string;
+            pos_user_code: number | null;
+        } | null;
+        terminal_user: {
+            id: string;
+            first_name: string;
+            last_name: string;
+            pos_user_type: import("../../entities/users/pos-user-type.enum").PosUserType | null;
+        } | null;
+    } | {
+        kind: string;
+        id: string;
+        folio: string;
+        quotation_folio: null;
+        total: number;
+        amount_pending: number;
+        advance_uso_cfdi: string;
+        advance_metodo_pago: "PUE" | "PPD";
+        subtotal: number;
+        created_at: Date;
+        notes: string | null;
+        walk_in_name: null;
+        walk_in_rfc: null;
+        fiscal_configuration_id: string;
+        customer: {
+            id: number;
+            name: string;
+            lastname: string;
+            company_name: string;
+            fiscal_razon_social: string;
+            display_name: string | null;
+            is_walk_in: boolean;
+            credit_enabled: boolean;
+        } | null;
+        seller_user: {
+            id: string;
+            first_name: string;
+            last_name: string;
+            pos_user_code: number | null;
+        } | null;
+        terminal_user: null;
+        caja_open: boolean;
+    })[]>;
+    private listPendingCajaTickets;
     private listPendingAdvanceQuotations;
     getCollectedSales(tenantId: string, terminalUserId: string, dailyShiftId?: string, billingBranchId?: string): Promise<{
         daily_shift: null;
@@ -833,6 +910,7 @@ export declare class PosShiftsService {
                 check_payer_name: string | null;
                 check_payer_phone: string | null;
                 card_reference: string | null;
+                card_kind: "credit" | "debit" | null;
                 card_payer_name: string | null;
                 card_payer_phone: string | null;
                 card_payments: PosCardPayment[];
@@ -933,6 +1011,7 @@ export declare class PosShiftsService {
             check_payer_name: string | null;
             check_payer_phone: string | null;
             card_reference: string | null;
+            card_kind: "credit" | "debit" | null;
             card_payer_name: string | null;
             card_payer_phone: string | null;
             card_payments: PosCardPayment[];
@@ -1056,6 +1135,7 @@ export declare class PosShiftsService {
             check_payer_name: string | null;
             check_payer_phone: string | null;
             card_reference: string | null;
+            card_kind: "credit" | "debit" | null;
             card_payer_name: string | null;
             card_payer_phone: string | null;
             card_payments: PosCardPayment[];
@@ -1144,6 +1224,129 @@ export declare class PosShiftsService {
                 pos_user_code: number | null;
             } | null;
         };
+    }>;
+    recallSaleFromCaja(tenantId: string, terminalUserId: string, salesOrderId: string): Promise<{
+        message: string;
+        caja_was_open: boolean;
+        sales_order: {
+            kind: "sale";
+            id: string;
+            folio: string;
+            total: number;
+            subtotal: number;
+            created_at: Date;
+            updated_at: Date;
+            general_status: string;
+            payment_status: string;
+            pos_stage: SalesOrderPosStage | null;
+            notes: string | null;
+            walk_in_name: string | null;
+            walk_in_rfc: string | null;
+            for_shipping: boolean;
+            fiscal_configuration_id: string;
+            customer: {
+                id: number;
+                name: string;
+                lastname: string;
+                company_name: string;
+                fiscal_razon_social: string;
+                display_name: string | null;
+                is_walk_in: boolean;
+            } | null;
+            seller_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+            } | null;
+        };
+    }>;
+    recallQuotationFromCaja(tenantId: string, terminalUserId: string, quotationId: string): Promise<{
+        message: string;
+        caja_was_open: boolean;
+        quotation: {
+            kind: string;
+            id: string;
+            folio: string;
+            total: number;
+            subtotal: number;
+            amount_pending: number;
+            advance_uso_cfdi: string;
+            advance_metodo_pago: "PUE" | "PPD";
+            created_at: Date;
+            updated_at: Date;
+            general_status: string;
+            pos_stage: SalesOrderPosStage | null;
+            notes: string | null;
+            fiscal_configuration_id: string;
+            customer: {
+                id: number;
+                name: string;
+                lastname: string;
+                company_name: string;
+                fiscal_razon_social: string;
+                display_name: string | null;
+                is_walk_in: boolean;
+            } | null;
+            seller_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+            } | null;
+        };
+    }>;
+    touchSaleCajaPresence(tenantId: string, terminalUserId: string, salesOrderId: string): Promise<{
+        in_caja: boolean;
+        reason: string;
+        message: string;
+    } | {
+        in_caja: boolean;
+        reason: null;
+        message: null;
+    }>;
+    releaseSaleCajaPresence(tenantId: string, terminalUserId: string, salesOrderId: string): Promise<{
+        released: boolean;
+    }>;
+    touchQuotationCajaPresence(tenantId: string, terminalUserId: string, quotationId: string): Promise<{
+        in_caja: boolean;
+        reason: string;
+        message: string;
+    } | {
+        in_caja: boolean;
+        reason: null;
+        message: null;
+    }>;
+    releaseQuotationCajaPresence(tenantId: string, terminalUserId: string, quotationId: string): Promise<{
+        released: boolean;
+    }>;
+    updateSaleCustomer(tenantId: string, terminalUserId: string, salesOrderId: string, dto: UpdatePosCustomerDto): Promise<{
+        message: string;
+        customer_id: number;
+        customer: {
+            id: number;
+            name: string;
+            lastname: string;
+            company_name: string;
+            fiscal_razon_social: string;
+            display_name: string | null;
+            is_walk_in: boolean;
+        } | null;
+        walk_in_name: string | null;
+        walk_in_rfc: string | null;
+    }>;
+    updateQuotationCustomer(tenantId: string, terminalUserId: string, quotationId: string, dto: UpdatePosCustomerDto): Promise<{
+        message: string;
+        customer_id: number;
+        customer: {
+            id: number;
+            name: string;
+            lastname: string;
+            company_name: string;
+            fiscal_razon_social: string;
+            display_name: string | null;
+            is_walk_in: boolean;
+        } | null;
     }>;
     getSalesInProgress(tenantId: string, terminalUserId: string, billingBranchId?: string): Promise<({
         customer_id: number;
@@ -1409,6 +1612,10 @@ export declare class PosShiftsService {
     private mapQuotationTicketSummary;
     private mapQuotationTicketForVentas;
     private mapPosTicketForVentas;
+    private cajaHasItOpen;
+    private markCajaPresence;
+    private assertCanEditPosCustomer;
+    private resolvePosCustomerUpdateId;
     private requireCobranzaTerminal;
     private requireVentasTerminal;
     private requirePosTerminal;
