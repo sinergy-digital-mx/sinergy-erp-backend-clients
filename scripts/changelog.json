@@ -1169,6 +1169,24 @@
       "status": "shipped",
       "version": "0.0.141",
       "shippedAt": "2026-11-23T14:10:28-08:00"
+    },
+    {
+      "id": "20261123-142825",
+      "at": "2026-11-23T14:28:25-08:00",
+      "scope": "frontend",
+      "message": "En el POS, al buscar se marca el primer producto: las flechas lo mueven y Enter agrega ese. F1 abre el cliente. La lista tiene columnas y el precio ya no parece un botón.",
+      "status": "shipped",
+      "version": "0.0.142",
+      "shippedAt": "2026-11-23T15:46:21-08:00"
+    },
+    {
+      "id": "20261123-143404",
+      "at": "2026-11-23T14:34:04-08:00",
+      "scope": "frontend",
+      "message": "En el POS, el producto marcado de la búsqueda se pinta en violeta y los iconos de tarjetas y lista quedan centrados, con el activo resaltado.",
+      "status": "shipped",
+      "version": "0.0.142",
+      "shippedAt": "2026-11-23T15:46:21-08:00"
     }
   ]
 }

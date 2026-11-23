@@ -10,6 +10,11 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.142 · 2026-11-23
+
+- aplicación · En el POS, al buscar se marca el primer producto: las flechas lo mueven y Enter agrega ese. F1 abre el cliente. La lista tiene columnas y el precio ya no parece un botón.
+- aplicación · En el POS, el producto marcado de la búsqueda se pinta en violeta y los iconos de tarjetas y lista quedan centrados, con el activo resaltado.
+
 ### Versión 0.0.141 · 2026-11-23
 
 - aplicación y servidor · El ícono de margen en inventario totalizado muestra el origen con el tooltip del sistema al pasar el mouse.
