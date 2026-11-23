@@ -10,6 +10,10 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.143 · 2026-11-23
+
+- aplicación · Los atajos del POS ya no usan teclas F: Ctrl+I abre el cliente, Ctrl+M las ventas en caja y Ctrl+Q el abono pendiente. F5 vuelve a recargar el navegador.
+
 ### Versión 0.0.142 · 2026-11-23
 
 - aplicación · En el POS, al buscar se marca el primer producto: las flechas lo mueven y Enter agrega ese. F1 abre el cliente. La lista tiene columnas y el precio ya no parece un botón.

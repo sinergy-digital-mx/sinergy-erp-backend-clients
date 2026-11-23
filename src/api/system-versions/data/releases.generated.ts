@@ -1471,5 +1471,19 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-11-23T23:45:30.331Z"
+  },
+  {
+    "releaseKey": "full:0.0.143:0.0.143-1795478235488",
+    "version": "0.0.143",
+    "buildId": "0.0.143-1795478235488",
+    "channel": "full",
+    "title": "Versión 0.0.143",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "Cambios en ventas"
+      }
+    ],
+    "releasedAt": "2026-11-23T23:57:15.488Z"
   }
 ];
