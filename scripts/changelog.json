@@ -1834,6 +1834,16 @@
       "version": "0.0.170",
       "shippedAt": "2026-11-24T13:41:57-08:00",
       "module": "pos"
+    },
+    {
+      "id": "20261124-135437",
+      "at": "2026-11-24T13:54:37-08:00",
+      "scope": "backend",
+      "message": "Se quitaron del API público las rutas de administración de organizaciones y de módulos. Las de cada empresa siguen registradas.",
+      "status": "shipped",
+      "version": "0.0.171",
+      "shippedAt": "2026-11-24T14:09:09-08:00",
+      "module": "platform"
     }
   ]
 }

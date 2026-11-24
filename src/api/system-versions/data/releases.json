@@ -2354,5 +2354,21 @@
       }
     ],
     "releasedAt": "2026-11-24T21:40:55.207Z"
+  },
+  {
+    "releaseKey": "full:0.0.171:0.0.171-1795558089352",
+    "version": "0.0.171",
+    "buildId": "0.0.171-1795558089352",
+    "channel": "full",
+    "title": "Versión 0.0.171",
+    "changes": [
+      {
+        "scope": "backend",
+        "message": "Se quitaron del API público las rutas de administración de organizaciones y de módulos. Las de cada empresa siguen registradas.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
+      }
+    ],
+    "releasedAt": "2026-11-24T22:08:09.352Z"
   }
 ]

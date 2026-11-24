@@ -12,6 +12,10 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.171 · 24 nov
+
+- Plataforma · Se quitaron del API público las rutas de administración de organizaciones y de módulos. Las de cada empresa siguen registradas.
+
 #### Versión 0.0.170 · 24 nov
 
 - Inventario · En Por sucursal se quitó el texto de que cada unidad va en su renglón.

@@ -28,12 +28,10 @@ import { AuditLogService } from './services/audit-log.service';
 import { MigrationService } from './services/migration.service';
 import { DataCleanupService } from './services/data-cleanup.service';
 import { PermissionGuard } from './guards/permission.guard';
-import { TenantController } from './controllers/tenant.controller';
 import { AuditLogController } from './controllers/audit-log.controller';
 import { DataCleanupController } from './controllers/data-cleanup.controller';
 import { ModulesController } from './controllers/modules.controller';
 import { RolesController } from './controllers/roles.controller';
-import { AdminTenantModulesController } from './controllers/admin-tenant-modules.controller';
 import { RBACErrorHandlerService } from './errors/error-handler.service';
 import { RBACExceptionFilter } from './filters/rbac-exception.filter';
 import { TenantContextMiddleware } from './middleware/tenant-context.middleware';
@@ -90,13 +88,12 @@ import rbacConfig from './config/rbac.config';
     ConfigModule.forFeature(rbacConfig),
     ScheduleModule.forRoot(), // Enable scheduled tasks
   ],
+  // La consola local administra organizaciones. Estas rutas no se publican.
   controllers: [
-    TenantController,
     AuditLogController,
     DataCleanupController,
     ModulesController,
     RolesController,
-    AdminTenantModulesController,
   ],
   providers: [
     // Core Services

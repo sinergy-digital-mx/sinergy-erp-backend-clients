@@ -41,12 +41,10 @@ const audit_log_service_1 = require("./services/audit-log.service");
 const migration_service_1 = require("./services/migration.service");
 const data_cleanup_service_1 = require("./services/data-cleanup.service");
 const permission_guard_1 = require("./guards/permission.guard");
-const tenant_controller_1 = require("./controllers/tenant.controller");
 const audit_log_controller_1 = require("./controllers/audit-log.controller");
 const data_cleanup_controller_1 = require("./controllers/data-cleanup.controller");
 const modules_controller_1 = require("./controllers/modules.controller");
 const roles_controller_1 = require("./controllers/roles.controller");
-const admin_tenant_modules_controller_1 = require("./controllers/admin-tenant-modules.controller");
 const error_handler_service_1 = require("./errors/error-handler.service");
 const rbac_exception_filter_1 = require("./filters/rbac-exception.filter");
 const tenant_context_middleware_1 = require("./middleware/tenant-context.middleware");
@@ -123,12 +121,10 @@ exports.RBACModule = RBACModule = RBACModule_1 = __decorate([
             schedule_1.ScheduleModule.forRoot(),
         ],
         controllers: [
-            tenant_controller_1.TenantController,
             audit_log_controller_1.AuditLogController,
             data_cleanup_controller_1.DataCleanupController,
             modules_controller_1.ModulesController,
             roles_controller_1.RolesController,
-            admin_tenant_modules_controller_1.AdminTenantModulesController,
         ],
         providers: [
             permission_service_1.PermissionService,
