@@ -211,9 +211,12 @@ let PropertiesService = class PropertiesService {
             property.total_price = pricing.total_price;
             property.price_per_m2 = pricing.price_per_m2;
         }
+        const loadedContracts = property.contracts;
+        property.contracts = undefined;
         let updated;
         try {
             updated = await this.propertyRepo.save(property);
+            updated.contracts = loadedContracts;
         }
         catch (err) {
             if (dto.code !== undefined) {

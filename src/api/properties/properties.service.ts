@@ -264,9 +264,15 @@ export class PropertiesService {
       property.price_per_m2 = pricing.price_per_m2;
     }
 
+    // findOne solo carga los contratos activos. Si se guardan, TypeORM toma los demás
+    // (completados, cancelados) como huérfanos e intenta poner su property_id en NULL.
+    const loadedContracts = property.contracts;
+    (property as Partial<Property>).contracts = undefined;
+
     let updated: Property;
     try {
       updated = await this.propertyRepo.save(property);
+      updated.contracts = loadedContracts;
     } catch (err) {
       if (dto.code !== undefined) {
         this.rethrowIfDuplicatePropertyCode(err, dto.code);
