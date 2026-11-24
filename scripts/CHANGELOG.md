@@ -10,6 +10,10 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.149 · 2026-11-23
+
+- aplicación y servidor · Cobranza: la pestaña, la búsqueda y los filtros quedan en la URL al recargar, y cada vista tiene un botón de actualizar junto al periodo.
+
 ### Versión 0.0.148 · 2026-11-23
 
 - aplicación · POS Ventas: las tarjetas de Ventas en caja quedaron en filas compactas para ver varios folios a la vez.
