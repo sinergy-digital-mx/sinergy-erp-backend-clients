@@ -12,6 +12,10 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.172 · 24 nov
+
+- POS Ventas · En la barra del POS el clic en el cuadrito de sucursal o vendedor abre el cambio, sin el texto Cambiar.
+
 #### Versión 0.0.171 · 24 nov
 
 - Plataforma · Se quitaron del API público las rutas de administración de organizaciones y de módulos. Las de cada empresa siguen registradas.

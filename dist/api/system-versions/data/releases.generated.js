@@ -2373,6 +2373,22 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-24T22:08:09.352Z"
+    },
+    {
+        "releaseKey": "full:0.0.172:0.0.172-1795559953882",
+        "version": "0.0.172",
+        "buildId": "0.0.172-1795559953882",
+        "channel": "full",
+        "title": "Versión 0.0.172",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "En la barra del POS el clic en el cuadrito de sucursal o vendedor abre el cambio, sin el texto Cambiar.",
+                "module": "pos",
+                "moduleLabel": "POS Ventas"
+            }
+        ],
+        "releasedAt": "2026-11-24T22:39:13.882Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map

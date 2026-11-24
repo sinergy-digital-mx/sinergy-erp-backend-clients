@@ -1844,6 +1844,16 @@
       "version": "0.0.171",
       "shippedAt": "2026-11-24T14:09:09-08:00",
       "module": "platform"
+    },
+    {
+      "id": "20261124-141446",
+      "at": "2026-11-24T14:14:46-08:00",
+      "scope": "frontend",
+      "message": "En la barra del POS el clic en el cuadrito de sucursal o vendedor abre el cambio, sin el texto Cambiar.",
+      "status": "shipped",
+      "version": "0.0.172",
+      "shippedAt": "2026-11-24T14:40:19-08:00",
+      "module": "pos"
     }
   ]
 }
