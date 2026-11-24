@@ -27,6 +27,7 @@ const dto_1 = require("../dto");
 const stamp_advance_invoice_dto_1 = require("../../electronic-invoicing/dto/stamp-advance-invoice.dto");
 const cancel_electronic_invoice_dto_1 = require("../../electronic-invoicing/dto/cancel-electronic-invoice.dto");
 const request_user_util_1 = require("../../../common/utils/request-user.util");
+const pos_price_discount_util_1 = require("../../pos-shifts/utils/pos-price-discount.util");
 const quotation_seller_scope_util_1 = require("../utils/quotation-seller-scope.util");
 let QuotationController = class QuotationController {
     quotationService;
@@ -42,6 +43,9 @@ let QuotationController = class QuotationController {
         this.advanceInvoices = advanceInvoices;
     }
     create(dto, req) {
+        if (dto.quotation_type === 'POS') {
+            (0, pos_price_discount_util_1.assertPosPriceDiscountAllowed)(req.user, dto.line_items);
+        }
         return this.quotationService.create(dto, req.user.tenant_id, req.user.id);
     }
     replace(id, dto, req) {

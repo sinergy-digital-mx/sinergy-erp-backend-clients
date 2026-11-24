@@ -17,6 +17,7 @@ import { QueryDailyShiftDto } from './dto/query-daily-shift.dto';
 import { CloseDailyShiftDto } from './dto/close-daily-shift.dto';
 import { CollectPosSaleDto } from './dto/collect-pos-sale.dto';
 import { ReplacePosSaleCartDto } from './dto/replace-pos-sale-cart.dto';
+import { JwtPermissionUser } from '../rbac/utils/jwt-permission.util';
 import { SalesOrderPosReceiptService, PosReceiptResult } from '../sales-orders/services/sales-order-pos-receipt.service';
 import { SalesOrderService } from '../sales-orders/services/sales-order.service';
 import { PosCardPayment } from './utils/pos-card-payments.util';
@@ -723,6 +724,7 @@ export declare class PosShiftsService {
             quantity: number;
             uom_name: string;
             unit_price: number;
+            discount_percentage: number;
             line_total: number;
         }[];
         currency: string;
@@ -774,6 +776,7 @@ export declare class PosShiftsService {
             quantity: number;
             uom_name: string;
             unit_price: number;
+            discount_percentage: number;
             line_total: number;
         }[];
         amount_pending: number;
@@ -820,6 +823,7 @@ export declare class PosShiftsService {
             quantity: number;
             uom_name: string;
             unit_price: number;
+            discount_percentage: number;
             line_total: number;
         }[];
         currency: string;
@@ -871,6 +875,7 @@ export declare class PosShiftsService {
             quantity: number;
             uom_name: string;
             unit_price: number;
+            discount_percentage: number;
             line_total: number;
         }[];
         amount_pending: number;
@@ -1522,7 +1527,7 @@ export declare class PosShiftsService {
         } | null;
     })[]>;
     private listQuotationTicketsInVentas;
-    replaceSaleCart(tenantId: string, terminalUserId: string, salesOrderId: string, dto: ReplacePosSaleCartDto): Promise<{
+    replaceSaleCart(tenantId: string, terminalUserId: string, salesOrderId: string, dto: ReplacePosSaleCartDto, actor?: JwtPermissionUser): Promise<{
         customer_id: number;
         global_discount_id: string | null;
         global_discount: {
@@ -1620,7 +1625,7 @@ export declare class PosShiftsService {
             } | null;
         };
     }>;
-    sendQuotationToCaja(tenantId: string, terminalUserId: string, quotationId: string, dto?: SendQuotationToCajaDto): Promise<{
+    sendQuotationToCaja(tenantId: string, terminalUserId: string, quotationId: string, dto?: SendQuotationToCajaDto, actor?: JwtPermissionUser): Promise<{
         message: string;
         quotation: {
             kind: string;

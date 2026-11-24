@@ -10,6 +10,10 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.147 · 2026-11-23
+
+- aplicación y servidor · POS Ventas: descuento porcentual al precio en el carrito (5%, 3% u otro), se guarda en la orden y solo se ve con el permiso Aplicar descuento al precio del módulo POS.
+
 ### Versión 0.0.146 · 2026-11-23
 
 - aplicación y servidor · Ventas en caja se abre en un modal al centro: cada folio es una tarjeta con cliente, productos, totales y se puede desplegar para regresarla a ventas.

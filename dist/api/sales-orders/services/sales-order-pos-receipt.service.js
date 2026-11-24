@@ -426,6 +426,8 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
         let totalQty = 0;
         let subtotalBeforeDiscount = 0;
         let totalLineDiscountAmount = 0;
+        let productDiscountAmount = 0;
+        let priceDiscountAmount = 0;
         for (const item of order.line_items ?? []) {
             const qty = Number(item.quantity) || 0;
             const unitPrice = Number(item.unit_price) || 0;
@@ -439,9 +441,24 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
             const description = (item.product?.name ?? 'PRODUCTO').toUpperCase();
             lines.push(`!N!${(0, escpos_util_1.productLine)(description, this.formatQuantity(qty), unitMoney(unitPrice), lineMoney(lineTotal), escpos_util_1.ESCPOS_CHARS_PER_LINE)}`);
             if (lineDiscount > 0) {
-                const discountLabel = item.product_discount?.name
-                    ? `DESC PROD: ${item.product_discount.name.toUpperCase()}`
-                    : 'DESCUENTO PRODUCTO';
+                const pct = Number(item.discount_percentage) || 0;
+                let discountLabel;
+                if (item.product_discount?.name) {
+                    productDiscountAmount += lineDiscount;
+                    discountLabel = `DESC PROD: ${item.product_discount.name.toUpperCase()}`;
+                }
+                else if (pct > 0) {
+                    priceDiscountAmount += lineDiscount;
+                    const shown = Math.round(pct * 100) / 100;
+                    const pctLabel = Number.isInteger(shown)
+                        ? String(shown)
+                        : shown.toFixed(2).replace(/\.?0+$/, '');
+                    discountLabel = `DESC. PRECIO ${pctLabel}%`;
+                }
+                else {
+                    productDiscountAmount += lineDiscount;
+                    discountLabel = 'DESCUENTO';
+                }
                 lines.push(`!N!${(0, escpos_util_1.compactMoneyLine)(`  ${discountLabel}`, `-${money(lineDiscount)}`)}`);
             }
         }
@@ -451,8 +468,11 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
         lines.push('');
         lines.push(`!N!${(0, escpos_util_1.compactMoneyLine)('Subtotal:', money(subtotalBeforeDiscount))}`);
         lines.push(`!N!${(0, escpos_util_1.compactMoneyLine)('Descuento:', `-${money(totalLineDiscountAmount + globalDiscountAmount)}`)}`);
-        if (totalLineDiscountAmount > 0) {
-            lines.push(`!N!${(0, escpos_util_1.compactMoneyLine)('  Desc. por producto:', `-${money(totalLineDiscountAmount)}`)}`);
+        if (productDiscountAmount > 0) {
+            lines.push(`!N!${(0, escpos_util_1.compactMoneyLine)('  Desc. por producto:', `-${money(productDiscountAmount)}`)}`);
+        }
+        if (priceDiscountAmount > 0) {
+            lines.push(`!N!${(0, escpos_util_1.compactMoneyLine)('  Desc. en precio:', `-${money(priceDiscountAmount)}`)}`);
         }
         if (globalDiscountAmount > 0) {
             const globalLabel = order.global_discount?.name

@@ -1232,6 +1232,15 @@
       "status": "shipped",
       "version": "0.0.146",
       "shippedAt": "2026-11-23T16:59:12-08:00"
+    },
+    {
+      "id": "20261123-170600",
+      "at": "2026-11-23T17:06:00-08:00",
+      "scope": "both",
+      "message": "POS Ventas: descuento porcentual al precio en el carrito (5%, 3% u otro), se guarda en la orden y solo se ve con el permiso Aplicar descuento al precio del módulo POS.",
+      "status": "shipped",
+      "version": "0.0.147",
+      "shippedAt": "2026-11-23T17:14:47-08:00"
     }
   ]
 }

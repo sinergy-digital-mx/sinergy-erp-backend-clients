@@ -26,6 +26,7 @@ const sales_order_invoicing_service_1 = require("../services/sales-order-invoici
 const sales_order_invoice_email_service_1 = require("../services/sales-order-invoice-email.service");
 const shippings_service_1 = require("../../shippings/shippings.service");
 const jwt_permission_util_1 = require("../../rbac/utils/jwt-permission.util");
+const pos_price_discount_util_1 = require("../../pos-shifts/utils/pos-price-discount.util");
 const cancel_electronic_invoice_dto_1 = require("../../electronic-invoicing/dto/cancel-electronic-invoice.dto");
 const stamp_sales_order_invoice_dto_1 = require("../dto/stamp-sales-order-invoice.dto");
 const stamp_sales_order_credit_note_dto_1 = require("../dto/stamp-sales-order-credit-note.dto");
@@ -73,6 +74,9 @@ let SalesOrderController = class SalesOrderController {
         return this.creationSettings.update(req.user.tenant_id, req.user.id, dto.fields);
     }
     async create(dto, req) {
+        if (dto.sales_order_type === 'POS') {
+            (0, pos_price_discount_util_1.assertPosPriceDiscountAllowed)(req.user, dto.line_items);
+        }
         return this.salesOrderService.create(dto, req.user.tenant_id, req.user.id);
     }
     async clone(id, dto, req) {

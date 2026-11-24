@@ -32,6 +32,7 @@ const quotation_entity_1 = require("../../entities/quotations/quotation.entity")
 const sales_order_pos_stage_enum_1 = require("../../entities/sales-orders/sales-order-pos-stage.enum");
 const customer_entity_1 = require("../../entities/customers/customer.entity");
 const warehouse_entity_1 = require("../../entities/warehouse/warehouse.entity");
+const pos_price_discount_util_1 = require("./utils/pos-price-discount.util");
 const sales_order_currency_util_1 = require("../sales-orders/utils/sales-order-currency.util");
 const credit_currency_util_1 = require("../customers/utils/credit-currency.util");
 const sales_order_pos_receipt_service_1 = require("../sales-orders/services/sales-order-pos-receipt.service");
@@ -416,6 +417,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 quantity,
                 uom_name: line.product_uom?.uom?.name || '',
                 unit_price: unitPrice,
+                discount_percentage: Number(line.discount_percentage ?? 0) || 0,
                 line_total: Math.round(quantity * unitNet * 100) / 100,
             };
         });
@@ -1680,11 +1682,11 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             return [];
         }
     }
-    async replaceSaleCart(tenantId, terminalUserId, salesOrderId, dto) {
+    async replaceSaleCart(tenantId, terminalUserId, salesOrderId, dto, actor) {
         const terminalUser = await this.requireVentasTerminal(tenantId, terminalUserId);
         const order = await this.salesOrderRepo.findOne({
             where: { id: salesOrderId, tenant_id: tenantId },
-            relations: ['warehouse'],
+            relations: ['warehouse', 'line_items'],
         });
         if (!order) {
             throw new common_1.NotFoundException('Orden de venta no encontrada');
@@ -1693,6 +1695,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         if (order.pos_stage !== sales_order_pos_stage_enum_1.SalesOrderPosStage.Ventas) {
             throw new common_1.BadRequestException('La orden no está en ventas. Caja debe regresarla antes de editar productos.');
         }
+        (0, pos_price_discount_util_1.assertPosPriceDiscountAllowed)(actor, dto.line_items, order.line_items);
         const updated = await this.salesOrderService.replacePosCart(salesOrderId, dto, tenantId, terminalUserId);
         return this.mapPosTicketForVentas(updated);
     }
@@ -1735,11 +1738,11 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             sales_order: this.mapPosTicketSummary(order),
         };
     }
-    async sendQuotationToCaja(tenantId, terminalUserId, quotationId, dto = {}) {
+    async sendQuotationToCaja(tenantId, terminalUserId, quotationId, dto = {}, actor) {
         const terminalUser = await this.requireVentasTerminal(tenantId, terminalUserId);
         const quotation = await this.quotationRepo.findOne({
             where: { id: quotationId, tenant_id: tenantId },
-            relations: ['warehouse', 'seller_user', 'customer'],
+            relations: ['warehouse', 'seller_user', 'customer', 'line_items'],
         });
         if (!quotation) {
             throw new common_1.NotFoundException('Cotización no encontrada');
@@ -1755,6 +1758,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             throw new common_1.BadRequestException(blocked);
         }
         if (dto.line_items?.length) {
+            (0, pos_price_discount_util_1.assertPosPriceDiscountAllowed)(actor, dto.line_items, quotation.line_items);
             const deliveryDate = this.toIsoDate(quotation.expected_delivery_date);
             await this.quotationService.replace(quotation.id, {
                 fiscal_configuration_id: quotation.fiscal_configuration_id,

@@ -679,6 +679,7 @@ export declare class PosShiftsController {
                 quantity: number;
                 uom_name: string;
                 unit_price: number;
+                discount_percentage: number;
                 line_total: number;
             }[];
             currency: string;
@@ -730,6 +731,7 @@ export declare class PosShiftsController {
                 quantity: number;
                 uom_name: string;
                 unit_price: number;
+                discount_percentage: number;
                 line_total: number;
             }[];
             amount_pending: number;
@@ -1190,6 +1192,7 @@ export declare class PosShiftsController {
                 quantity: number;
                 uom_name: string;
                 unit_price: number;
+                discount_percentage: number;
                 line_total: number;
             }[];
             currency: string;
@@ -1241,6 +1244,7 @@ export declare class PosShiftsController {
                 quantity: number;
                 uom_name: string;
                 unit_price: number;
+                discount_percentage: number;
                 line_total: number;
             }[];
             amount_pending: number;

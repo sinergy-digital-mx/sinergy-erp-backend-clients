@@ -127,13 +127,13 @@ let PosShiftsController = class PosShiftsController {
         return this.posShiftsService.updateQuotationCustomer(req.user.tenant_id, req.user.id, quotationId, dto);
     }
     async replaceSaleCart(salesOrderId, dto, req) {
-        return this.posShiftsService.replaceSaleCart(req.user.tenant_id, req.user.id, salesOrderId, dto);
+        return this.posShiftsService.replaceSaleCart(req.user.tenant_id, req.user.id, salesOrderId, dto, req.user);
     }
     async sendSaleToCaja(salesOrderId, req) {
         return this.posShiftsService.sendSaleToCaja(req.user.tenant_id, req.user.id, salesOrderId);
     }
     async sendQuotationToCaja(quotationId, dto, req) {
-        return this.posShiftsService.sendQuotationToCaja(req.user.tenant_id, req.user.id, quotationId, dto);
+        return this.posShiftsService.sendQuotationToCaja(req.user.tenant_id, req.user.id, quotationId, dto, req.user);
     }
     async getSaleCollection(salesOrderId, req) {
         return this.posShiftsService.getSaleCollection(req.user.tenant_id, salesOrderId);

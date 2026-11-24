@@ -50,6 +50,11 @@ __decorate([
     __metadata("design:type", Number)
 ], CreateSalesOrderLineItemDto.prototype, "unit_price", void 0);
 __decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        description: 'Porcentaje que baja el precio de la línea. En POS Ventas lo captura el vendedor (permiso POS:ApplyPriceDiscount). No es descuento de producto ni global. Si viene product_discount_id, este porcentaje no se usa.',
+        example: 5,
+    }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsNumber)(),
     (0, class_validator_1.Min)(0),
