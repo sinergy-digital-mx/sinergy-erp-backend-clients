@@ -10,6 +10,11 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.156 · 2026-11-23
+
+- aplicación y servidor · El logo del menú ya no se reescala al abrir y cerrar la barra: queda a tamaño fijo y el menú solo anima el ancho.
+- aplicación y servidor · El descuento de precio en el carrito de POS quedó en un ícono y una fila del mismo alto que la cantidad.
+
 ### Versión 0.0.155 · 2026-11-23
 
 - aplicación y servidor · En Información Fiscal del cliente, una i junto a Cargar constancia SAT explica que el PDF se lee y se llenan solos RFC, razón social y domicilio.
