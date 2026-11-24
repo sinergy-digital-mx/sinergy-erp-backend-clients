@@ -18,10 +18,10 @@ describe('selectVisibleBranchIds', () => {
     expect(selectVisibleBranchIds(ids, [])).toEqual(ids);
   });
 
-  it('keeps only the saved branches that are still active', () => {
+  it('keeps the saved branches that are still active, in the saved order', () => {
     expect(selectVisibleBranchIds(ids, ['ensenada', 'centro', 'gone'])).toEqual([
-      'centro',
       'ensenada',
+      'centro',
     ]);
   });
 
@@ -31,6 +31,14 @@ describe('selectVisibleBranchIds', () => {
 });
 
 describe('buildBranchStockReport', () => {
+  it('keeps the branch order it receives instead of sorting by name', () => {
+    const report = buildBranchStockReport(
+      [branches[2], branches[0], branches[1]],
+      [],
+    );
+    expect(report.lines.map((line) => line.name)).toEqual(['Rosarito', 'Centro', 'Ensenada']);
+  });
+
   it('lists selected branches at zero when the product has no stock', () => {
     const report = buildBranchStockReport(branches, []);
 

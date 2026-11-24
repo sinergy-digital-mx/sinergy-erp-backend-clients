@@ -30,7 +30,7 @@ export class BranchReportSettingsResponseDto {
 export class UpdateBranchReportSettingsDto {
   @ApiProperty({
     type: [String],
-    description: 'Sucursales que deben salir en el reporte. Al menos una.',
+    description: 'Sucursales que salen en el reporte, en el orden de la ficha. Al menos una.',
   })
   @IsArray()
   @ArrayMinSize(1)

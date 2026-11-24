@@ -11,6 +11,7 @@ type ProductSearchRank = {
     name: string;
 };
 export declare function normalizeProductSearchText(value: string | null | undefined): string;
+export declare function exactProductSearchCode(search: string | null | undefined): string | null;
 export declare function parseProductSearchTokens(search: string | null | undefined): string[];
 export declare function getProductSearchQuery(search: string | undefined): string;
 export declare function productSearchOrderParams(query: string): Record<string, string>;

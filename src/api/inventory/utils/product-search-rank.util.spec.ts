@@ -3,6 +3,7 @@ import {
   applyProductSearchOrder,
   buildProductSearchRankSql,
   compareProductSearchRelevance,
+  exactProductSearchCode,
   getProductSearchRank,
   parseProductSearchTokens,
 } from './product-search-rank.util';
@@ -16,6 +17,13 @@ describe('product-search-rank.util', () => {
 
     it('ignores LIKE wildcards', () => {
       expect(parseProductSearchTokens('%pino_')).toEqual(['pino']);
+    });
+
+    it('drops the exact-code mark', () => {
+      expect(exactProductSearchCode('1x12!')).toBe('1x12');
+      expect(exactProductSearchCode('  1X12 ! ')).toBe('1x12');
+      expect(exactProductSearchCode('1x12')).toBeNull();
+      expect(parseProductSearchTokens('1x12!')).toEqual(['1x12']);
     });
   });
 
@@ -52,6 +60,26 @@ describe('product-search-rank.util', () => {
 
       applyProductSearchFilter(qb as never, 'pino 2x4');
       expect(clauses).toHaveLength(2);
+    });
+
+    it('matches the code exactly when the search ends with !', () => {
+      const clauses: string[] = [];
+      const params: Record<string, unknown>[] = [];
+      const qb = {
+        andWhere: (sql: string, sqlParams?: Record<string, unknown>) => {
+          clauses.push(sql);
+          if (sqlParams) params.push(sqlParams);
+          return qb;
+        },
+      };
+
+      applyProductSearchFilter(qb as never, '1x12!');
+
+      expect(clauses).toEqual([
+        '(product.sku = :productSearchExactCode OR product.external_sku = :productSearchExactCode)',
+      ]);
+      expect(clauses[0]).not.toContain('LIKE');
+      expect(params[0]).toEqual({ productSearchExactCode: '1x12' });
     });
   });
 
@@ -128,6 +156,14 @@ describe('product-search-rank.util', () => {
       expect(getProductSearchRank(lamina, 'lamina').tier).toBeLessThan(
         getProductSearchRank(other, 'lamina').tier,
       );
+    });
+
+    it('with ! keeps only the exact code, not a code that contains it', () => {
+      const search = '1x12!';
+      expect(getProductSearchRank({ sku: '1X12', name: 'Pino 1x12' }, search).tier).toBe(0);
+      expect(getProductSearchRank({ sku: 'L21X120', name: 'Lija banda' }, search).tier).toBeGreaterThan(0);
+      expect(getProductSearchRank({ sku: '1X12X6', name: 'Tabla pino' }, search).tier).toBeGreaterThan(0);
+      expect(getProductSearchRank({ sku: 'PRO1', name: 'Pino', external_sku: '1X12' }, search).tier).toBe(1);
     });
 
     it('treats exact external SKU like a SKU hit', () => {

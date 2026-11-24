@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.normalizeProductSearchText = normalizeProductSearchText;
+exports.exactProductSearchCode = exactProductSearchCode;
 exports.parseProductSearchTokens = parseProductSearchTokens;
 exports.getProductSearchQuery = getProductSearchQuery;
 exports.productSearchOrderParams = productSearchOrderParams;
@@ -31,8 +32,16 @@ function normalizeProductSearchText(value) {
         .trim()
         .replace(/\s+/g, ' ');
 }
+function exactProductSearchCode(search) {
+    const trimmed = (search ?? '').trim();
+    if (!trimmed.endsWith('!'))
+        return null;
+    return normalizeProductSearchText(trimmed.slice(0, -1));
+}
 function parseProductSearchTokens(search) {
-    const normalized = sanitizeSearchToken(normalizeProductSearchText(search));
+    const exact = exactProductSearchCode(search);
+    const source = exact === null ? search : exact;
+    const normalized = sanitizeSearchToken(normalizeProductSearchText(source));
     if (!normalized)
         return [];
     return normalized.split(' ').filter(Boolean);
@@ -49,6 +58,15 @@ function productSearchOrderParams(query) {
     };
 }
 function applyProductSearchFilter(qb, search, alias = 'product') {
+    const exactCode = exactProductSearchCode(search);
+    if (exactCode !== null) {
+        if (!exactCode) {
+            qb.andWhere('1 = 0');
+            return;
+        }
+        qb.andWhere(`(${alias}.sku = :productSearchExactCode OR ${alias}.external_sku = :productSearchExactCode)`, { productSearchExactCode: exactCode });
+        return;
+    }
     const tokens = parseProductSearchTokens(search);
     if (tokens.length === 0)
         return;
@@ -98,12 +116,32 @@ function compareProductSearchRelevance(a, b, search) {
     return rankA.name.localeCompare(rankB.name, 'es');
 }
 function getProductSearchRank(product, search) {
-    const query = normalizeProductSearchText(search);
+    const exactCode = exactProductSearchCode(search);
+    const query = exactCode === null ? normalizeProductSearchText(search) : exactCode;
     const sku = normalizeProductSearchText(product.sku);
     const externalSku = normalizeProductSearchText(product.external_sku);
     const name = normalizeProductSearchText(product.name);
     if (!query) {
         return { tier: 99, position: 0, length: name.length, name };
+    }
+    if (exactCode !== null) {
+        if (sku === query) {
+            return { tier: PRODUCT_SEARCH_TIER.SKU_EXACT, position: 0, length: sku.length, name };
+        }
+        if (externalSku === query) {
+            return {
+                tier: PRODUCT_SEARCH_TIER.EXTERNAL_SKU_EXACT,
+                position: 0,
+                length: externalSku.length,
+                name,
+            };
+        }
+        return {
+            tier: PRODUCT_SEARCH_TIER.TOKEN_FALLBACK,
+            position: Number.MAX_SAFE_INTEGER,
+            length: name.length,
+            name,
+        };
     }
     if (sku === query) {
         return { tier: PRODUCT_SEARCH_TIER.SKU_EXACT, position: 0, length: sku.length, name };

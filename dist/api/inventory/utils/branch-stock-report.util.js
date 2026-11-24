@@ -1,15 +1,43 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.selectVisibleBranchIds = selectVisibleBranchIds;
+exports.orderBranchRows = orderBranchRows;
 exports.buildBranchStockReport = buildBranchStockReport;
 const inventory_margin_util_1 = require("./inventory-margin.util");
 function selectVisibleBranchIds(branchIds, savedIds) {
     if (!savedIds || savedIds.length === 0) {
         return branchIds;
     }
-    const allowed = new Set(savedIds);
-    const picked = branchIds.filter((id) => allowed.has(id));
+    const known = new Set(branchIds);
+    const picked = [];
+    const seen = new Set();
+    for (const id of savedIds) {
+        if (!known.has(id) || seen.has(id))
+            continue;
+        seen.add(id);
+        picked.push(id);
+    }
     return picked.length > 0 ? picked : branchIds;
+}
+function orderBranchRows(branches, orderIds) {
+    if (!orderIds || orderIds.length === 0)
+        return branches;
+    const rank = new Map();
+    orderIds.forEach((id, index) => {
+        if (!rank.has(id))
+            rank.set(id, index);
+    });
+    return [...branches].sort((left, right) => {
+        const leftRank = rank.get(left.id);
+        const rightRank = rank.get(right.id);
+        if (leftRank == null && rightRank == null)
+            return 0;
+        if (leftRank == null)
+            return 1;
+        if (rightRank == null)
+            return -1;
+        return leftRank - rightRank;
+    });
 }
 function formatQty(value) {
     const safe = Number.isFinite(value) ? value : 0;
@@ -64,17 +92,13 @@ function buildBranchStockReport(branches, lots) {
             bucket.pricedCost += quantity * cost;
         }
     }
+    const branchRank = new Map(branches.map((branch, index) => [branch.id, index]));
     const lines = [...buckets.values()]
         .map((bucket) => toLine(bucket))
         .sort((left, right) => {
-        const byName = left.name.localeCompare(right.name, 'es', { sensitivity: 'base' });
-        if (byName !== 0)
-            return byName;
-        const byCompany = (left.razon_social ?? '').localeCompare(right.razon_social ?? '', 'es', {
-            sensitivity: 'base',
-        });
-        if (byCompany !== 0)
-            return byCompany;
+        const byBranch = (branchRank.get(left.billing_branch_id) ?? 0) - (branchRank.get(right.billing_branch_id) ?? 0);
+        if (byBranch !== 0)
+            return byBranch;
         return (left.uom_name ?? '').localeCompare(right.uom_name ?? '', 'es');
     });
     const stockedUoms = new Set(lines

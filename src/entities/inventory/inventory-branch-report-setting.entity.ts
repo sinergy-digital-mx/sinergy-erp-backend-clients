@@ -25,7 +25,7 @@ export class InventoryBranchReportSetting {
   @Column({ type: 'varchar', length: 36 })
   tenant_id: string;
 
-  /** Ids de sucursales que salen en el reporte. */
+  /** Ids de sucursales que salen en el reporte, en el orden del reporte. */
   @Column({ type: 'json' })
   visible_branch_ids: string[];
 

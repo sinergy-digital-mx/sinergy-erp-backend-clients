@@ -41,6 +41,7 @@ export interface BranchReportView {
 /**
  * Sin configuración guardada se ven todas. Si la lista guardada ya no
  * coincide con sucursales activas, también se ven todas.
+ * El orden de `savedIds` es el orden del reporte.
  */
 export function selectVisibleBranchIds(
   branchIds: string[],
@@ -49,9 +50,35 @@ export function selectVisibleBranchIds(
   if (!savedIds || savedIds.length === 0) {
     return branchIds;
   }
-  const allowed = new Set(savedIds);
-  const picked = branchIds.filter((id) => allowed.has(id));
+  const known = new Set(branchIds);
+  const picked: string[] = [];
+  const seen = new Set<string>();
+  for (const id of savedIds) {
+    if (!known.has(id) || seen.has(id)) continue;
+    seen.add(id);
+    picked.push(id);
+  }
   return picked.length > 0 ? picked : branchIds;
+}
+
+/** Pone las sucursales en el orden guardado. Las que no están en la lista quedan al final. */
+export function orderBranchRows<T extends { id: string }>(
+  branches: T[],
+  orderIds: string[] | null | undefined,
+): T[] {
+  if (!orderIds || orderIds.length === 0) return branches;
+  const rank = new Map<string, number>();
+  orderIds.forEach((id, index) => {
+    if (!rank.has(id)) rank.set(id, index);
+  });
+  return [...branches].sort((left, right) => {
+    const leftRank = rank.get(left.id);
+    const rightRank = rank.get(right.id);
+    if (leftRank == null && rightRank == null) return 0;
+    if (leftRank == null) return 1;
+    if (rightRank == null) return -1;
+    return leftRank - rightRank;
+  });
 }
 
 function formatQty(value: number): string {
@@ -126,15 +153,13 @@ export function buildBranchStockReport(
     }
   }
 
+  const branchRank = new Map(branches.map((branch, index) => [branch.id, index]));
   const lines = [...buckets.values()]
     .map((bucket) => toLine(bucket))
     .sort((left, right) => {
-      const byName = left.name.localeCompare(right.name, 'es', { sensitivity: 'base' });
-      if (byName !== 0) return byName;
-      const byCompany = (left.razon_social ?? '').localeCompare(right.razon_social ?? '', 'es', {
-        sensitivity: 'base',
-      });
-      if (byCompany !== 0) return byCompany;
+      const byBranch =
+        (branchRank.get(left.billing_branch_id) ?? 0) - (branchRank.get(right.billing_branch_id) ?? 0);
+      if (byBranch !== 0) return byBranch;
       return (left.uom_name ?? '').localeCompare(right.uom_name ?? '', 'es');
     });
 

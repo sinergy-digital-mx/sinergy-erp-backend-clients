@@ -86,7 +86,7 @@ exports.UpdateBranchReportSettingsDto = UpdateBranchReportSettingsDto;
 __decorate([
     (0, swagger_1.ApiProperty)({
         type: [String],
-        description: 'Sucursales que deben salir en el reporte. Al menos una.',
+        description: 'Sucursales que salen en el reporte, en el orden de la ficha. Al menos una.',
     }),
     (0, class_validator_1.IsArray)(),
     (0, class_validator_1.ArrayMinSize)(1),

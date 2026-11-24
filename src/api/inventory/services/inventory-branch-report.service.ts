@@ -15,6 +15,7 @@ import {
 import {
   BranchReportLotInput,
   buildBranchStockReport,
+  orderBranchRows,
   selectVisibleBranchIds,
 } from '../utils/branch-stock-report.util';
 import {
@@ -121,10 +122,11 @@ export class InventoryBranchReportService {
         saved?.visible_branch_ids ?? null,
       ),
     );
+    const ordered = orderBranchRows(branches, saved?.visible_branch_ids ?? null);
 
     return {
       configured: !!saved,
-      branches: branches.map((branch) => ({
+      branches: ordered.map((branch) => ({
         ...branch,
         visible: visible.has(branch.id),
       })),
@@ -138,7 +140,14 @@ export class InventoryBranchReportService {
   ): Promise<BranchReportSettingsResponseDto> {
     const branches = await this.loadActiveBranches(tenantId);
     const known = new Set(branches.map((branch) => branch.id));
-    const unique = [...new Set(branchIds.map((id) => id.trim()).filter(Boolean))];
+    const unique: string[] = [];
+    const seen = new Set<string>();
+    for (const id of branchIds) {
+      const trimmed = id.trim();
+      if (!trimmed || seen.has(trimmed)) continue;
+      seen.add(trimmed);
+      unique.push(trimmed);
+    }
     if (unique.length === 0 || unique.some((id) => !known.has(id))) {
       throw new BadRequestException('Elige sucursales activas. Al menos una.');
     }
@@ -184,8 +193,11 @@ export class InventoryBranchReportService {
       branches.map((branch) => branch.id),
       saved?.visible_branch_ids ?? null,
     );
-    const visible = new Set(visibleIds);
-    const selected = branches.filter((branch) => visible.has(branch.id));
+    const byId = new Map(branches.map((branch) => [branch.id, branch]));
+    const selected = visibleIds
+      .map((id) => byId.get(id))
+      .filter((branch): branch is BranchRow => !!branch);
+    const visible = new Set(selected.map((branch) => branch.id));
     const lots = rawLots
       .filter((row) => row.billing_branch_id && visible.has(row.billing_branch_id))
       .map((row) => this.toLot(row, configLines));

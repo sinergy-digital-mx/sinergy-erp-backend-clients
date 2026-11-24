@@ -2302,5 +2302,57 @@
       }
     ],
     "releasedAt": "2026-11-24T21:04:39.871Z"
+  },
+  {
+    "releaseKey": "full:0.0.170:0.0.170-1795556455207",
+    "version": "0.0.170",
+    "buildId": "0.0.170-1795556455207",
+    "channel": "full",
+    "title": "Versión 0.0.170",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "En Por sucursal se quitó el texto de que cada unidad va en su renglón.",
+        "module": "inventory",
+        "moduleLabel": "Inventario"
+      },
+      {
+        "scope": "frontend",
+        "message": "En inventario por sucursal el buscador toma el texto que ya estaba en la búsqueda de arriba.",
+        "module": "inventory",
+        "moduleLabel": "Inventario"
+      },
+      {
+        "scope": "frontend",
+        "message": "En Por sucursal los nombres de sucursal y los números quedaron más chicos para ver más renglones sin bajar tanto.",
+        "module": "inventory",
+        "moduleLabel": "Inventario"
+      },
+      {
+        "scope": "frontend",
+        "message": "En Por sucursal se arrastran las sucursales para ordenar la ficha, y el filtro queda a la altura de Todas y Ninguna.",
+        "module": "inventory",
+        "moduleLabel": "Inventario"
+      },
+      {
+        "scope": "frontend",
+        "message": "En Por lotes y Totalizado el buscador muestra una X para borrar el texto.",
+        "module": "inventory",
+        "moduleLabel": "Inventario"
+      },
+      {
+        "scope": "frontend",
+        "message": "En el celular el logo queda centrado en la barra superior, ya no flota junto al menú.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
+      },
+      {
+        "scope": "frontend",
+        "message": "En el buscador del POS, ! al final busca el código exacto. 1x12! ya no trae L21X120.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      }
+    ],
+    "releasedAt": "2026-11-24T21:40:55.207Z"
   }
 ]

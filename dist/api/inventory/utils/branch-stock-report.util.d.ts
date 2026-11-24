@@ -31,4 +31,7 @@ export interface BranchReportView {
     lines: BranchReportLine[];
 }
 export declare function selectVisibleBranchIds(branchIds: string[], savedIds: string[] | null | undefined): string[];
+export declare function orderBranchRows<T extends {
+    id: string;
+}>(branches: T[], orderIds: string[] | null | undefined): T[];
 export declare function buildBranchStockReport(branches: BranchReportBranchInput[], lots: BranchReportLotInput[]): BranchReportView;

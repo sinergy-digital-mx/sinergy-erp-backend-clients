@@ -37,8 +37,20 @@ export function normalizeProductSearchText(value: string | null | undefined): st
     .replace(/\s+/g, ' ');
 }
 
+/**
+ * `1x12!` pide el código completo. Sin el signo, `1x12` también entra en `L21X120`.
+ * El signo va al final. El texto de antes es el SKU o el código externo, tal cual.
+ */
+export function exactProductSearchCode(search: string | null | undefined): string | null {
+  const trimmed = (search ?? '').trim();
+  if (!trimmed.endsWith('!')) return null;
+  return normalizeProductSearchText(trimmed.slice(0, -1));
+}
+
 export function parseProductSearchTokens(search: string | null | undefined): string[] {
-  const normalized = sanitizeSearchToken(normalizeProductSearchText(search));
+  const exact = exactProductSearchCode(search);
+  const source = exact === null ? search : exact;
+  const normalized = sanitizeSearchToken(normalizeProductSearchText(source));
   if (!normalized) return [];
   return normalized.split(' ').filter(Boolean);
 }
@@ -65,6 +77,19 @@ export function applyProductSearchFilter<T extends ObjectLiteral>(
   search: string | undefined,
   alias = 'product',
 ): void {
+  const exactCode = exactProductSearchCode(search);
+  if (exactCode !== null) {
+    if (!exactCode) {
+      qb.andWhere('1 = 0');
+      return;
+    }
+    qb.andWhere(
+      `(${alias}.sku = :productSearchExactCode OR ${alias}.external_sku = :productSearchExactCode)`,
+      { productSearchExactCode: exactCode },
+    );
+    return;
+  }
+
   const tokens = parseProductSearchTokens(search);
   if (tokens.length === 0) return;
 
@@ -131,13 +156,34 @@ export function getProductSearchRank(
   product: ProductSearchFields,
   search: string,
 ): ProductSearchRank {
-  const query = normalizeProductSearchText(search);
+  const exactCode = exactProductSearchCode(search);
+  const query = exactCode === null ? normalizeProductSearchText(search) : exactCode;
   const sku = normalizeProductSearchText(product.sku);
   const externalSku = normalizeProductSearchText(product.external_sku);
   const name = normalizeProductSearchText(product.name);
 
   if (!query) {
     return { tier: 99, position: 0, length: name.length, name };
+  }
+
+  if (exactCode !== null) {
+    if (sku === query) {
+      return { tier: PRODUCT_SEARCH_TIER.SKU_EXACT, position: 0, length: sku.length, name };
+    }
+    if (externalSku === query) {
+      return {
+        tier: PRODUCT_SEARCH_TIER.EXTERNAL_SKU_EXACT,
+        position: 0,
+        length: externalSku.length,
+        name,
+      };
+    }
+    return {
+      tier: PRODUCT_SEARCH_TIER.TOKEN_FALLBACK,
+      position: Number.MAX_SAFE_INTEGER,
+      length: name.length,
+      name,
+    };
   }
 
   if (sku === query) {

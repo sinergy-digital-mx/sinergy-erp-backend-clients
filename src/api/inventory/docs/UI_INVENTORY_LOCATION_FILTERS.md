@@ -1,5 +1,9 @@
 # UI — Filtros de inventario (razón social → sucursal → almacén)
 
+## 2026-11-24 — Quitar búsqueda
+
+En Por lotes y Totalizado el buscador muestra una X a la derecha cuando hay texto. La X borra solo la búsqueda y recarga el listado. Los filtros de razón social, sucursal y almacén se quedan.
+
 ## 2026-11-23 — La vista queda en la URL
 
 Al recargar Inventario se conservan `search`, `fiscal_configuration_id` (`all` = todas), `billing_branch_id`, `warehouse_id` y la página (`spage` en Totalizado, `bpage` en Por lotes). Cambiar de pestaña no las borra.

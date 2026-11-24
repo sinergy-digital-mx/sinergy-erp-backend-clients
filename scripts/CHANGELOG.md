@@ -6,14 +6,21 @@ Cada solicitud terminada entra en **Pendientes**. `npm run deploy:both` publica 
 
 ## Pendientes
 
-### Noviembre 2026
-
-- **24 nov** · Inventario · En inventario por sucursal el buscador toma el texto que ya estaba en la búsqueda de arriba.
-- **24 nov** · Inventario · En Por sucursal se quitó el texto de que cada unidad va en su renglón.
+No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
 ### Noviembre 2026
+
+#### Versión 0.0.170 · 24 nov
+
+- Inventario · En Por sucursal se quitó el texto de que cada unidad va en su renglón.
+- Inventario · En inventario por sucursal el buscador toma el texto que ya estaba en la búsqueda de arriba.
+- Inventario · En Por sucursal los nombres de sucursal y los números quedaron más chicos para ver más renglones sin bajar tanto.
+- Inventario · En Por sucursal se arrastran las sucursales para ordenar la ficha, y el filtro queda a la altura de Todas y Ninguna.
+- Inventario · En Por lotes y Totalizado el buscador muestra una X para borrar el texto.
+- Plataforma · En el celular el logo queda centrado en la barra superior, ya no flota junto al menú.
+- POS Ventas · En el buscador del POS, ! al final busca el código exacto. 1x12! ya no trae L21X120.
 
 #### Versión 0.0.167 · 24 nov
 

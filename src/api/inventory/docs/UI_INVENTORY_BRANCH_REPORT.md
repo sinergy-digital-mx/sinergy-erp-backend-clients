@@ -1,5 +1,13 @@
 # UI — Inventario por sucursal
 
+## 2026-11-24 — Orden de sucursales
+
+En el engrane, el filtro y los botones Todas / Ninguna van a la misma altura. Cada sucursal se arrastra por el asa. El orden en que quedan las activas es el orden de la ficha. `branch_ids` se guarda en ese orden.
+
+## 2026-11-24 — Ficha más baja
+
+En Por sucursal el nombre de la sucursal, la ciudad y los números de existencia y costo van al tamaño de Totalizado. Cada renglón ocupa menos alto para ver más sucursales sin bajar tanto.
+
 ## 2026-11-24 — Búsqueda de arriba
 
 Al entrar a Por sucursal, el buscador toma el texto que ya estaba en Por lotes o Totalizado (`search` de la URL) y muestra los productos.
@@ -33,6 +41,6 @@ El engrane elige qué sucursales aparecen. La selección se guarda y la ven todo
 | `GET /tenant/inventory/branch-report/products?search=` | Hasta 10 productos |
 | `GET /tenant/inventory/branch-report?product_id=` | Ficha de esa pieza |
 | `GET /tenant/inventory/branch-report/settings` | Sucursales y cuáles están activas |
-| `PUT /tenant/inventory/branch-report/settings` | `{ branch_ids: [] }`. Al menos una |
+| `PUT /tenant/inventory/branch-report/settings` | `{ branch_ids: [] }`. Al menos una. El orden del arreglo es el orden de la ficha |
 
 Mínimo y máximo por sucursal no están en el inventario, así que el reporte no los muestra.

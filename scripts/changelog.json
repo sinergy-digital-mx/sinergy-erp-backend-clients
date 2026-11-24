@@ -1770,9 +1770,9 @@
       "at": "2026-11-24T13:11:04-08:00",
       "scope": "frontend",
       "message": "En Por sucursal se quitó el texto de que cada unidad va en su renglón.",
-      "status": "pending",
-      "version": null,
-      "shippedAt": null,
+      "status": "shipped",
+      "version": "0.0.170",
+      "shippedAt": "2026-11-24T13:41:57-08:00",
       "module": "inventory"
     },
     {
@@ -1780,10 +1780,60 @@
       "at": "2026-11-24T13:14:24-08:00",
       "scope": "both",
       "message": "En inventario por sucursal el buscador toma el texto que ya estaba en la búsqueda de arriba.",
-      "status": "pending",
-      "version": null,
-      "shippedAt": null,
+      "status": "shipped",
+      "version": "0.0.170",
+      "shippedAt": "2026-11-24T13:41:57-08:00",
       "module": "inventory"
+    },
+    {
+      "id": "20261124-131912",
+      "at": "2026-11-24T13:19:12-08:00",
+      "scope": "frontend",
+      "message": "En Por sucursal los nombres de sucursal y los números quedaron más chicos para ver más renglones sin bajar tanto.",
+      "status": "shipped",
+      "version": "0.0.170",
+      "shippedAt": "2026-11-24T13:41:57-08:00",
+      "module": "inventory"
+    },
+    {
+      "id": "20261124-132512",
+      "at": "2026-11-24T13:25:12-08:00",
+      "scope": "both",
+      "message": "En Por sucursal se arrastran las sucursales para ordenar la ficha, y el filtro queda a la altura de Todas y Ninguna.",
+      "status": "shipped",
+      "version": "0.0.170",
+      "shippedAt": "2026-11-24T13:41:57-08:00",
+      "module": "inventory"
+    },
+    {
+      "id": "20261124-132724",
+      "at": "2026-11-24T13:27:24-08:00",
+      "scope": "both",
+      "message": "En Por lotes y Totalizado el buscador muestra una X para borrar el texto.",
+      "status": "shipped",
+      "version": "0.0.170",
+      "shippedAt": "2026-11-24T13:41:57-08:00",
+      "module": "inventory"
+    },
+    {
+      "id": "20261124-132731",
+      "at": "2026-11-24T13:27:31-08:00",
+      "scope": "frontend",
+      "message": "En el celular el logo queda centrado en la barra superior, ya no flota junto al menú.",
+      "status": "shipped",
+      "version": "0.0.170",
+      "shippedAt": "2026-11-24T13:41:57-08:00",
+      "module": "platform"
+    },
+    {
+      "id": "20261124-133743",
+      "at": "2026-11-24T13:37:43-08:00",
+      "scope": "both",
+      "message": "En el buscador del POS, ! al final busca el código exacto. 1x12! ya no trae L21X120.",
+      "status": "shipped",
+      "version": "0.0.170",
+      "shippedAt": "2026-11-24T13:41:57-08:00",
+      "module": "pos"
     }
   ]
 }
