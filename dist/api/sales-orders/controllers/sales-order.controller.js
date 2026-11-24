@@ -207,7 +207,8 @@ let SalesOrderController = class SalesOrderController {
         return this.invoiceEmailService.list(id, req.user.tenant_id);
     }
     async findAll(filters, req) {
-        return this.salesOrderService.findAll(req.user.tenant_id, filters);
+        const includeStats = (0, jwt_permission_util_1.userHasJwtPermission)(req.user, 'sales_orders', 'ViewStats');
+        return this.salesOrderService.findAll(req.user.tenant_id, filters, { includeStats });
     }
     async exportHeadersExcel(filters, req, res) {
         const buffer = await this.exportService.exportHeaders(req.user.tenant_id, filters);

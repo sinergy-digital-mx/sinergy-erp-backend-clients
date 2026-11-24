@@ -2970,6 +2970,7 @@ export declare class SalesOrderController {
         totalPages: number;
         hasNext: boolean;
         hasPrev: boolean;
+        stats?: import("../utils/sales-order-list-stats.util").SalesOrderListStats | undefined;
     }>;
     exportHeadersExcel(filters: QuerySalesOrderHeaderExportDto, req: any, res: any): Promise<void>;
     exportDetailsExcel(filters: QuerySalesOrderDetailExportDto, req: any, res: any): Promise<void>;

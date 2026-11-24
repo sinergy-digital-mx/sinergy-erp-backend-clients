@@ -12,6 +12,7 @@ import { CreateSalesOrderDto, CreateSalesOrderLineItemDto } from '../dto/create-
 import { CloneSalesOrderDto } from '../dto/clone-sales-order.dto';
 import { UpdateSalesOrderLineItemDto } from '../dto/update-sales-order-line-item.dto';
 import { QuerySalesOrderDto } from '../dto/query-sales-order.dto';
+import { SalesOrderListStats } from '../utils/sales-order-list-stats.util';
 import { FulfillSalesOrderDto } from '../dto/fulfill-sales-order.dto';
 import { UpdateSalesOrderNotesDto } from '../dto/update-sales-order-notes.dto';
 import { CreateSalesOrderPaymentDto } from '../dto/create-sales-order-payment.dto';
@@ -99,7 +100,9 @@ export declare class SalesOrderService {
         for_shipping?: boolean;
         notes?: string | null;
     }, tenantId: string, userId: string): Promise<SalesOrder>;
-    findAll(tenantId: string, filters: QuerySalesOrderDto): Promise<{
+    findAll(tenantId: string, filters: QuerySalesOrderDto, options?: {
+        includeStats?: boolean;
+    }): Promise<{
         data: ({
             downloads: OrderDownloads | {
                 invoice: OrderDownloads["invoice"];
@@ -303,6 +306,7 @@ export declare class SalesOrderService {
         totalPages: number;
         hasNext: boolean;
         hasPrev: boolean;
+        stats?: SalesOrderListStats | undefined;
     }>;
     getSalesTrend(tenantId: string, filters: QuerySalesOrderDto): Promise<{
         from: string;
@@ -312,6 +316,7 @@ export declare class SalesOrderService {
         months: import("../../customers/utils/customer-purchase-trend.util").PurchaseTrendMonthPoint[];
         currency: string;
     }>;
+    private getListStats;
     private applyListFilters;
     private loadOrderInvoiceShortcuts;
     private loadOrderDownloads;

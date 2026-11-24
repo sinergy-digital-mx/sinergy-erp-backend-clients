@@ -10,6 +10,13 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.157 · 2026-11-23
+
+- aplicación y servidor · Órdenes de venta: se quitó la card Surtidas y Órdenes, Creadas, Pagadas y Pendientes ahora suman todo el filtro, no solo la página.
+- aplicación · Órdenes de venta: las bolitas para cambiar de vista quedaron a la izquierda del botón de recargar.
+- aplicación y servidor · En el detalle de la orden, el cobro POS agrupa cada pago y la fecha queda corta, sin hora (ago 3 26).
+- aplicación y servidor · POS Ventas: Regresar a ventas, cargar ticket y descartar orden confirman con el diálogo de la app para no salir de pantalla completa.
+
 ### Versión 0.0.156 · 2026-11-23
 
 - aplicación y servidor · El logo del menú ya no se reescala al abrir y cerrar la barra: queda a tamaño fijo y el menú solo anima el ancho.

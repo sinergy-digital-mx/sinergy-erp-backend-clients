@@ -31,6 +31,7 @@ const sales_order_payment_document_entity_1 = require("../../../entities/sales-o
 const resolve_product_uom_util_1 = require("../../products/utils/resolve-product-uom.util");
 const sales_order_clone_util_1 = require("../utils/sales-order-clone.util");
 const customer_purchase_trend_util_1 = require("../../customers/utils/customer-purchase-trend.util");
+const sales_order_list_stats_util_1 = require("../utils/sales-order-list-stats.util");
 const pos_sale_payment_method_enum_1 = require("../../../entities/pos/pos-sale-payment-method.enum");
 const user_entity_1 = require("../../../entities/users/user.entity");
 const customer_entity_1 = require("../../../entities/customers/customer.entity");
@@ -552,7 +553,7 @@ let SalesOrderService = class SalesOrderService {
         });
         return this.findOne(orderId, tenantId);
     }
-    async findAll(tenantId, filters) {
+    async findAll(tenantId, filters, options) {
         const { sort_by = 'created_at', sort_order = 'DESC' } = filters;
         const pageNum = Math.max(1, Math.trunc(Number(filters.page) || 1));
         const limitNum = Math.min(100, Math.max(1, Math.trunc(Number(filters.limit) || 20)));
@@ -560,6 +561,9 @@ let SalesOrderService = class SalesOrderService {
             .createQueryBuilder('so')
             .where('so.tenant_id = :tenantId', { tenantId });
         this.applyListFilters(qb, filters);
+        const statsPromise = options?.includeStats
+            ? this.getListStats(tenantId, filters)
+            : Promise.resolve(undefined);
         const total = Number(await qb.clone().getCount()) || 0;
         const totalPages = total > 0 ? Math.ceil(total / limitNum) : 0;
         const sortCol = sort_by === 'total' ? 'so.total' : sort_by === 'folio' ? 'so.folio' : 'so.created_at';
@@ -604,7 +608,9 @@ let SalesOrderService = class SalesOrderService {
         const invoiceByOrder = downloadsByOrder
             ? null
             : await this.loadOrderInvoiceShortcuts(tenantId, orderIds);
+        const stats = await statsPromise;
         return {
+            ...(stats ? { stats } : {}),
             data: rows.map((so) => {
                 const paymentInfo = paymentByOrderId.get(so.id);
                 const paymentDisplay = paymentInfo?.display ??
@@ -650,6 +656,23 @@ let SalesOrderService = class SalesOrderService {
             currency: 'MXN',
             ...(0, customer_purchase_trend_util_1.buildPurchaseTrend)(rows),
         };
+    }
+    async getListStats(tenantId, filters) {
+        const query = this.soRepo
+            .createQueryBuilder('so')
+            .where('so.tenant_id = :tenantId', { tenantId });
+        this.applyListFilters(query, filters);
+        const rows = await query
+            .select("COALESCE(so.currency, 'MXN')", 'currency')
+            .addSelect('so.general_status', 'general_status')
+            .addSelect('so.payment_status', 'payment_status')
+            .addSelect('COUNT(so.id)', 'cnt')
+            .addSelect('COALESCE(SUM(so.total), 0)', 'amount')
+            .groupBy("COALESCE(so.currency, 'MXN')")
+            .addGroupBy('so.general_status')
+            .addGroupBy('so.payment_status')
+            .getRawMany();
+        return (0, sales_order_list_stats_util_1.buildSalesOrderListStats)(rows);
     }
     applyListFilters(qb, filters) {
         const { search, general_status, payment_status, is_credit, sales_order_type, sale_scope, collection_channel, fiscal_configuration_id, billing_branch_id, customer_id, created_from, created_to, } = filters;
