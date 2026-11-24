@@ -8,6 +8,7 @@ Cada solicitud terminada entra en **Pendientes**. `npm run deploy:both` publica 
 
 ### Noviembre 2026
 
+- **24 nov** · Inventario · En inventario por sucursal el buscador toma el texto que ya estaba en la búsqueda de arriba.
 - **24 nov** · Inventario · En Por sucursal se quitó el texto de que cada unidad va en su renglón.
 
 ## Enviados

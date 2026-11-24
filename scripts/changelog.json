@@ -1774,6 +1774,16 @@
       "version": null,
       "shippedAt": null,
       "module": "inventory"
+    },
+    {
+      "id": "20261124-131424",
+      "at": "2026-11-24T13:14:24-08:00",
+      "scope": "both",
+      "message": "En inventario por sucursal el buscador toma el texto que ya estaba en la búsqueda de arriba.",
+      "status": "pending",
+      "version": null,
+      "shippedAt": null,
+      "module": "inventory"
     }
   ]
 }
