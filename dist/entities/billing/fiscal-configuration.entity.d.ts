@@ -16,6 +16,8 @@ export declare class FiscalConfiguration {
     brand_color_start: string | null;
     brand_color_mid: string | null;
     brand_color_end: string | null;
+    pos_sales_bar_color: string | null;
+    pos_cash_bar_color: string | null;
     status: string;
     created_by: string | null;
     certificate_serial_number: string | null;

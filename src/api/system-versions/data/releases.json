@@ -1664,5 +1664,27 @@
       }
     ],
     "releasedAt": "2026-11-24T03:18:49.997Z"
+  },
+  {
+    "releaseKey": "full:0.0.155:0.0.155-1795500621723",
+    "version": "0.0.155",
+    "buildId": "0.0.155-1795500621723",
+    "channel": "full",
+    "title": "Versión 0.0.155",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "Cambios en clientes"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cambios en facturación"
+      }
+    ],
+    "releasedAt": "2026-11-24T06:10:21.723Z"
   }
 ]

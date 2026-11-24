@@ -13,6 +13,8 @@ export declare class UpdateFiscalConfigurationDto {
     brand_color_start?: string | null;
     brand_color_mid?: string | null;
     brand_color_end?: string | null;
+    pos_sales_bar_color?: string | null;
+    pos_cash_bar_color?: string | null;
     status?: string;
     quotation_expiration_days?: number | null;
     advance_invoicing_enabled?: boolean;

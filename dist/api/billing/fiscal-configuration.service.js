@@ -147,6 +147,12 @@ let FiscalConfigurationService = class FiscalConfigurationService {
         if (dto.brand_color_end !== undefined) {
             patch.brand_color_end = dto.brand_color_end;
         }
+        if (dto.pos_sales_bar_color !== undefined) {
+            patch.pos_sales_bar_color = dto.pos_sales_bar_color;
+        }
+        if (dto.pos_cash_bar_color !== undefined) {
+            patch.pos_cash_bar_color = dto.pos_cash_bar_color;
+        }
         if (dto.logo_mask_color !== undefined) {
             patch.logo_mask_color = dto.logo_mask_color;
         }

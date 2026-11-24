@@ -10,6 +10,14 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.155 · 2026-11-23
+
+- aplicación y servidor · En Información Fiscal del cliente, una i junto a Cargar constancia SAT explica que el PDF se lee y se llenan solos RFC, razón social y domicilio.
+- aplicación y servidor · En el listado la razón del menú se marca como Template, y POS Ventas y POS Caja pueden guardar cada una el color de su barra.
+- aplicación · POS Ventas: el modal de Ventas en caja quedó más grande, con cartas apaisadas y los productos en tabla con scroll; En caja, Tickets y Regresar a ventas quedaron en un tamaño intermedio.
+- aplicación · POS Ventas: las cartas de Ventas en caja quedaron del mismo ancho y alto; la que se abre sigue ocupando todo el modal.
+- aplicación · El build fallaba porque el CSS de POS Ventas pasaba 48 kB; el tope de error quedó en 50 kB.
+
 ### Versión 0.0.153 · 2026-11-23
 
 - aplicación · El logo del menú abierto quedó un poco más chico: hasta 92 px de alto, sin el cuadro blanco.

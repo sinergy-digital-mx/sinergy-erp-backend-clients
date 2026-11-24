@@ -38,6 +38,8 @@ class UpdateFiscalConfigurationDto {
     brand_color_start;
     brand_color_mid;
     brand_color_end;
+    pos_sales_bar_color;
+    pos_cash_bar_color;
     status;
     quotation_expiration_days;
     advance_invoicing_enabled;
@@ -188,6 +190,36 @@ __decorate([
     }),
     __metadata("design:type", Object)
 ], UpdateFiscalConfigurationDto.prototype, "brand_color_end", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Color de la barra de POS Ventas. Vacío deja la barra oscura de siempre.',
+        example: '#1b4332',
+        nullable: true,
+    }),
+    (0, class_transformer_1.Transform)(({ value }) => normalizeOptionalBrandColor(value)),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.ValidateIf)((_, value) => value !== null && value !== undefined),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Matches)(/^#[0-9A-Fa-f]{6}$/, {
+        message: 'El color de POS Ventas debe ser hexadecimal de 6 dígitos, por ejemplo #1b4332.',
+    }),
+    __metadata("design:type", Object)
+], UpdateFiscalConfigurationDto.prototype, "pos_sales_bar_color", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Color de la barra de POS Caja. Vacío deja la barra oscura de siempre.',
+        example: '#245c3c',
+        nullable: true,
+    }),
+    (0, class_transformer_1.Transform)(({ value }) => normalizeOptionalBrandColor(value)),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.ValidateIf)((_, value) => value !== null && value !== undefined),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Matches)(/^#[0-9A-Fa-f]{6}$/, {
+        message: 'El color de POS Caja debe ser hexadecimal de 6 dígitos, por ejemplo #245c3c.',
+    }),
+    __metadata("design:type", Object)
+], UpdateFiscalConfigurationDto.prototype, "pos_cash_bar_color", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
