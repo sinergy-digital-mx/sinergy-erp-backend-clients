@@ -2283,5 +2283,19 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-11-24T20:24:22.758Z"
+  },
+  {
+    "releaseKey": "full:0.0.168:0.0.168-1795552487409",
+    "version": "0.0.168",
+    "buildId": "0.0.168-1795552487409",
+    "channel": "full",
+    "title": "Versión 0.0.168",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "Actualización de la plataforma."
+      }
+    ],
+    "releasedAt": "2026-11-24T20:34:47.409Z"
   }
 ];
