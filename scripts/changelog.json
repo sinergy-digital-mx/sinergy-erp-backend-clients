@@ -1724,6 +1724,46 @@
       "version": "0.0.165",
       "shippedAt": "2026-11-24T11:20:44-08:00",
       "module": "platform"
+    },
+    {
+      "id": "20261124-121549",
+      "at": "2026-11-24T12:15:49-08:00",
+      "scope": "both",
+      "message": "En ventas el carrito queda un poco más angosto. El descuento global solo se muestra si hay uno aplicado, y el descuento en precio usa una pastilla con el porcentaje.",
+      "status": "shipped",
+      "version": "0.0.167",
+      "shippedAt": "2026-11-24T12:25:17-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261124-121645",
+      "at": "2026-11-24T12:16:45-08:00",
+      "scope": "frontend",
+      "message": "En el catálogo, las pestañas del producto (Precios, UOMs y las demás) vuelven a cambiar al hacer clic.",
+      "status": "shipped",
+      "version": "0.0.167",
+      "shippedAt": "2026-11-24T12:25:17-08:00",
+      "module": "products"
+    },
+    {
+      "id": "20261124-121830",
+      "at": "2026-11-24T12:18:30-08:00",
+      "scope": "both",
+      "message": "En inventario por sucursal el buscador ya no lleva lupa, para que el texto no se monte sobre el ícono.",
+      "status": "shipped",
+      "version": "0.0.167",
+      "shippedAt": "2026-11-24T12:25:17-08:00",
+      "module": "inventory"
+    },
+    {
+      "id": "20261124-122108",
+      "at": "2026-11-24T12:21:08-08:00",
+      "scope": "both",
+      "message": "En inventario por sucursal la ficha agrupa las unidades de cada sucursal y ya no muestra tres guiones cuando hay varias unidades.",
+      "status": "shipped",
+      "version": "0.0.167",
+      "shippedAt": "2026-11-24T12:25:17-08:00",
+      "module": "inventory"
     }
   ]
 }

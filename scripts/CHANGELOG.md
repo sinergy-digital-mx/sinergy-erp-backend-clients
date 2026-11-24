@@ -12,6 +12,13 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.167 · 24 nov
+
+- POS Ventas · En ventas el carrito queda un poco más angosto. El descuento global solo se muestra si hay uno aplicado, y el descuento en precio usa una pastilla con el porcentaje.
+- Productos · En el catálogo, las pestañas del producto (Precios, UOMs y las demás) vuelven a cambiar al hacer clic.
+- Inventario · En inventario por sucursal el buscador ya no lleva lupa, para que el texto no se monte sobre el ícono.
+- Inventario · En inventario por sucursal la ficha agrupa las unidades de cada sucursal y ya no muestra tres guiones cuando hay varias unidades.
+
 #### Versión 0.0.165 · 24 nov
 
 - Configuración · En el modal de razón social el botón dice Cerrar.

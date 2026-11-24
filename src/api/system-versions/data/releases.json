@@ -2240,5 +2240,39 @@
       }
     ],
     "releasedAt": "2026-11-24T20:04:14.234Z"
+  },
+  {
+    "releaseKey": "full:0.0.167:0.0.167-1795551862758",
+    "version": "0.0.167",
+    "buildId": "0.0.167-1795551862758",
+    "channel": "full",
+    "title": "Versión 0.0.167",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "En ventas el carrito queda un poco más angosto. El descuento global solo se muestra si hay uno aplicado, y el descuento en precio usa una pastilla con el porcentaje.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "En el catálogo, las pestañas del producto (Precios, UOMs y las demás) vuelven a cambiar al hacer clic.",
+        "module": "products",
+        "moduleLabel": "Productos"
+      },
+      {
+        "scope": "frontend",
+        "message": "En inventario por sucursal el buscador ya no lleva lupa, para que el texto no se monte sobre el ícono.",
+        "module": "inventory",
+        "moduleLabel": "Inventario"
+      },
+      {
+        "scope": "frontend",
+        "message": "En inventario por sucursal la ficha agrupa las unidades de cada sucursal y ya no muestra tres guiones cuando hay varias unidades.",
+        "module": "inventory",
+        "moduleLabel": "Inventario"
+      }
+    ],
+    "releasedAt": "2026-11-24T20:24:22.758Z"
   }
 ]
