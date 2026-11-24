@@ -1,10 +1,53 @@
 # UI — Listado de órdenes de venta (razón social + sucursal)
 
+## 2026-11-24 — Columna de sucursal y mes de la gráfica
+
+Si el filtro de arriba ya tiene una sucursal, la columna **Sucursal** no sale en la tabla ni en el celular. Con todas las sucursales, la columna sigue. En la gráfica de 12 meses la etiqueta lleva la inicial en mayúscula: `Nov 26`.
+
 Contrato para Pollux. **No mostrar ni filtrar por almacén.** Una OV puede tomar inventario de varios almacenes de la misma sucursal. El listado se agrupa por **razón social** y **sucursal**.
 
 Modal **Crear Orden de Venta:** `src/api/sales-orders/docs/UI_SALES_ORDER_CREATE.md` (razón → sucursal, sin almacén).
 
 **POS no cambia.** Crear/cobrar/surtir sigue usando `warehouse_id`. Este listado no aplica a Punto de Venta.
+
+## 2026-11-23 — Barra alineada en Abiertas y Entregadas
+
+En la card partida, la barra queda a la misma altura que Órdenes, Pagadas y Pendientes. Los montos de cada columna van debajo de esa barra.
+
+## 2026-11-23 — Stats del listado
+
+Con `sales_orders:ViewStats`, el mismo `GET /api/tenant/sales-orders` trae `stats`. Cubre **todas** las órdenes de los filtros, no la página. Sin el permiso la respuesta no trae `stats`. No hay endpoint extra. No sumar `data[]`.
+
+El monto es `total` (columna Total). MXN y USD van separados. `open` es lo que no está Surtida ni Cancelada. `delivered` es Surtida. `paid` es Pagado. `pending` es Pendiente. `count` y `amount` de cada moneda incluyen todos los estados.
+
+```json
+{
+  "total": 300,
+  "stats": {
+    "count": 300,
+    "by_currency": {
+      "MXN": {
+        "count": 300,
+        "amount": 150000.5,
+        "open": { "count": 40, "amount": 9000.22 },
+        "delivered": { "count": 250, "amount": 140000 },
+        "paid": { "count": 250, "amount": 120000 },
+        "pending": { "count": 50, "amount": 30000.5 }
+      },
+      "USD": {
+        "count": 0,
+        "amount": 0,
+        "open": { "count": 0, "amount": 0 },
+        "delivered": { "count": 0, "amount": 0 },
+        "paid": { "count": 0, "amount": 0 },
+        "pending": { "count": 0, "amount": 0 }
+      }
+    }
+  }
+}
+```
+
+`MXN` y `USD` siempre vienen. La UI de las cards: `src/app/features/sales-orders/docs/UI_SALES_ORDER_LIST_STATS.md` en Pollux.
 
 ## 2026-11-10 — Razón social inicial
 
@@ -446,7 +489,7 @@ Pollux: `apiDate` / `formatApiDate`. No usar el pipe `date` de Angular ni `new D
 
 ## Gráfica de los últimos 12 meses
 
-En el listado, arriba de la tabla, convive con las tarjetas **Por Estado** y **Estado de Pago**. Dos puntos arriba a la derecha cambian la vista cada 10 segundos. Un clic en un punto deja fija esa vista.
+En el listado, arriba de la tabla, convive con las tarjetas **Por Estado** y **Estado de Pago**. Dos puntos, a la izquierda del botón de recargar, cambian la vista cada 10 segundos. Un clic en un punto deja fija esa vista.
 
 Permiso: `sales_orders:ViewStats`. Sin él no se pinta el bloque ni se llama este GET.
 
@@ -466,7 +509,7 @@ Sin fechas, la ventana es móvil: mes actual en `America/Mexico_City` y 11 meses
   "total": 16204.96,
   "orders_count": 293,
   "months": [
-    { "month": "2025-11", "label": "nov 25", "total": 0, "orders_count": 0 }
+    { "month": "2025-11", "label": "Nov 25", "total": 0, "orders_count": 0 }
   ]
 }
 ```

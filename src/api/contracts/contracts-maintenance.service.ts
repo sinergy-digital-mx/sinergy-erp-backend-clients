@@ -78,6 +78,7 @@ export class ContractsMaintenanceService {
              ), 0)
            ),
            monthly_payment = CASE
+             WHEN c.sale_type = 'cash' THEN 0
              WHEN c.down_payment_financed = 1 AND COALESCE(c.down_payment_target, 0) <= 0 THEN 0
              WHEN c.down_payment_financed = 1 AND c.payment_months > 0 THEN ROUND(
                GREATEST(0, c.total_price - COALESCE(c.down_payment_target, 0)) / c.payment_months,

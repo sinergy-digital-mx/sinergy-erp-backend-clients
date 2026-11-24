@@ -2,6 +2,7 @@
 
 ## Historial
 
+- 2026-11-23: Expediente más compacto. Vacaciones, guardar horario, incapacidad y horas extras usan botones y cabeceras de sistema; la incapacidad ya no es un banner grande.
 - 2026-10-29: El horario se captura en el modal de usuario (tab Empleado, `employee.work_schedule`) y con Editar en el expediente. El empleado lo ve en el portal.
 - 2026-10-27: Horas extras. Formulario con fecha, horario y motivo; el total de horas lo calcula el backend. Revisión con horas autorizadas, comentarios e importe. Estatus pendiente, aprobada, rechazada o pagada.
 - 2026-10-26: Incapacidad médica en el expediente. Cabecera con días del año (`sick_leave`) y comprobantes en la misma solicitud.

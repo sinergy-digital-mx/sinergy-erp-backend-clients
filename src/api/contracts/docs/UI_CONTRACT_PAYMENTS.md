@@ -1,5 +1,6 @@
 # UI — Calendario de pagos del contrato
 
+- 2026-11-19: Un contrato `sale_type: cash` no genera ni regenera mensualidades. El tab Pagos lo explica y manda los abonos a Enganche. Ver `UI_CONTRACT_SALE_TYPE.md`.
 - 2026-10-23: Interés de morosos: columna Interés editable + cards aparte. Ver `UI_CONTRACT_LATE_INTEREST.md`.
 - 2026-10-23: El aviso de pagos cobrados ya no se muestra solo en el tab. Solo aparece al pulsar **Regenerar calendario**, con confirmación.
 - 2026-10-23: Si el enganche financiado ya cubrió la meta, se pueden generar mensualidades. Un “parcial vencido” con `$0` pendiente no bloquea.

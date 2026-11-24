@@ -6,6 +6,8 @@ import {
   Post,
   Patch,
   Put,
+  Sse,
+  MessageEvent,
   Body,
   Param,
   Query,
@@ -38,6 +40,11 @@ import { CollectPosSaleDto } from './dto/collect-pos-sale.dto';
 import { QueryCollectedSalesDto } from './dto/query-collected-sales.dto';
 import { ReplacePosSaleCartDto } from './dto/replace-pos-sale-cart.dto';
 import { SendQuotationToCajaDto } from './dto/send-quotation-to-caja.dto';
+import { UpdatePosCustomerDto } from './dto/update-pos-customer.dto';
+import { RecallFromCajaDto } from './dto/recall-from-caja.dto';
+import { PosCajaRecallHub } from './pos-caja-recall.hub';
+import { interval, merge, Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 @ApiTags('POS - Shifts')
 @Controller('tenant/pos')
@@ -48,6 +55,7 @@ export class PosShiftsController {
     private readonly posShiftsService: PosShiftsService,
     @Inject(forwardRef(() => QuotationAdvanceInvoiceService))
     private readonly quotationAdvances: QuotationAdvanceInvoiceService,
+    private readonly cajaRecallHub: PosCajaRecallHub,
   ) {}
 
   @Post('validate-seller-code')
@@ -331,6 +339,196 @@ export class PosShiftsController {
     );
   }
 
+  @Get('sales-in-caja')
+  @RequireAnyPermissions(
+    { entityType: 'PosShift', action: 'Read' },
+    { entityType: 'pos', action: 'Read' },
+    { entityType: 'pos', action: 'Create' },
+    { entityType: 'pos', action: 'Update' },
+  )
+  @ApiOperation({
+    summary: 'Ventas que están en caja',
+    description: 'Solo terminal VENTAS. Misma lista que pendientes de cobro, para regresarlas a ventas.',
+  })
+  async getSalesAwaitingCaja(@Query() query: QueryPosBranchDto, @Req() req: any) {
+    const sales = await this.posShiftsService.getSalesAwaitingCaja(
+      req.user.tenant_id,
+      req.user.id,
+      query.billing_branch_id,
+    );
+    return { sales_in_caja: sales };
+  }
+
+  @Post('sales/:salesOrderId/recall-from-caja')
+  @RequireAnyPermissions(
+    { entityType: 'pos', action: 'Create' },
+    { entityType: 'pos', action: 'Update' },
+  )
+  @ApiOperation({
+    summary: 'Ventas regresa un folio que está en caja',
+    description: 'Sale de POS Caja. Si caja lo tenía abierto, el siguiente latido se lo quita.',
+  })
+  async recallSaleFromCaja(
+    @Param('salesOrderId') salesOrderId: string,
+    @Body() dto: RecallFromCajaDto,
+    @Req() req: any,
+  ) {
+    return this.posShiftsService.recallSaleFromCaja(
+      req.user.tenant_id,
+      req.user.id,
+      salesOrderId,
+      dto?.seller_user_id,
+    );
+  }
+
+  @Post('quotations/:quotationId/recall-from-caja')
+  @RequireAnyPermissions(
+    { entityType: 'pos', action: 'Create' },
+    { entityType: 'pos', action: 'Update' },
+  )
+  @ApiOperation({ summary: 'Ventas regresa un anticipo que está en caja' })
+  async recallQuotationFromCaja(
+    @Param('quotationId') quotationId: string,
+    @Body() dto: RecallFromCajaDto,
+    @Req() req: any,
+  ) {
+    return this.posShiftsService.recallQuotationFromCaja(
+      req.user.tenant_id,
+      req.user.id,
+      quotationId,
+      dto?.seller_user_id,
+    );
+  }
+
+  @Sse('caja-recalls')
+  @RequireAnyPermissions(
+    { entityType: 'PosShift', action: 'Update' },
+    { entityType: 'pos', action: 'Update' },
+    { entityType: 'pos', action: 'Read' },
+  )
+  @ApiOperation({
+    summary: 'Aviso en vivo cuando Ventas regresa un folio',
+    description:
+      'Canal de texto que caja mantiene abierto. Al regresar un folio, llega el vendedor y el folio para sacar la venta si la tenían abierta.',
+  })
+  cajaRecalls(@Query() query: QueryPosBranchDto, @Req() req: any): Observable<MessageEvent> {
+    const tenantId = req.user.tenant_id as string;
+    const branchId = query.billing_branch_id ?? null;
+    return merge(
+      interval(15000).pipe(map(() => ({ data: { type: 'ping' } }))),
+      this.cajaRecallHub.stream(tenantId, branchId).pipe(
+        map((event) => ({
+          data: {
+            type: 'recalled',
+            id: event.id,
+            kind: event.kind,
+            folio: event.folio,
+            recalled_by_name: event.recalledByName,
+            branch_id: event.branchId,
+          },
+        })),
+      ),
+    );
+  }
+
+  @Post('sales/:salesOrderId/caja-presence')
+  @RequireAnyPermissions(
+    { entityType: 'PosShift', action: 'Update' },
+    { entityType: 'pos', action: 'Update' },
+  )
+  @ApiOperation({ summary: 'Caja avisa que tiene el folio abierto' })
+  async touchSaleCajaPresence(@Param('salesOrderId') salesOrderId: string, @Req() req: any) {
+    return this.posShiftsService.touchSaleCajaPresence(
+      req.user.tenant_id,
+      req.user.id,
+      salesOrderId,
+    );
+  }
+
+  @Post('sales/:salesOrderId/caja-release')
+  @RequireAnyPermissions(
+    { entityType: 'PosShift', action: 'Update' },
+    { entityType: 'pos', action: 'Update' },
+  )
+  @ApiOperation({ summary: 'Caja suelta el folio' })
+  async releaseSaleCajaPresence(@Param('salesOrderId') salesOrderId: string, @Req() req: any) {
+    return this.posShiftsService.releaseSaleCajaPresence(
+      req.user.tenant_id,
+      req.user.id,
+      salesOrderId,
+    );
+  }
+
+  @Post('quotations/:quotationId/caja-presence')
+  @RequireAnyPermissions(
+    { entityType: 'PosShift', action: 'Update' },
+    { entityType: 'pos', action: 'Update' },
+  )
+  @ApiOperation({ summary: 'Caja avisa que tiene el anticipo abierto' })
+  async touchQuotationCajaPresence(@Param('quotationId') quotationId: string, @Req() req: any) {
+    return this.posShiftsService.touchQuotationCajaPresence(
+      req.user.tenant_id,
+      req.user.id,
+      quotationId,
+    );
+  }
+
+  @Post('quotations/:quotationId/caja-release')
+  @RequireAnyPermissions(
+    { entityType: 'PosShift', action: 'Update' },
+    { entityType: 'pos', action: 'Update' },
+  )
+  @ApiOperation({ summary: 'Caja suelta el anticipo' })
+  async releaseQuotationCajaPresence(@Param('quotationId') quotationId: string, @Req() req: any) {
+    return this.posShiftsService.releaseQuotationCajaPresence(
+      req.user.tenant_id,
+      req.user.id,
+      quotationId,
+    );
+  }
+
+  @Patch('sales/:salesOrderId/customer')
+  @RequireAnyPermissions(
+    { entityType: 'PosShift', action: 'Update' },
+    { entityType: 'pos', action: 'Create' },
+    { entityType: 'pos', action: 'Update' },
+  )
+  @ApiOperation({ summary: 'Cambia el cliente de una orden POS sin cobrar' })
+  @ApiBody({ type: UpdatePosCustomerDto })
+  async updateSaleCustomer(
+    @Param('salesOrderId') salesOrderId: string,
+    @Body() dto: UpdatePosCustomerDto,
+    @Req() req: any,
+  ) {
+    return this.posShiftsService.updateSaleCustomer(
+      req.user.tenant_id,
+      req.user.id,
+      salesOrderId,
+      dto,
+    );
+  }
+
+  @Patch('quotations/:quotationId/customer')
+  @RequireAnyPermissions(
+    { entityType: 'PosShift', action: 'Update' },
+    { entityType: 'pos', action: 'Create' },
+    { entityType: 'pos', action: 'Update' },
+  )
+  @ApiOperation({ summary: 'Cambia el cliente de un anticipo POS sin cobrar' })
+  @ApiBody({ type: UpdatePosCustomerDto })
+  async updateQuotationCustomer(
+    @Param('quotationId') quotationId: string,
+    @Body() dto: UpdatePosCustomerDto,
+    @Req() req: any,
+  ) {
+    return this.posShiftsService.updateQuotationCustomer(
+      req.user.tenant_id,
+      req.user.id,
+      quotationId,
+      dto,
+    );
+  }
+
   @Put('sales/:salesOrderId/cart')
   @RequireAnyPermissions(
     { entityType: 'PosShift', action: 'Read' },
@@ -353,6 +551,7 @@ export class PosShiftsController {
       req.user.id,
       salesOrderId,
       dto,
+      req.user,
     );
   }
 
@@ -401,6 +600,7 @@ export class PosShiftsController {
       req.user.id,
       quotationId,
       dto,
+      req.user,
     );
   }
 

@@ -6,7 +6,9 @@ Cada solicitud terminada entra en **Pendientes**. `npm run deploy:both` publica 
 
 ## Pendientes
 
-No hay solicitudes pendientes de deploy.
+### Noviembre 2026
+
+- **24 nov** · Inventario · En Por sucursal se quitó el texto de que cada unidad va en su renglón.
 
 ## Enviados
 

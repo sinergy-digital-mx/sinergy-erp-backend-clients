@@ -17,9 +17,9 @@ describe('SystemVersionsService', () => {
     expect(String(query.mock.calls[0][0])).not.toContain('system_versions');
     expect(String(query.mock.calls[0][0])).toContain('tenant_modules');
     expect(page.data.length).toBeGreaterThan(0);
-    const messages = page.data.flatMap((item) => item.changes.map((change) => change.message));
-    expect(messages).toContain('Cambios en clientes');
-    expect(messages).not.toContain('Cambios en contratos');
+    const labels = page.data.flatMap((item) => item.changes.map((change) => change.module_label));
+    expect(labels).toContain('Clientes');
+    expect(labels).not.toContain('Contratos');
     expect(page.data[0].released_at >= page.data[page.data.length - 1].released_at).toBe(true);
 
     await service.findLatest('org-1');

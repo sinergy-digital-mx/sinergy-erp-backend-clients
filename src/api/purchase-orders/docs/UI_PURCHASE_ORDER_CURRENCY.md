@@ -1,5 +1,9 @@
 # UI — Moneda de la orden de compra (MXN / USD)
 
+## Cambios
+
+- 2026-11-24: Las cartas del listado, incluida Deuda, muestran MXN y USD en renglones separados.
+
 Una OC es **toda en pesos o toda en dólares**. No se mezclan. La moneda sale del **costo de proveedor + UOM** de cada producto (o de lo que el usuario elija si todavía no hay costo).
 
 Valores: `MXN` | `USD`.
@@ -24,7 +28,7 @@ En el tab Productos del detalle: badge junto al costo unitario y al importe de l
 
 PDFs (documento original y recepción): `Moneda: USD|MXN` en el encabezado y en el resumen; el precio unitario puede ir a 4 decimales (`$2.215 USD`); importes de línea a 2 (`$6,645.00 USD`). Los PDFs ya generados no cambian solos: regenerar con `POST /api/tenant/purchase-orders/:id/regenerate-documento-original` (o el de recepción). Una OC nueva o un cambio de línea sí genera el PDF con moneda.
 
-Cards **Por Estado** / **Estado de Pago** del listado: montos partidos en MXN y USD (`stats.by_currency`). No sumar. Ver `UI_PURCHASE_ORDER_STATS.md`.
+Cards del listado (Órdenes, Creadas, Recibidas, Pagadas y Deuda): montos partidos en MXN y USD, un renglón por moneda, aunque una quede en `$0.00`. No sumar. Ver `UI_PURCHASE_ORDER_STATS.md`.
 
 ---
 

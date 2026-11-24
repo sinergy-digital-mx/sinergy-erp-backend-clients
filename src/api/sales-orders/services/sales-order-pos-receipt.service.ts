@@ -33,7 +33,7 @@ import {
   wrapLines,
   observationTicketLines,
 } from '../utils/escpos.util';
-import { cardPaymentsForResponse } from '../../pos-shifts/utils/pos-card-payments.util';
+import { cardPaymentsForResponse, cardTicketLabel } from '../../pos-shifts/utils/pos-card-payments.util';
 import { displayCashChange } from '../../pos-shifts/utils/pos-cash-payment.util';
 import { invoiceMonthDeadlineLine } from '../utils/invoice-month-deadline.util';
 
@@ -567,6 +567,8 @@ export class SalesOrderPosReceiptService {
     let totalQty = 0;
     let subtotalBeforeDiscount = 0;
     let totalLineDiscountAmount = 0;
+    let productDiscountAmount = 0;
+    let priceDiscountAmount = 0;
 
     for (const item of order.line_items ?? []) {
       const qty = Number(item.quantity) || 0;
@@ -591,9 +593,22 @@ export class SalesOrderPosReceiptService {
       );
 
       if (lineDiscount > 0) {
-        const discountLabel = item.product_discount?.name
-          ? `DESC PROD: ${item.product_discount.name.toUpperCase()}`
-          : 'DESCUENTO PRODUCTO';
+        const pct = Number(item.discount_percentage) || 0;
+        let discountLabel: string;
+        if (item.product_discount?.name) {
+          productDiscountAmount += lineDiscount;
+          discountLabel = `DESC PROD: ${item.product_discount.name.toUpperCase()}`;
+        } else if (pct > 0) {
+          priceDiscountAmount += lineDiscount;
+          const shown = Math.round(pct * 100) / 100;
+          const pctLabel = Number.isInteger(shown)
+            ? String(shown)
+            : shown.toFixed(2).replace(/\.?0+$/, '');
+          discountLabel = `DESC. PRECIO ${pctLabel}%`;
+        } else {
+          productDiscountAmount += lineDiscount;
+          discountLabel = 'DESCUENTO';
+        }
         lines.push(`!N!${compactMoneyLine(`  ${discountLabel}`, `-${money(lineDiscount)}`)}`);
       }
     }
@@ -607,9 +622,14 @@ export class SalesOrderPosReceiptService {
     lines.push(
       `!N!${compactMoneyLine('Descuento:', `-${money(totalLineDiscountAmount + globalDiscountAmount)}`)}`,
     );
-    if (totalLineDiscountAmount > 0) {
+    if (productDiscountAmount > 0) {
       lines.push(
-        `!N!${compactMoneyLine('  Desc. por producto:', `-${money(totalLineDiscountAmount)}`)}`,
+        `!N!${compactMoneyLine('  Desc. por producto:', `-${money(productDiscountAmount)}`)}`,
+      );
+    }
+    if (priceDiscountAmount > 0) {
+      lines.push(
+        `!N!${compactMoneyLine('  Desc. en precio:', `-${money(priceDiscountAmount)}`)}`,
       );
     }
     if (globalDiscountAmount > 0) {
@@ -788,7 +808,14 @@ export class SalesOrderPosReceiptService {
     );
 
     if (collection.payment_method === PosSalePaymentMethod.CARD && cardMxn > 0) {
-      lines.push(compactMoneyLine('Tarjeta:', formatMoney(cardMxn)));
+      const cards = cardPaymentsForResponse(
+        collection.card_payments,
+        cardMxn,
+        collection.card_reference,
+        collection.card_kind,
+      );
+      const label = cardTicketLabel(cards[0]?.card_kind ?? collection.card_kind, 0, false);
+      lines.push(compactMoneyLine(`${label}:`, formatMoney(cardMxn)));
     } else if (collection.payment_method === PosSalePaymentMethod.TRANSFER && transferMxn > 0) {
       lines.push(compactMoneyLine('Transferencia:', formatMoney(transferMxn)));
     } else if (collection.payment_method === PosSalePaymentMethod.CHECK && (checkMxn > 0 || checkUsd > 0)) {
@@ -812,13 +839,16 @@ export class SalesOrderPosReceiptService {
         collection.card_payments,
         cardMxn,
         collection.card_reference,
+        collection.card_kind,
       );
       if (cardPayments.length > 1) {
         cardPayments.forEach((payment, index) => {
-          lines.push(compactMoneyLine(`Tarjeta ${index + 1}:`, formatMoney(payment.amount_mxn)));
+          const label = cardTicketLabel(payment.card_kind, index, true);
+          lines.push(compactMoneyLine(`${label}:`, formatMoney(payment.amount_mxn)));
         });
       } else if (cardMxn > 0) {
-        lines.push(compactMoneyLine('Tarjeta:', formatMoney(cardMxn)));
+        const label = cardTicketLabel(cardPayments[0]?.card_kind ?? collection.card_kind, 0, false);
+        lines.push(compactMoneyLine(`${label}:`, formatMoney(cardMxn)));
       }
       if (checkMxn > 0) {
         lines.push(compactMoneyLine('Cheque:', formatMoney(checkMxn)));

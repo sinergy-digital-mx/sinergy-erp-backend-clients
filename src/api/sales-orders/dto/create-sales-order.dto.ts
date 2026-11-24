@@ -36,6 +36,12 @@ export class CreateSalesOrderLineItemDto {
   @Min(0)
   unit_price: number;
 
+  @ApiProperty({
+    required: false,
+    description:
+      'Porcentaje que baja el precio de la línea. En POS Ventas lo captura el vendedor (permiso POS:ApplyPriceDiscount). No es descuento de producto ni global. Si viene product_discount_id, este porcentaje no se usa.',
+    example: 5,
+  })
   @IsOptional()
   @IsNumber()
   @Min(0)

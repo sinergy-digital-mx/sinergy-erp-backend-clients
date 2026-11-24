@@ -2,6 +2,11 @@
 
 Registro de pagos (parciales o totales) desde el **detalle de la orden** o desde **POS Caja**. Misma idea que pagos en órdenes de compra.
 
+## Historial
+
+- **2026-11-23** — En el detalle de la orden, **COBRO POS** agrupa cada medio (monto, voucher o referencia, quién pagó). La fecha de `collected_at` se lee corta y sin hora: `ago 3 26`.
+- **2026-11-23** — Un cobro mixto de POS ya no se guarda como un solo pago Mixto. Cada tarjeta, efectivo, transferencia o cheque es un pago de la orden, con su referencia. Los cobros mixtos que ya estaban totalizados se separan; la suma no cambia.
+
 ---
 
 ## Flujo de negocio
@@ -11,7 +16,7 @@ Registro de pagos (parciales o totales) desde el **detalle de la orden** o desde
 3. Se puede pagar:
    - En **POS Caja** (`POST /pos/sales/:id/collect`), o
    - En el **detalle de la orden de venta** (sección Pagos).
-4. Cada pago registra: monto, método (`cash` | `card` | `transfer` | `mixed`), referencia, notas. El crédito POS **no** crea un pago: deja `is_credit: true` y `payment_status: Pendiente`.
+4. Cada pago registra: monto, método (`cash` | `card` | `transfer` | `check`), referencia, notas. Un cobro **mixto** de POS Caja crea un pago por cada medio (cada tarjeta por separado, con su voucher). El crédito POS **no** crea un pago: deja `is_credit: true` y `payment_status: Pendiente`.
 5. Opcional: subir comprobante (PDF/imagen) al pago.
 6. Cuando la suma de pagos ≥ total de la orden → `payment_status = Pagado` y sale de pendientes de cobranza.
 
@@ -84,6 +89,14 @@ Mismo binding en el listado: cada fila trae `payment_method`, `payment_method_la
 No uses `sales_order_type` para este chip. Layout del listado: `UI_SALES_ORDER_LIST.md` § 2.1.
 
 `pos_collection` sigue ahí para el desglose de recibido/cambio. Para el chip del header usa `payment_display`, no armes el label en Pollux.
+
+En el sidebar del detalle, la tarjeta **COBRO POS** pinta `pos_collection` así:
+
+- Fecha arriba a la derecha, reloj de la operación, sin hora: `nov 9 26`.
+- Si el método es mixto, una línea “Mixto”. En un solo medio no se repite el nombre.
+- Cada medio es un bloque: título, monto a la derecha, y debajo voucher, referencia, tipo de cambio o “recibió” cuando no coincide con lo aplicado.
+- Varias tarjetas van en el mismo bloque. Nombre y teléfono del tarjetahabiente, una sola vez al pie.
+- El cambio, si hubo, queda al final en su propio bloque.
 
 ---
 
@@ -240,7 +253,10 @@ Sin cambios de contrato mayores:
   Ahora cada fila incluye `amount_pending` (saldo real si hubo anticipos en el detalle OV).
 - Cobrar: `POST /api/tenant/pos/sales/:salesOrderId/collect`  
   Debe cubrir **exactamente** `amount_pending` (no necesariamente el total original).  
-  Internamente crea el pago con `source = pos_cobranza` y el registro de cobranza.
+  Internamente crea el registro de cobranza y los pagos con `source = pos_cobranza`.
+  Si el método es `mixed`, hay **un pago por medio**: cada tarjeta con su `reference`, el efectivo, la transferencia y el cheque. No queda un pago `mixed` con el total. La suma de esos pagos es `amount_pending`.
+
+En la pestaña **Pagos** del detalle se listan esos pagos. La referencia de cada tarjeta es su voucher. Débito o crédito, y el dólar convertido, van en la nota del pago.
 
 En el modal de cobro mostrar:
 

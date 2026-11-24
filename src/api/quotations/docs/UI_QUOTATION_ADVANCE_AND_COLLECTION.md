@@ -4,6 +4,12 @@ Contrato para Pollux. La cotización sigue sin facturar la madera. Si la razón 
 
 Interruptor: Configuración fiscal de la razón social, **Permitir factura de anticipo**.
 
+## 2026-11-21 — Proceso para la maderería
+
+El paso a paso para el equipo está en `proceso-factura-anticipo-madereria.pdf`, en esta misma carpeta. Cubre el anticipo desde POS Ventas, el cobro en caja, la diferencia al entregar y la aplicación del CFDI.
+
+La diferencia se cobra en POS Caja, pestaña Por cobrar, sobre la orden. La pantalla muestra Total orden, Ya pagado y Por cobrar. El botón Confirmar cobro ya trae la diferencia. En efectivo se capturan los billetes o el monto manual. Si el anticipo cubrió el total, la orden queda pagada y no vuelve a caja.
+
 ## 2026-11-03 — El saldo fuera del anticipo usa crédito
 
 Pedir un anticipo menor al total deja el resto en el crédito del cliente, en la razón social de la cotización. Hace falta crédito activo y disponible. Al editar la cotización, o la orden que salió de ella, ese saldo se ajusta. No se suma dos veces: abierta cuenta la cotización; convertida, la orden. En caja el anticipo muestra lo cobrado y lo pendiente. Cobranza POS y Puntos de venta traen las columnas Anticipo y Pendiente.

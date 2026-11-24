@@ -16,11 +16,13 @@ import { PermissionGuard } from '../rbac/guards/permission.guard';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator';
 import { TenantContextService } from '../rbac/services/tenant-context.service';
 import { ContractsService } from './contracts.service';
+import { ContractMonthlyIncomeService } from './contract-monthly-income.service';
 import { ContractsExportService } from './contracts-export.service';
 import { ContractPdfService } from './contract-pdf.service';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { UpdateContractDto } from './dto/update-contract.dto';
 import { QueryContractsDto } from './dto/query-contracts.dto';
+import { QueryMonthlyIncomeDto } from './dto/query-monthly-income.dto';
 import { ContractListFilters } from './contract-list-filters.util';
 
 @Controller('tenant/contracts')
@@ -28,6 +30,7 @@ import { ContractListFilters } from './contract-list-filters.util';
 export class ContractsController {
   constructor(
     private contractsService: ContractsService,
+    private monthlyIncomeService: ContractMonthlyIncomeService,
     private contractsExportService: ContractsExportService,
     private contractPdfService: ContractPdfService,
     private tenantContext: TenantContextService,
@@ -69,6 +72,16 @@ export class ContractsController {
       throw new Error('Tenant context is required');
     }
     return this.contractsService.getContractStats(tenantId, this.toContractFilters(query));
+  }
+
+  @Get('monthly-income')
+  @RequirePermissions({ entityType: 'Contract', action: 'Read' })
+  async getMonthlyIncome(@Query() query: QueryMonthlyIncomeDto) {
+    const tenantId = this.tenantContext.getCurrentTenantId();
+    if (!tenantId) {
+      throw new Error('Tenant context is required');
+    }
+    return this.monthlyIncomeService.getMonthlyIncome(tenantId, query);
   }
 
   @Get('by-number/:contractNumber')

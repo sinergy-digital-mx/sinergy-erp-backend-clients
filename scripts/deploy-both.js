@@ -1,7 +1,7 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { collectChanges, mergeReleaseChanges } = require('./lib/release-notes');
+const { collectChanges, mergeReleaseChanges, changesFromChangelogEntries } = require('./lib/release-notes');
 const { pendingEntries } = require('./lib/session-changelog');
 
 const thisRepo = path.resolve(__dirname, '..');
@@ -58,10 +58,13 @@ if (pendingNotes.length) {
 }
 
 const notesPath = path.join(backendDir, 'scripts', '.pending-release-notes.json');
-const changes = mergeReleaseChanges([
-  collectChanges(frontendDir, 'frontend'),
-  collectChanges(backendDir, 'backend'),
-]);
+const fromChangelog = changesFromChangelogEntries(pendingNotes);
+const changes = fromChangelog.length
+  ? fromChangelog
+  : mergeReleaseChanges([
+      collectChanges(frontendDir, 'frontend'),
+      collectChanges(backendDir, 'backend'),
+    ]);
 fs.writeFileSync(notesPath, `${JSON.stringify({ channel: 'full', changes }, null, 2)}\n`);
 process.env.DEPLOY_BOTH = '1';
 process.env.RELEASE_NOTES_FILE = notesPath;

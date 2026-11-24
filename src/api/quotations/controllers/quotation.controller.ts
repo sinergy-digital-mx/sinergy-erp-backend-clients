@@ -36,6 +36,7 @@ import {
 import { StampAdvanceInvoiceDto } from '../../electronic-invoicing/dto/stamp-advance-invoice.dto';
 import { CancelElectronicInvoiceDto } from '../../electronic-invoicing/dto/cancel-electronic-invoice.dto';
 import { resolveRequestUserId } from '../../../common/utils/request-user.util';
+import { assertPosPriceDiscountAllowed } from '../../pos-shifts/utils/pos-price-discount.util';
 import {
   QuotationSellerAccess,
   userCanViewAllQuotations,
@@ -63,6 +64,9 @@ export class QuotationController {
       'Misma captura que OV (POS o MANUAL). No descuenta inventario ni genera factura. Persiste unit_price del payload.',
   })
   create(@Body() dto: CreateQuotationDto, @Req() req: any) {
+    if (dto.quotation_type === 'POS') {
+      assertPosPriceDiscountAllowed(req.user, dto.line_items);
+    }
     return this.quotationService.create(dto, req.user.tenant_id, req.user.id);
   }
 

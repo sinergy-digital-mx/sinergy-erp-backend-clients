@@ -51,13 +51,20 @@ import {
 import {
   applyProductSearchFilter,
   applyProductSearchOrder,
+  parseProductSearchTokens,
 } from './utils/product-search-rank.util';
+import { PosBranchStockResponseDto } from './dto/pos-branch-stock-response.dto';
+import {
+  buildPosBranchStockProducts,
+  POS_BRANCH_STOCK_PRODUCT_LIMIT,
+} from './utils/pos-branch-stock.util';
 import { InventoryBatchMovementsService } from './services/inventory-batch-movements.service';
 import { INVENTORY_BATCH_MOVEMENT_TYPES } from './constants/inventory-batch-movements';
 import { ProductMarginResponseDto } from './dto/inventory-margin.dto';
 import {
   explainConfigurationOnly,
   explainLotAverage,
+  pickMarginPriceOption,
   LotMarginRef,
   MarginConfigLineInput,
   MarginPriceInput,
@@ -274,7 +281,7 @@ export class InventoryService {
       const poCost = this.parseDecimal(row.po_cost);
       const qtyWithPoCost = this.parseDecimal(row.qty_with_po_cost);
       const batches = this.parseIntSafe(row.batches);
-      const suggested = priceMap.get(`${row.product_id}|${row.uom_id}`)?.[0];
+      const suggested = pickMarginPriceOption(priceMap.get(`${row.product_id}|${row.uom_id}`));
       const unitPrice = suggested ? this.parseDecimal(suggested.price) : 0;
       const vendorUnitCost =
         costMaps.byProductUom.get(`${row.product_id}|${row.uom_id}`)
@@ -442,6 +449,100 @@ export class InventoryService {
         'El almacén seleccionado no pertenece a la sucursal de esta terminal POS. Omita warehouse_id o use un almacén de la lista.',
       pageMax: 40,
     });
+  }
+
+  /** Existencias por sucursal para el POS. Solo cantidades, sin costos. */
+  async getPosBranchStock(tenantId: string, search: string): Promise<PosBranchStockResponseDto> {
+    const term = (search ?? '').trim().slice(0, 80);
+    if (parseProductSearchTokens(term).length === 0) {
+      throw new BadRequestException('Escribe un producto o número de pieza');
+    }
+
+    const branchRows = await this.billingBranchRepo
+      .createQueryBuilder('branch')
+      .innerJoin('branch.fiscal_configuration', 'fc')
+      .where('fc.tenant_id = :tenantId', { tenantId })
+      .andWhere('branch.status = :branchActive', { branchActive: 1 })
+      .orderBy('branch.code', 'ASC')
+      .addOrderBy('branch.city', 'ASC')
+      .select(['branch.id', 'branch.code', 'branch.city'])
+      .getMany();
+
+    const branches = branchRows.map((branch) => ({
+      id: branch.id,
+      name: branch.code,
+      city: branch.city?.trim() || null,
+    }));
+
+    const productQb = this.productRepo
+      .createQueryBuilder('product')
+      .select('product.id', 'id')
+      .addSelect('product.sku', 'sku')
+      .addSelect('product.name', 'name')
+      .where('product.tenant_id = :tenantId', { tenantId })
+      .andWhere('product.item_kind = :goodsKind', { goodsKind: ProductItemKind.Goods })
+      .andWhere('product.is_active = :productActive', { productActive: true });
+
+    applyProductSearchFilter(productQb, term);
+    const ranked = applyProductSearchOrder(productQb, term, false);
+    if (!ranked) {
+      productQb.orderBy('product.name', 'ASC');
+    }
+
+    const found = await productQb
+      .limit(POS_BRANCH_STOCK_PRODUCT_LIMIT + 1)
+      .getRawMany<{ id: string; sku: string; name: string }>();
+    const hasMore = found.length > POS_BRANCH_STOCK_PRODUCT_LIMIT;
+    const products = found
+      .slice(0, POS_BRANCH_STOCK_PRODUCT_LIMIT)
+      .map((row) => ({
+        id: String(row.id ?? ''),
+        sku: String(row.sku ?? ''),
+        name: String(row.name ?? ''),
+      }))
+      .filter((row) => row.id);
+
+    if (products.length === 0) {
+      return { search: term, has_more: false, branches, products: [] };
+    }
+
+    const qtyRows = await this.inventoryBatchRepo
+      .createQueryBuilder('batch')
+      .innerJoin('batch.warehouse', 'warehouse')
+      .leftJoin('batch.uom', 'uom')
+      .select('batch.product_id', 'product_id')
+      .addSelect('warehouse.billing_branch_id', 'billing_branch_id')
+      .addSelect('COALESCE(SUM(batch.available_quantity), 0)', 'quantity')
+      .addSelect('MAX(uom.name)', 'uom_name')
+      .where('batch.tenant_id = :tenantId', { tenantId })
+      .andWhere('batch.product_id IN (:...productIds)', {
+        productIds: products.map((row) => row.id),
+      })
+      .andWhere('warehouse.billing_branch_id IS NOT NULL')
+      .groupBy('batch.product_id')
+      .addGroupBy('warehouse.billing_branch_id')
+      .getRawMany<{
+        product_id: string;
+        billing_branch_id: string;
+        quantity: string;
+        uom_name: string | null;
+      }>();
+
+    return {
+      search: term,
+      has_more: hasMore,
+      branches,
+      products: buildPosBranchStockProducts(
+        products,
+        branches,
+        qtyRows.map((row) => ({
+          product_id: String(row.product_id ?? ''),
+          billing_branch_id: String(row.billing_branch_id ?? ''),
+          quantity: this.parseDecimal(row.quantity),
+          uom_name: row.uom_name ? String(row.uom_name) : null,
+        })),
+      ),
+    };
   }
 
   private async resolvePosInventoryBranchId(
@@ -639,6 +740,7 @@ export class InventoryService {
         new Set(batches.map((batch) => batch.warehouse_name).filter(Boolean)),
       );
       const pricingOptions = priceMap.get(key) || [];
+      // Punto de venta sigue con la lista activa más antigua. El predeterminado de márgenes no aplica aquí.
       const suggestedPrice = pricingOptions[0] || null;
       const productUomId = productUomMap.get(key) ?? '';
       const applicableDiscounts = (discountsByProductId.get(row.product_id) ?? [])
@@ -659,7 +761,7 @@ export class InventoryService {
         suggested_unit_price: suggestedPrice?.price ?? null,
         suggested_iva_percentage: suggestedPrice?.iva_percentage ?? null,
         suggested_ieps_percentage: suggestedPrice?.ieps_percentage ?? null,
-        pricing_options: pricingOptions,
+        pricing_options: pricingOptions.map(({ is_margin_default: _marginDefault, ...option }) => option),
         product_uom_id: productUomId,
         has_applicable_discounts: applicableDiscounts.length > 0,
         applicable_discounts: applicableDiscounts,
@@ -896,6 +998,7 @@ export class InventoryService {
       Array<{
         price_list_id: string;
         price_list_name: string;
+        is_margin_default: boolean;
         price: string;
         iva_percentage: string;
         ieps_percentage: string;
@@ -908,6 +1011,7 @@ export class InventoryService {
       Array<{
         price_list_id: string;
         price_list_name: string;
+        is_margin_default: boolean;
         price: string;
         iva_percentage: string;
         ieps_percentage: string;
@@ -926,6 +1030,7 @@ export class InventoryService {
       .where('pp.product_id IN (:...productIds)', { productIds })
       .andWhere('product_uom.uom_catalog_id IN (:...uomIds)', { uomIds })
       .andWhere('price_list.is_active = :isActive', { isActive: true })
+      // La primera queda la lista activa más antigua. Márgenes prefieren is_margin_default.
       .orderBy('price_list.created_at', 'ASC')
       .addOrderBy('pp.created_at', 'ASC')
       .getMany();
@@ -939,6 +1044,9 @@ export class InventoryService {
       options.push({
         price_list_id: price.price_list_id,
         price_list_name: price.price_list?.name ?? 'N/A',
+        is_margin_default:
+          price.price_list?.is_margin_default === true
+          || Number(price.price_list?.is_margin_default) === 1,
         price: Number(price.price ?? 0).toFixed(2),
         iva_percentage: Number(price.iva_percentage ?? 0).toFixed(2),
         ieps_percentage: Number(price.ieps_percentage ?? 0).toFixed(2),
@@ -1490,7 +1598,7 @@ export class InventoryService {
           this.hasAvailableStock(batch.available_quantity),
         );
         const pricingOptions = priceMap.get(`${row.product_id}|${row.uom_id}`) || [];
-        const suggestedPrice = pricingOptions[0] || null;
+        const suggestedPrice = pickMarginPriceOption(pricingOptions);
         const photoKey = row.product_photo ?? null;
         const priceInput: MarginPriceInput = {
           amount: suggestedPrice ? this.parseDecimal(suggestedPrice.price) : null,
@@ -1533,7 +1641,7 @@ export class InventoryService {
           suggested_unit_price: suggestedPrice?.price ?? null,
           suggested_iva_percentage: suggestedPrice?.iva_percentage ?? null,
           suggested_ieps_percentage: suggestedPrice?.ieps_percentage ?? null,
-          pricing_options: pricingOptions,
+          pricing_options: pricingOptions.map(({ is_margin_default: _marginDefault, ...option }) => option),
           total_available_quantity: this.formatQty(this.parseDecimal(row.total_available)),
           total_initial_quantity: this.formatQty(this.parseDecimal(row.total_initial)),
           total_batches: batches.length,
@@ -2063,7 +2171,7 @@ export class InventoryService {
 
     const uomIds = Array.from(uomNames.keys());
     const [priceMap, configLines] = await Promise.all([
-      uomIds.length ? this.buildPriceMap([productId], uomIds) : Promise.resolve(new Map()),
+      this.buildPriceMap([productId], uomIds),
       this.loadMarginConfigLines([productId]),
     ]);
 
@@ -2087,7 +2195,7 @@ export class InventoryService {
         const uomName = uomNames.get(uomId) || 'Unidad';
         const stocked = rowsByUom.get(uomId) ?? [];
         const lines = configLines.byProductUom.get(`${productId}|${uomId}`) ?? [];
-        const suggested = priceMap.get(`${productId}|${uomId}`)?.[0];
+        const suggested = pickMarginPriceOption(priceMap.get(`${productId}|${uomId}`));
         const priceInput: MarginPriceInput = {
           amount: suggested ? this.parseDecimal(suggested.price) : null,
           listName: suggested?.price_list_name ?? null,
@@ -2141,9 +2249,9 @@ export class InventoryService {
     if (!productId || !uomId) {
       return { amount: null, listName: null };
     }
-    const suggested = (await this.buildPriceMap([productId], [uomId])).get(
-      `${productId}|${uomId}`,
-    )?.[0];
+    const suggested = pickMarginPriceOption(
+      (await this.buildPriceMap([productId], [uomId])).get(`${productId}|${uomId}`),
+    );
     if (!suggested) {
       return { amount: null, listName: null };
     }

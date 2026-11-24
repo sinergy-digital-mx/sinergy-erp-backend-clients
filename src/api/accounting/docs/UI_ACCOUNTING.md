@@ -6,6 +6,16 @@ Guía para Pollux: módulo **Cobranza / Contabilidad** con cuatro pestañas. Los
 
 ## Historial
 
+### 2026-11-24
+La pestaña del día se llama **Caja del día** y la del periodo **Cobros**. Al pasar el cursor, cada pestaña explica qué lista. Sucursal, periodo y actualizar quedan a la misma altura y con el mismo borde en todas las vistas.
+
+### 2026-11-23
+La pestaña queda en la URL (`tab`). Al recargar se conserva, con el periodo (`period`, `from`, `to`), la búsqueda y los filtros de esa vista. Junto al periodo hay **Actualizar**.
+
+Cobranza POS: `pq` búsqueda, `ctype` (`walk_in` | `invoiced`), `pay` (efectivo, tarjeta, transferencia, cheque, crédito), `ship=1` envío y `ppage`. Cuentas por pagar: `aq`, `acur`, `apage`. Cuentas por cobrar: `rq`, `rcur`, `rpage`. Rep. Vent. Cost. Prom.: `vq`, `vpage`. Flujo de deuda: `dq`, `dview`, `dperiod`, `dfrom`, `dto`, `dcust`, `dname`, `dpage`. Factura público en general: `month`.
+
+Cobranza POS: las tarjetas de forma de pago muestran solo ventas y monto. Ya no muestran el ticket promedio.
+
 ### 2026-11-09
 Cuentas por pagar y cuentas por cobrar filtran por nuestra razón social (`fiscal_configuration_id`). Vacío significa todas. El detalle y el Excel respetan esa razón. Flujo de deuda ya no usa sucursal.
 
@@ -23,7 +33,7 @@ Cuentas por cobrar: el periodo solo ofrece **Mes** y **Rango**. Hoy y Semana no 
 
 Anticipo y crédito: el anticipo no usa el crédito del cliente. En Cobranza POS la fila de anticipo muestra en **Total** y en **Pendiente** lo que falta por cobrar, y en **Anticipo** lo ya cobrado. Solo una orden a crédito descuenta el disponible. En caja, cada anticipo del corte también muestra lo pendiente.
 
-Cobranza POS: la pestaña vuelve a listar todas las ventas cobradas del periodo, con su forma de pago (efectivo, transferencia, tarjeta, cheque o mixto, y cuáles). De crédito solo entran los abonos ya cobrados; el cargo que sigue pendiente no sale. Arriba van las tarjetas de Transferencias, Efectivo, Tarjetas, Cheques y Crédito (ventas, monto y ticket). En la fila de Todas y Facturadas van Envío, Efectivo, Tarjeta, Transferencia, Cheque y Crédito, cada uno con su conteo y monto. Envío filtra `for_shipping`. Las ve quien abre Cobranza (`Accounting:Read`), sin otro permiso. `credit_scope=paid`. El detalle de la terminal en Puntos de venta sigue mostrando todos los cobros, incluido el cargo a crédito. `credit_only=true` queda para el filtro de clientes con crédito habilitado.
+Cobranza POS: la pestaña vuelve a listar todas las ventas cobradas del periodo, con su forma de pago (efectivo, transferencia, tarjeta, cheque o mixto, y cuáles). De crédito solo entran los abonos ya cobrados; el cargo que sigue pendiente no sale. Arriba van las tarjetas de Transferencias, Efectivo, Tarjetas, Cheques y Crédito (ventas y monto). En la fila de Todas y Facturadas van Envío, Efectivo, Tarjeta, Transferencia, Cheque y Crédito, cada uno con su conteo y monto. Envío filtra `for_shipping`. Las ve quien abre Cobranza (`Accounting:Read`), sin otro permiso. `credit_scope=paid`. El detalle de la terminal en Puntos de venta sigue mostrando todos los cobros, incluido el cargo a crédito. `credit_only=true` queda para el filtro de clientes con crédito habilitado.
 
 La pestaña de Cobranza se llama **Factura público en general**.
 
@@ -34,7 +44,7 @@ Facturas globales: por sucursal y mes. El selector es la sucursal y **Generar fa
 Facturas globales: pestaña nueva en Cobranza. Por mes lista las órdenes de clientes sin factura de ingreso vigente (folio, fecha, cliente, estado, totales y forma de pago; si es mixto, las dos formas). Generar facturas timbra un solo CFDI a público en general. Mientras siga vigente no se puede emitir otra de esa sucursal. Al cancelarse, las órdenes vuelven y se puede timbrar otra. Detalle en `UI_GLOBAL_INVOICES.md`.
 
 ### 2026-11-02
-Cobranza POS: junto a Todas, Público en General y Facturadas van filtros con ícono de Efectivo, Transferencia, Tarjeta, Cheque y Crédito (`payment_method`). Las columnas de arriba hacen el mismo filtro y Crédito entra en `summary.by_payment_method.credit` (ventas, monto, ticket). Un mixto cuenta en cada forma con importe. El Excel respeta el filtro.
+Cobranza POS: junto a Todas, Público en General y Facturadas van filtros con ícono de Efectivo, Transferencia, Tarjeta, Cheque y Crédito (`payment_method`). Las columnas de arriba hacen el mismo filtro y Crédito entra en `summary.by_payment_method.credit` (ventas y monto). Un mixto cuenta en cada forma con importe. El Excel respeta el filtro.
 
 Puntos de venta: `summary.orders_for_shipping`, `summary.amount_for_shipping` y `summary.orders_for_shipping_pending` cuentan las órdenes del día con `for_shipping`. Cada fila de `entered_orders` trae `for_shipping`. En Cobranza POS la fila y el Excel traen la misma bandera (`Para envío`: Sí / No).
 
@@ -108,7 +118,7 @@ Pestaña **Rep. Vent. Cost. Prom** (`average-cost`). Reporte de ventas a costo p
 ├─────────────────────────────────────────────────────────────────┤
 │  Entraron (n · monto)   Cobrado   Por cobrar                    │
 ├─────────────────────────────────────────────────────────────────┤
-│  [ Puntos de venta ] [ Cobranza POS ] [ CxP ] [ CxC ]           │
+│  [ Caja del día ] [ Cobros ] [ CxP ] [ CxC ]                    │
 │                                          [ Flujo de deuda ]     │
 ├─────────────────────────────────────────────────────────────────┤
 │  Órdenes que entraron                          Card de cobranza │
@@ -124,7 +134,7 @@ Reutilizar el **mismo componente** que ya usa el reporte de ventas Maderería Zo
 | Hoy | `today` | Día calendario `America/Tijuana`, de 00:00 a 23:59. No usa el día UTC del servidor ni `new Date('YYYY-MM-DD')`. |
 | Semana | `week` | Lunes de esa misma zona – hoy |
 | Mes | `month` | Día 1 del mes – hoy, en esa misma zona |
-| Rango / Otro día | `range` | `date_from` y `date_to` como `YYYY-MM-DD` de calendario. En Puntos de venta ambos son el mismo día. |
+| Rango / Otro día | `range` | `date_from` y `date_to` como `YYYY-MM-DD` de calendario. En Caja del día ambos son el mismo día. |
 
 En **Cuentas por cobrar** la barra solo muestra Mes y Rango.
 
@@ -138,7 +148,7 @@ En **Cuentas por cobrar** la barra solo muestra Mes y Rango.
 | Valor | `id` del branch (UUID) → enviar como `billing_branch_id` |
 | Label | `display_name` o `{city} ({code})` |
 
-**Obligatorio** en Tab 1 (Puntos de venta), Cobranza POS y Rep. Vent. Cost. Prom. Opcional en Cuentas por cobrar.
+**Obligatorio** en Tab 1 (Caja del día), Cobros y Rep. Vent. Cost. Prom. Opcional en Cuentas por cobrar.
 
 Al cambiar periodo o sucursal → recargar la tab activa.
 
@@ -222,7 +232,7 @@ GET /api/tenant/billing/branches
 
 ---
 
-### Tab 1 — Puntos de venta
+### Tab 1 — Caja del día
 
 #### 1A) Resumen (cargar al entrar a la tab)
 
@@ -634,7 +644,7 @@ const collections = await fetch(
 
 ---
 
-## Tab 1 — Puntos de venta
+## Tab 1 — Caja del día
 
 ### API
 
@@ -875,7 +885,7 @@ openCollectionsModal('invoiced');
 
 ---
 
-## Tab — Cobranza POS (todas las órdenes por sucursal)
+## Tab — Cobros (todas las órdenes por sucursal)
 
 Vista de listado (no modal). Sucursal obligatoria, **Descargar Excel**. El periodo se aplica a la **fecha de cobro** (`America/Tijuana`), no a la fecha del corte: un cobro del 5 de octubre no entra en el rango del 29 aunque el corte siga abierto desde ese día. `shift_date` viaja en la fila para mostrarlo cuando no coincide con el cobro.
 
@@ -907,11 +917,11 @@ GET /api/tenant/accounting/pos-collections
 
 `summary` (ignora chip y búsqueda): `orders_collected`, `amount_collected`, `walk_in_count`, `invoiced_count`, `by_payment_method`. `filtered_amount` respeta chip y búsqueda. `filters_applied.date_from` / `date_to` es el rango que aplicó el servidor. `data[i].billing_branch`: `{ id, code, city, label }` de la venta (si no hay, almacén y luego sucursal del corte).
 
-`by_payment_method` (2026-11-03, `credit_scope=paid`): `{ cash, transfer, card, check, credit }`. Cada uno: `orders`, `amount` (MXN) y `ticket`. Efectivo, transferencia, tarjeta y cheque suman el importe de esa forma, incluidos los abonos pagados así. Un mixto reparte el monto. Crédito cuenta solo abonos ya cobrados (el mismo importe también está en la forma con que se pagó). El cargo a crédito sin abono no entra. Las tarjetas las muestra la pestaña a quien tiene `Accounting:Read`.
+`by_payment_method` (2026-11-23, `credit_scope=paid`): `{ cash, transfer, card, check, credit }`. Cada uno: `orders` y `amount` (MXN). Ya no trae `ticket`. Efectivo, transferencia, tarjeta y cheque suman el importe de esa forma, incluidos los abonos pagados así. Un mixto reparte el monto. Crédito cuenta solo abonos ya cobrados (el mismo importe también está en la forma con que se pagó). El cargo a crédito sin abono no entra. Las tarjetas las muestra la pestaña a quien tiene `Accounting:Read`.
 
 `payment_method` (opcional): `cash | transfer | card | check | credit`. Filtra la lista, `filtered_amount` y el Excel. `summary` no cambia: las columnas y los conteos de los chips siguen siendo del periodo completo. Sin valor, entran todas las formas. Volver a pulsar la forma activa la quita.
 
-**UI:** tarjetas de Efectivo, Transferencia, Tarjeta, Cheque y Crédito (Ventas, Monto, Ticket) y chips Todas / Público en General / Facturadas. Pulsar una tarjeta filtra `payment_method`; volver a pulsarla lo quita. Buscador y tabla: folio, fechas, sucursal, cliente, vendedor y cajero, pago con badge. Si es mixto, debajo van las formas (`payment_breakdown_label`). Si la fila es un abono, lleva la etiqueta Abono y `total` es el importe de ese pago; `id` es el pago y `sales_order_id` abre la orden. Click folio → detalle de OV. Si `total` es mayor a 0, el ojo abre el ticket. `payment_date` del abono es el día de ese pago.
+**UI:** tarjetas de Efectivo, Transferencia, Tarjeta, Cheque y Crédito (Ventas y Monto) y chips Todas / Público en General / Facturadas. Pulsar una tarjeta filtra `payment_method`; volver a pulsarla lo quita. Buscador y tabla: folio, fechas, sucursal, cliente, vendedor y cajero, pago con badge. Si es mixto, debajo van las formas (`payment_breakdown_label`). Si la fila es un abono, lleva la etiqueta Abono y `total` es el importe de ese pago; `id` es el pago y `sales_order_id` abre la orden. Click folio → detalle de OV. Si `total` es mayor a 0, el ojo abre el ticket. `payment_date` del abono es el día de ese pago.
 
 Pago (2026-11-02): el badge usa `payment_method_label`. Si el cobro de POS Caja es mixto, debajo va `payment_breakdown_label` (`Efectivo + Tarjeta`, `Tarjeta + Cheque`, `Tarjeta + Tarjeta`, etc.). Una sola forma no repite el texto. El Excel escribe ese detalle en Método de pago.
 

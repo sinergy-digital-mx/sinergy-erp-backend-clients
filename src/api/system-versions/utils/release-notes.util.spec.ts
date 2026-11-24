@@ -3,6 +3,7 @@ import {
   changesFromSubjects,
   filterChangesForModules,
   mergeReleaseChanges,
+  moduleLabel,
   selectReleaseSubjects,
   summarizeChangedPaths,
 } from './release-notes.util';
@@ -100,6 +101,50 @@ describe('release notes', () => {
       'src/api/whatsapp/whatsapp.module.ts',
       'package-lock.json',
     ])).toEqual(messages.slice(0, 2));
+  });
+
+  it('publica la nota del módulo y la oculta si esa organización no lo tiene', () => {
+    expect(filterChangesForModules([
+      { scope: 'frontend', module: 'customers', message: 'El RFC queda en mayúsculas.' },
+      { scope: 'frontend', module: 'contracts', message: 'Se ajustó el enganche.' },
+      { scope: 'frontend', module: 'platform', message: 'El menú ya no se traba al abrir.' },
+    ], ['customers', 'system-versions'])).toEqual([
+      {
+        scope: 'frontend',
+        module: 'customers',
+        moduleLabel: 'Clientes',
+        message: 'El RFC queda en mayúsculas.',
+      },
+      {
+        scope: 'frontend',
+        module: 'platform',
+        moduleLabel: 'Plataforma',
+        message: 'El menú ya no se traba al abrir.',
+      },
+    ]);
+  });
+
+  it('el deploy arma la nota desde el changelog, con módulo y sin el texto genérico', () => {
+    expect(moduleLabel('sales-orders')).toBe('Órdenes de venta');
+    expect(notesJs.moduleLabel('sales-orders')).toBe(moduleLabel('sales-orders'));
+    expect(notesJs.inferModule('Órdenes de venta: se quitó la card Surtidas.')).toBe('sales-orders');
+    expect(notesJs.changesFromChangelogEntries([
+      { scope: 'both', module: 'customers', message: 'Clientes: el RFC queda en mayúsculas.' },
+      { scope: 'frontend', message: 'Órdenes de venta: se quitó la card Surtidas.' },
+    ])).toEqual([
+      {
+        scope: 'frontend',
+        module: 'customers',
+        moduleLabel: 'Clientes',
+        message: 'El RFC queda en mayúsculas.',
+      },
+      {
+        scope: 'frontend',
+        module: 'sales-orders',
+        moduleLabel: 'Órdenes de venta',
+        message: 'Se quitó la card Surtidas.',
+      },
+    ]);
   });
 
   it('oculta cambios de módulos que la organización no tiene activos', () => {

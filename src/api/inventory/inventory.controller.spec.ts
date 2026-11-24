@@ -56,7 +56,12 @@ describe('InventoryController', () => {
       getBatchesFilename: jest.fn(),
       getSummaryFilename: jest.fn(),
     };
-    controller = new InventoryController(service, mockExportService as any);
+    controller = new InventoryController(
+      service,
+      mockExportService as any,
+      {} as any,
+      {} as any,
+    );
   });
 
   it('should be defined', () => {

@@ -2,6 +2,7 @@
 
 ## Cambios
 
+- 2026-11-24: Las cartas del resumen, incluida Deuda, muestran pesos y dólares en renglones separados. Ver `UI_PURCHASE_ORDER_STATS.md`.
 - 2026-11-10: Al abrir el listado, **Razón social** y **Sucursal** quedan en la sucursal principal del usuario. Limpiar filtros muestra todas.
 - 2026-11-02: El pedimento de la OC se valida con 15 dígitos y se guarda con la máscara `26  47  3807  6000123`.
 - 2026-10-19: La columna **Total** usa `payable_total`. Con costo real es el total factura de la moneda de pago (lo que se le paga al proveedor). Sin costo real es el total de catálogo: recibido si la OC está Recibida, solicitado si no.

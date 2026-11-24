@@ -235,6 +235,13 @@ export class SalesOrder {
   })
   pos_stage: SalesOrderPosStage | null;
 
+  /** Heartbeat de POS Caja mientras el folio está abierto en el cobro. */
+  @Column({ type: 'timestamp', nullable: true })
+  pos_caja_opened_at: Date | null;
+
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  pos_caja_opened_by: string | null;
+
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'collected_by_user_id' })
   collected_by_user: User;

@@ -4,6 +4,68 @@ const fs = require('fs');
 const path = require('path');
 
 const FALLBACK_RELEASE_MESSAGE = 'Actualización de la plataforma.';
+
+const RELEASE_MODULES = {
+  customers: { label: 'Clientes', codes: ['customers'] },
+  crm: { label: 'CRM', codes: ['leads'] },
+  'purchase-orders': { label: 'Órdenes de compra', codes: ['purchase_orders', 'purchase_order_real_cost'] },
+  vendors: { label: 'Proveedores', codes: ['vendors'] },
+  'sales-orders': { label: 'Órdenes de venta', codes: ['sales_orders'] },
+  sales: { label: 'Ventas', codes: ['sales_orders', 'pos', 'pos-shifts', 'pos-configuration', 'global_discounts'] },
+  quotations: { label: 'Cotizaciones', codes: ['quotations'] },
+  logistics: { label: 'Logística', codes: ['gps_tracking', 'shippings', 'trucks'] },
+  products: { label: 'Productos', codes: ['products', 'categories', 'subcategories', 'price_updates'] },
+  inventory: { label: 'Inventario', codes: ['inventory', 'madereria_inventory_import'] },
+  pos: { label: 'POS Ventas', codes: ['pos', 'pos-shifts', 'pos-configuration'] },
+  'pos-cash': { label: 'POS Caja', codes: ['pos', 'pos-shifts', 'pos-configuration'] },
+  accounting: { label: 'Contabilidad', codes: ['accounting'] },
+  billing: { label: 'Facturación', codes: ['billing', 'electronic_invoicing'] },
+  employees: { label: 'Empleados', codes: ['employees', 'employee_portal'] },
+  contracts: { label: 'Contratos', codes: ['contracts', 'contract_documents'] },
+  whatsapp: { label: 'WhatsApp', codes: ['whatsapp'] },
+  settings: { label: 'Configuración', codes: ['settings', 'system-versions'] },
+  platform: { label: 'Plataforma', codes: [] },
+};
+
+const PREFIX_RULES = [
+  [/^pos caja\b/i, 'pos-cash'],
+  [/^pos ventas\b/i, 'pos'],
+  [/^inventario\b/i, 'inventory'],
+  [/^órdenes de venta\b|^ordenes de venta\b/i, 'sales-orders'],
+  [/^órdenes de compra\b|^ordenes de compra\b/i, 'purchase-orders'],
+  [/^cotizaciones\b/i, 'quotations'],
+  [/^cobranza\b/i, 'accounting'],
+  [/^expediente de empleado\b|^empleados?\b/i, 'employees'],
+  [/^clientes\b/i, 'customers'],
+  [/^facturaci[oó]n\b/i, 'billing'],
+  [/^whatsapp\b/i, 'whatsapp'],
+  [/^contratos?\b/i, 'contracts'],
+  [/^productos\b/i, 'products'],
+  [/^proveedores\b/i, 'vendors'],
+  [/^log[ií]stica\b/i, 'logistics'],
+  [/^crm\b/i, 'crm'],
+  [/^configuraci[oó]n\b/i, 'settings'],
+];
+
+const KEYWORD_RULES = [
+  [/m[aá]scara de color|logo del men[uú]|degradado del men[uú]|\blogo\b|\btemplate\b/i, 'settings'],
+  [/pos caja|ventas en caja/i, 'pos-cash'],
+  [/carrito de pos|descuento de precio en el carrito/i, 'pos'],
+  [/órdenes de venta|ordenes de venta|detalle de la orden/i, 'sales-orders'],
+  [/órdenes de compra|ordenes de compra/i, 'purchase-orders'],
+  [/cotizaci[oó]n/i, 'quotations'],
+  [/inventario/i, 'inventory'],
+  [/empleado/i, 'employees'],
+  [/carta porte|chofer|cami[oó]n|\benv[ií]o\b/i, 'logistics'],
+  [/informaci[oó]n fiscal del cliente|editar cliente|\bclientes?\b|\brfc\b/i, 'customers'],
+  [/whatsapp/i, 'whatsapp'],
+  [/contrato/i, 'contracts'],
+  [/\bproducto/i, 'products'],
+  [/proveedor/i, 'vendors'],
+  [/\bcrm\b|\bleads?\b/i, 'crm'],
+  [/factur|cfdi|timbrar/i, 'billing'],
+  [/contabil|cobranza/i, 'accounting'],
+];
 const SKIP_SUBJECT = /^(deploying version\b|deploy backend build\b|deploy frontend\b|merge\b|merged\b)/i;
 const AREA_RULES = [
   [/system-versions|app-update-dialog|app-update\.service|generate-app-version|build-with-version|push-deploy|deploy-both|record-system-version|release-notes/, 'Cambios en versiones'],
@@ -156,10 +218,16 @@ function sanitizeReleaseChanges(changes, limit = 80) {
     if (!message) {
       continue;
     }
-    sanitized.push({
+    const change = {
       scope: item.scope === 'backend' ? 'backend' : 'frontend',
       message: message.slice(0, 240),
-    });
+    };
+    const moduleCode = normalizeModuleCode(item.module);
+    if (moduleCode) {
+      change.module = moduleCode;
+      change.moduleLabel = moduleLabel(moduleCode);
+    }
+    sanitized.push(change);
     if (sanitized.length >= max) {
       break;
     }
@@ -176,7 +244,7 @@ function mergeReleaseChanges(groups) {
   const seen = new Set();
 
   for (const item of source) {
-    const key = item.message.toLowerCase();
+    const key = `${item.module || ''}|${item.message.toLowerCase()}`;
     if (seen.has(key)) {
       continue;
     }
@@ -336,6 +404,74 @@ function collectChanges(repoDir, scope) {
   return messages.map((message) => ({ scope: safeScope, message }));
 }
 
+function normalizeModuleCode(value) {
+  const code = String(value || '').trim().toLowerCase();
+  if (!code || !Object.prototype.hasOwnProperty.call(RELEASE_MODULES, code)) {
+    return null;
+  }
+  return code;
+}
+
+function moduleLabel(moduleCode) {
+  if (!moduleCode) return null;
+  return RELEASE_MODULES[moduleCode]?.label || null;
+}
+
+function inferModule(message) {
+  const text = String(message || '').trim();
+  for (const [pattern, code] of PREFIX_RULES) {
+    if (pattern.test(text)) return code;
+  }
+  for (const [pattern, code] of KEYWORD_RULES) {
+    if (pattern.test(text)) return code;
+  }
+  return 'platform';
+}
+
+function stripLeadingModuleLabel(message, moduleCode) {
+  const label = moduleLabel(moduleCode);
+  if (!label) return message;
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const stripped = message.replace(new RegExp(`^${escaped}\\s*[:\\-—]\\s*`, 'i'), '').trim();
+  if (!stripped) return message;
+  return stripped.charAt(0).toUpperCase() + stripped.slice(1);
+}
+
+function changesFromChangelogEntries(entries) {
+  const changes = [];
+  for (const entry of entries || []) {
+    const message = String(entry?.message || '').replace(/\s+/g, ' ').trim();
+    if (!message) continue;
+    const moduleCode = normalizeModuleCode(entry?.module) || inferModule(message);
+    changes.push({
+      scope: entry?.scope === 'backend' ? 'backend' : 'frontend',
+      module: moduleCode,
+      message: stripLeadingModuleLabel(message, moduleCode).slice(0, 240),
+    });
+  }
+  return mergeReleaseChanges([changes]);
+}
+
+function applyChangelogToReleases(releases, entries) {
+  const byVersion = new Map();
+  for (const entry of entries || []) {
+    if (entry?.status !== 'shipped') continue;
+    const version = String(entry?.version || '');
+    if (!version) continue;
+    if (!byVersion.has(version)) byVersion.set(version, []);
+    byVersion.get(version).push(entry);
+  }
+
+  return (releases || []).map((release) => {
+    const notes = byVersion.get(String(release?.version || ''));
+    if (!notes?.length) return release;
+    return {
+      ...release,
+      changes: changesFromChangelogEntries(notes),
+    };
+  });
+}
+
 module.exports = {
   FALLBACK_RELEASE_MESSAGE,
   selectReleaseSubjects,
@@ -348,4 +484,11 @@ module.exports = {
   collectSubjects,
   collectChanges,
   writeReleaseSnapshot,
+  RELEASE_MODULES,
+  normalizeModuleCode,
+  moduleLabel,
+  inferModule,
+  stripLeadingModuleLabel,
+  changesFromChangelogEntries,
+  applyChangelogToReleases,
 };

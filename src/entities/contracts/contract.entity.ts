@@ -139,6 +139,14 @@ export class Contract {
   })
   status: string;
 
+  /** cash = contado, sin mensualidades. financed = saldo en pagos de contrato. */
+  @Column({
+    type: 'enum',
+    enum: ['cash', 'financed'],
+    default: 'financed',
+  })
+  sale_type: 'cash' | 'financed';
+
   @Column({ type: 'text', nullable: true })
   notes: string;
 

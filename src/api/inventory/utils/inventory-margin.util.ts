@@ -679,3 +679,11 @@ export function explainConfigurationOnly(
     groups,
   };
 }
+
+/** Precio de márgenes: la lista marcada, o la activa más antigua si esa no tiene precio. */
+export function pickMarginPriceOption<T extends { is_margin_default?: boolean }>(
+  options: T[] | null | undefined,
+): T | null {
+  if (!options?.length) return null;
+  return options.find((option) => option.is_margin_default) ?? options[0];
+}

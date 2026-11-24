@@ -21,6 +21,7 @@ import {
   formatPayerContactSummary,
   PayerContact,
 } from '../utils/pos-payer-contact.util';
+import { PosCardPayment, sharedCardKind } from '../utils/pos-card-payments.util';
 
 export interface RecordAdvanceShiftPaymentInput {
   tenantId: string;
@@ -36,6 +37,7 @@ export interface RecordAdvanceShiftPaymentInput {
   amountTransferMxn?: number;
   amountCardMxn?: number;
   amountCheckMxn?: number;
+  cardPayments?: PosCardPayment[] | null;
   payer?: PayerContact | null;
 }
 
@@ -87,6 +89,8 @@ export class AdvanceShiftPaymentService {
       amount_cash_mxn: splits.cashMxn,
       amount_transfer_mxn: splits.transferMxn,
       amount_card_mxn: splits.cardMxn,
+      card_kind: sharedCardKind(input.cardPayments ?? []),
+      card_payments: input.cardPayments?.length ? input.cardPayments : null,
       amount_check_mxn: splits.checkMxn,
       transfer_payer_name: input.payer?.transferPayerName ?? null,
       transfer_payer_business_name: input.payer?.transferPayerBusinessName ?? null,

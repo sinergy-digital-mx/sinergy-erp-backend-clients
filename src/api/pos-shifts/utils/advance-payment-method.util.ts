@@ -5,6 +5,8 @@ export interface AdvancePaymentAmounts {
   transferMxn: number;
   cardMxn: number;
   checkMxn: number;
+  /** 28 débito, 04 crédito. Si falta, la tarjeta usa 04. */
+  cardFormaPago?: '04' | '28' | null;
 }
 
 export function paymentMethodFromFormaPago(
@@ -42,10 +44,23 @@ export function formaPagoFromPaymentMethod(
   }
 }
 
+export function cardFormaPagoFromKinds(
+  kinds: Array<string | null | undefined>,
+): '04' | '28' {
+  const known = kinds.filter((kind) => kind === 'debit' || kind === 'credit');
+  if (known.length > 0 && known.every((kind) => kind === 'debit')) {
+    return '28';
+  }
+  return '04';
+}
+
 export function formaPagoFromAdvancePayment(
   method: string | undefined | null,
   amounts?: AdvancePaymentAmounts,
 ): string | null {
+  if (method === PosSalePaymentMethod.CARD) {
+    return amounts?.cardFormaPago === '28' ? '28' : '04';
+  }
   if (method === PosSalePaymentMethod.MIXED) {
     return predominantFormaPago(amounts);
   }
@@ -61,7 +76,7 @@ export function predominantFormaPago(
   const parts = [
     { code: '01', amount: Number(amounts.cashMxn || 0) },
     { code: '03', amount: Number(amounts.transferMxn || 0) },
-    { code: '04', amount: Number(amounts.cardMxn || 0) },
+    { code: amounts.cardFormaPago === '28' ? '28' : '04', amount: Number(amounts.cardMxn || 0) },
     { code: '02', amount: Number(amounts.checkMxn || 0) },
   ];
   const best = parts.reduce((current, part) =>

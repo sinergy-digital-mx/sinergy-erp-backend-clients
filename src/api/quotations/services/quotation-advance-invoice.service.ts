@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   NotFoundException,
@@ -15,9 +16,15 @@ import { AdvanceCfdiService } from '../../electronic-invoicing/services/advance-
 import { ElectronicInvoiceService } from '../../electronic-invoicing/services/electronic-invoice.service';
 import { fiveDigitPostalCode } from '../../electronic-invoicing/utils/advance-cfdi.util';
 import { PosShiftsService } from '../../pos-shifts/pos-shifts.service';
-import { isPosStageInCaja } from '../../../entities/sales-orders/sales-order-pos-stage.enum';
+import { PosCajaRecallHub } from '../../pos-shifts/pos-caja-recall.hub';
+import {
+  SalesOrderPosStage,
+  isPosStageInCaja,
+} from '../../../entities/sales-orders/sales-order-pos-stage.enum';
+import { PosCardPayment } from '../../pos-shifts/utils/pos-card-payments.util';
 import { AdvanceShiftPaymentService } from '../../pos-shifts/services/advance-shift-payment.service';
 import {
+  cardFormaPagoFromKinds,
   formaPagoFromAdvancePayment,
   paymentMethodFromFormaPago,
 } from '../../pos-shifts/utils/advance-payment-method.util';
@@ -47,6 +54,8 @@ export class QuotationAdvanceInvoiceService {
     @Inject(forwardRef(() => PosShiftsService))
     private readonly posShiftsService: PosShiftsService,
     private readonly advancePayments: AdvanceShiftPaymentService,
+    @Inject(forwardRef(() => PosCajaRecallHub))
+    private readonly cajaRecallHub: PosCajaRecallHub,
   ) {}
 
   async collectionPreview(id: string, tenantId: string) {
@@ -143,8 +152,8 @@ export class QuotationAdvanceInvoiceService {
       );
     }
     if (!isPosStageInCaja(quotation.pos_stage)) {
-      throw new BadRequestException(
-        'La cotización está en ventas. Debe enviarse a caja antes de cobrar',
+      throw new ConflictException(
+        this.cajaRecallHub.messageFor(tenantId, 'advance', quotation.id, quotation.folio),
       );
     }
     const readiness = getFiscalInvoiceReadiness(quotation.customer);
@@ -183,6 +192,7 @@ export class QuotationAdvanceInvoiceService {
       transferMxn: payment.amountTransferMxn,
       cardMxn: payment.amountCardMxn,
       checkMxn,
+      cardFormaPago: cardFormaPagoFromKinds(payment.cardPayments.map((item) => item.card_kind)),
     });
     if (!formaPago) {
       throw new BadRequestException(
@@ -201,7 +211,7 @@ export class QuotationAdvanceInvoiceService {
       quotation.customer?.fiscal_rfc,
       quotation.customer?.fiscal_person_type,
     );
-    await this.stamp(
+    const saved = await this.stamp(
       id,
       tenantId,
       userId,
@@ -219,6 +229,7 @@ export class QuotationAdvanceInvoiceService {
         amountTransferMxn: payment.amountTransferMxn,
         amountCardMxn: payment.amountCardMxn,
         amountCheckMxn: checkMxn,
+        cardPayments: payment.cardPayments,
         payer: payment.payer,
       },
     );
@@ -231,6 +242,7 @@ export class QuotationAdvanceInvoiceService {
       change_cash_mxn: payment.changeCashMxn,
       change_cash_usd: payment.changeCashUsd,
       usd_exchange_rate: payment.usdExchangeRate,
+      invoice_id: saved.id,
     };
   }
 
@@ -245,10 +257,16 @@ export class QuotationAdvanceInvoiceService {
       amountTransferMxn?: number;
       amountCardMxn?: number;
       amountCheckMxn?: number;
+      cardPayments?: PosCardPayment[];
       payer?: PayerContact;
     },
   ) {
     const quotation = await this.requireQuotation(id, tenantId);
+    if (quotation.pos_stage === SalesOrderPosStage.Ventas) {
+      throw new ConflictException(
+        this.cajaRecallHub.messageFor(tenantId, 'advance', quotation.id, quotation.folio),
+      );
+    }
     if (!quotation.fiscal_configuration?.advance_invoicing_enabled) {
       throw new BadRequestException(
         'Esta razón social no tiene activada la factura de anticipo',
@@ -318,6 +336,7 @@ export class QuotationAdvanceInvoiceService {
       amountTransferMxn: collected?.amountTransferMxn,
       amountCardMxn: collected?.amountCardMxn,
       amountCheckMxn: collected?.amountCheckMxn,
+      cardPayments: collected?.cardPayments,
       payer: collected?.payer,
       documentFolio: quotation.folio,
       quotationId: quotation.id,

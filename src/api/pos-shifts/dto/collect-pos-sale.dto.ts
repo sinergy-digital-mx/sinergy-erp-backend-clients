@@ -5,6 +5,7 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -30,6 +31,11 @@ export class CollectCardPaymentDto {
   @IsString()
   @MaxLength(120)
   reference?: string;
+
+  @ApiProperty({ required: false, enum: ['debit', 'credit'], description: 'Débito o crédito' })
+  @IsOptional()
+  @IsIn(['debit', 'credit'])
+  card_kind?: 'debit' | 'credit';
 }
 
 export class CollectPosSaleDto {
@@ -134,6 +140,15 @@ export class CollectPosSaleDto {
   @IsString()
   @MaxLength(120)
   card_reference?: string;
+
+  @ApiProperty({
+    required: false,
+    enum: ['debit', 'credit'],
+    description: 'Débito o crédito. Obligatorio si hay un solo cargo de tarjeta.',
+  })
+  @IsOptional()
+  @IsIn(['debit', 'credit'])
+  card_kind?: 'debit' | 'credit';
 
   @ApiProperty({
     required: false,

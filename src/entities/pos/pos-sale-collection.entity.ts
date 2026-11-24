@@ -103,6 +103,10 @@ export class PosSaleCollection {
   @Column({ type: 'varchar', length: 120, nullable: true })
   card_reference: string | null;
 
+  /** Débito o crédito cuando todas las tarjetas del cobro son del mismo tipo. */
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  card_kind: 'debit' | 'credit' | null;
+
   @Column({ type: 'varchar', length: 120, nullable: true })
   card_payer_name: string | null;
 
@@ -113,6 +117,7 @@ export class PosSaleCollection {
   card_payments: Array<{
     amount_mxn: number;
     reference: string | null;
+    card_kind?: 'debit' | 'credit' | null;
   }> | null;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })

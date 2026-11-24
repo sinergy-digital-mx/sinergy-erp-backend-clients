@@ -2,6 +2,8 @@
 
 ## Historial
 
+- 2026-11-19: El alta dice **Crear**. **Métricas** es texto junto al título, no un botón. El título de Contratos es del tamaño del resto de la barra.
+- 2026-11-19: El badge del número es el tipo de venta: **Contado**, **Financiado E + F** o **Financiado F**. Ver `UI_CONTRACT_SALE_TYPE.md`. Enganche / Contrato queda solo en el siguiente pago.
 - 2026-10-23: En **Siguiente pago** la UI pinta `next_payment_amount` y la fecha corta `dd/MM/yyyy`, tanto en fase contrato como enganche.
 - 2026-10-23: Cada fila indica fase **Enganche** / **Contrato**. Si el siguiente pago es de enganche, se pinta distinto y se marca cuando es el último activo. La card **Vencidos** suma contrato + enganche y también los muestra aparte. El Excel lleva las mismas columnas y el desglose de vencidos. `hasOverdue` incluye vencidos de enganche.
 
@@ -128,7 +130,8 @@ Sin `status` en el query, `total` es activo + completado (igual que hoy). Con `s
 
 | Campo | Uso |
 |--------|-----|
-| `payment_phase` | `down_payment` \| `contract`. Badge **Enganche** / **Contrato** |
+| `sale_type` | `cash` \| `financed`. Badge **Contado** / **Financiado**. Con `down_payment_financed` la marca es **E + F** (hover: Enganche más financiamiento); si no, **F** |
+| `payment_phase` | `down_payment` \| `contract`. Ya no es el badge del número. Sirve al siguiente pago |
 | `next_payment_kind` | `down_payment` \| `contract` \| `null`. Colorea **Siguiente pago** |
 | `next_payment_is_last_down_payment` | `true` si el siguiente es el último enganche activo |
 | `next_payment_date` / `next_payment_amount` | Primero cuotas de enganche pendientes; si no, mensualidad |
@@ -136,7 +139,7 @@ Sin `status` en el query, `total` es activo + completado (igual que hoy). Con `s
 | `overdue_down_payment_count` | Vencidos de enganche |
 | `has_overdue` | Cualquiera de los dos |
 
-Excel: columnas **Fase**, **Tipo Próximo Pago**, **Último Enganche**, **Vencidos Enganche**. Resumen: VENCIDOS (total) + VENCIDOS CONTRATO + VENCIDOS ENGANCHE.
+Excel: columnas **Tipo** (Contado / Financiado E+F / Financiado F), **Tipo Próximo Pago**, **Último Enganche**, **Vencidos Enganche**. Resumen: VENCIDOS (total) + VENCIDOS CONTRATO + VENCIDOS ENGANCHE.
 
 ---
 

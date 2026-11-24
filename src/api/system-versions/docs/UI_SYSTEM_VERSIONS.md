@@ -5,7 +5,7 @@ Historial de actualizaciones del sistema, separado por organización. La tarjeta
 ## Lectura
 
 ```
-GET /api/tenant/system-versions?page=1&limit=20&search=
+GET /api/tenant/system-versions?page=1&limit=8&search=
 GET /api/tenant/system-versions/latest
 ```
 
@@ -14,6 +14,8 @@ Cada fila incluye `version`, `channel` (`frontend`, `backend` o `full`), `title`
 **2026-10-26.** `changes` solo trae módulos habilitados para esa organización. Contratos, inmuebles, CRM u otro módulo apagado no aparecen en el historial ni en el aviso de actualización. El aviso ya no lista el archivo público `app-version.json`; pide `GET /tenant/system-versions/latest`.
 
 **2026-11-02.** El listado ya no lee `system_versions`. El catálogo queda en memoria (`releases.generated.ts`, máximo 200) y cada petición lo filtra con los módulos activos de esa organización. La primera lectura de módulos se reutiliza un minuto; `latest` y el historial comparten esa caché. `limit` acepta hasta 200. La pantalla pide una sola página (50, hoy cubre todo el historial), la guarda en la sesión de esa organización y pagina y busca en el cliente.
+
+**2026-11-23.** La pantalla pide páginas de 8 y el API no devuelve más de 10. La consulta de módulos de la organización corta a los 2 segundos. Cada nota trae `module` y `module_label` (Clientes, POS Ventas, Órdenes de venta) y el texto de lo que se hizo. `npm run deploy:both` publica las solicitudes pendientes de `scripts/changelog.json` —una por módulo, con lo que quedó—, no el resumen «Cambios en clientes».
 
 **2026-11-02.** El aviso «Hay una actualización» lista las notas que el deploy escribió en `app-version.json`. No llama a `GET /tenant/system-versions/latest`. «Ver todas las versiones» abre `/settings/versions`, donde el historial sí queda filtrado por los módulos de la organización.
 
@@ -29,7 +31,9 @@ Si el módulo está apagado para el tenant, responde 403.
 
 Cada deploy toma los commits nuevos y, si el commit solo dice "Deploying version", los módulos cuyos archivos cambiaron desde la versión anterior.
 
-**2026-10-27.** Las solicitudes del día se anotan en `scripts/changelog.json` (lectura en `scripts/CHANGELOG.md`): pendientes hasta el deploy, enviadas después. `npm run deploy:both` y `npm run deploy` del backend escriben en el mensaje del commit solo las pendientes y, al commitear, las pasan a enviadas. El aviso de actualización sigue armándose con los commits y los módulos tocados.
+**2026-10-27.** Las solicitudes del día se anotan en `scripts/changelog.json` (lectura en `scripts/CHANGELOG.md`): pendientes hasta el deploy, enviadas después. `npm run deploy:both` y `npm run deploy` del backend escriben en el mensaje del commit solo las pendientes y, al commitear, las pasan a enviadas.
+
+**2026-11-23.** Si hay solicitudes pendientes, esas son las notas de la versión. Cada una lleva `--module` (`customers`, `pos`, `sales-orders`, …) y una frase de lo que cambió en ese módulo. Sin pendientes, el deploy sigue usando los commits.
 
 El aviso de actualización lista las notas de `app-version.json`. Si el rol puede ver versiones, el botón «Ver todas las versiones» abre `/settings/versions`.
 

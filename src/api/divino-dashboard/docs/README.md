@@ -26,7 +26,7 @@ No es el módulo Contratos: no usa saldos, cobros ni vencidos.
 
 | Dato | Origen |
 |------|--------|
-| Cierre, enganche, vendedor, origen | `contracts` |
+| Cierre, enganche, vendedor, origen, tipo de venta | `contracts.sale_type` (`cash` contado, `financed` financiado) |
 | m², lista fallback | `properties` |
 | Tours | `lead_activities` (meeting, completed) |
 | Origen | `lead_groups` / lead del contrato |

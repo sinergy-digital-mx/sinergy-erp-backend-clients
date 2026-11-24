@@ -2,6 +2,7 @@
 
 ## Historial
 
+- 2026-11-20: El recibo dice manzana y número de lote. Ya no pone el código del lote ni el nombre del lote como proyecto.
 - 2026-11-03: El PDF y el correo se arman al descargar o al enviar. No hay un recibo guardado. Si el contrato tiene razón social, esa es la que sale. Un correo ya enviado conserva el nombre de ese momento.
 - 2026-10-23: **Razón social y logo del recibo** ya no va en Pagos ni en Enganche. Queda en **Editar** (razón social del contrato + logo del recibo).
 - 2026-10-23: El PDF y el correo toman logo y nombre de `contract.fiscal_configuration_id`. La razón social de la plantilla queda como respaldo de contratos sin esa asignación.

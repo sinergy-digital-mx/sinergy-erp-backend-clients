@@ -2,18 +2,18 @@ export const PURCHASE_TREND_TIMEZONE = 'America/Mexico_City';
 export const PURCHASE_TREND_MONTHS = 12;
 
 const MONTH_LABELS = [
-  'ene',
-  'feb',
-  'mar',
-  'abr',
-  'may',
-  'jun',
-  'jul',
-  'ago',
-  'sep',
-  'oct',
-  'nov',
-  'dic',
+  'Ene',
+  'Feb',
+  'Mar',
+  'Abr',
+  'May',
+  'Jun',
+  'Jul',
+  'Ago',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dic',
 ];
 
 export interface PurchaseTrendMonthPoint {

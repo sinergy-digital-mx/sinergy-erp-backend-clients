@@ -1,5 +1,9 @@
 # UI — Filtros de inventario (razón social → sucursal → almacén)
 
+## 2026-11-23 — La vista queda en la URL
+
+Al recargar Inventario se conservan `search`, `fiscal_configuration_id` (`all` = todas), `billing_branch_id`, `warehouse_id` y la página (`spage` en Totalizado, `bpage` en Por lotes). Cambiar de pestaña no las borra.
+
 ## 2026-11-10 — Búsqueda
 
 El buscador del listado filtra al dejar de escribir (300 ms) y también al pulsar Enter.

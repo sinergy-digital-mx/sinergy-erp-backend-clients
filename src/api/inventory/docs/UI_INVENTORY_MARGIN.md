@@ -1,5 +1,9 @@
 # UI — Margen de inventario
 
+## 2026-11-23 — Recarga al cerrar el producto
+
+Si desde un lote se guarda un precio o un costo y se cierran las ventanas, Totalizado y Por lotes vuelven a cargar esa página. Cerrar sin guardar no recarga.
+
 ## 2026-11-03 — Lista, lote y producto
 
 El margen es unitario y en pesos. Cada lote elige un solo costo:
@@ -20,18 +24,40 @@ El renglón del producto en Totalizado es el **promedio simple** de los lotes co
 
 ## Totalizado
 
-Columna **Margen**, a la derecha de Disponible. También en cada lote expandido.
+### 2026-11-24 — Menú de la fila
+
+Un clic normal en la fila (cualquier columna, salvo el botón de lotes) abre un menú en el cursor:
+
+1. **Configuración de producto**: abre el producto.
+2. **Expandir lotes** / **Ocultar lotes**: muestra u oculta los lotes de esa fila.
+
+El botón de la columna Lotes sigue abriendo y cerrando directo. Escape, scroll o un clic afuera cierran el menú.
+
+Columnas cortas, en este orden: **Disponible**, **Precio**, **Costo**, **Margen**. También en cada lote expandido.
+
+La unidad ya no es una columna a la izquierda. Va pegada a la derecha de la cantidad (`1,250 PT`). El desglose por medida va debajo, en el mismo par cantidad + medida.
 
 | Qué se ve | De dónde |
 |-----------|----------|
-| % y monto | `(precio − costo) / precio` |
-| Precio | Primera lista activa, la misma de las cards |
-| Costo | El del lote, o el promedio de los lotes en el renglón de arriba |
-| Badge | `Compra`, `Configuración`, `Mixto` o `Sin costo` |
+| Margen % | `(precio − costo) / precio`. No es un porcentaje de la existencia |
+| Monto del margen | Solo en el tooltip, junto al `hint` |
+| Precio | Columna propia. Lista marcada para márgenes; si ese producto no tiene precio ahí, la lista activa más antigua. La misma de las cards |
+| Costo | Columna propia. El del lote, o el promedio de los lotes en el renglón de arriba |
+| Origen | Ícono de información. Al pasar el mouse: `Compra`, `Configuración`, `Mixto` o `Sin costo`, más el `hint` |
 
-El badge es el origen. El tooltip (`hint`) dice cuántos lotes entraron. Mixto = unos lotes de compra y otros de configuración.
+El tooltip dice cuántos lotes entraron. Mixto = unos lotes de compra y otros de configuración.
 
 Verde si el % es positivo, rojo si es negativo.
+
+### 2026-11-20
+
+Precio y costo salieron de la columna Margen. El % queda solo, para que la fila no se estire.
+
+Los encabezados van en caja normal, como el listado de órdenes de compra: gris `#374151`, 12px, sin mayúsculas. Precio y costo usan el mismo monto y la pastilla `MXN`.
+
+Producto, sucursal y razón social van a 12px y 11px, aunque el texto esté en mayúsculas. La unidad de disponible es una pastilla de 16px. El origen del margen no se escribe en la fila: un ícono de información abre el tooltip del sistema al pasar el mouse. La cantidad de lotes y el botón de verlos son el mismo control. La fecha del lote sale humana y corta, `Ago 18 26`, en 11px.
+
+El precio de la fila es el de la lista marcada con `is_margin_default`. El costo no cambia: sigue siendo la compra y, si no hay compra usable, la configuración. Si no hay lista marcada, o el producto no tiene precio en esa lista, el precio sigue siendo el de la lista activa más antigua. Punto de venta no usa esa marca.
 
 ## Detalle del lote
 

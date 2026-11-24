@@ -4,6 +4,7 @@ import {
   IsOptional,
   Length,
   IsInt,
+  IsBoolean,
   IsNumber,
   Max,
   Min,
@@ -48,4 +49,12 @@ export class CreatePriceListDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Precio de referencia de los márgenes. No cambia ventas ni punto de venta.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  is_margin_default?: boolean;
 }

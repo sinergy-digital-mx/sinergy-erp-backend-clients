@@ -125,21 +125,15 @@ if (!fs.existsSync(distMain)) {
 }
 
 const shippedNotes = markPendingShipped(rootDir, { version: changelogVersion(version) });
-const changelogFiles = ['scripts/changelog.json', 'scripts/CHANGELOG.md'].filter((rel) =>
-  fs.existsSync(path.join(rootDir, rel)),
-);
 
 let notesCommitted = false;
 try {
-  run(
-    `git add dist package.json package-lock.json src/api/system-versions/data/releases.json src/api/system-versions/data/releases.generated.ts${
-      changelogFiles.length ? ` ${changelogFiles.join(' ')}` : ''
-    }`,
-  );
+  // Igual que el frontend: el código fuente entra al commit. Si no, src queda pendiente después de cada deploy.
+  run('git add .');
 
   const staged = runOutput('git diff --cached --name-only');
   if (!staged) {
-    console.log('No hay cambios de dist para commitear.');
+    console.log('No hay cambios para commitear.');
   } else {
     commitWithMessage(
       rootDir,

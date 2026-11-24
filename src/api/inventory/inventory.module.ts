@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { InventoryBatch } from '../../entities/purchase-orders/inventory-batch.entity';
+import { InventoryBranchReportSetting } from '../../entities/inventory/inventory-branch-report-setting.entity';
 import { Product } from '../../entities/products/product.entity';
 import { InventoryTransfer } from '../../entities/inventory/inventory-transfer.entity';
 import { InventoryTransferLine } from '../../entities/inventory/inventory-transfer-line.entity';
@@ -20,6 +21,7 @@ import { BillingBranch } from '../../entities/billing/billing-branch.entity';
 import { UoMCatalog } from '../../entities/uom-catalog/uom-catalog.entity';
 import { S3Service } from '../../common/services/s3.service';
 import { InventoryService } from './inventory.service';
+import { InventoryBranchReportService } from './services/inventory-branch-report.service';
 import { InventoryController } from './inventory.controller';
 import { InventoryTransferController } from './inventory-transfer.controller';
 import { InventoryAuditController } from './inventory-audit.controller';
@@ -40,6 +42,7 @@ import { PurchaseOrdersModule } from '../purchase-orders/purchase-orders.module'
   imports: [
     TypeOrmModule.forFeature([
       InventoryBatch,
+      InventoryBranchReportSetting,
       Product,
       InventoryTransfer,
       InventoryTransferLine,
@@ -65,6 +68,7 @@ import { PurchaseOrdersModule } from '../purchase-orders/purchase-orders.module'
   ],
   providers: [
     InventoryService,
+    InventoryBranchReportService,
     InventoryTransferService,
     InventoryTransferFolioService,
     InventoryTransferPdfService,

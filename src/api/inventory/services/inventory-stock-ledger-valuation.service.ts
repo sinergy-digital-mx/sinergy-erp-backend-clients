@@ -45,7 +45,7 @@ export class InventoryStockLedgerValuationService {
             AND pu.uom_catalog_id = b.uom_id
             AND plist.tenant_id = b.tenant_id
             AND plist.is_active = 1
-          ORDER BY plist.created_at ASC, pp.created_at ASC
+          ORDER BY plist.is_margin_default DESC, plist.created_at ASC, pp.created_at ASC
           LIMIT 1
         ) AS list_price
       FROM inv_s_batches b

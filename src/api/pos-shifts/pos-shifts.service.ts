@@ -34,6 +34,9 @@ import { QueryDailyShiftDto } from './dto/query-daily-shift.dto';
 import { CloseDailyShiftDto } from './dto/close-daily-shift.dto';
 import { CollectPosSaleDto } from './dto/collect-pos-sale.dto';
 import { ReplacePosSaleCartDto } from './dto/replace-pos-sale-cart.dto';
+import { JwtPermissionUser } from '../rbac/utils/jwt-permission.util';
+import { assertPosPriceDiscountAllowed } from './utils/pos-price-discount.util';
+import { PosCajaRecallHub, PosCajaRecallKind } from './pos-caja-recall.hub';
 import { resolvePosDocumentCurrency } from '../sales-orders/utils/sales-order-currency.util';
 import {
   amountInCreditCurrency,
@@ -61,8 +64,13 @@ import {
   firstCardReference,
   normalizeCardPayments,
   PosCardPayment,
+  sharedCardKind,
   sumCardPayments,
 } from './utils/pos-card-payments.util';
+import {
+  assignPosTenderCashierNotes,
+  buildPosTenderPaymentLines,
+} from './utils/pos-collection-payment-lines.util';
 import {
   cashReceivedEquivalentMxn,
   splitCashPayment,
@@ -92,6 +100,7 @@ import {
   getQuotationSendToCajaBlockedReason,
 } from './utils/quotation-advance-pos.util';
 import { SendQuotationToCajaDto } from './dto/send-quotation-to-caja.dto';
+import { UpdatePosCustomerDto } from './dto/update-pos-customer.dto';
 
 const WALK_IN_FISCAL_NAME = 'VENTA DE MOSTRADOR';
 const WALK_IN_DISPLAY_NAME = 'Público en General';
@@ -129,6 +138,7 @@ export class PosShiftsService {
     private readonly customerCreditService: CustomerCreditService,
     private readonly advanceShiftPayments: AdvanceShiftPaymentService,
     private readonly exchangeRateService: ExchangeRateService,
+    private readonly cajaRecallHub: PosCajaRecallHub,
   ) {}
 
   async validateSellerCode(
@@ -595,6 +605,51 @@ export class PosShiftsService {
 
   async getPendingSales(tenantId: string, terminalUserId: string, billingBranchId?: string) {
     const terminalUser = await this.requireCobranzaTerminal(tenantId, terminalUserId);
+    return this.listPendingCajaTickets(tenantId, terminalUser, billingBranchId);
+  }
+
+  async getSalesAwaitingCaja(tenantId: string, terminalUserId: string, billingBranchId?: string) {
+    const terminalUser = await this.requireVentasTerminal(tenantId, terminalUserId);
+    return this.listPendingCajaTickets(tenantId, terminalUser, billingBranchId);
+  }
+
+  private mapCajaLines(
+    lines: Array<{
+      quantity?: number | string | null;
+      unit_price?: number | string | null;
+      discount_unit?: number | string | null;
+      iva_unit?: number | string | null;
+      ieps_unit?: number | string | null;
+      custom_description?: string | null;
+      product?: { name?: string | null; sku?: string | null } | null;
+      product_uom?: { uom?: { name?: string | null } | null } | null;
+      discount_percentage?: number | string | null;
+    }> | null | undefined,
+  ) {
+    return (lines ?? []).map((line) => {
+      const quantity = Number(line.quantity) || 0;
+      const unitPrice = Number(line.unit_price) || 0;
+      const unitNet = unitPrice
+        - (Number(line.discount_unit) || 0)
+        + (Number(line.iva_unit) || 0)
+        + (Number(line.ieps_unit) || 0);
+      return {
+        product_name: line.custom_description?.trim() || line.product?.name || 'Producto',
+        product_sku: line.product?.sku || '',
+        quantity,
+        uom_name: line.product_uom?.uom?.name || '',
+        unit_price: unitPrice,
+        discount_percentage: Number(line.discount_percentage ?? 0) || 0,
+        line_total: Math.round(quantity * unitNet * 100) / 100,
+      };
+    });
+  }
+
+  private async listPendingCajaTickets(
+    tenantId: string,
+    terminalUser: User,
+    billingBranchId?: string,
+  ) {
     const branchId = await this.resolveAccessibleBranchId(terminalUser, billingBranchId);
     const openShift = await this.getBranchOpenDailyShift(tenantId, branchId);
     if (openShift) {
@@ -605,6 +660,10 @@ export class PosShiftsService {
       .leftJoinAndSelect('so.seller_user', 'seller_user')
       .leftJoinAndSelect('so.terminal_user', 'terminal_user')
       .leftJoinAndSelect('so.customer', 'customer')
+      .leftJoinAndSelect('so.line_items', 'so_line')
+      .leftJoinAndSelect('so_line.product', 'so_line_product')
+      .leftJoinAndSelect('so_line.product_uom', 'so_line_pu')
+      .leftJoinAndSelect('so_line_pu.uom', 'so_line_uom')
       .where('so.tenant_id = :tenantId', { tenantId })
       .andWhere('so.sales_order_type = :type', { type: 'POS' })
       .andWhere('so.general_status = :generalStatus', { generalStatus: 'Surtida' })
@@ -622,7 +681,7 @@ export class PosShiftsService {
     else {
       this.applySalesOrderBranchScope(qb, branchId);
     }
-    const orders = await qb.orderBy('so.created_at', 'ASC').getMany();
+    const orders = await qb.orderBy('so.created_at', 'ASC').addOrderBy('so_line.created_at', 'ASC').getMany();
     const quotationIds = [
       ...new Set(orders
         .map((order) => order.converted_from_quotation_id)
@@ -657,10 +716,15 @@ export class PosShiftsService {
         ? quotationFolio.get(order.converted_from_quotation_id) ?? null
         : null,
       total: Number(order.total),
+      subtotal: Number(order.subtotal),
+      discount_total: Number(order.discount_total ?? 0),
+      iva_total: Number(order.iva_total ?? 0),
+      ieps_total: Number(order.ieps_total ?? 0),
+      global_discount_amount: Number(order.global_discount_amount ?? 0),
+      lines: this.mapCajaLines(order.line_items),
       currency: order.currency === 'USD' ? 'USD' : 'MXN',
       exchange_rate: exchangeRateByOrder.get(order.id) ?? null,
       amount_pending: pendingByOrder.get(order.id) ?? Number(order.total),
-      subtotal: Number(order.subtotal),
       created_at: order.created_at,
       notes: order.notes,
       walk_in_name: order.walk_in_name,
@@ -680,6 +744,7 @@ export class PosShiftsService {
             creditEnabledByFiscal.get(`${order.customer.id}:${order.fiscal_configuration_id}`)),
         }
         : null,
+      caja_open: this.cajaHasItOpen(order.pos_caja_opened_at),
       seller_user: order.seller_user
         ? {
           id: order.seller_user.id,
@@ -708,6 +773,10 @@ export class PosShiftsService {
         .createQueryBuilder('q')
         .leftJoinAndSelect('q.customer', 'customer')
         .leftJoinAndSelect('q.seller_user', 'seller_user')
+        .leftJoinAndSelect('q.line_items', 'q_line')
+        .leftJoinAndSelect('q_line.product', 'q_line_product')
+        .leftJoinAndSelect('q_line.product_uom', 'q_line_pu')
+        .leftJoinAndSelect('q_line_pu.uom', 'q_line_uom')
         .where('q.tenant_id = :tenantId', { tenantId })
         .andWhere('q.billing_branch_id = :billingBranchId', { billingBranchId })
         .andWhere('q.general_status = :status', { status: 'Creada' })
@@ -739,10 +808,15 @@ export class PosShiftsService {
       folio: quotation.folio,
       quotation_folio: null,
       total: Number(quotation.total),
+      subtotal: Number(quotation.subtotal),
+      discount_total: Number(quotation.discount_total ?? 0),
+      iva_total: Number(quotation.iva_total ?? 0),
+      ieps_total: Number(quotation.ieps_total ?? 0),
+      global_discount_amount: Number(quotation.global_discount_amount ?? 0),
+      lines: this.mapCajaLines(quotation.line_items),
       amount_pending: Number(quotation.advance_requested_total),
       advance_uso_cfdi: quotation.advance_uso_cfdi ?? 'G03',
       advance_metodo_pago: quotation.advance_metodo_pago ?? 'PUE',
-      subtotal: Number(quotation.subtotal),
       created_at: quotation.created_at,
       notes: quotation.notes,
       walk_in_name: null,
@@ -769,6 +843,7 @@ export class PosShiftsService {
         }
         : null,
       terminal_user: null,
+      caja_open: this.cajaHasItOpen(quotation.pos_caja_opened_at),
     }));
   }
 
@@ -843,7 +918,7 @@ export class PosShiftsService {
       throw new BadRequestException('Solo se pueden cobrar órdenes POS');
     }
     if (!isPosStageInCaja(order.pos_stage)) {
-      throw new BadRequestException('La orden está en ventas. Debe enviarse a caja antes de cobrar');
+      throw new BadRequestException(this.cajaRecallHub.messageFor(tenantId, 'sale', order.id, order.folio));
     }
     if (order.general_status !== 'Surtida' || order.payment_status !== 'Pendiente') {
       throw new BadRequestException('La orden no está pendiente de cobro (debe estar Surtida y Pendiente)');
@@ -864,6 +939,13 @@ export class PosShiftsService {
     });
     if (existingCollection) {
       throw new ConflictException('Esta orden ya fue cobrada');
+    }
+    const stillInCaja = await this.salesOrderRepo.findOne({
+      where: { id: order.id, tenant_id: tenantId },
+      select: { id: true, pos_stage: true },
+    });
+    if (!stillInCaja || !isPosStageInCaja(stillInCaja.pos_stage)) {
+      throw new ConflictException(this.cajaRecallHub.messageFor(tenantId, 'sale', order.id, order.folio));
     }
     const orderTotal = Number(order.total);
     const amountPending = await this.salesOrderService.getAmountPending(order.id, tenantId);
@@ -889,6 +971,31 @@ export class PosShiftsService {
       }
     }
     const payment = await this.validateAndNormalizePayment(tenantId, dto, amountPending);
+    const tenderLines = isCredit
+      ? null
+      : buildPosTenderPaymentLines(
+          {
+            amountCashMxn: payment.amountCashMxn,
+            amountCashUsd: payment.amountCashUsd,
+            usdExchangeRate: payment.usdExchangeRate,
+            amountTransferMxn: payment.amountTransferMxn,
+            transferReference: payment.transferReference,
+            amountCardMxn: payment.amountCardMxn,
+            cardReference: payment.cardReference,
+            cardPayments: payment.cardPayments,
+            amountCheckMxn: payment.amountCheckMxn,
+            amountCheckUsd: payment.amountCheckUsd,
+            checkReference: payment.checkReference,
+          },
+          amountPending,
+        );
+    if (
+      !isCredit &&
+      dto.payment_method === PosSalePaymentMethod.MIXED &&
+      (!tenderLines || tenderLines.length < 2)
+    ) {
+      throw new BadRequestException('No se pudo separar el cobro mixto en pagos');
+    }
     const creditDocumentRate =
       isCredit && dto.order_currency === 'USD'
         ? await this.creditDocumentExchangeRate(tenantId, dto, creditCharge?.exchangeRate ?? null)
@@ -922,12 +1029,13 @@ export class PosShiftsService {
       amount_transfer_mxn: payment.amountTransferMxn,
       transfer_reference: payment.transferReference,
       amount_card_mxn: payment.amountCardMxn,
+      card_kind: sharedCardKind(payment.cardPayments),
       amount_check_mxn: payment.amountCheckMxn,
       amount_check_usd: payment.amountCheckUsd,
       check_reference: payment.checkReference ?? null,
       amount_credit_mxn: payment.amountCreditMxn,
       card_reference: payment.cardReference ?? null,
-      card_payments: payment.cardPayments.length > 1 ? payment.cardPayments : null,
+      card_payments: payment.cardPayments.length > 0 ? payment.cardPayments : null,
       transfer_payer_name: payment.payer.transferPayerName,
       transfer_payer_business_name: payment.payer.transferPayerBusinessName,
       card_payer_name: payment.payer.cardPayerName,
@@ -941,12 +1049,27 @@ export class PosShiftsService {
       collected_by_user_id: cobranzaUserId,
       notes: dto.notes ?? null,
     });
+    const stageNow = await this.salesOrderRepo.findOne({
+      where: { id: order.id, tenant_id: tenantId },
+      select: { id: true, pos_stage: true, payment_status: true },
+    });
+    if (!stageNow || !isPosStageInCaja(stageNow.pos_stage) || stageNow.payment_status !== 'Pendiente') {
+      throw new ConflictException(this.cajaRecallHub.messageFor(tenantId, 'sale', order.id, order.folio));
+    }
     await this.collectionRepo.save(collection);
-    const referenceNumber = payment.transferReference ||
-      payment.checkReference ||
-      payment.cardReference ||
-      null;
-    if (!isCredit) {
+    if (!isCredit && tenderLines && tenderLines.length >= 2) {
+      await this.salesOrderService.createPosTenderPayments(
+        order.id,
+        assignPosTenderCashierNotes(tenderLines, dto.notes),
+        getTodayDateString(),
+        tenantId,
+        cobranzaUserId,
+      );
+    } else if (!isCredit) {
+      const referenceNumber = payment.transferReference ||
+        payment.checkReference ||
+        payment.cardReference ||
+        null;
       await this.salesOrderService.createPayment(order.id, {
         amount: amountPending,
         payment_date: getTodayDateString(),
@@ -1188,8 +1311,12 @@ export class PosShiftsService {
       card_payments: dto.card_payments,
       amount_card_mxn: dto.amount_card_mxn,
       card_reference: dto.card_reference,
+      card_kind: dto.card_kind,
     });
     const amountCardMxn = sumCardPayments(cardPayments);
+    if (amountCardMxn > 0 && cardPayments.some((item) => !item.card_kind)) {
+      throw new BadRequestException('Indica si la tarjeta es de débito o crédito');
+    }
     if (dto.amount_card_mxn != null &&
       cardPayments.length > 0 &&
       Math.abs(amountCardMxn - Number(dto.amount_card_mxn)) > 0.01) {
@@ -1663,6 +1790,263 @@ export class PosShiftsService {
     };
   }
 
+  async recallSaleFromCaja(
+    tenantId: string,
+    terminalUserId: string,
+    salesOrderId: string,
+    sellerUserId?: string,
+  ) {
+    const ventasUser = await this.requireVentasTerminal(tenantId, terminalUserId);
+    const order = await this.salesOrderRepo.findOne({
+      where: { id: salesOrderId, tenant_id: tenantId },
+      relations: ['warehouse', 'seller_user', 'terminal_user', 'customer'],
+    });
+    if (!order) {
+      throw new NotFoundException('Orden de venta no encontrada');
+    }
+    await this.assertOrderBelongsToTerminalBranch(order, ventasUser);
+    const existingCollection = await this.collectionRepo.findOne({
+      where: { sales_order_id: order.id },
+    });
+    if (existingCollection) {
+      throw new ConflictException('Esta orden ya fue cobrada');
+    }
+    const blocked = await this.salesOrderService.getPosReturnBlockedReason(order, tenantId);
+    if (blocked) {
+      throw new BadRequestException(blocked);
+    }
+    const cajaWasOpen = this.cajaHasItOpen(order.pos_caja_opened_at);
+    order.pos_stage = SalesOrderPosStage.Ventas;
+    order.pos_caja_opened_at = null;
+    order.pos_caja_opened_by = null;
+    order.updated_by = terminalUserId;
+    await this.salesOrderRepo.save(order);
+    const recalledByName = await this.resolveRecallActorName(tenantId, ventasUser, sellerUserId);
+    const notice = this.cajaRecallHub.publish({
+      tenantId,
+      branchId: order.billing_branch_id || order.warehouse?.billing_branch_id || ventasUser.billing_branch_id || null,
+      id: order.id,
+      kind: 'sale',
+      folio: order.folio || order.id,
+      recalledByName,
+    });
+    return {
+      message: cajaWasOpen
+        ? `${notice.recalledByName} regresó ${notice.folio} a POS Ventas. Caja la tenía abierta.`
+        : 'El ticket se regresó a ventas',
+      caja_was_open: cajaWasOpen,
+      recalled_by_name: notice.recalledByName,
+      sales_order: this.mapPosTicketSummary(order),
+    };
+  }
+
+  async recallQuotationFromCaja(
+    tenantId: string,
+    terminalUserId: string,
+    quotationId: string,
+    sellerUserId?: string,
+  ) {
+    const ventasUser = await this.requireVentasTerminal(tenantId, terminalUserId);
+    const quotation = await this.quotationRepo.findOne({
+      where: { id: quotationId, tenant_id: tenantId },
+      relations: ['customer', 'seller_user', 'warehouse'],
+    });
+    if (!quotation) {
+      throw new NotFoundException('Cotización no encontrada');
+    }
+    await this.assertQuotationBelongsToTerminalBranch(quotation, ventasUser);
+    const vigente = await this.advanceCfdi.findVigenteAdvance(tenantId, 'quotations', quotation.id);
+    const blocked = getQuotationReturnToSalesBlockedReason({
+      generalStatus: quotation.general_status,
+      advanceRequestedTotal: quotation.advance_requested_total,
+      posStage: quotation.pos_stage,
+      hasVigenteAdvance: Boolean(vigente),
+    });
+    if (blocked) {
+      throw new BadRequestException(blocked);
+    }
+    const cajaWasOpen = this.cajaHasItOpen(quotation.pos_caja_opened_at);
+    quotation.pos_stage = SalesOrderPosStage.Ventas;
+    quotation.pos_caja_opened_at = null;
+    quotation.pos_caja_opened_by = null;
+    quotation.updated_by = terminalUserId;
+    await this.quotationRepo.save(quotation);
+    const recalledByName = await this.resolveRecallActorName(tenantId, ventasUser, sellerUserId);
+    const notice = this.cajaRecallHub.publish({
+      tenantId,
+      branchId: quotation.billing_branch_id || quotation.warehouse?.billing_branch_id || ventasUser.billing_branch_id || null,
+      id: quotation.id,
+      kind: 'advance',
+      folio: quotation.folio || quotation.id,
+      recalledByName,
+    });
+    return {
+      message: cajaWasOpen
+        ? `${notice.recalledByName} regresó ${notice.folio} a POS Ventas. Caja la tenía abierta.`
+        : 'El anticipo se regresó a ventas',
+      caja_was_open: cajaWasOpen,
+      recalled_by_name: notice.recalledByName,
+      quotation: this.mapQuotationTicketSummary(quotation),
+    };
+  }
+
+  async touchSaleCajaPresence(tenantId: string, terminalUserId: string, salesOrderId: string) {
+    const cajaUser = await this.requireCobranzaTerminal(tenantId, terminalUserId);
+    const order = await this.salesOrderRepo.findOne({
+      where: { id: salesOrderId, tenant_id: tenantId },
+      relations: ['warehouse'],
+    });
+    if (!order) {
+      throw new NotFoundException('Orden de venta no encontrada');
+    }
+    await this.assertOrderBelongsToTerminalBranch(order, cajaUser);
+    return this.markCajaPresence(order, terminalUserId, true);
+  }
+
+  async releaseSaleCajaPresence(tenantId: string, terminalUserId: string, salesOrderId: string) {
+    const cajaUser = await this.requireCobranzaTerminal(tenantId, terminalUserId);
+    const order = await this.salesOrderRepo.findOne({
+      where: { id: salesOrderId, tenant_id: tenantId },
+      relations: ['warehouse'],
+    });
+    if (!order) {
+      return { released: false };
+    }
+    await this.assertOrderBelongsToTerminalBranch(order, cajaUser);
+    if (order.pos_caja_opened_by === terminalUserId) {
+      order.pos_caja_opened_at = null;
+      order.pos_caja_opened_by = null;
+      await this.salesOrderRepo.save(order);
+    }
+    return { released: true };
+  }
+
+  async touchQuotationCajaPresence(tenantId: string, terminalUserId: string, quotationId: string) {
+    const cajaUser = await this.requireCobranzaTerminal(tenantId, terminalUserId);
+    const quotation = await this.quotationRepo.findOne({
+      where: { id: quotationId, tenant_id: tenantId },
+      relations: ['warehouse'],
+    });
+    if (!quotation) {
+      throw new NotFoundException('Cotización no encontrada');
+    }
+    await this.assertQuotationBelongsToTerminalBranch(quotation, cajaUser);
+    return this.markCajaPresence(quotation, terminalUserId, false);
+  }
+
+  async releaseQuotationCajaPresence(tenantId: string, terminalUserId: string, quotationId: string) {
+    const cajaUser = await this.requireCobranzaTerminal(tenantId, terminalUserId);
+    const quotation = await this.quotationRepo.findOne({
+      where: { id: quotationId, tenant_id: tenantId },
+      relations: ['warehouse'],
+    });
+    if (!quotation) {
+      return { released: false };
+    }
+    await this.assertQuotationBelongsToTerminalBranch(quotation, cajaUser);
+    if (quotation.pos_caja_opened_by === terminalUserId) {
+      quotation.pos_caja_opened_at = null;
+      quotation.pos_caja_opened_by = null;
+      await this.quotationRepo.save(quotation);
+    }
+    return { released: true };
+  }
+
+  async updateSaleCustomer(
+    tenantId: string,
+    terminalUserId: string,
+    salesOrderId: string,
+    dto: UpdatePosCustomerDto,
+  ) {
+    const terminalUser = await this.requirePosTerminal(tenantId, terminalUserId);
+    const order = await this.salesOrderRepo.findOne({
+      where: { id: salesOrderId, tenant_id: tenantId },
+      relations: ['warehouse', 'customer'],
+    });
+    if (!order) {
+      throw new NotFoundException('Orden de venta no encontrada');
+    }
+    await this.assertOrderBelongsToTerminalBranch(order, terminalUser);
+    this.assertCanEditPosCustomer(terminalUser, order.pos_stage);
+    if (order.sales_order_type !== 'POS') {
+      throw new BadRequestException('Solo se puede cambiar el cliente de una orden POS');
+    }
+    if (order.payment_status !== 'Pendiente' || order.general_status === 'Cancelada') {
+      throw new BadRequestException('La orden ya no se puede modificar');
+    }
+    const existingCollection = await this.collectionRepo.findOne({
+      where: { sales_order_id: order.id },
+    });
+    if (existingCollection) {
+      throw new ConflictException('Esta orden ya fue cobrada');
+    }
+    const customerId = await this.resolvePosCustomerUpdateId(tenantId, dto.customer_id);
+    const customer = await this.customerRepo.findOne({
+      where: { id: customerId, tenant_id: tenantId },
+    });
+    if (!customer) {
+      throw new BadRequestException('Cliente no válido');
+    }
+    const walkIn = isWalkInCustomer(customer);
+    order.customer_id = customer.id;
+    order.customer = customer;
+    order.walk_in_name = walkIn ? normalizeWalkInName(dto.walk_in_name) : null;
+    order.walk_in_phone = walkIn ? normalizeWalkInPhone(dto.walk_in_phone) : null;
+    order.walk_in_rfc = walkIn ? normalizeWalkInRfc(dto.walk_in_rfc) : null;
+    order.updated_by = terminalUserId;
+    await this.salesOrderRepo.save(order);
+    return {
+      message: 'Cliente actualizado',
+      customer_id: customer.id,
+      customer: mapPosCustomer(customer),
+      walk_in_name: order.walk_in_name,
+      walk_in_rfc: order.walk_in_rfc,
+    };
+  }
+
+  async updateQuotationCustomer(
+    tenantId: string,
+    terminalUserId: string,
+    quotationId: string,
+    dto: UpdatePosCustomerDto,
+  ) {
+    const terminalUser = await this.requirePosTerminal(tenantId, terminalUserId);
+    const quotation = await this.quotationRepo.findOne({
+      where: { id: quotationId, tenant_id: tenantId },
+      relations: ['warehouse', 'customer'],
+    });
+    if (!quotation) {
+      throw new NotFoundException('Cotización no encontrada');
+    }
+    await this.assertQuotationBelongsToTerminalBranch(quotation, terminalUser);
+    this.assertCanEditPosCustomer(terminalUser, quotation.pos_stage);
+    if (quotation.general_status !== 'Creada') {
+      throw new BadRequestException('La cotización ya no se puede modificar');
+    }
+    const vigente = await this.advanceCfdi.findVigenteAdvance(tenantId, 'quotations', quotation.id);
+    if (vigente) {
+      throw new BadRequestException('Ese anticipo ya fue cobrado');
+    }
+    if (dto.customer_id == null) {
+      throw new BadRequestException('El anticipo necesita un cliente del catálogo');
+    }
+    const customer = await this.customerRepo.findOne({
+      where: { id: Number(dto.customer_id), tenant_id: tenantId },
+    });
+    if (!customer) {
+      throw new BadRequestException('Cliente no válido');
+    }
+    quotation.customer_id = customer.id;
+    quotation.customer = customer;
+    quotation.updated_by = terminalUserId;
+    await this.quotationRepo.save(quotation);
+    return {
+      message: 'Cliente actualizado',
+      customer_id: customer.id,
+      customer: mapPosCustomer(customer),
+    };
+  }
+
   async getSalesInProgress(
     tenantId: string,
     terminalUserId: string,
@@ -1736,11 +2120,12 @@ export class PosShiftsService {
     terminalUserId: string,
     salesOrderId: string,
     dto: ReplacePosSaleCartDto,
+    actor?: JwtPermissionUser,
   ) {
     const terminalUser = await this.requireVentasTerminal(tenantId, terminalUserId);
     const order = await this.salesOrderRepo.findOne({
       where: { id: salesOrderId, tenant_id: tenantId },
-      relations: ['warehouse'],
+      relations: ['warehouse', 'line_items'],
     });
     if (!order) {
       throw new NotFoundException('Orden de venta no encontrada');
@@ -1751,6 +2136,7 @@ export class PosShiftsService {
         'La orden no está en ventas. Caja debe regresarla antes de editar productos.',
       );
     }
+    assertPosPriceDiscountAllowed(actor, dto.line_items, order.line_items);
 
     const updated = await this.salesOrderService.replacePosCart(
       salesOrderId,
@@ -1821,11 +2207,12 @@ export class PosShiftsService {
     terminalUserId: string,
     quotationId: string,
     dto: SendQuotationToCajaDto = {},
+    actor?: JwtPermissionUser,
   ) {
     const terminalUser = await this.requireVentasTerminal(tenantId, terminalUserId);
     const quotation = await this.quotationRepo.findOne({
       where: { id: quotationId, tenant_id: tenantId },
-      relations: ['warehouse', 'seller_user', 'customer'],
+      relations: ['warehouse', 'seller_user', 'customer', 'line_items'],
     });
     if (!quotation) {
       throw new NotFoundException('Cotización no encontrada');
@@ -1841,6 +2228,7 @@ export class PosShiftsService {
       throw new BadRequestException(blocked);
     }
     if (dto.line_items?.length) {
+      assertPosPriceDiscountAllowed(actor, dto.line_items, quotation.line_items);
       const deliveryDate = this.toIsoDate(quotation.expected_delivery_date);
       await this.quotationService.replace(quotation.id, {
         fiscal_configuration_id: quotation.fiscal_configuration_id,
@@ -2064,6 +2452,97 @@ export class PosShiftsService {
           : null,
       })),
     };
+  }
+
+  private personName(user: {
+    first_name?: string | null;
+    last_name?: string | null;
+    email?: string | null;
+  }): string {
+    const name = `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim();
+    return name || user.email || 'Ventas';
+  }
+
+  private async resolveRecallActorName(
+    tenantId: string,
+    terminal: User,
+    sellerUserId?: string,
+  ): Promise<string> {
+    const sellerId = sellerUserId?.trim();
+    if (sellerId) {
+      const seller = await this.userRepo.findOne({
+        where: { id: sellerId, tenant_id: tenantId },
+        select: { id: true, first_name: true, last_name: true, email: true },
+      });
+      if (seller) {
+        return this.personName(seller);
+      }
+    }
+    return this.personName(terminal);
+  }
+
+  private cajaHasItOpen(openedAt: Date | string | null | undefined): boolean {
+    if (!openedAt) return false;
+    const time = new Date(openedAt).getTime();
+    return Number.isFinite(time) && Date.now() - time <= 20_000;
+  }
+
+  private async markCajaPresence(
+    row: SalesOrder | Quotation,
+    terminalUserId: string,
+    isSale: boolean,
+  ) {
+    const inCaja = isPosStageInCaja(row.pos_stage);
+    if (!inCaja) {
+      const collected = isSale
+        ? await this.collectionRepo.findOne({ where: { sales_order_id: row.id } })
+        : null;
+      const kind: PosCajaRecallKind = isSale ? 'sale' : 'advance';
+      return {
+        in_caja: false,
+        reason: collected ? 'collected' : 'recalled',
+        recalled_by_name: collected
+          ? null
+          : this.cajaRecallHub.find(row.tenant_id, kind, row.id)?.recalledByName ?? null,
+        message: collected
+          ? 'Esta venta ya se cobró'
+          : this.cajaRecallHub.messageFor(row.tenant_id, kind, row.id, row.folio),
+      };
+    }
+    row.pos_caja_opened_at = new Date();
+    row.pos_caja_opened_by = terminalUserId;
+    if (isSale) {
+      await this.salesOrderRepo.save(row as SalesOrder);
+    } else {
+      await this.quotationRepo.save(row as Quotation);
+    }
+    return { in_caja: true, reason: null, message: null };
+  }
+
+  private assertCanEditPosCustomer(user: User, posStage: SalesOrderPosStage | null) {
+    if (isPosStageInCaja(posStage)) {
+      if (!canPosCollect(user.pos_user_type)) {
+        throw new ForbiddenException('Esta operación solo está disponible en terminales de caja');
+      }
+      return;
+    }
+    if (posStage === SalesOrderPosStage.Ventas) {
+      if (!canPosSell(user.pos_user_type)) {
+        throw new ForbiddenException('Esta operación solo está disponible en terminales de ventas');
+      }
+      return;
+    }
+    throw new BadRequestException('La orden no está en punto de venta');
+  }
+
+  private async resolvePosCustomerUpdateId(
+    tenantId: string,
+    customerId?: number | null,
+  ): Promise<number> {
+    if (customerId != null && !Number.isNaN(Number(customerId)) && Number(customerId) > 0) {
+      return Number(customerId);
+    }
+    return this.resolveWalkInCustomerId(tenantId);
   }
 
   private async requireCobranzaTerminal(tenantId: string, userId: string) {

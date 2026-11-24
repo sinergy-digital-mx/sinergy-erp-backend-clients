@@ -1764,6 +1764,16 @@
       "version": "0.0.167",
       "shippedAt": "2026-11-24T12:25:17-08:00",
       "module": "inventory"
+    },
+    {
+      "id": "20261124-131104",
+      "at": "2026-11-24T13:11:04-08:00",
+      "scope": "frontend",
+      "message": "En Por sucursal se quitó el texto de que cada unidad va en su renglón.",
+      "status": "pending",
+      "version": null,
+      "shippedAt": null,
+      "module": "inventory"
     }
   ]
 }

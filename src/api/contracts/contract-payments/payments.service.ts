@@ -64,6 +64,7 @@ export class PaymentsService {
     startDateRaw?: string,
   ): Promise<PaymentSchedulePreview> {
     const contract = await this.getContractOrThrow(tenantId, contractId);
+    this.assertNotCashContract(contract);
     const startDate = this.resolveStartDate(startDateRaw, contract);
     return this.buildSchedulePreview(contract, startDate);
   }
@@ -77,6 +78,7 @@ export class PaymentsService {
     dto: GenerateContractPaymentsDto = {},
   ): Promise<GeneratedPaymentsResult> {
     const contract = await this.getContractOrThrow(tenantId, contractId);
+    this.assertNotCashContract(contract);
 
     if (await this.hasPendingDownpaymentPayments(tenantId, contractId)) {
       throw new BadRequestException(
@@ -107,6 +109,7 @@ export class PaymentsService {
     dto: GenerateContractPaymentsDto = {},
   ): Promise<GeneratedPaymentsResult> {
     const contract = await this.getContractOrThrow(tenantId, contractId);
+    this.assertNotCashContract(contract);
 
     if (await this.hasPendingDownpaymentPayments(tenantId, contractId)) {
       throw new BadRequestException(
@@ -130,11 +133,20 @@ export class PaymentsService {
     return this.createPaymentsForContract(tenantId, contract, startDate);
   }
 
+  private assertNotCashContract(contract: Contract): void {
+    if (contract.sale_type === 'cash') {
+      throw new BadRequestException(
+        'Un contrato de contado no tiene mensualidades. Los abonos se registran en enganche.',
+      );
+    }
+  }
+
   private async createPaymentsForContract(
     tenantId: string,
     contract: Contract,
     startDate: Date,
   ): Promise<GeneratedPaymentsResult> {
+    this.assertNotCashContract(contract);
     const paymentMonths = Number(contract.payment_months);
     if (!paymentMonths || paymentMonths < 1) {
       throw new BadRequestException(

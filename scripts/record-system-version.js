@@ -1,9 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 const {
+  applyChangelogToReleases,
   buildReleasePayload,
   mergeReleaseChanges,
 } = require('./lib/release-notes');
+const { readChangelog } = require('./lib/session-changelog');
 
 const rootDir = path.resolve(__dirname, '..');
 const catalogJsonPath = path.join(rootDir, 'src', 'api', 'system-versions', 'data', 'releases.json');
@@ -52,15 +54,8 @@ function normalizePayload(input) {
   });
 }
 
-function upsertCatalog(payload) {
-  const current = fs.existsSync(catalogJsonPath)
-    ? JSON.parse(fs.readFileSync(catalogJsonPath, 'utf8'))
-    : [];
-  const list = Array.isArray(current) ? current : [];
-  const withoutCurrent = list.filter((item) => item?.releaseKey !== payload.releaseKey);
-  withoutCurrent.push(payload);
-  const trimmed = withoutCurrent.slice(-200);
-
+function writeCatalog(list) {
+  const trimmed = (Array.isArray(list) ? list : []).slice(-200);
   fs.mkdirSync(path.dirname(catalogJsonPath), { recursive: true });
   fs.writeFileSync(catalogJsonPath, `${JSON.stringify(trimmed, null, 2)}\n`);
   const catalogType = `Array<{
@@ -69,15 +64,34 @@ function upsertCatalog(payload) {
   buildId: string | null;
   channel: 'frontend' | 'backend' | 'full';
   title: string;
-  changes: Array<{ scope: 'frontend' | 'backend'; message: string }>;
+  changes: Array<{ scope: 'frontend' | 'backend'; message: string; module?: string; moduleLabel?: string }>;
   releasedAt: string;
 }>`;
   fs.writeFileSync(
     catalogTsPath,
     `// Generado por scripts/record-system-version.js — no editar a mano\nexport const SYSTEM_VERSION_RELEASES: ${catalogType} = ${JSON.stringify(trimmed, null, 2)};\n`,
   );
-
   return trimmed.length;
+}
+
+function upsertCatalog(payload) {
+  const current = fs.existsSync(catalogJsonPath)
+    ? JSON.parse(fs.readFileSync(catalogJsonPath, 'utf8'))
+    : [];
+  const list = Array.isArray(current) ? current : [];
+  const withoutCurrent = list.filter((item) => item?.releaseKey !== payload.releaseKey);
+  withoutCurrent.push(payload);
+  return writeCatalog(withoutCurrent);
+}
+
+function backfillChangelogNotes() {
+  const current = fs.existsSync(catalogJsonPath)
+    ? JSON.parse(fs.readFileSync(catalogJsonPath, 'utf8'))
+    : [];
+  const shipped = readChangelog(rootDir).entries.filter((entry) => entry.status === 'shipped');
+  const next = applyChangelogToReleases(current, shipped);
+  const total = writeCatalog(next);
+  console.log(`Catálogo reescrito con las notas del changelog (${total} versiones).`);
 }
 
 async function recordRelease(rawPayload) {
@@ -90,6 +104,10 @@ async function recordRelease(rawPayload) {
 }
 
 async function main() {
+  if (process.argv.includes('--backfill-changelog')) {
+    backfillChangelogNotes();
+    return;
+  }
   const payload = readPayloadFromArgv();
   await recordRelease(payload);
 }

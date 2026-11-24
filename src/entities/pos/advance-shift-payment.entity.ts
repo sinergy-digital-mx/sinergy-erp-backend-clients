@@ -57,6 +57,16 @@ export class AdvanceShiftPayment {
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   amount_card_mxn: number;
 
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  card_kind: 'debit' | 'credit' | null;
+
+  @Column({ type: 'json', nullable: true })
+  card_payments: Array<{
+    amount_mxn: number;
+    reference: string | null;
+    card_kind?: 'debit' | 'credit' | null;
+  }> | null;
+
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   amount_check_mxn: number;
 

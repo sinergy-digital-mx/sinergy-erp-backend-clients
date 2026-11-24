@@ -31,6 +31,18 @@ describe('formaPagoFromAdvancePayment', () => {
     expect(formaPagoFromAdvancePayment(PosSalePaymentMethod.TRANSFER)).toBe('03');
   });
 
+  it('uses débito 28 cuando la tarjeta es de débito', () => {
+    expect(
+      formaPagoFromAdvancePayment(PosSalePaymentMethod.CARD, {
+        cashMxn: 0,
+        transferMxn: 0,
+        cardMxn: 100,
+        checkMxn: 0,
+        cardFormaPago: '28',
+      }),
+    ).toBe('28');
+  });
+
   it('uses the largest part of a mixed payment so the CFDI can stay PUE', () => {
     expect(
       formaPagoFromAdvancePayment(PosSalePaymentMethod.MIXED, {

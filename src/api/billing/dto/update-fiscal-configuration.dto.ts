@@ -3,6 +3,16 @@ import { MEXICO_TIME_ZONE_IDS } from '../../accounting/utils/public-invoice-poli
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 
+function normalizeOptionalBrandColor(value: unknown): unknown {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value === null || value === '') {
+    return null;
+  }
+  return String(value).trim().toLowerCase();
+}
+
 export class UpdateFiscalConfigurationDto {
   @IsOptional()
   @IsString()
@@ -71,6 +81,90 @@ export class UpdateFiscalConfigurationDto {
   @IsOptional()
   @IsBoolean()
   use_as_system_logo?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Máscara de un solo color para el logo del menú. Vacío quita la máscara. El archivo no cambia.',
+    example: '#ffffff',
+    nullable: true,
+  })
+  @Transform(({ value }) => normalizeOptionalBrandColor(value))
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null && value !== undefined)
+  @IsString()
+  @Matches(/^#[0-9A-Fa-f]{6}$/, {
+    message: 'La máscara del logo debe ser hexadecimal de 6 dígitos, por ejemplo #ffffff.',
+  })
+  logo_mask_color?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Color de arriba del menú. Vacío restaura el índigo de Pólux. También pinta el fondo en celular.',
+    example: '#1e1b4b',
+    nullable: true,
+  })
+  @Transform(({ value }) => normalizeOptionalBrandColor(value))
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null && value !== undefined)
+  @IsString()
+  @Matches(/^#[0-9A-Fa-f]{6}$/, {
+    message: 'El color de arriba debe ser hexadecimal de 6 dígitos, por ejemplo #1e1b4b.',
+  })
+  brand_color_start?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Color de en medio del degradado del menú. Vacío restaura el de Pólux.',
+    example: '#312e81',
+    nullable: true,
+  })
+  @Transform(({ value }) => normalizeOptionalBrandColor(value))
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null && value !== undefined)
+  @IsString()
+  @Matches(/^#[0-9A-Fa-f]{6}$/, {
+    message: 'El color de en medio debe ser hexadecimal de 6 dígitos, por ejemplo #312e81.',
+  })
+  brand_color_mid?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Color de abajo del degradado del menú. Vacío restaura el de Pólux.',
+    example: '#4c1d95',
+    nullable: true,
+  })
+  @Transform(({ value }) => normalizeOptionalBrandColor(value))
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null && value !== undefined)
+  @IsString()
+  @Matches(/^#[0-9A-Fa-f]{6}$/, {
+    message: 'El color de abajo debe ser hexadecimal de 6 dígitos, por ejemplo #4c1d95.',
+  })
+  brand_color_end?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Color de la barra de POS Ventas. Vacío deja la barra oscura de siempre.',
+    example: '#1b4332',
+    nullable: true,
+  })
+  @Transform(({ value }) => normalizeOptionalBrandColor(value))
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null && value !== undefined)
+  @IsString()
+  @Matches(/^#[0-9A-Fa-f]{6}$/, {
+    message: 'El color de POS Ventas debe ser hexadecimal de 6 dígitos, por ejemplo #1b4332.',
+  })
+  pos_sales_bar_color?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Color de la barra de POS Caja. Vacío deja la barra oscura de siempre.',
+    example: '#245c3c',
+    nullable: true,
+  })
+  @Transform(({ value }) => normalizeOptionalBrandColor(value))
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null && value !== undefined)
+  @IsString()
+  @Matches(/^#[0-9A-Fa-f]{6}$/, {
+    message: 'El color de POS Caja debe ser hexadecimal de 6 dígitos, por ejemplo #245c3c.',
+  })
+  pos_cash_bar_color?: string | null;
 
   @IsOptional()
   @IsString()

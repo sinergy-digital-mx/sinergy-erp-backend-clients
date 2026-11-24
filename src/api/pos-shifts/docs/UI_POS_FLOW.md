@@ -1,5 +1,19 @@
 # Flujo POS — Guía para UI
 
+**2026-11-24 — carrito un poco más angosto.** En Ventas el panel del carrito baja de 42vw (tope 760px) a 38vw (tope 680px). El descuento global solo aparece en el desglose si hay uno aplicado; si no, queda un enlace para abrirlo. El descuento en precio del desglose usa un título chico y el porcentaje en una pastilla.
+
+**2026-11-24 — carrito más ancho.** En Ventas el panel del carrito ocupa más ancho. El ícono de descuento de precio de cada línea queda a la misma altura que la lista, el descuento del producto y la cantidad.
+
+**2026-11-23 — existencias por sucursal.** En Ventas el cambio de vista sigue (tarjetas, lista) y se agrega la bodega: la misma búsqueda, en una tabla de todas las sucursales, ordenada por cantidad, sin costos. El selector de sucursal no lleva texto encima. Ver `src/api/inventory/docs/UI_POS_BRANCH_STOCK.md`.
+
+**2026-11-23 — sucursal en la barra.** En Ventas y Caja, **Sucursal** muestra solo el nombre (Buenos Aires), sin la ciudad. El modal de cambio sigue con nombre y ciudad. El filtro de existencia del catálogo, cerrado, muestra solo el nombre; al abrirlo la lista sigue con nombre y ciudad.
+
+**2026-11-23 — impresión al cobrar en POS Caja.** Al confirmar el cobro se abre un modal con el ticket (copias, default 2) y, si se timbró factura, un tab **PDF factura** (copias default 2, editables). Cerrar anima el contador de **Órdenes cobradas**. El anticipo responde `invoice_id` para imprimir ese PDF. La impresora del PDF es distinta de la térmica.
+
+**2026-11-23 — descuento de precio en POS Ventas.** En el carrito, el permiso `POS:ApplyPriceDiscount` muestra un ícono de porcentaje junto a la cantidad. Al pulsarlo salen 5%, 3% y un campo corto para otro porcentaje, del mismo alto que el stepper. Baja el precio de la línea y se guarda en `line_items[].discount_percentage`. No usa `product_discount_id` ni el descuento global. Sin permiso, crear o cambiar ese porcentaje responde 403. Reenviar el mismo porcentaje ya guardado sí se permite. El ticket imprime `DESC. PRECIO 5%` y el total `Desc. en precio`.
+
+**2026-11-23 — avisos de corte y tickets en POS Ventas.** En la pantalla de ventas no hay franjas bajo la barra. El estado del corte (Abierto, Atrasado, En cola) y el conteo de tickets regresados viven en la barra superior, en **Corte** y **Tickets**. El texto completo sale al pasar el cursor.
+
 **2026-11-12 — prueba en verdulería.** Sucursal TIJ-1, rol Punto de Venta (mismos permisos que madería). Terminal ventas `ventas.prueba@verduleria.com`, terminal caja `caja.prueba@verduleria.com`, contraseña `123`. En ventas se teclea el código `1001` (Vendedor Prueba, no inicia sesión como terminal). Rodolfo Pruebas sigue como gerente `AMBOS` con código `1425`. Seed: `src/database/seeds/seed-verduleria-pos.ts`.
 
 **2026-11-03 — observaciones al registrar venta.** El modal de **Registrar venta** pide observaciones (opcional). Se guardan en `notes` y el ticket imprime el bloque **OBSERVACIONES**. Si se dejan vacías, se conserva `POS Ventas - {terminal}`. Al reenviar un ticket, `PUT /pos/sales/:id/cart` acepta `notes` (vacío las borra; si se omite, se conservan).
@@ -577,7 +591,7 @@ Enviar `amount_cash_usd` = dólares aplicados (`64.26`) y `received_cash_usd` = 
 - `data.header.customer_display_name` — nombre final del cliente
 - `data.pos_collection` — desglose de pago (recibido, cambio, método, etc.)
 
-**Impresión inmediata (Pollux):** tras cobrar, decodificar `receipt.escpos_base64` y enviar bytes RAW a la impresora Bixolon SRP-330III (ESC/POS, 80mm). Alternativa: descargar con `download_url` o reimprimir con `GET /api/tenant/pos/sales/:id/receipt`.
+**Impresión al cobrar (Pollux):** tras el 200 se abre un modal. Tab **Ticket**: vista previa y copias (default 2) a la térmica con `receipt.escpos_base64`. Si el cajero pidió factura, primero se timbra y después el mismo modal muestra el tab **PDF factura** (copias default 2, editables) en otra impresora. Al cerrar, el contador de **Órdenes cobradas** sube animado. Reimprimir: `GET /api/tenant/pos/sales/:id/receipt`. El PDF sale de `GET /api/tenant/sales-orders/:id/invoices/:invoiceId/pdf`.
 
 **UI caja:** ver **Parte 10** (pantalla de cobro completa).
 
@@ -773,7 +787,7 @@ En la tarjeta se lee el folio y, en chico, **Anticipo**. El cobro es:
 POST /api/tenant/pos/quotations/:quotationId/collect-advance
 ```
 
-Mismo cuerpo que cobrar una venta. Admite efectivo, tarjeta, transferencia, cheque o mixto. No admite crédito. Al confirmar, se timbra la factura de anticipo y el neto entra al corte, igual que cualquier otro pago. La COT deja de salir en por cobrar.
+Mismo cuerpo que cobrar una venta. Admite efectivo, tarjeta, transferencia, cheque o mixto. No admite crédito. Al confirmar, se timbra la factura de anticipo y el neto entra al corte, igual que cualquier otro pago. La respuesta incluye `invoice_id` para imprimir el PDF. La COT deja de salir en por cobrar.
 
 ## 2026-10-22 — Mixto en cobro de anticipo
 
@@ -806,8 +820,8 @@ Después del cierre, en backoffice ya se puede cambiar tipo/sucursal del usuario
 ```mermaid
 flowchart TD
     A[Login terminal VENTAS] --> B{¿Corte abierto en sucursal?}
-    B -->|No| C[Banner: ventas en cola hasta apertura]
-    B -->|Sí| D[Banner opcional: corte activo]
+    B -->|No| C[Barra: Corte En cola]
+    B -->|Sí| D[Barra: Corte Abierto]
     C --> E[Ingresar código vendedor]
     D --> E
     E --> F[Catálogo / carrito]
@@ -829,9 +843,11 @@ GET /api/tenant/pos/daily-shift/current?billing_branch_id={sucursal-seleccionada
 ```
 
 - Terminal VENTAS consulta si en **su sucursal** hay corte abierto de una terminal COBRANZA.
-- Si `daily_shift: null` → **no bloquear**. Mostrar banner persistente:
-  > *Sin corte abierto — las ventas quedan en cola hasta que caja abra el día.*
-- Si hay corte → banner verde opcional: *Corte activo — las ventas van directo a caja.*
+- **No bloquear** y **no** mostrar una franja bajo la barra. El estado va en **Corte** de la barra superior:
+  - `daily_shift: null` → **En cola**. Tooltip: *Sin corte abierto. Las ventas quedan en cola hasta que caja abra el día.*
+  - Corte abierto del día → **Abierto**. Tooltip: *Corte activo. Las ventas van directo a caja.*
+  - Corte de otro día sin cerrar → **Atrasado**. Tooltip: *Hay un corte de otro día sin cerrar. Caja debe cerrarlo; las ventas quedan en cola.*
+- Tickets regresados de caja: solo el badge de **Tickets** en la misma barra. Tooltip: *Hay N tickets regresados de caja. Ábrelo, edita productos y pulsa Enviar a caja.*
 
 ### Paso 3 — Pantalla código de vendedor
 ```
@@ -1068,6 +1084,19 @@ flowchart LR
 
 Al crear POS: `pos_stage = caja`. MANUAL: `null`. Backfill de POS existentes: `caja`.
 
+### 2026-11-23
+
+Ventas puede ver y jalar lo que está en caja sin esperar a que caja lo devuelva.
+
+- `GET /pos/sales-in-caja` — terminal Ventas. Misma lista que pendientes. Cada fila trae `caja_open` si caja la tiene abierta (latido de los últimos 20 s), `lines` (producto, sku, cantidad, unidad, precio y total de renglón), `subtotal`, `discount_total`, `iva_total`, `ieps_total` y `global_discount_amount`.
+- `POST /pos/sales/:id/recall-from-caja` y `POST /pos/quotations/:id/recall-from-caja` — `pos_stage = ventas` y limpia el latido. Cuerpo opcional `seller_user_id` (vendedor con código abierto). Respuesta `caja_was_open` y `recalled_by_name`.
+- `GET /pos/caja-recalls` — canal en vivo (texto, se mantiene abierto). Caja lo abre al entrar. En cuanto Ventas regresa un folio, llega `{ type: "recalled", id, kind, folio, recalled_by_name }`. Si caja lo tenía abierto, lo suelta y muestra la ventana con el nombre del vendedor. Un latido cada 15 s mantiene el canal. El de 4 s sigue como respaldo.
+- `POST /pos/sales/:id/caja-presence` (y el de cotización) — caja lo llama mientras el folio está abierto. Si ya no está en caja responde `in_caja: false`, `recalled_by_name` y `message` con el vendedor («Ana López regresó OSV-000764 a POS Ventas») o «Esta venta ya se cobró».
+- `POST .../caja-release` — caja suelta el folio al cerrarlo.
+- `PATCH /pos/sales/:id/customer` y `PATCH /pos/quotations/:id/customer` — cambia el cliente de una orden o anticipo aún no cobrado. En caja solo si está en caja; en ventas solo si está en ventas. `customer_id` null en la orden usa Público en General. El anticipo exige cliente de catálogo.
+- Cobro con tarjeta: `card_kind` `debit` | `credit` en el cargo y en cada elemento de `card_payments`. Si falta y hay monto de tarjeta, 400. En anticipo, débito timbra forma de pago 28 y crédito 04.
+- En POS Ventas, **Regresar a ventas**, cargar un ticket con carrito y descartar la orden confirman con el diálogo de la app. `confirm()` del navegador saca Chrome de pantalla completa.
+
 **Regresar a ventas** (`POST /pos/sales/:id/return-to-sales`):
 - Solo terminal Caja (`COBRANZA` / `AMBOS`) + permiso `pos:ReturnToSales`
 - Orden POS, `payment_status = Pendiente`, sin `pos_sale_collections`, sin pagos con saldo aplicado, sin CFDI vigente
@@ -1077,6 +1106,7 @@ Al crear POS: `pos_stage = caja`. MANUAL: `null`. Backfill de POS existentes: `c
 **Editar carrito** (`PUT /pos/sales/:id/cart`):
 - Solo terminal Ventas y `pos_stage = ventas`
 - Mismo `line_items` que el alta POS. Libera FIFO (DELETE de asignaciones, no SET NULL) y vuelve a surtir. Recalcula totales. Se puede cambiar el cliente. Acepta `walk_in_name` / `walk_in_rfc` si el cliente es mostrador. Acepta `notes` (observaciones del ticket; vacío las borra).
+- `discount_percentage` en la línea baja el precio. Requiere `POS:ApplyPriceDiscount` para ponerlo o cambiarlo. El mismo porcentaje ya guardado se puede reenviar sin ese permiso. Si la línea trae `product_discount_id`, el porcentaje no se usa.
 - Al **Enviar a caja** un ticket jalado otra vez: `PUT cart` + `POST send-to-caja`. El PUT no debe 500 aunque el folio ya tuviera lotes.
 - No habilita `can_edit_lines` en el detalle ERP para `Surtida`
 
@@ -1087,7 +1117,7 @@ Al crear POS: `pos_stage = caja`. MANUAL: `null`. Backfill de POS existentes: `c
 
 **UI Caja:** en el ticket seleccionado, botón secundario **Regresar a ventas** (junto a Cancelar) con confirmación. Ocultar si no hay `pos:ReturnToSales`. Tras confirmar: toast, el ticket sale de **Por cobrar**. **No redirigir a POS Ventas.** Quien vende recarga Tickets en su terminal.
 
-**UI Ventas:** badge / lista **Tickets en ventas**. Icono recargar en la barra superior. Al abrir un ticket, carga el carrito (productos, cantidades, cliente). CTA **Enviar a caja** (no crea OV nueva). Tras enviar: toast con el mismo folio y carrito vacío.
+**UI Ventas:** badge **Tickets** en la barra superior (sin franja de aviso). Icono recargar en la misma barra. Al abrir un ticket, carga el carrito (productos, cantidades, cliente). CTA **Enviar a caja** (no crea OV nueva). Tras enviar: toast con el mismo folio y carrito vacío.
 
 **Inventario:** al confirmar venta en cola, tratar como surtida (producto ya entregado en piso). Si en el futuro se prefiere reserva blanda, documentar aquí.
 
@@ -1116,6 +1146,12 @@ Base: `/api/tenant/...` — Header: `Authorization: Bearer <token>`
 | POST | `pos/daily-shift/:id/partial-shifts` | COBRANZA | Corte parcial |
 | PATCH | `pos/daily-shift/:id/close` | COBRANZA | Cerrar corte |
 | GET | `pos/pending-sales` | COBRANZA | Ventas por cobrar (`pos_stage` caja o null) |
+| GET | `pos/sales-in-caja` | VENTAS | Esas mismas ventas, para regresarlas desde POS Ventas |
+| POST | `pos/sales/:id/recall-from-caja` | VENTAS | Regresa el folio a ventas aunque caja lo tenga abierto |
+| POST | `pos/quotations/:id/recall-from-caja` | VENTAS | Igual para un anticipo |
+| POST | `pos/sales/:id/caja-presence` | COBRANZA | Latido: caja tiene el folio abierto |
+| POST | `pos/sales/:id/caja-release` | COBRANZA | Caja suelta el folio |
+| PATCH | `pos/sales/:id/customer` | VENTAS o COBRANZA | Actualiza el cliente antes de cobrar |
 | GET | `pos/sales-in-progress` | VENTAS | Tickets `pos_stage=ventas` de la sucursal |
 | GET | `pos/collected-sales` | COBRANZA | Ventas cobradas del corte |
 | POST | `pos/sales/:id/collect` | COBRANZA | Cobrar venta (pago + cliente + ticket) |
@@ -1164,7 +1200,7 @@ Base: `/api/tenant/...` — Header: `Authorization: Bearer <token>`
 1. **Gestión usuarios** — tabs POS + sucursal + tipo Ventas/Caja + código vendedor.
 2. **Login POS** — detectar `pos_user_type` del usuario logueado y rutear a app Ventas o Caja.
 3. **App Caja** — `GET current` → si `unclosed_shift_alert` modal bloqueante y cerrar → si no hay corte, abrir (toast N asignadas) → dashboard con badge “N por cobrar” → pending-sales → collect.
-4. **App Ventas** — banner según corte → código vendedor → inventario → crear orden (cola o directo) o reenviar ticket reintegrado.
+4. **App Ventas** — estado de corte y tickets en la barra superior → código vendedor → inventario → crear orden (cola o directo) o reenviar ticket reintegrado.
 5. **Corte parcial** — modal con tabs MXN/USD.
 6. **Backoffice Cortes** — listado y detalle (reemplaza Equipos/Sesiones).
 7. **Cerrar corte** — fin de día.
@@ -1610,7 +1646,7 @@ Pasar el mismo buffer ESC/POS decodificado al SDK del fabricante.
 | Momento | Acción UI |
 |---------|-----------|
 | Al confirmar cobro | Spinner en botón "Confirmar cobro" |
-| 200 + ticket | Toast cobro OK + modal de vista previa. Dropdown **Copias** (1–5). **Imprimir** manda N copias por QZ |
+| 200 + ticket | Toast cobro OK + modal con tab **Ticket** (copias, default 2) y, si hubo factura, tab **PDF factura** (copias default 2). Al cerrar, el contador de Órdenes cobradas sube animado |
 | 200 + impresión falla | Toast cobro OK; el error se pinta en el modal |
 | `receipt === null` | Cobro OK; avisar con `receipt_error`. Reimprimir llama `GET pos/sales/:id/receipt`, que genera el ticket si la venta ya está cobrada |
 
@@ -1631,7 +1667,7 @@ Pasar el mismo buffer ESC/POS decodificado al SDK del fabricante.
 GET /api/tenant/pos/sales/:salesOrderId/receipt
 ```
 
-Mismo modal de vista previa (elige copias y pulsa Imprimir). En **Órdenes cobradas**, **"Reimprimir ticket"** / **"Ver ticket"**.
+Mismo modal (ticket y, si hay factura timbrada, PDF). En **Órdenes cobradas**, **Ver ticket** / **Imprimir**.
 
 **404** → no hubo ticket al cobrar; mostrar mensaje y no intentar crear uno nuevo.
 
@@ -1640,9 +1676,11 @@ Mismo modal de vista previa (elige copias y pulsa Imprimir). En **Órdenes cobra
 ```typescript
 {
   pos_printer_name: 'BIXOLON SRP-330III',
-  pos_auto_print_on_collect: true
+  pos_invoice_printer_name: 'HP LaserJet'
 }
 ```
+
+`pos_invoice_printer_name` es la impresora del PDF. No uses la térmica ahí.
 
 ---
 

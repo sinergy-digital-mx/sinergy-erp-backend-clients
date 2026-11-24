@@ -1,5 +1,19 @@
 # UI — Stats de órdenes de compra (MXN / USD)
 
+## 2026-11-24 — Pesos y dólares en cada carta
+
+Cada carta muestra las dos monedas, una debajo de la otra. MXN siempre. USD también, aunque sea `$0.00`. No se suman y no se convierten.
+
+Una orden es de una sola moneda. El conjunto del filtro puede traer las dos, así que Deuda (y el resto) siempre parten el monto. Si la sucursal no tiene órdenes en dólares, esa línea es `USD $0.00`. Sin deuda, la última columna sigue diciendo Sin deuda.
+
+## 2026-11-23 — Franja como clientes
+
+Una sola franja blanca, cinco columnas: Órdenes, Creadas, Recibidas, Pagadas y Deuda. Mismo alto y skeleton que el resumen de clientes. Web: 5 columnas. Tablet: 3. Móvil: 2.
+
+El número grande es el conteo. La barra es el % de ese conteo sobre `stats.count`. Abajo va el monto, sin mezclar monedas. Sin deuda, la última columna dice Sin deuda.
+
+Las cifras siguen saliendo de `stats` del listado. No se calculan con la página.
+
 ## 2026-11-02 — Permiso ViewStats
 
 Las cards **Por estado** y **Estado de pago** solo se pintan con `purchase_orders:ViewStats`.
@@ -76,13 +90,20 @@ No sumar `data[]`. Eso mezcla monedas y se corta con la paginación.
 
 ---
 
-## Cómo pintar las dos cards
+## Cómo pintar la franja
 
-Siguen siendo **dos cards** a la misma altura. El total vive en el **header** (conteo + chips), no como tercera fila. Abajo dos métricas alineadas. Deuda usa la misma fila que Pagadas, no un banner.
+Desde 2026-11-23 ya no son dos cards apiladas. Es una franja de cinco columnas. El total es la columna Órdenes (conteo + monto), no un header aparte. Deuda es la quinta columna.
 
-Formato igual que la columna Total de la tabla: `MXN $1,045,914.40` / `USD $500.00`. USD $0 en una fila se oculta.
+Formato del monto, un renglón por moneda:
 
-### Por Estado
+```
+MXN $1,045,914.40
+USD $500.00
+```
+
+USD `$0.00` se muestra. No volver a un solo `$` mezclado.
+
+### Por estado
 
 | UI | Conteo | Monto MXN | Monto USD |
 |----|--------|-----------|-----------|
@@ -100,7 +121,7 @@ Canceladas: opcional. Si las muestran, misma key `Cancelada`.
 | Pagadas | suma `Pagado.count` de ambas monedas | `MXN.by_payment.Pagado.amount` | `USD.by_payment.Pagado.amount` |
 | Deuda | suma `Pendiente.count` | `MXN.by_payment.Pendiente.amount` | `USD.by_payment.Pendiente.amount` |
 
-Si `USD.count === 0`, se puede ocultar el renglón USD (solo hay pesos). No volver a un solo `$` mezclado.
+Si `USD.count === 0`, el renglón USD queda en `$0.00`. No ocultarlo y no volver a un solo `$` mezclado.
 
 Barras: proporción **por conteo** (o por monto **dentro de la misma moneda**). No uses un % sobre MXN+USD.
 
@@ -119,6 +140,6 @@ Barras: proporción **por conteo** (o por monto **dentro de la misma moneda**). 
 
 - [ ] Cards solo con `purchase_orders:ViewStats`; si no, no se pintan
 - [ ] Cards leen `response.stats`, no la página
-- [ ] Cada monto muestra MXN y USD por separado
-- [ ] Si no hay USD, se oculta el renglón USD (no se mezcla)
+- [ ] Cada monto muestra MXN y USD por separado, un renglón cada uno
+- [ ] Si no hay USD, el renglón sigue en `USD $0.00` (no se mezcla)
 - [ ] Recargar stats con los mismos filtros del listado

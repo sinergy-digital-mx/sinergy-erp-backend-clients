@@ -2,6 +2,7 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { inferModule, moduleLabel, normalizeModuleCode, stripLeadingModuleLabel } = require('./release-notes');
 
 const CHANGELOG_JSON = 'scripts/changelog.json';
 const CHANGELOG_MD = 'scripts/CHANGELOG.md';
@@ -47,7 +48,7 @@ function normalizeEntry(raw) {
   if (raw.scope === 'backend' || raw.scope === 'both' || raw.scope === 'frontend') {
     scope = raw.scope;
   }
-  return {
+  const entry = {
     id: String(raw.id || message).slice(0, 80),
     at: String(raw.at || ''),
     scope,
@@ -56,6 +57,9 @@ function normalizeEntry(raw) {
     version: raw.version ? String(raw.version).slice(0, 32) : null,
     shippedAt: raw.shippedAt ? String(raw.shippedAt) : null,
   };
+  const moduleCode = normalizeModuleCode(raw.module);
+  if (moduleCode) entry.module = moduleCode;
+  return entry;
 }
 
 function readChangelog(repoDir) {
@@ -74,6 +78,42 @@ function readChangelog(repoDir) {
   }
 }
 
+const MONTHS = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+
+function monthKey(value) {
+  const day = dayOf(value);
+  return day ? day.slice(0, 7) : 'sin-fecha';
+}
+
+function monthTitle(key) {
+  const match = String(key || '').match(/^(\d{4})-(\d{2})$/);
+  if (!match) return 'Sin fecha';
+  const name = MONTHS[Number(match[2]) - 1];
+  if (!name) return 'Sin fecha';
+  return `${name.charAt(0).toUpperCase()}${name.slice(1)} ${match[1]}`;
+}
+
+function shortDay(value) {
+  const day = dayOf(value);
+  const match = day.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return '';
+  const name = MONTHS[Number(match[2]) - 1];
+  if (!name) return '';
+  return `${Number(match[3])} ${name.slice(0, 3)}`;
+}
+
+function readingLine(entry) {
+  const code = entry?.module || inferModule(entry?.message);
+  const label = moduleLabel(code);
+  if (!label || (!entry?.module && code === 'platform')) {
+    return `${scopeLabel(entry.scope)} · ${entry.message}`;
+  }
+  return `${label} · ${stripLeadingModuleLabel(entry.message, code)}`;
+}
+
 function renderMarkdown(log) {
   const entries = Array.isArray(log?.entries) ? log.entries : [];
   const pending = entries.filter((entry) => entry.status !== 'shipped');
@@ -81,9 +121,9 @@ function renderMarkdown(log) {
   const lines = [
     '# Changelog de solicitudes',
     '',
-    'Generado desde `scripts/changelog.json`. No editar a mano.',
+    'Lectura de `scripts/changelog.json`. No editar a mano.',
     '',
-    'Cada solicitud terminada entra en **Pendientes**. `npm run deploy:both` y `npm run deploy` del backend escriben en el commit solo esas entradas y las pasan a **Enviados**.',
+    'Cada solicitud terminada entra en **Pendientes**. `npm run deploy:both` publica esas notas en la versión y las pasa a **Enviados**.',
     '',
     '## Pendientes',
     '',
@@ -92,38 +132,79 @@ function renderMarkdown(log) {
   if (!pending.length) {
     lines.push('No hay solicitudes pendientes de deploy.', '');
   } else {
-    for (const entry of pending) {
-      lines.push(`- **${dayOf(entry.at)}** · ${scopeLabel(entry.scope)} · ${entry.message}`);
-    }
-    lines.push('');
+    lines.push(...renderMonthBuckets([...pending].reverse(), (entry) => entry.at, (entry) => {
+      const day = shortDay(entry.at);
+      return `- ${day ? `**${day}** · ` : ''}${readingLine(entry)}`;
+    }));
   }
 
   lines.push('## Enviados', '');
   if (!shipped.length) {
     lines.push('Todavía no hay un deploy con este registro.', '');
   } else {
-    const groups = new Map();
-    const order = [];
+    const versions = new Map();
+    const versionOrder = [];
     for (const entry of shipped) {
       const key = entry.version || 'sin versión';
-      if (!groups.has(key)) {
-        groups.set(key, []);
-        order.push(key);
+      if (!versions.has(key)) {
+        versions.set(key, []);
+        versionOrder.push(key);
       }
-      groups.get(key).push(entry);
+      versions.get(key).push(entry);
     }
-    for (const key of order.reverse()) {
-      const group = groups.get(key);
-      const day = dayOf(group[0].shippedAt || group[0].at);
-      lines.push(`### Versión ${key}${day ? ` · ${day}` : ''}`, '');
-      for (const entry of group) {
-        lines.push(`- ${scopeLabel(entry.scope)} · ${entry.message}`);
-      }
-      lines.push('');
-    }
+    const blocks = versionOrder.reverse().map((version) => {
+      const group = versions.get(version);
+      const stamp = group[0].shippedAt || group[0].at;
+      const day = shortDay(stamp);
+      return {
+        month: monthKey(stamp),
+        heading: `#### Versión ${version}${day ? ` · ${day}` : ''}`,
+        lines: group.map((entry) => `- ${readingLine(entry)}`),
+      };
+    });
+    lines.push(...renderBlocksByMonth(blocks));
   }
 
   return `${lines.join('\n').replace(/\n+$/, '')}\n`;
+}
+
+function renderMonthBuckets(entries, stampOf, lineOf) {
+  const buckets = new Map();
+  const order = [];
+  for (const entry of entries) {
+    const key = monthKey(stampOf(entry));
+    if (!buckets.has(key)) {
+      buckets.set(key, []);
+      order.push(key);
+    }
+    buckets.get(key).push(lineOf(entry));
+  }
+  const lines = [];
+  for (const key of order) {
+    lines.push(`### ${monthTitle(key)}`, '');
+    lines.push(...buckets.get(key), '');
+  }
+  return lines;
+}
+
+function renderBlocksByMonth(blocks) {
+  const buckets = new Map();
+  const order = [];
+  for (const block of blocks) {
+    if (!buckets.has(block.month)) {
+      buckets.set(block.month, []);
+      order.push(block.month);
+    }
+    buckets.get(block.month).push(block);
+  }
+  const lines = [];
+  for (const key of order) {
+    lines.push(`### ${monthTitle(key)}`, '');
+    for (const block of buckets.get(key)) {
+      lines.push(block.heading, '', ...block.lines, '');
+    }
+  }
+  return lines;
 }
 
 function writeChangelog(repoDir, log) {
@@ -155,6 +236,13 @@ function appendEntry(repoDir, input) {
   if (!message) {
     throw new Error('Falta el mensaje del changelog');
   }
+  let moduleCode = null;
+  if (input?.module) {
+    moduleCode = normalizeModuleCode(input.module);
+    if (!moduleCode) {
+      throw new Error('module no es válido');
+    }
+  }
   const data = readChangelog(repoDir);
   const exists = data.entries.some(
     (entry) => entry.status === 'pending' && entry.message.toLowerCase() === message.toLowerCase(),
@@ -163,7 +251,7 @@ function appendEntry(repoDir, input) {
     return data;
   }
   const now = new Date();
-  data.entries.push({
+  const entry = {
     id: nextId(data.entries, now),
     at: localStamp(now),
     scope,
@@ -171,7 +259,9 @@ function appendEntry(repoDir, input) {
     status: 'pending',
     version: null,
     shippedAt: null,
-  });
+  };
+  if (moduleCode) entry.module = moduleCode;
+  data.entries.push(entry);
   return writeChangelog(repoDir, data);
 }
 
@@ -218,7 +308,8 @@ function deployCommitMessage(title, entries) {
     const key = message.toLowerCase();
     if (!message || seen.has(key)) continue;
     seen.add(key);
-    lines.push(`- ${message}`);
+    const label = moduleLabel(entry?.module);
+    lines.push(label ? `- ${label}: ${message}` : `- ${message}`);
     if (lines.length >= 80) break;
   }
   if (!lines.length) return subject;
@@ -271,11 +362,17 @@ function readFlag(name) {
   return process.argv[index + 1] || '';
 }
 
-if (require.main === module) {
+if (require.main === module && process.argv.includes('--render')) {
+  const repoDir = path.resolve(__dirname, '..', '..');
+  const paths = changelogPaths(repoDir);
+  fs.writeFileSync(paths.md, renderMarkdown(readChangelog(repoDir)));
+  console.log('Lectura actualizada en scripts/CHANGELOG.md.');
+} else if (require.main === module) {
   const scope = readFlag('--scope') || 'both';
+  const moduleCode = readFlag('--module') || process.env.CHANGELOG_MODULE || '';
   const message = readFlag('--message') || process.env.CHANGELOG_MESSAGE || '';
   try {
-    appendEntry(path.resolve(__dirname, '..', '..'), { scope, message });
+    appendEntry(path.resolve(__dirname, '..', '..'), { scope, module: moduleCode, message });
     console.log('Solicitud anotada en scripts/CHANGELOG.md (pendiente).');
   } catch (error) {
     console.error(error.message || error);

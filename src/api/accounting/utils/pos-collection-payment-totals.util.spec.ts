@@ -10,19 +10,17 @@ import {
 } from './pos-collection-payment-totals.util';
 
 describe('pos-collection-payment-totals.util', () => {
-  it('calcula ticket como monto / ventas', () => {
+  it('arma ventas y monto de una forma de pago', () => {
     expect(buildPaymentMethodTotal(4, 1000)).toEqual({
       orders: 4,
       amount: 1000,
-      ticket: 250,
     });
   });
 
-  it('ticket es 0 si no hay ventas', () => {
+  it('conserva el monto aunque no haya ventas', () => {
     expect(buildPaymentMethodTotal(0, 250)).toEqual({
       orders: 0,
       amount: 250,
-      ticket: 0,
     });
   });
 
@@ -41,21 +39,21 @@ describe('pos-collection-payment-totals.util', () => {
         credit_amount: 800,
       }),
     ).toEqual({
-      cash: { orders: 2, amount: 200, ticket: 100 },
-      transfer: { orders: 1, amount: 50.5, ticket: 50.5 },
-      card: { orders: 0, amount: 0, ticket: 0 },
-      check: { orders: 3, amount: 90, ticket: 30 },
-      credit: { orders: 4, amount: 800, ticket: 200 },
+      cash: { orders: 2, amount: 200 },
+      transfer: { orders: 1, amount: 50.5 },
+      card: { orders: 0, amount: 0 },
+      check: { orders: 3, amount: 90 },
+      credit: { orders: 4, amount: 800 },
     });
   });
 
   it('empty arranca en ceros', () => {
     expect(emptyPaymentMethodTotals()).toEqual({
-      cash: { orders: 0, amount: 0, ticket: 0 },
-      transfer: { orders: 0, amount: 0, ticket: 0 },
-      card: { orders: 0, amount: 0, ticket: 0 },
-      check: { orders: 0, amount: 0, ticket: 0 },
-      credit: { orders: 0, amount: 0, ticket: 0 },
+      cash: { orders: 0, amount: 0 },
+      transfer: { orders: 0, amount: 0 },
+      card: { orders: 0, amount: 0 },
+      check: { orders: 0, amount: 0 },
+      credit: { orders: 0, amount: 0 },
     });
   });
 
@@ -107,8 +105,8 @@ describe('pos-collection-payment-totals.util', () => {
     expect(summary.walk_in_count).toBe(1);
     expect(summary.invoiced_count).toBe(1);
     expect(summary.shipping_count).toBe(0);
-    expect(summary.by_payment_method.card).toEqual({ orders: 1, amount: 80, ticket: 80 });
-    expect(summary.by_payment_method.credit).toEqual({ orders: 1, amount: 80, ticket: 80 });
+    expect(summary.by_payment_method.card).toEqual({ orders: 1, amount: 80 });
+    expect(summary.by_payment_method.credit).toEqual({ orders: 1, amount: 80 });
   });
 
   it('el cheque cuenta con dólares aunque el importe en pesos sea cero', () => {

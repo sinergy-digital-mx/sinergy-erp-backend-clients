@@ -14,6 +14,7 @@ import {
   resolveListPaymentInsight,
 } from './contract-list-insight.util';
 import { getDownPaymentApplied } from './contract-financial.util';
+import { contractSaleTypeLabel } from './utils/contract-sale-type.util';
 
 @Injectable()
 export class ContractsExportService {
@@ -111,7 +112,7 @@ export class ContractsExportService {
         'Lote': contract.property?.code || '',
         'Fecha Inicio': this.formatDate(contract.contract_date),
         'Moneda': (contract.currency || 'USD').toString().trim().toUpperCase() || 'USD',
-        'Fase': insight.payment_phase === 'down_payment' ? 'Enganche' : 'Contrato',
+        'Tipo': contractSaleTypeLabel(contract),
         'Precio Total': totalPrice,
         'Enganche': downPayment,
         'Monto Financiado': financedAmount,
@@ -143,7 +144,7 @@ export class ContractsExportService {
           'Lote': '',
           'Fecha Inicio': '',
           'Moneda': '',
-          'Fase': '',
+          'Tipo': '',
           'Precio Total': '',
           'Enganche': '',
           'Monto Financiado': '',

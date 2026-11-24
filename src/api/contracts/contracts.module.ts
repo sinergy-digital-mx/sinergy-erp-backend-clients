@@ -6,6 +6,7 @@ import { Payment } from '../../entities/contracts/payment.entity';
 import { ContractDownpaymentPayment } from '../../entities/contracts/contract-downpayment-payment.entity';
 import { PaymentDocument } from '../../entities/contracts/payment-document.entity';
 import { ContractsService } from './contracts.service';
+import { ContractMonthlyIncomeService } from './contract-monthly-income.service';
 import { ContractsController } from './contracts.controller';
 import { ContractsExportService } from './contracts-export.service';
 import { ContractPdfService } from './contract-pdf.service';
@@ -36,6 +37,7 @@ import { DownpaymentPaymentsModule } from './contract-downpayment-payments/downp
   ],
   providers: [
     ContractsService,
+    ContractMonthlyIncomeService,
     ContractsExportService,
     ContractPdfService,
     ContractDocumentsService,

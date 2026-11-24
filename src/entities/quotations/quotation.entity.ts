@@ -135,6 +135,13 @@ export class Quotation {
   })
   pos_stage: SalesOrderPosStage | null;
 
+  /** Heartbeat de POS Caja mientras el anticipo está abierto en el cobro. */
+  @Column({ type: 'timestamp', nullable: true })
+  pos_caja_opened_at: Date | null;
+
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  pos_caja_opened_by: string | null;
+
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'created_by' })
   creator: User;

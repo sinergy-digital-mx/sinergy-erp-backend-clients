@@ -1,5 +1,9 @@
 # Divino Dashboard — UI
 
+## Historial
+
+- 2026-11-19: El modal de Contado vs financiado tiene margen propio, tarjetas con fondo y la lista dentro de un recuadro.
+
 ## Layout
 
 - Header: título + filtro **All time | Mes | Año**

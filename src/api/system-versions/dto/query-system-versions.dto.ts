@@ -12,8 +12,8 @@ export class QuerySystemVersionsDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(200)
-  limit?: number = 20;
+  @Max(10)
+  limit?: number = 8;
 
   @IsOptional()
   @IsString()

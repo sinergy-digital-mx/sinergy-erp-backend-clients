@@ -1,5 +1,7 @@
 # UI — Editar / eliminar líneas de orden de venta
 
+Cambio 2026-11-23: en POS Ventas, `discount_percentage` es el descuento directo al precio (5%, 3% u otro). No es descuento de producto. El permiso es `POS:ApplyPriceDiscount`.
+
 Cambio 2026-10-10: guardar solo el precio, el IVA o el IEPS no vuelve a apartar lotes. El inventario se mueve solo si cambia la cantidad o la unidad.
 
 Cambio 2026-10-21: las líneas pueden traer `custom_description` (concepto libre que reemplaza el nombre del producto). Ver `UI_SALES_ORDER_CLONE.md`.

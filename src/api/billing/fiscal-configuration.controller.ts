@@ -94,8 +94,8 @@ export class FiscalConfigurationController {
   }
 
   @Get('system-logo')
-  @ApiOperation({ summary: 'Metadatos del logo que reemplaza la marca del menú' })
-  @ApiResponse({ status: 200, description: 'Indica si hay logo y la clave de caché del archivo' })
+  @ApiOperation({ summary: 'Logo del menú y colores del degradado' })
+  @ApiResponse({ status: 200, description: 'Logo, clave de caché del archivo y los tres colores efectivos del menú' })
   getSystemLogo(@Req() req) {
     return this.service.getSystemLogoMeta(req.user.tenantId);
   }
@@ -109,6 +109,20 @@ export class FiscalConfigurationController {
     return new StreamableFile(file.buffer, {
       type: file.contentType,
       disposition: 'inline; filename="system-logo"',
+    });
+  }
+
+  @Get(':id/logo-file')
+  @RequirePermissions({ entityType: 'FiscalConfiguration', action: 'Read' })
+  @ApiOperation({ summary: 'Archivo del logo de una razón social' })
+  @ApiParam({ name: 'id', type: 'string' })
+  @ApiResponse({ status: 200, description: 'Imagen del logo' })
+  @ApiResponse({ status: 404, description: 'No hay logo' })
+  async getLogoFile(@Param('id') id: string, @Req() req): Promise<StreamableFile> {
+    const file = await this.service.getLogoFile(id, req.user.tenantId);
+    return new StreamableFile(file.buffer, {
+      type: file.contentType,
+      disposition: 'inline; filename="logo"',
     });
   }
 

@@ -5,22 +5,23 @@ alwaysApply: true
 
 ## Changelog de solicitudes
 
-Fuente: `scripts/changelog.json` de este repo. La lectura es `scripts/CHANGELOG.md`. No los edites a mano.
+Fuente: `scripts/changelog.json` de este repo. La lectura sigue siendo `scripts/CHANGELOG.md` (pendientes y enviados, agrupados por mes). No la edites a mano: el script la vuelve a generar.
 
 Al terminar una solicitud que cambie código, comportamiento o documentación:
 
-1. Anota una sola línea en español, entendible por el equipo: qué se pidió y qué quedó.
+1. Anota qué quedó, en español y concreto. Una línea por módulo tocado. La frase dice qué se hizo en ese módulo, no «Cambios en clientes».
 2. `scope` es `frontend`, `backend` o `both`.
-3. Corre el script del backend (resuelve solo su carpeta). En bash, con comillas simples:
+3. `module` es el código del módulo: `customers`, `crm`, `purchase-orders`, `vendors`, `sales-orders`, `quotations`, `logistics`, `products`, `inventory`, `pos`, `pos-cash`, `accounting`, `billing`, `employees`, `contracts`, `whatsapp`, `settings`, `platform`.
+4. Corre el script del backend (resuelve solo su carpeta). En bash, con comillas simples:
 
 ```bash
-node scripts/lib/session-changelog.js --scope both --message 'texto en una línea'
+node scripts/lib/session-changelog.js --scope both --module customers --message 'En el listado el RFC se guarda en mayúsculas.'
 ```
 
-Si el texto lleva comillas, usa `CHANGELOG_MESSAGE='texto' node scripts/lib/session-changelog.js --scope both`.
+Si el texto lleva comillas, usa `CHANGELOG_MESSAGE='texto' CHANGELOG_MODULE='customers' node scripts/lib/session-changelog.js --scope both`.
 
-4. Eso lo deja en **Pendientes**. No lo pases a enviado.
-5. No dupliques: si ese texto ya está pendiente, el script no agrega otra. Una sola vez por solicitud.
-6. Una pregunta sin cambios de archivos no se registra.
+5. Eso lo deja en **Pendientes**. No lo pases a enviado.
+6. No dupliques: si ese texto ya está pendiente, el script no agrega otra. Una sola vez por módulo de la solicitud.
+7. Una pregunta sin cambios de archivos no se registra.
 
-`npm run deploy:both` y `npm run deploy` del backend meten en el commit solo las pendientes y, al commitear, las pasan a **Enviados**.
+`npm run deploy:both` publica esas pendientes como las notas de la versión (módulo + qué se hizo) y, al commitear, las pasa a **Enviados**. Sin pendientes, el deploy usa los commits.

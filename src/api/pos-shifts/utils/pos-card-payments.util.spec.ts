@@ -29,7 +29,7 @@ describe('pos-card-payments', () => {
       amount_card_mxn: 200,
       card_reference: '9999',
     });
-    expect(payments).toEqual([{ amount_mxn: 200, reference: '9999' }]);
+    expect(payments).toEqual([{ amount_mxn: 200, reference: '9999', card_kind: null }]);
   });
 
   it('un cheque en dólares cuenta como una forma', () => {
@@ -50,7 +50,7 @@ describe('pos-card-payments', () => {
         cashTotal: 100,
         amountTransferMxn: 0,
         amountCheckMxn: 0,
-        cardPayments: [{ amount_mxn: 50, reference: null }],
+        cardPayments: [{ amount_mxn: 50, reference: null, card_kind: 'debit' }],
       }),
     ).toBe(2);
   });

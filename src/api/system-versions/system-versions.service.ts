@@ -12,7 +12,7 @@ import {
 } from './utils/tenant-release-list.util';
 
 export const SYSTEM_VERSIONS_MODULE_CODE = 'system-versions';
-const TENANT_RELEASE_CACHE_MS = 60_000;
+const TENANT_RELEASE_CACHE_MS = 5 * 60_000;
 
 export type SystemVersionItem = TenantVersionListItem;
 export type PaginatedSystemVersions = PaginatedTenantReleases;
@@ -58,7 +58,7 @@ export class SystemVersionsService {
   private async enabledModuleCodes(tenantId: string): Promise<string[]> {
     const rows: Array<{ code: string }> = await this.versions.query(
       `
-        SELECT m.code AS code
+        SELECT /*+ MAX_EXECUTION_TIME(2000) */ m.code AS code
         FROM tenant_modules tm
         INNER JOIN modules m ON m.id = tm.module_id
         WHERE tm.tenant_id = ?

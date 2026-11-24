@@ -72,6 +72,42 @@ export class FiscalConfiguration {
   @Column({ type: 'tinyint', width: 1, default: 0 })
   use_as_system_logo: boolean;
 
+  /** Color plano del logo en el menú (#rrggbb). Vacío = se ve el archivo tal cual. */
+  @Column({ type: 'varchar', length: 7, nullable: true })
+  @IsOptional()
+  @IsString()
+  logo_mask_color: string | null;
+
+  /** Arriba del degradado del menú (#rrggbb). Vacío = índigo de Pólux. En celular pinta el fondo. */
+  @Column({ type: 'varchar', length: 7, nullable: true })
+  @IsOptional()
+  @IsString()
+  brand_color_start: string | null;
+
+  /** Centro del degradado del menú (#rrggbb). */
+  @Column({ type: 'varchar', length: 7, nullable: true })
+  @IsOptional()
+  @IsString()
+  brand_color_mid: string | null;
+
+  /** Abajo del degradado del menú (#rrggbb). */
+  @Column({ type: 'varchar', length: 7, nullable: true })
+  @IsOptional()
+  @IsString()
+  brand_color_end: string | null;
+
+  /** Barra de POS Ventas (#rrggbb). Vacío = la barra queda en el tono oscuro de siempre. */
+  @Column({ type: 'varchar', length: 7, nullable: true })
+  @IsOptional()
+  @IsString()
+  pos_sales_bar_color: string | null;
+
+  /** Barra de POS Caja (#rrggbb). Vacío = la barra queda en el tono oscuro de siempre. */
+  @Column({ type: 'varchar', length: 7, nullable: true })
+  @IsOptional()
+  @IsString()
+  pos_cash_bar_color: string | null;
+
   @Column({
     type: 'enum',
     enum: ['active', 'inactive'],

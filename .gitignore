@@ -38,6 +38,11 @@ lerna-debug.log*
 # Notas temporales del deploy de versiones
 scripts/.pending-release-notes.json
 scripts/.release-fingerprint.json
+scripts/.release-payload.json
+
+# Respaldos y hojas locales. No van al remoto.
+/src/database/backups/
+/FIXES_*.xlsx
 
 # dotenv environment variable files
 .env

@@ -1,5 +1,10 @@
 # UI — Tab Información Fiscal (domicilio SAT)
 
+## Cambios
+
+- 2026-11-23: En el detalle del cliente, junto a **Cargar constancia SAT** hay una **i**. Al pasar el cursor explica que el PDF se lee y se llenan solos RFC, razón social y domicilio.
+- 2026-11-23: En Crear / Editar cliente, el RFC pasa a mayúsculas al escribir. El modal de dirección deja de cortarse por la derecha.
+
 Guía para Pollux: tab **Información Fiscal** en Crear / Editar cliente.
 
 Copiar de la **Constancia de Situación Fiscal (CSF)**, no inventar el domicilio. El CFDI 4.0 del receptor usa el **CP** (`DomicilioFiscalReceptor`) y el **nombre legal** (`Nombre`). Si el nombre o el CP no coinciden con el SAT, Finkok rechaza el timbrado (p. ej. CFDI40144).
@@ -43,7 +48,7 @@ No mostrar `fiscal_city` ni un textarea de dirección concatenada.
 
 | UI                   | Body                     | Notas                                                                                                                                  |
 | -------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| RFC                  | `fiscal_rfc`             | Ya existe                                                                                                                              |
+| RFC                  | `fiscal_rfc`             | Mayúsculas al teclear. Se guarda en mayúsculas.                                                                                        |
 | Tipo de persona      | `fiscal_person_type`     | `fisica` \| `moral` \| `otro`                                                                                                          |
 | Razón social         | `fiscal_razon_social`    | Texto legal CSF (CFDI `@Nombre`). Mismo campo que el tab Información del Cliente: `src/api/customers/docs/UI_CUSTOMER_RAZON_SOCIAL.md` |
 | Código postal        | `fiscal_postal_code`     | 5 dígitos. CFDI `@DomicilioFiscalReceptor`                                                                                             |
@@ -95,7 +100,7 @@ Si el form es inválido (nombre vacío, email mal escrito, CP incompleto):
 
 ## Cargar constancia SAT (detalle del cliente)
 
-En el tab **Información Fiscal** del detalle, botón **Cargar constancia SAT** (quien puede editar el cliente).
+En el tab **Información Fiscal** del detalle, botón **Cargar constancia SAT** (quien puede editar el cliente). A la izquierda del botón, una **i**: al pasar el cursor dice que al subir el PDF el sistema lo lee y llena solo RFC, razón social y domicilio para facturar.
 
 El usuario elige el PDF de la **Cédula de Identificación Fiscal** / Constancia de Situación Fiscal descargada del SAT. El API lee el texto y guarda:
 

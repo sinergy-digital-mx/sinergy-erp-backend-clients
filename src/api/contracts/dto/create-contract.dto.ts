@@ -51,6 +51,16 @@ export class CreateContractDto {
   @IsNumber()
   total_price: number;
 
+  /** cash = contado. financed = mensualidades. Si se omite, queda financiado. */
+  @IsOptional()
+  @IsIn(['cash', 'financed'])
+  sale_type?: 'cash' | 'financed';
+
+  /** Solo contado. true deja el contrato completado y el saldo en cero. */
+  @IsOptional()
+  @IsBoolean()
+  cash_paid_in_full?: boolean;
+
   @IsNumber()
   down_payment: number;
 
@@ -79,14 +89,16 @@ export class CreateContractDto {
   @Max(31)
   down_payment_payment_day?: number;
 
-  /** 0 = pago de contado (enganche cubre el total); ≥1 si hay saldo a financiar */
+  /** 0 en contado. ≥1 si hay saldo a financiar. */
   @IsNumber()
   @Min(0)
   payment_months: number;
 
+  /** En contado se puede omitir: se usa la fecha del contrato. */
+  @IsOptional()
   @IsDate()
   @Type(() => Date)
-  first_payment_date: Date;
+  first_payment_date?: Date;
 
   @IsOptional()
   @Transform(({ value }) => (value === '' ? null : value))

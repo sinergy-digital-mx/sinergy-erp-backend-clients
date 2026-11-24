@@ -1,4 +1,17 @@
-import { filterChangesForModules, ReleaseChange, ReleaseChannel, ReleasePayload } from './release-notes.util';
+import {
+  filterChangesForModules,
+  presentReleaseChange,
+  ReleaseChannel,
+  ReleasePayload,
+  ReleaseScope,
+} from './release-notes.util';
+
+export interface TenantVersionChange {
+  scope: ReleaseScope;
+  message: string;
+  module: string | null;
+  module_label: string | null;
+}
 
 export interface TenantVersionListItem {
   id: string;
@@ -6,7 +19,7 @@ export interface TenantVersionListItem {
   build_id: string | null;
   channel: ReleaseChannel;
   title: string;
-  changes: ReleaseChange[];
+  changes: TenantVersionChange[];
   released_at: string;
 }
 
@@ -32,7 +45,7 @@ export function listReleasesForTenant(
       build_id: release.buildId ? String(release.buildId) : null,
       channel: release.channel,
       title: String(release.title || `Versión ${release.version || ''}`),
-      changes: filterChangesForModules(release.changes, enabled),
+      changes: filterChangesForModules(release.changes, enabled).map((change) => presentReleaseChange(change)),
       released_at: String(release.releasedAt || ''),
     }))
     .filter((item) => item.id && item.changes.length > 0)
@@ -52,10 +65,10 @@ export function paginateTenantReleases(
   search?: string,
 ): PaginatedTenantReleases {
   let page = Number(pageInput) || 1;
-  let limit = Number(limitInput) || 20;
+  let limit = Number(limitInput) || 8;
   if (page < 1) page = 1;
   if (limit < 1) limit = 1;
-  if (limit > 200) limit = 200;
+  if (limit > 10) limit = 10;
 
   const term = String(search ?? '').trim().toLowerCase();
   const filtered = term
@@ -63,7 +76,9 @@ export function paginateTenantReleases(
         (item) =>
           item.version.toLowerCase().includes(term)
           || item.title.toLowerCase().includes(term)
-          || item.changes.some((change) => change.message.toLowerCase().includes(term)),
+          || item.changes.some((change) =>
+            change.message.toLowerCase().includes(term)
+            || (change.module_label || '').toLowerCase().includes(term)),
       )
     : items;
 

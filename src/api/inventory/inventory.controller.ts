@@ -1,6 +1,7 @@
-import { Controller, UseGuards, Get, Patch, Body, Query, Param, Req, Res } from '@nestjs/common';
+import { Controller, UseGuards, Get, Patch, Put, Body, Query, Param, Req, Res } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiQuery, ApiParam, ApiBody } from '@nestjs/swagger';
 import { InventoryService } from './inventory.service';
+import { InventoryBranchReportService } from './services/inventory-branch-report.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionGuard } from '../rbac/guards/permission.guard';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator';
@@ -13,6 +14,15 @@ import { UpdateInventoryBatchDto } from './dto/update-inventory-batch.dto';
 import { InventorySummaryFilterDto } from './dto/inventory-summary-filter.dto';
 import { InventorySummaryResponseDto } from './dto/inventory-summary-response.dto';
 import { PosSessionInventorySummaryResponseDto } from './dto/pos-session-inventory-summary-response.dto';
+import { PosBranchStockResponseDto } from './dto/pos-branch-stock-response.dto';
+import {
+  BranchReportProductSearchResponseDto,
+  BranchReportSettingsResponseDto,
+  BranchStockReportResponseDto,
+  QueryBranchReportDto,
+  QueryBranchReportProductsDto,
+  UpdateBranchReportSettingsDto,
+} from './dto/branch-stock-report.dto';
 import { InventoryLocationTreeResponseDto } from './dto/inventory-location-tree-response.dto';
 import { InventoryStatsFilterDto } from './dto/inventory-stats-filter.dto';
 import { InventoryStatsResponseDto } from './dto/inventory-stats-response.dto';
@@ -37,6 +47,7 @@ export class InventoryController {
     private readonly inventoryService: InventoryService,
     private readonly exportService: InventoryExportService,
     private readonly stockFlowService: InventoryStockFlowService,
+    private readonly branchReportService: InventoryBranchReportService,
   ) {}
 
   @Get('stock-flow')
@@ -222,6 +233,81 @@ export class InventoryController {
     @Req() req: any,
   ): Promise<ProductMarginResponseDto> {
     return this.inventoryService.getProductMargin(req.user.tenant_id, productId);
+  }
+
+  @Get('branch-report/products')
+  @RequirePermissions({ entityType: 'inventory', action: 'read' })
+  @ApiOperation({
+    summary: 'Buscar un producto para el reporte por sucursal',
+    description: 'Nombre, SKU o SKU externo. Máximo 10. Permiso inventory:Read.',
+  })
+  @ApiResponse({ status: 200, type: BranchReportProductSearchResponseDto })
+  async searchBranchReportProducts(
+    @Query() query: QueryBranchReportProductsDto,
+    @Req() req: any,
+  ): Promise<BranchReportProductSearchResponseDto> {
+    return this.branchReportService.searchProducts(req.user.tenant_id, query.search ?? '');
+  }
+
+  @Get('branch-report/settings')
+  @RequirePermissions({ entityType: 'inventory', action: 'read' })
+  @ApiOperation({
+    summary: 'Sucursales activas y cuáles salen en el reporte',
+    description: 'Sin configuración guardada, todas las sucursales activas salen. Permiso inventory:Read.',
+  })
+  @ApiResponse({ status: 200, type: BranchReportSettingsResponseDto })
+  async getBranchReportSettings(@Req() req: any): Promise<BranchReportSettingsResponseDto> {
+    return this.branchReportService.getSettings(req.user.tenant_id);
+  }
+
+  @Put('branch-report/settings')
+  @RequirePermissions({ entityType: 'inventory', action: 'read' })
+  @ApiOperation({
+    summary: 'Guardar las sucursales del reporte',
+    description: 'La selección queda para quien consulte Inventario. Permiso inventory:Read.',
+  })
+  @ApiBody({ type: UpdateBranchReportSettingsDto })
+  @ApiResponse({ status: 200, type: BranchReportSettingsResponseDto })
+  async updateBranchReportSettings(
+    @Body() body: UpdateBranchReportSettingsDto,
+    @Req() req: any,
+  ): Promise<BranchReportSettingsResponseDto> {
+    return this.branchReportService.updateSettings(
+      req.user.tenant_id,
+      req.user?.id ?? null,
+      body.branch_ids,
+    );
+  }
+
+  @Get('branch-report')
+  @RequirePermissions({ entityType: 'inventory', action: 'read' })
+  @ApiOperation({
+    summary: 'Existencia y costo de un producto por sucursal',
+    description:
+      'Una sola pieza. Incluye sucursales en cero. El costo promedio es ponderado por existencia, con el mismo costo unitario que Totalizado. Permiso inventory:Read.',
+  })
+  @ApiResponse({ status: 200, type: BranchStockReportResponseDto })
+  async getBranchStockReport(
+    @Query() query: QueryBranchReportDto,
+    @Req() req: any,
+  ): Promise<BranchStockReportResponseDto> {
+    return this.branchReportService.getReport(req.user.tenant_id, query.product_id);
+  }
+
+  @Get('pos/branch-stock')
+  @RequirePermissions({ entityType: 'inventory', action: 'read' })
+  @ApiOperation({
+    summary: 'Existencias por sucursal para el POS',
+    description:
+      'Busca por nombre, SKU o SKU externo y devuelve cantidades por sucursal activa. No incluye costos. Máximo 12 productos.',
+  })
+  @ApiQuery({ name: 'search', required: true, type: String })
+  @ApiResponse({ status: 200, type: PosBranchStockResponseDto })
+  async getPosBranchStock(
+    @Query('search') search: string,
+    @Req() req: any,
+  ): Promise<PosBranchStockResponseDto> {
+    return this.inventoryService.getPosBranchStock(req.user.tenant_id, search ?? '');
   }
 
   @Get('pos/summary')

@@ -25,8 +25,8 @@ describe('customer purchase trend', () => {
             '2026-09',
             '2026-10',
         ]);
-        expect(rollingPurchaseMonths(now)[0].label).toBe('nov 25');
-        expect(rollingPurchaseMonths(now).at(-1)?.label).toBe('oct 26');
+        expect(rollingPurchaseMonths(now)[0].label).toBe('Nov 25');
+        expect(rollingPurchaseMonths(now).at(-1)?.label).toBe('Oct 26');
     });
 
     it('abre la ventana a la medianoche de México del mes más antiguo', () => {

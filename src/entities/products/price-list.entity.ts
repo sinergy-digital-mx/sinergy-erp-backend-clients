@@ -39,6 +39,10 @@ export class PriceList {
   @Column({ default: true })
   is_active: boolean;
 
+  /** Precio de referencia de los márgenes. Una sola lista a la vez. */
+  @Column({ default: false })
+  is_margin_default: boolean;
+
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;
 

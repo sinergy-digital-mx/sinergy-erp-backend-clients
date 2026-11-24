@@ -64,7 +64,8 @@ describe('session changelog', () => {
 
     const markdown = fs.readFileSync(path.join(dir, 'scripts', 'CHANGELOG.md'), 'utf8');
     expect(markdown).toContain('No hay solicitudes pendientes de deploy.');
-    expect(markdown).toContain('### Versión 1.2.3 · 2026-10-27');
+    expect(markdown).toContain('### Octubre 2026');
+    expect(markdown).toContain('#### Versión 1.2.3 · 27 oct');
     expect(markdown).toContain('servidor · Corrige el corte de caja');
 
     changelog.restorePending(dir, [first[0].id]);
@@ -91,6 +92,24 @@ describe('session changelog', () => {
     expect(changelog.pendingEntries(dir)).toHaveLength(1);
     changelog.markPendingShipped(dir, { version: '9.0.0', releasedAt: '2026-10-27T18:00:00-07:00' });
     expect(changelog.pendingEntries(dir)).toEqual([]);
+  });
+
+  it('guarda el módulo y lo muestra en la lectura', () => {
+    changelog.appendEntry(dir, {
+      scope: 'both',
+      module: 'customers',
+      message: 'El RFC queda en mayúsculas.',
+    });
+
+    const pending = changelog.pendingEntries(dir);
+    expect(pending[0].module).toBe('customers');
+    const markdown = fs.readFileSync(path.join(dir, 'scripts', 'CHANGELOG.md'), 'utf8');
+    expect(markdown).toContain('Clientes · El RFC queda en mayúsculas.');
+    expect(() => changelog.appendEntry(dir, {
+      scope: 'both',
+      module: 'no-existe',
+      message: 'Otra cosa',
+    })).toThrow('module no es válido');
   });
 
   it('rechaza un scope desconocido y un mensaje vacío', () => {

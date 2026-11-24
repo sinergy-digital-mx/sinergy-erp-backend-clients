@@ -8,7 +8,9 @@ type ContractFinancialFields = Pick<
   | 'total_price'
   | 'payment_months'
   | 'status'
->;
+> & {
+  sale_type?: Contract['sale_type'] | null;
+};
 
 function roundMoney(value: number): number {
   return Math.round(value * 100) / 100;
@@ -93,6 +95,9 @@ export function computeMonthlyPayment(
   contract: ContractFinancialFields,
   paymentMonths: number,
 ): number {
+  if (contract.sale_type === 'cash') {
+    return 0;
+  }
   const financed = computeFinancedAmount(totalPrice, contract);
   if (financed <= 0 || !Number.isFinite(paymentMonths) || paymentMonths < 1) {
     return 0;

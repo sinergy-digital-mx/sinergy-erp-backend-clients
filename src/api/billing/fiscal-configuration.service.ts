@@ -10,6 +10,7 @@ import { PaginatedFiscalConfigurationDto } from './dto/paginated-fiscal-configur
 import { S3Service } from '../../common/services/s3.service';
 import { normalizeDocumentPrefix } from '../../common/utils/document-prefix.util';
 import { resolvePublicInvoiceSettings } from '../accounting/utils/public-invoice-policy.util';
+import { resolveBrandNavMeta } from './utils/brand-nav-colors.util';
 
 @Injectable()
 export class FiscalConfigurationService {
@@ -150,6 +151,24 @@ export class FiscalConfigurationService {
       }
       patch.use_as_system_logo = dto.use_as_system_logo;
     }
+    if (dto.brand_color_start !== undefined) {
+      patch.brand_color_start = dto.brand_color_start;
+    }
+    if (dto.brand_color_mid !== undefined) {
+      patch.brand_color_mid = dto.brand_color_mid;
+    }
+    if (dto.brand_color_end !== undefined) {
+      patch.brand_color_end = dto.brand_color_end;
+    }
+    if (dto.pos_sales_bar_color !== undefined) {
+      patch.pos_sales_bar_color = dto.pos_sales_bar_color;
+    }
+    if (dto.pos_cash_bar_color !== undefined) {
+      patch.pos_cash_bar_color = dto.pos_cash_bar_color;
+    }
+    if (dto.logo_mask_color !== undefined) {
+      patch.logo_mask_color = dto.logo_mask_color;
+    }
 
     if (Object.keys(patch).length) {
       await this.repo.update({ id, tenant_id: tenantId }, patch);
@@ -193,17 +212,36 @@ export class FiscalConfigurationService {
     return this.toResponseWithLogoUrl(saved);
   }
 
-  async getSystemLogoMeta(
-    tenantId: string,
-  ): Promise<{ enabled: boolean; cache_key: string | null }> {
+  async getSystemLogoMeta(tenantId: string): Promise<{
+    enabled: boolean;
+    cache_key: string | null;
+    mask_color: string | null;
+    brand: ReturnType<typeof resolveBrandNavMeta>;
+  }> {
     const config = await this.findSystemLogo(tenantId);
+    const brand = resolveBrandNavMeta(config);
+    const mask = this.logoMaskColor(config?.logo_mask_color);
     if (!config?.logo) {
-      return { enabled: false, cache_key: null };
+      return { enabled: false, cache_key: null, mask_color: null, brand };
     }
+    const cacheSource = mask ? `${config.logo}|mask:${mask}` : config.logo;
     return {
       enabled: true,
-      cache_key: createHash('sha256').update(config.logo).digest('hex').slice(0, 24),
+      cache_key: createHash('sha256').update(cacheSource).digest('hex').slice(0, 24),
+      mask_color: mask,
+      brand,
     };
+  }
+
+  async getLogoFile(
+    id: string,
+    tenantId: string,
+  ): Promise<{ buffer: Buffer; contentType: string }> {
+    const config = await this.getByIdOrFail(id, tenantId);
+    if (!config.logo) {
+      throw new NotFoundException('Esta razón social no tiene logo');
+    }
+    return this.s3Service.getFile(config.logo);
   }
 
   async getSystemLogoFile(
@@ -214,6 +252,11 @@ export class FiscalConfigurationService {
       throw new NotFoundException('No hay logo del sistema');
     }
     return this.s3Service.getFile(config.logo);
+  }
+
+  private logoMaskColor(value: string | null | undefined): string | null {
+    const raw = String(value ?? '').trim().toLowerCase();
+    return /^#[0-9a-f]{6}$/.test(raw) ? raw : null;
   }
 
   private async findSystemLogo(tenantId: string): Promise<FiscalConfiguration | null> {

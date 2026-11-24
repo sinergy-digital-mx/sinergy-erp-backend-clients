@@ -1,6 +1,7 @@
 import {
   explainConfigurationOnly,
   explainLotAverage,
+  pickMarginPriceOption,
   resolveLotMargin,
   resolvePurchaseUnitCost,
   MarginSnapshot,
@@ -201,5 +202,13 @@ describe('inventory margin', () => {
     expect(explanation.margin.unit_cost).toBe('15.00');
     expect(explanation.headline).toContain('No hay lotes');
     expect(explanation.margin.margin_amount).toBe('33.50');
+  });
+
+  it('uses the margin list when it has a price, otherwise the oldest', () => {
+    const oldest = { name: 'Vieja', is_margin_default: false };
+    const marked = { name: 'Marcada', is_margin_default: true };
+    expect(pickMarginPriceOption([oldest, marked])?.name).toBe('Marcada');
+    expect(pickMarginPriceOption([oldest])?.name).toBe('Vieja');
+    expect(pickMarginPriceOption([])).toBeNull();
   });
 });

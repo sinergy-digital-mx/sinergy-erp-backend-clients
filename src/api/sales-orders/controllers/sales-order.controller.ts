@@ -18,6 +18,7 @@ import {
   JwtPermissionUser,
   userHasJwtPermission,
 } from '../../rbac/utils/jwt-permission.util';
+import { assertPosPriceDiscountAllowed } from '../../pos-shifts/utils/pos-price-discount.util';
 import { CancelElectronicInvoiceDto } from '../../electronic-invoicing/dto/cancel-electronic-invoice.dto';
 import { StampSalesOrderInvoiceDto } from '../dto/stamp-sales-order-invoice.dto';
 import { StampSalesOrderCreditNoteDto } from '../dto/stamp-sales-order-credit-note.dto';
@@ -113,6 +114,9 @@ export class SalesOrderController {
       'POS descuenta inventario al crear. Una orden manual sin selección/armado también aparta lotes FIFO en la misma transacción y queda Creada.',
   })
   async create(@Body() dto: CreateSalesOrderDto, @Req() req: any) {
+    if (dto.sales_order_type === 'POS') {
+      assertPosPriceDiscountAllowed(req.user, dto.line_items);
+    }
     return this.salesOrderService.create(dto, req.user.tenant_id, req.user.id);
   }
 
@@ -682,7 +686,8 @@ export class SalesOrderController {
   @Get()
   @ApiOperation({ summary: 'List sales orders with filters and pagination' })
   async findAll(@Query() filters: QuerySalesOrderDto, @Req() req: any) {
-    return this.salesOrderService.findAll(req.user.tenant_id, filters);
+    const includeStats = userHasJwtPermission(req.user, 'sales_orders', 'ViewStats');
+    return this.salesOrderService.findAll(req.user.tenant_id, filters, { includeStats });
   }
 
   @Get('export/excel/headers')

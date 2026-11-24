@@ -3,7 +3,6 @@ export type PosCollectionPaymentMethodKey = 'cash' | 'transfer' | 'card' | 'chec
 export interface PosCollectionPaymentMethodTotal {
   orders: number;
   amount: number;
-  ticket: number;
 }
 
 export type PosCollectionPaymentMethodTotals = Record<
@@ -17,8 +16,7 @@ export function buildPaymentMethodTotal(
 ): PosCollectionPaymentMethodTotal {
   const safeOrders = Math.max(0, Number(orders) || 0);
   const safeAmount = Number(Number(amount || 0).toFixed(2));
-  const ticket = safeOrders > 0 ? Number((safeAmount / safeOrders).toFixed(2)) : 0;
-  return { orders: safeOrders, amount: safeAmount, ticket };
+  return { orders: safeOrders, amount: safeAmount };
 }
 
 export function emptyPaymentMethodTotals(): PosCollectionPaymentMethodTotals {

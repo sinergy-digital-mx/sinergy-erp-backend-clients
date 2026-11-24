@@ -21,6 +21,7 @@ import { CustomersModule } from '../customers/customers.module';
 import { ElectronicInvoicingModule } from '../electronic-invoicing/electronic-invoicing.module';
 import { PosShiftsService } from './pos-shifts.service';
 import { PosShiftsController } from './pos-shifts.controller';
+import { PosCajaRecallHub } from './pos-caja-recall.hub';
 
 @Module({
   imports: [
@@ -46,7 +47,7 @@ import { PosShiftsController } from './pos-shifts.controller';
     ElectronicInvoicingModule,
   ],
   controllers: [PosShiftsController],
-  providers: [PosShiftsService, AdvanceShiftPaymentService],
-  exports: [PosShiftsService, AdvanceShiftPaymentService],
+  providers: [PosShiftsService, AdvanceShiftPaymentService, PosCajaRecallHub],
+  exports: [PosShiftsService, AdvanceShiftPaymentService, PosCajaRecallHub],
 })
 export class PosShiftsModule {}

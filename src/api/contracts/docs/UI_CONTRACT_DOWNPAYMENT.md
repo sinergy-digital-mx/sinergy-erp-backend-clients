@@ -1,5 +1,6 @@
 # UI — Enganche financiado
 
+- 2026-11-19: Un contrato `sale_type: cash` también usa esta pestaña para abonos manuales (2 o 3 pagos de un contado). No pide meta ni cuotas del saldo, y no lo pasa a financiado. Ver `UI_CONTRACT_SALE_TYPE.md`.
 - 2026-10-23: `overdue_count` solo cuenta cuotas abiertas (`pendiente`/`parcial`). Una cuota pagada no sigue como vencida. Si la meta ya está cubierta, se pueden generar las mensualidades aunque quede un renglón sucio.
 
 Al crear con `down_payment_financed: true`, la meta va en `down_payment_target`. `down_payment` es el abono inicial (0 si todavía no hay pagos). El detalle y la card **Meta de enganche** leen `down_payment_target`; si llega null, muestran “Sin definir”.

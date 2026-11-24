@@ -1,5 +1,9 @@
 # UI — Descuentos por producto
 
+## 2026-11-24
+
+En **Editar producto** el clic en UOMs, Precios, Descuentos y el resto de pestañas vuelve a cambiar de tab. El listado se reconstruye en cada ciclo de la vista y el botón se destruía antes de registrar el clic.
+
 Guía para Pollux: nueva pestaña **Descuentos** en el modal **Editar producto**, al mismo nivel que Precios, UOMs, etc.
 
 > **Estado backend:** API propuesta en este documento (mismo patrón que `tenant/products/:productId/prices`). Implementar en backend antes de conectar en producción.

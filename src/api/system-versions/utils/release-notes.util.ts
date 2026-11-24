@@ -4,6 +4,8 @@ export type ReleaseChannel = 'frontend' | 'backend' | 'full';
 export interface ReleaseChange {
   scope: ReleaseScope;
   message: string;
+  module?: string;
+  moduleLabel?: string;
 }
 
 export interface ReleasePayload {
@@ -156,6 +158,103 @@ export function changesFromSubjects(subjects: string[], scope: ReleaseScope, lim
   return selected.map((message) => ({ scope: safeScope, message }));
 }
 
+export const RELEASE_MODULES: Record<string, { label: string; codes: string[] }> = {
+  customers: { label: 'Clientes', codes: ['customers'] },
+  crm: { label: 'CRM', codes: ['leads'] },
+  'purchase-orders': { label: 'Órdenes de compra', codes: ['purchase_orders', 'purchase_order_real_cost'] },
+  vendors: { label: 'Proveedores', codes: ['vendors'] },
+  'sales-orders': { label: 'Órdenes de venta', codes: ['sales_orders'] },
+  sales: { label: 'Ventas', codes: ['sales_orders', 'pos', 'pos-shifts', 'pos-configuration', 'global_discounts'] },
+  quotations: { label: 'Cotizaciones', codes: ['quotations'] },
+  logistics: { label: 'Logística', codes: ['gps_tracking', 'shippings', 'trucks'] },
+  products: { label: 'Productos', codes: ['products', 'categories', 'subcategories', 'price_updates'] },
+  inventory: { label: 'Inventario', codes: ['inventory', 'madereria_inventory_import'] },
+  pos: { label: 'POS Ventas', codes: ['pos', 'pos-shifts', 'pos-configuration'] },
+  'pos-cash': { label: 'POS Caja', codes: ['pos', 'pos-shifts', 'pos-configuration'] },
+  accounting: { label: 'Contabilidad', codes: ['accounting'] },
+  billing: { label: 'Facturación', codes: ['billing', 'electronic_invoicing'] },
+  employees: { label: 'Empleados', codes: ['employees', 'employee_portal'] },
+  contracts: { label: 'Contratos', codes: ['contracts', 'contract_documents'] },
+  whatsapp: { label: 'WhatsApp', codes: ['whatsapp'] },
+  settings: { label: 'Configuración', codes: ['settings', 'system-versions'] },
+  platform: { label: 'Plataforma', codes: [] },
+};
+
+const LEGACY_PHRASE_MODULE: Record<string, string> = {
+  'cambios en versiones': 'settings',
+  'cambios en clientes': 'customers',
+  'cambios en empleados': 'employees',
+  'cambios en accesos y permisos': 'settings',
+  'cambios en configuración': 'settings',
+  'cambios en contabilidad': 'accounting',
+  'cambios en facturación': 'billing',
+  'cambios en contratos': 'contracts',
+  'cambios en crm': 'crm',
+  'cambios en divino': 'platform',
+  'cambios en facturación electrónica': 'billing',
+  'cambios en tipo de cambio': 'settings',
+  'cambios en inventario': 'inventory',
+  'cambios en ventas': 'sales',
+  'cambios en productos': 'products',
+  'cambios en inmuebles': 'platform',
+  'cambios en compras': 'purchase-orders',
+  'cambios en cotizaciones': 'quotations',
+  'cambios en autofactura': 'billing',
+  'cambios en logística': 'logistics',
+  'cambios en unidades de medida': 'products',
+  'cambios en usuarios': 'settings',
+  'cambios en proveedores': 'vendors',
+  'cambios en almacenes': 'inventory',
+  'cambios en suscripciones': 'platform',
+  'cambios en whatsapp': 'whatsapp',
+  'cambios en metas': 'sales',
+  'cambios en correo': 'settings',
+  'cambios en pagos': 'accounting',
+  'cambios en actividades': 'crm',
+  'cambios en categorías': 'products',
+  'cambios en subcategorías': 'products',
+  'cambios en reporte de ventas': 'sales',
+};
+
+export function normalizeModuleCode(value: unknown): string | null {
+  const code = String(value ?? '').trim().toLowerCase();
+  if (!code || !Object.prototype.hasOwnProperty.call(RELEASE_MODULES, code)) {
+    return null;
+  }
+  return code;
+}
+
+export function moduleLabel(moduleCode: string | null | undefined): string | null {
+  if (!moduleCode) {
+    return null;
+  }
+  return RELEASE_MODULES[moduleCode]?.label ?? null;
+}
+
+export function moduleIsVisible(moduleCode: string, enabled: Set<string>): boolean {
+  const entry = RELEASE_MODULES[moduleCode];
+  if (!entry || entry.codes.length === 0) {
+    return true;
+  }
+  return entry.codes.some((code) => enabled.has(code.toLowerCase()));
+}
+
+export function presentReleaseChange(change: ReleaseChange): {
+  scope: ReleaseScope;
+  message: string;
+  module: string | null;
+  module_label: string | null;
+} {
+  const phraseModule = LEGACY_PHRASE_MODULE[change.message.toLowerCase()] ?? null;
+  const moduleCode = change.module || phraseModule || (change.message === FALLBACK_RELEASE_MESSAGE ? 'platform' : null);
+  return {
+    scope: change.scope,
+    message: phraseModule ? '' : change.message,
+    module: moduleCode,
+    module_label: moduleLabel(moduleCode),
+  };
+}
+
 const RELEASE_MESSAGE_MODULES: Record<string, string[]> = {
   'cambios en versiones': ['system-versions'],
   'cambios en clientes': ['customers'],
@@ -203,6 +302,9 @@ export function filterChangesForModules(
   );
 
   return sanitizeReleaseChanges(changes).filter((change) => {
+    if (change.module) {
+      return moduleIsVisible(change.module, enabled);
+    }
     if (change.message === FALLBACK_RELEASE_MESSAGE) {
       return true;
     }
@@ -226,15 +328,21 @@ export function sanitizeReleaseChanges(changes: unknown, limit = 80): ReleaseCha
     if (!item || typeof item !== 'object') {
       continue;
     }
-    const record = item as { scope?: unknown; message?: unknown };
+    const record = item as { scope?: unknown; message?: unknown; module?: unknown };
     const message = String(record.message ?? '').replace(/\s+/g, ' ').trim();
     if (!message) {
       continue;
     }
-    sanitized.push({
+    const change: ReleaseChange = {
       scope: record.scope === 'backend' ? 'backend' : 'frontend',
       message: message.slice(0, 240),
-    });
+    };
+    const moduleCode = normalizeModuleCode(record.module);
+    if (moduleCode) {
+      change.module = moduleCode;
+      change.moduleLabel = moduleLabel(moduleCode) || undefined;
+    }
+    sanitized.push(change);
     if (sanitized.length >= max) {
       break;
     }
@@ -253,7 +361,7 @@ export function mergeReleaseChanges(groups: ReleaseChange[][]): ReleaseChange[] 
   const unique: ReleaseChange[] = [];
   const seen = new Set<string>();
   for (const item of source) {
-    const key = item.message.toLowerCase();
+    const key = `${item.module || ''}|${item.message.toLowerCase()}`;
     if (seen.has(key)) {
       continue;
     }

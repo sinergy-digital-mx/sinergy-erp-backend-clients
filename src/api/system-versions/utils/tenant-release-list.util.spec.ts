@@ -40,7 +40,12 @@ describe('listReleasesForTenant', () => {
         channel: 'full',
         title: 'Versión 0.0.2',
         released_at: '2026-11-02T18:00:00.000Z',
-        changes: [{ scope: 'frontend', message: 'Cambios en clientes' }],
+        changes: [{
+          scope: 'frontend',
+          message: '',
+          module: 'customers',
+          module_label: 'Clientes',
+        }],
       },
     ]);
   });
