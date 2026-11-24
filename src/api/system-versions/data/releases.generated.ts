@@ -2297,5 +2297,19 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-11-24T20:34:47.409Z"
+  },
+  {
+    "releaseKey": "full:0.0.169:0.0.169-1795554279871",
+    "version": "0.0.169",
+    "buildId": "0.0.169-1795554279871",
+    "channel": "full",
+    "title": "Versión 0.0.169",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "Actualización de la plataforma."
+      }
+    ],
+    "releasedAt": "2026-11-24T21:04:39.871Z"
   }
 ];
