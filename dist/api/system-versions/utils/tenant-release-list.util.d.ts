@@ -1,11 +1,17 @@
-import { ReleaseChange, ReleaseChannel, ReleasePayload } from './release-notes.util';
+import { ReleaseChannel, ReleasePayload, ReleaseScope } from './release-notes.util';
+export interface TenantVersionChange {
+    scope: ReleaseScope;
+    message: string;
+    module: string | null;
+    module_label: string | null;
+}
 export interface TenantVersionListItem {
     id: string;
     version: string;
     build_id: string | null;
     channel: ReleaseChannel;
     title: string;
-    changes: ReleaseChange[];
+    changes: TenantVersionChange[];
     released_at: string;
 }
 export interface PaginatedTenantReleases {

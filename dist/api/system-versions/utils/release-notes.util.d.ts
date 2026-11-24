@@ -3,6 +3,8 @@ export type ReleaseChannel = 'frontend' | 'backend' | 'full';
 export interface ReleaseChange {
     scope: ReleaseScope;
     message: string;
+    module?: string;
+    moduleLabel?: string;
 }
 export interface ReleasePayload {
     releaseKey: string;
@@ -18,6 +20,19 @@ export declare function selectReleaseSubjects(subjects: string[], limit?: number
 export declare function shouldIgnoreReleasePath(filePath: string): boolean;
 export declare function summarizeChangedPaths(filePaths: string[], limit?: number): string[];
 export declare function changesFromSubjects(subjects: string[], scope: ReleaseScope, limit?: number): ReleaseChange[];
+export declare const RELEASE_MODULES: Record<string, {
+    label: string;
+    codes: string[];
+}>;
+export declare function normalizeModuleCode(value: unknown): string | null;
+export declare function moduleLabel(moduleCode: string | null | undefined): string | null;
+export declare function moduleIsVisible(moduleCode: string, enabled: Set<string>): boolean;
+export declare function presentReleaseChange(change: ReleaseChange): {
+    scope: ReleaseScope;
+    message: string;
+    module: string | null;
+    module_label: string | null;
+};
 export declare function filterChangesForModules(changes: ReleaseChange[], enabledModuleCodes: Iterable<string>): ReleaseChange[];
 export declare function sanitizeReleaseChanges(changes: unknown, limit?: number): ReleaseChange[];
 export declare function mergeReleaseChanges(groups: ReleaseChange[][]): ReleaseChange[];

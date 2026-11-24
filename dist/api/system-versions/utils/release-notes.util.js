@@ -1,10 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.FALLBACK_RELEASE_MESSAGE = void 0;
+exports.RELEASE_MODULES = exports.FALLBACK_RELEASE_MESSAGE = void 0;
 exports.selectReleaseSubjects = selectReleaseSubjects;
 exports.shouldIgnoreReleasePath = shouldIgnoreReleasePath;
 exports.summarizeChangedPaths = summarizeChangedPaths;
 exports.changesFromSubjects = changesFromSubjects;
+exports.normalizeModuleCode = normalizeModuleCode;
+exports.moduleLabel = moduleLabel;
+exports.moduleIsVisible = moduleIsVisible;
+exports.presentReleaseChange = presentReleaseChange;
 exports.filterChangesForModules = filterChangesForModules;
 exports.sanitizeReleaseChanges = sanitizeReleaseChanges;
 exports.mergeReleaseChanges = mergeReleaseChanges;
@@ -133,6 +137,92 @@ function changesFromSubjects(subjects, scope, limit = 40) {
     }
     return selected.map((message) => ({ scope: safeScope, message }));
 }
+exports.RELEASE_MODULES = {
+    customers: { label: 'Clientes', codes: ['customers'] },
+    crm: { label: 'CRM', codes: ['leads'] },
+    'purchase-orders': { label: 'Órdenes de compra', codes: ['purchase_orders', 'purchase_order_real_cost'] },
+    vendors: { label: 'Proveedores', codes: ['vendors'] },
+    'sales-orders': { label: 'Órdenes de venta', codes: ['sales_orders'] },
+    sales: { label: 'Ventas', codes: ['sales_orders', 'pos', 'pos-shifts', 'pos-configuration', 'global_discounts'] },
+    quotations: { label: 'Cotizaciones', codes: ['quotations'] },
+    logistics: { label: 'Logística', codes: ['gps_tracking', 'shippings', 'trucks'] },
+    products: { label: 'Productos', codes: ['products', 'categories', 'subcategories', 'price_updates'] },
+    inventory: { label: 'Inventario', codes: ['inventory', 'madereria_inventory_import'] },
+    pos: { label: 'POS Ventas', codes: ['pos', 'pos-shifts', 'pos-configuration'] },
+    'pos-cash': { label: 'POS Caja', codes: ['pos', 'pos-shifts', 'pos-configuration'] },
+    accounting: { label: 'Contabilidad', codes: ['accounting'] },
+    billing: { label: 'Facturación', codes: ['billing', 'electronic_invoicing'] },
+    employees: { label: 'Empleados', codes: ['employees', 'employee_portal'] },
+    contracts: { label: 'Contratos', codes: ['contracts', 'contract_documents'] },
+    whatsapp: { label: 'WhatsApp', codes: ['whatsapp'] },
+    settings: { label: 'Configuración', codes: ['settings', 'system-versions'] },
+    platform: { label: 'Plataforma', codes: [] },
+};
+const LEGACY_PHRASE_MODULE = {
+    'cambios en versiones': 'settings',
+    'cambios en clientes': 'customers',
+    'cambios en empleados': 'employees',
+    'cambios en accesos y permisos': 'settings',
+    'cambios en configuración': 'settings',
+    'cambios en contabilidad': 'accounting',
+    'cambios en facturación': 'billing',
+    'cambios en contratos': 'contracts',
+    'cambios en crm': 'crm',
+    'cambios en divino': 'platform',
+    'cambios en facturación electrónica': 'billing',
+    'cambios en tipo de cambio': 'settings',
+    'cambios en inventario': 'inventory',
+    'cambios en ventas': 'sales',
+    'cambios en productos': 'products',
+    'cambios en inmuebles': 'platform',
+    'cambios en compras': 'purchase-orders',
+    'cambios en cotizaciones': 'quotations',
+    'cambios en autofactura': 'billing',
+    'cambios en logística': 'logistics',
+    'cambios en unidades de medida': 'products',
+    'cambios en usuarios': 'settings',
+    'cambios en proveedores': 'vendors',
+    'cambios en almacenes': 'inventory',
+    'cambios en suscripciones': 'platform',
+    'cambios en whatsapp': 'whatsapp',
+    'cambios en metas': 'sales',
+    'cambios en correo': 'settings',
+    'cambios en pagos': 'accounting',
+    'cambios en actividades': 'crm',
+    'cambios en categorías': 'products',
+    'cambios en subcategorías': 'products',
+    'cambios en reporte de ventas': 'sales',
+};
+function normalizeModuleCode(value) {
+    const code = String(value ?? '').trim().toLowerCase();
+    if (!code || !Object.prototype.hasOwnProperty.call(exports.RELEASE_MODULES, code)) {
+        return null;
+    }
+    return code;
+}
+function moduleLabel(moduleCode) {
+    if (!moduleCode) {
+        return null;
+    }
+    return exports.RELEASE_MODULES[moduleCode]?.label ?? null;
+}
+function moduleIsVisible(moduleCode, enabled) {
+    const entry = exports.RELEASE_MODULES[moduleCode];
+    if (!entry || entry.codes.length === 0) {
+        return true;
+    }
+    return entry.codes.some((code) => enabled.has(code.toLowerCase()));
+}
+function presentReleaseChange(change) {
+    const phraseModule = LEGACY_PHRASE_MODULE[change.message.toLowerCase()] ?? null;
+    const moduleCode = change.module || phraseModule || (change.message === exports.FALLBACK_RELEASE_MESSAGE ? 'platform' : null);
+    return {
+        scope: change.scope,
+        message: phraseModule ? '' : change.message,
+        module: moduleCode,
+        module_label: moduleLabel(moduleCode),
+    };
+}
 const RELEASE_MESSAGE_MODULES = {
     'cambios en versiones': ['system-versions'],
     'cambios en clientes': ['customers'],
@@ -173,6 +263,9 @@ function filterChangesForModules(changes, enabledModuleCodes) {
         .map((code) => String(code ?? '').trim().toLowerCase())
         .filter(Boolean));
     return sanitizeReleaseChanges(changes).filter((change) => {
+        if (change.module) {
+            return moduleIsVisible(change.module, enabled);
+        }
         if (change.message === exports.FALLBACK_RELEASE_MESSAGE) {
             return true;
         }
@@ -198,10 +291,16 @@ function sanitizeReleaseChanges(changes, limit = 80) {
         if (!message) {
             continue;
         }
-        sanitized.push({
+        const change = {
             scope: record.scope === 'backend' ? 'backend' : 'frontend',
             message: message.slice(0, 240),
-        });
+        };
+        const moduleCode = normalizeModuleCode(record.module);
+        if (moduleCode) {
+            change.module = moduleCode;
+            change.moduleLabel = moduleLabel(moduleCode) || undefined;
+        }
+        sanitized.push(change);
         if (sanitized.length >= max) {
             break;
         }
@@ -217,7 +316,7 @@ function mergeReleaseChanges(groups) {
     const unique = [];
     const seen = new Set();
     for (const item of source) {
-        const key = item.message.toLowerCase();
+        const key = `${item.module || ''}|${item.message.toLowerCase()}`;
         if (seen.has(key)) {
             continue;
         }

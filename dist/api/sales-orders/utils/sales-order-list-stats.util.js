@@ -9,7 +9,8 @@ function emptyCurrencyStats() {
     return {
         count: 0,
         amount: 0,
-        created: emptyBucket(),
+        open: emptyBucket(),
+        delivered: emptyBucket(),
         paid: emptyBucket(),
         pending: emptyBucket(),
     };
@@ -38,9 +39,13 @@ function buildSalesOrderListStats(rows) {
         const amount = roundMoney(Number(row.amount) || 0);
         bucket.count += count;
         bucket.amount = roundMoney(bucket.amount + amount);
-        if (row.general_status === 'Creada') {
-            bucket.created.count += count;
-            bucket.created.amount = roundMoney(bucket.created.amount + amount);
+        if (row.general_status === 'Surtida') {
+            bucket.delivered.count += count;
+            bucket.delivered.amount = roundMoney(bucket.delivered.amount + amount);
+        }
+        else if (row.general_status !== 'Cancelada') {
+            bucket.open.count += count;
+            bucket.open.amount = roundMoney(bucket.open.amount + amount);
         }
         if (row.payment_status === 'Pagado') {
             bucket.paid.count += count;

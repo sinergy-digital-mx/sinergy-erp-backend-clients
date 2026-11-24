@@ -49,6 +49,7 @@ export declare class QuotationAdvanceInvoiceService {
         change_cash_mxn: number;
         change_cash_usd: number;
         usd_exchange_rate: number | null;
+        invoice_id: string;
     }>;
     stamp(id: string, tenantId: string, userId: string, dto: StampAdvanceInvoiceDto, collected?: {
         paymentMethod: PosSalePaymentMethod;

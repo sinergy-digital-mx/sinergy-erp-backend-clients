@@ -1109,6 +1109,7 @@ export declare class PosShiftsController {
         change_cash_mxn: number;
         change_cash_usd: number;
         usd_exchange_rate: number | null;
+        invoice_id: string;
     }>;
     returnSaleToVentas(salesOrderId: string, req: any): Promise<{
         message: string;

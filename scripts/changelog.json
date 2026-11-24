@@ -1457,6 +1457,76 @@
       "status": "shipped",
       "version": "0.0.157",
       "shippedAt": "2026-11-23T22:47:31-08:00"
+    },
+    {
+      "id": "20261123-225353",
+      "at": "2026-11-23T22:53:53-08:00",
+      "scope": "frontend",
+      "message": "En el carrito de POS Ventas el botón % abre 5%, 3% y otro porcentaje en un panel flotante, para que la carta no crezca.",
+      "status": "shipped",
+      "version": "0.0.160",
+      "shippedAt": "2026-11-23T23:18:20-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261123-225502",
+      "at": "2026-11-23T22:55:02-08:00",
+      "scope": "both",
+      "message": "Con el menú abierto el logo ya no se recorta: queda arriba completo y la lista se desplaza debajo.",
+      "status": "shipped",
+      "version": "0.0.160",
+      "shippedAt": "2026-11-23T23:18:20-08:00",
+      "module": "settings"
+    },
+    {
+      "id": "20261123-225613",
+      "at": "2026-11-23T22:56:13-08:00",
+      "scope": "both",
+      "message": "En POS Caja, al terminar de cobrar se abre un modal para imprimir el ticket (2 copias) y, si se facturó, el PDF; al cerrarlo el contador de Órdenes cobradas sube animado.",
+      "status": "shipped",
+      "version": "0.0.160",
+      "shippedAt": "2026-11-23T23:18:20-08:00",
+      "module": "pos-cash"
+    },
+    {
+      "id": "20261123-225713",
+      "at": "2026-11-23T22:57:13-08:00",
+      "scope": "both",
+      "message": "Versiones carga de 8 en 8 y cada nota dice el módulo y qué se cambió. El deploy publica esas notas.",
+      "status": "shipped",
+      "version": "0.0.160",
+      "shippedAt": "2026-11-23T23:18:20-08:00",
+      "module": "settings"
+    },
+    {
+      "id": "20261123-230712",
+      "at": "2026-11-23T23:07:12-08:00",
+      "scope": "both",
+      "message": "Órdenes de venta: la card Creadas pasó a Abiertas contra entregadas, sin canceladas, con la barra en dos colores y el monto de cada lado.",
+      "status": "shipped",
+      "version": "0.0.160",
+      "shippedAt": "2026-11-23T23:18:20-08:00",
+      "module": "sales-orders"
+    },
+    {
+      "id": "20261123-230902",
+      "at": "2026-11-23T23:09:02-08:00",
+      "scope": "backend",
+      "message": "El cobro de anticipo en punto de venta devuelve el id de la factura timbrada.",
+      "status": "shipped",
+      "version": "0.0.160",
+      "shippedAt": "2026-11-23T23:18:20-08:00",
+      "module": "quotations"
+    },
+    {
+      "id": "20261123-231456",
+      "at": "2026-11-23T23:14:56-08:00",
+      "scope": "frontend",
+      "message": "El build de órdenes de venta vuelve a pasar: la barra de Abiertas conserva los tonos índigo y verde.",
+      "status": "shipped",
+      "version": "0.0.160",
+      "shippedAt": "2026-11-23T23:18:20-08:00",
+      "module": "sales-orders"
     }
   ]
 }

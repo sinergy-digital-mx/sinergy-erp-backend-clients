@@ -5,7 +5,8 @@ export interface SalesOrderStatBucket {
 export interface SalesOrderCurrencyStats {
     count: number;
     amount: number;
-    created: SalesOrderStatBucket;
+    open: SalesOrderStatBucket;
+    delivered: SalesOrderStatBucket;
     paid: SalesOrderStatBucket;
     pending: SalesOrderStatBucket;
 }

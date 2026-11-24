@@ -12,7 +12,7 @@ function listReleasesForTenant(releases, enabledModuleCodes) {
         build_id: release.buildId ? String(release.buildId) : null,
         channel: release.channel,
         title: String(release.title || `Versión ${release.version || ''}`),
-        changes: (0, release_notes_util_1.filterChangesForModules)(release.changes, enabled),
+        changes: (0, release_notes_util_1.filterChangesForModules)(release.changes, enabled).map((change) => (0, release_notes_util_1.presentReleaseChange)(change)),
         released_at: String(release.releasedAt || ''),
     }))
         .filter((item) => item.id && item.changes.length > 0)
@@ -26,18 +26,19 @@ function listReleasesForTenant(releases, enabledModuleCodes) {
 }
 function paginateTenantReleases(items, pageInput, limitInput, search) {
     let page = Number(pageInput) || 1;
-    let limit = Number(limitInput) || 20;
+    let limit = Number(limitInput) || 8;
     if (page < 1)
         page = 1;
     if (limit < 1)
         limit = 1;
-    if (limit > 200)
-        limit = 200;
+    if (limit > 10)
+        limit = 10;
     const term = String(search ?? '').trim().toLowerCase();
     const filtered = term
         ? items.filter((item) => item.version.toLowerCase().includes(term)
             || item.title.toLowerCase().includes(term)
-            || item.changes.some((change) => change.message.toLowerCase().includes(term)))
+            || item.changes.some((change) => change.message.toLowerCase().includes(term)
+                || (change.module_label || '').toLowerCase().includes(term)))
         : items;
     const total = filtered.length;
     const totalPages = total === 0 ? 0 : Math.ceil(total / limit);

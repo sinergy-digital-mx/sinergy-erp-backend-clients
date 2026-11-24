@@ -137,7 +137,7 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
         const iva = (0, advance_cfdi_util_2.inferIvaPercentage)(Number(quotation.iva_total), taxable);
         const base = iva > 0 ? Number((requested / (1 + iva / 100)).toFixed(2)) : requested;
         const regimen = (0, cfdi_regimen_person_util_1.inferReceptorRegimen)(quotation.customer?.fiscal_rfc, quotation.customer?.fiscal_person_type);
-        await this.stamp(id, tenantId, userId, {
+        const saved = await this.stamp(id, tenantId, userId, {
             base_amount: base,
             iva_percentage: iva,
             forma_pago: formaPago,
@@ -161,6 +161,7 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
             change_cash_mxn: payment.changeCashMxn,
             change_cash_usd: payment.changeCashUsd,
             usd_exchange_rate: payment.usdExchangeRate,
+            invoice_id: saved.id,
         };
     }
     async stamp(id, tenantId, userId, dto, collected) {

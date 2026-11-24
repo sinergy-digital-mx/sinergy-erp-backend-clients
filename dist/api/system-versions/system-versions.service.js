@@ -20,7 +20,7 @@ const system_version_entity_1 = require("../../entities/system-versions/system-v
 const releases_generated_1 = require("./data/releases.generated");
 const tenant_release_list_util_1 = require("./utils/tenant-release-list.util");
 exports.SYSTEM_VERSIONS_MODULE_CODE = 'system-versions';
-const TENANT_RELEASE_CACHE_MS = 60_000;
+const TENANT_RELEASE_CACHE_MS = 5 * 60_000;
 let SystemVersionsService = class SystemVersionsService {
     versions;
     cache = new Map();
@@ -53,7 +53,7 @@ let SystemVersionsService = class SystemVersionsService {
     }
     async enabledModuleCodes(tenantId) {
         const rows = await this.versions.query(`
-        SELECT m.code AS code
+        SELECT /*+ MAX_EXECUTION_TIME(2000) */ m.code AS code
         FROM tenant_modules tm
         INNER JOIN modules m ON m.id = tm.module_id
         WHERE tm.tenant_id = ?

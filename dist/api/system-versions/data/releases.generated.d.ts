@@ -7,6 +7,8 @@ export declare const SYSTEM_VERSION_RELEASES: Array<{
     changes: Array<{
         scope: 'frontend' | 'backend';
         message: string;
+        module?: string;
+        moduleLabel?: string;
     }>;
     releasedAt: string;
 }>;

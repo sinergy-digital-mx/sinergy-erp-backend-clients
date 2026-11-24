@@ -14,7 +14,7 @@ const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
 class QuerySystemVersionsDto {
     page = 1;
-    limit = 20;
+    limit = 8;
     search;
 }
 exports.QuerySystemVersionsDto = QuerySystemVersionsDto;
@@ -30,7 +30,7 @@ __decorate([
     (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsInt)(),
     (0, class_validator_1.Min)(1),
-    (0, class_validator_1.Max)(200),
+    (0, class_validator_1.Max)(10),
     __metadata("design:type", Number)
 ], QuerySystemVersionsDto.prototype, "limit", void 0);
 __decorate([

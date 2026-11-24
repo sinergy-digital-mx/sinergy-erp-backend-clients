@@ -5,7 +5,7 @@ export const SYSTEM_VERSION_RELEASES: Array<{
   buildId: string | null;
   channel: 'frontend' | 'backend' | 'full';
   title: string;
-  changes: Array<{ scope: 'frontend' | 'backend'; message: string }>;
+  changes: Array<{ scope: 'frontend' | 'backend'; message: string; module?: string; moduleLabel?: string }>;
   releasedAt: string;
 }> = [
   {
@@ -211,11 +211,9 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en versiones"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en inmuebles"
+        "message": "Las solicitudes del día quedan en un changelog. El deploy escribe en el commit solo las pendientes y después las marca como enviadas.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       }
     ],
     "releasedAt": "2026-10-28T03:39:30.484Z"
@@ -229,11 +227,9 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en logística"
-      },
-      {
-        "scope": "backend",
-        "message": "Cambios en inventario"
+        "message": "En la carta porte del envío se puede timbrar en demo para ver el PDF de prueba, y esa timbrada se puede reemplazar después por producción.",
+        "module": "logistics",
+        "moduleLabel": "Logística"
       }
     ],
     "releasedAt": "2026-10-28T17:58:09.823Z"
@@ -247,11 +243,9 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en inventario"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en logística"
+        "message": "En el alta y en un viaje existente, chofer y camión indican si la carta porte está completa y se pueden editar al elegirlos; se crearon 5 choferes y 5 camiones de prueba.",
+        "module": "logistics",
+        "moduleLabel": "Logística"
       }
     ],
     "releasedAt": "2026-10-28T18:12:49.275Z"
@@ -265,11 +259,9 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en inventario"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en logística"
+        "message": "Junto a Editar, chofer y camión muestran palomita o aviso de carta porte en el cursor, y se creó un envío de prueba con la orden OSV-000315 de Rodolfo Sinergy.",
+        "module": "logistics",
+        "moduleLabel": "Logística"
       }
     ],
     "releasedAt": "2026-10-28T18:26:23.139Z"
@@ -283,11 +275,15 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en contabilidad"
+        "message": "En el reporte de ventas a costo promedio, el folio de una cotización abre la cotización igual que el folio de una orden abre la orden.",
+        "module": "quotations",
+        "moduleLabel": "Cotizaciones"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en inmuebles"
+        "message": "Importar lotes: omite filas duplicadas o inválidas, importa el resto y deja lista copiable de las que no entraron",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       }
     ],
     "releasedAt": "2026-10-29T03:04:21.825Z"
@@ -301,11 +297,15 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en empleados"
+        "message": "Importar lotes: se quita la columna ubicacion; el grupo de cada fila es la ubicación",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en inmuebles"
+        "message": "Portal de empleado: horario laboral semanal (lun-dom) que el empleado y RH pueden guardar",
+        "module": "employees",
+        "moduleLabel": "Empleados"
       }
     ],
     "releasedAt": "2026-10-29T18:50:13.714Z"
@@ -319,11 +319,9 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en empleados"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en accesos y permisos"
+        "message": "Horario laboral en Editar usuario (tab Empleado) y botón Editar en el expediente para el admin",
+        "module": "employees",
+        "moduleLabel": "Empleados"
       }
     ],
     "releasedAt": "2026-10-29T19:08:02.385Z"
@@ -337,15 +335,15 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "backend",
-        "message": "Cambios en facturación electrónica"
+        "message": "Listado de empleados: se aplicó la columna work_schedule que faltaba y tiraba 500",
+        "module": "employees",
+        "moduleLabel": "Empleados"
       },
       {
         "scope": "backend",
-        "message": "Cambios en empleados"
-      },
-      {
-        "scope": "backend",
-        "message": "Cambios en ventas"
+        "message": "El PDF de la factura de OV no imprimía el IVA: el parser leía Impuestos del concepto en vez del comprobante; PDFs viejos se regeneran con ?regenerate=true",
+        "module": "billing",
+        "moduleLabel": "Facturación"
       }
     ],
     "releasedAt": "2026-10-31T18:54:12.652Z"
@@ -359,63 +357,93 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en contabilidad"
+        "message": "En la venta, si el producto o servicio no tiene unidad de medida, el mismo cuadro avisa y abre su ficha para asignarla. Al guardar un almacén de sucursal sin dirección válida, indica qué falta y permite usar la de la sucursal, en lugar de u",
+        "module": "products",
+        "moduleLabel": "Productos"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en CRM"
+        "message": "En caja, transferencia pide nombre o razón social, y tarjeta o cheque piden nombre y teléfono.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en clientes"
+        "message": "El crédito de cada razón social queda en pesos o dólares, y una venta en la otra moneda se convierte con el tipo de cambio de esa orden.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en inventario"
+        "message": "En caja, efectivo y mixto se cobran en pesos, en dólares o en las dos monedas.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en ventas"
+        "message": "Si IEPS está apagado en la razón social, ya no aparece en el producto, en órdenes de compra y venta, en el detalle, en PDF, Excel ni en la factura.",
+        "module": "purchase-orders",
+        "moduleLabel": "Órdenes de compra"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en compras"
+        "message": "Cobranza POS: en la línea del reporte, un cobro mixto de caja muestra las formas usadas (efectivo + tarjeta, tarjeta + cheque, etc.) y el Excel usa el mismo texto.",
+        "module": "accounting",
+        "moduleLabel": "Contabilidad"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en configuración"
+        "message": "En el corte parcial, el campo de cantidad de billetes en dólares se recortaba; ahora se ve completo.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en facturación"
+        "message": "En CRM, cada actividad muestra siempre el vendedor: el autor de la nota, o si no hay el vendedor del cliente, o quien lo registró.",
+        "module": "customers",
+        "moduleLabel": "Clientes"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en productos"
+        "message": "En Cobranza, la sucursal queda en la URL de todos los reportes de contabilidad para que al recargar siga seleccionada.",
+        "module": "accounting",
+        "moduleLabel": "Contabilidad"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en proveedores"
+        "message": "En Cobranza POS, un cobro con importe muestra un ojo para ver el ticket, y vendedor y cajero ya no muestran el código.",
+        "module": "accounting",
+        "moduleLabel": "Contabilidad"
       },
       {
-        "scope": "backend",
-        "message": "Cambios en correo"
+        "scope": "frontend",
+        "message": "Se quitó el campo Nombre; el identificador queda en nombre de empresa en ficha, listados, compras, cuentas por pagar y Excel.",
+        "module": "vendors",
+        "moduleLabel": "Proveedores"
       },
       {
-        "scope": "backend",
-        "message": "Cambios en autofactura"
+        "scope": "frontend",
+        "message": "En caja, el cheque también se puede cobrar en dólares, con el tipo de cambio del corte.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       },
       {
-        "scope": "backend",
-        "message": "Cambios en almacenes"
+        "scope": "frontend",
+        "message": "Permiso ViewStats en inventario, órdenes de compra y órdenes de venta para ver las tarjetas de arriba; sin ese permiso no se muestran ni se entregan esos totales. Clientes ya lo tenía.",
+        "module": "sales-orders",
+        "moduleLabel": "Órdenes de venta"
       },
       {
-        "scope": "backend",
-        "message": "Cambios en cotizaciones"
+        "scope": "frontend",
+        "message": "Pedimento en órdenes de compra: solo se guarda con el formato del SAT (15 dígitos) y el campo tiene máscara para capturarlo.",
+        "module": "purchase-orders",
+        "moduleLabel": "Órdenes de compra"
       },
       {
-        "scope": "backend",
-        "message": "Cambios en accesos y permisos"
+        "scope": "frontend",
+        "message": "En el punto de venta las cartas del catálogo quedan más grandes: máximo tres por fila en monitor, y en pantallas angostas bajan a dos o una. El texto de stock y unidad queda centrado en las badges, sin pegarse arriba ni entre sí.",
+        "module": "settings",
+        "moduleLabel": "Configuración"
       }
     ],
     "releasedAt": "2026-11-02T18:19:20.713Z"
@@ -429,31 +457,27 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en versiones"
+        "message": "El historial de versiones se arma en memoria con el catálogo y los módulos de cada organización, sin copiar filas, y la pantalla usa un cargador centrado.",
+        "module": "settings",
+        "moduleLabel": "Configuración"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en accesos y permisos"
+        "message": "El nombre visible pasó de Pollux a Polux: la pestaña dice Polux, arriba dice Polux ERP y el favicon es una estrella en PNG sin fondo.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en facturación"
+        "message": "El aviso de actualización lista las notas publicadas en app-version.json, sin consultar el historial, y Ver todas las versiones quedó como botón.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en configuración"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en WhatsApp"
-      },
-      {
-        "scope": "backend",
-        "message": "Cambios en productos"
-      },
-      {
-        "scope": "backend",
-        "message": "Cambios en proveedores"
+        "message": "Productos y Proveedores salen de Configuración y quedan en el menú principal, con permiso ViewMenu como el resto de vistas.",
+        "module": "products",
+        "moduleLabel": "Productos"
       }
     ],
     "releasedAt": "2026-11-02T18:52:19.596Z"
@@ -467,11 +491,15 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en contabilidad"
+        "message": "En el reporte de punto de venta de cobranza, la fecha de pago del abono queda aparte de la fecha de cobro en caja, en la tabla y en el Excel.",
+        "module": "accounting",
+        "moduleLabel": "Contabilidad"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en ventas"
+        "message": "Se pidió marcar órdenes de venta como para envío al crearlas en el alta, el listado y el punto de venta, y poder agregarlo después en caja o en el detalle. El reporte de puntos de venta en cobranza muestra la marca y un total de envío.",
+        "module": "sales-orders",
+        "moduleLabel": "Órdenes de venta"
       }
     ],
     "releasedAt": "2026-11-02T20:00:35.025Z"
@@ -499,7 +527,9 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "backend",
-        "message": "Cambios en ventas"
+        "message": "Clonar una orden de venta ya no se bloquea si el comisionado no tiene código POS; se copia igual que en la orden original.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       }
     ],
     "releasedAt": "2026-11-03T04:00:50.435Z"
@@ -513,11 +543,9 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en ventas"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en WhatsApp"
+        "message": "En la factura de la orden se puede enviar por WhatsApp a un teléfono o a un grupo, con el PDF y el XML.",
+        "module": "whatsapp",
+        "moduleLabel": "WhatsApp"
       }
     ],
     "releasedAt": "2026-11-03T04:45:39.766Z"
@@ -531,11 +559,9 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en WhatsApp"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en ventas"
+        "message": "El envío de la factura por WhatsApp ahora manda primero una foto: tu pago está pendiente, o ya está pagada, con el total y los datos del CFDI.",
+        "module": "logistics",
+        "moduleLabel": "Logística"
       }
     ],
     "releasedAt": "2026-11-03T05:02:49.698Z"
@@ -549,7 +575,9 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en contabilidad"
+        "message": "En Cobranza POS, junto a Todas, Público en General y Facturadas, los filtros de forma de pago llevan ícono y se puede filtrar Crédito; las columnas también filtran e incluyen Crédito.",
+        "module": "billing",
+        "moduleLabel": "Facturación"
       }
     ],
     "releasedAt": "2026-11-03T16:28:28.204Z"
@@ -562,16 +590,16 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "title": "Versión 0.0.94",
     "changes": [
       {
-        "scope": "frontend",
-        "message": "Cambios en inventario"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en logística"
-      },
-      {
         "scope": "backend",
-        "message": "Cambios en contabilidad"
+        "message": "El reporte de flujo de deuda, la antigüedad y su Excel muestran solo órdenes a crédito.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
+      },
+      {
+        "scope": "frontend",
+        "message": "Un envío puede llevar varias transferencias: desde el detalle se crea el envío o se agrega a uno existente, y en el viaje se pueden sumar más.",
+        "module": "logistics",
+        "moduleLabel": "Logística"
       }
     ],
     "releasedAt": "2026-11-03T17:21:08.601Z"
@@ -585,27 +613,15 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en contabilidad"
+        "message": "En inventario totalizado el margen muestra precio y costo: cada lote usa su compra o, si no tiene, el costo configurado, y el producto es el promedio de esos lotes. El detalle del lote y el producto explican de donde sale.",
+        "module": "inventory",
+        "moduleLabel": "Inventario"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en inventario"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en productos"
-      },
-      {
-        "scope": "backend",
-        "message": "Cambios en facturación electrónica"
-      },
-      {
-        "scope": "backend",
-        "message": "Cambios en ventas"
-      },
-      {
-        "scope": "backend",
-        "message": "Cambios en autofactura"
+        "message": "En Cobranza se agregó la pestaña Facturas globales: por mes y razón social lista las órdenes de clientes sin facturar, con folio, fecha, totales y forma de pago, y timbra una sola factura; se puede consultar y cancelar.",
+        "module": "customers",
+        "moduleLabel": "Clientes"
       }
     ],
     "releasedAt": "2026-11-03T20:17:42.762Z"
@@ -619,7 +635,9 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en contabilidad"
+        "message": "En Facturas globales, un texto indica que la lista son las órdenes que el cliente no facturó y que la factura global se emite con todas.",
+        "module": "customers",
+        "moduleLabel": "Clientes"
       }
     ],
     "releasedAt": "2026-11-03T20:42:17.943Z"
@@ -633,11 +651,15 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en contabilidad"
+        "message": "Cobranza POS lista solo órdenes a crédito de clientes con crédito habilitado, pagadas o pendientes, y quita público en general y los filtros de forma de pago.",
+        "module": "accounting",
+        "moduleLabel": "Contabilidad"
       },
       {
         "scope": "backend",
-        "message": "Cambios en contratos"
+        "message": "En el estado de cuenta se pidió el total vencido y los intereses moratorios: el PDF ya los muestra, sin sumarlos al saldo. El recibo no se guarda: al descargarlo usa la razón social del contrato.",
+        "module": "contracts",
+        "moduleLabel": "Contratos"
       }
     ],
     "releasedAt": "2026-11-03T22:21:19.062Z"
@@ -651,19 +673,9 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en contabilidad"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en ventas"
-      },
-      {
-        "scope": "backend",
-        "message": "Cambios en clientes"
-      },
-      {
-        "scope": "backend",
-        "message": "Cambios en cotizaciones"
+        "message": "El saldo que queda fuera de un anticipo usa el crédito del cliente, sin duplicar cotización y orden, y Cobranza POS y punto de venta muestran lo cobrado y lo pendiente.",
+        "module": "quotations",
+        "moduleLabel": "Cotizaciones"
       }
     ],
     "releasedAt": "2026-11-03T22:49:00.083Z"
@@ -677,31 +689,75 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en accesos y permisos"
+        "message": "Facturas globales: la lista y Generar facturas quedan por sucursal y mes. Una vigente por sucursal, con el código postal de esa sucursal.",
+        "module": "billing",
+        "moduleLabel": "Facturación"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en contabilidad"
+        "message": "En Cobranza la pestaña se llama Factura público en general, igual que los avisos y la cancelación.",
+        "module": "billing",
+        "moduleLabel": "Facturación"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en ventas"
+        "message": "Al registrar venta faltaba la nota de observaciones: el modal ya la pide y se guarda en la orden para imprimirla en el ticket.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en compras"
+        "message": "Cobranza POS vuelve a listar todas las ventas cobradas con su forma de pago, y de crédito solo los abonos ya pagados, con las tarjetas de totales sin permiso extra.",
+        "module": "accounting",
+        "moduleLabel": "Contabilidad"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en reports"
+        "message": "Cobranza POS vuelve a mostrar los totales por forma de pago: transferencias, efectivo, tarjetas, cheques y crédito, con ventas, monto y ticket.",
+        "module": "accounting",
+        "moduleLabel": "Contabilidad"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cobranza POS agrega en la fila de filtros Envío, Efectivo, Tarjeta y el resto de formas, cada uno con conteo y monto.",
+        "module": "accounting",
+        "moduleLabel": "Contabilidad"
       },
       {
         "scope": "backend",
-        "message": "Cambios en clientes"
+        "message": "El anticipo ya no descuenta crédito: en Cobranza POS su total es lo que falta por cobrar, y solo la orden a crédito usa el disponible.",
+        "module": "accounting",
+        "moduleLabel": "Contabilidad"
+      },
+      {
+        "scope": "frontend",
+        "message": "Cuentas por cobrar: el periodo solo muestra Mes y rango; se quitaron Hoy y Semana.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       },
       {
         "scope": "backend",
-        "message": "Cambios en cotizaciones"
+        "message": "El flujo de deuda solo cuenta órdenes a crédito y deja fuera el anticipo: el cargo es la parte a crédito y el abono de anticipo no entra.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
+      },
+      {
+        "scope": "frontend",
+        "message": "El build del punto de venta vuelve a compilar: el anticipo se lee solo cuando la confirmación es de cotización.",
+        "module": "quotations",
+        "moduleLabel": "Cotizaciones"
+      },
+      {
+        "scope": "frontend",
+        "message": "Se pidió un módulo Reportes solo para Madería con existencias por proveedor y cuánto comprar; quedó la hoja por sucursal, con mínimos, máximos, utilidad y cantidad editable.",
+        "module": "vendors",
+        "moduleLabel": "Proveedores"
+      },
+      {
+        "scope": "frontend",
+        "message": "La orden de compra impresa ahora muestra la unidad (pie lineal), las notas y la factura del proveedor; al guardar notas o factura se regenera el documento.",
+        "module": "vendors",
+        "moduleLabel": "Proveedores"
       }
     ],
     "releasedAt": "2026-11-04T01:13:42.955Z"
@@ -714,20 +770,58 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "title": "Versión 0.0.100",
     "changes": [
       {
-        "scope": "frontend",
-        "message": "Cambios en contabilidad"
+        "scope": "backend",
+        "message": "Factura público en general dejaba de cargar: faltaba la columna de sucursal en la factura global y ya quedó aplicada.",
+        "module": "billing",
+        "moduleLabel": "Facturación"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en ventas"
+        "message": "Cobranza POS abre en el mes actual y, bajo el folio, indica si la venta es anticipo, crédito o contado.",
+        "module": "accounting",
+        "moduleLabel": "Contabilidad"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en cotizaciones"
+        "message": "Cobranza: Flujo de deuda y Rep. Vent. Cost. Prom. leen la sucursal de billing_branch_id, la misma URL que el resto de pestañas.",
+        "module": "accounting",
+        "moduleLabel": "Contabilidad"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en reports"
+        "message": "En Flujo de deuda los filtros quedan sueltos como en las otras pestañas de Cobranza, y Descargar Excel queda junto al periodo.",
+        "module": "accounting",
+        "moduleLabel": "Contabilidad"
+      },
+      {
+        "scope": "frontend",
+        "message": "En el selector de periodo, al picar Mes se cierra el calendario del rango que se había quedado abierto.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
+      },
+      {
+        "scope": "frontend",
+        "message": "Se pidió que el menú y la URL dejen de llamarse Reportes; quedó Reporte de requerimiento en /reporte-requerimiento, en la pantalla y en el API.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
+      },
+      {
+        "scope": "frontend",
+        "message": "Se pidió achicar el reporte de requerimiento, ocultar los CEDIS y bajarlo a Excel; quedó más compacto, con engrane para elegir sucursales y botón Excel de lo que se ve.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
+      },
+      {
+        "scope": "frontend",
+        "message": "Se pidió juntar código y nombre en el reporte de requerimiento y explicar los badges; quedaron en la columna Producto, y chips, estados y tarjetas dicen al pasar el mouse qué son y cómo se calculan.",
+        "module": "products",
+        "moduleLabel": "Productos"
+      },
+      {
+        "scope": "frontend",
+        "message": "En la alta de orden de venta y cotización, el producto se captura en una barra fija abajo: búsqueda por código o nombre, y al elegirlo se confirman unidad, lista, cantidad, precio, descuento e IVA 0/8/16 sin abrir otro modal.",
+        "module": "quotations",
+        "moduleLabel": "Cotizaciones"
       }
     ],
     "releasedAt": "2026-11-04T02:30:02.107Z"
@@ -741,15 +835,15 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en ventas"
+        "message": "Polux ERP queda en el nombre de la pestaña, junto a la estrella. Arriba del menú ya no va el texto: se ve la estrella, o el logo de la razón social si está activo.",
+        "module": "settings",
+        "moduleLabel": "Configuración"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en facturación"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en configuración"
+        "message": "En la alta de orden, la búsqueda de producto queda arriba y alineada con la lupa. Al elegir, los campos salen debajo, sin desbordarse al pie.",
+        "module": "products",
+        "moduleLabel": "Productos"
       }
     ],
     "releasedAt": "2026-11-04T16:40:49.359Z"
@@ -763,23 +857,21 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en clientes"
+        "message": "En el cliente se habilitan una o varias listas de precio, con una predeterminada, y esa se preselecciona al crear una orden o cotización.",
+        "module": "quotations",
+        "moduleLabel": "Cotizaciones"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en ventas"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en proveedores"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en configuración"
+        "message": "En proveedor nacional, al crear y al editar, se puede subir la constancia del SAT para llenar RFC, razón social y domicilio, y esos datos se pueden corregir antes de guardar.",
+        "module": "customers",
+        "moduleLabel": "Clientes"
       },
       {
         "scope": "backend",
-        "message": "Cambios en facturación"
+        "message": "Se pidió cargar los clientes de Verdulería que venían en la hoja Clientes VTI; quedaron 254 en la organización, separados de los de Central por razón social, con crédito cuando el archivo traía límite.",
+        "module": "customers",
+        "moduleLabel": "Clientes"
       }
     ],
     "releasedAt": "2026-11-04T18:00:47.076Z"
@@ -792,12 +884,16 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "title": "Versión 0.0.103",
     "changes": [
       {
-        "scope": "frontend",
-        "message": "Cambios en productos"
+        "scope": "backend",
+        "message": "El interés moratorio del estado de cuenta quedó en cada mensualidad, además del total de la cabecera. Si la cuota no tiene interés, sale un guion.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       },
       {
-        "scope": "backend",
-        "message": "Cambios en contratos"
+        "scope": "frontend",
+        "message": "Se pidió quitar el cuadro blanco de los filtros de Productos; quedaron en fila como Clientes y Proveedores, y en móvil el tipo se abre con el botón Filtros.",
+        "module": "customers",
+        "moduleLabel": "Clientes"
       }
     ],
     "releasedAt": "2026-11-04T18:07:18.310Z"
@@ -811,15 +907,27 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en contabilidad"
+        "message": "En crear orden de venta, la búsqueda queda bajo las pestañas y al elegir el producto entra a la misma lista para editarlo ahí, sin una segunda fila de confirmar.",
+        "module": "products",
+        "moduleLabel": "Productos"
+      },
+      {
+        "scope": "backend",
+        "message": "Se activó Cobranza/Contabilidad y Empleados (RH) para el rol Admin de la verdulería. La maderería ya los tenía.",
+        "module": "employees",
+        "moduleLabel": "Empleados"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en clientes"
+        "message": "Cuentas por pagar no cargaba: faltaban columnas de domicilio del proveedor y ya quedaron en la base. La lista vuelve a mostrar la razón social, con Mes y Rango para recortar por fecha, y al abrir sigue el saldo completo.",
+        "module": "vendors",
+        "moduleLabel": "Proveedores"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en ventas"
+        "message": "En el detalle del cliente, Listas de precio recibía el id como texto y el componente lo espera numérico; ya usa el id de la ruta.",
+        "module": "customers",
+        "moduleLabel": "Clientes"
       }
     ],
     "releasedAt": "2026-11-04T19:39:34.326Z"
@@ -833,27 +941,15 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en accesos y permisos"
+        "message": "Listas de precio con número y margen, y hoja de actualización de precio (últimas compras, promedio y precios por unidad) solo para la verdulería.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en logística"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en configuración"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en productos"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en price updates"
-      },
-      {
-        "scope": "backend",
-        "message": "Cambios en versiones"
+        "message": "En Flota y remolques, cada unidad muestra un badge de Disponible o En uso con el folio del envío activo.",
+        "module": "logistics",
+        "moduleLabel": "Logística"
       }
     ],
     "releasedAt": "2026-11-07T00:24:35.740Z"
@@ -867,27 +963,21 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en contabilidad"
+        "message": "El menú vuelve a mostrar Polux | ERP. La estrella queda solo en el favicon.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en facturación"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en configuración"
-      },
-      {
-        "scope": "backend",
-        "message": "Cambios en facturación electrónica"
+        "message": "En factura a público en general quedó el botón Información, y en cada razón social la zona horaria, la hora de cierre, el timbrado automático del último día del mes y el bloqueo para no facturar la orden por separado después de esa hora. El",
+        "module": "billing",
+        "moduleLabel": "Facturación"
       },
       {
         "scope": "backend",
-        "message": "Cambios en ventas"
-      },
-      {
-        "scope": "backend",
-        "message": "Cambios en autofactura"
+        "message": "Se corrigió la migración de factura a público en general para que compilara y se aplicó en la base.",
+        "module": "billing",
+        "moduleLabel": "Facturación"
       }
     ],
     "releasedAt": "2026-11-09T08:30:06.723Z"
@@ -901,7 +991,21 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en contabilidad"
+        "message": "El botón Información de factura a público en general abre un modal chico, y se cierra con la X, el fondo o Escape.",
+        "module": "billing",
+        "moduleLabel": "Facturación"
+      },
+      {
+        "scope": "frontend",
+        "message": "En factura a público en general, la fila de la orden abre el modal de esa orden de venta. La casilla no lo abre.",
+        "module": "billing",
+        "moduleLabel": "Facturación"
+      },
+      {
+        "scope": "frontend",
+        "message": "En Cuentas por cobrar, el clic en cualquier columna de la fila abre las órdenes de esa razón social.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       }
     ],
     "releasedAt": "2026-11-09T10:42:41.444Z"
@@ -915,7 +1019,9 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "backend",
-        "message": "Cambios en contabilidad"
+        "message": "Se documentó, a nivel negocio, cómo están hechos cuentas por pagar, cuentas por cobrar y flujo de deuda para replicarlos en otro proyecto.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       }
     ],
     "releasedAt": "2026-11-09T17:49:58.206Z"
@@ -965,11 +1071,15 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en inventario"
+        "message": "Transferencias de la misma razón social ya no piden envío: se indica en el detalle, se reciben directo y al crearlas desde el lote queda preseleccionada esa razón social.",
+        "module": "logistics",
+        "moduleLabel": "Logística"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en logística"
+        "message": "El envío se omite solo si la transferencia cambia de almacén dentro de la misma sucursal; si cambia de sucursal sí pide envío. Desde el lote quedan preseleccionadas la razón social y la sucursal del lote.",
+        "module": "logistics",
+        "moduleLabel": "Logística"
       }
     ],
     "releasedAt": "2026-11-10T22:04:31.959Z"
@@ -983,23 +1093,9 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en compras"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en cotizaciones"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en ventas"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en facturación"
-      },
-      {
-        "scope": "backend",
-        "message": "Cambios en usuarios"
+        "message": "Órdenes de venta, órdenes de compra y cotizaciones abren con la razón social de la sucursal principal del usuario.",
+        "module": "sales-orders",
+        "moduleLabel": "Órdenes de venta"
       }
     ],
     "releasedAt": "2026-11-10T22:12:08.130Z"
@@ -1013,27 +1109,15 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en facturación"
+        "message": "Órdenes de venta, compras y cotizaciones también abren con la sucursal principal del usuario seleccionada.",
+        "module": "sales-orders",
+        "moduleLabel": "Órdenes de venta"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en inventario"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en compras"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en cotizaciones"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en ventas"
-      },
-      {
-        "scope": "backend",
-        "message": "Cambios en usuarios"
+        "message": "En transferencias de inventario el listado solo muestra Ver detalle; recibir, cancelar, crear envío y PDF quedan dentro del detalle.",
+        "module": "inventory",
+        "moduleLabel": "Inventario"
       }
     ],
     "releasedAt": "2026-11-10T22:16:34.737Z"
@@ -1047,31 +1131,33 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en versiones"
+        "message": "El buscador de inventario filtra al escribir con una pausa de 300 ms y también al pulsar Enter.",
+        "module": "inventory",
+        "moduleLabel": "Inventario"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en contratos"
+        "message": "El detalle de transferencia muestra el aviso de posición más chico, el estado como pastilla y la fecha en palabras.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en inventario"
+        "message": "El lote avisa si tiene un cambio de posición o una transferencia pendiente y abre el detalle para recibirlo.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en inmuebles"
+        "message": "En contratos, el contador de filtros ya no se pinta como texto: los atributos quedaron en el componente.",
+        "module": "contracts",
+        "moduleLabel": "Contratos"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en reports"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en facturación"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en configuración"
+        "message": "Lotes filtra por manzana: dropdown exacto que también aplica a las tarjetas.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       }
     ],
     "releasedAt": "2026-11-11T01:37:37.391Z"
@@ -1085,11 +1171,9 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en compras"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en ventas"
+        "message": "Órdenes de venta y de compra aceptan una nota por producto: se ve debajo del nombre y sale en el PDF.",
+        "module": "sales-orders",
+        "moduleLabel": "Órdenes de venta"
       }
     ],
     "releasedAt": "2026-11-11T18:37:03.070Z"
@@ -1135,35 +1219,33 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en inventario"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en logística"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en compras"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en productos"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en configuración"
+        "message": "Configuración del alta de órdenes de venta por organización: visibilidad, obligatoriedad y valores por defecto. Sucursal oculta o única se asigna sola. El modal mantiene altura fija y mesa de control y envío pasan a interruptores.",
+        "module": "settings",
+        "moduleLabel": "Configuración"
       },
       {
         "scope": "backend",
-        "message": "Cambios en accesos y permisos"
+        "message": "El guardado de la configuración de alta de órdenes no compilaba: el permiso se validaba con un solo argumento. Quedó la llamada con entidad sales_orders y acción Update.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       },
       {
-        "scope": "backend",
-        "message": "Cambios en ventas"
+        "scope": "frontend",
+        "message": "Se pidió que CEDIS Ensenada Alfredo Pérez y CEDIS Tijuana Rene Rangel vean choferes al crear envíos; el rol CEDIS no lista usuarios, y el alta ahora carga los choferes con el permiso de envíos.",
+        "module": "logistics",
+        "moduleLabel": "Logística"
       },
       {
-        "scope": "backend",
-        "message": "Cambios en proveedores"
+        "scope": "frontend",
+        "message": "Importaciones Omar Moreno de Maderería no veía proveedores aunque tenía Ver proveedores: el menú acepta ese permiso y vendor/vendors cuentan como la misma entidad.",
+        "module": "vendors",
+        "moduleLabel": "Proveedores"
+      },
+      {
+        "scope": "frontend",
+        "message": "Al deshabilitar un producto repetido desde el tab Detalles se avisa si tiene inventario y se da de baja; el catálogo se puede filtrar por activos o deshabilitados.",
+        "module": "settings",
+        "moduleLabel": "Configuración"
       }
     ],
     "releasedAt": "2026-11-12T23:35:56.835Z"
@@ -1177,39 +1259,45 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "backend",
-        "message": "Publicar el trabajo local que no estaba en main."
+        "message": "Se configuró el punto de venta de verdulería en la sucursal TIJ-1: terminal de ventas, terminal de caja y vendedor de prueba con código 1001, con el rol de madería.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       },
       {
-        "scope": "backend",
-        "message": "Recibos de pago para cuotas HOA"
+        "scope": "frontend",
+        "message": "Rutas de reparto por organización, apagadas hasta activarlas. La orden hereda la ruta del cliente, pide fecha tentativa solo si requiere envío, y lo mismo aplica en el alta admin, POS Ventas y POS Caja.",
+        "module": "pos-cash",
+        "moduleLabel": "POS Caja"
       },
       {
-        "scope": "backend",
-        "message": "Ticket POS en dólares cuando la orden es en USD"
+        "scope": "frontend",
+        "message": "En la configuración del alta de órdenes, el valor por defecto de la fecha solo ofrecía Hoy y se cortaba si había un día fijo. Quedó la opción Fecha fija y se muestra el día guardado.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       },
       {
-        "scope": "backend",
-        "message": "Compilar dist desde src (crédito en USD en POS)"
+        "scope": "frontend",
+        "message": "Etiqueta Contado o Financiado (E+F o F). Los que no tienen pagos de contrato quedan de contado, sin mensualidad. El alta va por pasos y, en contado, no pide enganche ni calendario; los abonos siguen en Enganche.",
+        "module": "contracts",
+        "moduleLabel": "Contratos"
       },
       {
-        "scope": "backend",
-        "message": "POS: permitir orden/factura en USD en cobros a crédito"
+        "scope": "frontend",
+        "message": "Dashboard Divino: Contado vs financiado usa el tipo de venta y al clic abre los contratos del periodo.",
+        "module": "contracts",
+        "moduleLabel": "Contratos"
       },
       {
-        "scope": "backend",
-        "message": "Reconstruir src/ desde el dist de producción (v0.0.111 + fix IGI)"
+        "scope": "frontend",
+        "message": "Pantalla de métricas por mes. Muestra lo que deberían entrar las mensualidades, lo ya cobrado, lo que falta y, aparte, los atrasos de meses anteriores.",
+        "module": "contracts",
+        "moduleLabel": "Contratos"
       },
       {
-        "scope": "backend",
-        "message": "Costo real: sumar IGI% a GTOS% e incluir IGI en total costo final"
-      },
-      {
-        "scope": "backend",
-        "message": "Cambios en contratos"
-      },
-      {
-        "scope": "backend",
-        "message": "Cambios en Divino"
+        "scope": "frontend",
+        "message": "Build de contratos: el saldo de contado se deshabilita con el tipo que espera el input, y se cerró la función de logística en la orden de venta.",
+        "module": "contracts",
+        "moduleLabel": "Contratos"
       }
     ],
     "releasedAt": "2026-11-20T02:54:36.051Z"
@@ -1237,7 +1325,9 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en contratos"
+        "message": "Métricas de contratos: el ingreso del mes ya no falla por la collation, y el listado solo tiene el enlace Métricas, sin repetir Contratos.",
+        "module": "contracts",
+        "moduleLabel": "Contratos"
       }
     ],
     "releasedAt": "2026-11-20T03:07:47.327Z"
@@ -1265,7 +1355,9 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Actualización de la plataforma."
+        "message": "Métricas de contratos: el monto del mes baja de tamaño y las tarjetas se acomodan al ancho disponible.",
+        "module": "contracts",
+        "moduleLabel": "Contratos"
       }
     ],
     "releasedAt": "2026-11-20T03:31:02.568Z"
@@ -1306,8 +1398,16 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "title": "Versión 0.0.132",
     "changes": [
       {
-        "scope": "backend",
-        "message": "Cambios en contratos"
+        "scope": "frontend",
+        "message": "Métricas del mes: los conteos abren la lista filtrada y numerada. Se explica qué es una cuota y se quitó la cartera activa.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
+      },
+      {
+        "scope": "frontend",
+        "message": "Listado de contratos: el alta dice Crear, Métricas es un texto junto al título y el título ya no va tan grande.",
+        "module": "contracts",
+        "moduleLabel": "Contratos"
       }
     ],
     "releasedAt": "2026-11-20T04:02:44.364Z"
@@ -1334,8 +1434,10 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "title": "Versión 0.0.134",
     "changes": [
       {
-        "scope": "backend",
-        "message": "Cambios en contratos"
+        "scope": "frontend",
+        "message": "Métricas: cada filtro de la lista explica al pasar el cursor qué incluye, y el texto de meses anteriores ya se lee completo.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       }
     ],
     "releasedAt": "2026-11-20T04:50:42.339Z"
@@ -1363,11 +1465,21 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en inventario"
+        "message": "El modal de Contado vs financiado en el dashboard ya tiene margen, tarjetas con fondo y la lista dentro de un recuadro.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       },
       {
-        "scope": "backend",
-        "message": "Cambios en Divino"
+        "scope": "frontend",
+        "message": "En inventario totalizado la unidad queda pegada a la derecha de la cantidad, y precio y costo pasan a columnas propias para que el margen no estire la fila.",
+        "module": "inventory",
+        "moduleLabel": "Inventario"
+      },
+      {
+        "scope": "frontend",
+        "message": "En inventario totalizado los encabezados y los montos quedan con el mismo estilo del listado de órdenes de compra.",
+        "module": "purchase-orders",
+        "moduleLabel": "Órdenes de compra"
       }
     ],
     "releasedAt": "2026-11-20T17:16:56.186Z"
@@ -1381,7 +1493,9 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "backend",
-        "message": "Cambios en contratos"
+        "message": "El recibo de pago ya no llama proyecto al nombre del lote: solo dice manzana y número de lote, sin el código.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       }
     ],
     "releasedAt": "2026-11-20T17:34:24.436Z"
@@ -1395,7 +1509,9 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en inventario"
+        "message": "En inventario totalizado el nombre, la sucursal, la razón social, la unidad y la pastilla de margen quedan más chicos.",
+        "module": "inventory",
+        "moduleLabel": "Inventario"
       }
     ],
     "releasedAt": "2026-11-20T17:50:04.230Z"
@@ -1409,7 +1525,21 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en inventario"
+        "message": "En inventario totalizado la cantidad de lotes abre el detalle, el origen del margen queda en un ícono al pasar el mouse y los tabs quedan pegados a la línea.",
+        "module": "inventory",
+        "moduleLabel": "Inventario"
+      },
+      {
+        "scope": "frontend",
+        "message": "En los lotes de inventario totalizado la fecha queda corta, 18/08/2026, y más chica.",
+        "module": "inventory",
+        "moduleLabel": "Inventario"
+      },
+      {
+        "scope": "frontend",
+        "message": "La fecha del lote en inventario totalizado queda humana y corta: Ago 18 26, en 11px.",
+        "module": "inventory",
+        "moduleLabel": "Inventario"
       }
     ],
     "releasedAt": "2026-11-20T17:56:39.042Z"
@@ -1452,8 +1582,58 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "title": "Versión 0.0.141",
     "changes": [
       {
+        "scope": "frontend",
+        "message": "El ícono de margen en inventario totalizado muestra el origen con el tooltip del sistema al pasar el mouse.",
+        "module": "inventory",
+        "moduleLabel": "Inventario"
+      },
+      {
+        "scope": "frontend",
+        "message": "El menú cerrado ya no dibuja dos líneas por sección y la P del logo no queda cortada.",
+        "module": "settings",
+        "moduleLabel": "Configuración"
+      },
+      {
+        "scope": "frontend",
+        "message": "Se puede marcar una lista de precios como predeterminada de márgenes. Inventario y el margen del producto usan ese precio; si no hay, siguen con la lista activa más antigua. Ventas no cambian.",
+        "module": "inventory",
+        "moduleLabel": "Inventario"
+      },
+      {
         "scope": "backend",
-        "message": "Cambios en inventario"
+        "message": "PDF del proceso de factura de anticipo para la madereria: desde la cotizacion en POS, el cobro en caja y la aplicacion al entregar la madera.",
+        "module": "quotations",
+        "moduleLabel": "Cotizaciones"
+      },
+      {
+        "scope": "backend",
+        "message": "El PDF de anticipo de la maderería ahora explica que la diferencia se cobra en POS Caja, sobre la orden, después de convertir.",
+        "module": "pos-cash",
+        "moduleLabel": "POS Caja"
+      },
+      {
+        "scope": "backend",
+        "message": "El PDF de factura de anticipo de la maderería quedó en lenguaje de usuario: habla de productos, no de líneas ni de solo madera.",
+        "module": "products",
+        "moduleLabel": "Productos"
+      },
+      {
+        "scope": "backend",
+        "message": "El PDF de anticipo ahora trae los clics de caja para cobrar la diferencia: Por cobrar, Ya pagado y Confirmar cobro.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
+      },
+      {
+        "scope": "frontend",
+        "message": "Atajos F1 cliente y tecleo de producto, F5 para regresar lo que está en caja (si caja la tiene abierta se le quita y le avisa), título POS con ayuda, vista tarjetas o lista guardada, y consulta de otra sucursal sin vender. POS C",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "backend",
+        "message": "Se corrigió el build: el margen del producto volvía a usar el mapa de precios tipado, así que price y price_list_name compilan.",
+        "module": "products",
+        "moduleLabel": "Productos"
       }
     ],
     "releasedAt": "2026-11-23T22:09:31.755Z"
@@ -1467,7 +1647,15 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en ventas"
+        "message": "En el POS, al buscar se marca el primer producto: las flechas lo mueven y Enter agrega ese. F1 abre el cliente. La lista tiene columnas y el precio ya no parece un botón.",
+        "module": "customers",
+        "moduleLabel": "Clientes"
+      },
+      {
+        "scope": "frontend",
+        "message": "En el POS, el producto marcado de la búsqueda se pinta en violeta y los iconos de tarjetas y lista quedan centrados, con el activo resaltado.",
+        "module": "products",
+        "moduleLabel": "Productos"
       }
     ],
     "releasedAt": "2026-11-23T23:45:30.331Z"
@@ -1481,7 +1669,9 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en ventas"
+        "message": "Los atajos del POS ya no usan teclas F: Ctrl+I abre el cliente, Ctrl+M las ventas en caja y Ctrl+Q el abono pendiente. F5 vuelve a recargar el navegador.",
+        "module": "pos-cash",
+        "moduleLabel": "POS Caja"
       }
     ],
     "releasedAt": "2026-11-23T23:57:15.488Z"
@@ -1522,8 +1712,28 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "title": "Versión 0.0.146",
     "changes": [
       {
+        "scope": "frontend",
+        "message": "Ventas en caja se abre en un modal al centro: cada folio es una tarjeta con cliente, productos, totales y se puede desplegar para regresarla a ventas.",
+        "module": "pos-cash",
+        "moduleLabel": "POS Caja"
+      },
+      {
+        "scope": "frontend",
+        "message": "En el POS, Esc limpia la búsqueda y un segundo Esc sale de pantalla completa.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
+      },
+      {
+        "scope": "frontend",
+        "message": "En POS Ventas se quitaron las franjas de tickets regresados y de corte; el aviso queda en la barra superior, en Tickets y Corte.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
+      },
+      {
         "scope": "backend",
-        "message": "Cambios en ventas"
+        "message": "El deploy del backend fallaba porque subtotal iba duplicado en las ventas y anticipos de caja. Se dejó una sola vez y el build ya pasa.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       }
     ],
     "releasedAt": "2026-11-24T00:58:20.617Z"
@@ -1537,15 +1747,9 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en ventas"
-      },
-      {
-        "scope": "backend",
-        "message": "Cambios en cotizaciones"
-      },
-      {
-        "scope": "backend",
-        "message": "Cambios en accesos y permisos"
+        "message": "Descuento porcentual al precio en el carrito (5%, 3% u otro), se guarda en la orden y solo se ve con el permiso Aplicar descuento al precio del módulo POS.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
       }
     ],
     "releasedAt": "2026-11-24T01:13:48.830Z"
@@ -1559,15 +1763,21 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en contabilidad"
+        "message": "Las tarjetas de Ventas en caja quedaron en filas compactas para ver varios folios a la vez.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en ventas"
+        "message": "Cobranza POS: se quitó el ticket promedio de las tarjetas de forma de pago; quedan ventas y monto.",
+        "module": "accounting",
+        "moduleLabel": "Contabilidad"
       },
       {
-        "scope": "backend",
-        "message": "Cambios en cotizaciones"
+        "scope": "frontend",
+        "message": "Si Ventas regresa un folio que caja está cobrando, se le quita al momento y sale una ventana con el folio y el vendedor que lo regresó.",
+        "module": "pos-cash",
+        "moduleLabel": "POS Caja"
       }
     ],
     "releasedAt": "2026-11-24T01:34:03.708Z"
@@ -1581,7 +1791,9 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en contabilidad"
+        "message": "Cobranza: la pestaña, la búsqueda y los filtros quedan en la URL al recargar, y cada vista tiene un botón de actualizar junto al periodo.",
+        "module": "accounting",
+        "moduleLabel": "Contabilidad"
       }
     ],
     "releasedAt": "2026-11-24T01:51:30.678Z"
@@ -1595,39 +1807,45 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en clientes"
+        "message": "La búsqueda y los filtros quedan en la URL al recargar, y al guardar precio o costo desde un lote se recarga esa página.",
+        "module": "inventory",
+        "moduleLabel": "Inventario"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en empleados"
+        "message": "Expediente de empleado más compacto: botones chicos y la incapacidad deja de ser un banner grande.",
+        "module": "employees",
+        "moduleLabel": "Empleados"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en inventario"
+        "message": "En editar cliente el RFC pasa a mayúsculas al escribir, y el modal de nueva dirección ya no se corta por la derecha.",
+        "module": "customers",
+        "moduleLabel": "Clientes"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en logística"
+        "message": "En la razón social, junto al logo del sistema, se eligen los tres colores del degradado del menú; se guardan en la base y el navegador los aplica al entrar, incluido el fondo del celular.",
+        "module": "settings",
+        "moduleLabel": "Configuración"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en compras"
+        "message": "El logo del menú queda más grande, sin el cuadro blanco, y si el PNG trae fondo blanco pegado al borde se recorta para asentarse en la barra.",
+        "module": "settings",
+        "moduleLabel": "Configuración"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en cotizaciones"
+        "message": "Órdenes de venta y de compra usan la franja de resumen de clientes, con el mismo alto y skeleton, en web y móvil. En ventas, las bolitas de la gráfica quedan a la derecha de la búsqueda.",
+        "module": "sales-orders",
+        "moduleLabel": "Órdenes de venta"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en ventas"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en facturación"
-      },
-      {
-        "scope": "frontend",
-        "message": "Cambios en productos"
+        "message": "Cotizaciones usa la misma franja de resumen que clientes, con el mismo alto y skeleton, en web y móvil.",
+        "module": "quotations",
+        "moduleLabel": "Cotizaciones"
       }
     ],
     "releasedAt": "2026-11-24T02:42:33.325Z"
@@ -1669,7 +1887,15 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en facturación"
+        "message": "El logo del menú abierto quedó un poco más chico: hasta 92 px de alto, sin el cuadro blanco.",
+        "module": "settings",
+        "moduleLabel": "Configuración"
+      },
+      {
+        "scope": "frontend",
+        "message": "En Logo y color se puede poner una máscara de color al logo del menú: el dibujo queda de un solo color y el blanco se vuelve transparente.",
+        "module": "settings",
+        "moduleLabel": "Configuración"
       }
     ],
     "releasedAt": "2026-11-24T03:18:49.997Z"
@@ -1683,15 +1909,33 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en clientes"
+        "message": "En Información Fiscal del cliente, una i junto a Cargar constancia SAT explica que el PDF se lee y se llenan solos RFC, razón social y domicilio.",
+        "module": "customers",
+        "moduleLabel": "Clientes"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en ventas"
+        "message": "En el listado la razón del menú se marca como Template, y POS Ventas y POS Caja pueden guardar cada una el color de su barra.",
+        "module": "settings",
+        "moduleLabel": "Configuración"
       },
       {
         "scope": "frontend",
-        "message": "Cambios en facturación"
+        "message": "El modal de Ventas en caja quedó más grande, con cartas apaisadas y los productos en tabla con scroll; En caja, Tickets y Regresar a ventas quedaron en un tamaño intermedio.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "Las cartas de Ventas en caja quedaron del mismo ancho y alto; la que se abre sigue ocupando todo el modal.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "El build fallaba porque el CSS de POS Ventas pasaba 48 kB; el tope de error quedó en 50 kB.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
       }
     ],
     "releasedAt": "2026-11-24T06:10:21.723Z"
@@ -1705,11 +1949,15 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en ventas"
+        "message": "El logo del menú ya no se reescala al abrir y cerrar la barra: queda a tamaño fijo y el menú solo anima el ancho.",
+        "module": "settings",
+        "moduleLabel": "Configuración"
       },
       {
-        "scope": "backend",
-        "message": "Cambios en facturación"
+        "scope": "frontend",
+        "message": "El descuento de precio en el carrito de POS quedó en un ícono y una fila del mismo alto que la cantidad.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
       }
     ],
     "releasedAt": "2026-11-24T06:32:50.360Z"
@@ -1723,13 +1971,115 @@ export const SYSTEM_VERSION_RELEASES: Array<{
     "changes": [
       {
         "scope": "frontend",
-        "message": "Cambios en ventas"
+        "message": "Se quitó la card Surtidas y Órdenes, Creadas, Pagadas y Pendientes ahora suman todo el filtro, no solo la página.",
+        "module": "sales-orders",
+        "moduleLabel": "Órdenes de venta"
       },
       {
-        "scope": "backend",
-        "message": "Cambios en facturación"
+        "scope": "frontend",
+        "message": "Las bolitas para cambiar de vista quedaron a la izquierda del botón de recargar.",
+        "module": "sales-orders",
+        "moduleLabel": "Órdenes de venta"
+      },
+      {
+        "scope": "frontend",
+        "message": "En el detalle de la orden, el cobro POS agrupa cada pago y la fecha queda corta, sin hora (ago 3 26).",
+        "module": "sales-orders",
+        "moduleLabel": "Órdenes de venta"
+      },
+      {
+        "scope": "frontend",
+        "message": "Regresar a ventas, cargar ticket y descartar orden confirman con el diálogo de la app para no salir de pantalla completa.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
       }
     ],
     "releasedAt": "2026-11-24T06:46:25.771Z"
+  },
+  {
+    "releaseKey": "full:0.0.158:0.0.158-1795503850372",
+    "version": "0.0.158",
+    "buildId": "0.0.158-1795503850372",
+    "channel": "full",
+    "title": "Versión 0.0.158",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "En el carrito de POS Ventas el botón % abre 5%, 3% y otro porcentaje en un panel flotante, para que la carta no crezca.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "Con el menú abierto el logo ya no se recorta: queda arriba completo y la lista se desplaza debajo.",
+        "module": "settings",
+        "moduleLabel": "Configuración"
+      },
+      {
+        "scope": "frontend",
+        "message": "En POS Caja, al terminar de cobrar se abre un modal para imprimir el ticket (2 copias) y, si se facturó, el PDF; al cerrarlo el contador de Órdenes cobradas sube animado.",
+        "module": "pos-cash",
+        "moduleLabel": "POS Caja"
+      },
+      {
+        "scope": "frontend",
+        "message": "Versiones carga de 8 en 8 y cada nota dice el módulo y qué se cambió. El deploy publica esas notas.",
+        "module": "settings",
+        "moduleLabel": "Configuración"
+      }
+    ],
+    "releasedAt": "2026-11-24T07:04:10.372Z"
+  },
+  {
+    "releaseKey": "full:0.0.160:0.0.160-1795504637412",
+    "version": "0.0.160",
+    "buildId": "0.0.160-1795504637412",
+    "channel": "full",
+    "title": "Versión 0.0.160",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "En el carrito de POS Ventas el botón % abre 5%, 3% y otro porcentaje en un panel flotante, para que la carta no crezca.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "Con el menú abierto el logo ya no se recorta: queda arriba completo y la lista se desplaza debajo.",
+        "module": "settings",
+        "moduleLabel": "Configuración"
+      },
+      {
+        "scope": "frontend",
+        "message": "En POS Caja, al terminar de cobrar se abre un modal para imprimir el ticket (2 copias) y, si se facturó, el PDF; al cerrarlo el contador de Órdenes cobradas sube animado.",
+        "module": "pos-cash",
+        "moduleLabel": "POS Caja"
+      },
+      {
+        "scope": "frontend",
+        "message": "Versiones carga de 8 en 8 y cada nota dice el módulo y qué se cambió. El deploy publica esas notas.",
+        "module": "settings",
+        "moduleLabel": "Configuración"
+      },
+      {
+        "scope": "frontend",
+        "message": "La card Creadas pasó a Abiertas contra entregadas, sin canceladas, con la barra en dos colores y el monto de cada lado.",
+        "module": "sales-orders",
+        "moduleLabel": "Órdenes de venta"
+      },
+      {
+        "scope": "backend",
+        "message": "El cobro de anticipo en punto de venta devuelve el id de la factura timbrada.",
+        "module": "quotations",
+        "moduleLabel": "Cotizaciones"
+      },
+      {
+        "scope": "frontend",
+        "message": "El build de órdenes de venta vuelve a pasar: la barra de Abiertas conserva los tonos índigo y verde.",
+        "module": "sales-orders",
+        "moduleLabel": "Órdenes de venta"
+      }
+    ],
+    "releasedAt": "2026-11-24T07:17:17.412Z"
   }
 ];
