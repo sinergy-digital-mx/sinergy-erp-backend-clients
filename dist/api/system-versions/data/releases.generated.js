@@ -1653,6 +1653,20 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-24T03:01:17.545Z"
+    },
+    {
+        "releaseKey": "full:0.0.153:0.0.153-1795490329997",
+        "version": "0.0.153",
+        "buildId": "0.0.153-1795490329997",
+        "channel": "full",
+        "title": "Versión 0.0.153",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "Cambios en facturación"
+            }
+        ],
+        "releasedAt": "2026-11-24T03:18:49.997Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map

@@ -1340,6 +1340,24 @@
       "status": "shipped",
       "version": "0.0.150",
       "shippedAt": "2026-11-23T18:43:40-08:00"
+    },
+    {
+      "id": "20261123-190306",
+      "at": "2026-11-23T19:03:06-08:00",
+      "scope": "frontend",
+      "message": "El logo del menú abierto quedó un poco más chico: hasta 92 px de alto, sin el cuadro blanco.",
+      "status": "shipped",
+      "version": "0.0.153",
+      "shippedAt": "2026-11-23T19:19:57-08:00"
+    },
+    {
+      "id": "20261123-191711",
+      "at": "2026-11-23T19:17:11-08:00",
+      "scope": "both",
+      "message": "En Logo y color se puede poner una máscara de color al logo del menú: el dibujo queda de un solo color y el blanco se vuelve transparente.",
+      "status": "shipped",
+      "version": "0.0.153",
+      "shippedAt": "2026-11-23T19:19:57-08:00"
     }
   ]
 }

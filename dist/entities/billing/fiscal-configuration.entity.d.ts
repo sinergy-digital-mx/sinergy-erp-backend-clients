@@ -12,6 +12,7 @@ export declare class FiscalConfiguration {
     private_key: string;
     logo: string;
     use_as_system_logo: boolean;
+    logo_mask_color: string | null;
     brand_color_start: string | null;
     brand_color_mid: string | null;
     brand_color_end: string | null;

@@ -59,6 +59,13 @@ let FiscalConfigurationController = class FiscalConfigurationController {
             disposition: 'inline; filename="system-logo"',
         });
     }
+    async getLogoFile(id, req) {
+        const file = await this.service.getLogoFile(id, req.user.tenantId);
+        return new common_1.StreamableFile(file.buffer, {
+            type: file.contentType,
+            disposition: 'inline; filename="logo"',
+        });
+    }
     getFinkokStatus(id, environment, req) {
         return this.finkokService.getFinkokStatus(id, req.user.tenantId, environment);
     }
@@ -133,6 +140,19 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], FiscalConfigurationController.prototype, "getSystemLogoFile", null);
+__decorate([
+    (0, common_1.Get)(':id/logo-file'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'FiscalConfiguration', action: 'Read' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Archivo del logo de una razón social' }),
+    (0, swagger_1.ApiParam)({ name: 'id', type: 'string' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Imagen del logo' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'No hay logo' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], FiscalConfigurationController.prototype, "getLogoFile", null);
 __decorate([
     (0, common_1.Get)(':id/finkok-status'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'FiscalConfiguration', action: 'Read' }),

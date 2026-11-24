@@ -147,6 +147,9 @@ let FiscalConfigurationService = class FiscalConfigurationService {
         if (dto.brand_color_end !== undefined) {
             patch.brand_color_end = dto.brand_color_end;
         }
+        if (dto.logo_mask_color !== undefined) {
+            patch.logo_mask_color = dto.logo_mask_color;
+        }
         if (Object.keys(patch).length) {
             await this.repo.update({ id, tenant_id: tenantId }, patch);
         }
@@ -172,14 +175,24 @@ let FiscalConfigurationService = class FiscalConfigurationService {
     async getSystemLogoMeta(tenantId) {
         const config = await this.findSystemLogo(tenantId);
         const brand = (0, brand_nav_colors_util_1.resolveBrandNavMeta)(config);
+        const mask = this.logoMaskColor(config?.logo_mask_color);
         if (!config?.logo) {
-            return { enabled: false, cache_key: null, brand };
+            return { enabled: false, cache_key: null, mask_color: null, brand };
         }
+        const cacheSource = mask ? `${config.logo}|mask:${mask}` : config.logo;
         return {
             enabled: true,
-            cache_key: (0, crypto_1.createHash)('sha256').update(config.logo).digest('hex').slice(0, 24),
+            cache_key: (0, crypto_1.createHash)('sha256').update(cacheSource).digest('hex').slice(0, 24),
+            mask_color: mask,
             brand,
         };
+    }
+    async getLogoFile(id, tenantId) {
+        const config = await this.getByIdOrFail(id, tenantId);
+        if (!config.logo) {
+            throw new common_1.NotFoundException('Esta razón social no tiene logo');
+        }
+        return this.s3Service.getFile(config.logo);
     }
     async getSystemLogoFile(tenantId) {
         const config = await this.findSystemLogo(tenantId);
@@ -187,6 +200,10 @@ let FiscalConfigurationService = class FiscalConfigurationService {
             throw new common_1.NotFoundException('No hay logo del sistema');
         }
         return this.s3Service.getFile(config.logo);
+    }
+    logoMaskColor(value) {
+        const raw = String(value ?? '').trim().toLowerCase();
+        return /^#[0-9a-f]{6}$/.test(raw) ? raw : null;
     }
     async findSystemLogo(tenantId) {
         return this.repo

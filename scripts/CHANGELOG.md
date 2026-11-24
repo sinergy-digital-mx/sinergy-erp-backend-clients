@@ -10,6 +10,11 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.153 · 2026-11-23
+
+- aplicación · El logo del menú abierto quedó un poco más chico: hasta 92 px de alto, sin el cuadro blanco.
+- aplicación y servidor · En Logo y color se puede poner una máscara de color al logo del menú: el dibujo queda de un solo color y el blanco se vuelve transparente.
+
 ### Versión 0.0.150 · 2026-11-23
 
 - aplicación y servidor · Inventario: la búsqueda y los filtros quedan en la URL al recargar, y al guardar precio o costo desde un lote se recarga esa página.

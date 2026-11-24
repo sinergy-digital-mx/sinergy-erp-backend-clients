@@ -34,6 +34,7 @@ class UpdateFiscalConfigurationDto {
     private_key;
     logo;
     use_as_system_logo;
+    logo_mask_color;
     brand_color_start;
     brand_color_mid;
     brand_color_end;
@@ -127,6 +128,21 @@ __decorate([
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], UpdateFiscalConfigurationDto.prototype, "use_as_system_logo", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Máscara de un solo color para el logo del menú. Vacío quita la máscara. El archivo no cambia.',
+        example: '#ffffff',
+        nullable: true,
+    }),
+    (0, class_transformer_1.Transform)(({ value }) => normalizeOptionalBrandColor(value)),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.ValidateIf)((_, value) => value !== null && value !== undefined),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Matches)(/^#[0-9A-Fa-f]{6}$/, {
+        message: 'La máscara del logo debe ser hexadecimal de 6 dígitos, por ejemplo #ffffff.',
+    }),
+    __metadata("design:type", Object)
+], UpdateFiscalConfigurationDto.prototype, "logo_mask_color", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
         description: 'Color de arriba del menú. Vacío restaura el índigo de Pólux. También pinta el fondo en celular.',

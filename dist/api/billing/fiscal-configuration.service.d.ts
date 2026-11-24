@@ -21,12 +21,18 @@ export declare class FiscalConfigurationService {
     getSystemLogoMeta(tenantId: string): Promise<{
         enabled: boolean;
         cache_key: string | null;
+        mask_color: string | null;
         brand: ReturnType<typeof resolveBrandNavMeta>;
+    }>;
+    getLogoFile(id: string, tenantId: string): Promise<{
+        buffer: Buffer;
+        contentType: string;
     }>;
     getSystemLogoFile(tenantId: string): Promise<{
         buffer: Buffer;
         contentType: string;
     }>;
+    private logoMaskColor;
     private findSystemLogo;
     private getByIdOrFail;
     private persistPrefix;
