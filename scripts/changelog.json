@@ -1584,6 +1584,146 @@
       "status": "shipped",
       "version": "0.0.161",
       "shippedAt": "2026-11-23T23:49:23-08:00"
+    },
+    {
+      "id": "20261123-235834",
+      "at": "2026-11-23T23:58:34-08:00",
+      "scope": "frontend",
+      "message": "En el modal de razón social el botón dice Cerrar.",
+      "status": "shipped",
+      "version": "0.0.165",
+      "shippedAt": "2026-11-24T11:20:44-08:00",
+      "module": "settings"
+    },
+    {
+      "id": "20261124-000315",
+      "at": "2026-11-24T00:03:15-08:00",
+      "scope": "frontend",
+      "message": "En ventas la tercera vista es la tabla de todas las sucursales, con la misma búsqueda y ordenada por cantidad.",
+      "status": "shipped",
+      "version": "0.0.165",
+      "shippedAt": "2026-11-24T11:20:44-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261124-000731",
+      "at": "2026-11-24T00:07:31-08:00",
+      "scope": "both",
+      "message": "En el resumen, la barra de Abiertas y Entregadas queda a la misma altura que las demás y los montos van debajo.",
+      "status": "shipped",
+      "version": "0.0.165",
+      "shippedAt": "2026-11-24T11:20:44-08:00",
+      "module": "sales-orders"
+    },
+    {
+      "id": "20261124-001129",
+      "at": "2026-11-24T00:11:29-08:00",
+      "scope": "both",
+      "message": "En el listado, si la sucursal ya está elegida arriba, no se repite la columna. En la gráfica el mes sale Nov.",
+      "status": "shipped",
+      "version": "0.0.165",
+      "shippedAt": "2026-11-24T11:20:44-08:00",
+      "module": "sales-orders"
+    },
+    {
+      "id": "20261124-001129-2",
+      "at": "2026-11-24T00:11:29-08:00",
+      "scope": "both",
+      "message": "En la gráfica de compras el mes sale con inicial mayúscula: Nov.",
+      "status": "shipped",
+      "version": "0.0.165",
+      "shippedAt": "2026-11-24T11:20:44-08:00",
+      "module": "customers"
+    },
+    {
+      "id": "20261124-001448",
+      "at": "2026-11-24T00:14:48-08:00",
+      "scope": "frontend",
+      "message": "El carrito de POS Ventas es más ancho y el ícono de descuento de cada línea queda alineado con la cantidad.",
+      "status": "shipped",
+      "version": "0.0.165",
+      "shippedAt": "2026-11-24T11:20:44-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261124-001611",
+      "at": "2026-11-24T00:16:11-08:00",
+      "scope": "both",
+      "message": "En Cobranza, Caja del día y Cobros explican cada pestaña al pasar el cursor, y los filtros quedan alineados en todas las vistas.",
+      "status": "shipped",
+      "version": "0.0.165",
+      "shippedAt": "2026-11-24T11:20:44-08:00",
+      "module": "accounting"
+    },
+    {
+      "id": "20261124-002056",
+      "at": "2026-11-24T00:20:56-08:00",
+      "scope": "both",
+      "message": "En el listado, la carta de deuda y las demás muestran el monto en pesos y en dólares, cada moneda en su renglón.",
+      "status": "shipped",
+      "version": "0.0.165",
+      "shippedAt": "2026-11-24T11:20:44-08:00",
+      "module": "purchase-orders"
+    },
+    {
+      "id": "20261124-003344",
+      "at": "2026-11-24T00:33:44-08:00",
+      "scope": "frontend",
+      "message": "En el listado móvil el encabezado, la búsqueda y los filtros quedan como en clientes, y cada orden se ve en una tarjeta con total, pago y factura.",
+      "status": "shipped",
+      "version": "0.0.165",
+      "shippedAt": "2026-11-24T11:20:44-08:00",
+      "module": "sales-orders"
+    },
+    {
+      "id": "20261124-003344-2",
+      "at": "2026-11-24T00:33:44-08:00",
+      "scope": "frontend",
+      "message": "En el listado móvil el encabezado, los filtros y cada cotización quedan en tarjetas como las de clientes.",
+      "status": "shipped",
+      "version": "0.0.165",
+      "shippedAt": "2026-11-24T11:20:44-08:00",
+      "module": "quotations"
+    },
+    {
+      "id": "20261124-003344-3",
+      "at": "2026-11-24T00:33:44-08:00",
+      "scope": "frontend",
+      "message": "En el listado móvil el encabezado, los filtros y cada orden de compra quedan en tarjetas como las de clientes.",
+      "status": "shipped",
+      "version": "0.0.165",
+      "shippedAt": "2026-11-24T11:20:44-08:00",
+      "module": "purchase-orders"
+    },
+    {
+      "id": "20261124-003714",
+      "at": "2026-11-24T00:37:14-08:00",
+      "scope": "both",
+      "message": "En Inventario, Por sucursal muestra la existencia y el costo de un producto, y el engrane guarda qué sucursales se ven.",
+      "status": "shipped",
+      "version": "0.0.165",
+      "shippedAt": "2026-11-24T11:20:44-08:00",
+      "module": "inventory"
+    },
+    {
+      "id": "20261124-003926",
+      "at": "2026-11-24T00:39:26-08:00",
+      "scope": "frontend",
+      "message": "En Totalizado, un clic en la fila abre la configuración del producto o expande los lotes.",
+      "status": "shipped",
+      "version": "0.0.165",
+      "shippedAt": "2026-11-24T11:20:44-08:00",
+      "module": "inventory"
+    },
+    {
+      "id": "20261124-111927",
+      "at": "2026-11-24T11:19:27-08:00",
+      "scope": "frontend",
+      "message": "El tope de estilos de una pantalla en el build de producción pasa de 50 kB a 56 kB.",
+      "status": "shipped",
+      "version": "0.0.165",
+      "shippedAt": "2026-11-24T11:20:44-08:00",
+      "module": "platform"
     }
   ]
 }

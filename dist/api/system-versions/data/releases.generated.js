@@ -2135,6 +2135,100 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-24T07:50:42.921Z"
+    },
+    {
+        "releaseKey": "full:0.0.165:0.0.165-1795547984596",
+        "version": "0.0.165",
+        "buildId": "0.0.165-1795547984596",
+        "channel": "full",
+        "title": "Versión 0.0.165",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "En el modal de razón social el botón dice Cerrar.",
+                "module": "settings",
+                "moduleLabel": "Configuración"
+            },
+            {
+                "scope": "frontend",
+                "message": "En ventas la tercera vista es la tabla de todas las sucursales, con la misma búsqueda y ordenada por cantidad.",
+                "module": "pos",
+                "moduleLabel": "POS Ventas"
+            },
+            {
+                "scope": "frontend",
+                "message": "En el resumen, la barra de Abiertas y Entregadas queda a la misma altura que las demás y los montos van debajo.",
+                "module": "sales-orders",
+                "moduleLabel": "Órdenes de venta"
+            },
+            {
+                "scope": "frontend",
+                "message": "En el listado, si la sucursal ya está elegida arriba, no se repite la columna. En la gráfica el mes sale Nov.",
+                "module": "sales-orders",
+                "moduleLabel": "Órdenes de venta"
+            },
+            {
+                "scope": "frontend",
+                "message": "En la gráfica de compras el mes sale con inicial mayúscula: Nov.",
+                "module": "customers",
+                "moduleLabel": "Clientes"
+            },
+            {
+                "scope": "frontend",
+                "message": "El carrito de POS Ventas es más ancho y el ícono de descuento de cada línea queda alineado con la cantidad.",
+                "module": "pos",
+                "moduleLabel": "POS Ventas"
+            },
+            {
+                "scope": "frontend",
+                "message": "En Cobranza, Caja del día y Cobros explican cada pestaña al pasar el cursor, y los filtros quedan alineados en todas las vistas.",
+                "module": "accounting",
+                "moduleLabel": "Contabilidad"
+            },
+            {
+                "scope": "frontend",
+                "message": "En el listado, la carta de deuda y las demás muestran el monto en pesos y en dólares, cada moneda en su renglón.",
+                "module": "purchase-orders",
+                "moduleLabel": "Órdenes de compra"
+            },
+            {
+                "scope": "frontend",
+                "message": "En el listado móvil el encabezado, la búsqueda y los filtros quedan como en clientes, y cada orden se ve en una tarjeta con total, pago y factura.",
+                "module": "sales-orders",
+                "moduleLabel": "Órdenes de venta"
+            },
+            {
+                "scope": "frontend",
+                "message": "En el listado móvil el encabezado, los filtros y cada cotización quedan en tarjetas como las de clientes.",
+                "module": "quotations",
+                "moduleLabel": "Cotizaciones"
+            },
+            {
+                "scope": "frontend",
+                "message": "En el listado móvil el encabezado, los filtros y cada orden de compra quedan en tarjetas como las de clientes.",
+                "module": "purchase-orders",
+                "moduleLabel": "Órdenes de compra"
+            },
+            {
+                "scope": "frontend",
+                "message": "En Inventario, Por sucursal muestra la existencia y el costo de un producto, y el engrane guarda qué sucursales se ven.",
+                "module": "inventory",
+                "moduleLabel": "Inventario"
+            },
+            {
+                "scope": "frontend",
+                "message": "En Totalizado, un clic en la fila abre la configuración del producto o expande los lotes.",
+                "module": "inventory",
+                "moduleLabel": "Inventario"
+            },
+            {
+                "scope": "frontend",
+                "message": "El tope de estilos de una pantalla en el build de producción pasa de 50 kB a 56 kB.",
+                "module": "platform",
+                "moduleLabel": "Plataforma"
+            }
+        ],
+        "releasedAt": "2026-11-24T19:19:44.596Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map

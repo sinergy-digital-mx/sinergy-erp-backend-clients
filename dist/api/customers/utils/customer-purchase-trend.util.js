@@ -9,18 +9,18 @@ exports.parseStoredDateTime = parseStoredDateTime;
 exports.PURCHASE_TREND_TIMEZONE = 'America/Mexico_City';
 exports.PURCHASE_TREND_MONTHS = 12;
 const MONTH_LABELS = [
-    'ene',
-    'feb',
-    'mar',
-    'abr',
-    'may',
-    'jun',
-    'jul',
-    'ago',
-    'sep',
-    'oct',
-    'nov',
-    'dic',
+    'Ene',
+    'Feb',
+    'Mar',
+    'Abr',
+    'May',
+    'Jun',
+    'Jul',
+    'Ago',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dic',
 ];
 function rollingPurchaseMonths(now = new Date(), count = exports.PURCHASE_TREND_MONTHS, timeZone = exports.PURCHASE_TREND_TIMEZONE) {
     const { year, month } = zonedYearMonth(now, timeZone);

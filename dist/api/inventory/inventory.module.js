@@ -10,6 +10,7 @@ exports.InventoryModule = void 0;
 const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const inventory_batch_entity_1 = require("../../entities/purchase-orders/inventory-batch.entity");
+const inventory_branch_report_setting_entity_1 = require("../../entities/inventory/inventory-branch-report-setting.entity");
 const product_entity_1 = require("../../entities/products/product.entity");
 const inventory_transfer_entity_1 = require("../../entities/inventory/inventory-transfer.entity");
 const inventory_transfer_line_entity_1 = require("../../entities/inventory/inventory-transfer-line.entity");
@@ -29,6 +30,7 @@ const billing_branch_entity_1 = require("../../entities/billing/billing-branch.e
 const uom_catalog_entity_1 = require("../../entities/uom-catalog/uom-catalog.entity");
 const s3_service_1 = require("../../common/services/s3.service");
 const inventory_service_1 = require("./inventory.service");
+const inventory_branch_report_service_1 = require("./services/inventory-branch-report.service");
 const inventory_controller_1 = require("./inventory.controller");
 const inventory_transfer_controller_1 = require("./inventory-transfer.controller");
 const inventory_audit_controller_1 = require("./inventory-audit.controller");
@@ -52,6 +54,7 @@ exports.InventoryModule = InventoryModule = __decorate([
         imports: [
             typeorm_1.TypeOrmModule.forFeature([
                 inventory_batch_entity_1.InventoryBatch,
+                inventory_branch_report_setting_entity_1.InventoryBranchReportSetting,
                 product_entity_1.Product,
                 inventory_transfer_entity_1.InventoryTransfer,
                 inventory_transfer_line_entity_1.InventoryTransferLine,
@@ -77,6 +80,7 @@ exports.InventoryModule = InventoryModule = __decorate([
         ],
         providers: [
             inventory_service_1.InventoryService,
+            inventory_branch_report_service_1.InventoryBranchReportService,
             inventory_transfer_service_1.InventoryTransferService,
             inventory_transfer_folio_service_1.InventoryTransferFolioService,
             inventory_transfer_pdf_service_1.InventoryTransferPdfService,

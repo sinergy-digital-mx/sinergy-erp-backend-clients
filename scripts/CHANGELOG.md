@@ -12,6 +12,23 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.165 · 24 nov
+
+- Configuración · En el modal de razón social el botón dice Cerrar.
+- POS Ventas · En ventas la tercera vista es la tabla de todas las sucursales, con la misma búsqueda y ordenada por cantidad.
+- Órdenes de venta · En el resumen, la barra de Abiertas y Entregadas queda a la misma altura que las demás y los montos van debajo.
+- Órdenes de venta · En el listado, si la sucursal ya está elegida arriba, no se repite la columna. En la gráfica el mes sale Nov.
+- Clientes · En la gráfica de compras el mes sale con inicial mayúscula: Nov.
+- POS Ventas · El carrito de POS Ventas es más ancho y el ícono de descuento de cada línea queda alineado con la cantidad.
+- Contabilidad · En Cobranza, Caja del día y Cobros explican cada pestaña al pasar el cursor, y los filtros quedan alineados en todas las vistas.
+- Órdenes de compra · En el listado, la carta de deuda y las demás muestran el monto en pesos y en dólares, cada moneda en su renglón.
+- Órdenes de venta · En el listado móvil el encabezado, la búsqueda y los filtros quedan como en clientes, y cada orden se ve en una tarjeta con total, pago y factura.
+- Cotizaciones · En el listado móvil el encabezado, los filtros y cada cotización quedan en tarjetas como las de clientes.
+- Órdenes de compra · En el listado móvil el encabezado, los filtros y cada orden de compra quedan en tarjetas como las de clientes.
+- Inventario · En Inventario, Por sucursal muestra la existencia y el costo de un producto, y el engrane guarda qué sucursales se ven.
+- Inventario · En Totalizado, un clic en la fila abre la configuración del producto o expande los lotes.
+- Plataforma · El tope de estilos de una pantalla en el build de producción pasa de 50 kB a 56 kB.
+
 #### Versión 0.0.161 · 23 nov
 
 - POS Ventas · En el POS, la barra y el filtro cerrado muestran solo el nombre de la sucursal. La lista y el modal siguen con la ciudad.

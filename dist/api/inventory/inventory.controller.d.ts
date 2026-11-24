@@ -1,4 +1,5 @@
 import { InventoryService } from './inventory.service';
+import { InventoryBranchReportService } from './services/inventory-branch-report.service';
 import { BatchFilterDto } from './dto/batch-filter.dto';
 import { BatchListResponseDto } from './dto/batch-list-response.dto';
 import { BatchDetailResponseDto } from './dto/batch-detail-response.dto';
@@ -8,6 +9,7 @@ import { InventorySummaryFilterDto } from './dto/inventory-summary-filter.dto';
 import { InventorySummaryResponseDto } from './dto/inventory-summary-response.dto';
 import { PosSessionInventorySummaryResponseDto } from './dto/pos-session-inventory-summary-response.dto';
 import { PosBranchStockResponseDto } from './dto/pos-branch-stock-response.dto';
+import { BranchReportProductSearchResponseDto, BranchReportSettingsResponseDto, BranchStockReportResponseDto, QueryBranchReportDto, QueryBranchReportProductsDto, UpdateBranchReportSettingsDto } from './dto/branch-stock-report.dto';
 import { InventoryLocationTreeResponseDto } from './dto/inventory-location-tree-response.dto';
 import { InventoryStatsFilterDto } from './dto/inventory-stats-filter.dto';
 import { InventoryStatsResponseDto } from './dto/inventory-stats-response.dto';
@@ -21,7 +23,8 @@ export declare class InventoryController {
     private readonly inventoryService;
     private readonly exportService;
     private readonly stockFlowService;
-    constructor(inventoryService: InventoryService, exportService: InventoryExportService, stockFlowService: InventoryStockFlowService);
+    private readonly branchReportService;
+    constructor(inventoryService: InventoryService, exportService: InventoryExportService, stockFlowService: InventoryStockFlowService, branchReportService: InventoryBranchReportService);
     getStockFlow(filters: QueryStockFlowDto, req: any): Promise<StockFlowResponseDto>;
     exportStockFlowExcel(filters: QueryStockFlowDto, req: any, res: any): Promise<void>;
     exportBatchesExcel(filters: QueryInventoryBatchExportDto, req: any, res: any): Promise<void>;
@@ -31,6 +34,10 @@ export declare class InventoryController {
     findAll(filters: BatchFilterDto, req: any): Promise<BatchListResponseDto>;
     getInventorySummary(filters: InventorySummaryFilterDto, req: any): Promise<InventorySummaryResponseDto>;
     getProductMargin(productId: string, req: any): Promise<ProductMarginResponseDto>;
+    searchBranchReportProducts(query: QueryBranchReportProductsDto, req: any): Promise<BranchReportProductSearchResponseDto>;
+    getBranchReportSettings(req: any): Promise<BranchReportSettingsResponseDto>;
+    updateBranchReportSettings(body: UpdateBranchReportSettingsDto, req: any): Promise<BranchReportSettingsResponseDto>;
+    getBranchStockReport(query: QueryBranchReportDto, req: any): Promise<BranchStockReportResponseDto>;
     getPosBranchStock(search: string, req: any): Promise<PosBranchStockResponseDto>;
     getPosTerminalInventorySummary(filters: InventorySummaryFilterDto, req: any): Promise<PosSessionInventorySummaryResponseDto>;
     findByPurchaseOrder(poId: string, filters: BatchFilterDto, req: any): Promise<BatchListResponseDto>;

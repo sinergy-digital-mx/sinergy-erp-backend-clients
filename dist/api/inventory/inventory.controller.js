@@ -16,6 +16,7 @@ exports.InventoryController = void 0;
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const inventory_service_1 = require("./inventory.service");
+const inventory_branch_report_service_1 = require("./services/inventory-branch-report.service");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const permission_guard_1 = require("../rbac/guards/permission.guard");
 const require_permissions_decorator_1 = require("../rbac/decorators/require-permissions.decorator");
@@ -27,6 +28,7 @@ const update_inventory_batch_dto_1 = require("./dto/update-inventory-batch.dto")
 const inventory_summary_filter_dto_1 = require("./dto/inventory-summary-filter.dto");
 const inventory_summary_response_dto_1 = require("./dto/inventory-summary-response.dto");
 const pos_branch_stock_response_dto_1 = require("./dto/pos-branch-stock-response.dto");
+const branch_stock_report_dto_1 = require("./dto/branch-stock-report.dto");
 const inventory_location_tree_response_dto_1 = require("./dto/inventory-location-tree-response.dto");
 const inventory_stats_filter_dto_1 = require("./dto/inventory-stats-filter.dto");
 const inventory_stats_response_dto_1 = require("./dto/inventory-stats-response.dto");
@@ -42,10 +44,12 @@ let InventoryController = class InventoryController {
     inventoryService;
     exportService;
     stockFlowService;
-    constructor(inventoryService, exportService, stockFlowService) {
+    branchReportService;
+    constructor(inventoryService, exportService, stockFlowService, branchReportService) {
         this.inventoryService = inventoryService;
         this.exportService = exportService;
         this.stockFlowService = stockFlowService;
+        this.branchReportService = branchReportService;
     }
     async getStockFlow(filters, req) {
         return this.stockFlowService.getReport(req.user.tenant_id, filters);
@@ -85,6 +89,18 @@ let InventoryController = class InventoryController {
     }
     async getProductMargin(productId, req) {
         return this.inventoryService.getProductMargin(req.user.tenant_id, productId);
+    }
+    async searchBranchReportProducts(query, req) {
+        return this.branchReportService.searchProducts(req.user.tenant_id, query.search ?? '');
+    }
+    async getBranchReportSettings(req) {
+        return this.branchReportService.getSettings(req.user.tenant_id);
+    }
+    async updateBranchReportSettings(body, req) {
+        return this.branchReportService.updateSettings(req.user.tenant_id, req.user?.id ?? null, body.branch_ids);
+    }
+    async getBranchStockReport(query, req) {
+        return this.branchReportService.getReport(req.user.tenant_id, query.product_id);
     }
     async getPosBranchStock(search, req) {
         return this.inventoryService.getPosBranchStock(req.user.tenant_id, search ?? '');
@@ -264,6 +280,62 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], InventoryController.prototype, "getProductMargin", null);
 __decorate([
+    (0, common_1.Get)('branch-report/products'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'inventory', action: 'read' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Buscar un producto para el reporte por sucursal',
+        description: 'Nombre, SKU o SKU externo. Máximo 10. Permiso inventory:Read.',
+    }),
+    (0, swagger_1.ApiResponse)({ status: 200, type: branch_stock_report_dto_1.BranchReportProductSearchResponseDto }),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [branch_stock_report_dto_1.QueryBranchReportProductsDto, Object]),
+    __metadata("design:returntype", Promise)
+], InventoryController.prototype, "searchBranchReportProducts", null);
+__decorate([
+    (0, common_1.Get)('branch-report/settings'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'inventory', action: 'read' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Sucursales activas y cuáles salen en el reporte',
+        description: 'Sin configuración guardada, todas las sucursales activas salen. Permiso inventory:Read.',
+    }),
+    (0, swagger_1.ApiResponse)({ status: 200, type: branch_stock_report_dto_1.BranchReportSettingsResponseDto }),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], InventoryController.prototype, "getBranchReportSettings", null);
+__decorate([
+    (0, common_1.Put)('branch-report/settings'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'inventory', action: 'read' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Guardar las sucursales del reporte',
+        description: 'La selección queda para quien consulte Inventario. Permiso inventory:Read.',
+    }),
+    (0, swagger_1.ApiBody)({ type: branch_stock_report_dto_1.UpdateBranchReportSettingsDto }),
+    (0, swagger_1.ApiResponse)({ status: 200, type: branch_stock_report_dto_1.BranchReportSettingsResponseDto }),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [branch_stock_report_dto_1.UpdateBranchReportSettingsDto, Object]),
+    __metadata("design:returntype", Promise)
+], InventoryController.prototype, "updateBranchReportSettings", null);
+__decorate([
+    (0, common_1.Get)('branch-report'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'inventory', action: 'read' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Existencia y costo de un producto por sucursal',
+        description: 'Una sola pieza. Incluye sucursales en cero. El costo promedio es ponderado por existencia, con el mismo costo unitario que Totalizado. Permiso inventory:Read.',
+    }),
+    (0, swagger_1.ApiResponse)({ status: 200, type: branch_stock_report_dto_1.BranchStockReportResponseDto }),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [branch_stock_report_dto_1.QueryBranchReportDto, Object]),
+    __metadata("design:returntype", Promise)
+], InventoryController.prototype, "getBranchStockReport", null);
+__decorate([
     (0, common_1.Get)('pos/branch-stock'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'inventory', action: 'read' }),
     (0, swagger_1.ApiOperation)({
@@ -385,6 +457,7 @@ exports.InventoryController = InventoryController = __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, permission_guard_1.PermissionGuard),
     __metadata("design:paramtypes", [inventory_service_1.InventoryService,
         inventory_export_service_1.InventoryExportService,
-        inventory_stock_flow_service_1.InventoryStockFlowService])
+        inventory_stock_flow_service_1.InventoryStockFlowService,
+        inventory_branch_report_service_1.InventoryBranchReportService])
 ], InventoryController);
 //# sourceMappingURL=inventory.controller.js.map
