@@ -41,6 +41,7 @@ const sales_order_service_1 = require("../sales-orders/services/sales-order.serv
 const pos_sale_collection_mapper_1 = require("./mappers/pos-sale-collection.mapper");
 const cash_drawer_1 = require("./utils/cash-drawer");
 const pos_card_payments_util_1 = require("./utils/pos-card-payments.util");
+const pos_collection_payment_lines_util_1 = require("./utils/pos-collection-payment-lines.util");
 const pos_cash_payment_util_1 = require("./utils/pos-cash-payment.util");
 const pos_payer_contact_util_1 = require("./utils/pos-payer-contact.util");
 const walk_in_ticket_util_1 = require("./utils/walk-in-ticket.util");
@@ -734,6 +735,26 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             }
         }
         const payment = await this.validateAndNormalizePayment(tenantId, dto, amountPending);
+        const tenderLines = isCredit
+            ? null
+            : (0, pos_collection_payment_lines_util_1.buildPosTenderPaymentLines)({
+                amountCashMxn: payment.amountCashMxn,
+                amountCashUsd: payment.amountCashUsd,
+                usdExchangeRate: payment.usdExchangeRate,
+                amountTransferMxn: payment.amountTransferMxn,
+                transferReference: payment.transferReference,
+                amountCardMxn: payment.amountCardMxn,
+                cardReference: payment.cardReference,
+                cardPayments: payment.cardPayments,
+                amountCheckMxn: payment.amountCheckMxn,
+                amountCheckUsd: payment.amountCheckUsd,
+                checkReference: payment.checkReference,
+            }, amountPending);
+        if (!isCredit &&
+            dto.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.MIXED &&
+            (!tenderLines || tenderLines.length < 2)) {
+            throw new common_1.BadRequestException('No se pudo separar el cobro mixto en pagos');
+        }
         const creditDocumentRate = isCredit && dto.order_currency === 'USD'
             ? await this.creditDocumentExchangeRate(tenantId, dto, creditCharge?.exchangeRate ?? null)
             : null;
@@ -794,11 +815,14 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             throw new common_1.ConflictException(this.cajaRecallHub.messageFor(tenantId, 'sale', order.id, order.folio));
         }
         await this.collectionRepo.save(collection);
-        const referenceNumber = payment.transferReference ||
-            payment.checkReference ||
-            payment.cardReference ||
-            null;
-        if (!isCredit) {
+        if (!isCredit && tenderLines && tenderLines.length >= 2) {
+            await this.salesOrderService.createPosTenderPayments(order.id, (0, pos_collection_payment_lines_util_1.assignPosTenderCashierNotes)(tenderLines, dto.notes), (0, unclosed_shift_alert_1.getTodayDateString)(), tenantId, cobranzaUserId);
+        }
+        else if (!isCredit) {
+            const referenceNumber = payment.transferReference ||
+                payment.checkReference ||
+                payment.cardReference ||
+                null;
             await this.salesOrderService.createPayment(order.id, {
                 amount: amountPending,
                 payment_date: (0, unclosed_shift_alert_1.getTodayDateString)(),

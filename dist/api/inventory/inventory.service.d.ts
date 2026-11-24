@@ -26,6 +26,7 @@ import { PosSessionInventorySummaryResponseDto } from './dto/pos-session-invento
 import { InventoryLocationTreeResponseDto } from './dto/inventory-location-tree-response.dto';
 import { InventoryStatsFilterDto } from './dto/inventory-stats-filter.dto';
 import { InventoryStatsResponseDto } from './dto/inventory-stats-response.dto';
+import { PosBranchStockResponseDto } from './dto/pos-branch-stock-response.dto';
 import { InventoryBatchMovementsService } from './services/inventory-batch-movements.service';
 import { ProductMarginResponseDto } from './dto/inventory-margin.dto';
 export declare class InventoryService {
@@ -60,6 +61,7 @@ export declare class InventoryService {
     private mapLocationFields;
     private assertLocationHierarchy;
     getPosTerminalInventorySummary(tenantId: string, terminalUserId: string, filters: InventorySummaryFilterDto): Promise<PosSessionInventorySummaryResponseDto>;
+    getPosBranchStock(tenantId: string, search: string): Promise<PosBranchStockResponseDto>;
     private resolvePosInventoryBranchId;
     getBranchInventorySummary(tenantId: string, billingBranchId: string, filters: InventorySummaryFilterDto, options?: {
         fiscalConfigurationId?: string | null;

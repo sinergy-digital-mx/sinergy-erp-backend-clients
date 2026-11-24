@@ -2075,6 +2075,52 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-24T07:17:17.412Z"
+    },
+    {
+        "releaseKey": "full:0.0.161:0.0.161-1795506508815",
+        "version": "0.0.161",
+        "buildId": "0.0.161-1795506508815",
+        "channel": "full",
+        "title": "Versión 0.0.161",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "En el POS, la barra y el filtro cerrado muestran solo el nombre de la sucursal. La lista y el modal siguen con la ciudad.",
+                "module": "pos",
+                "moduleLabel": "POS Ventas"
+            },
+            {
+                "scope": "frontend",
+                "message": "La card de abiertas y entregadas muestra cada lado con su conteo y su monto, sin recortar el dinero.",
+                "module": "sales-orders",
+                "moduleLabel": "Órdenes de venta"
+            },
+            {
+                "scope": "frontend",
+                "message": "La fecha corta del cobro POS muestra el mes con mayúscula: Nov 20 26.",
+                "module": "platform",
+                "moduleLabel": "Plataforma"
+            },
+            {
+                "scope": "frontend",
+                "message": "En ventas, Existencias abre la búsqueda y muestra cantidades por sucursal, sin costos.",
+                "module": "pos",
+                "moduleLabel": "POS Ventas"
+            },
+            {
+                "scope": "backend",
+                "message": "La consulta de existencias del POS devuelve solo cantidades por sucursal.",
+                "module": "inventory",
+                "moduleLabel": "Inventario"
+            },
+            {
+                "scope": "frontend",
+                "message": "Un cobro mixto de POS ahora guarda un pago por cada tarjeta o medio, con su referencia, y se separaron los 93 que estaban totalizados.",
+                "module": "platform",
+                "moduleLabel": "Plataforma"
+            }
+        ],
+        "releasedAt": "2026-11-24T07:48:28.815Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map

@@ -992,6 +992,70 @@ let SalesOrderService = class SalesOrderService {
         const mapped = await this.mapPaymentWithDocuments(payment);
         return { payment: mapped, summary };
     }
+    async createPosTenderPayments(salesOrderId, lines, paymentDate, tenantId, userId) {
+        if (lines.length < 2) {
+            throw new common_1.BadRequestException('El cobro mixto necesita al menos dos pagos');
+        }
+        const order = await this.findOne(salesOrderId, tenantId);
+        if (order.general_status === 'Cancelada') {
+            throw new common_1.BadRequestException('No se pueden registrar pagos en una orden cancelada');
+        }
+        if (order.payment_status === 'Pagado') {
+            throw new common_1.BadRequestException('La orden ya está pagada');
+        }
+        for (const line of lines) {
+            if (line.method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.MIXED ||
+                line.method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CREDIT) {
+                throw new common_1.BadRequestException('Cada pago del cobro debe ser efectivo, tarjeta, transferencia o cheque');
+            }
+            if (line.method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.TRANSFER && !line.reference?.trim()) {
+                throw new common_1.BadRequestException('reference_number es obligatorio para transferencia');
+            }
+            if (line.method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CHECK && !line.reference?.trim()) {
+                throw new common_1.BadRequestException('reference_number es obligatorio para cheque');
+            }
+        }
+        const existing = await this.paymentRepo.find({
+            where: { sales_order_id: salesOrderId, tenant_id: tenantId },
+        });
+        const creditNotesTotal = await this.vigenteCreditNotesTotal(order);
+        const currentSummary = this.buildPaymentSummary(order, existing, creditNotesTotal);
+        const incoming = Number(lines.reduce((sum, line) => sum + Number(line.amount || 0), 0).toFixed(2));
+        if (incoming > currentSummary.amount_pending + 0.001) {
+            throw new common_1.BadRequestException(`El monto excede el saldo pendiente (${currentSummary.amount_pending.toFixed(2)} ${currentSummary.currency})`);
+        }
+        const capturedAt = new Date();
+        const created = lines.map((line, index) => this.paymentRepo.create({
+            id: (0, uuid_1.v4)(),
+            tenant_id: tenantId,
+            sales_order_id: salesOrderId,
+            payment_date: new Date(paymentDate),
+            amount: line.amount,
+            currency: 'MXN',
+            payment_method: line.method,
+            reference_number: line.reference?.trim() || null,
+            notes: line.notes?.trim() || null,
+            source: 'pos_cobranza',
+            created_by: userId,
+            created_at: new Date(capturedAt.getTime() + index * 1000),
+        }));
+        await this.paymentRepo.save(created);
+        for (const payment of created) {
+            await this.paymentRepo.query(`UPDATE inv_s_sales_order_payments SET created_at = ? WHERE id = ?`, [payment.created_at, payment.id]);
+            await this.captureDebtQuietly(this.debtLedger.capturePayment({
+                tenantId,
+                salesOrderId,
+                paymentId: payment.id,
+                userId,
+                source: 'pos_cobranza',
+            }), `abono ${payment.id}`);
+        }
+        const summary = this.buildPaymentSummary(order, [...existing, ...created], creditNotesTotal);
+        order.payment_status = summary.payment_status;
+        order.updated_by = userId;
+        await this.soRepo.save(order);
+        return summary;
+    }
     async deletePayment(salesOrderId, paymentId, tenantId, userId) {
         const order = await this.findOne(salesOrderId, tenantId);
         const payment = await this.paymentRepo.findOne({
@@ -1161,7 +1225,7 @@ let SalesOrderService = class SalesOrderService {
         const payments = await this.paymentRepo.find({
             where: { sales_order_id: order.id, tenant_id: order.tenant_id },
             relations: ['documents', 'creator'],
-            order: { payment_date: 'DESC', created_at: 'DESC' },
+            order: { payment_date: 'ASC', created_at: 'ASC' },
         });
         const mapped = await Promise.all(payments.map((p) => this.mapPaymentWithDocuments(p)));
         const creditNotesTotal = await this.vigenteCreditNotesTotal(order);

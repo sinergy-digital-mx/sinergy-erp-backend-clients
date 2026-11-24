@@ -12,6 +12,15 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.161 · 23 nov
+
+- POS Ventas · En el POS, la barra y el filtro cerrado muestran solo el nombre de la sucursal. La lista y el modal siguen con la ciudad.
+- Órdenes de venta · La card de abiertas y entregadas muestra cada lado con su conteo y su monto, sin recortar el dinero.
+- aplicación · La fecha corta del cobro POS muestra el mes con mayúscula: Nov 20 26.
+- POS Ventas · En ventas, Existencias abre la búsqueda y muestra cantidades por sucursal, sin costos.
+- Inventario · La consulta de existencias del POS devuelve solo cantidades por sucursal.
+- aplicación y servidor · Un cobro mixto de POS ahora guarda un pago por cada tarjeta o medio, con su referencia, y se separaron los 93 que estaban totalizados.
+
 #### Versión 0.0.160 · 23 nov
 
 - POS Ventas · En el carrito de POS Ventas el botón % abre 5%, 3% y otro porcentaje en un panel flotante, para que la carta no crezca.

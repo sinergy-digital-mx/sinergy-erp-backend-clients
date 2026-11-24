@@ -1527,6 +1527,63 @@
       "version": "0.0.160",
       "shippedAt": "2026-11-23T23:18:20-08:00",
       "module": "sales-orders"
+    },
+    {
+      "id": "20261123-232015",
+      "at": "2026-11-23T23:20:15-08:00",
+      "scope": "frontend",
+      "message": "En el POS, la barra y el filtro cerrado muestran solo el nombre de la sucursal. La lista y el modal siguen con la ciudad.",
+      "status": "shipped",
+      "version": "0.0.161",
+      "shippedAt": "2026-11-23T23:49:23-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261123-232312",
+      "at": "2026-11-23T23:23:12-08:00",
+      "scope": "frontend",
+      "message": "Órdenes de venta: la card de abiertas y entregadas muestra cada lado con su conteo y su monto, sin recortar el dinero.",
+      "status": "shipped",
+      "version": "0.0.161",
+      "shippedAt": "2026-11-23T23:49:23-08:00"
+    },
+    {
+      "id": "20261123-232358",
+      "at": "2026-11-23T23:23:58-08:00",
+      "scope": "frontend",
+      "message": "La fecha corta del cobro POS muestra el mes con mayúscula: Nov 20 26.",
+      "status": "shipped",
+      "version": "0.0.161",
+      "shippedAt": "2026-11-23T23:49:23-08:00"
+    },
+    {
+      "id": "20261123-233331",
+      "at": "2026-11-23T23:33:31-08:00",
+      "scope": "both",
+      "message": "En ventas, Existencias abre la búsqueda y muestra cantidades por sucursal, sin costos.",
+      "status": "shipped",
+      "version": "0.0.161",
+      "shippedAt": "2026-11-23T23:49:23-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261123-233331-2",
+      "at": "2026-11-23T23:33:31-08:00",
+      "scope": "backend",
+      "message": "La consulta de existencias del POS devuelve solo cantidades por sucursal.",
+      "status": "shipped",
+      "version": "0.0.161",
+      "shippedAt": "2026-11-23T23:49:23-08:00",
+      "module": "inventory"
+    },
+    {
+      "id": "20261123-233758",
+      "at": "2026-11-23T23:37:58-08:00",
+      "scope": "both",
+      "message": "Un cobro mixto de POS ahora guarda un pago por cada tarjeta o medio, con su referencia, y se separaron los 93 que estaban totalizados.",
+      "status": "shipped",
+      "version": "0.0.161",
+      "shippedAt": "2026-11-23T23:49:23-08:00"
     }
   ]
 }

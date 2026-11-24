@@ -41,6 +41,7 @@ const pedimento_number_util_1 = require("../purchase-orders/utils/pedimento-numb
 const inventory_location_filter_util_1 = require("./utils/inventory-location-filter.util");
 const inventory_measure_util_1 = require("./utils/inventory-measure.util");
 const product_search_rank_util_1 = require("./utils/product-search-rank.util");
+const pos_branch_stock_util_1 = require("./utils/pos-branch-stock.util");
 const inventory_batch_movements_service_1 = require("./services/inventory-batch-movements.service");
 const inventory_batch_movements_1 = require("./constants/inventory-batch-movements");
 const inventory_margin_util_1 = require("./utils/inventory-margin.util");
@@ -331,6 +332,81 @@ let InventoryService = InventoryService_1 = class InventoryService {
             warehouseMismatchMessage: 'El almacén seleccionado no pertenece a la sucursal de esta terminal POS. Omita warehouse_id o use un almacén de la lista.',
             pageMax: 40,
         });
+    }
+    async getPosBranchStock(tenantId, search) {
+        const term = (search ?? '').trim().slice(0, 80);
+        if ((0, product_search_rank_util_1.parseProductSearchTokens)(term).length === 0) {
+            throw new common_1.BadRequestException('Escribe un producto o número de pieza');
+        }
+        const branchRows = await this.billingBranchRepo
+            .createQueryBuilder('branch')
+            .innerJoin('branch.fiscal_configuration', 'fc')
+            .where('fc.tenant_id = :tenantId', { tenantId })
+            .andWhere('branch.status = :branchActive', { branchActive: 1 })
+            .orderBy('branch.code', 'ASC')
+            .addOrderBy('branch.city', 'ASC')
+            .select(['branch.id', 'branch.code', 'branch.city'])
+            .getMany();
+        const branches = branchRows.map((branch) => ({
+            id: branch.id,
+            name: branch.code,
+            city: branch.city?.trim() || null,
+        }));
+        const productQb = this.productRepo
+            .createQueryBuilder('product')
+            .select('product.id', 'id')
+            .addSelect('product.sku', 'sku')
+            .addSelect('product.name', 'name')
+            .where('product.tenant_id = :tenantId', { tenantId })
+            .andWhere('product.item_kind = :goodsKind', { goodsKind: product_item_kind_enum_1.ProductItemKind.Goods })
+            .andWhere('product.is_active = :productActive', { productActive: true });
+        (0, product_search_rank_util_1.applyProductSearchFilter)(productQb, term);
+        const ranked = (0, product_search_rank_util_1.applyProductSearchOrder)(productQb, term, false);
+        if (!ranked) {
+            productQb.orderBy('product.name', 'ASC');
+        }
+        const found = await productQb
+            .limit(pos_branch_stock_util_1.POS_BRANCH_STOCK_PRODUCT_LIMIT + 1)
+            .getRawMany();
+        const hasMore = found.length > pos_branch_stock_util_1.POS_BRANCH_STOCK_PRODUCT_LIMIT;
+        const products = found
+            .slice(0, pos_branch_stock_util_1.POS_BRANCH_STOCK_PRODUCT_LIMIT)
+            .map((row) => ({
+            id: String(row.id ?? ''),
+            sku: String(row.sku ?? ''),
+            name: String(row.name ?? ''),
+        }))
+            .filter((row) => row.id);
+        if (products.length === 0) {
+            return { search: term, has_more: false, branches, products: [] };
+        }
+        const qtyRows = await this.inventoryBatchRepo
+            .createQueryBuilder('batch')
+            .innerJoin('batch.warehouse', 'warehouse')
+            .leftJoin('batch.uom', 'uom')
+            .select('batch.product_id', 'product_id')
+            .addSelect('warehouse.billing_branch_id', 'billing_branch_id')
+            .addSelect('COALESCE(SUM(batch.available_quantity), 0)', 'quantity')
+            .addSelect('MAX(uom.name)', 'uom_name')
+            .where('batch.tenant_id = :tenantId', { tenantId })
+            .andWhere('batch.product_id IN (:...productIds)', {
+            productIds: products.map((row) => row.id),
+        })
+            .andWhere('warehouse.billing_branch_id IS NOT NULL')
+            .groupBy('batch.product_id')
+            .addGroupBy('warehouse.billing_branch_id')
+            .getRawMany();
+        return {
+            search: term,
+            has_more: hasMore,
+            branches,
+            products: (0, pos_branch_stock_util_1.buildPosBranchStockProducts)(products, branches, qtyRows.map((row) => ({
+                product_id: String(row.product_id ?? ''),
+                billing_branch_id: String(row.billing_branch_id ?? ''),
+                quantity: this.parseDecimal(row.quantity),
+                uom_name: row.uom_name ? String(row.uom_name) : null,
+            }))),
+        };
     }
     async resolvePosInventoryBranchId(user, tenantId, requestedBranchId) {
         const requested = requestedBranchId?.trim();

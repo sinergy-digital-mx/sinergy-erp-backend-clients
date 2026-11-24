@@ -26,6 +26,7 @@ const inventory_batch_movement_dto_1 = require("./dto/inventory-batch-movement.d
 const update_inventory_batch_dto_1 = require("./dto/update-inventory-batch.dto");
 const inventory_summary_filter_dto_1 = require("./dto/inventory-summary-filter.dto");
 const inventory_summary_response_dto_1 = require("./dto/inventory-summary-response.dto");
+const pos_branch_stock_response_dto_1 = require("./dto/pos-branch-stock-response.dto");
 const inventory_location_tree_response_dto_1 = require("./dto/inventory-location-tree-response.dto");
 const inventory_stats_filter_dto_1 = require("./dto/inventory-stats-filter.dto");
 const inventory_stats_response_dto_1 = require("./dto/inventory-stats-response.dto");
@@ -84,6 +85,9 @@ let InventoryController = class InventoryController {
     }
     async getProductMargin(productId, req) {
         return this.inventoryService.getProductMargin(req.user.tenant_id, productId);
+    }
+    async getPosBranchStock(search, req) {
+        return this.inventoryService.getPosBranchStock(req.user.tenant_id, search ?? '');
     }
     async getPosTerminalInventorySummary(filters, req) {
         const tenantId = req.user.tenant_id;
@@ -259,6 +263,21 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], InventoryController.prototype, "getProductMargin", null);
+__decorate([
+    (0, common_1.Get)('pos/branch-stock'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'inventory', action: 'read' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Existencias por sucursal para el POS',
+        description: 'Busca por nombre, SKU o SKU externo y devuelve cantidades por sucursal activa. No incluye costos. Máximo 12 productos.',
+    }),
+    (0, swagger_1.ApiQuery)({ name: 'search', required: true, type: String }),
+    (0, swagger_1.ApiResponse)({ status: 200, type: pos_branch_stock_response_dto_1.PosBranchStockResponseDto }),
+    __param(0, (0, common_1.Query)('search')),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], InventoryController.prototype, "getPosBranchStock", null);
 __decorate([
     (0, common_1.Get)('pos/summary'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'inventory', action: 'read' }),

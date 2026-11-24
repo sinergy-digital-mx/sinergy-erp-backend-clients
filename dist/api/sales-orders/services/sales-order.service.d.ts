@@ -964,6 +964,20 @@ export declare class SalesOrderService {
             customer_credit: number;
         };
     }>;
+    createPosTenderPayments(salesOrderId: string, lines: Array<{
+        method: PosSalePaymentMethod;
+        amount: number;
+        reference: string | null;
+        notes: string | null;
+    }>, paymentDate: string, tenantId: string, userId: string): Promise<{
+        amount_paid: number;
+        amount_pending: number;
+        payment_status: string;
+        currency: string;
+        order_total: number;
+        credit_notes_total: number;
+        customer_credit: number;
+    }>;
     deletePayment(salesOrderId: string, paymentId: string, tenantId: string, userId: string): Promise<{
         success: true;
         id: string;
