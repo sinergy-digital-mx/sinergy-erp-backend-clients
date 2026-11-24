@@ -20,6 +20,7 @@ export declare class FiscalConfigurationController {
     getSystemLogo(req: any): Promise<{
         enabled: boolean;
         cache_key: string | null;
+        brand: ReturnType<typeof import("./utils/brand-nav-colors.util").resolveBrandNavMeta>;
     }>;
     getSystemLogoFile(req: any): Promise<StreamableFile>;
     getFinkokStatus(id: string, environment: FinkokEnvironment | undefined, req: {

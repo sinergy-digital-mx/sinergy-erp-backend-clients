@@ -26,6 +26,9 @@ let FiscalConfiguration = class FiscalConfiguration {
     private_key;
     logo;
     use_as_system_logo;
+    brand_color_start;
+    brand_color_mid;
+    brand_color_end;
     status;
     created_by;
     certificate_serial_number;
@@ -120,6 +123,24 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'tinyint', width: 1, default: 0 }),
     __metadata("design:type", Boolean)
 ], FiscalConfiguration.prototype, "use_as_system_logo", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 7, nullable: true }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", Object)
+], FiscalConfiguration.prototype, "brand_color_start", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 7, nullable: true }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", Object)
+], FiscalConfiguration.prototype, "brand_color_mid", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 7, nullable: true }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", Object)
+], FiscalConfiguration.prototype, "brand_color_end", void 0);
 __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',

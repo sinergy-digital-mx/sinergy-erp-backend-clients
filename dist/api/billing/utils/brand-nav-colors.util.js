@@ -1,0 +1,28 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.DEFAULT_BRAND_NAV_COLORS = void 0;
+exports.normalizeBrandHex = normalizeBrandHex;
+exports.resolveBrandNavMeta = resolveBrandNavMeta;
+const crypto_1 = require("crypto");
+exports.DEFAULT_BRAND_NAV_COLORS = {
+    start: '#1e1b4b',
+    mid: '#312e81',
+    end: '#4c1d95',
+};
+const HEX = /^#[0-9a-fA-F]{6}$/;
+function normalizeBrandHex(value, fallback) {
+    const raw = String(value ?? '').trim();
+    return HEX.test(raw) ? raw.toLowerCase() : fallback;
+}
+function resolveBrandNavMeta(row) {
+    const start = normalizeBrandHex(row?.brand_color_start, exports.DEFAULT_BRAND_NAV_COLORS.start);
+    const mid = normalizeBrandHex(row?.brand_color_mid, exports.DEFAULT_BRAND_NAV_COLORS.mid);
+    const end = normalizeBrandHex(row?.brand_color_end, exports.DEFAULT_BRAND_NAV_COLORS.end);
+    return {
+        cache_key: (0, crypto_1.createHash)('sha256').update(`${start}|${mid}|${end}`).digest('hex').slice(0, 16),
+        start,
+        mid,
+        end,
+    };
+}
+//# sourceMappingURL=brand-nav-colors.util.js.map

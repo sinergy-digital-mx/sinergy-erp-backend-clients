@@ -14,6 +14,15 @@ const class_validator_1 = require("class-validator");
 const public_invoice_policy_util_1 = require("../../accounting/utils/public-invoice-policy.util");
 const swagger_1 = require("@nestjs/swagger");
 const class_transformer_1 = require("class-transformer");
+function normalizeOptionalBrandColor(value) {
+    if (value === undefined) {
+        return undefined;
+    }
+    if (value === null || value === '') {
+        return null;
+    }
+    return String(value).trim().toLowerCase();
+}
 class UpdateFiscalConfigurationDto {
     razon_social;
     rfc;
@@ -25,6 +34,9 @@ class UpdateFiscalConfigurationDto {
     private_key;
     logo;
     use_as_system_logo;
+    brand_color_start;
+    brand_color_mid;
+    brand_color_end;
     status;
     quotation_expiration_days;
     advance_invoicing_enabled;
@@ -115,6 +127,51 @@ __decorate([
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], UpdateFiscalConfigurationDto.prototype, "use_as_system_logo", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Color de arriba del menú. Vacío restaura el índigo de Pólux. También pinta el fondo en celular.',
+        example: '#1e1b4b',
+        nullable: true,
+    }),
+    (0, class_transformer_1.Transform)(({ value }) => normalizeOptionalBrandColor(value)),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.ValidateIf)((_, value) => value !== null && value !== undefined),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Matches)(/^#[0-9A-Fa-f]{6}$/, {
+        message: 'El color de arriba debe ser hexadecimal de 6 dígitos, por ejemplo #1e1b4b.',
+    }),
+    __metadata("design:type", Object)
+], UpdateFiscalConfigurationDto.prototype, "brand_color_start", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Color de en medio del degradado del menú. Vacío restaura el de Pólux.',
+        example: '#312e81',
+        nullable: true,
+    }),
+    (0, class_transformer_1.Transform)(({ value }) => normalizeOptionalBrandColor(value)),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.ValidateIf)((_, value) => value !== null && value !== undefined),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Matches)(/^#[0-9A-Fa-f]{6}$/, {
+        message: 'El color de en medio debe ser hexadecimal de 6 dígitos, por ejemplo #312e81.',
+    }),
+    __metadata("design:type", Object)
+], UpdateFiscalConfigurationDto.prototype, "brand_color_mid", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Color de abajo del degradado del menú. Vacío restaura el de Pólux.',
+        example: '#4c1d95',
+        nullable: true,
+    }),
+    (0, class_transformer_1.Transform)(({ value }) => normalizeOptionalBrandColor(value)),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.ValidateIf)((_, value) => value !== null && value !== undefined),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Matches)(/^#[0-9A-Fa-f]{6}$/, {
+        message: 'El color de abajo debe ser hexadecimal de 6 dígitos, por ejemplo #4c1d95.',
+    }),
+    __metadata("design:type", Object)
+], UpdateFiscalConfigurationDto.prototype, "brand_color_end", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),

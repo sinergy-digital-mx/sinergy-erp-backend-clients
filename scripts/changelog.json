@@ -1277,6 +1277,69 @@
       "status": "shipped",
       "version": "0.0.149",
       "shippedAt": "2026-11-23T17:52:35-08:00"
+    },
+    {
+      "id": "20261123-180508",
+      "at": "2026-11-23T18:05:08-08:00",
+      "scope": "both",
+      "message": "Inventario: la búsqueda y los filtros quedan en la URL al recargar, y al guardar precio o costo desde un lote se recarga esa página.",
+      "status": "shipped",
+      "version": "0.0.150",
+      "shippedAt": "2026-11-23T18:43:40-08:00"
+    },
+    {
+      "id": "20261123-181333",
+      "at": "2026-11-23T18:13:33-08:00",
+      "scope": "both",
+      "message": "Expediente de empleado más compacto: botones chicos y la incapacidad deja de ser un banner grande.",
+      "status": "shipped",
+      "version": "0.0.150",
+      "shippedAt": "2026-11-23T18:43:40-08:00"
+    },
+    {
+      "id": "20261123-181815",
+      "at": "2026-11-23T18:18:15-08:00",
+      "scope": "both",
+      "message": "En editar cliente el RFC pasa a mayúsculas al escribir, y el modal de nueva dirección ya no se corta por la derecha.",
+      "status": "shipped",
+      "version": "0.0.150",
+      "shippedAt": "2026-11-23T18:43:40-08:00"
+    },
+    {
+      "id": "20261123-182120",
+      "at": "2026-11-23T18:21:20-08:00",
+      "scope": "both",
+      "message": "En la razón social, junto al logo del sistema, se eligen los tres colores del degradado del menú; se guardan en la base y el navegador los aplica al entrar, incluido el fondo del celular.",
+      "status": "shipped",
+      "version": "0.0.150",
+      "shippedAt": "2026-11-23T18:43:40-08:00"
+    },
+    {
+      "id": "20261123-182952",
+      "at": "2026-11-23T18:29:52-08:00",
+      "scope": "frontend",
+      "message": "El logo del menú queda más grande, sin el cuadro blanco, y si el PNG trae fondo blanco pegado al borde se recorta para asentarse en la barra.",
+      "status": "shipped",
+      "version": "0.0.150",
+      "shippedAt": "2026-11-23T18:43:40-08:00"
+    },
+    {
+      "id": "20261123-183909",
+      "at": "2026-11-23T18:39:09-08:00",
+      "scope": "both",
+      "message": "Órdenes de venta y de compra usan la franja de resumen de clientes, con el mismo alto y skeleton, en web y móvil. En ventas, las bolitas de la gráfica quedan a la derecha de la búsqueda.",
+      "status": "shipped",
+      "version": "0.0.150",
+      "shippedAt": "2026-11-23T18:43:40-08:00"
+    },
+    {
+      "id": "20261123-184102",
+      "at": "2026-11-23T18:41:02-08:00",
+      "scope": "frontend",
+      "message": "Cotizaciones usa la misma franja de resumen que clientes, con el mismo alto y skeleton, en web y móvil.",
+      "status": "shipped",
+      "version": "0.0.150",
+      "shippedAt": "2026-11-23T18:43:40-08:00"
     }
   ]
 }

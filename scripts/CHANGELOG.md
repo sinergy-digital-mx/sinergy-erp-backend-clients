@@ -10,6 +10,16 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.150 · 2026-11-23
+
+- aplicación y servidor · Inventario: la búsqueda y los filtros quedan en la URL al recargar, y al guardar precio o costo desde un lote se recarga esa página.
+- aplicación y servidor · Expediente de empleado más compacto: botones chicos y la incapacidad deja de ser un banner grande.
+- aplicación y servidor · En editar cliente el RFC pasa a mayúsculas al escribir, y el modal de nueva dirección ya no se corta por la derecha.
+- aplicación y servidor · En la razón social, junto al logo del sistema, se eligen los tres colores del degradado del menú; se guardan en la base y el navegador los aplica al entrar, incluido el fondo del celular.
+- aplicación · El logo del menú queda más grande, sin el cuadro blanco, y si el PNG trae fondo blanco pegado al borde se recorta para asentarse en la barra.
+- aplicación y servidor · Órdenes de venta y de compra usan la franja de resumen de clientes, con el mismo alto y skeleton, en web y móvil. En ventas, las bolitas de la gráfica quedan a la derecha de la búsqueda.
+- aplicación · Cotizaciones usa la misma franja de resumen que clientes, con el mismo alto y skeleton, en web y móvil.
+
 ### Versión 0.0.149 · 2026-11-23
 
 - aplicación y servidor · Cobranza: la pestaña, la búsqueda y los filtros quedan en la URL al recargar, y cada vista tiene un botón de actualizar junto al periodo.

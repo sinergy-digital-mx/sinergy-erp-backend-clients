@@ -21,6 +21,7 @@ const fiscal_configuration_entity_1 = require("../../entities/billing/fiscal-con
 const s3_service_1 = require("../../common/services/s3.service");
 const document_prefix_util_1 = require("../../common/utils/document-prefix.util");
 const public_invoice_policy_util_1 = require("../accounting/utils/public-invoice-policy.util");
+const brand_nav_colors_util_1 = require("./utils/brand-nav-colors.util");
 let FiscalConfigurationService = class FiscalConfigurationService {
     repo;
     s3Service;
@@ -137,6 +138,15 @@ let FiscalConfigurationService = class FiscalConfigurationService {
             }
             patch.use_as_system_logo = dto.use_as_system_logo;
         }
+        if (dto.brand_color_start !== undefined) {
+            patch.brand_color_start = dto.brand_color_start;
+        }
+        if (dto.brand_color_mid !== undefined) {
+            patch.brand_color_mid = dto.brand_color_mid;
+        }
+        if (dto.brand_color_end !== undefined) {
+            patch.brand_color_end = dto.brand_color_end;
+        }
         if (Object.keys(patch).length) {
             await this.repo.update({ id, tenant_id: tenantId }, patch);
         }
@@ -161,12 +171,14 @@ let FiscalConfigurationService = class FiscalConfigurationService {
     }
     async getSystemLogoMeta(tenantId) {
         const config = await this.findSystemLogo(tenantId);
+        const brand = (0, brand_nav_colors_util_1.resolveBrandNavMeta)(config);
         if (!config?.logo) {
-            return { enabled: false, cache_key: null };
+            return { enabled: false, cache_key: null, brand };
         }
         return {
             enabled: true,
             cache_key: (0, crypto_1.createHash)('sha256').update(config.logo).digest('hex').slice(0, 24),
+            brand,
         };
     }
     async getSystemLogoFile(tenantId) {

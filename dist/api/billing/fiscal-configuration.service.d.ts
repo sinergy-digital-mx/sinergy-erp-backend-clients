@@ -5,6 +5,7 @@ import { UpdateFiscalConfigurationDto } from './dto/update-fiscal-configuration.
 import { QueryFiscalConfigurationDto } from './dto/query-fiscal-configuration.dto';
 import { PaginatedFiscalConfigurationDto } from './dto/paginated-fiscal-configuration.dto';
 import { S3Service } from '../../common/services/s3.service';
+import { resolveBrandNavMeta } from './utils/brand-nav-colors.util';
 export declare class FiscalConfigurationService {
     private repo;
     private readonly s3Service;
@@ -20,6 +21,7 @@ export declare class FiscalConfigurationService {
     getSystemLogoMeta(tenantId: string): Promise<{
         enabled: boolean;
         cache_key: string | null;
+        brand: ReturnType<typeof resolveBrandNavMeta>;
     }>;
     getSystemLogoFile(tenantId: string): Promise<{
         buffer: Buffer;

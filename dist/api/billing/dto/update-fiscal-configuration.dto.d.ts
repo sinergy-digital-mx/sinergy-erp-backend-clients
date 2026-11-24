@@ -9,6 +9,9 @@ export declare class UpdateFiscalConfigurationDto {
     private_key?: string;
     logo?: string;
     use_as_system_logo?: boolean;
+    brand_color_start?: string | null;
+    brand_color_mid?: string | null;
+    brand_color_end?: string | null;
     status?: string;
     quotation_expiration_days?: number | null;
     advance_invoicing_enabled?: boolean;

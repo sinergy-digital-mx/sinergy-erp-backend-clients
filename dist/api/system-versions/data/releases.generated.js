@@ -1579,6 +1579,52 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-24T01:51:30.678Z"
+    },
+    {
+        "releaseKey": "full:0.0.150:0.0.150-1795488153325",
+        "version": "0.0.150",
+        "buildId": "0.0.150-1795488153325",
+        "channel": "full",
+        "title": "Versión 0.0.150",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "Cambios en clientes"
+            },
+            {
+                "scope": "frontend",
+                "message": "Cambios en empleados"
+            },
+            {
+                "scope": "frontend",
+                "message": "Cambios en inventario"
+            },
+            {
+                "scope": "frontend",
+                "message": "Cambios en logística"
+            },
+            {
+                "scope": "frontend",
+                "message": "Cambios en compras"
+            },
+            {
+                "scope": "frontend",
+                "message": "Cambios en cotizaciones"
+            },
+            {
+                "scope": "frontend",
+                "message": "Cambios en ventas"
+            },
+            {
+                "scope": "frontend",
+                "message": "Cambios en facturación"
+            },
+            {
+                "scope": "frontend",
+                "message": "Cambios en productos"
+            }
+        ],
+        "releasedAt": "2026-11-24T02:42:33.325Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map

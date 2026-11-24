@@ -116,8 +116,8 @@ __decorate([
 ], FiscalConfigurationController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)('system-logo'),
-    (0, swagger_1.ApiOperation)({ summary: 'Metadatos del logo que reemplaza la marca del menú' }),
-    (0, swagger_1.ApiResponse)({ status: 200, description: 'Indica si hay logo y la clave de caché del archivo' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Logo del menú y colores del degradado' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Logo, clave de caché del archivo y los tres colores efectivos del menú' }),
     __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
