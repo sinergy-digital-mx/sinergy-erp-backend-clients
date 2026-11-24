@@ -2118,5 +2118,19 @@
       }
     ],
     "releasedAt": "2026-11-24T07:48:28.815Z"
+  },
+  {
+    "releaseKey": "full:0.0.162:0.0.162-1795506642921",
+    "version": "0.0.162",
+    "buildId": "0.0.162-1795506642921",
+    "channel": "full",
+    "title": "Versión 0.0.162",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "Actualización de la plataforma."
+      }
+    ],
+    "releasedAt": "2026-11-24T07:50:42.921Z"
   }
 ]
