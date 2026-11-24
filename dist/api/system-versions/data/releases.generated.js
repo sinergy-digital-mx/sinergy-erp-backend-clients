@@ -1543,6 +1543,28 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-24T01:13:48.830Z"
+    },
+    {
+        "releaseKey": "full:0.0.148:0.0.148-1795484043708",
+        "version": "0.0.148",
+        "buildId": "0.0.148-1795484043708",
+        "channel": "full",
+        "title": "Versión 0.0.148",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "Cambios en contabilidad"
+            },
+            {
+                "scope": "frontend",
+                "message": "Cambios en ventas"
+            },
+            {
+                "scope": "backend",
+                "message": "Cambios en cotizaciones"
+            }
+        ],
+        "releasedAt": "2026-11-24T01:34:03.708Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map

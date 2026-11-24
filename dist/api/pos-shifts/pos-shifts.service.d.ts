@@ -18,6 +18,7 @@ import { CloseDailyShiftDto } from './dto/close-daily-shift.dto';
 import { CollectPosSaleDto } from './dto/collect-pos-sale.dto';
 import { ReplacePosSaleCartDto } from './dto/replace-pos-sale-cart.dto';
 import { JwtPermissionUser } from '../rbac/utils/jwt-permission.util';
+import { PosCajaRecallHub } from './pos-caja-recall.hub';
 import { SalesOrderPosReceiptService, PosReceiptResult } from '../sales-orders/services/sales-order-pos-receipt.service';
 import { SalesOrderService } from '../sales-orders/services/sales-order.service';
 import { PosCardPayment } from './utils/pos-card-payments.util';
@@ -46,8 +47,9 @@ export declare class PosShiftsService {
     private readonly customerCreditService;
     private readonly advanceShiftPayments;
     private readonly exchangeRateService;
+    private readonly cajaRecallHub;
     private readonly logger;
-    constructor(dailyShiftRepo: Repository<PosDailyShift>, partialShiftRepo: Repository<PosPartialShift>, userRepo: Repository<User>, branchAssignmentRepo: Repository<UserBillingBranch>, salesOrderRepo: Repository<SalesOrder>, quotationRepo: Repository<Quotation>, customerRepo: Repository<Customer>, warehouseRepo: Repository<Warehouse>, collectionRepo: Repository<PosSaleCollection>, posReceiptService: SalesOrderPosReceiptService, salesOrderService: SalesOrderService, quotationService: QuotationService, advanceCfdi: AdvanceCfdiService, customerCreditService: CustomerCreditService, advanceShiftPayments: AdvanceShiftPaymentService, exchangeRateService: ExchangeRateService);
+    constructor(dailyShiftRepo: Repository<PosDailyShift>, partialShiftRepo: Repository<PosPartialShift>, userRepo: Repository<User>, branchAssignmentRepo: Repository<UserBillingBranch>, salesOrderRepo: Repository<SalesOrder>, quotationRepo: Repository<Quotation>, customerRepo: Repository<Customer>, warehouseRepo: Repository<Warehouse>, collectionRepo: Repository<PosSaleCollection>, posReceiptService: SalesOrderPosReceiptService, salesOrderService: SalesOrderService, quotationService: QuotationService, advanceCfdi: AdvanceCfdiService, customerCreditService: CustomerCreditService, advanceShiftPayments: AdvanceShiftPaymentService, exchangeRateService: ExchangeRateService, cajaRecallHub: PosCajaRecallHub);
     validateSellerCode(tenantId: string, terminalUserId: string, code: number, billingBranchId?: string): Promise<{
         seller: {
             id: string;
@@ -1279,9 +1281,10 @@ export declare class PosShiftsService {
             } | null;
         };
     }>;
-    recallSaleFromCaja(tenantId: string, terminalUserId: string, salesOrderId: string): Promise<{
+    recallSaleFromCaja(tenantId: string, terminalUserId: string, salesOrderId: string, sellerUserId?: string): Promise<{
         message: string;
         caja_was_open: boolean;
+        recalled_by_name: string;
         sales_order: {
             kind: "sale";
             id: string;
@@ -1315,9 +1318,10 @@ export declare class PosShiftsService {
             } | null;
         };
     }>;
-    recallQuotationFromCaja(tenantId: string, terminalUserId: string, quotationId: string): Promise<{
+    recallQuotationFromCaja(tenantId: string, terminalUserId: string, quotationId: string, sellerUserId?: string): Promise<{
         message: string;
         caja_was_open: boolean;
+        recalled_by_name: string;
         quotation: {
             kind: string;
             id: string;
@@ -1353,11 +1357,13 @@ export declare class PosShiftsService {
     touchSaleCajaPresence(tenantId: string, terminalUserId: string, salesOrderId: string): Promise<{
         in_caja: boolean;
         reason: string;
+        recalled_by_name: string | null;
         message: string;
     } | {
         in_caja: boolean;
         reason: null;
         message: null;
+        recalled_by_name?: undefined;
     }>;
     releaseSaleCajaPresence(tenantId: string, terminalUserId: string, salesOrderId: string): Promise<{
         released: boolean;
@@ -1365,11 +1371,13 @@ export declare class PosShiftsService {
     touchQuotationCajaPresence(tenantId: string, terminalUserId: string, quotationId: string): Promise<{
         in_caja: boolean;
         reason: string;
+        recalled_by_name: string | null;
         message: string;
     } | {
         in_caja: boolean;
         reason: null;
         message: null;
+        recalled_by_name?: undefined;
     }>;
     releaseQuotationCajaPresence(tenantId: string, terminalUserId: string, quotationId: string): Promise<{
         released: boolean;
@@ -1666,6 +1674,8 @@ export declare class PosShiftsService {
     private mapQuotationTicketSummary;
     private mapQuotationTicketForVentas;
     private mapPosTicketForVentas;
+    private personName;
+    private resolveRecallActorName;
     private cajaHasItOpen;
     private markCajaPresence;
     private assertCanEditPosCustomer;

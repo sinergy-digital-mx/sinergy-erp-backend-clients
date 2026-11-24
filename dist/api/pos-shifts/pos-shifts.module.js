@@ -30,6 +30,7 @@ const customers_module_1 = require("../customers/customers.module");
 const electronic_invoicing_module_1 = require("../electronic-invoicing/electronic-invoicing.module");
 const pos_shifts_service_1 = require("./pos-shifts.service");
 const pos_shifts_controller_1 = require("./pos-shifts.controller");
+const pos_caja_recall_hub_1 = require("./pos-caja-recall.hub");
 let PosShiftsModule = class PosShiftsModule {
 };
 exports.PosShiftsModule = PosShiftsModule;
@@ -58,8 +59,8 @@ exports.PosShiftsModule = PosShiftsModule = __decorate([
             electronic_invoicing_module_1.ElectronicInvoicingModule,
         ],
         controllers: [pos_shifts_controller_1.PosShiftsController],
-        providers: [pos_shifts_service_1.PosShiftsService, advance_shift_payment_service_1.AdvanceShiftPaymentService],
-        exports: [pos_shifts_service_1.PosShiftsService, advance_shift_payment_service_1.AdvanceShiftPaymentService],
+        providers: [pos_shifts_service_1.PosShiftsService, advance_shift_payment_service_1.AdvanceShiftPaymentService, pos_caja_recall_hub_1.PosCajaRecallHub],
+        exports: [pos_shifts_service_1.PosShiftsService, advance_shift_payment_service_1.AdvanceShiftPaymentService, pos_caja_recall_hub_1.PosCajaRecallHub],
     })
 ], PosShiftsModule);
 //# sourceMappingURL=pos-shifts.module.js.map

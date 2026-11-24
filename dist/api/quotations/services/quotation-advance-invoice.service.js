@@ -22,6 +22,7 @@ const advance_cfdi_service_1 = require("../../electronic-invoicing/services/adva
 const electronic_invoice_service_1 = require("../../electronic-invoicing/services/electronic-invoice.service");
 const advance_cfdi_util_1 = require("../../electronic-invoicing/utils/advance-cfdi.util");
 const pos_shifts_service_1 = require("../../pos-shifts/pos-shifts.service");
+const pos_caja_recall_hub_1 = require("../../pos-shifts/pos-caja-recall.hub");
 const sales_order_pos_stage_enum_1 = require("../../../entities/sales-orders/sales-order-pos-stage.enum");
 const advance_shift_payment_service_1 = require("../../pos-shifts/services/advance-shift-payment.service");
 const advance_payment_method_util_1 = require("../../pos-shifts/utils/advance-payment-method.util");
@@ -39,13 +40,15 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
     electronicInvoiceService;
     posShiftsService;
     advancePayments;
-    constructor(quotationRepo, salesOrderRepo, advanceCfdi, electronicInvoiceService, posShiftsService, advancePayments) {
+    cajaRecallHub;
+    constructor(quotationRepo, salesOrderRepo, advanceCfdi, electronicInvoiceService, posShiftsService, advancePayments, cajaRecallHub) {
         this.quotationRepo = quotationRepo;
         this.salesOrderRepo = salesOrderRepo;
         this.advanceCfdi = advanceCfdi;
         this.electronicInvoiceService = electronicInvoiceService;
         this.posShiftsService = posShiftsService;
         this.advancePayments = advancePayments;
+        this.cajaRecallHub = cajaRecallHub;
     }
     async collectionPreview(id, tenantId) {
         const quotation = await this.requireQuotation(id, tenantId);
@@ -105,7 +108,7 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
             throw new common_1.BadRequestException('La cotización ya no está pendiente de anticipo');
         }
         if (!(0, sales_order_pos_stage_enum_1.isPosStageInCaja)(quotation.pos_stage)) {
-            throw new common_1.ConflictException('Ventas regresó esta venta a POS Ventas');
+            throw new common_1.ConflictException(this.cajaRecallHub.messageFor(tenantId, 'advance', quotation.id, quotation.folio));
         }
         const readiness = (0, fiscal_invoice_readiness_util_1.getFiscalInvoiceReadiness)(quotation.customer);
         if (!readiness.fiscal_ready_for_invoice) {
@@ -163,7 +166,7 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
     async stamp(id, tenantId, userId, dto, collected) {
         const quotation = await this.requireQuotation(id, tenantId);
         if (quotation.pos_stage === sales_order_pos_stage_enum_1.SalesOrderPosStage.Ventas) {
-            throw new common_1.ConflictException('Ventas regresó esta venta a POS Ventas');
+            throw new common_1.ConflictException(this.cajaRecallHub.messageFor(tenantId, 'advance', quotation.id, quotation.folio));
         }
         if (!quotation.fiscal_configuration?.advance_invoicing_enabled) {
             throw new common_1.BadRequestException('Esta razón social no tiene activada la factura de anticipo');
@@ -317,11 +320,13 @@ exports.QuotationAdvanceInvoiceService = QuotationAdvanceInvoiceService = __deco
     __param(0, (0, typeorm_1.InjectRepository)(quotation_entity_1.Quotation)),
     __param(1, (0, typeorm_1.InjectRepository)(sales_order_entity_1.SalesOrder)),
     __param(4, (0, common_1.Inject)((0, common_1.forwardRef)(() => pos_shifts_service_1.PosShiftsService))),
+    __param(6, (0, common_1.Inject)((0, common_1.forwardRef)(() => pos_caja_recall_hub_1.PosCajaRecallHub))),
     __metadata("design:paramtypes", [typeorm_2.Repository,
         typeorm_2.Repository,
         advance_cfdi_service_1.AdvanceCfdiService,
         electronic_invoice_service_1.ElectronicInvoiceService,
         pos_shifts_service_1.PosShiftsService,
-        advance_shift_payment_service_1.AdvanceShiftPaymentService])
+        advance_shift_payment_service_1.AdvanceShiftPaymentService,
+        pos_caja_recall_hub_1.PosCajaRecallHub])
 ], QuotationAdvanceInvoiceService);
 //# sourceMappingURL=quotation-advance-invoice.service.js.map

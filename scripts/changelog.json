@@ -1241,6 +1241,33 @@
       "status": "shipped",
       "version": "0.0.147",
       "shippedAt": "2026-11-23T17:14:47-08:00"
+    },
+    {
+      "id": "20261123-172102",
+      "at": "2026-11-23T17:21:02-08:00",
+      "scope": "frontend",
+      "message": "POS Ventas: las tarjetas de Ventas en caja quedaron en filas compactas para ver varios folios a la vez.",
+      "status": "shipped",
+      "version": "0.0.148",
+      "shippedAt": "2026-11-23T17:35:11-08:00"
+    },
+    {
+      "id": "20261123-173247",
+      "at": "2026-11-23T17:32:47-08:00",
+      "scope": "both",
+      "message": "Cobranza POS: se quitó el ticket promedio de las tarjetas de forma de pago; quedan ventas y monto.",
+      "status": "shipped",
+      "version": "0.0.148",
+      "shippedAt": "2026-11-23T17:35:11-08:00"
+    },
+    {
+      "id": "20261123-173422",
+      "at": "2026-11-23T17:34:22-08:00",
+      "scope": "both",
+      "message": "POS Caja: si Ventas regresa un folio que caja está cobrando, se le quita al momento y sale una ventana con el folio y el vendedor que lo regresó.",
+      "status": "shipped",
+      "version": "0.0.148",
+      "shippedAt": "2026-11-23T17:35:11-08:00"
     }
   ]
 }

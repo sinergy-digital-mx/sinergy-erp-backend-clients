@@ -12,8 +12,7 @@ exports.buildPaymentMethodTotals = buildPaymentMethodTotals;
 function buildPaymentMethodTotal(orders, amount) {
     const safeOrders = Math.max(0, Number(orders) || 0);
     const safeAmount = Number(Number(amount || 0).toFixed(2));
-    const ticket = safeOrders > 0 ? Number((safeAmount / safeOrders).toFixed(2)) : 0;
-    return { orders: safeOrders, amount: safeAmount, ticket };
+    return { orders: safeOrders, amount: safeAmount };
 }
 function emptyPaymentMethodTotals() {
     return {

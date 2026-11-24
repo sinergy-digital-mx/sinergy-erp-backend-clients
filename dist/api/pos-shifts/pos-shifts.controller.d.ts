@@ -1,3 +1,4 @@
+import { MessageEvent } from '@nestjs/common';
 import { PosShiftsService } from './pos-shifts.service';
 import { QuotationAdvanceInvoiceService } from '../quotations/services/quotation-advance-invoice.service';
 import { ValidateSellerCodeDto } from './dto/validate-seller-code.dto';
@@ -11,10 +12,14 @@ import { QueryCollectedSalesDto } from './dto/query-collected-sales.dto';
 import { ReplacePosSaleCartDto } from './dto/replace-pos-sale-cart.dto';
 import { SendQuotationToCajaDto } from './dto/send-quotation-to-caja.dto';
 import { UpdatePosCustomerDto } from './dto/update-pos-customer.dto';
+import { RecallFromCajaDto } from './dto/recall-from-caja.dto';
+import { PosCajaRecallHub } from './pos-caja-recall.hub';
+import { Observable } from 'rxjs';
 export declare class PosShiftsController {
     private readonly posShiftsService;
     private readonly quotationAdvances;
-    constructor(posShiftsService: PosShiftsService, quotationAdvances: QuotationAdvanceInvoiceService);
+    private readonly cajaRecallHub;
+    constructor(posShiftsService: PosShiftsService, quotationAdvances: QuotationAdvanceInvoiceService, cajaRecallHub: PosCajaRecallHub);
     validateSellerCode(dto: ValidateSellerCodeDto, req: any): Promise<{
         seller: {
             id: string;
@@ -1275,9 +1280,10 @@ export declare class PosShiftsController {
             caja_open: boolean;
         })[];
     }>;
-    recallSaleFromCaja(salesOrderId: string, req: any): Promise<{
+    recallSaleFromCaja(salesOrderId: string, dto: RecallFromCajaDto, req: any): Promise<{
         message: string;
         caja_was_open: boolean;
+        recalled_by_name: string;
         sales_order: {
             kind: "sale";
             id: string;
@@ -1311,9 +1317,10 @@ export declare class PosShiftsController {
             } | null;
         };
     }>;
-    recallQuotationFromCaja(quotationId: string, req: any): Promise<{
+    recallQuotationFromCaja(quotationId: string, dto: RecallFromCajaDto, req: any): Promise<{
         message: string;
         caja_was_open: boolean;
+        recalled_by_name: string;
         quotation: {
             kind: string;
             id: string;
@@ -1346,14 +1353,17 @@ export declare class PosShiftsController {
             } | null;
         };
     }>;
+    cajaRecalls(query: QueryPosBranchDto, req: any): Observable<MessageEvent>;
     touchSaleCajaPresence(salesOrderId: string, req: any): Promise<{
         in_caja: boolean;
         reason: string;
+        recalled_by_name: string | null;
         message: string;
     } | {
         in_caja: boolean;
         reason: null;
         message: null;
+        recalled_by_name?: undefined;
     }>;
     releaseSaleCajaPresence(salesOrderId: string, req: any): Promise<{
         released: boolean;
@@ -1361,11 +1371,13 @@ export declare class PosShiftsController {
     touchQuotationCajaPresence(quotationId: string, req: any): Promise<{
         in_caja: boolean;
         reason: string;
+        recalled_by_name: string | null;
         message: string;
     } | {
         in_caja: boolean;
         reason: null;
         message: null;
+        recalled_by_name?: undefined;
     }>;
     releaseQuotationCajaPresence(quotationId: string, req: any): Promise<{
         released: boolean;

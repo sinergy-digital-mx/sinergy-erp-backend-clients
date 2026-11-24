@@ -33,6 +33,7 @@ const sales_order_pos_stage_enum_1 = require("../../entities/sales-orders/sales-
 const customer_entity_1 = require("../../entities/customers/customer.entity");
 const warehouse_entity_1 = require("../../entities/warehouse/warehouse.entity");
 const pos_price_discount_util_1 = require("./utils/pos-price-discount.util");
+const pos_caja_recall_hub_1 = require("./pos-caja-recall.hub");
 const sales_order_currency_util_1 = require("../sales-orders/utils/sales-order-currency.util");
 const credit_currency_util_1 = require("../customers/utils/credit-currency.util");
 const sales_order_pos_receipt_service_1 = require("../sales-orders/services/sales-order-pos-receipt.service");
@@ -71,8 +72,9 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
     customerCreditService;
     advanceShiftPayments;
     exchangeRateService;
+    cajaRecallHub;
     logger = new common_1.Logger(PosShiftsService_1.name);
-    constructor(dailyShiftRepo, partialShiftRepo, userRepo, branchAssignmentRepo, salesOrderRepo, quotationRepo, customerRepo, warehouseRepo, collectionRepo, posReceiptService, salesOrderService, quotationService, advanceCfdi, customerCreditService, advanceShiftPayments, exchangeRateService) {
+    constructor(dailyShiftRepo, partialShiftRepo, userRepo, branchAssignmentRepo, salesOrderRepo, quotationRepo, customerRepo, warehouseRepo, collectionRepo, posReceiptService, salesOrderService, quotationService, advanceCfdi, customerCreditService, advanceShiftPayments, exchangeRateService, cajaRecallHub) {
         this.dailyShiftRepo = dailyShiftRepo;
         this.partialShiftRepo = partialShiftRepo;
         this.userRepo = userRepo;
@@ -89,6 +91,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         this.customerCreditService = customerCreditService;
         this.advanceShiftPayments = advanceShiftPayments;
         this.exchangeRateService = exchangeRateService;
+        this.cajaRecallHub = cajaRecallHub;
     }
     async validateSellerCode(tenantId, terminalUserId, code, billingBranchId) {
         const terminalUser = await this.requirePosTerminal(tenantId, terminalUserId);
@@ -678,7 +681,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             throw new common_1.BadRequestException('Solo se pueden cobrar órdenes POS');
         }
         if (!(0, sales_order_pos_stage_enum_1.isPosStageInCaja)(order.pos_stage)) {
-            throw new common_1.BadRequestException('La orden está en ventas. Debe enviarse a caja antes de cobrar');
+            throw new common_1.BadRequestException(this.cajaRecallHub.messageFor(tenantId, 'sale', order.id, order.folio));
         }
         if (order.general_status !== 'Surtida' || order.payment_status !== 'Pendiente') {
             throw new common_1.BadRequestException('La orden no está pendiente de cobro (debe estar Surtida y Pendiente)');
@@ -705,7 +708,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             select: { id: true, pos_stage: true },
         });
         if (!stillInCaja || !(0, sales_order_pos_stage_enum_1.isPosStageInCaja)(stillInCaja.pos_stage)) {
-            throw new common_1.ConflictException('Ventas regresó esta venta a POS Ventas');
+            throw new common_1.ConflictException(this.cajaRecallHub.messageFor(tenantId, 'sale', order.id, order.folio));
         }
         const orderTotal = Number(order.total);
         const amountPending = await this.salesOrderService.getAmountPending(order.id, tenantId);
@@ -788,7 +791,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             select: { id: true, pos_stage: true, payment_status: true },
         });
         if (!stageNow || !(0, sales_order_pos_stage_enum_1.isPosStageInCaja)(stageNow.pos_stage) || stageNow.payment_status !== 'Pendiente') {
-            throw new common_1.ConflictException('Ventas regresó esta venta a POS Ventas');
+            throw new common_1.ConflictException(this.cajaRecallHub.messageFor(tenantId, 'sale', order.id, order.folio));
         }
         await this.collectionRepo.save(collection);
         const referenceNumber = payment.transferReference ||
@@ -1414,7 +1417,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             quotation: this.mapQuotationTicketSummary(quotation),
         };
     }
-    async recallSaleFromCaja(tenantId, terminalUserId, salesOrderId) {
+    async recallSaleFromCaja(tenantId, terminalUserId, salesOrderId, sellerUserId) {
         const ventasUser = await this.requireVentasTerminal(tenantId, terminalUserId);
         const order = await this.salesOrderRepo.findOne({
             where: { id: salesOrderId, tenant_id: tenantId },
@@ -1440,15 +1443,25 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         order.pos_caja_opened_by = null;
         order.updated_by = terminalUserId;
         await this.salesOrderRepo.save(order);
+        const recalledByName = await this.resolveRecallActorName(tenantId, ventasUser, sellerUserId);
+        const notice = this.cajaRecallHub.publish({
+            tenantId,
+            branchId: order.billing_branch_id || order.warehouse?.billing_branch_id || ventasUser.billing_branch_id || null,
+            id: order.id,
+            kind: 'sale',
+            folio: order.folio || order.id,
+            recalledByName,
+        });
         return {
             message: cajaWasOpen
-                ? 'Ventas regresó esta venta a POS Ventas. Caja la tenía abierta.'
+                ? `${notice.recalledByName} regresó ${notice.folio} a POS Ventas. Caja la tenía abierta.`
                 : 'El ticket se regresó a ventas',
             caja_was_open: cajaWasOpen,
+            recalled_by_name: notice.recalledByName,
             sales_order: this.mapPosTicketSummary(order),
         };
     }
-    async recallQuotationFromCaja(tenantId, terminalUserId, quotationId) {
+    async recallQuotationFromCaja(tenantId, terminalUserId, quotationId, sellerUserId) {
         const ventasUser = await this.requireVentasTerminal(tenantId, terminalUserId);
         const quotation = await this.quotationRepo.findOne({
             where: { id: quotationId, tenant_id: tenantId },
@@ -1474,11 +1487,21 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         quotation.pos_caja_opened_by = null;
         quotation.updated_by = terminalUserId;
         await this.quotationRepo.save(quotation);
+        const recalledByName = await this.resolveRecallActorName(tenantId, ventasUser, sellerUserId);
+        const notice = this.cajaRecallHub.publish({
+            tenantId,
+            branchId: quotation.billing_branch_id || quotation.warehouse?.billing_branch_id || ventasUser.billing_branch_id || null,
+            id: quotation.id,
+            kind: 'advance',
+            folio: quotation.folio || quotation.id,
+            recalledByName,
+        });
         return {
             message: cajaWasOpen
-                ? 'Ventas regresó esta venta a POS Ventas. Caja la tenía abierta.'
+                ? `${notice.recalledByName} regresó ${notice.folio} a POS Ventas. Caja la tenía abierta.`
                 : 'El anticipo se regresó a ventas',
             caja_was_open: cajaWasOpen,
+            recalled_by_name: notice.recalledByName,
             quotation: this.mapQuotationTicketSummary(quotation),
         };
     }
@@ -1973,6 +1996,23 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             })),
         };
     }
+    personName(user) {
+        const name = `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim();
+        return name || user.email || 'Ventas';
+    }
+    async resolveRecallActorName(tenantId, terminal, sellerUserId) {
+        const sellerId = sellerUserId?.trim();
+        if (sellerId) {
+            const seller = await this.userRepo.findOne({
+                where: { id: sellerId, tenant_id: tenantId },
+                select: { id: true, first_name: true, last_name: true, email: true },
+            });
+            if (seller) {
+                return this.personName(seller);
+            }
+        }
+        return this.personName(terminal);
+    }
     cajaHasItOpen(openedAt) {
         if (!openedAt)
             return false;
@@ -1985,12 +2025,16 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             const collected = isSale
                 ? await this.collectionRepo.findOne({ where: { sales_order_id: row.id } })
                 : null;
+            const kind = isSale ? 'sale' : 'advance';
             return {
                 in_caja: false,
                 reason: collected ? 'collected' : 'recalled',
+                recalled_by_name: collected
+                    ? null
+                    : this.cajaRecallHub.find(row.tenant_id, kind, row.id)?.recalledByName ?? null,
                 message: collected
                     ? 'Esta venta ya se cobró'
-                    : 'Ventas regresó esta venta a POS Ventas',
+                    : this.cajaRecallHub.messageFor(row.tenant_id, kind, row.id, row.folio),
             };
         }
         row.pos_caja_opened_at = new Date();
@@ -2391,6 +2435,7 @@ exports.PosShiftsService = PosShiftsService = PosShiftsService_1 = __decorate([
         advance_cfdi_service_1.AdvanceCfdiService,
         customer_credit_service_1.CustomerCreditService,
         advance_shift_payment_service_1.AdvanceShiftPaymentService,
-        exchange_rate_service_1.ExchangeRateService])
+        exchange_rate_service_1.ExchangeRateService,
+        pos_caja_recall_hub_1.PosCajaRecallHub])
 ], PosShiftsService);
 //# sourceMappingURL=pos-shifts.service.js.map

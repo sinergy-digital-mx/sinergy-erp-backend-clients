@@ -6,6 +6,7 @@ import { StampAdvanceInvoiceDto } from '../../electronic-invoicing/dto/stamp-adv
 import { AdvanceCfdiService } from '../../electronic-invoicing/services/advance-cfdi.service';
 import { ElectronicInvoiceService } from '../../electronic-invoicing/services/electronic-invoice.service';
 import { PosShiftsService } from '../../pos-shifts/pos-shifts.service';
+import { PosCajaRecallHub } from '../../pos-shifts/pos-caja-recall.hub';
 import { PosCardPayment } from '../../pos-shifts/utils/pos-card-payments.util';
 import { AdvanceShiftPaymentService } from '../../pos-shifts/services/advance-shift-payment.service';
 import { CollectPosSaleDto } from '../../pos-shifts/dto/collect-pos-sale.dto';
@@ -18,7 +19,8 @@ export declare class QuotationAdvanceInvoiceService {
     private readonly electronicInvoiceService;
     private readonly posShiftsService;
     private readonly advancePayments;
-    constructor(quotationRepo: Repository<Quotation>, salesOrderRepo: Repository<SalesOrder>, advanceCfdi: AdvanceCfdiService, electronicInvoiceService: ElectronicInvoiceService, posShiftsService: PosShiftsService, advancePayments: AdvanceShiftPaymentService);
+    private readonly cajaRecallHub;
+    constructor(quotationRepo: Repository<Quotation>, salesOrderRepo: Repository<SalesOrder>, advanceCfdi: AdvanceCfdiService, electronicInvoiceService: ElectronicInvoiceService, posShiftsService: PosShiftsService, advancePayments: AdvanceShiftPaymentService, cajaRecallHub: PosCajaRecallHub);
     collectionPreview(id: string, tenantId: string): Promise<{
         billing_branch_id: string;
         sucursal: string | null;

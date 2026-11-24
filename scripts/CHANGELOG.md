@@ -10,6 +10,12 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.148 · 2026-11-23
+
+- aplicación · POS Ventas: las tarjetas de Ventas en caja quedaron en filas compactas para ver varios folios a la vez.
+- aplicación y servidor · Cobranza POS: se quitó el ticket promedio de las tarjetas de forma de pago; quedan ventas y monto.
+- aplicación y servidor · POS Caja: si Ventas regresa un folio que caja está cobrando, se le quita al momento y sale una ventana con el folio y el vendedor que lo regresó.
+
 ### Versión 0.0.147 · 2026-11-23
 
 - aplicación y servidor · POS Ventas: descuento porcentual al precio en el carrito (5%, 3% u otro), se guarda en la orden y solo se ve con el permiso Aplicar descuento al precio del módulo POS.

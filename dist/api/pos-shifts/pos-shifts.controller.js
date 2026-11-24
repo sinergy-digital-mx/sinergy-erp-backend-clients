@@ -31,12 +31,18 @@ const query_collected_sales_dto_1 = require("./dto/query-collected-sales.dto");
 const replace_pos_sale_cart_dto_1 = require("./dto/replace-pos-sale-cart.dto");
 const send_quotation_to_caja_dto_1 = require("./dto/send-quotation-to-caja.dto");
 const update_pos_customer_dto_1 = require("./dto/update-pos-customer.dto");
+const recall_from_caja_dto_1 = require("./dto/recall-from-caja.dto");
+const pos_caja_recall_hub_1 = require("./pos-caja-recall.hub");
+const rxjs_1 = require("rxjs");
+const operators_1 = require("rxjs/operators");
 let PosShiftsController = class PosShiftsController {
     posShiftsService;
     quotationAdvances;
-    constructor(posShiftsService, quotationAdvances) {
+    cajaRecallHub;
+    constructor(posShiftsService, quotationAdvances, cajaRecallHub) {
         this.posShiftsService = posShiftsService;
         this.quotationAdvances = quotationAdvances;
+        this.cajaRecallHub = cajaRecallHub;
     }
     async validateSellerCode(dto, req) {
         return this.posShiftsService.validateSellerCode(req.user.tenant_id, req.user.id, dto.code, dto.billing_branch_id);
@@ -102,11 +108,25 @@ let PosShiftsController = class PosShiftsController {
         const sales = await this.posShiftsService.getSalesAwaitingCaja(req.user.tenant_id, req.user.id, query.billing_branch_id);
         return { sales_in_caja: sales };
     }
-    async recallSaleFromCaja(salesOrderId, req) {
-        return this.posShiftsService.recallSaleFromCaja(req.user.tenant_id, req.user.id, salesOrderId);
+    async recallSaleFromCaja(salesOrderId, dto, req) {
+        return this.posShiftsService.recallSaleFromCaja(req.user.tenant_id, req.user.id, salesOrderId, dto?.seller_user_id);
     }
-    async recallQuotationFromCaja(quotationId, req) {
-        return this.posShiftsService.recallQuotationFromCaja(req.user.tenant_id, req.user.id, quotationId);
+    async recallQuotationFromCaja(quotationId, dto, req) {
+        return this.posShiftsService.recallQuotationFromCaja(req.user.tenant_id, req.user.id, quotationId, dto?.seller_user_id);
+    }
+    cajaRecalls(query, req) {
+        const tenantId = req.user.tenant_id;
+        const branchId = query.billing_branch_id ?? null;
+        return (0, rxjs_1.merge)((0, rxjs_1.interval)(15000).pipe((0, operators_1.map)(() => ({ data: { type: 'ping' } }))), this.cajaRecallHub.stream(tenantId, branchId).pipe((0, operators_1.map)((event) => ({
+            data: {
+                type: 'recalled',
+                id: event.id,
+                kind: event.kind,
+                folio: event.folio,
+                recalled_by_name: event.recalledByName,
+                branch_id: event.branchId,
+            },
+        }))));
     }
     async touchSaleCajaPresence(salesOrderId, req) {
         return this.posShiftsService.touchSaleCajaPresence(req.user.tenant_id, req.user.id, salesOrderId);
@@ -344,9 +364,10 @@ __decorate([
         description: 'Sale de POS Caja. Si caja lo tenía abierto, el siguiente latido se lo quita.',
     }),
     __param(0, (0, common_1.Param)('salesOrderId')),
-    __param(1, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:paramtypes", [String, recall_from_caja_dto_1.RecallFromCajaDto, Object]),
     __metadata("design:returntype", Promise)
 ], PosShiftsController.prototype, "recallSaleFromCaja", null);
 __decorate([
@@ -354,11 +375,25 @@ __decorate([
     (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'pos', action: 'Create' }, { entityType: 'pos', action: 'Update' }),
     (0, swagger_1.ApiOperation)({ summary: 'Ventas regresa un anticipo que está en caja' }),
     __param(0, (0, common_1.Param)('quotationId')),
-    __param(1, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:paramtypes", [String, recall_from_caja_dto_1.RecallFromCajaDto, Object]),
     __metadata("design:returntype", Promise)
 ], PosShiftsController.prototype, "recallQuotationFromCaja", null);
+__decorate([
+    (0, common_1.Sse)('caja-recalls'),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Update' }, { entityType: 'pos', action: 'Update' }, { entityType: 'pos', action: 'Read' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Aviso en vivo cuando Ventas regresa un folio',
+        description: 'Canal de texto que caja mantiene abierto. Al regresar un folio, llega el vendedor y el folio para sacar la venta si la tenían abierta.',
+    }),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [query_pos_branch_dto_1.QueryPosBranchDto, Object]),
+    __metadata("design:returntype", rxjs_1.Observable)
+], PosShiftsController.prototype, "cajaRecalls", null);
 __decorate([
     (0, common_1.Post)('sales/:salesOrderId/caja-presence'),
     (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Update' }, { entityType: 'pos', action: 'Update' }),
@@ -510,6 +545,7 @@ exports.PosShiftsController = PosShiftsController = __decorate([
     (0, swagger_1.ApiBearerAuth)(),
     __param(1, (0, common_1.Inject)((0, common_1.forwardRef)(() => quotation_advance_invoice_service_1.QuotationAdvanceInvoiceService))),
     __metadata("design:paramtypes", [pos_shifts_service_1.PosShiftsService,
-        quotation_advance_invoice_service_1.QuotationAdvanceInvoiceService])
+        quotation_advance_invoice_service_1.QuotationAdvanceInvoiceService,
+        pos_caja_recall_hub_1.PosCajaRecallHub])
 ], PosShiftsController);
 //# sourceMappingURL=pos-shifts.controller.js.map
