@@ -402,6 +402,24 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         const terminalUser = await this.requireVentasTerminal(tenantId, terminalUserId);
         return this.listPendingCajaTickets(tenantId, terminalUser, billingBranchId);
     }
+    mapCajaLines(lines) {
+        return (lines ?? []).map((line) => {
+            const quantity = Number(line.quantity) || 0;
+            const unitPrice = Number(line.unit_price) || 0;
+            const unitNet = unitPrice
+                - (Number(line.discount_unit) || 0)
+                + (Number(line.iva_unit) || 0)
+                + (Number(line.ieps_unit) || 0);
+            return {
+                product_name: line.custom_description?.trim() || line.product?.name || 'Producto',
+                product_sku: line.product?.sku || '',
+                quantity,
+                uom_name: line.product_uom?.uom?.name || '',
+                unit_price: unitPrice,
+                line_total: Math.round(quantity * unitNet * 100) / 100,
+            };
+        });
+    }
     async listPendingCajaTickets(tenantId, terminalUser, billingBranchId) {
         const branchId = await this.resolveAccessibleBranchId(terminalUser, billingBranchId);
         const openShift = await this.getBranchOpenDailyShift(tenantId, branchId);
@@ -413,6 +431,10 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             .leftJoinAndSelect('so.seller_user', 'seller_user')
             .leftJoinAndSelect('so.terminal_user', 'terminal_user')
             .leftJoinAndSelect('so.customer', 'customer')
+            .leftJoinAndSelect('so.line_items', 'so_line')
+            .leftJoinAndSelect('so_line.product', 'so_line_product')
+            .leftJoinAndSelect('so_line.product_uom', 'so_line_pu')
+            .leftJoinAndSelect('so_line_pu.uom', 'so_line_uom')
             .where('so.tenant_id = :tenantId', { tenantId })
             .andWhere('so.sales_order_type = :type', { type: 'POS' })
             .andWhere('so.general_status = :generalStatus', { generalStatus: 'Surtida' })
@@ -430,7 +452,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         else {
             this.applySalesOrderBranchScope(qb, branchId);
         }
-        const orders = await qb.orderBy('so.created_at', 'ASC').getMany();
+        const orders = await qb.orderBy('so.created_at', 'ASC').addOrderBy('so_line.created_at', 'ASC').getMany();
         const quotationIds = [
             ...new Set(orders
                 .map((order) => order.converted_from_quotation_id)
@@ -465,10 +487,15 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 ? quotationFolio.get(order.converted_from_quotation_id) ?? null
                 : null,
             total: Number(order.total),
+            subtotal: Number(order.subtotal),
+            discount_total: Number(order.discount_total ?? 0),
+            iva_total: Number(order.iva_total ?? 0),
+            ieps_total: Number(order.ieps_total ?? 0),
+            global_discount_amount: Number(order.global_discount_amount ?? 0),
+            lines: this.mapCajaLines(order.line_items),
             currency: order.currency === 'USD' ? 'USD' : 'MXN',
             exchange_rate: exchangeRateByOrder.get(order.id) ?? null,
             amount_pending: pendingByOrder.get(order.id) ?? Number(order.total),
-            subtotal: Number(order.subtotal),
             created_at: order.created_at,
             notes: order.notes,
             walk_in_name: order.walk_in_name,
@@ -516,6 +543,10 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 .createQueryBuilder('q')
                 .leftJoinAndSelect('q.customer', 'customer')
                 .leftJoinAndSelect('q.seller_user', 'seller_user')
+                .leftJoinAndSelect('q.line_items', 'q_line')
+                .leftJoinAndSelect('q_line.product', 'q_line_product')
+                .leftJoinAndSelect('q_line.product_uom', 'q_line_pu')
+                .leftJoinAndSelect('q_line_pu.uom', 'q_line_uom')
                 .where('q.tenant_id = :tenantId', { tenantId })
                 .andWhere('q.billing_branch_id = :billingBranchId', { billingBranchId })
                 .andWhere('q.general_status = :status', { status: 'Creada' })
@@ -547,10 +578,15 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             folio: quotation.folio,
             quotation_folio: null,
             total: Number(quotation.total),
+            subtotal: Number(quotation.subtotal),
+            discount_total: Number(quotation.discount_total ?? 0),
+            iva_total: Number(quotation.iva_total ?? 0),
+            ieps_total: Number(quotation.ieps_total ?? 0),
+            global_discount_amount: Number(quotation.global_discount_amount ?? 0),
+            lines: this.mapCajaLines(quotation.line_items),
             amount_pending: Number(quotation.advance_requested_total),
             advance_uso_cfdi: quotation.advance_uso_cfdi ?? 'G03',
             advance_metodo_pago: quotation.advance_metodo_pago ?? 'PUE',
-            subtotal: Number(quotation.subtotal),
             created_at: quotation.created_at,
             notes: quotation.notes,
             walk_in_name: null,

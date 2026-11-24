@@ -1196,6 +1196,42 @@
       "status": "shipped",
       "version": "0.0.143",
       "shippedAt": "2026-11-23T15:58:10-08:00"
+    },
+    {
+      "id": "20261123-164706",
+      "at": "2026-11-23T16:47:06-08:00",
+      "scope": "both",
+      "message": "Ventas en caja se abre en un modal al centro: cada folio es una tarjeta con cliente, productos, totales y se puede desplegar para regresarla a ventas.",
+      "status": "shipped",
+      "version": "0.0.146",
+      "shippedAt": "2026-11-23T16:59:12-08:00"
+    },
+    {
+      "id": "20261123-164959",
+      "at": "2026-11-23T16:49:59-08:00",
+      "scope": "frontend",
+      "message": "En el POS, Esc limpia la búsqueda y un segundo Esc sale de pantalla completa.",
+      "status": "shipped",
+      "version": "0.0.146",
+      "shippedAt": "2026-11-23T16:59:12-08:00"
+    },
+    {
+      "id": "20261123-165456",
+      "at": "2026-11-23T16:54:56-08:00",
+      "scope": "both",
+      "message": "En POS Ventas se quitaron las franjas de tickets regresados y de corte; el aviso queda en la barra superior, en Tickets y Corte.",
+      "status": "shipped",
+      "version": "0.0.146",
+      "shippedAt": "2026-11-23T16:59:12-08:00"
+    },
+    {
+      "id": "20261123-165733",
+      "at": "2026-11-23T16:57:33-08:00",
+      "scope": "backend",
+      "message": "El deploy del backend fallaba porque subtotal iba duplicado en las ventas y anticipos de caja. Se dejó una sola vez y el build ya pasa.",
+      "status": "shipped",
+      "version": "0.0.146",
+      "shippedAt": "2026-11-23T16:59:12-08:00"
     }
   ]
 }

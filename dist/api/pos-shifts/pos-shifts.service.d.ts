@@ -712,10 +712,22 @@ export declare class PosShiftsService {
         folio: string;
         quotation_folio: string | null;
         total: number;
+        subtotal: number;
+        discount_total: number;
+        iva_total: number;
+        ieps_total: number;
+        global_discount_amount: number;
+        lines: {
+            product_name: string;
+            product_sku: string;
+            quantity: number;
+            uom_name: string;
+            unit_price: number;
+            line_total: number;
+        }[];
         currency: string;
         exchange_rate: number | null;
         amount_pending: number;
-        subtotal: number;
         created_at: Date;
         notes: string | null;
         walk_in_name: string | null;
@@ -751,10 +763,22 @@ export declare class PosShiftsService {
         folio: string;
         quotation_folio: null;
         total: number;
+        subtotal: number;
+        discount_total: number;
+        iva_total: number;
+        ieps_total: number;
+        global_discount_amount: number;
+        lines: {
+            product_name: string;
+            product_sku: string;
+            quantity: number;
+            uom_name: string;
+            unit_price: number;
+            line_total: number;
+        }[];
         amount_pending: number;
         advance_uso_cfdi: string;
         advance_metodo_pago: "PUE" | "PPD";
-        subtotal: number;
         created_at: Date;
         notes: string | null;
         walk_in_name: null;
@@ -785,10 +809,22 @@ export declare class PosShiftsService {
         folio: string;
         quotation_folio: string | null;
         total: number;
+        subtotal: number;
+        discount_total: number;
+        iva_total: number;
+        ieps_total: number;
+        global_discount_amount: number;
+        lines: {
+            product_name: string;
+            product_sku: string;
+            quantity: number;
+            uom_name: string;
+            unit_price: number;
+            line_total: number;
+        }[];
         currency: string;
         exchange_rate: number | null;
         amount_pending: number;
-        subtotal: number;
         created_at: Date;
         notes: string | null;
         walk_in_name: string | null;
@@ -824,10 +860,22 @@ export declare class PosShiftsService {
         folio: string;
         quotation_folio: null;
         total: number;
+        subtotal: number;
+        discount_total: number;
+        iva_total: number;
+        ieps_total: number;
+        global_discount_amount: number;
+        lines: {
+            product_name: string;
+            product_sku: string;
+            quantity: number;
+            uom_name: string;
+            unit_price: number;
+            line_total: number;
+        }[];
         amount_pending: number;
         advance_uso_cfdi: string;
         advance_metodo_pago: "PUE" | "PPD";
-        subtotal: number;
         created_at: Date;
         notes: string | null;
         walk_in_name: null;
@@ -852,6 +900,7 @@ export declare class PosShiftsService {
         terminal_user: null;
         caja_open: boolean;
     })[]>;
+    private mapCajaLines;
     private listPendingCajaTickets;
     private listPendingAdvanceQuotations;
     getCollectedSales(tenantId: string, terminalUserId: string, dailyShiftId?: string, billingBranchId?: string): Promise<{

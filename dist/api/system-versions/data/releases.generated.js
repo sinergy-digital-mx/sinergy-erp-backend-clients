@@ -1479,6 +1479,48 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-23T23:57:15.488Z"
+    },
+    {
+        "releaseKey": "full:0.0.144:0.0.144-1795481544682",
+        "version": "0.0.144",
+        "buildId": "0.0.144-1795481544682",
+        "channel": "full",
+        "title": "Versión 0.0.144",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "Cambios en ventas"
+            }
+        ],
+        "releasedAt": "2026-11-24T00:52:24.682Z"
+    },
+    {
+        "releaseKey": "full:0.0.145:0.0.145-1795481719448",
+        "version": "0.0.145",
+        "buildId": "0.0.145-1795481719448",
+        "channel": "full",
+        "title": "Versión 0.0.145",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "Cambios en ventas"
+            }
+        ],
+        "releasedAt": "2026-11-24T00:55:19.448Z"
+    },
+    {
+        "releaseKey": "full:0.0.146:0.0.146-1795481900617",
+        "version": "0.0.146",
+        "buildId": "0.0.146-1795481900617",
+        "channel": "full",
+        "title": "Versión 0.0.146",
+        "changes": [
+            {
+                "scope": "backend",
+                "message": "Cambios en ventas"
+            }
+        ],
+        "releasedAt": "2026-11-24T00:58:20.617Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map

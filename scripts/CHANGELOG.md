@@ -10,6 +10,13 @@ No hay solicitudes pendientes de deploy.
 
 ## Enviados
 
+### Versión 0.0.146 · 2026-11-23
+
+- aplicación y servidor · Ventas en caja se abre en un modal al centro: cada folio es una tarjeta con cliente, productos, totales y se puede desplegar para regresarla a ventas.
+- aplicación · En el POS, Esc limpia la búsqueda y un segundo Esc sale de pantalla completa.
+- aplicación y servidor · En POS Ventas se quitaron las franjas de tickets regresados y de corte; el aviso queda en la barra superior, en Tickets y Corte.
+- servidor · El deploy del backend fallaba porque subtotal iba duplicado en las ventas y anticipos de caja. Se dejó una sola vez y el build ya pasa.
+
 ### Versión 0.0.143 · 2026-11-23
 
 - aplicación · Los atajos del POS ya no usan teclas F: Ctrl+I abre el cliente, Ctrl+M las ventas en caja y Ctrl+Q el abono pendiente. F5 vuelve a recargar el navegador.
