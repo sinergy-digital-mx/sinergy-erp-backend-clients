@@ -1,5 +1,9 @@
 # UI — Inventario por sucursal
 
+## 2026-11-24 — Búsqueda de arriba
+
+Al entrar a Por sucursal, el buscador toma el texto que ya estaba en Por lotes o Totalizado (`search` de la URL) y muestra los productos.
+
 ## 2026-11-24 — Sin aviso de unidades
 
 En la ficha ya no sale el texto «Cada unidad va en su renglón. No se suman entre sí.». Con varias unidades siguen sin sumarse los tres totales; cada unidad queda en su renglón.
