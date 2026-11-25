@@ -2801,5 +2801,19 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-11-25T22:46:26.833Z"
+  },
+  {
+    "releaseKey": "full:0.0.192:0.0.192-1795647820913",
+    "version": "0.0.192",
+    "buildId": "0.0.192-1795647820913",
+    "channel": "full",
+    "title": "Versión 0.0.192",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "Actualización de la plataforma."
+      }
+    ],
+    "releasedAt": "2026-11-25T23:03:40.913Z"
   }
 ];
