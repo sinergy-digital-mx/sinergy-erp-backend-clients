@@ -1,4 +1,8 @@
 import { PosSalePaymentMethod } from '../../../entities/pos/pos-sale-payment-method.enum';
+export declare class CollectTransferPaymentDto {
+    amount_mxn: number;
+    reference: string;
+}
 export declare class CollectCardPaymentDto {
     amount_mxn: number;
     reference?: string;
@@ -13,6 +17,7 @@ export declare class CollectPosSaleDto {
     usd_exchange_rate?: number;
     amount_transfer_mxn?: number;
     transfer_reference?: string;
+    transfer_payments?: CollectTransferPaymentDto[];
     transfer_payer_name?: string;
     transfer_payer_business_name?: string;
     amount_card_mxn?: number;

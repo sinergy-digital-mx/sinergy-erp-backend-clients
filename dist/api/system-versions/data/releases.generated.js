@@ -2767,6 +2767,34 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-25T22:10:13.081Z"
+    },
+    {
+        "releaseKey": "full:0.0.191:0.0.191-1795646786833",
+        "version": "0.0.191",
+        "buildId": "0.0.191-1795646786833",
+        "channel": "full",
+        "title": "Versión 0.0.191",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "En POS Caja lo que llega o se regresa de Ventas aparece solo, lo nuevo queda arriba y el panel de cobro solo sale al elegir una orden.",
+                "module": "pos",
+                "moduleLabel": "POS Ventas"
+            },
+            {
+                "scope": "frontend",
+                "message": "En pago mixto se pueden registrar varias transferencias, cada una con monto y referencia propia, y los datos del ordenante se capturan una sola vez.",
+                "module": "pos",
+                "moduleLabel": "POS Ventas"
+            },
+            {
+                "scope": "frontend",
+                "message": "En Folios se abren primero las cotizaciones con anticipo y el detalle queda arriba del carrito. En caja, la orden abierta usa todo el ancho.",
+                "module": "pos",
+                "moduleLabel": "POS Ventas"
+            }
+        ],
+        "releasedAt": "2026-11-25T22:46:26.833Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map

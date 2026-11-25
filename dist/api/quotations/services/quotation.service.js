@@ -916,6 +916,13 @@ let QuotationService = class QuotationService {
             }
             await this.applyAdvanceRequest(qr, quotation, tenantId, amount, cfdi);
             await qr.commitTransaction();
+            this.posShiftsService.notifyCajaArrived({
+                tenantId,
+                branchId: quotation.billing_branch_id,
+                id: quotation.id,
+                kind: 'advance',
+                folio: quotation.folio,
+            });
             return quotation;
         }
         catch (err) {

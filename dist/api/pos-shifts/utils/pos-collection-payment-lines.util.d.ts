@@ -11,6 +11,7 @@ export type PosCollectionTenderInput = {
     usdExchangeRate?: number | string | null;
     amountTransferMxn?: number | string | null;
     transferReference?: string | null;
+    transferPayments?: unknown;
     cardPayments?: unknown;
     amountCardMxn?: number | string | null;
     cardReference?: string | null;

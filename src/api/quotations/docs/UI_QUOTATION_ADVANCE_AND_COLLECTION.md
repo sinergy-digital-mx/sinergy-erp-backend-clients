@@ -1,5 +1,9 @@
 # UI — Anticipo, cobro al convertir y reversas
 
+## 2026-11-25 — Folios, no Tickets
+
+El vendedor sigue el anticipo en **Folios**. Abre en cotizaciones con anticipo. Busca el folio, pulsa Continuar y elige el carrito. Arriba del carrito queda la cotización, el anticipo cobrado y si caja cobra diferencia o hay que agregar producto. Copiar una orden es otra búsqueda, aparte. El botón Tickets ya no está.
+
 ## 2026-11-25 — Ventana de Cotizar
 
 La ventana es más ancha y la cabecera ocupa la mitad. Cliente (o Público en General) y el resumen de productos van en una línea cada uno. El monto del anticipo es un solo campo, sin caja dentro de caja.
@@ -10,7 +14,7 @@ El anticipo solo se activa en **Cotizar** (Factura de anticipo, forma de pago, D
 
 Sin productos: queda la cotización. Con productos: se timbra el mismo concepto y se abre la venta con esos productos. Si hay existencia se aparta por FIFO; si no, la línea queda pendiente.
 
-Al regresar, **Tickets** lista la cotización o la venta. Se elige C1, C2 o C3. El carrito muestra el folio y el anticipo. Si falta dinero del anticipo, hay que agregar otro producto. Si la venta es mayor, caja cobra la diferencia. La factura de la mercancía relaciona el UUID del anticipo y la nota de crédito.
+Al regresar, **Folios** lista la cotización. Se elige C1, C2 o C3. Arriba del carrito quedan el folio y el anticipo. Si falta dinero del anticipo, hay que agregar otro producto. Si la venta es mayor, caja cobra la diferencia. La factura de la mercancía relaciona el UUID del anticipo y la nota de crédito.
 
 Si en Folios se abre la cotización del caso con productos, el sistema carga la venta relacionada en el carrito.
 
@@ -60,7 +64,7 @@ Cuando ya hay anticipo cobrado o CFDI vigente, el detalle (`GET /quotations/:id`
 
 ## 2026-10-22 — Regresar anticipo a ventas
 
-Caja puede devolver el anticipo con el mismo botón **Regresar a ventas**. La COT sale de por cobrar (`pos_stage = ventas`) y aparece en Tickets de POS Ventas. Ahí se corrige y se pulsa **Enviar a caja**.
+Caja puede devolver el anticipo con el mismo botón **Regresar a ventas**. La COT sale de por cobrar (`pos_stage = ventas`) y se abre en Folios de POS Ventas. Ahí se corrige y se pulsa **Enviar a caja**.
 
 Si ya se timbró el CFDI, 400. Editar la cotización desde ERP mientras sigue en caja también 400: hay que regresarla primero.
 
@@ -98,7 +102,7 @@ En POS Ventas, **Guardar cotización** tiene la casilla **Factura de anticipo**.
 - El monto se escribe. Puede ser parcial o el total de la cotización, siempre con IVA, y no puede pasar el total.
 - Al guardar se manda `advance_amount` en `POST /api/tenant/quotations`. La cotización guarda `advance_requested_total`.
 
-Esa cotización aparece en POS Caja, en la lista de por cobrar, junto a las órdenes. Trae `kind: "advance"`, el folio COT y `amount_pending` igual al anticipo. **Regresar a ventas** (`POST /pos/quotations/:id/return-to-sales`) la saca de caja; Ventas la ve en Tickets y la reenvía con `POST /pos/quotations/:id/send-to-caja`. Se cobra en efectivo, tarjeta, transferencia, cheque o mixto.
+Esa cotización aparece en POS Caja, en la lista de por cobrar, junto a las órdenes. Trae `kind: "advance"`, el folio COT y `amount_pending` igual al anticipo. **Regresar a ventas** (`POST /pos/quotations/:id/return-to-sales`) la saca de caja; Ventas la abre en Folios y la reenvía con `POST /pos/quotations/:id/send-to-caja`. Se cobra en efectivo, tarjeta, transferencia, cheque o mixto.
 
 ```
 POST /api/tenant/pos/quotations/:id/collect-advance

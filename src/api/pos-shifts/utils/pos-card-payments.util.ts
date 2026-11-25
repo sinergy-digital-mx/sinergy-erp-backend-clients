@@ -95,13 +95,19 @@ export function mixedPaymentPartCount(input: {
   amountCheckMxn: number;
   amountCheckUsd?: number;
   cardPayments: PosCardPayment[];
+  transferPaymentCount?: number;
 }): number {
+  const transferParts =
+    (input.transferPaymentCount ?? 0) > 0
+      ? input.transferPaymentCount ?? 0
+      : input.amountTransferMxn > 0
+        ? 1
+        : 0;
   const types = [
     input.cashTotal > 0,
-    input.amountTransferMxn > 0,
     input.amountCheckMxn > 0 || (input.amountCheckUsd ?? 0) > 0,
   ].filter(Boolean).length;
-  return types + input.cardPayments.filter((item) => item.amount_mxn > 0).length;
+  return types + transferParts + input.cardPayments.filter((item) => item.amount_mxn > 0).length;
 }
 
 export function cardPaymentsMatchDeclaredTotal(

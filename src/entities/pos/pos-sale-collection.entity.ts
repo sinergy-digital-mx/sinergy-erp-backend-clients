@@ -73,6 +73,13 @@ export class PosSaleCollection {
   @Column({ type: 'varchar', length: 120, nullable: true })
   transfer_reference: string | null;
 
+  /** Cada transferencia del cobro. amount_transfer_mxn es la suma. */
+  @Column({ type: 'json', nullable: true })
+  transfer_payments: Array<{
+    amount_mxn: number;
+    reference: string;
+  }> | null;
+
   @Column({ type: 'varchar', length: 120, nullable: true })
   transfer_payer_name: string | null;
 

@@ -453,9 +453,9 @@ export class PosShiftsController {
     { entityType: 'pos', action: 'Read' },
   )
   @ApiOperation({
-    summary: 'Aviso en vivo cuando Ventas regresa un folio',
+    summary: 'Aviso en vivo de la cola de caja',
     description:
-      'Canal de texto que caja mantiene abierto. Al regresar un folio, llega el vendedor y el folio para sacar la venta si la tenían abierta.',
+      'Canal de texto que caja mantiene abierto. Llega arrived cuando Ventas manda un folio, y recalled cuando lo regresa.',
   })
   cajaRecalls(@Query() query: QueryPosBranchDto, @Req() req: any): Observable<MessageEvent> {
     const tenantId = req.user.tenant_id as string;
@@ -465,7 +465,7 @@ export class PosShiftsController {
       this.cajaRecallHub.stream(tenantId, branchId).pipe(
         map((event) => ({
           data: {
-            type: 'recalled',
+            type: event.type,
             id: event.id,
             kind: event.kind,
             folio: event.folio,

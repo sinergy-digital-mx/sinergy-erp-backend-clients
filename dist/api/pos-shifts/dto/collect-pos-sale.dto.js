@@ -9,11 +9,29 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CollectPosSaleDto = exports.CollectCardPaymentDto = void 0;
+exports.CollectPosSaleDto = exports.CollectCardPaymentDto = exports.CollectTransferPaymentDto = void 0;
 const swagger_1 = require("@nestjs/swagger");
 const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
 const pos_sale_payment_method_enum_1 = require("../../../entities/pos/pos-sale-payment-method.enum");
+class CollectTransferPaymentDto {
+    amount_mxn;
+    reference;
+}
+exports.CollectTransferPaymentDto = CollectTransferPaymentDto;
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Monto de esta transferencia (MXN)' }),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0.01),
+    __metadata("design:type", Number)
+], CollectTransferPaymentDto.prototype, "amount_mxn", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ description: 'Referencia o folio de rastreo de esta transferencia' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(120),
+    __metadata("design:type", String)
+], CollectTransferPaymentDto.prototype, "reference", void 0);
 class CollectCardPaymentDto {
     amount_mxn;
     reference;
@@ -49,6 +67,7 @@ class CollectPosSaleDto {
     usd_exchange_rate;
     amount_transfer_mxn;
     transfer_reference;
+    transfer_payments;
     transfer_payer_name;
     transfer_payer_business_name;
     amount_card_mxn;
@@ -138,12 +157,25 @@ __decorate([
     __metadata("design:type", Number)
 ], CollectPosSaleDto.prototype, "amount_transfer_mxn", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ required: false, description: 'Referencia de transferencia' }),
-    (0, class_validator_1.ValidateIf)((dto) => (dto.amount_transfer_mxn ?? 0) > 0),
+    (0, swagger_1.ApiProperty)({ required: false, description: 'Referencia de la primera transferencia' }),
+    (0, class_validator_1.ValidateIf)((dto) => (dto.amount_transfer_mxn ?? 0) > 0 && !(dto.transfer_payments?.length)),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MaxLength)(120),
     __metadata("design:type", String)
 ], CollectPosSaleDto.prototype, "transfer_reference", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        type: [CollectTransferPaymentDto],
+        description: 'Transferencias del cobro (2 o más en mixto). Cada una lleva monto y referencia. La suma debe coincidir con amount_transfer_mxn si se envía.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ArrayMaxSize)(8),
+    (0, class_validator_1.ValidateNested)({ each: true }),
+    (0, class_transformer_1.Type)(() => CollectTransferPaymentDto),
+    __metadata("design:type", Array)
+], CollectPosSaleDto.prototype, "transfer_payments", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
         required: false,

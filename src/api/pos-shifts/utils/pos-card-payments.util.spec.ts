@@ -44,6 +44,18 @@ describe('pos-card-payments', () => {
     ).toBe(2);
   });
 
+  it('dos transferencias cuentan como dos formas', () => {
+    expect(
+      mixedPaymentPartCount({
+        cashTotal: 0,
+        amountTransferMxn: 800,
+        amountCheckMxn: 0,
+        cardPayments: [],
+        transferPaymentCount: 2,
+      }),
+    ).toBe(2);
+  });
+
   it('efectivo + una tarjeta cuenta como dos formas', () => {
     expect(
       mixedPaymentPartCount({

@@ -122,6 +122,7 @@ export declare class SalesOrderController {
                     usd_exchange_rate: number | null;
                     amount_transfer_mxn: number;
                     transfer_reference: string | null;
+                    transfer_payments: import("../../pos-shifts/utils/pos-transfer-payments.util").PosTransferPayment[];
                     transfer_payer_name: string | null;
                     transfer_payer_business_name: string | null;
                     amount_card_mxn: number;
@@ -442,6 +443,7 @@ export declare class SalesOrderController {
                 usd_exchange_rate: number | null;
                 amount_transfer_mxn: number;
                 transfer_reference: string | null;
+                transfer_payments: import("../../pos-shifts/utils/pos-transfer-payments.util").PosTransferPayment[];
                 transfer_payer_name: string | null;
                 transfer_payer_business_name: string | null;
                 amount_card_mxn: number;
@@ -617,6 +619,7 @@ export declare class SalesOrderController {
                     usd_exchange_rate: number | null;
                     amount_transfer_mxn: number;
                     transfer_reference: string | null;
+                    transfer_payments: import("../../pos-shifts/utils/pos-transfer-payments.util").PosTransferPayment[];
                     transfer_payer_name: string | null;
                     transfer_payer_business_name: string | null;
                     amount_card_mxn: number;
@@ -937,6 +940,7 @@ export declare class SalesOrderController {
                 usd_exchange_rate: number | null;
                 amount_transfer_mxn: number;
                 transfer_reference: string | null;
+                transfer_payments: import("../../pos-shifts/utils/pos-transfer-payments.util").PosTransferPayment[];
                 transfer_payer_name: string | null;
                 transfer_payer_business_name: string | null;
                 amount_card_mxn: number;
@@ -1112,6 +1116,7 @@ export declare class SalesOrderController {
                     usd_exchange_rate: number | null;
                     amount_transfer_mxn: number;
                     transfer_reference: string | null;
+                    transfer_payments: import("../../pos-shifts/utils/pos-transfer-payments.util").PosTransferPayment[];
                     transfer_payer_name: string | null;
                     transfer_payer_business_name: string | null;
                     amount_card_mxn: number;
@@ -1432,6 +1437,7 @@ export declare class SalesOrderController {
                 usd_exchange_rate: number | null;
                 amount_transfer_mxn: number;
                 transfer_reference: string | null;
+                transfer_payments: import("../../pos-shifts/utils/pos-transfer-payments.util").PosTransferPayment[];
                 transfer_payer_name: string | null;
                 transfer_payer_business_name: string | null;
                 amount_card_mxn: number;
@@ -1609,6 +1615,7 @@ export declare class SalesOrderController {
                     usd_exchange_rate: number | null;
                     amount_transfer_mxn: number;
                     transfer_reference: string | null;
+                    transfer_payments: import("../../pos-shifts/utils/pos-transfer-payments.util").PosTransferPayment[];
                     transfer_payer_name: string | null;
                     transfer_payer_business_name: string | null;
                     amount_card_mxn: number;
@@ -1929,6 +1936,7 @@ export declare class SalesOrderController {
                 usd_exchange_rate: number | null;
                 amount_transfer_mxn: number;
                 transfer_reference: string | null;
+                transfer_payments: import("../../pos-shifts/utils/pos-transfer-payments.util").PosTransferPayment[];
                 transfer_payer_name: string | null;
                 transfer_payer_business_name: string | null;
                 amount_card_mxn: number;
@@ -2104,6 +2112,7 @@ export declare class SalesOrderController {
                     usd_exchange_rate: number | null;
                     amount_transfer_mxn: number;
                     transfer_reference: string | null;
+                    transfer_payments: import("../../pos-shifts/utils/pos-transfer-payments.util").PosTransferPayment[];
                     transfer_payer_name: string | null;
                     transfer_payer_business_name: string | null;
                     amount_card_mxn: number;
@@ -2424,6 +2433,7 @@ export declare class SalesOrderController {
                 usd_exchange_rate: number | null;
                 amount_transfer_mxn: number;
                 transfer_reference: string | null;
+                transfer_payments: import("../../pos-shifts/utils/pos-transfer-payments.util").PosTransferPayment[];
                 transfer_payer_name: string | null;
                 transfer_payer_business_name: string | null;
                 amount_card_mxn: number;
@@ -3169,6 +3179,7 @@ export declare class SalesOrderController {
                     usd_exchange_rate: number | null;
                     amount_transfer_mxn: number;
                     transfer_reference: string | null;
+                    transfer_payments: import("../../pos-shifts/utils/pos-transfer-payments.util").PosTransferPayment[];
                     transfer_payer_name: string | null;
                     transfer_payer_business_name: string | null;
                     amount_card_mxn: number;
@@ -3489,6 +3500,7 @@ export declare class SalesOrderController {
                 usd_exchange_rate: number | null;
                 amount_transfer_mxn: number;
                 transfer_reference: string | null;
+                transfer_payments: import("../../pos-shifts/utils/pos-transfer-payments.util").PosTransferPayment[];
                 transfer_payer_name: string | null;
                 transfer_payer_business_name: string | null;
                 amount_card_mxn: number;

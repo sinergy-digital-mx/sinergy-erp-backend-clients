@@ -693,6 +693,7 @@ export declare class PosShiftsController {
             exchange_rate: number | null;
             amount_pending: number;
             created_at: Date;
+            updated_at: Date;
             notes: string | null;
             walk_in_name: string | null;
             walk_in_rfc: string | null;
@@ -745,6 +746,7 @@ export declare class PosShiftsController {
             advance_uso_cfdi: string;
             advance_metodo_pago: "PUE" | "PPD";
             created_at: Date;
+            updated_at: Date;
             notes: string | null;
             walk_in_name: null;
             walk_in_rfc: null;
@@ -1032,6 +1034,7 @@ export declare class PosShiftsController {
                 usd_exchange_rate: number | null;
                 amount_transfer_mxn: number;
                 transfer_reference: string | null;
+                transfer_payments: import("./utils/pos-transfer-payments.util").PosTransferPayment[];
                 transfer_payer_name: string | null;
                 transfer_payer_business_name: string | null;
                 amount_card_mxn: number;
@@ -1133,6 +1136,7 @@ export declare class PosShiftsController {
             usd_exchange_rate: number | null;
             amount_transfer_mxn: number;
             transfer_reference: string | null;
+            transfer_payments: import("./utils/pos-transfer-payments.util").PosTransferPayment[];
             transfer_payer_name: string | null;
             transfer_payer_business_name: string | null;
             amount_card_mxn: number;
@@ -1306,6 +1310,7 @@ export declare class PosShiftsController {
             exchange_rate: number | null;
             amount_pending: number;
             created_at: Date;
+            updated_at: Date;
             notes: string | null;
             walk_in_name: string | null;
             walk_in_rfc: string | null;
@@ -1358,6 +1363,7 @@ export declare class PosShiftsController {
             advance_uso_cfdi: string;
             advance_metodo_pago: "PUE" | "PPD";
             created_at: Date;
+            updated_at: Date;
             notes: string | null;
             walk_in_name: null;
             walk_in_rfc: null;
@@ -1666,6 +1672,7 @@ export declare class PosShiftsController {
             usd_exchange_rate: number | null;
             amount_transfer_mxn: number;
             transfer_reference: string | null;
+            transfer_payments: import("./utils/pos-transfer-payments.util").PosTransferPayment[];
             transfer_payer_name: string | null;
             transfer_payer_business_name: string | null;
             amount_card_mxn: number;

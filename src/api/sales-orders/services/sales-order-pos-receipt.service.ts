@@ -34,6 +34,7 @@ import {
   observationTicketLines,
 } from '../utils/escpos.util';
 import { cardPaymentsForResponse, cardTicketLabel } from '../../pos-shifts/utils/pos-card-payments.util';
+import { transferPaymentsForResponse } from '../../pos-shifts/utils/pos-transfer-payments.util';
 import { displayCashChange } from '../../pos-shifts/utils/pos-cash-payment.util';
 import { invoiceMonthDeadlineLine } from '../utils/invoice-month-deadline.util';
 
@@ -817,7 +818,7 @@ export class SalesOrderPosReceiptService {
       const label = cardTicketLabel(cards[0]?.card_kind ?? collection.card_kind, 0, false);
       lines.push(compactMoneyLine(`${label}:`, formatMoney(cardMxn)));
     } else if (collection.payment_method === PosSalePaymentMethod.TRANSFER && transferMxn > 0) {
-      lines.push(compactMoneyLine('Transferencia:', formatMoney(transferMxn)));
+      lines.push(...transferTicketLines(collection, transferMxn));
     } else if (collection.payment_method === PosSalePaymentMethod.CHECK && (checkMxn > 0 || checkUsd > 0)) {
       if (checkMxn > 0) lines.push(compactMoneyLine('Cheque:', formatMoney(checkMxn)));
       if (checkUsd > 0) lines.push(compactMoneyLine('Cheque USD:', formatUsd(checkUsd)));
@@ -834,7 +835,7 @@ export class SalesOrderPosReceiptService {
         );
       }
     } else if (collection.payment_method === PosSalePaymentMethod.MIXED) {
-      if (transferMxn > 0) lines.push(compactMoneyLine('Transferencia:', formatMoney(transferMxn)));
+      if (transferMxn > 0) lines.push(...transferTicketLines(collection, transferMxn));
       const cardPayments = cardPaymentsForResponse(
         collection.card_payments,
         cardMxn,
@@ -985,6 +986,21 @@ export class SalesOrderPosReceiptService {
       .replace(/[^\x20-\x7E\n\r]/g, '')
       .trim();
   }
+}
+
+function transferTicketLines(collection: PosSaleCollection, transferMxn: number): string[] {
+  const payments = transferPaymentsForResponse(
+    collection.transfer_payments,
+    transferMxn,
+    collection.transfer_reference,
+  );
+  if (payments.length > 1) {
+    return payments.flatMap((payment, index) => [
+      compactMoneyLine(`Transferencia ${index + 1}:`, formatMoney(payment.amount_mxn)),
+      ...leftLabelLines(`Ref. ${index + 1}:`, payment.reference),
+    ]);
+  }
+  return [compactMoneyLine('Transferencia:', formatMoney(transferMxn))];
 }
 
 function payerTicketLines(collection: PosSaleCollection): string[] {

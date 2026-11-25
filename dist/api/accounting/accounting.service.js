@@ -2124,6 +2124,7 @@ let AccountingService = class AccountingService {
                 amount_cash_mxn: collection.amount_cash_mxn,
                 amount_cash_usd: collection.amount_cash_usd,
                 amount_transfer_mxn: collection.amount_transfer_mxn,
+                transfer_payments: collection.transfer_payments,
                 amount_card_mxn: collection.amount_card_mxn,
                 amount_check_mxn: collection.amount_check_mxn,
                 amount_check_usd: collection.amount_check_usd,

@@ -61,6 +61,12 @@ function fromLines(method, lines) {
 }
 function fromCollection(collection) {
     const method = asMethod(String(collection.payment_method));
+    const splitTransfers = (collection.transfer_payments ?? [])
+        .map((item) => line(pos_sale_payment_method_enum_1.PosSalePaymentMethod.TRANSFER, toNumber(item?.amount_mxn)))
+        .filter((item) => item != null);
+    const transferLines = splitTransfers.length > 1
+        ? splitTransfers
+        : [line(pos_sale_payment_method_enum_1.PosSalePaymentMethod.TRANSFER, toNumber(collection.amount_transfer_mxn))].filter((item) => item != null);
     const splitCards = (collection.card_payments ?? [])
         .map((item) => line(pos_sale_payment_method_enum_1.PosSalePaymentMethod.CARD, toNumber(item?.amount_mxn)))
         .filter((item) => item != null);
@@ -69,7 +75,7 @@ function fromCollection(collection) {
         : [line(pos_sale_payment_method_enum_1.PosSalePaymentMethod.CARD, toNumber(collection.amount_card_mxn))].filter((item) => item != null);
     const lines = [
         line(pos_sale_payment_method_enum_1.PosSalePaymentMethod.CASH, toNumber(collection.amount_cash_mxn), toNumber(collection.amount_cash_usd)),
-        line(pos_sale_payment_method_enum_1.PosSalePaymentMethod.TRANSFER, toNumber(collection.amount_transfer_mxn)),
+        ...transferLines,
         ...cardLines,
         line(pos_sale_payment_method_enum_1.PosSalePaymentMethod.CHECK, toNumber(collection.amount_check_mxn), toNumber(collection.amount_check_usd)),
         line(pos_sale_payment_method_enum_1.PosSalePaymentMethod.CREDIT, toNumber(collection.amount_credit_mxn)),

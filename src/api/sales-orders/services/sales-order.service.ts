@@ -755,7 +755,22 @@ export class SalesOrderService {
         this.logger.error('[PDF] Error in async PDF generation:', err);
       });
 
-      return this.findOne(savedSO.id, tenantId);
+      const created = await this.findOne(savedSO.id, tenantId);
+      if (
+        created.sales_order_type === 'POS' &&
+        created.pos_stage === SalesOrderPosStage.Caja &&
+        created.general_status === 'Surtida' &&
+        created.payment_status === 'Pendiente'
+      ) {
+        this.posShiftsService.notifyCajaArrived({
+          tenantId,
+          branchId: created.billing_branch_id,
+          id: created.id,
+          kind: 'sale',
+          folio: created.folio,
+        });
+      }
+      return created;
     } catch (err) {
       await qr.rollbackTransaction();
       throw err;
@@ -1321,6 +1336,16 @@ export class SalesOrderService {
         updated_by: userId,
       },
     );
+    const order = await this.soRepo.findOne({ where: { id, tenant_id: tenantId } });
+    if (order) {
+      this.posShiftsService.notifyCajaArrived({
+        tenantId,
+        branchId: order.billing_branch_id,
+        id: order.id,
+        kind: 'sale',
+        folio: order.folio,
+      });
+    }
   }
 
   async linkConvertedFromQuotation(
@@ -3481,7 +3506,15 @@ export class SalesOrderService {
         updated_by: userId,
       });
       await qr.commitTransaction();
-      return this.findOne(id, tenantId);
+      const sent = await this.findOne(id, tenantId);
+      this.posShiftsService.notifyCajaArrived({
+        tenantId,
+        branchId: sent.billing_branch_id,
+        id: sent.id,
+        kind: 'sale',
+        folio: sent.folio,
+      });
+      return sent;
     } catch (error) {
       await qr.rollbackTransaction();
       throw error;

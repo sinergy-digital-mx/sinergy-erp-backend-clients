@@ -1,5 +1,11 @@
 # Flujo POS — Guía para UI
 
+**2026-11-25 — Folios es el anticipo.** En POS Ventas ya no hay botón de Tickets. Folios abre en Anticipos: cotizaciones con anticipo. Al continuar se elige C1, C2 o C3 y arriba del carrito queda el folio, el anticipo cobrado y lo que caja cobra o lo que sobra. Copiar orden es aparte: busca un folio o un cliente y copia la venta. En caja, Información abre la orden a todo lo ancho, con la lista de productos scrolleable.
+
+**2026-11-25 — Caja en vivo.** POS Caja recibe por el canal `GET /pos/caja-recalls` un `arrived` cuando Ventas manda un folio y un `recalled` cuando lo regresa. La lista se actualiza sola, avisa con «Llegó» y pone lo más reciente arriba. Sin una orden elegida no hay panel de cobro: la cuadrícula usa toda la pantalla.
+
+**2026-11-25 — Varias transferencias en pago mixto.** En mixto se pueden capturar dos o más transferencias. Cada una pide monto y referencia. La referencia no se repite en la venta ni en cobros anteriores. Nombre y razón social del ordenante se piden una vez. La venta cierra cuando la suma cubre el total. `transfer_payments` guarda el desglose; `amount_transfer_mxn` sigue siendo la suma.
+
 **2026-11-25 — Folios, búsqueda y pagadas.** En Folios la búsqueda cubre folio, cliente, empresa, RFC, razón social y teléfono. Ventas y Cotizaciones, Con anticipo, y Pagadas (Ocultar o Mostrar) son controles aparte. Las ventas pagadas no salen hasta elegir Mostrar.
 
 **2026-11-25 — Cotizar más compacto.** El diálogo de Cotizar es más ancho. La cabecera queda a la mitad. Cliente y Público en General van en una línea, y los productos en otra. El monto del anticipo es un solo campo.
@@ -544,6 +550,22 @@ Enviar `amount_cash_usd` = dólares aplicados (`64.26`) y `received_cash_usd` = 
 
 `amount_card_mxn` es la **suma**. Cada plástico va en `card_payments` (2 a 8). Dos tarjetas ya son mixto; no hace falta efectivo ni transferencia.
 
+#### Ejemplo — mixto (dos transferencias)
+```json
+{
+  "payment_method": "mixed",
+  "amount_transfer_mxn": 830.50,
+  "transfer_reference": "SPEI-100",
+  "transfer_payments": [
+    { "amount_mxn": 400, "reference": "SPEI-100" },
+    { "amount_mxn": 430.50, "reference": "SPEI-200" }
+  ],
+  "transfer_payer_name": "Ana López"
+}
+```
+
+`amount_transfer_mxn` es la **suma**. Cada partida va en `transfer_payments` (hasta 8), con monto y referencia propios. `transfer_reference` queda la de la primera. Dos transferencias ya son mixto. Nombre o razón social se envían una vez, no por partida. Una referencia ya usada en otra venta, abono o anticipo responde 400.
+
 | Campo | Regla |
 |-------|--------|
 | `payment_method` | `cash` \| `card` \| `transfer` \| `check` \| `mixed` \| `credit` |
@@ -554,7 +576,8 @@ Enviar `amount_cash_usd` = dólares aplicados (`64.26`) y `received_cash_usd` = 
 | `order_currency` | Opcional. `MXN` (default) o `USD`. **2026-10-14.** USD solo si el pago aplicado en dólares (convertido a pesos) es mayor que el pago en pesos. Si no, 400. La factura del cobro sale en esa moneda. |
 | Montos (`amount_*`) | La suma en MXN debe igualar el `total` de la orden |
 | `usd_exchange_rate` | Obligatorio si `amount_cash_usd` > 0 o `amount_check_usd` > 0 |
-| `transfer_reference` | Obligatorio si `amount_transfer_mxn` > 0 |
+| `transfer_reference` | Obligatorio si `amount_transfer_mxn` > 0 y no se envía `transfer_payments`. Con varias, es la referencia de la primera |
+| `transfer_payments` | **2026-11-25.** Partidas de transferencia (`amount_mxn`, `reference`). Hasta 8. La suma debe coincidir con `amount_transfer_mxn` si ambos se envían. Referencia única en la venta y en el historial |
 | `transfer_payer_name` / `transfer_payer_business_name` | **2026-11-01.** Si hay transferencia, al menos uno. Máx. 120 y 180. |
 | `card_payer_name` / `card_payer_phone` | **2026-11-01.** Obligatorios si `amount_card_mxn` > 0. Teléfono: mínimo 10 dígitos. |
 | `amount_check_usd` | **2026-11-02.** Cheque en dólares. Se convierte con `usd_exchange_rate`. |
@@ -1276,7 +1299,7 @@ sequenceDiagram
 | `payment_method` | `cash` \| `card` \| `transfer` \| `check` \| `mixed` \| `credit` |
 | `amount_cash_mxn` / `amount_cash_usd` | Monto aplicado en efectivo |
 | `usd_exchange_rate` | TC si hay USD |
-| `amount_transfer_mxn` + `transfer_reference` | Transferencia. También `transfer_payer_name` y/o `transfer_payer_business_name` |
+| `amount_transfer_mxn` + `transfer_reference` | Transferencia. `transfer_payments` guarda cada partida. También `transfer_payer_name` y/o `transfer_payer_business_name`, una sola vez |
 | `amount_card_mxn` + `card_reference` | Tarjeta. También `card_payer_name` y `card_payer_phone` |
 | `amount_check_mxn` / `amount_check_usd` + `check_reference` | Cheque en pesos o dólares. También `check_payer_name` y `check_payer_phone` |
 | `amount_credit_mxn` | Monto a crédito (si `payment_method = credit`) |
@@ -1446,6 +1469,8 @@ El cajero **elige** qué tipos usar con botones grandes (no checks sueltos). Mí
 
 **2026-11-02.** El efectivo del mixto acepta pesos y dólares a la vez: `amount_cash_mxn`, `received_cash_mxn`, `amount_cash_usd`, `received_cash_usd` y `usd_exchange_rate`. Los dólares se convierten con ese tipo de cambio y entran al total. En efectivo solo, la caja elige Pesos, Dólares o Ambas.
 
+**Varias transferencias:** si solo marca Transferencia, se abren **Transferencia 1** y **Transferencia 2**. Puede agregar más (hasta 8) con **Agregar otra transferencia**. Cada partida tiene monto y referencia SPEI. La referencia no se repite en la venta ni contra cobros ya guardados. Nombre y razón social van solo en la primera. Dos transferencias cubren el mixto sin otra forma.
+
 **Varias tarjetas:** si solo marca Tarjeta, se abren **Tarjeta 1** y **Tarjeta 2**. Puede agregar más (hasta 8) con **Agregar otra tarjeta**. Cada cargo tiene monto y referencia. Dos plásticos cubren el mixto sin otra forma.
 
 ```
@@ -1469,7 +1494,7 @@ Total $830.50   Aplicado $830.50   Estado Listo
 
 **Resto automático:** al escribir un monto, el **último** pago (incluida la última tarjeta) recibe la diferencia (`total − suma de los demás`). Si falta saldo, esa tarjeta muestra **Completar resto**. Si el cajero edita el último pago, ese valor se respeta.
 
-Mínimo **dos** pagos con monto > 0: efectivo / transferencia / cheque y/o **cada cargo de tarjeta**. Crédito **no** va en mixto.
+Mínimo **dos** pagos con monto > 0: efectivo / cheque, **cada transferencia** y/o **cada cargo de tarjeta**. Crédito **no** va en mixto.
 
 **Tab Crédito** → `payment_method: "credit"` (solo si la OV tiene crédito en **su** razón social: `pending.customer.credit_enabled` o `GET /customers/:id?fiscal_configuration_id={order.fiscal_configuration_id}` → `credit_enabled`)
 
@@ -1499,6 +1524,9 @@ Toggle **Generar factura** (switch largo y fino) en la card del cliente: `genera
 |-----|-----|
 | suma ≠ total | “Los montos deben cubrir exactamente $830.50” |
 | falta `transfer_reference` | “Ingresa referencia de transferencia” |
+| varias transferencias sin referencia | “Ingresa la referencia de cada transferencia” |
+| referencia repetida en la venta | “La referencia … está repetida en esta venta” |
+| referencia ya usada | “La referencia … ya está registrada” |
 | transferencia sin nombre ni razón social | “Ingresa el nombre o la razón social de la transferencia” |
 | tarjeta o cheque sin nombre o teléfono | “Ingresa el nombre…” / “Ingresa el teléfono… (10 dígitos)” |
 | falta TC con USD | “No hay tipo de cambio. Captúralo en Tipo de Cambio…” — el TC del módulo se aplica solo; caja no lo escribe |

@@ -25,6 +25,7 @@ export declare function mixedPaymentPartCount(input: {
     amountCheckMxn: number;
     amountCheckUsd?: number;
     cardPayments: PosCardPayment[];
+    transferPaymentCount?: number;
 }): number;
 export declare function cardPaymentsMatchDeclaredTotal(payments: PosCardPayment[], declaredAmount: number | undefined): boolean;
 export declare function parseStoredCardPayments(value: unknown): PosCardPayment[];

@@ -75,12 +75,16 @@ function firstCardReference(payments) {
     return payments.find((item) => item.reference)?.reference ?? null;
 }
 function mixedPaymentPartCount(input) {
+    const transferParts = (input.transferPaymentCount ?? 0) > 0
+        ? input.transferPaymentCount ?? 0
+        : input.amountTransferMxn > 0
+            ? 1
+            : 0;
     const types = [
         input.cashTotal > 0,
-        input.amountTransferMxn > 0,
         input.amountCheckMxn > 0 || (input.amountCheckUsd ?? 0) > 0,
     ].filter(Boolean).length;
-    return types + input.cardPayments.filter((item) => item.amount_mxn > 0).length;
+    return types + transferParts + input.cardPayments.filter((item) => item.amount_mxn > 0).length;
 }
 function cardPaymentsMatchDeclaredTotal(payments, declaredAmount) {
     if (declaredAmount == null || !Number.isFinite(declaredAmount) || payments.length === 0) {

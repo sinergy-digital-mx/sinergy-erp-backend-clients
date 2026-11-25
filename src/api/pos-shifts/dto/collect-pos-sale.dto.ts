@@ -19,6 +19,19 @@ import {
 } from 'class-validator';
 import { PosSalePaymentMethod } from '../../../entities/pos/pos-sale-payment-method.enum';
 
+export class CollectTransferPaymentDto {
+  @ApiProperty({ description: 'Monto de esta transferencia (MXN)' })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0.01)
+  amount_mxn: number;
+
+  @ApiProperty({ description: 'Referencia o folio de rastreo de esta transferencia' })
+  @IsString()
+  @MaxLength(120)
+  reference: string;
+}
+
 export class CollectCardPaymentDto {
   @ApiProperty({ description: 'Monto de este cargo de tarjeta (MXN)' })
   @Type(() => Number)
@@ -103,11 +116,27 @@ export class CollectPosSaleDto {
   @Min(0)
   amount_transfer_mxn?: number;
 
-  @ApiProperty({ required: false, description: 'Referencia de transferencia' })
-  @ValidateIf((dto: CollectPosSaleDto) => (dto.amount_transfer_mxn ?? 0) > 0)
+  @ApiProperty({ required: false, description: 'Referencia de la primera transferencia' })
+  @ValidateIf(
+    (dto: CollectPosSaleDto) =>
+      (dto.amount_transfer_mxn ?? 0) > 0 && !(dto.transfer_payments?.length),
+  )
   @IsString()
   @MaxLength(120)
   transfer_reference?: string;
+
+  @ApiProperty({
+    required: false,
+    type: [CollectTransferPaymentDto],
+    description:
+      'Transferencias del cobro (2 o más en mixto). Cada una lleva monto y referencia. La suma debe coincidir con amount_transfer_mxn si se envía.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(8)
+  @ValidateNested({ each: true })
+  @Type(() => CollectTransferPaymentDto)
+  transfer_payments?: CollectTransferPaymentDto[];
 
   @ApiProperty({
     required: false,

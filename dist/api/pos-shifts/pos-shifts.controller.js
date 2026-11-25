@@ -127,7 +127,7 @@ let PosShiftsController = class PosShiftsController {
         const branchId = query.billing_branch_id ?? null;
         return (0, rxjs_1.merge)((0, rxjs_1.interval)(15000).pipe((0, operators_1.map)(() => ({ data: { type: 'ping' } }))), this.cajaRecallHub.stream(tenantId, branchId).pipe((0, operators_1.map)((event) => ({
             data: {
-                type: 'recalled',
+                type: event.type,
                 id: event.id,
                 kind: event.kind,
                 folio: event.folio,
@@ -421,8 +421,8 @@ __decorate([
     (0, common_1.Sse)('caja-recalls'),
     (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Update' }, { entityType: 'pos', action: 'Update' }, { entityType: 'pos', action: 'Read' }),
     (0, swagger_1.ApiOperation)({
-        summary: 'Aviso en vivo cuando Ventas regresa un folio',
-        description: 'Canal de texto que caja mantiene abierto. Al regresar un folio, llega el vendedor y el folio para sacar la venta si la tenían abierta.',
+        summary: 'Aviso en vivo de la cola de caja',
+        description: 'Canal de texto que caja mantiene abierto. Llega arrived cuando Ventas manda un folio, y recalled cuando lo regresa.',
     }),
     __param(0, (0, common_1.Query)()),
     __param(1, (0, common_1.Req)()),

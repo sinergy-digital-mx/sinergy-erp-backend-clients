@@ -34,6 +34,7 @@ let PosSaleCollection = class PosSaleCollection {
     usd_exchange_rate;
     amount_transfer_mxn;
     transfer_reference;
+    transfer_payments;
     transfer_payer_name;
     transfer_payer_business_name;
     amount_card_mxn;
@@ -129,6 +130,10 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 120, nullable: true }),
     __metadata("design:type", Object)
 ], PosSaleCollection.prototype, "transfer_reference", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'json', nullable: true }),
+    __metadata("design:type", Object)
+], PosSaleCollection.prototype, "transfer_payments", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 120, nullable: true }),
     __metadata("design:type", Object)

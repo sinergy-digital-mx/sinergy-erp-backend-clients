@@ -12,6 +12,12 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.191 · 25 nov
+
+- POS Ventas · En POS Caja lo que llega o se regresa de Ventas aparece solo, lo nuevo queda arriba y el panel de cobro solo sale al elegir una orden.
+- POS Ventas · En pago mixto se pueden registrar varias transferencias, cada una con monto y referencia propia, y los datos del ordenante se capturan una sola vez.
+- POS Ventas · En Folios se abren primero las cotizaciones con anticipo y el detalle queda arriba del carrito. En caja, la orden abierta usa todo el ancho.
+
 #### Versión 0.0.188 · 25 nov
 
 - POS Ventas · En POS Ventas Tickets ya no se abre solo. La hora de En caja usa el reloj de Tijuana.

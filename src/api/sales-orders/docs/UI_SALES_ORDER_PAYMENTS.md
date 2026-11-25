@@ -4,6 +4,7 @@ Registro de pagos (parciales o totales) desde el **detalle de la orden** o desde
 
 ## Historial
 
+- **2026-11-25** — Un cobro mixto puede traer varias transferencias. Cada una es un pago de la orden, con su referencia. El nombre o la razón social del ordenante se guarda una vez.
 - **2026-11-23** — En el detalle de la orden, **COBRO POS** agrupa cada medio (monto, voucher o referencia, quién pagó). La fecha de `collected_at` se lee corta y sin hora: `ago 3 26`.
 - **2026-11-23** — Un cobro mixto de POS ya no se guarda como un solo pago Mixto. Cada tarjeta, efectivo, transferencia o cheque es un pago de la orden, con su referencia. Los cobros mixtos que ya estaban totalizados se separan; la suma no cambia.
 
@@ -254,7 +255,7 @@ Sin cambios de contrato mayores:
 - Cobrar: `POST /api/tenant/pos/sales/:salesOrderId/collect`  
   Debe cubrir **exactamente** `amount_pending` (no necesariamente el total original).  
   Internamente crea el registro de cobranza y los pagos con `source = pos_cobranza`.
-  Si el método es `mixed`, hay **un pago por medio**: cada tarjeta con su `reference`, el efectivo, la transferencia y el cheque. No queda un pago `mixed` con el total. La suma de esos pagos es `amount_pending`.
+  Si el método es `mixed`, hay **un pago por medio**: cada tarjeta con su `reference`, cada transferencia con su referencia, el efectivo y el cheque. No queda un pago `mixed` con el total. La suma de esos pagos es `amount_pending`. `transfer_payments` trae el desglose; `amount_transfer_mxn` es la suma.
 
 En la pestaña **Pagos** del detalle se listan esos pagos. La referencia de cada tarjeta es su voucher. Débito o crédito, y el dólar convertido, van en la nota del pago.
 
@@ -286,6 +287,7 @@ Por cobrar:      $1,000.00   ← amount_pending
 |------|--------|------------|
 | 400 | Monto > pendiente | "El monto excede el saldo pendiente" |
 | 400 | Transferencia sin referencia | "Indica la referencia de transferencia" |
+| 400 | Referencia de transferencia repetida | "La referencia … está repetida en esta venta" o "La referencia … ya está registrada" |
 | 400 | Orden cancelada / ya pagada | Toast con mensaje del backend |
 | 400 | Borrar pago de cobranza | "No se puede eliminar un pago de cobranza POS" |
 | 404 | ID inválido | "Orden o pago no encontrado" |

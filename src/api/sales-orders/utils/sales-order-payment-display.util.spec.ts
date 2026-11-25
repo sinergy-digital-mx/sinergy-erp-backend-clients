@@ -78,6 +78,23 @@ describe('buildSalesOrderPaymentDisplay', () => {
     ]);
   });
 
+  it('breaks down mixed two transfers', () => {
+    const display = buildSalesOrderPaymentDisplay({
+      collection: {
+        payment_method: PosSalePaymentMethod.MIXED,
+        amount_transfer_mxn: 800,
+        transfer_payments: [{ amount_mxn: 300 }, { amount_mxn: 500 }],
+      },
+    });
+
+    expect(display.payment_method).toBe('mixed');
+    expect(display.payment_breakdown_label).toBe('Transferencia + Transferencia');
+    expect(display.lines).toEqual([
+      { method: 'transfer', label: 'Transferencia', amount_mxn: 300, amount_usd: 0 },
+      { method: 'transfer', label: 'Transferencia', amount_mxn: 500, amount_usd: 0 },
+    ]);
+  });
+
   it('falls back to order payments when there is no POS collection', () => {
     const display = buildSalesOrderPaymentDisplay({
       payments: [

@@ -42,6 +42,7 @@ const sales_order_service_1 = require("../sales-orders/services/sales-order.serv
 const pos_sale_collection_mapper_1 = require("./mappers/pos-sale-collection.mapper");
 const cash_drawer_1 = require("./utils/cash-drawer");
 const pos_card_payments_util_1 = require("./utils/pos-card-payments.util");
+const pos_transfer_payments_util_1 = require("./utils/pos-transfer-payments.util");
 const pos_collection_payment_lines_util_1 = require("./utils/pos-collection-payment-lines.util");
 const pos_cash_payment_util_1 = require("./utils/pos-cash-payment.util");
 const pos_payer_contact_util_1 = require("./utils/pos-payer-contact.util");
@@ -96,6 +97,20 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         this.advanceShiftPayments = advanceShiftPayments;
         this.exchangeRateService = exchangeRateService;
         this.cajaRecallHub = cajaRecallHub;
+    }
+    notifyCajaArrived(notice) {
+        try {
+            this.cajaRecallHub.publishArrived({
+                tenantId: notice.tenantId,
+                branchId: notice.branchId ?? null,
+                id: notice.id,
+                kind: notice.kind,
+                folio: notice.folio || notice.id,
+            });
+        }
+        catch (error) {
+            this.logger.warn(`No se avisó a caja del folio ${notice.folio || notice.id}`, error instanceof Error ? error.message : error);
+        }
     }
     async validateSellerCode(tenantId, terminalUserId, code, billingBranchId) {
         const terminalUser = await this.requirePosTerminal(tenantId, terminalUserId);
@@ -461,7 +476,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         else {
             this.applySalesOrderBranchScope(qb, branchId);
         }
-        const orders = await qb.orderBy('so.created_at', 'ASC').addOrderBy('so_line.created_at', 'ASC').getMany();
+        const orders = await qb.orderBy('so.updated_at', 'DESC').addOrderBy('so_line.created_at', 'ASC').getMany();
         const quotationIds = [
             ...new Set(orders
                 .map((order) => order.converted_from_quotation_id)
@@ -506,6 +521,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             exchange_rate: exchangeRateByOrder.get(order.id) ?? null,
             amount_pending: pendingByOrder.get(order.id) ?? Number(order.total),
             created_at: order.created_at,
+            updated_at: order.updated_at,
             notes: order.notes,
             walk_in_name: order.walk_in_name,
             walk_in_rfc: order.walk_in_rfc,
@@ -543,7 +559,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 : null,
         }));
         const advances = await this.listPendingAdvanceQuotations(tenantId, branchId);
-        return [...sales, ...advances].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        return [...sales, ...advances].sort((a, b) => new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime());
     }
     async listPendingAdvanceQuotations(tenantId, billingBranchId) {
         let rows = [];
@@ -575,7 +591,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
               OR inv.stamp_status IN ('stamped', 'cancel_pending', 'cancel_error')
             )
         )`)
-                .orderBy('q.created_at', 'ASC')
+                .orderBy('q.updated_at', 'DESC')
                 .getMany();
         }
         catch (error) {
@@ -597,6 +613,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             advance_uso_cfdi: quotation.advance_uso_cfdi ?? 'G03',
             advance_metodo_pago: quotation.advance_metodo_pago ?? 'PUE',
             created_at: quotation.created_at,
+            updated_at: quotation.updated_at,
             notes: quotation.notes,
             walk_in_name: null,
             walk_in_rfc: null,
@@ -737,7 +754,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 throw new common_1.BadRequestException(`No se puede generar factura: faltan ${fiscal.fiscal_missing_fields.join(', ') || 'datos fiscales'}`);
             }
         }
-        const payment = await this.validateAndNormalizePayment(tenantId, dto, amountPending);
+        const payment = await this.validateAndNormalizePayment(tenantId, dto, amountPending, order.id);
         const tenderLines = isCredit
             ? null
             : (0, pos_collection_payment_lines_util_1.buildPosTenderPaymentLines)({
@@ -746,6 +763,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 usdExchangeRate: payment.usdExchangeRate,
                 amountTransferMxn: payment.amountTransferMxn,
                 transferReference: payment.transferReference,
+                transferPayments: payment.transferPayments,
                 amountCardMxn: payment.amountCardMxn,
                 cardReference: payment.cardReference,
                 cardPayments: payment.cardPayments,
@@ -789,6 +807,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             usd_exchange_rate: payment.usdExchangeRate,
             amount_transfer_mxn: payment.amountTransferMxn,
             transfer_reference: payment.transferReference,
+            transfer_payments: payment.transferPayments.length > 0 ? payment.transferPayments : null,
             amount_card_mxn: payment.amountCardMxn,
             card_kind: (0, pos_card_payments_util_1.sharedCardKind)(payment.cardPayments),
             amount_check_mxn: payment.amountCheckMxn,
@@ -1022,10 +1041,30 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
     normalizeCollectPayment(tenantId, dto, orderTotal) {
         return this.validateAndNormalizePayment(tenantId, dto, orderTotal);
     }
-    async validateAndNormalizePayment(tenantId, dto, orderTotal) {
+    async validateAndNormalizePayment(tenantId, dto, orderTotal, salesOrderId) {
         const amountCashMxn = Number(dto.amount_cash_mxn ?? 0);
         const amountCashUsd = Number(dto.amount_cash_usd ?? 0);
-        const amountTransferMxn = Number(dto.amount_transfer_mxn ?? 0);
+        const transferPayments = (0, pos_transfer_payments_util_1.normalizeTransferPayments)({
+            transfer_payments: dto.transfer_payments,
+            amount_transfer_mxn: dto.amount_transfer_mxn,
+            transfer_reference: dto.transfer_reference,
+        });
+        const amountTransferMxn = (0, pos_transfer_payments_util_1.sumTransferPayments)(transferPayments);
+        if (transferPayments.some((item) => !item.reference)) {
+            throw new common_1.BadRequestException(transferPayments.length > 1
+                ? 'Cada transferencia necesita su referencia'
+                : 'transfer_reference es obligatorio para pagos por transferencia');
+        }
+        const repeatedTransferReference = (0, pos_transfer_payments_util_1.duplicateTransferReference)(transferPayments);
+        if (repeatedTransferReference) {
+            throw new common_1.BadRequestException(`La referencia ${repeatedTransferReference} está repetida en esta venta`);
+        }
+        if (dto.amount_transfer_mxn != null &&
+            transferPayments.length > 0 &&
+            Math.abs(amountTransferMxn - Number(dto.amount_transfer_mxn)) > 0.01) {
+            throw new common_1.BadRequestException('amount_transfer_mxn debe coincidir con la suma de transfer_payments');
+        }
+        await this.assertTransferReferencesAreNew(tenantId, transferPayments, salesOrderId);
         const cardPayments = (0, pos_card_payments_util_1.normalizeCardPayments)({
             card_payments: dto.card_payments,
             amount_card_mxn: dto.amount_card_mxn,
@@ -1055,9 +1094,6 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         }
         if (needsUsdRate && (!usdExchangeRate || usdExchangeRate <= 0)) {
             throw new common_1.BadRequestException('No hay tipo de cambio. Captúralo en Tipo de Cambio o indícalo al cobrar en USD');
-        }
-        if (amountTransferMxn > 0 && !dto.transfer_reference?.trim()) {
-            throw new common_1.BadRequestException('transfer_reference es obligatorio para pagos por transferencia');
         }
         if ((amountCheckMxn > 0 || amountCheckUsd > 0) && !dto.check_reference?.trim()) {
             throw new common_1.BadRequestException('check_reference es obligatorio para pagos con cheque');
@@ -1109,6 +1145,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             amountCheckUsd,
             amountCreditMxn,
             cardPaymentCount: cardPayments.length,
+            transferPaymentCount: transferPayments.length,
         });
         if (receivedCashMxn + 0.0001 < appliedCashMxn) {
             throw new common_1.BadRequestException('received_cash_mxn es menor al monto en efectivo MXN');
@@ -1121,7 +1158,8 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             amountCashUsd: appliedCashUsd,
             usdExchangeRate,
             amountTransferMxn,
-            transferReference: dto.transfer_reference?.trim() ?? null,
+            transferReference: (0, pos_transfer_payments_util_1.firstTransferReference)(transferPayments),
+            transferPayments,
             amountCardMxn,
             amountCheckMxn,
             amountCheckUsd,
@@ -1136,13 +1174,82 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             payer: payer.contact,
         };
     }
+    async assertTransferReferencesAreNew(tenantId, payments, salesOrderId) {
+        const keys = [...new Set(payments.map((item) => (0, pos_transfer_payments_util_1.transferReferenceKey)(item.reference)).filter(Boolean))];
+        if (keys.length === 0)
+            return;
+        const placeholders = keys.map(() => '?').join(', ');
+        const params = [tenantId, ...keys];
+        const collectionScope = salesOrderId ? 'AND sales_order_id <> ?' : '';
+        const collectionParams = salesOrderId ? [...params, salesOrderId] : params;
+        const [salePayments, collections, collectionLines, abonos, advances] = await Promise.all([
+            this.collectionRepo.query(`SELECT UPPER(TRIM(reference_number)) AS ref
+         FROM inv_s_sales_order_payments
+         WHERE tenant_id = ?
+           AND payment_method = 'transfer'
+           AND reference_number IS NOT NULL
+           AND TRIM(reference_number) <> ''
+           AND UPPER(TRIM(reference_number)) IN (${placeholders})`, params),
+            this.collectionRepo.query(`SELECT UPPER(TRIM(transfer_reference)) AS ref
+         FROM pos_sale_collections
+         WHERE tenant_id = ?
+           AND transfer_reference IS NOT NULL
+           AND TRIM(transfer_reference) <> ''
+           AND UPPER(TRIM(transfer_reference)) IN (${placeholders})
+           ${collectionScope}`, collectionParams),
+            this.collectionRepo.query(`SELECT UPPER(TRIM(jt.spei_reference)) AS ref
+         FROM pos_sale_collections collection
+         JOIN JSON_TABLE(
+           collection.transfer_payments,
+           '$[*]' COLUMNS (spei_reference VARCHAR(120) PATH '$.reference')
+         ) jt
+         WHERE collection.tenant_id = ?
+           AND collection.transfer_payments IS NOT NULL
+           AND jt.spei_reference IS NOT NULL
+           AND TRIM(jt.spei_reference) <> ''
+           AND UPPER(TRIM(jt.spei_reference)) IN (${placeholders})
+           ${salesOrderId ? 'AND collection.sales_order_id <> ?' : ''}`, collectionParams),
+            this.collectionRepo.query(`SELECT UPPER(TRIM(reference_number)) AS ref
+         FROM pos_shift_abonos
+         WHERE tenant_id = ?
+           AND payment_method = 'transfer'
+           AND reference_number IS NOT NULL
+           AND TRIM(reference_number) <> ''
+           AND UPPER(TRIM(reference_number)) IN (${placeholders})`, params),
+            this.collectionRepo.query(`SELECT UPPER(TRIM(jt.spei_reference)) AS ref
+         FROM advance_shift_payments payment
+         JOIN JSON_TABLE(
+           payment.transfer_payments,
+           '$[*]' COLUMNS (spei_reference VARCHAR(120) PATH '$.reference')
+         ) jt
+         WHERE payment.tenant_id = ?
+           AND payment.voided_at IS NULL
+           AND payment.transfer_payments IS NOT NULL
+           AND jt.spei_reference IS NOT NULL
+           AND TRIM(jt.spei_reference) <> ''
+           AND UPPER(TRIM(jt.spei_reference)) IN (${placeholders})`, params),
+        ]);
+        const used = new Set();
+        for (const row of [...salePayments, ...collections, ...collectionLines, ...abonos, ...advances]) {
+            const raw = row?.ref ?? row?.REF;
+            const ref = (0, pos_transfer_payments_util_1.transferReferenceKey)(String(raw ?? ''));
+            if (ref)
+                used.add(ref);
+        }
+        const hit = payments.find((item) => used.has((0, pos_transfer_payments_util_1.transferReferenceKey)(item.reference)));
+        if (hit) {
+            throw new common_1.BadRequestException(`La referencia ${hit.reference} ya está registrada`);
+        }
+    }
     assertPaymentMethodShape(method, amounts) {
-        const { amountCashMxn, amountCashUsd, amountTransferMxn, amountCardMxn, amountCheckMxn, amountCheckUsd, amountCreditMxn, cardPaymentCount, } = amounts;
+        const { amountCashMxn, amountCashUsd, amountTransferMxn, amountCardMxn, amountCheckMxn, amountCheckUsd, amountCreditMxn, cardPaymentCount, transferPaymentCount, } = amounts;
         const cashTotal = amountCashMxn + amountCashUsd;
         const checkTotal = amountCheckMxn + amountCheckUsd;
         const cardParts = cardPaymentCount > 0 ? cardPaymentCount : amountCardMxn > 0 ? 1 : 0;
-        const mixedParts = [cashTotal > 0, amountTransferMxn > 0, checkTotal > 0].filter(Boolean).length +
-            cardParts;
+        const transferParts = transferPaymentCount > 0 ? transferPaymentCount : amountTransferMxn > 0 ? 1 : 0;
+        const mixedParts = [cashTotal > 0, checkTotal > 0].filter(Boolean).length +
+            cardParts +
+            transferParts;
         switch (method) {
             case pos_sale_payment_method_enum_1.PosSalePaymentMethod.CASH:
                 if (cashTotal <= 0 ||
@@ -1154,6 +1261,9 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 }
                 break;
             case pos_sale_payment_method_enum_1.PosSalePaymentMethod.TRANSFER:
+                if (transferParts > 1) {
+                    throw new common_1.BadRequestException('Varias transferencias se cobran en mixto. Envía payment_method mixed con transfer_payments');
+                }
                 if (amountTransferMxn <= 0 ||
                     cashTotal > 0 ||
                     amountCardMxn > 0 ||
@@ -1185,7 +1295,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 break;
             case pos_sale_payment_method_enum_1.PosSalePaymentMethod.MIXED:
                 if (mixedParts < 2 || amountCreditMxn > 0) {
-                    throw new common_1.BadRequestException('payment_method mixed requiere al menos dos formas de pago (efectivo, transferencia, cheque o dos o más tarjetas)');
+                    throw new common_1.BadRequestException('payment_method mixed requiere al menos dos formas de pago (efectivo, transferencia, cheque, dos o más tarjetas o dos o más transferencias)');
                 }
                 break;
             case pos_sale_payment_method_enum_1.PosSalePaymentMethod.CREDIT:
@@ -1411,6 +1521,14 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         order.pos_stage = sales_order_pos_stage_enum_1.SalesOrderPosStage.Ventas;
         order.updated_by = terminalUserId;
         await this.salesOrderRepo.save(order);
+        this.cajaRecallHub.publish({
+            tenantId,
+            branchId: order.billing_branch_id || order.warehouse?.billing_branch_id || cajaUser.billing_branch_id || null,
+            id: order.id,
+            kind: 'sale',
+            folio: order.folio || order.id,
+            recalledByName: this.personName(cajaUser) || 'Caja',
+        });
         return {
             message: 'El ticket se regresó a ventas',
             sales_order: this.mapPosTicketSummary(order),
@@ -1439,6 +1557,14 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         quotation.pos_stage = sales_order_pos_stage_enum_1.SalesOrderPosStage.Ventas;
         quotation.updated_by = terminalUserId;
         await this.quotationRepo.save(quotation);
+        this.cajaRecallHub.publish({
+            tenantId,
+            branchId: quotation.billing_branch_id || quotation.warehouse?.billing_branch_id || cajaUser.billing_branch_id || null,
+            id: quotation.id,
+            kind: 'advance',
+            folio: quotation.folio || quotation.id,
+            recalledByName: this.personName(cajaUser) || 'Caja',
+        });
         return {
             message: 'El anticipo se regresó a ventas',
             quotation: this.mapQuotationTicketSummary(quotation),
@@ -1896,6 +2022,15 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         order.pos_daily_shift_id = queued ? null : (shift?.id ?? null);
         order.updated_by = terminalUserId;
         await this.salesOrderRepo.save(order);
+        if (!queued) {
+            this.notifyCajaArrived({
+                tenantId,
+                branchId: orderBranchId || terminalUser.billing_branch_id || null,
+                id: order.id,
+                kind: 'sale',
+                folio: order.folio,
+            });
+        }
         return {
             message: queued
                 ? 'Venta en cola hasta que caja abra el corte del día'

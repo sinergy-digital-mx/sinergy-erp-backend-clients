@@ -22,6 +22,7 @@ import {
   isPosStageInCaja,
 } from '../../../entities/sales-orders/sales-order-pos-stage.enum';
 import { PosCardPayment } from '../../pos-shifts/utils/pos-card-payments.util';
+import { PosTransferPayment } from '../../pos-shifts/utils/pos-transfer-payments.util';
 import { AdvanceShiftPaymentService } from '../../pos-shifts/services/advance-shift-payment.service';
 import {
   cardFormaPagoFromKinds,
@@ -235,6 +236,7 @@ export class QuotationAdvanceInvoiceService {
         amountCardMxn: payment.amountCardMxn,
         amountCheckMxn: checkMxn,
         cardPayments: payment.cardPayments,
+        transferPayments: payment.transferPayments,
         payer: payment.payer,
       },
     );
@@ -263,6 +265,7 @@ export class QuotationAdvanceInvoiceService {
       amountCardMxn?: number;
       amountCheckMxn?: number;
       cardPayments?: PosCardPayment[];
+      transferPayments?: PosTransferPayment[];
       payer?: PayerContact;
     },
   ) {
@@ -342,6 +345,7 @@ export class QuotationAdvanceInvoiceService {
       amountCardMxn: collected?.amountCardMxn,
       amountCheckMxn: collected?.amountCheckMxn,
       cardPayments: collected?.cardPayments,
+      transferPayments: collected?.transferPayments,
       payer: collected?.payer,
       documentFolio: quotation.folio,
       quotationId: quotation.id,

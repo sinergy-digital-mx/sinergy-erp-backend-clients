@@ -2,6 +2,7 @@ import { Customer } from '../../../entities/customers/customer.entity';
 import { PosSaleCollection } from '../../../entities/pos/pos-sale-collection.entity';
 import { User } from '../../../entities/users/user.entity';
 import { cardPaymentsForResponse } from '../utils/pos-card-payments.util';
+import { transferPaymentsForResponse } from '../utils/pos-transfer-payments.util';
 
 const WALK_IN_FISCAL_NAME = 'VENTA DE MOSTRADOR';
 const WALK_IN_DISPLAY_NAME = 'Público en General';
@@ -62,6 +63,11 @@ export function mapPosSaleCollection(collection: PosSaleCollection) {
       : null,
     amount_transfer_mxn: Number(collection.amount_transfer_mxn),
     transfer_reference: collection.transfer_reference,
+    transfer_payments: transferPaymentsForResponse(
+      collection.transfer_payments,
+      Number(collection.amount_transfer_mxn),
+      collection.transfer_reference,
+    ),
     transfer_payer_name: collection.transfer_payer_name ?? null,
     transfer_payer_business_name: collection.transfer_payer_business_name ?? null,
     amount_card_mxn: Number(collection.amount_card_mxn),

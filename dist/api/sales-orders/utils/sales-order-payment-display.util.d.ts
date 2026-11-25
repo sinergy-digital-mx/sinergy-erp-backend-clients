@@ -17,6 +17,9 @@ export type PaymentDisplayCollectionInput = {
     amount_cash_mxn?: number | string | null;
     amount_cash_usd?: number | string | null;
     amount_transfer_mxn?: number | string | null;
+    transfer_payments?: Array<{
+        amount_mxn?: number | string | null;
+    }> | null;
     amount_card_mxn?: number | string | null;
     amount_check_mxn?: number | string | null;
     amount_check_usd?: number | string | null;

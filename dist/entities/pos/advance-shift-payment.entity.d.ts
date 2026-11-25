@@ -14,6 +14,10 @@ export declare class AdvanceShiftPayment {
     amount_mxn: number;
     amount_cash_mxn: number;
     amount_transfer_mxn: number;
+    transfer_payments: Array<{
+        amount_mxn: number;
+        reference: string;
+    }> | null;
     amount_card_mxn: number;
     card_kind: 'debit' | 'credit' | null;
     card_payments: Array<{

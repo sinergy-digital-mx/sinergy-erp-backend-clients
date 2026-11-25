@@ -5,7 +5,10 @@ import { cajaRecallMessage } from './utils/pos-caja-recall.util';
 
 export type PosCajaRecallKind = 'sale' | 'advance';
 
+export type PosCajaLiveType = 'arrived' | 'recalled';
+
 export interface PosCajaRecallEvent {
+  type: PosCajaLiveType;
   tenantId: string;
   branchId: string | null;
   id: string;
@@ -22,16 +25,19 @@ export class PosCajaRecallHub {
   private readonly events$ = new Subject<PosCajaRecallEvent>();
   private readonly recent = new Map<string, PosCajaRecallEvent>();
 
-  publish(event: Omit<PosCajaRecallEvent, 'at'> & { at?: string }): PosCajaRecallEvent {
-    const full: PosCajaRecallEvent = {
-      ...event,
-      branchId: event.branchId || null,
-      folio: (event.folio || '').trim() || event.id,
-      recalledByName: (event.recalledByName || '').trim() || 'Ventas',
-      at: event.at ?? new Date().toISOString(),
-    };
+  publish(event: Omit<PosCajaRecallEvent, 'at' | 'type'> & { at?: string }): PosCajaRecallEvent {
+    const full = this.build(event, 'recalled');
     this.recent.set(this.key(full.tenantId, full.kind, full.id), full);
     this.prune();
+    this.events$.next(full);
+    return full;
+  }
+
+  /** Venta o anticipo que acaba de entrar a la cola de cobro. */
+  publishArrived(
+    event: Omit<PosCajaRecallEvent, 'at' | 'type' | 'recalledByName'> & { at?: string },
+  ): PosCajaRecallEvent {
+    const full = this.build({ ...event, recalledByName: '' }, 'arrived');
     this.events$.next(full);
     return full;
   }
@@ -62,6 +68,20 @@ export class PosCajaRecallHub {
       return true;
     }
     return eventBranchId === listenerBranchId;
+  }
+
+  private build(
+    event: Omit<PosCajaRecallEvent, 'at' | 'type'> & { at?: string },
+    type: PosCajaLiveType,
+  ): PosCajaRecallEvent {
+    return {
+      ...event,
+      type,
+      branchId: event.branchId || null,
+      folio: (event.folio || '').trim() || event.id,
+      recalledByName: (event.recalledByName || '').trim(),
+      at: event.at ?? new Date().toISOString(),
+    };
   }
 
   private key(tenantId: string, kind: PosCajaRecallKind, id: string): string {

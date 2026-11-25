@@ -39,6 +39,25 @@ describe('buildPosTenderPaymentLines', () => {
     ]);
   });
 
+  it('separa cada transferencia de un cobro mixto con su referencia', () => {
+    const lines = buildPosTenderPaymentLines(
+      {
+        transferPayments: [
+          { amount_mxn: 400, reference: 'SPEI-1' },
+          { amount_mxn: 430.5, reference: 'SPEI-2' },
+        ],
+        amountCashMxn: 100,
+      },
+      930.5,
+    );
+
+    expect(lines?.map((line) => [line.method, line.amount, line.reference])).toEqual([
+      [PosSalePaymentMethod.CASH, 100, null],
+      [PosSalePaymentMethod.TRANSFER, 400, 'SPEI-1'],
+      [PosSalePaymentMethod.TRANSFER, 430.5, 'SPEI-2'],
+    ]);
+  });
+
   it('separa efectivo, transferencia y tarjeta', () => {
     const lines = buildPosTenderPaymentLines(
       {

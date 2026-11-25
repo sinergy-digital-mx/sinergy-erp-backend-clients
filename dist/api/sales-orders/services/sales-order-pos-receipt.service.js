@@ -68,6 +68,7 @@ const sales_order_documents_service_1 = require("./sales-order-documents.service
 const sales_order_document_type_entity_1 = require("../../../entities/sales-orders/sales-order-document-type.entity");
 const escpos_util_1 = require("../utils/escpos.util");
 const pos_card_payments_util_1 = require("../../pos-shifts/utils/pos-card-payments.util");
+const pos_transfer_payments_util_1 = require("../../pos-shifts/utils/pos-transfer-payments.util");
 const pos_cash_payment_util_1 = require("../../pos-shifts/utils/pos-cash-payment.util");
 const invoice_month_deadline_util_1 = require("../utils/invoice-month-deadline.util");
 exports.SALES_ORDER_TICKET_RECIBO_NAMES = ['TICKET / RECIBO', 'TICKET_RECIBO'];
@@ -626,7 +627,7 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
             lines.push((0, escpos_util_1.compactMoneyLine)(`${label}:`, (0, escpos_util_1.formatMoney)(cardMxn)));
         }
         else if (collection.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.TRANSFER && transferMxn > 0) {
-            lines.push((0, escpos_util_1.compactMoneyLine)('Transferencia:', (0, escpos_util_1.formatMoney)(transferMxn)));
+            lines.push(...transferTicketLines(collection, transferMxn));
         }
         else if (collection.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CHECK && (checkMxn > 0 || checkUsd > 0)) {
             if (checkMxn > 0)
@@ -644,7 +645,7 @@ let SalesOrderPosReceiptService = SalesOrderPosReceiptService_1 = class SalesOrd
         }
         else if (collection.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.MIXED) {
             if (transferMxn > 0)
-                lines.push((0, escpos_util_1.compactMoneyLine)('Transferencia:', (0, escpos_util_1.formatMoney)(transferMxn)));
+                lines.push(...transferTicketLines(collection, transferMxn));
             const cardPayments = (0, pos_card_payments_util_1.cardPaymentsForResponse)(collection.card_payments, cardMxn, collection.card_reference, collection.card_kind);
             if (cardPayments.length > 1) {
                 cardPayments.forEach((payment, index) => {
@@ -785,6 +786,16 @@ exports.SalesOrderPosReceiptService = SalesOrderPosReceiptService = SalesOrderPo
         s3_service_1.S3Service,
         config_1.ConfigService])
 ], SalesOrderPosReceiptService);
+function transferTicketLines(collection, transferMxn) {
+    const payments = (0, pos_transfer_payments_util_1.transferPaymentsForResponse)(collection.transfer_payments, transferMxn, collection.transfer_reference);
+    if (payments.length > 1) {
+        return payments.flatMap((payment, index) => [
+            (0, escpos_util_1.compactMoneyLine)(`Transferencia ${index + 1}:`, (0, escpos_util_1.formatMoney)(payment.amount_mxn)),
+            ...(0, escpos_util_1.leftLabelLines)(`Ref. ${index + 1}:`, payment.reference),
+        ]);
+    }
+    return [(0, escpos_util_1.compactMoneyLine)('Transferencia:', (0, escpos_util_1.formatMoney)(transferMxn))];
+}
 function payerTicketLines(collection) {
     const lines = [];
     const transferMxn = Number(collection.amount_transfer_mxn) || 0;

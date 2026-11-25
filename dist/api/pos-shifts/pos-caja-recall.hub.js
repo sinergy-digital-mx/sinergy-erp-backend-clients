@@ -16,15 +16,14 @@ let PosCajaRecallHub = class PosCajaRecallHub {
     events$ = new rxjs_1.Subject();
     recent = new Map();
     publish(event) {
-        const full = {
-            ...event,
-            branchId: event.branchId || null,
-            folio: (event.folio || '').trim() || event.id,
-            recalledByName: (event.recalledByName || '').trim() || 'Ventas',
-            at: event.at ?? new Date().toISOString(),
-        };
+        const full = this.build(event, 'recalled');
         this.recent.set(this.key(full.tenantId, full.kind, full.id), full);
         this.prune();
+        this.events$.next(full);
+        return full;
+    }
+    publishArrived(event) {
+        const full = this.build({ ...event, recalledByName: '' }, 'arrived');
         this.events$.next(full);
         return full;
     }
@@ -44,6 +43,16 @@ let PosCajaRecallHub = class PosCajaRecallHub {
             return true;
         }
         return eventBranchId === listenerBranchId;
+    }
+    build(event, type) {
+        return {
+            ...event,
+            type,
+            branchId: event.branchId || null,
+            folio: (event.folio || '').trim() || event.id,
+            recalledByName: (event.recalledByName || '').trim(),
+            at: event.at ?? new Date().toISOString(),
+        };
     }
     key(tenantId, kind, id) {
         return `${tenantId}:${kind}:${id}`;

@@ -155,6 +155,7 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
             amountCardMxn: payment.amountCardMxn,
             amountCheckMxn: checkMxn,
             cardPayments: payment.cardPayments,
+            transferPayments: payment.transferPayments,
             payer: payment.payer,
         });
         return {
@@ -223,6 +224,7 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
             amountCardMxn: collected?.amountCardMxn,
             amountCheckMxn: collected?.amountCheckMxn,
             cardPayments: collected?.cardPayments,
+            transferPayments: collected?.transferPayments,
             payer: collected?.payer,
             documentFolio: quotation.folio,
             quotationId: quotation.id,

@@ -24,6 +24,7 @@ import { PosCajaRecallHub } from './pos-caja-recall.hub';
 import { SalesOrderPosReceiptService, PosReceiptResult } from '../sales-orders/services/sales-order-pos-receipt.service';
 import { SalesOrderService } from '../sales-orders/services/sales-order.service';
 import { PosCardPayment } from './utils/pos-card-payments.util';
+import { PosTransferPayment } from './utils/pos-transfer-payments.util';
 import { PayerContact } from './utils/pos-payer-contact.util';
 import { CustomerCreditService } from '../customers/services/customer-credit.service';
 import { AdvanceShiftPaymentService } from './services/advance-shift-payment.service';
@@ -54,6 +55,13 @@ export declare class PosShiftsService {
     private readonly cajaRecallHub;
     private readonly logger;
     constructor(dailyShiftRepo: Repository<PosDailyShift>, partialShiftRepo: Repository<PosPartialShift>, userRepo: Repository<User>, branchAssignmentRepo: Repository<UserBillingBranch>, salesOrderRepo: Repository<SalesOrder>, quotationRepo: Repository<Quotation>, customerRepo: Repository<Customer>, warehouseRepo: Repository<Warehouse>, collectionRepo: Repository<PosSaleCollection>, abonoRepo: Repository<PosShiftAbono>, posReceiptService: SalesOrderPosReceiptService, salesOrderService: SalesOrderService, quotationService: QuotationService, advanceCfdi: AdvanceCfdiService, customerCreditService: CustomerCreditService, advanceShiftPayments: AdvanceShiftPaymentService, exchangeRateService: ExchangeRateService, cajaRecallHub: PosCajaRecallHub);
+    notifyCajaArrived(notice: {
+        tenantId: string;
+        branchId?: string | null;
+        id: string;
+        kind: 'sale' | 'advance';
+        folio?: string | null;
+    }): void;
     validateSellerCode(tenantId: string, terminalUserId: string, code: number, billingBranchId?: string): Promise<{
         seller: {
             id: string;
@@ -737,6 +745,7 @@ export declare class PosShiftsService {
         exchange_rate: number | null;
         amount_pending: number;
         created_at: Date;
+        updated_at: Date;
         notes: string | null;
         walk_in_name: string | null;
         walk_in_rfc: string | null;
@@ -789,6 +798,7 @@ export declare class PosShiftsService {
         advance_uso_cfdi: string;
         advance_metodo_pago: "PUE" | "PPD";
         created_at: Date;
+        updated_at: Date;
         notes: string | null;
         walk_in_name: null;
         walk_in_rfc: null;
@@ -836,6 +846,7 @@ export declare class PosShiftsService {
         exchange_rate: number | null;
         amount_pending: number;
         created_at: Date;
+        updated_at: Date;
         notes: string | null;
         walk_in_name: string | null;
         walk_in_rfc: string | null;
@@ -888,6 +899,7 @@ export declare class PosShiftsService {
         advance_uso_cfdi: string;
         advance_metodo_pago: "PUE" | "PPD";
         created_at: Date;
+        updated_at: Date;
         notes: string | null;
         walk_in_name: null;
         walk_in_rfc: null;
@@ -960,6 +972,7 @@ export declare class PosShiftsService {
                 usd_exchange_rate: number | null;
                 amount_transfer_mxn: number;
                 transfer_reference: string | null;
+                transfer_payments: PosTransferPayment[];
                 transfer_payer_name: string | null;
                 transfer_payer_business_name: string | null;
                 amount_card_mxn: number;
@@ -1061,6 +1074,7 @@ export declare class PosShiftsService {
             usd_exchange_rate: number | null;
             amount_transfer_mxn: number;
             transfer_reference: string | null;
+            transfer_payments: PosTransferPayment[];
             transfer_payer_name: string | null;
             transfer_payer_business_name: string | null;
             amount_card_mxn: number;
@@ -1137,6 +1151,7 @@ export declare class PosShiftsService {
         usdExchangeRate: number | null;
         amountTransferMxn: number;
         transferReference: string | null;
+        transferPayments: PosTransferPayment[];
         amountCardMxn: number;
         amountCheckMxn: number;
         amountCheckUsd: number;
@@ -1151,6 +1166,7 @@ export declare class PosShiftsService {
         payer: PayerContact;
     }>;
     private validateAndNormalizePayment;
+    private assertTransferReferencesAreNew;
     private assertPaymentMethodShape;
     private assertCustomerCanUseCredit;
     private exchangeRateByOrderMoment;
@@ -1185,6 +1201,7 @@ export declare class PosShiftsService {
             usd_exchange_rate: number | null;
             amount_transfer_mxn: number;
             transfer_reference: string | null;
+            transfer_payments: PosTransferPayment[];
             transfer_payer_name: string | null;
             transfer_payer_business_name: string | null;
             amount_card_mxn: number;

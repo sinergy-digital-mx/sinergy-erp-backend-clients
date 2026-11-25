@@ -69,6 +69,7 @@ let AdvanceShiftPaymentService = class AdvanceShiftPaymentService {
             amount_mxn: amount,
             amount_cash_mxn: splits.cashMxn,
             amount_transfer_mxn: splits.transferMxn,
+            transfer_payments: input.transferPayments?.length ? input.transferPayments : null,
             amount_card_mxn: splits.cardMxn,
             card_kind: (0, pos_card_payments_util_1.sharedCardKind)(input.cardPayments ?? []),
             card_payments: input.cardPayments?.length ? input.cardPayments : null,

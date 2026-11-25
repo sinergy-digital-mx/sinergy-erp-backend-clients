@@ -6,6 +6,11 @@ import {
   parseStoredCardPayments,
   PosCardPayment,
 } from './pos-card-payments.util';
+import {
+  normalizeTransferPayments,
+  parseStoredTransferPayments,
+  PosTransferPayment,
+} from './pos-transfer-payments.util';
 
 export type PosTenderPaymentLine = {
   method:
@@ -24,6 +29,7 @@ export type PosCollectionTenderInput = {
   usdExchangeRate?: number | string | null;
   amountTransferMxn?: number | string | null;
   transferReference?: string | null;
+  transferPayments?: unknown;
   cardPayments?: unknown;
   amountCardMxn?: number | string | null;
   cardReference?: string | null;
@@ -64,6 +70,15 @@ function cardKindNote(kind: PosCardPayment['card_kind']): string | null {
   return null;
 }
 
+function readTransfers(input: PosCollectionTenderInput): PosTransferPayment[] {
+  const stored = parseStoredTransferPayments(input.transferPayments);
+  if (stored.length > 0) return stored;
+  return normalizeTransferPayments({
+    amount_transfer_mxn: readAmount(input.amountTransferMxn),
+    transfer_reference: input.transferReference,
+  });
+}
+
 function readCards(input: PosCollectionTenderInput): PosCardPayment[] {
   const stored = parseStoredCardPayments(input.cardPayments);
   if (stored.length > 0) return stored;
@@ -85,9 +100,9 @@ export function buildPosTenderPaymentLines(
   const rate = Number(input.usdExchangeRate ?? 0);
   const cashMxn = readAmount(input.amountCashMxn);
   const cashUsd = readAmount(input.amountCashUsd);
-  const transfer = readAmount(input.amountTransferMxn);
   const checkMxn = readAmount(input.amountCheckMxn);
   const checkUsd = readAmount(input.amountCheckUsd);
+  const transfers = readTransfers(input);
   const cards = readCards(input);
   const lines: PosTenderPaymentLine[] = [];
 
@@ -108,11 +123,13 @@ export function buildPosTenderPaymentLines(
       notes: `${formatAmount(cashUsd)} USD · TC ${formatRate(rate)}`,
     });
   }
-  if (transfer > 0) {
+  for (const transfer of transfers) {
+    const amount = roundPosMoney(transfer.amount_mxn);
+    if (amount <= 0) continue;
     lines.push({
       method: PosSalePaymentMethod.TRANSFER,
-      amount: transfer,
-      reference: readText(input.transferReference),
+      amount,
+      reference: readText(transfer.reference),
       notes: null,
     });
   }

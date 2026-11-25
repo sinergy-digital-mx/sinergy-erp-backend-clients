@@ -6,6 +6,7 @@ const pos_sale_payment_method_enum_1 = require("../../../entities/pos/pos-sale-p
 const cash_drawer_1 = require("./cash-drawer");
 const pos_cash_payment_util_1 = require("./pos-cash-payment.util");
 const pos_card_payments_util_1 = require("./pos-card-payments.util");
+const pos_transfer_payments_util_1 = require("./pos-transfer-payments.util");
 function readAmount(value) {
     const amount = Number(value ?? 0);
     return Number.isFinite(amount) ? (0, cash_drawer_1.roundPosMoney)(Math.max(0, amount)) : 0;
@@ -35,6 +36,15 @@ function cardKindNote(kind) {
         return 'Crédito';
     return null;
 }
+function readTransfers(input) {
+    const stored = (0, pos_transfer_payments_util_1.parseStoredTransferPayments)(input.transferPayments);
+    if (stored.length > 0)
+        return stored;
+    return (0, pos_transfer_payments_util_1.normalizeTransferPayments)({
+        amount_transfer_mxn: readAmount(input.amountTransferMxn),
+        transfer_reference: input.transferReference,
+    });
+}
 function readCards(input) {
     const stored = (0, pos_card_payments_util_1.parseStoredCardPayments)(input.cardPayments);
     if (stored.length > 0)
@@ -49,9 +59,9 @@ function buildPosTenderPaymentLines(input, targetMxn) {
     const rate = Number(input.usdExchangeRate ?? 0);
     const cashMxn = readAmount(input.amountCashMxn);
     const cashUsd = readAmount(input.amountCashUsd);
-    const transfer = readAmount(input.amountTransferMxn);
     const checkMxn = readAmount(input.amountCheckMxn);
     const checkUsd = readAmount(input.amountCheckUsd);
+    const transfers = readTransfers(input);
     const cards = readCards(input);
     const lines = [];
     if (cashMxn > 0) {
@@ -72,11 +82,14 @@ function buildPosTenderPaymentLines(input, targetMxn) {
             notes: `${formatAmount(cashUsd)} USD · TC ${formatRate(rate)}`,
         });
     }
-    if (transfer > 0) {
+    for (const transfer of transfers) {
+        const amount = (0, cash_drawer_1.roundPosMoney)(transfer.amount_mxn);
+        if (amount <= 0)
+            continue;
         lines.push({
             method: pos_sale_payment_method_enum_1.PosSalePaymentMethod.TRANSFER,
-            amount: transfer,
-            reference: readText(input.transferReference),
+            amount,
+            reference: readText(transfer.reference),
             notes: null,
         });
     }

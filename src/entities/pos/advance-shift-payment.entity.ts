@@ -54,6 +54,13 @@ export class AdvanceShiftPayment {
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   amount_transfer_mxn: number;
 
+  /** Cada transferencia del anticipo. amount_transfer_mxn es la suma. */
+  @Column({ type: 'json', nullable: true })
+  transfer_payments: Array<{
+    amount_mxn: number;
+    reference: string;
+  }> | null;
+
   @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
   amount_card_mxn: number;
 
