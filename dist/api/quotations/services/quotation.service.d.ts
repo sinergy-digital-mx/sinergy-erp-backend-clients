@@ -338,6 +338,7 @@ export declare class QuotationService {
                 payment_method_label: string;
                 shift_date: string;
             } | null;
+            advance_stamp_environment: "demo" | "production" | null;
             customer_email: string | null;
             converted_to_sales_order_id: string | null;
             razon_social: string;
@@ -384,7 +385,6 @@ export declare class QuotationService {
             advance_uso_cfdi: string | null;
             advance_metodo_pago: "PUE" | "PPD" | null;
             advance_case: "unknown" | "products" | null;
-            advance_stamp_environment: "demo" | "production" | null;
             pos_stage: SalesOrderPosStage | null;
             pos_caja_opened_at: Date | null;
             pos_caja_opened_by: string | null;
@@ -577,6 +577,7 @@ export declare class QuotationService {
                 payment_method_label: string;
                 shift_date: string;
             } | null;
+            advance_stamp_environment: "demo" | "production" | null;
             customer_email: string | null;
             converted_to_sales_order_id: string | null;
             razon_social: string;
@@ -623,7 +624,6 @@ export declare class QuotationService {
             advance_uso_cfdi: string | null;
             advance_metodo_pago: "PUE" | "PPD" | null;
             advance_case: "unknown" | "products" | null;
-            advance_stamp_environment: "demo" | "production" | null;
             pos_stage: SalesOrderPosStage | null;
             pos_caja_opened_at: Date | null;
             pos_caja_opened_by: string | null;
@@ -822,6 +822,7 @@ export declare class QuotationService {
                     payment_method_label: string;
                     shift_date: string;
                 } | null;
+                advance_stamp_environment: "demo" | "production" | null;
                 customer_email: string | null;
                 converted_to_sales_order_id: string | null;
                 razon_social: string;
@@ -868,7 +869,6 @@ export declare class QuotationService {
                 advance_uso_cfdi: string | null;
                 advance_metodo_pago: "PUE" | "PPD" | null;
                 advance_case: "unknown" | "products" | null;
-                advance_stamp_environment: "demo" | "production" | null;
                 pos_stage: SalesOrderPosStage | null;
                 pos_caja_opened_at: Date | null;
                 pos_caja_opened_by: string | null;
@@ -1010,6 +1010,18 @@ export declare class QuotationService {
     private loadAssignedBranchIds;
     private mapLocation;
     startAdvance(id: string, dto: StartAdvanceQuotationDto, tenantId: string, userId: string, access?: QuotationSellerAccess): Promise<Quotation>;
+    completeReturn(id: string, dto: CloseAdvanceQuotationDto, tenantId: string, userId: string, access?: QuotationSellerAccess): Promise<{
+        quotation_id: string;
+        difference: number;
+        sales_order: {
+            id: string;
+            folio: string;
+            payment_status: string;
+            total: number;
+        };
+    }>;
+    private stampCreatedAdvance;
+    private completeConvertedAdvance;
     closeAdvance(id: string, dto: CloseAdvanceQuotationDto, tenantId: string, userId: string, access?: QuotationSellerAccess): Promise<{
         quotation_id: string;
         difference: number;

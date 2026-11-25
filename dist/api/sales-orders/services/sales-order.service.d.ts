@@ -90,6 +90,7 @@ export declare class SalesOrderService {
         fromQuotation?: boolean;
         quotedGlobalDiscountAmount?: number;
         allowAssignedSellerWithoutPosCode?: boolean;
+        holdAvailable?: boolean;
     }): Promise<SalesOrder>;
     replacePosCart(orderId: string, dto: {
         line_items: CreateSalesOrderLineItemDto[];
@@ -99,7 +100,9 @@ export declare class SalesOrderService {
         walk_in_rfc?: string | null;
         for_shipping?: boolean;
         notes?: string | null;
-    }, tenantId: string, userId: string): Promise<SalesOrder>;
+    }, tenantId: string, userId: string, options?: {
+        holdAvailable?: boolean;
+    }): Promise<SalesOrder>;
     findAll(tenantId: string, filters: QuerySalesOrderDto, options?: {
         includeStats?: boolean;
     }): Promise<{
@@ -320,6 +323,7 @@ export declare class SalesOrderService {
     private applyListFilters;
     private loadOrderInvoiceShortcuts;
     private loadOrderDownloads;
+    placeAdvanceDifferenceInCaja(id: string, tenantId: string, userId: string): Promise<void>;
     linkConvertedFromQuotation(salesOrderId: string, quotationId: string, tenantId: string): Promise<void>;
     findOne(id: string, tenantId: string): Promise<SalesOrder>;
     findOneDetail(id: string, tenantId: string): Promise<{
@@ -1051,6 +1055,7 @@ export declare class SalesOrderService {
     addLineItem(orderId: string, dto: CreateSalesOrderLineItemDto, tenantId: string, userId: string): Promise<void>;
     updateLineItem(orderId: string, lineItemId: string, dto: UpdateSalesOrderLineItemDto, tenantId: string, userId: string): Promise<void>;
     removeLineItem(orderId: string, lineItemId: string, tenantId: string, userId: string): Promise<void>;
+    private holdAvailableLines;
     private holdManualInventoryIfNeeded;
     private fulfillOrderLines;
     private assertLineItemsMatchSaleScope;

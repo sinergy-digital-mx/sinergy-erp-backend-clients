@@ -279,6 +279,7 @@ let SalesOrderService = class SalesOrderService {
     async create(dto, tenantId, userId, options) {
         const isPosSale = dto.sales_order_type === 'POS';
         const fromQuotation = options?.fromQuotation === true;
+        const holdAvailable = options?.holdAvailable === true;
         let posDailyShiftId = null;
         let paymentStatus = dto.payment_status || 'Pendiente';
         let collectedByUserId = null;
@@ -354,7 +355,11 @@ let SalesOrderService = class SalesOrderService {
                 seller_user_id: sellerUserId,
                 assigned_seller_user_id: assignedSellerUserId,
                 pos_daily_shift_id: isPosSale ? posDailyShiftId : null,
-                pos_stage: isPosSale ? sales_order_pos_stage_enum_1.SalesOrderPosStage.Caja : null,
+                pos_stage: isPosSale
+                    ? holdAvailable
+                        ? sales_order_pos_stage_enum_1.SalesOrderPosStage.Ventas
+                        : sales_order_pos_stage_enum_1.SalesOrderPosStage.Caja
+                    : null,
                 collected_by_user_id: collectedByUserId,
             });
             const savedSO = await qr.manager.save(sales_order_entity_1.SalesOrder, so);
@@ -433,7 +438,13 @@ let SalesOrderService = class SalesOrderService {
                     requiresSelection: true,
                 });
             }
-            if (salesOrderType === 'POS') {
+            if (salesOrderType === 'POS' && holdAvailable) {
+                const fullyHeld = await this.holdAvailableLines(qr, savedSO, savedDetails, userId);
+                savedSO.general_status = fullyHeld ? 'Surtida' : 'Creada';
+                savedSO.pos_stage = sales_order_pos_stage_enum_1.SalesOrderPosStage.Ventas;
+                await qr.manager.save(sales_order_entity_1.SalesOrder, savedSO);
+            }
+            else if (salesOrderType === 'POS') {
                 await this.fulfillOrderLines(qr, savedSO.id, this.allocationScope(savedSO), savedDetails, userId);
                 savedSO.general_status = posQueued ? 'En cola' : 'Surtida';
                 await qr.manager.save(sales_order_entity_1.SalesOrder, savedSO);
@@ -467,7 +478,7 @@ let SalesOrderService = class SalesOrderService {
             await qr.release();
         }
     }
-    async replacePosCart(orderId, dto, tenantId, userId) {
+    async replacePosCart(orderId, dto, tenantId, userId, options) {
         if (!dto.line_items?.length) {
             throw new common_1.BadRequestException('La orden debe tener al menos un producto');
         }
@@ -537,8 +548,14 @@ let SalesOrderService = class SalesOrderService {
                 ...(dto.notes !== undefined ? { notes: dto.notes?.trim() || null } : {}),
             });
             await this.recomputeTotals(qr, so.id, tenantId, userId);
-            await this.fulfillOrderLines(qr, so.id, this.allocationScope(so), savedDetails, userId, undefined, true);
-            await qr.manager.update(sales_order_entity_1.SalesOrder, { id: so.id }, { general_status: previousStatus, updated_by: userId });
+            if (options?.holdAvailable) {
+                const fullyHeld = await this.holdAvailableLines(qr, so, savedDetails, userId);
+                await qr.manager.update(sales_order_entity_1.SalesOrder, { id: so.id }, { general_status: fullyHeld ? 'Surtida' : 'Creada', updated_by: userId });
+            }
+            else {
+                await this.fulfillOrderLines(qr, so.id, this.allocationScope(so), savedDetails, userId, undefined, true);
+                await qr.manager.update(sales_order_entity_1.SalesOrder, { id: so.id }, { general_status: previousStatus, updated_by: userId });
+            }
             await qr.commitTransaction();
         }
         catch (err) {
@@ -824,6 +841,14 @@ let SalesOrderService = class SalesOrderService {
             });
         }));
         return signed;
+    }
+    async placeAdvanceDifferenceInCaja(id, tenantId, userId) {
+        await this.soRepo.update({ id, tenant_id: tenantId }, {
+            pos_stage: sales_order_pos_stage_enum_1.SalesOrderPosStage.Caja,
+            general_status: 'Surtida',
+            payment_status: 'Pendiente',
+            updated_by: userId,
+        });
     }
     async linkConvertedFromQuotation(salesOrderId, quotationId, tenantId) {
         await this.soRepo.update({ id: salesOrderId, tenant_id: tenantId }, { converted_from_quotation_id: quotationId });
@@ -1887,6 +1912,18 @@ let SalesOrderService = class SalesOrderService {
         this.regenerateDocumentoOriginalPreservingLanguage(orderId, tenantId, userId).catch((err) => {
             this.logger.error('[PDF] Error regenerating DOCUMENTO_ORIGINAL after remove line:', err);
         });
+    }
+    async holdAvailableLines(qr, so, details, userId) {
+        const goods = await this.filterGoodsDetails(qr, details);
+        let fullyHeld = true;
+        for (const detail of goods) {
+            const allocations = await this.fulfillmentService.allocateFifo(detail, userId, qr.manager, this.allocationScope(so), undefined, true);
+            const held = allocations.reduce((sum, row) => sum + Number(row.quantity_allocated || 0), 0);
+            const needed = Number(detail.quantity_base_uom || 0);
+            if (held + 0.001 < needed)
+                fullyHeld = false;
+        }
+        return goods.length === 0 || fullyHeld;
     }
     async holdManualInventoryIfNeeded(qr, so, details, userId) {
         if (so.sales_order_type === 'POS' || so.requires_selection_assembly) {

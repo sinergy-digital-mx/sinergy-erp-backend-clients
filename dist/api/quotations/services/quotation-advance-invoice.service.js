@@ -270,11 +270,14 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
             throw new common_1.BadRequestException(`No se puede cancelar la cotización: tiene una factura de anticipo vigente${uuid}. Cancela la factura primero.`);
         }
     }
-    async attachToSalesOrder(tenantId, userId, quotationId, salesOrderId) {
+    async attachToSalesOrder(tenantId, userId, quotationId, salesOrderId, options) {
         const advance = await this.advanceCfdi.findVigenteAdvance(tenantId, 'quotations', quotationId);
         if (!advance)
             return null;
         await this.salesOrderRepo.update({ id: salesOrderId, tenant_id: tenantId }, { advance_invoice_id: advance.id });
+        if (options?.applyPayment === false) {
+            return null;
+        }
         return this.advancePayments.attachQuotationPaymentToOrder(tenantId, userId, quotationId, salesOrderId);
     }
     async assertOwnedInvoice(id, invoiceId, tenantId) {

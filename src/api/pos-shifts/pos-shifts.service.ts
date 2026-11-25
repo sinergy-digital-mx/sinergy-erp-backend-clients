@@ -2101,17 +2101,75 @@ export class PosShiftsService {
       .getMany();
     const quotations = await this.listQuotationTicketsInVentas(tenantId, branchId);
     const collected = await this.listCollectedAdvanceQuotations(tenantId, branchId);
+    const advanceByOrder = await this.advanceContextForOrders(tenantId, orders);
     return [
-      ...orders.map((order) => this.mapPosTicketForVentas(order)),
+      ...orders.map((order) => {
+        const advance = advanceByOrder.get(order.id);
+        return {
+          ...this.mapPosTicketForVentas(order),
+          ...(advance
+            ? {
+                advance_collected: true,
+                quotation_id: advance.quotationId,
+                quotation_folio: advance.quotationFolio,
+                amount_pending: advance.paid,
+                advance_stamp_environment: advance.environment,
+              }
+            : {}),
+        };
+      }),
       ...quotations.map((quotation) => this.mapQuotationTicketForVentas(quotation)),
       ...collected.map((quotation) => ({
         ...this.mapQuotationTicketForVentas(quotation),
         advance_collected: true,
+        quotation_id: quotation.id,
+        quotation_folio: quotation.folio,
         advance_stamp_environment: quotation.advance_stamp_environment,
         amount_pending: Number(quotation.advance_requested_total ?? 0),
       })),
     ].sort((a, b) => new Date(b.updated_at ?? b.created_at ?? 0).getTime() -
       new Date(a.updated_at ?? a.created_at ?? 0).getTime());
+  }
+
+  private async advanceContextForOrders(
+    tenantId: string,
+    orders: SalesOrder[],
+  ): Promise<Map<string, {
+    quotationId: string;
+    quotationFolio: string;
+    paid: number;
+    environment: 'demo' | 'production' | null;
+  }>> {
+    const linked = orders.filter((order) => order.converted_from_quotation_id);
+    const result = new Map<string, {
+      quotationId: string;
+      quotationFolio: string;
+      paid: number;
+      environment: 'demo' | 'production' | null;
+    }>();
+    for (const order of linked) {
+      const quotationId = order.converted_from_quotation_id;
+      if (!quotationId) continue;
+      const invoice = await this.advanceCfdi.findVigenteAdvance(
+        tenantId,
+        'quotations',
+        quotationId,
+      );
+      if (!invoice?.uuid) continue;
+      const summary = await this.advanceCfdi.summarize(tenantId, invoice);
+      if (summary?.applied) continue;
+      const quotation = await this.quotationRepo.findOne({
+        where: { id: quotationId, tenant_id: tenantId },
+        select: ['id', 'folio', 'advance_stamp_environment', 'advance_requested_total'],
+      });
+      result.set(order.id, {
+        quotationId,
+        quotationFolio: quotation?.folio || '',
+        paid: Number(invoice.total || quotation?.advance_requested_total || 0),
+        environment: quotation?.advance_stamp_environment ?? null,
+      });
+    }
+    return result;
   }
 
   /** Anticipo ya cobrado y timbrado, todavía sin venta de productos. */
@@ -2135,9 +2193,6 @@ export class PosShiftsService {
         .where('q.tenant_id = :tenantId', { tenantId })
         .andWhere('q.quotation_type = :type', { type: 'POS' })
         .andWhere('q.general_status = :status', { status: 'Creada' })
-        .andWhere('(q.pos_stage IS NULL OR q.pos_stage = :posStage)', {
-          posStage: SalesOrderPosStage.Caja,
-        })
         .andWhere('(q.billing_branch_id = :branchId OR warehouse.billing_branch_id = :branchId)', {
           branchId,
         })
@@ -2187,6 +2242,18 @@ export class PosShiftsService {
         .andWhere('q.quotation_type = :type', { type: 'POS' })
         .andWhere('q.pos_stage = :posStage', { posStage: SalesOrderPosStage.Ventas })
         .andWhere('q.general_status = :status', { status: 'Creada' })
+        .andWhere(`NOT EXISTS (
+          SELECT 1 FROM electronic_invoices inv
+          WHERE inv.tenant_id = q.tenant_id
+            AND inv.source_module = 'quotations'
+            AND inv.source_id = q.id
+            AND inv.invoice_role = 'advance'
+            AND (inv.sat_status IS NULL OR inv.sat_status <> 'Cancelado')
+            AND (
+              inv.sat_status = 'Vigente'
+              OR inv.stamp_status IN ('stamped', 'cancel_pending', 'cancel_error')
+            )
+        )`)
         .andWhere('(q.billing_branch_id = :branchId OR warehouse.billing_branch_id = :branchId)', { branchId })
         .orderBy('q.updated_at', 'DESC')
         .addOrderBy('line_items.created_at', 'ASC')

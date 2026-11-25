@@ -449,10 +449,13 @@ export class SalesOrderService {
       fromQuotation?: boolean;
       quotedGlobalDiscountAmount?: number;
       allowAssignedSellerWithoutPosCode?: boolean;
+      /** Aparta por FIFO lo que haya. Si no alcanza, la orden sigue pendiente. */
+      holdAvailable?: boolean;
     },
   ): Promise<SalesOrder> {
     const isPosSale = dto.sales_order_type === 'POS';
     const fromQuotation = options?.fromQuotation === true;
+    const holdAvailable = options?.holdAvailable === true;
     let posDailyShiftId: string | null = null;
     let paymentStatus = dto.payment_status || 'Pendiente';
     let collectedByUserId: string | null = null;
@@ -575,7 +578,11 @@ export class SalesOrderService {
         seller_user_id: sellerUserId,
         assigned_seller_user_id: assignedSellerUserId,
         pos_daily_shift_id: isPosSale ? posDailyShiftId : null,
-        pos_stage: isPosSale ? SalesOrderPosStage.Caja : null,
+        pos_stage: isPosSale
+          ? holdAvailable
+            ? SalesOrderPosStage.Ventas
+            : SalesOrderPosStage.Caja
+          : null,
         collected_by_user_id: collectedByUserId,
       });
 
@@ -702,7 +709,12 @@ export class SalesOrderService {
         });
       }
 
-      if (salesOrderType === 'POS') {
+      if (salesOrderType === 'POS' && holdAvailable) {
+        const fullyHeld = await this.holdAvailableLines(qr, savedSO, savedDetails, userId);
+        savedSO.general_status = fullyHeld ? 'Surtida' : 'Creada';
+        savedSO.pos_stage = SalesOrderPosStage.Ventas;
+        await qr.manager.save(SalesOrder, savedSO);
+      } else if (salesOrderType === 'POS') {
         await this.fulfillOrderLines(
           qr,
           savedSO.id,
@@ -769,6 +781,7 @@ export class SalesOrderService {
     },
     tenantId: string,
     userId: string,
+    options?: { holdAvailable?: boolean },
   ): Promise<SalesOrder> {
     if (!dto.line_items?.length) {
       throw new BadRequestException('La orden debe tener al menos un producto');
@@ -868,20 +881,29 @@ export class SalesOrderService {
       );
       await this.recomputeTotals(qr, so.id, tenantId, userId);
 
-      await this.fulfillOrderLines(
-        qr,
-        so.id,
-        this.allocationScope(so),
-        savedDetails,
-        userId,
-        undefined,
-        true,
-      );
-      await qr.manager.update(
-        SalesOrder,
-        { id: so.id },
-        { general_status: previousStatus, updated_by: userId },
-      );
+      if (options?.holdAvailable) {
+        const fullyHeld = await this.holdAvailableLines(qr, so, savedDetails, userId);
+        await qr.manager.update(
+          SalesOrder,
+          { id: so.id },
+          { general_status: fullyHeld ? 'Surtida' : 'Creada', updated_by: userId },
+        );
+      } else {
+        await this.fulfillOrderLines(
+          qr,
+          so.id,
+          this.allocationScope(so),
+          savedDetails,
+          userId,
+          undefined,
+          true,
+        );
+        await qr.manager.update(
+          SalesOrder,
+          { id: so.id },
+          { general_status: previousStatus, updated_by: userId },
+        );
+      }
 
       await qr.commitTransaction();
     } catch (err) {
@@ -1257,6 +1279,22 @@ export class SalesOrderService {
       }),
     );
     return signed;
+  }
+
+  async placeAdvanceDifferenceInCaja(
+    id: string,
+    tenantId: string,
+    userId: string,
+  ): Promise<void> {
+    await this.soRepo.update(
+      { id, tenant_id: tenantId },
+      {
+        pos_stage: SalesOrderPosStage.Caja,
+        general_status: 'Surtida',
+        payment_status: 'Pendiente',
+        updated_by: userId,
+      },
+    );
   }
 
   async linkConvertedFromQuotation(
@@ -2771,6 +2809,34 @@ export class SalesOrderService {
     this.regenerateDocumentoOriginalPreservingLanguage(orderId, tenantId, userId).catch((err) => {
       this.logger.error('[PDF] Error regenerating DOCUMENTO_ORIGINAL after remove line:', err);
     });
+  }
+
+  /** Aparta por FIFO lo que haya en existencia. No falla si falta mercancía. */
+  private async holdAvailableLines(
+    qr: QueryRunner,
+    so: SalesOrder,
+    details: SalesOrderDetail[],
+    userId: string,
+  ): Promise<boolean> {
+    const goods = await this.filterGoodsDetails(qr, details);
+    let fullyHeld = true;
+    for (const detail of goods) {
+      const allocations = await this.fulfillmentService.allocateFifo(
+        detail,
+        userId,
+        qr.manager,
+        this.allocationScope(so),
+        undefined,
+        true,
+      );
+      const held = allocations.reduce(
+        (sum, row) => sum + Number(row.quantity_allocated || 0),
+        0,
+      );
+      const needed = Number(detail.quantity_base_uom || 0);
+      if (held + 0.001 < needed) fullyHeld = false;
+    }
+    return goods.length === 0 || fullyHeld;
   }
 
   private async holdManualInventoryIfNeeded(

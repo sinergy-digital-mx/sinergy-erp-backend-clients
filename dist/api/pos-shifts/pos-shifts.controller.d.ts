@@ -771,6 +771,11 @@ export declare class PosShiftsController {
     }>;
     getSalesInProgress(query: QueryPosBranchDto, req: any): Promise<{
         sales_in_progress: ({
+            advance_collected?: boolean | undefined;
+            quotation_id?: string | undefined;
+            quotation_folio?: string | undefined;
+            amount_pending?: number | undefined;
+            advance_stamp_environment?: "demo" | "production" | null | undefined;
             customer_id: number;
             global_discount_id: string | null;
             global_discount: {

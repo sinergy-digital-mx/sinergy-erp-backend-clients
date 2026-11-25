@@ -102,7 +102,7 @@ let QuotationController = class QuotationController {
         return this.quotationService.startAdvance(id, dto, req.user.tenant_id, (0, request_user_util_1.resolveRequestUserId)(req.user), this.sellerAccess(req));
     }
     closeAdvance(id, dto, req) {
-        return this.quotationService.closeAdvance(id, dto, req.user.tenant_id, (0, request_user_util_1.resolveRequestUserId)(req.user), this.sellerAccess(req));
+        return this.quotationService.completeReturn(id, dto, req.user.tenant_id, (0, request_user_util_1.resolveRequestUserId)(req.user), this.sellerAccess(req));
     }
     convert(id, dto, req) {
         return this.quotationService.convert(id, dto ?? {}, req.user.tenant_id, (0, request_user_util_1.resolveRequestUserId)(req.user), this.sellerAccess(req));

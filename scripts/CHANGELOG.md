@@ -12,6 +12,12 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.187 · 25 nov
+
+- Cotizaciones · En Cotizar se timbra el anticipo: sin productos queda la cotizacion, con productos abre la venta y aparta lo que hay. En Tickets se elige el carrito, se agregan productos y caja cobra solo si falta.
+- POS Ventas · En el catálogo, sucursal, Filtros y el cambio de vista quedan al mismo alto chico.
+- Plataforma · El build de producción acepta el estilo de toma de pedido hasta 60 kB.
+
 #### Versión 0.0.186 · 25 nov
 
 - Cotizaciones · El anticipo cobrado aparece en Tickets de ventas: se agregan los productos y al registrar se crea la orden. Demo o Producción se elige al pedirlo.

@@ -13,7 +13,7 @@ export declare class SalesOrderFulfillmentService {
     allocateFifo(detail: SalesOrderDetail, userId: string, manager: EntityManager, scope: {
         warehouseId?: string | null;
         billingBranchId?: string | null;
-    }, quantityBase?: number): Promise<SalesOrderBatchAllocation[]>;
+    }, quantityBase?: number, allowShortfall?: boolean): Promise<SalesOrderBatchAllocation[]>;
     releaseAllocations(allocations: SalesOrderBatchAllocation[], manager: EntityManager): Promise<void>;
     private buildInsufficientStockMessage;
     private formatProductLabel;

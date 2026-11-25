@@ -54,6 +54,7 @@ const product_uom_entity_1 = require("../../../entities/products/product-uom.ent
 const uom_catalog_entity_1 = require("../../../entities/uom-catalog/uom-catalog.entity");
 const advance_cfdi_util_1 = require("../../electronic-invoicing/utils/advance-cfdi.util");
 const cfdi_regimen_person_util_1 = require("../../electronic-invoicing/utils/cfdi-regimen-person.util");
+const advance_payment_method_util_1 = require("../../pos-shifts/utils/advance-payment-method.util");
 const quoted_pricing_util_1 = require("../../sales-orders/utils/quoted-pricing.util");
 const quotation_seller_scope_util_1 = require("../utils/quotation-seller-scope.util");
 let QuotationService = class QuotationService {
@@ -115,6 +116,7 @@ let QuotationService = class QuotationService {
         const qr = this.dataSource.createQueryRunner();
         await qr.connect();
         await qr.startTransaction();
+        let committed = false;
         try {
             const folio = await this.folioService.generateFolio(tenantId);
             const quotation = qr.manager.create(quotation_entity_1.Quotation, {
@@ -156,13 +158,24 @@ let QuotationService = class QuotationService {
                 });
             }
             await qr.commitTransaction();
+            committed = true;
             this.generateAndUploadPdf(saved.id, tenantId, userId).catch((err) => {
                 this.logger.error('[PDF] Error generando PDF de cotización:', err);
             });
+            if (dto.advance_amount != null) {
+                await this.stampCreatedAdvance(saved.id, tenantId, userId, dto);
+                if (advanceCase === 'products') {
+                    await this.convert(saved.id, { send_to_pos_caja: true, hold_available: true }, tenantId, userId);
+                }
+                else {
+                    await this.quotationRepo.update({ id: saved.id, tenant_id: tenantId }, { pos_stage: sales_order_pos_stage_enum_1.SalesOrderPosStage.Ventas });
+                }
+            }
             return this.findOne(saved.id, tenantId);
         }
         catch (err) {
-            await qr.rollbackTransaction();
+            if (!committed)
+                await qr.rollbackTransaction();
             throw err;
         }
         finally {
@@ -441,6 +454,7 @@ let QuotationService = class QuotationService {
                 !advance.summary.applied,
             advance_invoice: advance.summary,
             advance_payment: advance.payment,
+            advance_stamp_environment: quotation.advance_stamp_environment,
             customer_email: quotation.customer?.email?.trim() ||
                 quotation.customer?.additional_email?.trim() ||
                 null,
@@ -692,9 +706,10 @@ let QuotationService = class QuotationService {
         const salesOrder = await this.salesOrderService.create(createDto, tenantId, userId, {
             fromQuotation: true,
             quotedGlobalDiscountAmount: Number(quotation.global_discount_amount || 0),
+            holdAvailable: dto.hold_available === true,
         });
         await this.salesOrderService.linkConvertedFromQuotation(salesOrder.id, quotation.id, tenantId);
-        const linked = await this.advanceInvoices.attachToSalesOrder(tenantId, userId, quotation.id, salesOrder.id);
+        const linked = await this.advanceInvoices.attachToSalesOrder(tenantId, userId, quotation.id, salesOrder.id, { applyPayment: dto.hold_available !== true });
         if (linked?.payment_status) {
             salesOrder.payment_status = linked.payment_status;
         }
@@ -1159,6 +1174,85 @@ let QuotationService = class QuotationService {
         }
         return this.findOne(id, tenantId, access);
     }
+    async completeReturn(id, dto, tenantId, userId, access) {
+        const quotation = await this.findOne(id, tenantId, access);
+        if (quotation.general_status === 'Convertida' && quotation.converted_to_sales_order_id) {
+            return this.completeConvertedAdvance(quotation, dto, tenantId, userId);
+        }
+        return this.closeAdvance(id, dto, tenantId, userId, access);
+    }
+    async stampCreatedAdvance(id, tenantId, userId, dto) {
+        const quotation = await this.findOne(id, tenantId);
+        const iva = [0, 8, 16].includes(Number(dto.advance_iva_percentage))
+            ? Number(dto.advance_iva_percentage)
+            : 8;
+        const gross = Number(dto.advance_amount || 0);
+        const base = iva > 0 ? Number((gross / (1 + iva / 100)).toFixed(2)) : gross;
+        const tax = Number((base * (iva / 100)).toFixed(2));
+        const total = Number((base + tax).toFixed(2));
+        const forma = dto.advance_forma_pago || '03';
+        const paymentMethod = (0, advance_payment_method_util_1.paymentMethodFromFormaPago)(forma);
+        if (!paymentMethod) {
+            throw new common_1.BadRequestException('La forma de pago del anticipo no es válida');
+        }
+        const regimen = (0, cfdi_regimen_person_util_1.inferReceptorRegimen)(quotation.customer?.fiscal_rfc, quotation.customer?.fiscal_person_type);
+        await this.advanceInvoices.stamp(id, tenantId, userId, {
+            base_amount: base,
+            iva_percentage: iva,
+            forma_pago: forma,
+            uso_cfdi: dto.advance_uso_cfdi || 'G01',
+            metodo_pago: dto.advance_metodo_pago || 'PUE',
+            regimen_fiscal_receptor: regimen,
+            environment: dto.advance_stamp_environment,
+        }, {
+            paymentMethod,
+            amountCashMxn: forma === '01' ? total : 0,
+            amountCheckMxn: forma === '02' ? total : 0,
+            amountTransferMxn: forma === '03' ? total : 0,
+            amountCardMxn: forma === '04' || forma === '28' ? total : 0,
+        });
+    }
+    async completeConvertedAdvance(quotation, dto, tenantId, userId) {
+        const orderId = quotation.converted_to_sales_order_id;
+        if (!orderId) {
+            throw new common_1.BadRequestException('La cotización no tiene una venta relacionada');
+        }
+        const advance = await this.advanceInvoices.requireCloseableAdvance({
+            ...quotation,
+            general_status: 'Creada',
+        });
+        await this.salesOrderService.replacePosCart(orderId, { line_items: dto.line_items }, tenantId, userId, { holdAvailable: true });
+        const order = await this.salesOrderService.findOne(orderId, tenantId);
+        const saleTotal = Number(order.total || 0);
+        const paid = Number(advance.total || 0);
+        if (saleTotal + 0.009 < paid) {
+            throw new common_1.BadRequestException(`Sobran ${(paid - saleTotal).toFixed(2)}. Agrega otro producto.`);
+        }
+        const difference = Number(Math.max(saleTotal - paid, 0).toFixed(2));
+        const regimen = (0, cfdi_regimen_person_util_1.inferReceptorRegimen)(quotation.customer?.fiscal_rfc, quotation.customer?.fiscal_person_type);
+        await this.advanceInvoices.attachToSalesOrder(tenantId, userId, quotation.id, orderId, { applyPayment: false });
+        await this.orderInvoicing.applyAdvance(orderId, tenantId, userId, {
+            uso_cfdi: difference <= 0.01 ? 'S01' : 'G01',
+            uso_cfdi_aplicacion: 'G02',
+            metodo_pago: 'PUE',
+            regimen_fiscal_receptor: regimen,
+            environment: dto.environment || quotation.advance_stamp_environment || undefined,
+        });
+        await this.advanceInvoices.attachToSalesOrder(tenantId, userId, quotation.id, orderId);
+        if (difference > 0.01) {
+            await this.salesOrderService.placeAdvanceDifferenceInCaja(orderId, tenantId, userId);
+        }
+        return {
+            quotation_id: quotation.id,
+            difference,
+            sales_order: {
+                id: order.id,
+                folio: order.folio,
+                payment_status: difference > 0.01 ? 'Pendiente' : 'Pagado',
+                total: saleTotal,
+            },
+        };
+    }
     async closeAdvance(id, dto, tenantId, userId, access) {
         const quotation = await this.findOne(id, tenantId, access);
         const advance = await this.advanceInvoices.requireCloseableAdvance(quotation);
@@ -1193,7 +1287,7 @@ let QuotationService = class QuotationService {
             saleTotal = Number(current.total || 0);
             const paid = Number(advance.total || 0);
             if (saleTotal + 0.009 < paid) {
-                throw new common_1.BadRequestException(`La venta (${saleTotal.toFixed(2)}) es menor al anticipo (${paid.toFixed(2)}). Tiene que cubrirlo o ser mayor.`);
+                throw new common_1.BadRequestException(`Sobran ${(paid - saleTotal).toFixed(2)}. Agrega otro producto.`);
             }
             await qr.commitTransaction();
         }
@@ -1221,6 +1315,9 @@ let QuotationService = class QuotationService {
         catch (error) {
             const message = error instanceof Error ? error.message : 'No se pudo timbrar la factura';
             throw new common_1.BadRequestException(`La orden ${order.folio} ya quedó creada. Falta la factura de la mercancía: ${message}`);
+        }
+        if (difference > 0.01) {
+            await this.salesOrderService.placeAdvanceDifferenceInCaja(order.id, tenantId, userId);
         }
         return {
             quotation_id: id,

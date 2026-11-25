@@ -1501,6 +1501,11 @@ export declare class PosShiftsService {
         totalPages: number;
     }>;
     getSalesInProgress(tenantId: string, terminalUserId: string, billingBranchId?: string): Promise<({
+        advance_collected?: boolean | undefined;
+        quotation_id?: string | undefined;
+        quotation_folio?: string | undefined;
+        amount_pending?: number | undefined;
+        advance_stamp_environment?: "demo" | "production" | null | undefined;
         customer_id: number;
         global_discount_id: string | null;
         global_discount: {
@@ -1624,6 +1629,7 @@ export declare class PosShiftsService {
             pos_user_code: number | null;
         } | null;
     })[]>;
+    private advanceContextForOrders;
     private listCollectedAdvanceQuotations;
     private listQuotationTicketsInVentas;
     replaceSaleCart(tenantId: string, terminalUserId: string, salesOrderId: string, dto: ReplacePosSaleCartDto, actor?: JwtPermissionUser): Promise<{

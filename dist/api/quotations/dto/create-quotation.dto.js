@@ -89,6 +89,7 @@ class CreateQuotationDto {
     advance_metodo_pago;
     advance_case;
     advance_stamp_environment;
+    advance_forma_pago;
     advance_iva_percentage;
     line_items;
 }
@@ -213,6 +214,15 @@ __decorate([
     (0, class_validator_1.IsIn)(['demo', 'production'], { message: 'El ambiente del anticipo debe ser demo o producción' }),
     __metadata("design:type", String)
 ], CreateQuotationDto.prototype, "advance_stamp_environment", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        description: 'Forma de pago SAT del anticipo: 01 efectivo, 02 cheque, 03 transferencia, 04 tarjeta.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['01', '02', '03', '04', '28']),
+    __metadata("design:type", String)
+], CreateQuotationDto.prototype, "advance_forma_pago", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
         required: false,

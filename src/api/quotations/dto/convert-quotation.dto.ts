@@ -30,6 +30,16 @@ export class ConvertQuotationDto {
   @ApiProperty({
     required: false,
     description:
+      'Si true, la venta POS aparta por FIFO lo que haya y se queda en ventas. Lo que no hay queda pendiente.',
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  hold_available?: boolean;
+
+  @ApiProperty({
+    required: false,
+    description:
       'Si true, la OV va a caja POS de la sucursal de la cotización. Si false, queda MANUAL. Si se omite, POS solo cuando la cotización era POS.',
   })
   @IsOptional()

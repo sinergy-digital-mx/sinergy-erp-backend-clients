@@ -2691,6 +2691,34 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-25T20:42:36.500Z"
+    },
+    {
+        "releaseKey": "full:0.0.187:0.0.187-1795642720700",
+        "version": "0.0.187",
+        "buildId": "0.0.187-1795642720700",
+        "channel": "full",
+        "title": "Versión 0.0.187",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "En Cotizar se timbra el anticipo: sin productos queda la cotizacion, con productos abre la venta y aparta lo que hay. En Tickets se elige el carrito, se agregan productos y caja cobra solo si falta.",
+                "module": "quotations",
+                "moduleLabel": "Cotizaciones"
+            },
+            {
+                "scope": "frontend",
+                "message": "En el catálogo, sucursal, Filtros y el cambio de vista quedan al mismo alto chico.",
+                "module": "pos",
+                "moduleLabel": "POS Ventas"
+            },
+            {
+                "scope": "frontend",
+                "message": "El build de producción acepta el estilo de toma de pedido hasta 60 kB.",
+                "module": "platform",
+                "moduleLabel": "Plataforma"
+            }
+        ],
+        "releasedAt": "2026-11-25T21:38:40.700Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map

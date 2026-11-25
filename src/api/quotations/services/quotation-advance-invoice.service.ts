@@ -435,6 +435,7 @@ export class QuotationAdvanceInvoiceService {
     userId: string,
     quotationId: string,
     salesOrderId: string,
+    options?: { applyPayment?: boolean },
   ) {
     const advance = await this.advanceCfdi.findVigenteAdvance(
       tenantId,
@@ -446,6 +447,9 @@ export class QuotationAdvanceInvoiceService {
       { id: salesOrderId, tenant_id: tenantId },
       { advance_invoice_id: advance.id },
     );
+    if (options?.applyPayment === false) {
+      return null;
+    }
     return this.advancePayments.attachQuotationPaymentToOrder(
       tenantId,
       userId,

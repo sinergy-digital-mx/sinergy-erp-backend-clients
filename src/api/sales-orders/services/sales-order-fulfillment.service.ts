@@ -37,6 +37,7 @@ export class SalesOrderFulfillmentService {
     manager: EntityManager,
     scope: { warehouseId?: string | null; billingBranchId?: string | null },
     quantityBase?: number,
+    allowShortfall = false,
   ): Promise<SalesOrderBatchAllocation[]> {
     const needed = parseFloat(
       (quantityBase ?? detail.quantity_base_uom).toString(),
@@ -110,9 +111,13 @@ export class SalesOrderFulfillmentService {
     );
 
     if (totalAvailable < needed) {
-      throw new BadRequestException(
-        this.buildInsufficientStockMessage(product, needed, totalAvailable),
-      );
+      if (allowShortfall) {
+        if (totalAvailable <= 0) return [];
+      } else {
+        throw new BadRequestException(
+          this.buildInsufficientStockMessage(product, needed, totalAvailable),
+        );
+      }
     }
 
     const allocations: SalesOrderBatchAllocation[] = [];

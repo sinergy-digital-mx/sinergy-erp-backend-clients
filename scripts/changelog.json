@@ -2134,6 +2134,36 @@
       "version": "0.0.186",
       "shippedAt": "2026-11-25T12:43:36-08:00",
       "module": "pos"
+    },
+    {
+      "id": "20261125-132004",
+      "at": "2026-11-25T13:20:04-08:00",
+      "scope": "both",
+      "message": "En Cotizar se timbra el anticipo: sin productos queda la cotizacion, con productos abre la venta y aparta lo que hay. En Tickets se elige el carrito, se agregan productos y caja cobra solo si falta.",
+      "status": "shipped",
+      "version": "0.0.187",
+      "shippedAt": "2026-11-25T13:39:38-08:00",
+      "module": "quotations"
+    },
+    {
+      "id": "20261125-132454",
+      "at": "2026-11-25T13:24:54-08:00",
+      "scope": "frontend",
+      "message": "En el catálogo, sucursal, Filtros y el cambio de vista quedan al mismo alto chico.",
+      "status": "shipped",
+      "version": "0.0.187",
+      "shippedAt": "2026-11-25T13:39:38-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261125-133300",
+      "at": "2026-11-25T13:33:00-08:00",
+      "scope": "frontend",
+      "message": "El build de producción acepta el estilo de toma de pedido hasta 60 kB.",
+      "status": "shipped",
+      "version": "0.0.187",
+      "shippedAt": "2026-11-25T13:39:38-08:00",
+      "module": "platform"
     }
   ]
 }

@@ -1,10 +1,14 @@
 # UI — Anticipo, cobro al convertir y reversas
 
-## 2026-11-25 — Tickets y ambiente
+## 2026-11-25 — Cotizar, tickets y carrito
 
-Demo y Producción están en Anticipo y en Cotizar. Caja timbra con el que se eligió.
+El anticipo solo se activa en **Cotizar** (Factura de anticipo, forma de pago, Demo o Producción). Ahí se timbra el CFDI con el concepto Anticipo del bien o servicio.
 
-Cuando el anticipo ya se cobró, el folio aparece en **Tickets** de POS Ventas. Se abre, se agregan los productos (si ya venían, salen cargados) y **Registrar venta** crea la orden, la factura de productos y la nota de crédito. Si el total es mayor, la diferencia pasa a caja.
+Sin productos: queda la cotización. Con productos: se timbra el mismo concepto y se abre la venta con esos productos. Si hay existencia se aparta por FIFO; si no, la línea queda pendiente.
+
+Al regresar, **Tickets** lista la cotización o la venta. Se elige C1, C2 o C3. El carrito muestra el folio y el anticipo. Si falta dinero del anticipo, hay que agregar otro producto. Si la venta es mayor, caja cobra la diferencia. La factura de la mercancía relaciona el UUID del anticipo y la nota de crédito.
+
+Si en Folios se abre la cotización del caso con productos, el sistema carga la venta relacionada en el carrito.
 
 ## 2026-11-25 — Textos del wizard
 

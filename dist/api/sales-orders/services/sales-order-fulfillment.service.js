@@ -37,7 +37,7 @@ let SalesOrderFulfillmentService = SalesOrderFulfillmentService_1 = class SalesO
         this.stockLedger = stockLedger;
         this.stockLedgerValuation = stockLedgerValuation;
     }
-    async allocateFifo(detail, userId, manager, scope, quantityBase) {
+    async allocateFifo(detail, userId, manager, scope, quantityBase, allowShortfall = false) {
         const needed = parseFloat((quantityBase ?? detail.quantity_base_uom).toString());
         const product = await manager.findOne(product_entity_1.Product, {
             where: { id: detail.product_id },
@@ -93,7 +93,13 @@ let SalesOrderFulfillmentService = SalesOrderFulfillmentService_1 = class SalesO
         const batches = await qb.getMany();
         const totalAvailable = batches.reduce((sum, b) => sum + parseFloat(b.available_quantity.toString()), 0);
         if (totalAvailable < needed) {
-            throw new common_1.BadRequestException(this.buildInsufficientStockMessage(product, needed, totalAvailable));
+            if (allowShortfall) {
+                if (totalAvailable <= 0)
+                    return [];
+            }
+            else {
+                throw new common_1.BadRequestException(this.buildInsufficientStockMessage(product, needed, totalAvailable));
+            }
         }
         const allocations = [];
         let remaining = needed;

@@ -113,6 +113,7 @@ export declare class QuotationController {
                 payment_method_label: string;
                 shift_date: string;
             } | null;
+            advance_stamp_environment: "demo" | "production" | null;
             customer_email: string | null;
             converted_to_sales_order_id: string | null;
             razon_social: string;
@@ -159,7 +160,6 @@ export declare class QuotationController {
             advance_uso_cfdi: string | null;
             advance_metodo_pago: "PUE" | "PPD" | null;
             advance_case: "unknown" | "products" | null;
-            advance_stamp_environment: "demo" | "production" | null;
             pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
             pos_caja_opened_at: Date | null;
             pos_caja_opened_by: string | null;
@@ -353,6 +353,7 @@ export declare class QuotationController {
                     payment_method_label: string;
                     shift_date: string;
                 } | null;
+                advance_stamp_environment: "demo" | "production" | null;
                 customer_email: string | null;
                 converted_to_sales_order_id: string | null;
                 razon_social: string;
@@ -399,7 +400,6 @@ export declare class QuotationController {
                 advance_uso_cfdi: string | null;
                 advance_metodo_pago: "PUE" | "PPD" | null;
                 advance_case: "unknown" | "products" | null;
-                advance_stamp_environment: "demo" | "production" | null;
                 pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
                 pos_caja_opened_at: Date | null;
                 pos_caja_opened_by: string | null;
@@ -574,6 +574,7 @@ export declare class QuotationController {
                     payment_method_label: string;
                     shift_date: string;
                 } | null;
+                advance_stamp_environment: "demo" | "production" | null;
                 customer_email: string | null;
                 converted_to_sales_order_id: string | null;
                 razon_social: string;
@@ -620,7 +621,6 @@ export declare class QuotationController {
                 advance_uso_cfdi: string | null;
                 advance_metodo_pago: "PUE" | "PPD" | null;
                 advance_case: "unknown" | "products" | null;
-                advance_stamp_environment: "demo" | "production" | null;
                 pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
                 pos_caja_opened_at: Date | null;
                 pos_caja_opened_by: string | null;
@@ -795,6 +795,7 @@ export declare class QuotationController {
                     payment_method_label: string;
                     shift_date: string;
                 } | null;
+                advance_stamp_environment: "demo" | "production" | null;
                 customer_email: string | null;
                 converted_to_sales_order_id: string | null;
                 razon_social: string;
@@ -841,7 +842,6 @@ export declare class QuotationController {
                 advance_uso_cfdi: string | null;
                 advance_metodo_pago: "PUE" | "PPD" | null;
                 advance_case: "unknown" | "products" | null;
-                advance_stamp_environment: "demo" | "production" | null;
                 pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
                 pos_caja_opened_at: Date | null;
                 pos_caja_opened_by: string | null;
@@ -1115,6 +1115,7 @@ export declare class QuotationController {
                     payment_method_label: string;
                     shift_date: string;
                 } | null;
+                advance_stamp_environment: "demo" | "production" | null;
                 customer_email: string | null;
                 converted_to_sales_order_id: string | null;
                 razon_social: string;
@@ -1161,7 +1162,6 @@ export declare class QuotationController {
                 advance_uso_cfdi: string | null;
                 advance_metodo_pago: "PUE" | "PPD" | null;
                 advance_case: "unknown" | "products" | null;
-                advance_stamp_environment: "demo" | "production" | null;
                 pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
                 pos_caja_opened_at: Date | null;
                 pos_caja_opened_by: string | null;
@@ -1245,13 +1245,8 @@ export declare class QuotationController {
         sales_order: {
             id: string;
             folio: string;
-            general_status: string;
             payment_status: string;
-            sales_order_type: string;
             total: number;
-            converted_from_quotation_id: string;
-            sent_to_pos_caja: boolean;
-            pos_daily_shift_id: string | null;
         };
     }>;
     convert(id: string, dto: ConvertQuotationDto, req: any): Promise<{
@@ -1352,6 +1347,7 @@ export declare class QuotationController {
                     payment_method_label: string;
                     shift_date: string;
                 } | null;
+                advance_stamp_environment: "demo" | "production" | null;
                 customer_email: string | null;
                 converted_to_sales_order_id: string | null;
                 razon_social: string;
@@ -1398,7 +1394,6 @@ export declare class QuotationController {
                 advance_uso_cfdi: string | null;
                 advance_metodo_pago: "PUE" | "PPD" | null;
                 advance_case: "unknown" | "products" | null;
-                advance_stamp_environment: "demo" | "production" | null;
                 pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
                 pos_caja_opened_at: Date | null;
                 pos_caja_opened_by: string | null;

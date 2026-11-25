@@ -273,7 +273,7 @@ export class QuotationController {
     @Body() dto: CloseAdvanceQuotationDto,
     @Req() req: any,
   ) {
-    return this.quotationService.closeAdvance(
+    return this.quotationService.completeReturn(
       id,
       dto,
       req.user.tenant_id,

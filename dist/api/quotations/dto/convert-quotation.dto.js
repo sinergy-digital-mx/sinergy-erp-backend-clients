@@ -16,6 +16,7 @@ const class_validator_1 = require("class-validator");
 class ConvertQuotationDto {
     customer_id;
     notes;
+    hold_available;
     send_to_pos_caja;
 }
 exports.ConvertQuotationDto = ConvertQuotationDto;
@@ -38,6 +39,16 @@ __decorate([
     (0, class_validator_1.MaxLength)(5000),
     __metadata("design:type", String)
 ], ConvertQuotationDto.prototype, "notes", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        description: 'Si true, la venta POS aparta por FIFO lo que haya y se queda en ventas. Lo que no hay queda pendiente.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => value === true || value === 'true'),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], ConvertQuotationDto.prototype, "hold_available", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
         required: false,

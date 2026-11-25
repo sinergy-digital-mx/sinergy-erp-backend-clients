@@ -178,6 +178,14 @@ export class CreateQuotationDto {
 
   @ApiProperty({
     required: false,
+    description: 'Forma de pago SAT del anticipo: 01 efectivo, 02 cheque, 03 transferencia, 04 tarjeta.',
+  })
+  @IsOptional()
+  @IsIn(['01', '02', '03', '04', '28'])
+  advance_forma_pago?: '01' | '02' | '03' | '04' | '28';
+
+  @ApiProperty({
+    required: false,
     description: 'IVA del anticipo cuando la cotización no trae productos (0, 8 o 16).',
   })
   @IsOptional()
