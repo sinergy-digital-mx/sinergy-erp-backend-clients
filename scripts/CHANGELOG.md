@@ -12,6 +12,10 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.183 · 25 nov
+
+- Cotizaciones · El anticipo en punto de venta pregunta sin productos o con productos, con el mismo estilo de los otros diálogos.
+
 #### Versión 0.0.182 · 25 nov
 
 - Inventario · En Inventario, el ! al final del buscador deja solo el código exacto, igual que en POS.

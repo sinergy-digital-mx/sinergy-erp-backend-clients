@@ -2084,6 +2084,16 @@
       "version": "0.0.182",
       "shippedAt": "2026-11-25T11:03:21-08:00",
       "module": "inventory"
+    },
+    {
+      "id": "20261125-110739",
+      "at": "2026-11-25T11:07:39-08:00",
+      "scope": "frontend",
+      "message": "El anticipo en punto de venta pregunta sin productos o con productos, con el mismo estilo de los otros diálogos.",
+      "status": "shipped",
+      "version": "0.0.183",
+      "shippedAt": "2026-11-25T11:27:24-08:00",
+      "module": "quotations"
     }
   ]
 }

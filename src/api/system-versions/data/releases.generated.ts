@@ -2637,5 +2637,21 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-11-25T19:02:21.165Z"
+  },
+  {
+    "releaseKey": "full:0.0.183:0.0.183-1795634790231",
+    "version": "0.0.183",
+    "buildId": "0.0.183-1795634790231",
+    "channel": "full",
+    "title": "Versión 0.0.183",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "El anticipo en punto de venta pregunta sin productos o con productos, con el mismo estilo de los otros diálogos.",
+        "module": "quotations",
+        "moduleLabel": "Cotizaciones"
+      }
+    ],
+    "releasedAt": "2026-11-25T19:26:30.231Z"
   }
 ];

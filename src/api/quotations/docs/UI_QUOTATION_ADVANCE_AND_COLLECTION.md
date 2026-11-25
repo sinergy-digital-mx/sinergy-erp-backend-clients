@@ -1,10 +1,14 @@
 # UI — Anticipo, cobro al convertir y reversas
 
+## 2026-11-25 — Textos del wizard
+
+En punto de venta el diálogo pregunta **Sin productos** o **Con productos**. El monto va con IVA y se envía a caja. Al regresar, **Generar venta** pide los productos.
+
 ## 2026-11-25 — Wizard en punto de venta y en el detalle
 
-El anticipo se pide desde POS Ventas, botón **Anticipo**, o desde el detalle de la cotización, **Pedir anticipo**. Los dos casos mandan el monto con IVA a la caja de la sucursal. La factura se timbra al cobrar, siempre con el concepto «Anticipo del bien o servicio».
+El anticipo se pide desde POS Ventas, botón **Anticipo**, o desde el detalle de la cotización, **Pedir anticipo**. Las dos opciones mandan el monto con IVA a la caja de la sucursal. La factura se timbra al cobrar, siempre con el concepto «Anticipo del bien o servicio».
 
-Caso 1: la cotización no lleva maderas. Caso 2: guarda los productos, y la factura de anticipo sigue siendo el mismo concepto.
+Sin productos: la cotización no lleva líneas. Con productos: guarda los del ticket, y la factura de anticipo sigue siendo el mismo concepto.
 
 Cuando el anticipo ya está cobrado, **Generar venta** (Folios o el detalle) arma los productos, crea la orden y timbra la factura de mercancía con descuento, tipo de relación 07 y la nota de crédito. Si la venta es mayor, caja cobra la diferencia. Si es menor, no pasa.
 
