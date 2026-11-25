@@ -1894,6 +1894,36 @@
       "version": "0.0.176",
       "shippedAt": "2026-11-24T21:08:22-08:00",
       "module": "pos"
+    },
+    {
+      "id": "20261124-230008",
+      "at": "2026-11-24T23:00:08-08:00",
+      "scope": "frontend",
+      "message": "En Folios el copiar queda en un ícono junto al folio, sin meter Copiado en la fila.",
+      "status": "shipped",
+      "version": "0.0.177",
+      "shippedAt": "2026-11-24T23:25:38-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261124-230726",
+      "at": "2026-11-24T23:07:26-08:00",
+      "scope": "frontend",
+      "message": "En Folios, copiar a carrito pregunta C1, C2 o C3 y la fila se abre con los productos.",
+      "status": "shipped",
+      "version": "0.0.177",
+      "shippedAt": "2026-11-24T23:25:38-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261124-230922",
+      "at": "2026-11-24T23:09:22-08:00",
+      "scope": "frontend",
+      "message": "En la barra, al pasar el cursor por el cuadrito de corte sale abajo la terminal, como estaba.",
+      "status": "shipped",
+      "version": "0.0.177",
+      "shippedAt": "2026-11-24T23:25:38-08:00",
+      "module": "pos"
     }
   ]
 }

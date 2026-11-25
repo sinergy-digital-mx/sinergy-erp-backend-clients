@@ -2457,6 +2457,34 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-25T05:07:03.054Z"
+    },
+    {
+        "releaseKey": "full:0.0.177:0.0.177-1795591475181",
+        "version": "0.0.177",
+        "buildId": "0.0.177-1795591475181",
+        "channel": "full",
+        "title": "Versión 0.0.177",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "En Folios el copiar queda en un ícono junto al folio, sin meter Copiado en la fila.",
+                "module": "pos",
+                "moduleLabel": "POS Ventas"
+            },
+            {
+                "scope": "frontend",
+                "message": "En Folios, copiar a carrito pregunta C1, C2 o C3 y la fila se abre con los productos.",
+                "module": "pos",
+                "moduleLabel": "POS Ventas"
+            },
+            {
+                "scope": "frontend",
+                "message": "En la barra, al pasar el cursor por el cuadrito de corte sale abajo la terminal, como estaba.",
+                "module": "pos",
+                "moduleLabel": "POS Ventas"
+            }
+        ],
+        "releasedAt": "2026-11-25T07:24:35.181Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map
