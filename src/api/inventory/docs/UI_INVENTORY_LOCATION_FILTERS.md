@@ -1,5 +1,11 @@
 # UI — Filtros de inventario (razón social → sucursal → almacén)
 
+## 2026-11-25 — Código exacto con !
+
+En Por lotes y Totalizado, si el texto del buscador termina en `!`, el código tiene que coincidir completo. `1x12` sigue encontrando códigos que lo traen adentro, como `L21X120`. `1x12!` deja solo el SKU o el código externo `1X12`. No busca el número de lote.
+
+El hover del buscador lo indica: «Pon ! al final para buscar el código exacto. Ejemplo: 1x12!». El Excel de esas dos vistas usa el mismo texto. Por sucursal ya lo hacía.
+
 ## 2026-11-24 — Quitar búsqueda
 
 En Por lotes y Totalizado el buscador muestra una X a la derecha cuando hay texto. La X borra solo la búsqueda y recarga el listado. Los filtros de razón social, sucursal y almacén se quedan.

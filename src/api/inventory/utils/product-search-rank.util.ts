@@ -69,6 +69,21 @@ export function productSearchOrderParams(query: string): Record<string, string> 
 }
 
 /**
+ * Si el texto termina en `!`, filtra por SKU o código externo exacto.
+ * Devuelve true en ese caso, también cuando el código quedó vacío.
+ * Si no hay `!`, no toca el query: el listado sigue con su propio LIKE.
+ */
+export function applyExactProductCodeFilter<T extends ObjectLiteral>(
+  qb: SelectQueryBuilder<T>,
+  search: string | null | undefined,
+  alias = 'product',
+): boolean {
+  if (exactProductSearchCode(search) === null) return false;
+  applyProductSearchFilter(qb, search ?? undefined, alias);
+  return true;
+}
+
+/**
  * LIKE simple (MySQL unicode_ci ya es case-insensitive).
  * No envolver columnas en LOWER/REPLACE: eso invalida índices y recorre toda la tabla.
  */

@@ -3,7 +3,11 @@ import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class InventorySummaryFilterDto {
-  @ApiProperty({ description: 'Search by product name or SKU', required: false })
+  @ApiProperty({
+    description:
+      'Nombre o SKU. Si termina en ! el código es exacto (SKU o código externo). Ejemplo: 1x12!',
+    required: false,
+  })
   @IsOptional()
   @IsString()
   search?: string;

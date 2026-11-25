@@ -15,6 +15,7 @@ export declare function exactProductSearchCode(search: string | null | undefined
 export declare function parseProductSearchTokens(search: string | null | undefined): string[];
 export declare function getProductSearchQuery(search: string | undefined): string;
 export declare function productSearchOrderParams(query: string): Record<string, string>;
+export declare function applyExactProductCodeFilter<T extends ObjectLiteral>(qb: SelectQueryBuilder<T>, search: string | null | undefined, alias?: string): boolean;
 export declare function applyProductSearchFilter<T extends ObjectLiteral>(qb: SelectQueryBuilder<T>, search: string | undefined, alias?: string): void;
 export declare function applyProductSearchOrder<T extends ObjectLiteral>(qb: SelectQueryBuilder<T>, search: string | undefined, grouped?: boolean): boolean;
 export declare function buildProductSearchRankSql(grouped?: boolean): string;

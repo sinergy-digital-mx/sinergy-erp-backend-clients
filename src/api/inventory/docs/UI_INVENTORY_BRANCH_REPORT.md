@@ -1,5 +1,9 @@
 # UI — Inventario por sucursal
 
+## 2026-11-25 — Código exacto con !
+
+El buscador de Por sucursal usa la misma regla que POS: `1x12!` deja solo el SKU o el código externo exacto. El hover del campo lo indica.
+
 ## 2026-11-25 — Costo con permiso
 
 Costo promedio y costo total solo salen con `inventory:ViewMargin`. Sin el permiso la ficha muestra la existencia.

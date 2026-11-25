@@ -20,6 +20,7 @@ const inventory_batch_entity_1 = require("../../../entities/purchase-orders/inve
 const inventory_location_filter_util_1 = require("../utils/inventory-location-filter.util");
 const inventory_measure_util_1 = require("../utils/inventory-measure.util");
 const excel_export_util_1 = require("../../../common/utils/excel-export.util");
+const product_search_rank_util_1 = require("../utils/product-search-rank.util");
 let InventoryExportService = class InventoryExportService {
     batchRepo;
     batchColumns = [
@@ -127,7 +128,7 @@ let InventoryExportService = class InventoryExportService {
         return qb.getMany();
     }
     applyBatchFilters(qb, filters) {
-        if (filters.search) {
+        if (filters.search && !(0, product_search_rank_util_1.applyExactProductCodeFilter)(qb, filters.search)) {
             qb.andWhere('(LOWER(batch.batch_number) LIKE LOWER(:search) OR LOWER(product.name) LIKE LOWER(:search) OR LOWER(product.sku) LIKE LOWER(:search))', { search: `%${filters.search}%` });
         }
         if (filters.batch_number) {
@@ -172,7 +173,7 @@ let InventoryExportService = class InventoryExportService {
         (0, inventory_location_filter_util_1.joinInventoryLocation)(qb);
         (0, inventory_location_filter_util_1.assertInventoryLocationCascade)(filters);
         (0, inventory_location_filter_util_1.applyInventoryLocationFilters)(qb, filters);
-        if (filters.search) {
+        if (filters.search && !(0, product_search_rank_util_1.applyExactProductCodeFilter)(qb, filters.search)) {
             qb = qb.andWhere('(LOWER(product.name) LIKE LOWER(:search) OR LOWER(product.sku) LIKE LOWER(:search))', { search: `%${filters.search}%` });
         }
         if (filters.product_id) {

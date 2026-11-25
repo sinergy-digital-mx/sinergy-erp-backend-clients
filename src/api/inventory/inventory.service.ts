@@ -49,6 +49,7 @@ import {
   mapBatchMeasure,
 } from './utils/inventory-measure.util';
 import {
+  applyExactProductCodeFilter,
   applyProductSearchFilter,
   applyProductSearchOrder,
   parseProductSearchTokens,
@@ -1461,7 +1462,7 @@ export class InventoryService {
       });
     }
 
-    if (filters.search) {
+    if (filters.search && !applyExactProductCodeFilter(qb, filters.search)) {
       qb.andWhere(
         '(LOWER(batch.batch_number) LIKE LOWER(:search) OR LOWER(product.name) LIKE LOWER(:search) OR LOWER(product.sku) LIKE LOWER(:search))',
         { search: `%${filters.search}%` },
@@ -1687,7 +1688,7 @@ export class InventoryService {
 
     applyInventoryLocationFilters(qb, filters);
 
-    if (filters.search) {
+    if (filters.search && !applyExactProductCodeFilter(qb, filters.search)) {
       qb.andWhere(
         '(LOWER(product.name) LIKE LOWER(:search) OR LOWER(product.sku) LIKE LOWER(:search))',
         { search: `%${filters.search}%` },

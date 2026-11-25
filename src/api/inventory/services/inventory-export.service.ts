@@ -24,6 +24,7 @@ import {
   formatExportDateTime,
   num,
 } from '../../../common/utils/excel-export.util';
+import { applyExactProductCodeFilter } from '../utils/product-search-rank.util';
 
 @Injectable()
 export class InventoryExportService {
@@ -158,7 +159,7 @@ export class InventoryExportService {
     qb: SelectQueryBuilder<InventoryBatch>,
     filters: QueryInventoryBatchExportDto,
   ): void {
-    if (filters.search) {
+    if (filters.search && !applyExactProductCodeFilter(qb, filters.search)) {
       qb.andWhere(
         '(LOWER(batch.batch_number) LIKE LOWER(:search) OR LOWER(product.name) LIKE LOWER(:search) OR LOWER(product.sku) LIKE LOWER(:search))',
         { search: `%${filters.search}%` },
@@ -212,7 +213,7 @@ export class InventoryExportService {
     assertInventoryLocationCascade(filters);
     applyInventoryLocationFilters(qb, filters);
 
-    if (filters.search) {
+    if (filters.search && !applyExactProductCodeFilter(qb, filters.search)) {
       qb = qb.andWhere(
         '(LOWER(product.name) LIKE LOWER(:search) OR LOWER(product.sku) LIKE LOWER(:search))',
         { search: `%${filters.search}%` },

@@ -12,6 +12,10 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.182 · 25 nov
+
+- Inventario · En Inventario, el ! al final del buscador deja solo el código exacto, igual que en POS.
+
 #### Versión 0.0.181 · 25 nov
 
 - Órdenes de venta · La facturación de órdenes resuelve la dependencia circular con turnos de punto de venta para que el API arranque.

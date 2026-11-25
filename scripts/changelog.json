@@ -2074,6 +2074,16 @@
       "version": "0.0.181",
       "shippedAt": "2026-11-25T11:00:05-08:00",
       "module": "quotations"
+    },
+    {
+      "id": "20261125-110205",
+      "at": "2026-11-25T11:02:05-08:00",
+      "scope": "both",
+      "message": "En Inventario, el ! al final del buscador deja solo el código exacto, igual que en POS.",
+      "status": "shipped",
+      "version": "0.0.182",
+      "shippedAt": "2026-11-25T11:03:21-08:00",
+      "module": "inventory"
     }
   ]
 }

@@ -1,5 +1,9 @@
 # UI — Exportar inventario a Excel
 
+## 2026-11-25 — Código exacto con !
+
+El Excel usa el mismo `search` del listado. Si termina en `!`, filtra el SKU o el código externo exacto. Ejemplo: `1x12!`.
+
 Guía para Pollux: botón **Descargar Excel** en las vistas de inventario (**Lotes** y **Totalizado**), con selector de tipo de reporte.
 
 ---
@@ -17,7 +21,7 @@ Ambos devuelven un archivo `.xlsx` (`Content-Type: application/vnd.openxmlformat
 
 | Parámetro | Tipo | Descripción |
 |-----------|------|-------------|
-| `search` | string | No. lote, nombre o SKU de producto |
+| `search` | string | No. lote, nombre o SKU. Con `!` al final, código exacto |
 | `batch_number` | string | No. lote (parcial) |
 | `product_id` | uuid | Producto |
 | `fiscal_configuration_id` | uuid | Razón social. Requerido si se envía sucursal |
@@ -36,7 +40,7 @@ Cascada igual que el listado: ver `UI_INVENTORY_LOCATION_FILTERS.md`. **No envia
 
 | Parámetro | Tipo | Descripción |
 |-----------|------|-------------|
-| `search` | string | Nombre o SKU de producto |
+| `search` | string | Nombre o SKU. Con `!` al final, código exacto |
 | `fiscal_configuration_id` | uuid | Razón social. Requerido si se envía sucursal |
 | `billing_branch_id` | uuid | Sucursal. Requiere razón social |
 | `warehouse_id` | uuid | Almacén. Requiere razón social y sucursal |

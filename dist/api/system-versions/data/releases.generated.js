@@ -2615,6 +2615,22 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-25T18:58:57.458Z"
+    },
+    {
+        "releaseKey": "full:0.0.182:0.0.182-1795633341165",
+        "version": "0.0.182",
+        "buildId": "0.0.182-1795633341165",
+        "channel": "full",
+        "title": "Versión 0.0.182",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "En Inventario, el ! al final del buscador deja solo el código exacto, igual que en POS.",
+                "module": "inventory",
+                "moduleLabel": "Inventario"
+            }
+        ],
+        "releasedAt": "2026-11-25T19:02:21.165Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map

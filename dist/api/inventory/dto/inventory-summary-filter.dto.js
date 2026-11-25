@@ -27,7 +27,10 @@ class InventorySummaryFilterDto {
 }
 exports.InventorySummaryFilterDto = InventorySummaryFilterDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ description: 'Search by product name or SKU', required: false }),
+    (0, swagger_1.ApiProperty)({
+        description: 'Nombre o SKU. Si termina en ! el código es exacto (SKU o código externo). Ejemplo: 1x12!',
+        required: false,
+    }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)

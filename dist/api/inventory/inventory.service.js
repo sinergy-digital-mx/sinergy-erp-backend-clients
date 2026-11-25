@@ -1020,7 +1020,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
                 warehouse_id: filters.warehouse_id,
             });
         }
-        if (filters.search) {
+        if (filters.search && !(0, product_search_rank_util_1.applyExactProductCodeFilter)(qb, filters.search)) {
             qb.andWhere('(LOWER(batch.batch_number) LIKE LOWER(:search) OR LOWER(product.name) LIKE LOWER(:search) OR LOWER(product.sku) LIKE LOWER(:search))', { search: `%${filters.search}%` });
         }
         if (filters.batch_number) {
@@ -1186,7 +1186,7 @@ let InventoryService = InventoryService_1 = class InventoryService {
             .andWhere('product.item_kind = :goodsKind', { goodsKind: product_item_kind_enum_1.ProductItemKind.Goods })
             .andWhere('product.is_active = :productActive', { productActive: true });
         (0, inventory_location_filter_util_1.applyInventoryLocationFilters)(qb, filters);
-        if (filters.search) {
+        if (filters.search && !(0, product_search_rank_util_1.applyExactProductCodeFilter)(qb, filters.search)) {
             qb.andWhere('(LOWER(product.name) LIKE LOWER(:search) OR LOWER(product.sku) LIKE LOWER(:search))', { search: `%${filters.search}%` });
         }
         if (filters.product_id) {

@@ -1,4 +1,5 @@
 import {
+  applyExactProductCodeFilter,
   applyProductSearchFilter,
   applyProductSearchOrder,
   buildProductSearchRankSql,
@@ -80,6 +81,33 @@ describe('product-search-rank.util', () => {
       ]);
       expect(clauses[0]).not.toContain('LIKE');
       expect(params[0]).toEqual({ productSearchExactCode: '1x12' });
+    });
+  });
+
+  describe('applyExactProductCodeFilter', () => {
+    function queryBuilder() {
+      const clauses: string[] = [];
+      const qb = {
+        andWhere: (sql: string) => {
+          clauses.push(sql);
+          return qb;
+        },
+      };
+      return { qb, clauses };
+    }
+
+    it('leaves a normal search untouched', () => {
+      const { qb, clauses } = queryBuilder();
+      expect(applyExactProductCodeFilter(qb as never, '1x12')).toBe(false);
+      expect(clauses).toEqual([]);
+    });
+
+    it('keeps only the exact code when the text ends with !', () => {
+      const { qb, clauses } = queryBuilder();
+      expect(applyExactProductCodeFilter(qb as never, '1x12!')).toBe(true);
+      expect(clauses).toEqual([
+        '(product.sku = :productSearchExactCode OR product.external_sku = :productSearchExactCode)',
+      ]);
     });
   });
 

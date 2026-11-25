@@ -5,6 +5,7 @@ exports.exactProductSearchCode = exactProductSearchCode;
 exports.parseProductSearchTokens = parseProductSearchTokens;
 exports.getProductSearchQuery = getProductSearchQuery;
 exports.productSearchOrderParams = productSearchOrderParams;
+exports.applyExactProductCodeFilter = applyExactProductCodeFilter;
 exports.applyProductSearchFilter = applyProductSearchFilter;
 exports.applyProductSearchOrder = applyProductSearchOrder;
 exports.buildProductSearchRankSql = buildProductSearchRankSql;
@@ -56,6 +57,12 @@ function productSearchOrderParams(query) {
         productSearchContains: `%${query}%`,
         productSearchWord: `% ${query}%`,
     };
+}
+function applyExactProductCodeFilter(qb, search, alias = 'product') {
+    if (exactProductSearchCode(search) === null)
+        return false;
+    applyProductSearchFilter(qb, search ?? undefined, alias);
+    return true;
 }
 function applyProductSearchFilter(qb, search, alias = 'product') {
     const exactCode = exactProductSearchCode(search);
