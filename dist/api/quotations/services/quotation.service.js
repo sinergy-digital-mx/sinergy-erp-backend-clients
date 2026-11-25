@@ -245,7 +245,7 @@ let QuotationService = class QuotationService {
             qb.andWhere('(qt.billing_branch_id IN (:...scopeBranchIds) OR (qt.billing_branch_id IS NULL AND warehouse.billing_branch_id IN (:...scopeBranchIds)))', { scopeBranchIds });
         }
         if (search) {
-            qb.andWhere('(qt.folio LIKE :s OR customer.name LIKE :s OR customer.lastname LIKE :s OR CONCAT(customer.name, \' \', COALESCE(customer.lastname, \'\')) LIKE :s)', { s: `%${search}%` });
+            qb.andWhere('(qt.folio LIKE :s OR customer.name LIKE :s OR customer.lastname LIKE :s OR customer.company_name LIKE :s OR CONCAT(customer.name, \' \', COALESCE(customer.lastname, \'\')) LIKE :s)', { s: `%${search}%` });
         }
         if (general_status?.length) {
             if (general_status.length === 1) {

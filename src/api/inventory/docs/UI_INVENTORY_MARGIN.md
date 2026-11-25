@@ -1,5 +1,28 @@
 # UI — Margen de inventario
 
+## 2026-11-25 — Columnas de costo
+
+El mismo permiso `inventory:ViewMargin` oculta las columnas de costo que seguían a la vista:
+
+- Orden de compra: columna **COSTO**. El importe de la línea sigue.
+- Lotes de la orden: **Costo**, **Real USD**, **Real MXN** e **Importe**. El API deja esos campos en null.
+- Recibo: el dato **Costo unit.**
+- Excel de detalle: la columna **Total unit.**
+- Producto: el tab **Costos de Proveedor**. El API de costos de proveedor responde 403.
+- Lote: la tarjeta de costos, incluido **Costo real**, solo con este permiso y, para el costo real, también `purchase_order_real_cost:Read`.
+
+Al agregar o editar la línea, el campo de costo unitario sigue en el formulario para guardar la compra.
+
+## 2026-11-25 — Permiso ViewMargin
+
+Precio, costo y margen del inventario solo se ven con `inventory:ViewMargin`. Sin ese permiso no se pintan y el API no los entrega.
+
+Dónde se oculta: columnas Precio, Costo y Margen de Totalizado, tab Margen del lote, tab Margen del producto, cards de costo, precio y margen, costo de Por sucursal, y columnas de dinero del reporte de existencia. El Excel de esos reportes tampoco lleva esas columnas.
+
+El permiso se asigna en Roles. En la maderería lo tiene el rol Direccion. Los roles administrador de las otras empresas también lo reciben. Un operador no lo ve hasta que se lo marquen.
+
+Quitar el permiso en Roles lo oculta, también en Direccion. Hay que recargar la sesión (`permissions_version`).
+
 ## 2026-11-23 — Recarga al cerrar el producto
 
 Si desde un lote se guarda un precio o un costo y se cierran las ventanas, Totalizado y Por lotes vuelven a cargar esa página. Cerrar sin guardar no recarga.

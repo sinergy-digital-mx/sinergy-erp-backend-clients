@@ -13,6 +13,7 @@ import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { TenantModuleValidationGuard } from '../../auth/tenant-module-validation.guard';
 import { ReceiptService } from '../services/receipt.service';
 import { ReceivePurchaseOrderDto } from '../dto';
+import { HideInventoryCostColumnsInterceptor } from '../interceptors/hide-inventory-cost-columns.interceptor';
 import { HidePurchaseOrderRealCostInterceptor } from '../interceptors/hide-purchase-order-real-cost.interceptor';
 
 /**
@@ -22,7 +23,7 @@ import { HidePurchaseOrderRealCostInterceptor } from '../interceptors/hide-purch
  */
 @Controller('tenant/purchase-orders')
 @UseGuards(JwtAuthGuard, TenantModuleValidationGuard)
-@UseInterceptors(HidePurchaseOrderRealCostInterceptor)
+@UseInterceptors(HidePurchaseOrderRealCostInterceptor, HideInventoryCostColumnsInterceptor)
 export class ReceiptController {
   constructor(private readonly receiptService: ReceiptService) {}
 

@@ -1,5 +1,9 @@
 # UI — Inventario por sucursal
 
+## 2026-11-25 — Costo con permiso
+
+Costo promedio y costo total solo salen con `inventory:ViewMargin`. Sin el permiso la ficha muestra la existencia.
+
 ## 2026-11-24 — Orden de sucursales
 
 En el engrane, el filtro y los botones Todas / Ninguna van a la misma altura. Cada sucursal se arrastra por el asa. El orden en que quedan las activas es el orden de la ficha. `branch_ids` se guarda en ese orden.

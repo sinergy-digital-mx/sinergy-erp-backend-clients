@@ -25,6 +25,7 @@ const open_daily_shift_dto_1 = require("./dto/open-daily-shift.dto");
 const create_partial_shift_dto_1 = require("./dto/create-partial-shift.dto");
 const query_daily_shift_dto_1 = require("./dto/query-daily-shift.dto");
 const query_pos_branch_dto_1 = require("./dto/query-pos-branch.dto");
+const query_pos_folio_quotations_dto_1 = require("./dto/query-pos-folio-quotations.dto");
 const close_daily_shift_dto_1 = require("./dto/close-daily-shift.dto");
 const collect_pos_sale_dto_1 = require("./dto/collect-pos-sale.dto");
 const register_pos_abono_dto_1 = require("./dto/register-pos-abono.dto");
@@ -89,6 +90,9 @@ let PosShiftsController = class PosShiftsController {
     async getSalesInProgress(query, req) {
         const sales = await this.posShiftsService.getSalesInProgress(req.user.tenant_id, req.user.id, query.billing_branch_id);
         return { sales_in_progress: sales };
+    }
+    listFolioQuotations(query, req) {
+        return this.posShiftsService.listFolioQuotations(req.user.tenant_id, req.user.id, query);
     }
     async getCollectedSales(query, req) {
         return this.posShiftsService.getCollectedSales(req.user.tenant_id, req.user.id, query.daily_shift_id, query.billing_branch_id);
@@ -278,6 +282,19 @@ __decorate([
     __metadata("design:paramtypes", [query_pos_branch_dto_1.QueryPosBranchDto, Object]),
     __metadata("design:returntype", Promise)
 ], PosShiftsController.prototype, "getSalesInProgress", null);
+__decorate([
+    (0, common_1.Get)('folio-quotations'),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Read' }, { entityType: 'pos', action: 'Read' }, { entityType: 'pos', action: 'Create' }, { entityType: 'pos', action: 'Update' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Cotizaciones de la sucursal para Folios',
+        description: 'Terminal de ventas. Lista las cotizaciones de la sucursal y la razón social, sin limitarlas al usuario que inició sesión.',
+    }),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [query_pos_folio_quotations_dto_1.QueryPosFolioQuotationsDto, Object]),
+    __metadata("design:returntype", void 0)
+], PosShiftsController.prototype, "listFolioQuotations", null);
 __decorate([
     (0, common_1.Get)('collected-sales'),
     (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Read' }, { entityType: 'pos', action: 'Update' }),

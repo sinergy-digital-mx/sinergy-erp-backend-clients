@@ -1,5 +1,9 @@
 # UI — Moneda en costo de proveedor (MXN / USD)
 
+## 2026-11-25 — Permiso Ver margen
+
+El tab **Costos de Proveedor** y `GET/POST/PATCH/DELETE /api/tenant/products/:productId/vendor-costs` exigen `inventory:ViewMargin`. Sin el permiso el API responde 403: `No tienes permiso para ver el costo.`
+
 Contrato para Pollux. El costo de un producto **por proveedor + UOM** ahora tiene moneda. Eso define si las OC de ese proveedor con ese producto van en **pesos (MXN)** o **dólares (USD)**.
 
 Valores: `MXN` | `USD`. No usar `USA`, `MX`, `PESOS`, etc.

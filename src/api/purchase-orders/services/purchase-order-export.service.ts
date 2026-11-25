@@ -134,7 +134,11 @@ export class PurchaseOrderExportService {
     });
   }
 
-  async exportDetails(tenantId: string, filters: QueryPurchaseOrderDetailExportDto): Promise<Buffer> {
+  async exportDetails(
+    tenantId: string,
+    filters: QueryPurchaseOrderDetailExportDto,
+    includeUnitCost = true,
+  ): Promise<Buffer> {
     try {
       validateDateRange(filters.created_from, filters.created_to);
     } catch (error) {
@@ -203,7 +207,12 @@ export class PurchaseOrderExportService {
         `Líneas: ${rows.length}`,
         this.describeFilters(filters),
       ]),
-      columns: await this.columnsFor(tenantId, this.detailColumns),
+      columns: await this.columnsFor(
+        tenantId,
+        includeUnitCost
+          ? this.detailColumns
+          : this.detailColumns.filter((column) => column.key !== 'unit_total'),
+      ),
       rows,
       headerColor: 'FF6A5ACD',
       titleColor: 'FF4A3F7A',

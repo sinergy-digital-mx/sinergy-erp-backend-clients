@@ -1,5 +1,9 @@
 # UI — Recibo de mercancía (tamaño opcional)
 
+## 2026-11-25 — Costo unitario
+
+El dato **Costo unit.** del recibo solo se muestra con `inventory:ViewMargin`. Cantidades y total de la línea siguen.
+
 Guía para Pollux: casilla **Indicar medida**, tamaño **aparte** de la UOM de la OC, y campos numéricos **vacíos** (nunca `0`).
 
 ## Dos cosas distintas

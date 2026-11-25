@@ -2507,5 +2507,81 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-11-25T07:49:37.615Z"
+  },
+  {
+    "releaseKey": "full:0.0.179:0.0.179-1795626865608",
+    "version": "0.0.179",
+    "buildId": "0.0.179-1795626865608",
+    "channel": "full",
+    "title": "Versión 0.0.179",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "En Folios las cartas muestran empresa y persona, y ventas y cotizaciones van en filtros separados.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "En el menú y en la vista, Cobranza pasa a Caja y cuentas. La pestaña Cobros pasa a Ventas cobradas.",
+        "module": "accounting",
+        "moduleLabel": "Contabilidad"
+      },
+      {
+        "scope": "frontend",
+        "message": "En factura a público en general la columna Cliente ya no repite la sucursal del filtro.",
+        "module": "accounting",
+        "moduleLabel": "Contabilidad"
+      },
+      {
+        "scope": "frontend",
+        "message": "En factura a público en general la moneda de cada orden queda en una columna a la izquierda del total.",
+        "module": "accounting",
+        "moduleLabel": "Contabilidad"
+      },
+      {
+        "scope": "frontend",
+        "message": "El precio, el costo y el margen de inventario solo se ven con el permiso Ver margen. En la maderería quedó en el rol Dirección.",
+        "module": "inventory",
+        "moduleLabel": "Inventario"
+      },
+      {
+        "scope": "frontend",
+        "message": "En Folios, las cotizaciones salen de la sucursal y la razón social, no solo las del usuario de la sesión.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "backend",
+        "message": "La búsqueda del listado también coincide con el nombre de la empresa.",
+        "module": "quotations",
+        "moduleLabel": "Cotizaciones"
+      },
+      {
+        "scope": "frontend",
+        "message": "El listado guarda búsqueda, filtros y página en la URL.",
+        "module": "quotations",
+        "moduleLabel": "Cotizaciones"
+      },
+      {
+        "scope": "frontend",
+        "message": "La columna de costo de la orden, el costo de sus lotes y la columna del Excel quedan ocultos sin el permiso Ver margen.",
+        "module": "purchase-orders",
+        "moduleLabel": "Órdenes de compra"
+      },
+      {
+        "scope": "frontend",
+        "message": "El tab de costos de proveedor queda oculto sin el permiso Ver margen.",
+        "module": "products",
+        "moduleLabel": "Productos"
+      },
+      {
+        "scope": "frontend",
+        "message": "El costo real del lote también queda oculto sin el permiso Ver margen.",
+        "module": "inventory",
+        "moduleLabel": "Inventario"
+      }
+    ],
+    "releasedAt": "2026-11-25T17:14:25.608Z"
   }
 ];

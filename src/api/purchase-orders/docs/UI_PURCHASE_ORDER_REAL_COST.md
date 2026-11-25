@@ -1,5 +1,9 @@
 # UI — Costo real en órdenes de compra (tab opcional)
 
+## 2026-11-25 — También hace falta Ver margen
+
+El tab **Costo real**, sus columnas y los totales de costo final solo se muestran si además de `purchase_order_real_cost:Read` el usuario tiene `inventory:ViewMargin`.
+
 ## 2026-10-19 — Lo que se paga es el total factura
 
 Cuentas por pagar y la columna **Total** del listado (`payable_total`) usan el total factura de la moneda de pago cuando hay costo real. El costo final sigue siendo solo de inventario y análisis. `requested_total` y `received_total` no cambian.

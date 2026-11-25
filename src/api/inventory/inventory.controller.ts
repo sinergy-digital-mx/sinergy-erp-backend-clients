@@ -1,4 +1,4 @@
-import { Controller, UseGuards, Get, Patch, Put, Body, Query, Param, Req, Res } from '@nestjs/common';
+import { Controller, UseGuards, Get, Patch, Put, Body, Query, Param, Req, Res, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse, ApiQuery, ApiParam, ApiBody } from '@nestjs/swagger';
 import { InventoryService } from './inventory.service';
 import { InventoryBranchReportService } from './services/inventory-branch-report.service';
@@ -37,6 +37,14 @@ import { QueryStockFlowDto, StockFlowView } from './dto/query-stock-flow.dto';
 import { StockFlowResponseDto } from './dto/stock-flow-response.dto';
 import { userCanViewPurchaseOrderRealCost } from '../purchase-orders/constants/purchase-order-real-cost-permission';
 import { omitPurchaseOrderRealCost } from '../purchase-orders/utils/omit-purchase-order-real-cost.util';
+import { userCanViewInventoryMargin } from './constants/inventory-margin-permission';
+import {
+  omitBranchReportMargin,
+  omitInventoryBatchMargin,
+  omitInventoryStatsMargin,
+  omitInventorySummaryMargin,
+  omitStockFlowMargin,
+} from './utils/omit-inventory-margin.util';
 
 @Controller('tenant/inventory')
 @ApiTags('Inventory')
@@ -62,7 +70,8 @@ export class InventoryController {
     @Query() filters: QueryStockFlowDto,
     @Req() req: any,
   ): Promise<StockFlowResponseDto> {
-    return this.stockFlowService.getReport(req.user.tenant_id, filters);
+    const report = await this.stockFlowService.getReport(req.user.tenant_id, filters);
+    return userCanViewInventoryMargin(req.user) ? report : omitStockFlowMargin(report);
   }
 
   @Get('stock-flow/export/excel')
@@ -76,6 +85,7 @@ export class InventoryController {
     const buffer = await this.stockFlowService.exportExcel(
       req.user.tenant_id,
       filters,
+      userCanViewInventoryMargin(req.user),
     );
     const view = filters.view ?? StockFlowView.SUMMARY;
     res.setHeader(
@@ -117,7 +127,11 @@ export class InventoryController {
     @Req() req: any,
     @Res() res: any,
   ) {
-    const buffer = await this.exportService.exportSummary(req.user.tenant_id, filters);
+    const buffer = await this.exportService.exportSummary(
+      req.user.tenant_id,
+      filters,
+      userCanViewInventoryMargin(req.user),
+    );
     res.setHeader(
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -157,7 +171,8 @@ export class InventoryController {
     @Query() filters: InventoryStatsFilterDto,
     @Req() req: any,
   ): Promise<InventoryStatsResponseDto> {
-    return this.inventoryService.getStats(req.user.tenant_id, filters);
+    const stats = await this.inventoryService.getStats(req.user.tenant_id, filters);
+    return userCanViewInventoryMargin(req.user) ? stats : omitInventoryStatsMargin(stats);
   }
 
   @Get('batches')
@@ -216,7 +231,8 @@ export class InventoryController {
     @Req() req: any,
   ): Promise<InventorySummaryResponseDto> {
     const tenantId = req.user.tenant_id;
-    return this.inventoryService.getInventorySummary(tenantId, filters);
+    const summary = await this.inventoryService.getInventorySummary(tenantId, filters);
+    return userCanViewInventoryMargin(req.user) ? summary : omitInventorySummaryMargin(summary);
   }
 
   @Get('products/:productId/margin')
@@ -224,7 +240,7 @@ export class InventoryController {
   @ApiOperation({
     summary: 'Margen general de un producto',
     description:
-      'Promedio simple de los lotes con existencia. Cada lote usa su compra; si no tiene, el costo configurado en pesos.',
+      'Promedio simple de los lotes con existencia. Cada lote usa su compra; si no tiene, el costo configurado en pesos. Permiso inventory:ViewMargin.',
   })
   @ApiParam({ name: 'productId', description: 'Product ID', type: String })
   @ApiResponse({ status: 200, type: ProductMarginResponseDto })
@@ -232,6 +248,9 @@ export class InventoryController {
     @Param('productId') productId: string,
     @Req() req: any,
   ): Promise<ProductMarginResponseDto> {
+    if (!userCanViewInventoryMargin(req.user)) {
+      throw new ForbiddenException('No tienes permiso para ver el margen del inventario.');
+    }
     return this.inventoryService.getProductMargin(req.user.tenant_id, productId);
   }
 
@@ -291,7 +310,8 @@ export class InventoryController {
     @Query() query: QueryBranchReportDto,
     @Req() req: any,
   ): Promise<BranchStockReportResponseDto> {
-    return this.branchReportService.getReport(req.user.tenant_id, query.product_id);
+    const report = await this.branchReportService.getReport(req.user.tenant_id, query.product_id);
+    return userCanViewInventoryMargin(req.user) ? report : omitBranchReportMargin(report);
   }
 
   @Get('pos/branch-stock')
@@ -399,10 +419,7 @@ export class InventoryController {
   ): Promise<BatchDetailResponseDto> {
     const tenantId = req.user.tenant_id;
     const batch = await this.inventoryService.findById(id, tenantId);
-    if (userCanViewPurchaseOrderRealCost(req.user)) {
-      return batch;
-    }
-    return omitPurchaseOrderRealCost(batch);
+    return this.presentBatch(batch, req.user);
   }
 
   @Patch('batches/:id')
@@ -422,6 +439,20 @@ export class InventoryController {
     @Body() dto: UpdateInventoryBatchDto,
     @Req() req: any,
   ): Promise<BatchDetailResponseDto> {
-    return this.inventoryService.updateBatch(id, req.user.tenant_id, dto);
+    const batch = await this.inventoryService.updateBatch(id, req.user.tenant_id, dto);
+    return this.presentBatch(batch, req.user);
+  }
+
+  private presentBatch<T>(batch: T, user: unknown): T {
+    const canViewMargin = userCanViewInventoryMargin(
+      user as Parameters<typeof userCanViewInventoryMargin>[0],
+    );
+    const canViewRealCost =
+      canViewMargin &&
+      userCanViewPurchaseOrderRealCost(
+        user as Parameters<typeof userCanViewPurchaseOrderRealCost>[0],
+      );
+    const withoutRealCost = canViewRealCost ? batch : omitPurchaseOrderRealCost(batch);
+    return canViewMargin ? withoutRealCost : omitInventoryBatchMargin(withoutRealCost);
   }
 }

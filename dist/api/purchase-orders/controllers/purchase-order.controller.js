@@ -23,7 +23,9 @@ const purchase_order_movements_service_1 = require("../services/purchase-order-m
 const purchase_order_locations_service_1 = require("../services/purchase-order-locations.service");
 const dto_1 = require("../dto");
 const purchase_order_real_cost_permission_1 = require("../constants/purchase-order-real-cost-permission");
+const hide_inventory_cost_columns_interceptor_1 = require("../interceptors/hide-inventory-cost-columns.interceptor");
 const hide_purchase_order_real_cost_interceptor_1 = require("../interceptors/hide-purchase-order-real-cost.interceptor");
+const inventory_margin_permission_1 = require("../../inventory/constants/inventory-margin-permission");
 const jwt_permission_util_1 = require("../../rbac/utils/jwt-permission.util");
 let PurchaseOrderController = class PurchaseOrderController {
     purchaseOrderService;
@@ -55,7 +57,7 @@ let PurchaseOrderController = class PurchaseOrderController {
         res.send(buffer);
     }
     async exportDetailsExcel(filters, req, res) {
-        const buffer = await this.exportService.exportDetails(req.user.tenant_id, filters);
+        const buffer = await this.exportService.exportDetails(req.user.tenant_id, filters, (0, inventory_margin_permission_1.userCanViewInventoryMargin)(req.user));
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename="${this.exportService.getDetailsFilename(filters.created_from, filters.created_to)}"`);
         res.send(buffer);
@@ -466,7 +468,7 @@ __decorate([
 exports.PurchaseOrderController = PurchaseOrderController = __decorate([
     (0, common_1.Controller)('tenant/purchase-orders'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, tenant_module_validation_guard_1.TenantModuleValidationGuard),
-    (0, common_1.UseInterceptors)(hide_purchase_order_real_cost_interceptor_1.HidePurchaseOrderRealCostInterceptor),
+    (0, common_1.UseInterceptors)(hide_purchase_order_real_cost_interceptor_1.HidePurchaseOrderRealCostInterceptor, hide_inventory_cost_columns_interceptor_1.HideInventoryCostColumnsInterceptor),
     __metadata("design:paramtypes", [purchase_order_service_1.PurchaseOrderService,
         purchase_order_documents_service_1.PurchaseOrderDocumentsService,
         purchase_order_export_service_1.PurchaseOrderExportService,

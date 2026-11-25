@@ -1,5 +1,9 @@
 # UI — Exportar órdenes de compra a Excel
 
+## 2026-11-25 — Columna de costo unitario
+
+En el Excel de detalle, **Total unit.** solo se incluye si el usuario tiene `inventory:ViewMargin`. Subtotal y total de la línea siguen.
+
 Guía para Pollux: botón **Descargar Excel** en la vista listado de órdenes de compra, con selector **Cabecera** / **Detalle**.
 
 ---

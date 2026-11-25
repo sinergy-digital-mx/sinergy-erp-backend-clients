@@ -8,7 +8,9 @@ import {
   Delete,
   UseGuards,
   Request,
+  ForbiddenException,
 } from '@nestjs/common';
+import { userCanViewInventoryMargin } from '../inventory/constants/inventory-margin-permission';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { ProductVendorCostService } from './product-vendor-cost.service';
 import { CreateProductVendorCostDto } from './dto/create-product-vendor-cost.dto';
@@ -29,6 +31,7 @@ export class ProductVendorCostController {
   @ApiOperation({ summary: 'Agregar costo de proveedor al producto' })
   @ApiResponse({ status: 201, description: 'Costo agregado' })
   create(@Param('productId') productId: string, @Body() dto: CreateProductVendorCostDto, @Request() req) {
+    this.assertCanViewCost(req.user);
     return this.productVendorCostService.create(productId, dto, req.user.tenant_id);
   }
 
@@ -37,6 +40,7 @@ export class ProductVendorCostController {
   @ApiOperation({ summary: 'Listar costos de proveedores del producto' })
   @ApiResponse({ status: 200, description: 'Costos obtenidos' })
   findAll(@Param('productId') productId: string, @Request() req) {
+    this.assertCanViewCost(req.user);
     return this.productVendorCostService.findAll(productId, req.user.tenant_id);
   }
 
@@ -45,6 +49,7 @@ export class ProductVendorCostController {
   @ApiOperation({ summary: 'Obtener costo específico' })
   @ApiResponse({ status: 200, description: 'Costo encontrado' })
   findOne(@Param('productId') productId: string, @Param('id') id: string, @Request() req) {
+    this.assertCanViewCost(req.user);
     return this.productVendorCostService.findOne(id, productId, req.user.tenant_id);
   }
 
@@ -58,6 +63,7 @@ export class ProductVendorCostController {
     @Body() dto: UpdateProductVendorCostDto,
     @Request() req,
   ) {
+    this.assertCanViewCost(req.user);
     return this.productVendorCostService.update(id, productId, dto, req.user.tenant_id);
   }
 
@@ -66,6 +72,13 @@ export class ProductVendorCostController {
   @ApiOperation({ summary: 'Eliminar costo de proveedor' })
   @ApiResponse({ status: 200, description: 'Costo eliminado' })
   remove(@Param('productId') productId: string, @Param('id') id: string, @Request() req) {
+    this.assertCanViewCost(req.user);
     return this.productVendorCostService.remove(id, productId, req.user.tenant_id);
+  }
+
+  private assertCanViewCost(user: { permissions?: unknown } | null | undefined): void {
+    if (!userCanViewInventoryMargin(user)) {
+      throw new ForbiddenException('No tienes permiso para ver el costo.');
+    }
   }
 }

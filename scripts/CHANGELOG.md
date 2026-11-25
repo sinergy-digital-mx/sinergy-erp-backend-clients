@@ -12,6 +12,20 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.179 · 25 nov
+
+- POS Ventas · En Folios las cartas muestran empresa y persona, y ventas y cotizaciones van en filtros separados.
+- Contabilidad · En el menú y en la vista, Cobranza pasa a Caja y cuentas. La pestaña Cobros pasa a Ventas cobradas.
+- Contabilidad · En factura a público en general la columna Cliente ya no repite la sucursal del filtro.
+- Contabilidad · En factura a público en general la moneda de cada orden queda en una columna a la izquierda del total.
+- Inventario · El precio, el costo y el margen de inventario solo se ven con el permiso Ver margen. En la maderería quedó en el rol Dirección.
+- POS Ventas · En Folios, las cotizaciones salen de la sucursal y la razón social, no solo las del usuario de la sesión.
+- Cotizaciones · La búsqueda del listado también coincide con el nombre de la empresa.
+- Cotizaciones · El listado guarda búsqueda, filtros y página en la URL.
+- Órdenes de compra · La columna de costo de la orden, el costo de sus lotes y la columna del Excel quedan ocultos sin el permiso Ver margen.
+- Productos · El tab de costos de proveedor queda oculto sin el permiso Ver margen.
+- Inventario · El costo real del lote también queda oculto sin el permiso Ver margen.
+
 #### Versión 0.0.178 · 24 nov
 
 - POS Ventas · En Ventas, cambiar de carrito ya no arrastra ni borra los productos del otro.

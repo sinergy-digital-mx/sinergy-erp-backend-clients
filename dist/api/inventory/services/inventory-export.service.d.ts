@@ -7,7 +7,7 @@ export declare class InventoryExportService {
     private readonly summaryColumns;
     constructor(batchRepo: Repository<InventoryBatch>);
     exportBatches(tenantId: string, filters: QueryInventoryBatchExportDto): Promise<Buffer>;
-    exportSummary(tenantId: string, filters: QueryInventorySummaryExportDto): Promise<Buffer>;
+    exportSummary(tenantId: string, filters: QueryInventorySummaryExportDto, includeMargin?: boolean): Promise<Buffer>;
     getBatchesFilename(): string;
     getSummaryFilename(): string;
     private fetchBatches;

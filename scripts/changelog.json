@@ -1934,6 +1934,116 @@
       "version": "0.0.178",
       "shippedAt": "2026-11-24T23:50:48-08:00",
       "module": "pos"
+    },
+    {
+      "id": "20261125-001507",
+      "at": "2026-11-25T00:15:07-08:00",
+      "scope": "frontend",
+      "message": "En Folios las cartas muestran empresa y persona, y ventas y cotizaciones van en filtros separados.",
+      "status": "shipped",
+      "version": "0.0.179",
+      "shippedAt": "2026-11-25T09:15:39-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261125-003316",
+      "at": "2026-11-25T00:33:16-08:00",
+      "scope": "frontend",
+      "message": "En el menú y en la vista, Cobranza pasa a Caja y cuentas. La pestaña Cobros pasa a Ventas cobradas.",
+      "status": "shipped",
+      "version": "0.0.179",
+      "shippedAt": "2026-11-25T09:15:39-08:00",
+      "module": "accounting"
+    },
+    {
+      "id": "20261125-003356",
+      "at": "2026-11-25T00:33:56-08:00",
+      "scope": "both",
+      "message": "En factura a público en general la columna Cliente ya no repite la sucursal del filtro.",
+      "status": "shipped",
+      "version": "0.0.179",
+      "shippedAt": "2026-11-25T09:15:39-08:00",
+      "module": "accounting"
+    },
+    {
+      "id": "20261125-003741",
+      "at": "2026-11-25T00:37:41-08:00",
+      "scope": "both",
+      "message": "En factura a público en general la moneda de cada orden queda en una columna a la izquierda del total.",
+      "status": "shipped",
+      "version": "0.0.179",
+      "shippedAt": "2026-11-25T09:15:39-08:00",
+      "module": "accounting"
+    },
+    {
+      "id": "20261125-003906",
+      "at": "2026-11-25T00:39:06-08:00",
+      "scope": "both",
+      "message": "El precio, el costo y el margen de inventario solo se ven con el permiso Ver margen. En la maderería quedó en el rol Dirección.",
+      "status": "shipped",
+      "version": "0.0.179",
+      "shippedAt": "2026-11-25T09:15:39-08:00",
+      "module": "inventory"
+    },
+    {
+      "id": "20261125-004111",
+      "at": "2026-11-25T00:41:11-08:00",
+      "scope": "both",
+      "message": "En Folios, las cotizaciones salen de la sucursal y la razón social, no solo las del usuario de la sesión.",
+      "status": "shipped",
+      "version": "0.0.179",
+      "shippedAt": "2026-11-25T09:15:39-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261125-004111-2",
+      "at": "2026-11-25T00:41:11-08:00",
+      "scope": "backend",
+      "message": "La búsqueda del listado también coincide con el nombre de la empresa.",
+      "status": "shipped",
+      "version": "0.0.179",
+      "shippedAt": "2026-11-25T09:15:39-08:00",
+      "module": "quotations"
+    },
+    {
+      "id": "20261125-004350",
+      "at": "2026-11-25T00:43:50-08:00",
+      "scope": "frontend",
+      "message": "El listado guarda búsqueda, filtros y página en la URL.",
+      "status": "shipped",
+      "version": "0.0.179",
+      "shippedAt": "2026-11-25T09:15:39-08:00",
+      "module": "quotations"
+    },
+    {
+      "id": "20261125-010313",
+      "at": "2026-11-25T01:03:13-08:00",
+      "scope": "both",
+      "message": "La columna de costo de la orden, el costo de sus lotes y la columna del Excel quedan ocultos sin el permiso Ver margen.",
+      "status": "shipped",
+      "version": "0.0.179",
+      "shippedAt": "2026-11-25T09:15:39-08:00",
+      "module": "purchase-orders"
+    },
+    {
+      "id": "20261125-010314",
+      "at": "2026-11-25T01:03:14-08:00",
+      "scope": "both",
+      "message": "El tab de costos de proveedor queda oculto sin el permiso Ver margen.",
+      "status": "shipped",
+      "version": "0.0.179",
+      "shippedAt": "2026-11-25T09:15:39-08:00",
+      "module": "products"
+    },
+    {
+      "id": "20261125-010314-2",
+      "at": "2026-11-25T01:03:14-08:00",
+      "scope": "both",
+      "message": "El costo real del lote también queda oculto sin el permiso Ver margen.",
+      "status": "shipped",
+      "version": "0.0.179",
+      "shippedAt": "2026-11-25T09:15:39-08:00",
+      "module": "inventory"
     }
   ]
 }

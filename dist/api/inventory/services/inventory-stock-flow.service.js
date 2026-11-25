@@ -20,6 +20,7 @@ const inventory_stock_ledger_entity_1 = require("../../../entities/inventory/inv
 const inventory_stock_ledger_movement_type_enum_1 = require("../../../entities/inventory/inventory-stock-ledger-movement-type.enum");
 const excel_export_util_1 = require("../../../common/utils/excel-export.util");
 const inventory_stock_ledger_1 = require("../constants/inventory-stock-ledger");
+const omit_inventory_margin_util_1 = require("../utils/omit-inventory-margin.util");
 const query_stock_flow_dto_1 = require("../dto/query-stock-flow.dto");
 const stock_ledger_valuation_util_1 = require("../utils/stock-ledger-valuation.util");
 function branchKey(productId, branchId, uomId) {
@@ -85,7 +86,7 @@ let InventoryStockFlowService = class InventoryStockFlowService {
             total_summary_rows: total,
         };
     }
-    async exportExcel(tenantId, filters) {
+    async exportExcel(tenantId, filters, includeMargin = true) {
         const report = await this.getReport(tenantId, {
             ...filters,
             view: filters.view ?? query_stock_flow_dto_1.StockFlowView.SUMMARY,
@@ -143,7 +144,7 @@ let InventoryStockFlowService = class InventoryStockFlowService {
                 sheetName: 'Flujo',
                 title: 'Existencia de inventarios — Flujo',
                 subtitle,
-                columns,
+                columns: this.excelColumns(columns, includeMargin),
                 rows,
             });
         }
@@ -174,7 +175,7 @@ let InventoryStockFlowService = class InventoryStockFlowService {
                 sheetName: 'Totalizado',
                 title: 'Existencia de inventarios — Totalizado',
                 subtitle,
-                columns,
+                columns: this.excelColumns(columns, includeMargin),
                 rows,
             });
         }
@@ -212,9 +213,14 @@ let InventoryStockFlowService = class InventoryStockFlowService {
             sheetName: 'Resumen',
             title: 'Existencia de inventarios — Resumen',
             subtitle,
-            columns,
+            columns: this.excelColumns(columns, includeMargin),
             rows,
         });
+    }
+    excelColumns(columns, includeMargin) {
+        if (includeMargin)
+            return columns;
+        return columns.filter((column) => !(0, omit_inventory_margin_util_1.isInventoryMoneyColumn)(column.key));
     }
     getFilename(view = query_stock_flow_dto_1.StockFlowView.SUMMARY) {
         const suffix = new Date().toISOString().slice(0, 10);

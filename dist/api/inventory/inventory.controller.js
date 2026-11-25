@@ -40,6 +40,8 @@ const query_stock_flow_dto_1 = require("./dto/query-stock-flow.dto");
 const stock_flow_response_dto_1 = require("./dto/stock-flow-response.dto");
 const purchase_order_real_cost_permission_1 = require("../purchase-orders/constants/purchase-order-real-cost-permission");
 const omit_purchase_order_real_cost_util_1 = require("../purchase-orders/utils/omit-purchase-order-real-cost.util");
+const inventory_margin_permission_1 = require("./constants/inventory-margin-permission");
+const omit_inventory_margin_util_1 = require("./utils/omit-inventory-margin.util");
 let InventoryController = class InventoryController {
     inventoryService;
     exportService;
@@ -52,10 +54,11 @@ let InventoryController = class InventoryController {
         this.branchReportService = branchReportService;
     }
     async getStockFlow(filters, req) {
-        return this.stockFlowService.getReport(req.user.tenant_id, filters);
+        const report = await this.stockFlowService.getReport(req.user.tenant_id, filters);
+        return (0, inventory_margin_permission_1.userCanViewInventoryMargin)(req.user) ? report : (0, omit_inventory_margin_util_1.omitStockFlowMargin)(report);
     }
     async exportStockFlowExcel(filters, req, res) {
-        const buffer = await this.stockFlowService.exportExcel(req.user.tenant_id, filters);
+        const buffer = await this.stockFlowService.exportExcel(req.user.tenant_id, filters, (0, inventory_margin_permission_1.userCanViewInventoryMargin)(req.user));
         const view = filters.view ?? query_stock_flow_dto_1.StockFlowView.SUMMARY;
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename="${this.stockFlowService.getFilename(view)}"`);
@@ -68,7 +71,7 @@ let InventoryController = class InventoryController {
         res.send(buffer);
     }
     async exportSummaryExcel(filters, req, res) {
-        const buffer = await this.exportService.exportSummary(req.user.tenant_id, filters);
+        const buffer = await this.exportService.exportSummary(req.user.tenant_id, filters, (0, inventory_margin_permission_1.userCanViewInventoryMargin)(req.user));
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename="${this.exportService.getSummaryFilename()}"`);
         res.send(buffer);
@@ -77,7 +80,8 @@ let InventoryController = class InventoryController {
         return this.inventoryService.getLocationTree(req.user.tenant_id);
     }
     async getStats(filters, req) {
-        return this.inventoryService.getStats(req.user.tenant_id, filters);
+        const stats = await this.inventoryService.getStats(req.user.tenant_id, filters);
+        return (0, inventory_margin_permission_1.userCanViewInventoryMargin)(req.user) ? stats : (0, omit_inventory_margin_util_1.omitInventoryStatsMargin)(stats);
     }
     async findAll(filters, req) {
         const tenantId = req.user.tenant_id;
@@ -85,9 +89,13 @@ let InventoryController = class InventoryController {
     }
     async getInventorySummary(filters, req) {
         const tenantId = req.user.tenant_id;
-        return this.inventoryService.getInventorySummary(tenantId, filters);
+        const summary = await this.inventoryService.getInventorySummary(tenantId, filters);
+        return (0, inventory_margin_permission_1.userCanViewInventoryMargin)(req.user) ? summary : (0, omit_inventory_margin_util_1.omitInventorySummaryMargin)(summary);
     }
     async getProductMargin(productId, req) {
+        if (!(0, inventory_margin_permission_1.userCanViewInventoryMargin)(req.user)) {
+            throw new common_1.ForbiddenException('No tienes permiso para ver el margen del inventario.');
+        }
         return this.inventoryService.getProductMargin(req.user.tenant_id, productId);
     }
     async searchBranchReportProducts(query, req) {
@@ -100,7 +108,8 @@ let InventoryController = class InventoryController {
         return this.branchReportService.updateSettings(req.user.tenant_id, req.user?.id ?? null, body.branch_ids);
     }
     async getBranchStockReport(query, req) {
-        return this.branchReportService.getReport(req.user.tenant_id, query.product_id);
+        const report = await this.branchReportService.getReport(req.user.tenant_id, query.product_id);
+        return (0, inventory_margin_permission_1.userCanViewInventoryMargin)(req.user) ? report : (0, omit_inventory_margin_util_1.omitBranchReportMargin)(report);
     }
     async getPosBranchStock(search, req) {
         return this.inventoryService.getPosBranchStock(req.user.tenant_id, search ?? '');
@@ -119,13 +128,18 @@ let InventoryController = class InventoryController {
     async findOne(id, req) {
         const tenantId = req.user.tenant_id;
         const batch = await this.inventoryService.findById(id, tenantId);
-        if ((0, purchase_order_real_cost_permission_1.userCanViewPurchaseOrderRealCost)(req.user)) {
-            return batch;
-        }
-        return (0, omit_purchase_order_real_cost_util_1.omitPurchaseOrderRealCost)(batch);
+        return this.presentBatch(batch, req.user);
     }
     async updateBatch(id, dto, req) {
-        return this.inventoryService.updateBatch(id, req.user.tenant_id, dto);
+        const batch = await this.inventoryService.updateBatch(id, req.user.tenant_id, dto);
+        return this.presentBatch(batch, req.user);
+    }
+    presentBatch(batch, user) {
+        const canViewMargin = (0, inventory_margin_permission_1.userCanViewInventoryMargin)(user);
+        const canViewRealCost = canViewMargin &&
+            (0, purchase_order_real_cost_permission_1.userCanViewPurchaseOrderRealCost)(user);
+        const withoutRealCost = canViewRealCost ? batch : (0, omit_purchase_order_real_cost_util_1.omitPurchaseOrderRealCost)(batch);
+        return canViewMargin ? withoutRealCost : (0, omit_inventory_margin_util_1.omitInventoryBatchMargin)(withoutRealCost);
     }
 };
 exports.InventoryController = InventoryController;
@@ -269,7 +283,7 @@ __decorate([
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'inventory', action: 'read' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Margen general de un producto',
-        description: 'Promedio simple de los lotes con existencia. Cada lote usa su compra; si no tiene, el costo configurado en pesos.',
+        description: 'Promedio simple de los lotes con existencia. Cada lote usa su compra; si no tiene, el costo configurado en pesos. Permiso inventory:ViewMargin.',
     }),
     (0, swagger_1.ApiParam)({ name: 'productId', description: 'Product ID', type: String }),
     (0, swagger_1.ApiResponse)({ status: 200, type: inventory_margin_dto_1.ProductMarginResponseDto }),

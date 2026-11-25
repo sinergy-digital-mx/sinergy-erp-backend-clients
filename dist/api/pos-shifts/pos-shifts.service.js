@@ -1673,6 +1673,19 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             customer: (0, pos_sale_collection_mapper_1.mapPosCustomer)(customer),
         };
     }
+    async listFolioQuotations(tenantId, terminalUserId, query) {
+        const terminalUser = await this.requireVentasTerminal(tenantId, terminalUserId);
+        const branchId = await this.resolveAccessibleBranchId(terminalUser, query.billing_branch_id);
+        return this.quotationService.findAll(tenantId, terminalUserId, true, true, {
+            search: query.search,
+            billing_branch_id: branchId,
+            fiscal_configuration_id: query.fiscal_configuration_id,
+            page: query.page ?? 1,
+            limit: query.limit ?? 30,
+            sort_by: 'created_at',
+            sort_order: 'DESC',
+        });
+    }
     async getSalesInProgress(tenantId, terminalUserId, billingBranchId) {
         const terminalUser = await this.requireVentasTerminal(tenantId, terminalUserId);
         const branchId = await this.resolveAccessibleBranchId(terminalUser, billingBranchId);

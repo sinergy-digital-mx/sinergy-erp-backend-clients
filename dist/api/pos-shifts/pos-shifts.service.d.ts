@@ -31,6 +31,7 @@ import { ExchangeRateService } from '../exchange-rate/exchange-rate.service';
 import { QuotationService } from '../quotations/services/quotation.service';
 import { AdvanceCfdiService } from '../electronic-invoicing/services/advance-cfdi.service';
 import { SendQuotationToCajaDto } from './dto/send-quotation-to-caja.dto';
+import { QueryPosFolioQuotationsDto } from './dto/query-pos-folio-quotations.dto';
 import { UpdatePosCustomerDto } from './dto/update-pos-customer.dto';
 export declare class PosShiftsService {
     private readonly dailyShiftRepo;
@@ -1412,6 +1413,92 @@ export declare class PosShiftsService {
             display_name: string | null;
             is_walk_in: boolean;
         } | null;
+    }>;
+    listFolioQuotations(tenantId: string, terminalUserId: string, query: QueryPosFolioQuotationsDto): Promise<{
+        data: {
+            seller_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+                pos_user_type: import("../../entities/users/pos-user-type.enum").PosUserType | null;
+            } | null;
+            assigned_seller_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+                pos_user_type: import("../../entities/users/pos-user-type.enum").PosUserType | null;
+            } | null;
+            terminal_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+                pos_user_type: import("../../entities/users/pos-user-type.enum").PosUserType | null;
+            } | null;
+            razon_social: string;
+            sucursal: string | null;
+            expires_at: string | null;
+            quotation_expiration_days: number | null;
+            fiscal_configuration: {
+                id: string;
+                razon_social: string;
+                rfc: string;
+            } | null;
+            billing_branch_id: string | null;
+            billing_branch: {
+                id: string;
+                code: string;
+                address: string;
+                city: string;
+                state: string;
+                country: string;
+                postal_code: string;
+            } | null;
+            id: string;
+            tenant: import("../rbac").RBACTenant;
+            tenant_id: string;
+            folio: string;
+            fiscal_configuration_id: string;
+            warehouse_id: string | null;
+            customer: Customer;
+            customer_id: number;
+            expected_delivery_date: Date;
+            quotation_type: string;
+            fiscal_razon_social: string | null;
+            general_status: string;
+            notes: string | null;
+            subtotal: number;
+            iva_total: number;
+            ieps_total: number;
+            discount_total: number;
+            global_discount: import("../../entities/global-discounts/global-discount.entity").GlobalDiscount | null;
+            global_discount_id: string | null;
+            global_discount_amount: number;
+            total: number;
+            advance_requested_total: number | null;
+            advance_uso_cfdi: string | null;
+            advance_metodo_pago: "PUE" | "PPD" | null;
+            pos_stage: SalesOrderPosStage | null;
+            pos_caja_opened_at: Date | null;
+            pos_caja_opened_by: string | null;
+            created_by: string;
+            terminal_user_id: string | null;
+            seller_user_id: string | null;
+            assigned_seller_user_id: string | null;
+            converted_to_sales_order_id: string | null;
+            created_at: Date;
+            updated_by: string;
+            updated_at: Date;
+            line_items: import("../../entities/quotations").QuotationDetail[];
+        }[];
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+        can_view_all: boolean;
+        can_view_all_branches: boolean;
     }>;
     getSalesInProgress(tenantId: string, terminalUserId: string, billingBranchId?: string): Promise<({
         customer_id: number;

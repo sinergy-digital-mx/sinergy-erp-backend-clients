@@ -102,6 +102,7 @@ import {
   getQuotationSendToCajaBlockedReason,
 } from './utils/quotation-advance-pos.util';
 import { SendQuotationToCajaDto } from './dto/send-quotation-to-caja.dto';
+import { QueryPosFolioQuotationsDto } from './dto/query-pos-folio-quotations.dto';
 import { UpdatePosCustomerDto } from './dto/update-pos-customer.dto';
 
 const WALK_IN_FISCAL_NAME = 'VENTA DE MOSTRADOR';
@@ -2049,6 +2050,33 @@ export class PosShiftsService {
       customer_id: customer.id,
       customer: mapPosCustomer(customer),
     };
+  }
+
+  async listFolioQuotations(
+    tenantId: string,
+    terminalUserId: string,
+    query: QueryPosFolioQuotationsDto,
+  ) {
+    const terminalUser = await this.requireVentasTerminal(tenantId, terminalUserId);
+    const branchId = await this.resolveAccessibleBranchId(
+      terminalUser,
+      query.billing_branch_id,
+    );
+    return this.quotationService.findAll(
+      tenantId,
+      terminalUserId,
+      true,
+      true,
+      {
+        search: query.search,
+        billing_branch_id: branchId,
+        fiscal_configuration_id: query.fiscal_configuration_id,
+        page: query.page ?? 1,
+        limit: query.limit ?? 30,
+        sort_by: 'created_at',
+        sort_order: 'DESC',
+      },
+    );
   }
 
   async getSalesInProgress(

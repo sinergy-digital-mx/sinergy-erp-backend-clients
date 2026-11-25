@@ -40,12 +40,14 @@ import {
   QueryPurchaseOrderDetailExportDto,
 } from '../dto';
 import { userCanViewPurchaseOrderRealCost } from '../constants/purchase-order-real-cost-permission';
+import { HideInventoryCostColumnsInterceptor } from '../interceptors/hide-inventory-cost-columns.interceptor';
 import { HidePurchaseOrderRealCostInterceptor } from '../interceptors/hide-purchase-order-real-cost.interceptor';
+import { userCanViewInventoryMargin } from '../../inventory/constants/inventory-margin-permission';
 import { userHasJwtPermission } from '../../rbac/utils/jwt-permission.util';
 
 @Controller('tenant/purchase-orders')
 @UseGuards(JwtAuthGuard, TenantModuleValidationGuard)
-@UseInterceptors(HidePurchaseOrderRealCostInterceptor)
+@UseInterceptors(HidePurchaseOrderRealCostInterceptor, HideInventoryCostColumnsInterceptor)
 export class PurchaseOrderController {
   constructor(
     private readonly purchaseOrderService: PurchaseOrderService,
@@ -94,7 +96,11 @@ export class PurchaseOrderController {
     @Req() req: any,
     @Res() res: any,
   ) {
-    const buffer = await this.exportService.exportDetails(req.user.tenant_id, filters);
+    const buffer = await this.exportService.exportDetails(
+      req.user.tenant_id,
+      filters,
+      userCanViewInventoryMargin(req.user),
+    );
     res.setHeader(
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

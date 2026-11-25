@@ -44,4 +44,5 @@ export declare class InventoryController {
     listBatchMovements(id: string, req: any): Promise<InventoryBatchMovementListResponseDto>;
     findOne(id: string, req: any): Promise<BatchDetailResponseDto>;
     updateBatch(id: string, dto: UpdateInventoryBatchDto, req: any): Promise<BatchDetailResponseDto>;
+    private presentBatch;
 }

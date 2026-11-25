@@ -96,8 +96,15 @@ export class InventoryExportService {
     });
   }
 
-  async exportSummary(tenantId: string, filters: QueryInventorySummaryExportDto): Promise<Buffer> {
+  async exportSummary(
+    tenantId: string,
+    filters: QueryInventorySummaryExportDto,
+    includeMargin = true,
+  ): Promise<Buffer> {
     const summaries = await this.buildSummaryRows(tenantId, filters);
+    const columns = includeMargin
+      ? this.summaryColumns
+      : this.summaryColumns.filter((column) => column.key !== 'suggested_unit_price');
 
     return buildStyledExcelBuffer({
       sheetName: 'Totalizado',
@@ -107,7 +114,7 @@ export class InventoryExportService {
         `Productos: ${summaries.length}`,
         this.describeSummaryFilters(filters),
       ]),
-      columns: this.summaryColumns,
+      columns,
       rows: summaries,
       headerColor: 'FF3A7CA5',
       titleColor: 'FF255A7A',

@@ -10,7 +10,8 @@ export declare class InventoryStockFlowService {
     private readonly dataSource;
     constructor(ledgerRepo: Repository<InventoryStockLedger>, dataSource: DataSource);
     getReport(tenantId: string, filters: QueryStockFlowDto, options?: StockFlowQueryOptions): Promise<StockFlowResponseDto>;
-    exportExcel(tenantId: string, filters: QueryStockFlowDto): Promise<Buffer>;
+    exportExcel(tenantId: string, filters: QueryStockFlowDto, includeMargin?: boolean): Promise<Buffer>;
+    private excelColumns;
     getFilename(view?: StockFlowView): string;
     private assertFilters;
     private resolvePagination;

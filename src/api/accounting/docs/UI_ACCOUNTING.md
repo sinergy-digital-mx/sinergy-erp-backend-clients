@@ -1,13 +1,16 @@
-# UI — Cobranza / Contabilidad
+# UI — Caja y cuentas
 
-Guía para Pollux: módulo **Cobranza / Contabilidad** con cuatro pestañas. Los filtros superiores replican el patrón del **Reporte de Ventas Zona Norte** (`zona_norte_custom_report`).
+Guía para Pollux: módulo **Caja y cuentas** (menú Contabilidad). Los filtros superiores replican el patrón del **Reporte de Ventas Zona Norte** (`zona_norte_custom_report`).
 
 > **Estado backend:** API disponible en `/api/tenant/accounting/*`. Permiso: `Accounting:Read` + `ViewMenu`.
 
 ## Historial
 
+### 2026-11-25
+El menú y el título de la vista pasan de **Cobranza** a **Caja y cuentas**. La pestaña del periodo pasa de **Cobros** a **Ventas cobradas** (las ventas ya cobradas, por fecha de cobro). **Caja del día** no cambia.
+
 ### 2026-11-24
-La pestaña del día se llama **Caja del día** y la del periodo **Cobros**. Al pasar el cursor, cada pestaña explica qué lista. Sucursal, periodo y actualizar quedan a la misma altura y con el mismo borde en todas las vistas.
+La pestaña del día se llama **Caja del día** y la del periodo **Ventas cobradas**. Al pasar el cursor, cada pestaña explica qué lista. Sucursal, periodo y actualizar quedan a la misma altura y con el mismo borde en todas las vistas.
 
 ### 2026-11-23
 La pestaña queda en la URL (`tab`). Al recargar se conserva, con el periodo (`period`, `from`, `to`), la búsqueda y los filtros de esa vista. Junto al periodo hay **Actualizar**.

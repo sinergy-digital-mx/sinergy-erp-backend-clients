@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ProductVendorCostController = void 0;
 const common_1 = require("@nestjs/common");
+const inventory_margin_permission_1 = require("../inventory/constants/inventory-margin-permission");
 const swagger_1 = require("@nestjs/swagger");
 const product_vendor_cost_service_1 = require("./product-vendor-cost.service");
 const create_product_vendor_cost_dto_1 = require("./dto/create-product-vendor-cost.dto");
@@ -27,19 +28,29 @@ let ProductVendorCostController = class ProductVendorCostController {
         this.productVendorCostService = productVendorCostService;
     }
     create(productId, dto, req) {
+        this.assertCanViewCost(req.user);
         return this.productVendorCostService.create(productId, dto, req.user.tenant_id);
     }
     findAll(productId, req) {
+        this.assertCanViewCost(req.user);
         return this.productVendorCostService.findAll(productId, req.user.tenant_id);
     }
     findOne(productId, id, req) {
+        this.assertCanViewCost(req.user);
         return this.productVendorCostService.findOne(id, productId, req.user.tenant_id);
     }
     update(productId, id, dto, req) {
+        this.assertCanViewCost(req.user);
         return this.productVendorCostService.update(id, productId, dto, req.user.tenant_id);
     }
     remove(productId, id, req) {
+        this.assertCanViewCost(req.user);
         return this.productVendorCostService.remove(id, productId, req.user.tenant_id);
+    }
+    assertCanViewCost(user) {
+        if (!(0, inventory_margin_permission_1.userCanViewInventoryMargin)(user)) {
+            throw new common_1.ForbiddenException('No tienes permiso para ver el costo.');
+        }
     }
 };
 exports.ProductVendorCostController = ProductVendorCostController;

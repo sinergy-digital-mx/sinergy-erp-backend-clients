@@ -1,5 +1,9 @@
 # UI — Cards de stats de inventario
 
+## 2026-11-25 — Costo, precio y margen
+
+`inventory:ViewStats` sigue mostrando las cards. Costo, valor a precio de venta y margen bruto además piden `inventory:ViewMargin`. Sin ese permiso solo quedan Lotes y Existencia, y el API deja esos montos en null.
+
 ## 2026-11-02 — Permiso ViewStats
 
 Las cinco cards de arriba solo se pintan con `inventory:ViewStats`. Sin ese permiso no se llama `GET /tenant/inventory/stats` y el API responde 403.

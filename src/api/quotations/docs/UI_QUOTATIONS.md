@@ -1,5 +1,8 @@
 # UI — Cotizaciones
 
+## 2026-11-25
+En POS, Folios pide `GET /tenant/pos/folio-quotations`: cotizaciones de la sucursal y la razón social, sin el filtro de vendedor del listado del módulo. La búsqueda del listado también coincide con `company_name`.
+
 ## 2026-11-10
 Al abrir el listado, **Razón social** y **Sucursal** quedan en la sucursal principal del usuario. Limpiar filtros muestra todas.
 

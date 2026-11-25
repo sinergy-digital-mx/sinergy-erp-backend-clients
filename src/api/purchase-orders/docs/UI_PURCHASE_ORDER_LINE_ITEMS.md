@@ -1,5 +1,9 @@
 # UI — Editar / eliminar líneas de orden de compra
 
+## 2026-11-25 — Columna COSTO
+
+La columna **COSTO** del detalle solo se pinta con `inventory:ViewMargin`. **IMPORTE** sigue. El costo unitario de la línea no se borra del API: el formulario de editar o agregar lo sigue usando.
+
 El detalle de la OC **sí se puede editar por línea** mientras `general_status === 'Creada'`. El API ya lo hace. Falta pintar acciones, modal, IVA y badge de moneda.
 
 No uses `PUT /api/tenant/purchase-orders/:id` para cambiar el IVA o el precio de **una** línea: ese endpoint reemplaza **todas** las líneas. Usa PATCH/DELETE de línea.

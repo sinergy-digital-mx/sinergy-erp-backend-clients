@@ -1,5 +1,9 @@
 # UI — Costo y precio en detalle de lote
 
+## 2026-11-25 — También hace falta Ver margen
+
+La tarjeta **COSTOS** (proveedor, costo real, tipo de cambio y precio sugerido) solo se muestra con `inventory:ViewMargin`. Sin ese permiso el API tampoco entrega `unit_cost` ni el costo real, aunque el usuario tenga `purchase_order_real_cost:Read`.
+
 ## 2026-10-09 — Permiso
 
 **Costo real** y **T.C. aduana** solo si el usuario tiene `purchase_order_real_cost:Read` (Madereria Zona Norte). Sin permiso esos campos llegan en null y la fila no se muestra. Costo proveedor y precio sugerido no cambian.

@@ -9,4 +9,5 @@ export declare class ProductVendorCostController {
     findOne(productId: string, id: string, req: any): Promise<import("../../entities/products").ProductVendorCost>;
     update(productId: string, id: string, dto: UpdateProductVendorCostDto, req: any): Promise<import("../../entities/products").ProductVendorCost>;
     remove(productId: string, id: string, req: any): Promise<void>;
+    private assertCanViewCost;
 }

@@ -1,8 +1,15 @@
 # UI — Factura público en general
 
-Pestaña **Factura público en general** en Cobranza. Una factura CFDI 4.0 a público en general por mes y sucursal, con las órdenes de clientes que todavía no tienen factura.
+Pestaña **Factura público en general** en Caja y cuentas. Una factura CFDI 4.0 a público en general por mes y sucursal, con las órdenes de clientes que todavía no tienen factura.
 
 ## Historial
+
+### 2026-11-25
+El menú de esta pantalla se llama **Caja y cuentas**.
+
+En la columna Cliente solo se ve el cliente (y la empresa, si el nombre es distinto). La sucursal ya está en el filtro de arriba, así que no se repite en cada fila.
+
+La moneda de la orden (MXN o USD) va en su columna, a la izquierda de Total.
 
 ### 2026-11-09
 El botón **Información** abre un modal chico. Se cierra con la X, el fondo o Escape.
@@ -50,8 +57,9 @@ Cada fila es una orden de venta que no está cancelada y no tiene CFDI de ingres
 
 - Folio, el mismo badge de órdenes de venta. La fila abre el modal de esa orden
 - Fecha de la orden
-- Cliente y sucursal
+- Cliente (y la empresa, si el nombre es distinto). La sucursal no se repite: ya está en el filtro
 - Estado
+- Moneda de la orden (MXN o USD), a la izquierda del total
 - Total, y debajo subtotal, descuento, IVA e IEPS cuando hay
 - Pago: Pagado / Pendiente y la forma. En mixto, el desglose (`Efectivo + Tarjeta`) y el importe de cada una
 

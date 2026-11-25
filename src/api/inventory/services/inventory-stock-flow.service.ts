@@ -13,6 +13,7 @@ import {
   STOCK_LEDGER_MOVEMENT_TYPE_LABELS,
   formatStockQty,
 } from '../constants/inventory-stock-ledger';
+import { isInventoryMoneyColumn } from '../utils/omit-inventory-margin.util';
 import {
   QueryStockFlowDto,
   StockFlowPeriod,
@@ -141,7 +142,11 @@ export class InventoryStockFlowService {
     };
   }
 
-  async exportExcel(tenantId: string, filters: QueryStockFlowDto): Promise<Buffer> {
+  async exportExcel(
+    tenantId: string,
+    filters: QueryStockFlowDto,
+    includeMargin = true,
+  ): Promise<Buffer> {
     const report = await this.getReport(
       tenantId,
       {
@@ -211,7 +216,7 @@ export class InventoryStockFlowService {
         sheetName: 'Flujo',
         title: 'Existencia de inventarios — Flujo',
         subtitle,
-        columns,
+        columns: this.excelColumns(columns, includeMargin),
         rows,
       });
     }
@@ -243,7 +248,7 @@ export class InventoryStockFlowService {
         sheetName: 'Totalizado',
         title: 'Existencia de inventarios — Totalizado',
         subtitle,
-        columns,
+        columns: this.excelColumns(columns, includeMargin),
         rows,
       });
     }
@@ -282,9 +287,14 @@ export class InventoryStockFlowService {
       sheetName: 'Resumen',
       title: 'Existencia de inventarios — Resumen',
       subtitle,
-      columns,
+      columns: this.excelColumns(columns, includeMargin),
       rows,
     });
+  }
+
+  private excelColumns(columns: ExcelColumnDef[], includeMargin: boolean): ExcelColumnDef[] {
+    if (includeMargin) return columns;
+    return columns.filter((column) => !isInventoryMoneyColumn(column.key));
   }
 
   getFilename(view: StockFlowView = StockFlowView.SUMMARY): string {

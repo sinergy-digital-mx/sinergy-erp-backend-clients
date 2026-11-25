@@ -1,5 +1,9 @@
 # UI — Lotes de la orden de compra (recibidos vs migrados)
 
+## 2026-11-25 — Costo e importe
+
+**Costo**, **Real USD**, **Real MXN** e **Importe** solo salen con `inventory:ViewMargin`. Sin el permiso el API manda `unit_cost`, `amount`, `real_unit_cost_usd`, `real_unit_cost_mxn` y `batches_summary.amount_total` en null. Cantidades y almacén no cambian.
+
 Contrato para Pollux. El tab **Lotes** del detalle **no** debe listar plano todos los `inv_s_batches` de la OC. Los lotes destino de una transferencia **no son otro recibo**: van anidados bajo el lote que sí llegó del proveedor.
 
 `GET /api/tenant/purchase-orders/:id` ya trae el árbol. No uses `header.batches` crudo de TypeORM.

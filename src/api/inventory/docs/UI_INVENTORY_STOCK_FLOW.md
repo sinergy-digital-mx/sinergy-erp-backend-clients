@@ -1,5 +1,9 @@
 # UI — Existencia de inventarios (TRK-017 + TRK-018 + valuación)
 
+## 2026-11-25 — Dinero con permiso
+
+Las columnas de costo y venta, y esas columnas del Excel, solo salen con `inventory:ViewMargin`. Sin el permiso el reporte sigue mostrando cantidades.
+
 Un reporte con selector de rangos y **tres vistas**.
 
 | Vista | Query `view` | Qué responde |

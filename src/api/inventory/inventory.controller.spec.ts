@@ -116,7 +116,7 @@ describe('InventoryController', () => {
     it('should return inventory stats', async () => {
       jest.spyOn(service, 'getStats').mockResolvedValue(mockStats as any);
 
-      const req = { user: { tenant_id: mockTenantId } };
+      const req = { user: { tenant_id: mockTenantId, permissions: ['inventory:ViewMargin'] } };
       const result = await controller.getStats({}, req);
 
       expect(result).toEqual(mockStats);

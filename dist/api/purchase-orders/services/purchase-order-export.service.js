@@ -117,7 +117,7 @@ let PurchaseOrderExportService = class PurchaseOrderExportService {
             titleColor: 'FF3D3266',
         });
     }
-    async exportDetails(tenantId, filters) {
+    async exportDetails(tenantId, filters, includeUnitCost = true) {
         try {
             (0, excel_export_util_1.validateDateRange)(filters.created_from, filters.created_to);
         }
@@ -178,7 +178,9 @@ let PurchaseOrderExportService = class PurchaseOrderExportService {
                 `Líneas: ${rows.length}`,
                 this.describeFilters(filters),
             ]),
-            columns: await this.columnsFor(tenantId, this.detailColumns),
+            columns: await this.columnsFor(tenantId, includeUnitCost
+                ? this.detailColumns
+                : this.detailColumns.filter((column) => column.key !== 'unit_total')),
             rows,
             headerColor: 'FF6A5ACD',
             titleColor: 'FF4A3F7A',

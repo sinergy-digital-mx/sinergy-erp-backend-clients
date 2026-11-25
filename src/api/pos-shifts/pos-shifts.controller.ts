@@ -35,6 +35,7 @@ import { OpenDailyShiftDto } from './dto/open-daily-shift.dto';
 import { CreatePartialShiftDto } from './dto/create-partial-shift.dto';
 import { QueryDailyShiftDto } from './dto/query-daily-shift.dto';
 import { QueryPosBranchDto } from './dto/query-pos-branch.dto';
+import { QueryPosFolioQuotationsDto } from './dto/query-pos-folio-quotations.dto';
 import { CloseDailyShiftDto } from './dto/close-daily-shift.dto';
 import { CollectPosSaleDto } from './dto/collect-pos-sale.dto';
 import { RegisterPosAbonoDto } from './dto/register-pos-abono.dto';
@@ -235,6 +236,26 @@ export class PosShiftsController {
       query.billing_branch_id,
     );
     return { sales_in_progress: sales };
+  }
+
+  @Get('folio-quotations')
+  @RequireAnyPermissions(
+    { entityType: 'PosShift', action: 'Read' },
+    { entityType: 'pos', action: 'Read' },
+    { entityType: 'pos', action: 'Create' },
+    { entityType: 'pos', action: 'Update' },
+  )
+  @ApiOperation({
+    summary: 'Cotizaciones de la sucursal para Folios',
+    description:
+      'Terminal de ventas. Lista las cotizaciones de la sucursal y la razón social, sin limitarlas al usuario que inició sesión.',
+  })
+  listFolioQuotations(@Query() query: QueryPosFolioQuotationsDto, @Req() req: any) {
+    return this.posShiftsService.listFolioQuotations(
+      req.user.tenant_id,
+      req.user.id,
+      query,
+    );
   }
 
   @Get('collected-sales')

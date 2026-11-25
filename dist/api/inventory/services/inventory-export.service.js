@@ -84,8 +84,11 @@ let InventoryExportService = class InventoryExportService {
             titleColor: 'FF1E4A6E',
         });
     }
-    async exportSummary(tenantId, filters) {
+    async exportSummary(tenantId, filters, includeMargin = true) {
         const summaries = await this.buildSummaryRows(tenantId, filters);
+        const columns = includeMargin
+            ? this.summaryColumns
+            : this.summaryColumns.filter((column) => column.key !== 'suggested_unit_price');
         return (0, excel_export_util_1.buildStyledExcelBuffer)({
             sheetName: 'Totalizado',
             title: 'Reporte de inventario — Totalizado',
@@ -94,7 +97,7 @@ let InventoryExportService = class InventoryExportService {
                 `Productos: ${summaries.length}`,
                 this.describeSummaryFilters(filters),
             ]),
-            columns: this.summaryColumns,
+            columns,
             rows: summaries,
             headerColor: 'FF3A7CA5',
             titleColor: 'FF255A7A',
