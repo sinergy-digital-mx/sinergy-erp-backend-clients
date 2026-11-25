@@ -1676,14 +1676,12 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
     async listFolioQuotations(tenantId, terminalUserId, query) {
         const terminalUser = await this.requireVentasTerminal(tenantId, terminalUserId);
         const branchId = await this.resolveAccessibleBranchId(terminalUser, query.billing_branch_id);
-        return this.quotationService.findAll(tenantId, terminalUserId, true, true, {
-            search: query.search,
+        return this.quotationService.findForPosBranch(tenantId, {
             billing_branch_id: branchId,
             fiscal_configuration_id: query.fiscal_configuration_id,
+            search: query.search,
             page: query.page ?? 1,
-            limit: query.limit ?? 30,
-            sort_by: 'created_at',
-            sort_order: 'DESC',
+            limit: query.limit ?? 200,
         });
     }
     async getSalesInProgress(tenantId, terminalUserId, billingBranchId) {

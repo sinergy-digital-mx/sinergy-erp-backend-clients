@@ -978,8 +978,6 @@ export declare class PosShiftsController {
         page: number;
         limit: number;
         totalPages: number;
-        can_view_all: boolean;
-        can_view_all_branches: boolean;
     }>;
     getCollectedSales(query: QueryCollectedSalesDto, req: any): Promise<{
         daily_shift: null;

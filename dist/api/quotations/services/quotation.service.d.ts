@@ -43,6 +43,96 @@ export declare class QuotationService {
     constructor(quotationRepo: Repository<Quotation>, userRepo: Repository<User>, userBillingBranchRepo: Repository<UserBillingBranch>, customerRepo: Repository<Customer>, billingBranchRepo: Repository<BillingBranch>, warehouseRepo: Repository<Warehouse>, folioService: QuotationFolioService, dataSource: DataSource, posShiftsService: PosShiftsService, productDiscountService: ProductDiscountService, globalDiscountService: GlobalDiscountService, pdfService: QuotationPdfService, documentsService: QuotationDocumentsService, salesOrderService: SalesOrderService, advanceInvoices: QuotationAdvanceInvoiceService);
     create(dto: CreateQuotationDto, tenantId: string, userId: string): Promise<Quotation>;
     replace(id: string, dto: CreateQuotationDto, tenantId: string, userId: string, access?: QuotationSellerAccess): Promise<Quotation>;
+    findForPosBranch(tenantId: string, filters: {
+        billing_branch_id: string;
+        fiscal_configuration_id?: string;
+        search?: string;
+        page?: number;
+        limit?: number;
+    }): Promise<{
+        data: {
+            seller_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+                pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+            } | null;
+            assigned_seller_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+                pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+            } | null;
+            terminal_user: {
+                id: string;
+                first_name: string;
+                last_name: string;
+                pos_user_code: number | null;
+                pos_user_type: import("../../../entities/users/pos-user-type.enum").PosUserType | null;
+            } | null;
+            razon_social: string;
+            sucursal: string | null;
+            expires_at: string | null;
+            quotation_expiration_days: number | null;
+            fiscal_configuration: {
+                id: string;
+                razon_social: string;
+                rfc: string;
+            } | null;
+            billing_branch_id: string | null;
+            billing_branch: {
+                id: string;
+                code: string;
+                address: string;
+                city: string;
+                state: string;
+                country: string;
+                postal_code: string;
+            } | null;
+            id: string;
+            tenant: import("../../rbac").RBACTenant;
+            tenant_id: string;
+            folio: string;
+            fiscal_configuration_id: string;
+            warehouse_id: string | null;
+            customer: Customer;
+            customer_id: number;
+            expected_delivery_date: Date;
+            quotation_type: string;
+            fiscal_razon_social: string | null;
+            general_status: string;
+            notes: string | null;
+            subtotal: number;
+            iva_total: number;
+            ieps_total: number;
+            discount_total: number;
+            global_discount: import("../../../entities/global-discounts/global-discount.entity").GlobalDiscount | null;
+            global_discount_id: string | null;
+            global_discount_amount: number;
+            total: number;
+            advance_requested_total: number | null;
+            advance_uso_cfdi: string | null;
+            advance_metodo_pago: "PUE" | "PPD" | null;
+            pos_stage: SalesOrderPosStage | null;
+            pos_caja_opened_at: Date | null;
+            pos_caja_opened_by: string | null;
+            created_by: string;
+            terminal_user_id: string | null;
+            seller_user_id: string | null;
+            assigned_seller_user_id: string | null;
+            converted_to_sales_order_id: string | null;
+            created_at: Date;
+            updated_by: string;
+            updated_at: Date;
+            line_items: QuotationDetail[];
+        }[];
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+    }>;
     findAll(tenantId: string, userId: string, canViewAll: boolean, canViewAllBranches: boolean, filters: QueryQuotationDto): Promise<{
         data: {
             seller_user: {

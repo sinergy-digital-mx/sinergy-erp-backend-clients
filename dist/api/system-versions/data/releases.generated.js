@@ -2577,6 +2577,22 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-25T17:14:25.608Z"
+    },
+    {
+        "releaseKey": "full:0.0.180:0.0.180-1795628906033",
+        "version": "0.0.180",
+        "buildId": "0.0.180-1795628906033",
+        "channel": "full",
+        "title": "Versión 0.0.180",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "En Folios, Cotizaciones lista todas las de la sucursal y la razón social, de cualquier vendedor.",
+                "module": "pos",
+                "moduleLabel": "POS Ventas"
+            }
+        ],
+        "releasedAt": "2026-11-25T17:48:26.033Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map

@@ -2044,6 +2044,16 @@
       "version": "0.0.179",
       "shippedAt": "2026-11-25T09:15:39-08:00",
       "module": "inventory"
+    },
+    {
+      "id": "20261125-091731",
+      "at": "2026-11-25T09:17:31-08:00",
+      "scope": "both",
+      "message": "En Folios, Cotizaciones lista todas las de la sucursal y la razón social, de cualquier vendedor.",
+      "status": "shipped",
+      "version": "0.0.180",
+      "shippedAt": "2026-11-25T09:49:26-08:00",
+      "module": "pos"
     }
   ]
 }

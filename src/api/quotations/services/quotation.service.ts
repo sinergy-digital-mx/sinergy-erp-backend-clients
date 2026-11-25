@@ -294,6 +294,61 @@ export class QuotationService {
     }
   }
 
+  /** Cotizaciones de una sucursal POS. No recorta por el usuario de la sesión. */
+  async findForPosBranch(
+    tenantId: string,
+    filters: {
+      billing_branch_id: string;
+      fiscal_configuration_id?: string;
+      search?: string;
+      page?: number;
+      limit?: number;
+    },
+  ) {
+    const page = filters.page ?? 1;
+    const limit = Math.min(Math.max(filters.limit ?? 200, 1), 200);
+    const qb = this.quotationRepo
+      .createQueryBuilder('qt')
+      .leftJoinAndSelect('qt.customer', 'customer')
+      .leftJoinAndSelect('qt.fiscal_configuration', 'fiscal_configuration')
+      .leftJoinAndSelect('qt.billing_branch', 'billing_branch')
+      .leftJoinAndSelect('qt.warehouse', 'warehouse')
+      .leftJoinAndSelect('qt.seller_user', 'seller_user')
+      .leftJoinAndSelect('qt.assigned_seller_user', 'assigned_seller_user')
+      .where('qt.tenant_id = :tenantId', { tenantId })
+      .andWhere('qt.general_status != :cancelled', { cancelled: 'Cancelada' })
+      .andWhere(
+        '(qt.billing_branch_id = :branchId OR warehouse.billing_branch_id = :branchId)',
+        { branchId: filters.billing_branch_id },
+      );
+
+    if (filters.fiscal_configuration_id) {
+      qb.andWhere('qt.fiscal_configuration_id = :fiscalId', {
+        fiscalId: filters.fiscal_configuration_id,
+      });
+    }
+    if (filters.search?.trim()) {
+      qb.andWhere(
+        '(qt.folio LIKE :s OR customer.name LIKE :s OR customer.lastname LIKE :s OR customer.company_name LIKE :s OR CONCAT(customer.name, \' \', COALESCE(customer.lastname, \'\')) LIKE :s)',
+        { s: `%${filters.search.trim()}%` },
+      );
+    }
+
+    const [rows, total] = await qb
+      .orderBy('qt.created_at', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+
+    return {
+      data: rows.map((qt) => this.mapLocation(qt)),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 0,
+    };
+  }
+
   async findAll(
     tenantId: string,
     userId: string,

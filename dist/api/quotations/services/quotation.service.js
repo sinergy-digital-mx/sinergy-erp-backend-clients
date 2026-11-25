@@ -211,6 +211,41 @@ let QuotationService = class QuotationService {
             await qr.release();
         }
     }
+    async findForPosBranch(tenantId, filters) {
+        const page = filters.page ?? 1;
+        const limit = Math.min(Math.max(filters.limit ?? 200, 1), 200);
+        const qb = this.quotationRepo
+            .createQueryBuilder('qt')
+            .leftJoinAndSelect('qt.customer', 'customer')
+            .leftJoinAndSelect('qt.fiscal_configuration', 'fiscal_configuration')
+            .leftJoinAndSelect('qt.billing_branch', 'billing_branch')
+            .leftJoinAndSelect('qt.warehouse', 'warehouse')
+            .leftJoinAndSelect('qt.seller_user', 'seller_user')
+            .leftJoinAndSelect('qt.assigned_seller_user', 'assigned_seller_user')
+            .where('qt.tenant_id = :tenantId', { tenantId })
+            .andWhere('qt.general_status != :cancelled', { cancelled: 'Cancelada' })
+            .andWhere('(qt.billing_branch_id = :branchId OR warehouse.billing_branch_id = :branchId)', { branchId: filters.billing_branch_id });
+        if (filters.fiscal_configuration_id) {
+            qb.andWhere('qt.fiscal_configuration_id = :fiscalId', {
+                fiscalId: filters.fiscal_configuration_id,
+            });
+        }
+        if (filters.search?.trim()) {
+            qb.andWhere('(qt.folio LIKE :s OR customer.name LIKE :s OR customer.lastname LIKE :s OR customer.company_name LIKE :s OR CONCAT(customer.name, \' \', COALESCE(customer.lastname, \'\')) LIKE :s)', { s: `%${filters.search.trim()}%` });
+        }
+        const [rows, total] = await qb
+            .orderBy('qt.created_at', 'DESC')
+            .skip((page - 1) * limit)
+            .take(limit)
+            .getManyAndCount();
+        return {
+            data: rows.map((qt) => this.mapLocation(qt)),
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit) || 0,
+        };
+    }
     async findAll(tenantId, userId, canViewAll, canViewAllBranches, filters) {
         const { search, general_status, quotation_type, fiscal_configuration_id, billing_branch_id, customer_id, assigned_seller_user_id, created_from, created_to, page = 1, limit = 20, sort_by = 'created_at', sort_order = 'DESC', } = filters;
         const qb = this.quotationRepo

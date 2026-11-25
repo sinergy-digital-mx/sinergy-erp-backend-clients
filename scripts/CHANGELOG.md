@@ -12,6 +12,10 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.180 · 25 nov
+
+- POS Ventas · En Folios, Cotizaciones lista todas las de la sucursal y la razón social, de cualquier vendedor.
+
 #### Versión 0.0.179 · 25 nov
 
 - POS Ventas · En Folios las cartas muestran empresa y persona, y ventas y cotizaciones van en filtros separados.

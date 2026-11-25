@@ -1497,8 +1497,6 @@ export declare class PosShiftsService {
         page: number;
         limit: number;
         totalPages: number;
-        can_view_all: boolean;
-        can_view_all_branches: boolean;
     }>;
     getSalesInProgress(tenantId: string, terminalUserId: string, billingBranchId?: string): Promise<({
         customer_id: number;

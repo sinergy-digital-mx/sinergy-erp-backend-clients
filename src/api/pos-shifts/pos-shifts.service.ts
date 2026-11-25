@@ -2062,21 +2062,13 @@ export class PosShiftsService {
       terminalUser,
       query.billing_branch_id,
     );
-    return this.quotationService.findAll(
-      tenantId,
-      terminalUserId,
-      true,
-      true,
-      {
-        search: query.search,
-        billing_branch_id: branchId,
-        fiscal_configuration_id: query.fiscal_configuration_id,
-        page: query.page ?? 1,
-        limit: query.limit ?? 30,
-        sort_by: 'created_at',
-        sort_order: 'DESC',
-      },
-    );
+    return this.quotationService.findForPosBranch(tenantId, {
+      billing_branch_id: branchId,
+      fiscal_configuration_id: query.fiscal_configuration_id,
+      search: query.search,
+      page: query.page ?? 1,
+      limit: query.limit ?? 200,
+    });
   }
 
   async getSalesInProgress(
