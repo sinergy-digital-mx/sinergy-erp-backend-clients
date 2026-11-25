@@ -16,6 +16,7 @@ import { PosPartialShift } from '../../entities/pos/pos-partial-shift.entity';
 import { PosPartialShiftDenomination } from '../../entities/pos/pos-partial-shift-denomination.entity';
 import { PosDailyShiftStatus } from '../../entities/pos/pos-daily-shift-status.enum';
 import { PosSaleCollection } from '../../entities/pos/pos-sale-collection.entity';
+import { PosShiftAbono } from '../../entities/pos/pos-shift-abono.entity';
 import { PosSalePaymentMethod } from '../../entities/pos/pos-sale-payment-method.enum';
 import { User } from '../../entities/users/user.entity';
 import { UserBillingBranch } from '../../entities/users/user-billing-branch.entity';
@@ -33,6 +34,7 @@ import { CreatePartialShiftDto } from './dto/create-partial-shift.dto';
 import { QueryDailyShiftDto } from './dto/query-daily-shift.dto';
 import { CloseDailyShiftDto } from './dto/close-daily-shift.dto';
 import { CollectPosSaleDto } from './dto/collect-pos-sale.dto';
+import { RegisterPosAbonoDto } from './dto/register-pos-abono.dto';
 import { ReplacePosSaleCartDto } from './dto/replace-pos-sale-cart.dto';
 import { JwtPermissionUser } from '../rbac/utils/jwt-permission.util';
 import { assertPosPriceDiscountAllowed } from './utils/pos-price-discount.util';
@@ -128,6 +130,8 @@ export class PosShiftsService {
     private readonly warehouseRepo: Repository<Warehouse>,
     @InjectRepository(PosSaleCollection)
     private readonly collectionRepo: Repository<PosSaleCollection>,
+    @InjectRepository(PosShiftAbono)
+    private readonly abonoRepo: Repository<PosShiftAbono>,
     @Inject(forwardRef(() => SalesOrderPosReceiptService))
     private readonly posReceiptService: SalesOrderPosReceiptService,
     @Inject(forwardRef(() => SalesOrderService))
@@ -2679,6 +2683,88 @@ export class PosShiftsService {
     };
   }
 
+  async registerAbono(
+    tenantId: string,
+    cobranzaUserId: string,
+    salesOrderId: string,
+    dto: RegisterPosAbonoDto,
+  ) {
+    const cobranzaUser = await this.requireCobranzaTerminal(tenantId, cobranzaUserId);
+    const branchId = await this.resolveAccessibleBranchId(cobranzaUser, dto.billing_branch_id);
+    const shift = await this.getBranchOpenDailyShift(tenantId, branchId);
+    if (!shift) {
+      throw new BadRequestException('No hay corte abierto. El abono no se registró.');
+    }
+
+    const order = await this.salesOrderRepo.findOne({
+      where: { id: salesOrderId, tenant_id: tenantId },
+      relations: ['warehouse'],
+    });
+    if (!order) {
+      throw new NotFoundException('Orden de venta no encontrada');
+    }
+
+    const orderBranchId = order.billing_branch_id || order.warehouse?.billing_branch_id;
+    if (orderBranchId !== branchId) {
+      throw new BadRequestException('La orden no pertenece a la sucursal de esta caja');
+    }
+
+    const fiscalId = cobranzaUser.billing_branch?.fiscal_configuration_id;
+    if (fiscalId && order.fiscal_configuration_id !== fiscalId) {
+      throw new BadRequestException('La orden no pertenece a la razón social de esta caja');
+    }
+
+    if (order.currency && order.currency !== 'MXN') {
+      throw new BadRequestException('El abono de caja solo aplica a órdenes en pesos');
+    }
+
+    const amount = Math.round(Number(dto.amount) * 100) / 100;
+    const result = await this.salesOrderService.createPayment(
+      salesOrderId,
+      {
+        amount,
+        payment_date: dto.payment_date,
+        payment_method: dto.payment_method,
+        currency: 'MXN',
+        reference_number: dto.reference_number,
+      },
+      tenantId,
+      cobranzaUserId,
+      'pos_cobranza',
+    );
+
+    const paymentId = result.payment?.id;
+    if (!paymentId) {
+      throw new BadRequestException('No se pudo registrar el pago de la orden');
+    }
+
+    const abono = this.abonoRepo.create({
+      id: uuidv4(),
+      tenant_id: tenantId,
+      sales_order_id: order.id,
+      pos_daily_shift_id: shift.id,
+      sales_order_payment_id: paymentId,
+      payment_method: dto.payment_method,
+      amount_mxn: amount,
+      amount_cash_mxn: dto.payment_method === PosSalePaymentMethod.CASH ? amount : 0,
+      amount_transfer_mxn: dto.payment_method === PosSalePaymentMethod.TRANSFER ? amount : 0,
+      amount_card_mxn: dto.payment_method === PosSalePaymentMethod.CARD ? amount : 0,
+      amount_check_mxn: dto.payment_method === PosSalePaymentMethod.CHECK ? amount : 0,
+      reference_number: dto.reference_number?.trim() || null,
+      created_by: cobranzaUserId,
+    });
+    await this.abonoRepo.save(abono);
+
+    return {
+      folio: order.folio,
+      abono_id: abono.id,
+      payment_id: paymentId,
+      amount,
+      payment_status: result.summary.payment_status,
+      amount_pending: result.summary.amount_pending,
+    };
+  }
+
   private async getShiftCashTotals(dailyShiftId: string) {
     const result = await this.collectionRepo
       .createQueryBuilder('collection')
@@ -2700,12 +2786,26 @@ export class PosShiftsService {
       .where('collection.pos_daily_shift_id = :dailyShiftId', { dailyShiftId })
       .getRawOne();
     const advances = await this.advanceShiftPayments.sumActiveByShift(dailyShiftId);
+    const abonos = await this.abonoRepo
+      .createQueryBuilder('abono')
+      .select('COALESCE(SUM(abono.amount_cash_mxn), 0)', 'cash_mxn')
+      .addSelect('COALESCE(SUM(abono.amount_transfer_mxn), 0)', 'transfer_mxn')
+      .addSelect('COALESCE(SUM(abono.amount_card_mxn), 0)', 'card_mxn')
+      .addSelect('COALESCE(SUM(abono.amount_check_mxn), 0)', 'check_mxn')
+      .where('abono.pos_daily_shift_id = :dailyShiftId', { dailyShiftId })
+      .getRawOne<{
+        cash_mxn: string;
+        transfer_mxn: string;
+        card_mxn: string;
+        check_mxn: string;
+      }>();
     return {
-      cash_mxn: Number(result?.cash_mxn ?? 0) + advances.cash_mxn,
+      cash_mxn: Number(result?.cash_mxn ?? 0) + advances.cash_mxn + Number(abonos?.cash_mxn ?? 0),
       cash_usd: Number(result?.cash_usd ?? 0),
-      transfer_mxn: Number(result?.transfer_mxn ?? 0) + advances.transfer_mxn,
-      card_mxn: Number(result?.card_mxn ?? 0) + advances.card_mxn,
-      check_mxn: Number(result?.check_mxn ?? 0) + advances.check_mxn,
+      transfer_mxn:
+        Number(result?.transfer_mxn ?? 0) + advances.transfer_mxn + Number(abonos?.transfer_mxn ?? 0),
+      card_mxn: Number(result?.card_mxn ?? 0) + advances.card_mxn + Number(abonos?.card_mxn ?? 0),
+      check_mxn: Number(result?.check_mxn ?? 0) + advances.check_mxn + Number(abonos?.check_mxn ?? 0),
       check_usd: Number(result?.check_usd ?? 0),
       credit_mxn: Number(result?.credit_mxn ?? 0),
     };

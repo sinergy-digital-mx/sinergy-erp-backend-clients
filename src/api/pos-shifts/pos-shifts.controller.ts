@@ -37,6 +37,7 @@ import { QueryDailyShiftDto } from './dto/query-daily-shift.dto';
 import { QueryPosBranchDto } from './dto/query-pos-branch.dto';
 import { CloseDailyShiftDto } from './dto/close-daily-shift.dto';
 import { CollectPosSaleDto } from './dto/collect-pos-sale.dto';
+import { RegisterPosAbonoDto } from './dto/register-pos-abono.dto';
 import { QueryCollectedSalesDto } from './dto/query-collected-sales.dto';
 import { ReplacePosSaleCartDto } from './dto/replace-pos-sale-cart.dto';
 import { SendQuotationToCajaDto } from './dto/send-quotation-to-caja.dto';
@@ -272,6 +273,30 @@ export class PosShiftsController {
     @Req() req: any,
   ) {
     return this.posShiftsService.collectSale(
+      req.user.tenant_id,
+      req.user.id,
+      salesOrderId,
+      dto,
+    );
+  }
+
+  @Post('sales/:salesOrderId/abono')
+  @RequireAnyPermissions(
+    { entityType: 'PosShift', action: 'Update' },
+    { entityType: 'pos', action: 'Update' },
+  )
+  @ApiOperation({
+    summary: 'Abonar orden con saldo',
+    description:
+      'Solo terminal de caja. Registra el pago en la orden y el dinero en el corte abierto. Sin corte abierto no se registra.',
+  })
+  @ApiBody({ type: RegisterPosAbonoDto })
+  async registerAbono(
+    @Param('salesOrderId') salesOrderId: string,
+    @Body() dto: RegisterPosAbonoDto,
+    @Req() req: any,
+  ) {
+    return this.posShiftsService.registerAbono(
       req.user.tenant_id,
       req.user.id,
       salesOrderId,

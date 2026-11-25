@@ -27,6 +27,7 @@ const query_daily_shift_dto_1 = require("./dto/query-daily-shift.dto");
 const query_pos_branch_dto_1 = require("./dto/query-pos-branch.dto");
 const close_daily_shift_dto_1 = require("./dto/close-daily-shift.dto");
 const collect_pos_sale_dto_1 = require("./dto/collect-pos-sale.dto");
+const register_pos_abono_dto_1 = require("./dto/register-pos-abono.dto");
 const query_collected_sales_dto_1 = require("./dto/query-collected-sales.dto");
 const replace_pos_sale_cart_dto_1 = require("./dto/replace-pos-sale-cart.dto");
 const send_quotation_to_caja_dto_1 = require("./dto/send-quotation-to-caja.dto");
@@ -94,6 +95,9 @@ let PosShiftsController = class PosShiftsController {
     }
     async collectSale(salesOrderId, dto, req) {
         return this.posShiftsService.collectSale(req.user.tenant_id, req.user.id, salesOrderId, dto);
+    }
+    async registerAbono(salesOrderId, dto, req) {
+        return this.posShiftsService.registerAbono(req.user.tenant_id, req.user.id, salesOrderId, dto);
     }
     async collectQuotationAdvance(quotationId, dto, req) {
         return this.quotationAdvances.collectFromPos(quotationId, req.user.tenant_id, req.user.id, dto);
@@ -302,6 +306,21 @@ __decorate([
     __metadata("design:paramtypes", [String, collect_pos_sale_dto_1.CollectPosSaleDto, Object]),
     __metadata("design:returntype", Promise)
 ], PosShiftsController.prototype, "collectSale", null);
+__decorate([
+    (0, common_1.Post)('sales/:salesOrderId/abono'),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Update' }, { entityType: 'pos', action: 'Update' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Abonar orden con saldo',
+        description: 'Solo terminal de caja. Registra el pago en la orden y el dinero en el corte abierto. Sin corte abierto no se registra.',
+    }),
+    (0, swagger_1.ApiBody)({ type: register_pos_abono_dto_1.RegisterPosAbonoDto }),
+    __param(0, (0, common_1.Param)('salesOrderId')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, register_pos_abono_dto_1.RegisterPosAbonoDto, Object]),
+    __metadata("design:returntype", Promise)
+], PosShiftsController.prototype, "registerAbono", null);
 __decorate([
     (0, common_1.Post)('quotations/:quotationId/collect-advance'),
     (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Update' }, { entityType: 'pos', action: 'Update' }),

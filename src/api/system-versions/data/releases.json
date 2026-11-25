@@ -2438,5 +2438,21 @@
       }
     ],
     "releasedAt": "2026-11-25T03:25:24.602Z"
+  },
+  {
+    "releaseKey": "full:0.0.176:0.0.176-1795583223054",
+    "version": "0.0.176",
+    "buildId": "0.0.176-1795583223054",
+    "channel": "full",
+    "title": "Versión 0.0.176",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "En Ventas, Folios lleva cotizaciones y ventas a tres carritos con el precio vigente. En Caja, el abono queda en la orden y en el corte abierto.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      }
+    ],
+    "releasedAt": "2026-11-25T05:07:03.054Z"
   }
 ]

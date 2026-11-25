@@ -17,6 +17,7 @@ const user_billing_branch_entity_1 = require("../../entities/users/user-billing-
 const sales_order_entity_1 = require("../../entities/sales-orders/sales-order.entity");
 const quotation_entity_1 = require("../../entities/quotations/quotation.entity");
 const pos_sale_collection_entity_1 = require("../../entities/pos/pos-sale-collection.entity");
+const pos_shift_abono_entity_1 = require("../../entities/pos/pos-shift-abono.entity");
 const advance_shift_payment_entity_1 = require("../../entities/pos/advance-shift-payment.entity");
 const sales_order_payment_entity_1 = require("../../entities/sales-orders/sales-order-payment.entity");
 const advance_shift_payment_service_1 = require("./services/advance-shift-payment.service");
@@ -47,6 +48,7 @@ exports.PosShiftsModule = PosShiftsModule = __decorate([
                 quotation_entity_1.Quotation,
                 customer_entity_1.Customer,
                 pos_sale_collection_entity_1.PosSaleCollection,
+                pos_shift_abono_entity_1.PosShiftAbono,
                 advance_shift_payment_entity_1.AdvanceShiftPayment,
                 sales_order_payment_entity_1.SalesOrderPayment,
                 warehouse_entity_1.Warehouse,

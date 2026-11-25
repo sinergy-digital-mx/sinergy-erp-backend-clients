@@ -1884,6 +1884,16 @@
       "version": "0.0.175",
       "shippedAt": "2026-11-24T19:26:32-08:00",
       "module": "pos"
+    },
+    {
+      "id": "20261124-194727",
+      "at": "2026-11-24T19:47:27-08:00",
+      "scope": "both",
+      "message": "En Ventas, Folios lleva cotizaciones y ventas a tres carritos con el precio vigente. En Caja, el abono queda en la orden y en el corte abierto.",
+      "status": "shipped",
+      "version": "0.0.176",
+      "shippedAt": "2026-11-24T21:08:22-08:00",
+      "module": "pos"
     }
   ]
 }

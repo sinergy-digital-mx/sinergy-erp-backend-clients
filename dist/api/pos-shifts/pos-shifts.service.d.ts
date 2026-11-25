@@ -3,6 +3,7 @@ import { PosDailyShift } from '../../entities/pos/pos-daily-shift.entity';
 import { PosPartialShift } from '../../entities/pos/pos-partial-shift.entity';
 import { PosDailyShiftStatus } from '../../entities/pos/pos-daily-shift-status.enum';
 import { PosSaleCollection } from '../../entities/pos/pos-sale-collection.entity';
+import { PosShiftAbono } from '../../entities/pos/pos-shift-abono.entity';
 import { PosSalePaymentMethod } from '../../entities/pos/pos-sale-payment-method.enum';
 import { User } from '../../entities/users/user.entity';
 import { UserBillingBranch } from '../../entities/users/user-billing-branch.entity';
@@ -16,6 +17,7 @@ import { CreatePartialShiftDto } from './dto/create-partial-shift.dto';
 import { QueryDailyShiftDto } from './dto/query-daily-shift.dto';
 import { CloseDailyShiftDto } from './dto/close-daily-shift.dto';
 import { CollectPosSaleDto } from './dto/collect-pos-sale.dto';
+import { RegisterPosAbonoDto } from './dto/register-pos-abono.dto';
 import { ReplacePosSaleCartDto } from './dto/replace-pos-sale-cart.dto';
 import { JwtPermissionUser } from '../rbac/utils/jwt-permission.util';
 import { PosCajaRecallHub } from './pos-caja-recall.hub';
@@ -40,6 +42,7 @@ export declare class PosShiftsService {
     private readonly customerRepo;
     private readonly warehouseRepo;
     private readonly collectionRepo;
+    private readonly abonoRepo;
     private readonly posReceiptService;
     private readonly salesOrderService;
     private readonly quotationService;
@@ -49,7 +52,7 @@ export declare class PosShiftsService {
     private readonly exchangeRateService;
     private readonly cajaRecallHub;
     private readonly logger;
-    constructor(dailyShiftRepo: Repository<PosDailyShift>, partialShiftRepo: Repository<PosPartialShift>, userRepo: Repository<User>, branchAssignmentRepo: Repository<UserBillingBranch>, salesOrderRepo: Repository<SalesOrder>, quotationRepo: Repository<Quotation>, customerRepo: Repository<Customer>, warehouseRepo: Repository<Warehouse>, collectionRepo: Repository<PosSaleCollection>, posReceiptService: SalesOrderPosReceiptService, salesOrderService: SalesOrderService, quotationService: QuotationService, advanceCfdi: AdvanceCfdiService, customerCreditService: CustomerCreditService, advanceShiftPayments: AdvanceShiftPaymentService, exchangeRateService: ExchangeRateService, cajaRecallHub: PosCajaRecallHub);
+    constructor(dailyShiftRepo: Repository<PosDailyShift>, partialShiftRepo: Repository<PosPartialShift>, userRepo: Repository<User>, branchAssignmentRepo: Repository<UserBillingBranch>, salesOrderRepo: Repository<SalesOrder>, quotationRepo: Repository<Quotation>, customerRepo: Repository<Customer>, warehouseRepo: Repository<Warehouse>, collectionRepo: Repository<PosSaleCollection>, abonoRepo: Repository<PosShiftAbono>, posReceiptService: SalesOrderPosReceiptService, salesOrderService: SalesOrderService, quotationService: QuotationService, advanceCfdi: AdvanceCfdiService, customerCreditService: CustomerCreditService, advanceShiftPayments: AdvanceShiftPaymentService, exchangeRateService: ExchangeRateService, cajaRecallHub: PosCajaRecallHub);
     validateSellerCode(tenantId: string, terminalUserId: string, code: number, billingBranchId?: string): Promise<{
         seller: {
             id: string;
@@ -1687,6 +1690,14 @@ export declare class PosShiftsService {
     private resolveAccessibleBranchId;
     private userCanAccessBranch;
     private getShiftRemovedTotals;
+    registerAbono(tenantId: string, cobranzaUserId: string, salesOrderId: string, dto: RegisterPosAbonoDto): Promise<{
+        folio: string;
+        abono_id: string;
+        payment_id: string;
+        amount: number;
+        payment_status: string;
+        amount_pending: number;
+    }>;
     private getShiftCashTotals;
     private getShiftSalesStats;
     private getShiftSellerUserIds;

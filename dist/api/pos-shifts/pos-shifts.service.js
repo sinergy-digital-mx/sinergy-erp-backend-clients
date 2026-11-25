@@ -23,6 +23,7 @@ const pos_partial_shift_entity_1 = require("../../entities/pos/pos-partial-shift
 const pos_partial_shift_denomination_entity_1 = require("../../entities/pos/pos-partial-shift-denomination.entity");
 const pos_daily_shift_status_enum_1 = require("../../entities/pos/pos-daily-shift-status.enum");
 const pos_sale_collection_entity_1 = require("../../entities/pos/pos-sale-collection.entity");
+const pos_shift_abono_entity_1 = require("../../entities/pos/pos-shift-abono.entity");
 const pos_sale_payment_method_enum_1 = require("../../entities/pos/pos-sale-payment-method.enum");
 const user_entity_1 = require("../../entities/users/user.entity");
 const user_billing_branch_entity_1 = require("../../entities/users/user-billing-branch.entity");
@@ -66,6 +67,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
     customerRepo;
     warehouseRepo;
     collectionRepo;
+    abonoRepo;
     posReceiptService;
     salesOrderService;
     quotationService;
@@ -75,7 +77,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
     exchangeRateService;
     cajaRecallHub;
     logger = new common_1.Logger(PosShiftsService_1.name);
-    constructor(dailyShiftRepo, partialShiftRepo, userRepo, branchAssignmentRepo, salesOrderRepo, quotationRepo, customerRepo, warehouseRepo, collectionRepo, posReceiptService, salesOrderService, quotationService, advanceCfdi, customerCreditService, advanceShiftPayments, exchangeRateService, cajaRecallHub) {
+    constructor(dailyShiftRepo, partialShiftRepo, userRepo, branchAssignmentRepo, salesOrderRepo, quotationRepo, customerRepo, warehouseRepo, collectionRepo, abonoRepo, posReceiptService, salesOrderService, quotationService, advanceCfdi, customerCreditService, advanceShiftPayments, exchangeRateService, cajaRecallHub) {
         this.dailyShiftRepo = dailyShiftRepo;
         this.partialShiftRepo = partialShiftRepo;
         this.userRepo = userRepo;
@@ -85,6 +87,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         this.customerRepo = customerRepo;
         this.warehouseRepo = warehouseRepo;
         this.collectionRepo = collectionRepo;
+        this.abonoRepo = abonoRepo;
         this.posReceiptService = posReceiptService;
         this.salesOrderService = salesOrderService;
         this.quotationService = quotationService;
@@ -2178,6 +2181,68 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             usd: Number(result?.usd ?? 0),
         };
     }
+    async registerAbono(tenantId, cobranzaUserId, salesOrderId, dto) {
+        const cobranzaUser = await this.requireCobranzaTerminal(tenantId, cobranzaUserId);
+        const branchId = await this.resolveAccessibleBranchId(cobranzaUser, dto.billing_branch_id);
+        const shift = await this.getBranchOpenDailyShift(tenantId, branchId);
+        if (!shift) {
+            throw new common_1.BadRequestException('No hay corte abierto. El abono no se registró.');
+        }
+        const order = await this.salesOrderRepo.findOne({
+            where: { id: salesOrderId, tenant_id: tenantId },
+            relations: ['warehouse'],
+        });
+        if (!order) {
+            throw new common_1.NotFoundException('Orden de venta no encontrada');
+        }
+        const orderBranchId = order.billing_branch_id || order.warehouse?.billing_branch_id;
+        if (orderBranchId !== branchId) {
+            throw new common_1.BadRequestException('La orden no pertenece a la sucursal de esta caja');
+        }
+        const fiscalId = cobranzaUser.billing_branch?.fiscal_configuration_id;
+        if (fiscalId && order.fiscal_configuration_id !== fiscalId) {
+            throw new common_1.BadRequestException('La orden no pertenece a la razón social de esta caja');
+        }
+        if (order.currency && order.currency !== 'MXN') {
+            throw new common_1.BadRequestException('El abono de caja solo aplica a órdenes en pesos');
+        }
+        const amount = Math.round(Number(dto.amount) * 100) / 100;
+        const result = await this.salesOrderService.createPayment(salesOrderId, {
+            amount,
+            payment_date: dto.payment_date,
+            payment_method: dto.payment_method,
+            currency: 'MXN',
+            reference_number: dto.reference_number,
+        }, tenantId, cobranzaUserId, 'pos_cobranza');
+        const paymentId = result.payment?.id;
+        if (!paymentId) {
+            throw new common_1.BadRequestException('No se pudo registrar el pago de la orden');
+        }
+        const abono = this.abonoRepo.create({
+            id: (0, uuid_1.v4)(),
+            tenant_id: tenantId,
+            sales_order_id: order.id,
+            pos_daily_shift_id: shift.id,
+            sales_order_payment_id: paymentId,
+            payment_method: dto.payment_method,
+            amount_mxn: amount,
+            amount_cash_mxn: dto.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CASH ? amount : 0,
+            amount_transfer_mxn: dto.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.TRANSFER ? amount : 0,
+            amount_card_mxn: dto.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CARD ? amount : 0,
+            amount_check_mxn: dto.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CHECK ? amount : 0,
+            reference_number: dto.reference_number?.trim() || null,
+            created_by: cobranzaUserId,
+        });
+        await this.abonoRepo.save(abono);
+        return {
+            folio: order.folio,
+            abono_id: abono.id,
+            payment_id: paymentId,
+            amount,
+            payment_status: result.summary.payment_status,
+            amount_pending: result.summary.amount_pending,
+        };
+    }
     async getShiftCashTotals(dailyShiftId) {
         const result = await this.collectionRepo
             .createQueryBuilder('collection')
@@ -2199,12 +2264,20 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             .where('collection.pos_daily_shift_id = :dailyShiftId', { dailyShiftId })
             .getRawOne();
         const advances = await this.advanceShiftPayments.sumActiveByShift(dailyShiftId);
+        const abonos = await this.abonoRepo
+            .createQueryBuilder('abono')
+            .select('COALESCE(SUM(abono.amount_cash_mxn), 0)', 'cash_mxn')
+            .addSelect('COALESCE(SUM(abono.amount_transfer_mxn), 0)', 'transfer_mxn')
+            .addSelect('COALESCE(SUM(abono.amount_card_mxn), 0)', 'card_mxn')
+            .addSelect('COALESCE(SUM(abono.amount_check_mxn), 0)', 'check_mxn')
+            .where('abono.pos_daily_shift_id = :dailyShiftId', { dailyShiftId })
+            .getRawOne();
         return {
-            cash_mxn: Number(result?.cash_mxn ?? 0) + advances.cash_mxn,
+            cash_mxn: Number(result?.cash_mxn ?? 0) + advances.cash_mxn + Number(abonos?.cash_mxn ?? 0),
             cash_usd: Number(result?.cash_usd ?? 0),
-            transfer_mxn: Number(result?.transfer_mxn ?? 0) + advances.transfer_mxn,
-            card_mxn: Number(result?.card_mxn ?? 0) + advances.card_mxn,
-            check_mxn: Number(result?.check_mxn ?? 0) + advances.check_mxn,
+            transfer_mxn: Number(result?.transfer_mxn ?? 0) + advances.transfer_mxn + Number(abonos?.transfer_mxn ?? 0),
+            card_mxn: Number(result?.card_mxn ?? 0) + advances.card_mxn + Number(abonos?.card_mxn ?? 0),
+            check_mxn: Number(result?.check_mxn ?? 0) + advances.check_mxn + Number(abonos?.check_mxn ?? 0),
             check_usd: Number(result?.check_usd ?? 0),
             credit_mxn: Number(result?.credit_mxn ?? 0),
         };
@@ -2441,10 +2514,12 @@ exports.PosShiftsService = PosShiftsService = PosShiftsService_1 = __decorate([
     __param(6, (0, typeorm_1.InjectRepository)(customer_entity_1.Customer)),
     __param(7, (0, typeorm_1.InjectRepository)(warehouse_entity_1.Warehouse)),
     __param(8, (0, typeorm_1.InjectRepository)(pos_sale_collection_entity_1.PosSaleCollection)),
-    __param(9, (0, common_1.Inject)((0, common_1.forwardRef)(() => sales_order_pos_receipt_service_1.SalesOrderPosReceiptService))),
-    __param(10, (0, common_1.Inject)((0, common_1.forwardRef)(() => sales_order_service_1.SalesOrderService))),
-    __param(11, (0, common_1.Inject)((0, common_1.forwardRef)(() => quotation_service_1.QuotationService))),
+    __param(9, (0, typeorm_1.InjectRepository)(pos_shift_abono_entity_1.PosShiftAbono)),
+    __param(10, (0, common_1.Inject)((0, common_1.forwardRef)(() => sales_order_pos_receipt_service_1.SalesOrderPosReceiptService))),
+    __param(11, (0, common_1.Inject)((0, common_1.forwardRef)(() => sales_order_service_1.SalesOrderService))),
+    __param(12, (0, common_1.Inject)((0, common_1.forwardRef)(() => quotation_service_1.QuotationService))),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,

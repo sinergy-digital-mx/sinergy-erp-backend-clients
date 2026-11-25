@@ -12,6 +12,10 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.176 · 24 nov
+
+- POS Ventas · En Ventas, Folios lleva cotizaciones y ventas a tres carritos con el precio vigente. En Caja, el abono queda en la orden y en el corte abierto.
+
 #### Versión 0.0.175 · 24 nov
 
 - POS Ventas · En POS, la barra muestra Corte abierto y el nombre de la terminal sale al pasar el cursor.

@@ -8,6 +8,7 @@ import { QueryDailyShiftDto } from './dto/query-daily-shift.dto';
 import { QueryPosBranchDto } from './dto/query-pos-branch.dto';
 import { CloseDailyShiftDto } from './dto/close-daily-shift.dto';
 import { CollectPosSaleDto } from './dto/collect-pos-sale.dto';
+import { RegisterPosAbonoDto } from './dto/register-pos-abono.dto';
 import { QueryCollectedSalesDto } from './dto/query-collected-sales.dto';
 import { ReplacePosSaleCartDto } from './dto/replace-pos-sale-cart.dto';
 import { SendQuotationToCajaDto } from './dto/send-quotation-to-caja.dto';
@@ -1102,6 +1103,14 @@ export declare class PosShiftsController {
             amount_collected: number;
             amount_on_credit: number;
         };
+    }>;
+    registerAbono(salesOrderId: string, dto: RegisterPosAbonoDto, req: any): Promise<{
+        folio: string;
+        abono_id: string;
+        payment_id: string;
+        amount: number;
+        payment_status: string;
+        amount_pending: number;
     }>;
     collectQuotationAdvance(quotationId: string, dto: CollectPosSaleDto, req: any): Promise<{
         folio: string;

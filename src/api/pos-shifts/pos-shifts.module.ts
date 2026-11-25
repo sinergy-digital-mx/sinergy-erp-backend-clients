@@ -8,6 +8,7 @@ import { UserBillingBranch } from '../../entities/users/user-billing-branch.enti
 import { SalesOrder } from '../../entities/sales-orders/sales-order.entity';
 import { Quotation } from '../../entities/quotations/quotation.entity';
 import { PosSaleCollection } from '../../entities/pos/pos-sale-collection.entity';
+import { PosShiftAbono } from '../../entities/pos/pos-shift-abono.entity';
 import { AdvanceShiftPayment } from '../../entities/pos/advance-shift-payment.entity';
 import { SalesOrderPayment } from '../../entities/sales-orders/sales-order-payment.entity';
 import { AdvanceShiftPaymentService } from './services/advance-shift-payment.service';
@@ -35,6 +36,7 @@ import { PosCajaRecallHub } from './pos-caja-recall.hub';
       Quotation,
       Customer,
       PosSaleCollection,
+      PosShiftAbono,
       AdvanceShiftPayment,
       SalesOrderPayment,
       Warehouse,

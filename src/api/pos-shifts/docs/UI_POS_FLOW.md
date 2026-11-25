@@ -1,5 +1,7 @@
 # Flujo POS — Guía para UI
 
+**2026-11-24 — folios, tres carritos y abono.** En Ventas y en Caja la barra tiene **Folios**, limitado a la sucursal y la razón social de la sesión. En Ventas la lista mezcla cotizaciones y ventas; **Llevar a carrito** copia las líneas a C1, C2 o C3. Esos carritos guardan solo cliente y productos (sin precio) y al activarlos cobran el precio vigente. En Caja, Folios lista órdenes con saldo y **Abonar** registra el pago en la orden y en el corte abierto. Sin corte abierto no se registra. Ctrl+Q abre ese diálogo. Los anticipos no entran.
+
 **2026-11-24 — carrito un poco más angosto.** En Ventas el panel del carrito baja de 42vw (tope 760px) a 38vw (tope 680px). El descuento global solo aparece en el desglose si hay uno aplicado; si no, queda un enlace para abrirlo. El descuento en precio del desglose usa un título chico y el porcentaje en una pastilla.
 
 **2026-11-24 — carrito más ancho.** En Ventas el panel del carrito ocupa más ancho. El ícono de descuento de precio de cada línea queda a la misma altura que la lista, el descuento del producto y la cantidad.
