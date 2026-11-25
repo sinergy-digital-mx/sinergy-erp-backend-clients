@@ -2485,6 +2485,22 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-25T07:24:35.181Z"
+    },
+    {
+        "releaseKey": "full:0.0.178:0.0.178-1795592977615",
+        "version": "0.0.178",
+        "buildId": "0.0.178-1795592977615",
+        "channel": "full",
+        "title": "Versión 0.0.178",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "En Ventas, cambiar de carrito ya no arrastra ni borra los productos del otro.",
+                "module": "pos",
+                "moduleLabel": "POS Ventas"
+            }
+        ],
+        "releasedAt": "2026-11-25T07:49:37.615Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map

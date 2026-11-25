@@ -12,11 +12,15 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.178 · 24 nov
+
+- POS Ventas · En Ventas, cambiar de carrito ya no arrastra ni borra los productos del otro.
+
 #### Versión 0.0.177 · 24 nov
 
 - POS Ventas · En Folios el copiar queda en un ícono junto al folio, sin meter Copiado en la fila.
 - POS Ventas · En Folios, copiar a carrito pregunta C1, C2 o C3 y la fila se abre con los productos.
-- POS Ventas · En la barra, al pasar el cursor por el cuadrito de corte sale abajo la terminal, como estaba.
+- POS Ventas · En la barra, al pasar el cursor por el corte la terminal sale abajo como submenú, sin mover el resto.
 
 #### Versión 0.0.176 · 24 nov
 
