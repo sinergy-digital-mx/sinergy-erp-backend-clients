@@ -1,8 +1,10 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { lineConceptName } from '../utils/sales-order-line-name.util';
@@ -122,6 +124,7 @@ export class SalesOrderInvoicingService {
     private readonly customerRepo: Repository<Customer>,
     private readonly electronicInvoiceService: ElectronicInvoiceService,
     private readonly advanceCfdi: AdvanceCfdiService,
+    @Inject(forwardRef(() => PosShiftsService))
     private readonly posShiftsService: PosShiftsService,
     private readonly advancePayments: AdvanceShiftPaymentService,
     private readonly debtLedger: CustomerDebtLedgerService,

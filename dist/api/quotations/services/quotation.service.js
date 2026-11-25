@@ -48,6 +48,12 @@ const quotation_expiration_util_1 = require("../utils/quotation-expiration.util"
 const document_language_enum_1 = require("../../../common/enums/document-language.enum");
 const pos_sale_collection_mapper_1 = require("../../pos-shifts/mappers/pos-sale-collection.mapper");
 const sales_order_service_1 = require("../../sales-orders/services/sales-order.service");
+const sales_order_invoicing_service_1 = require("../../sales-orders/services/sales-order-invoicing.service");
+const product_entity_1 = require("../../../entities/products/product.entity");
+const product_uom_entity_1 = require("../../../entities/products/product-uom.entity");
+const uom_catalog_entity_1 = require("../../../entities/uom-catalog/uom-catalog.entity");
+const advance_cfdi_util_1 = require("../../electronic-invoicing/utils/advance-cfdi.util");
+const cfdi_regimen_person_util_1 = require("../../electronic-invoicing/utils/cfdi-regimen-person.util");
 const quoted_pricing_util_1 = require("../../sales-orders/utils/quoted-pricing.util");
 const quotation_seller_scope_util_1 = require("../utils/quotation-seller-scope.util");
 let QuotationService = class QuotationService {
@@ -66,10 +72,11 @@ let QuotationService = class QuotationService {
     pdfService;
     documentsService;
     salesOrderService;
+    orderInvoicing;
     advanceInvoices;
     logger = new common_1.Logger(QuotationService_1.name);
     static DOC_TYPE_DOCUMENTO_ORIGINAL = 1;
-    constructor(quotationRepo, userRepo, userBillingBranchRepo, customerRepo, billingBranchRepo, warehouseRepo, folioService, dataSource, posShiftsService, productDiscountService, globalDiscountService, pdfService, documentsService, salesOrderService, advanceInvoices) {
+    constructor(quotationRepo, userRepo, userBillingBranchRepo, customerRepo, billingBranchRepo, warehouseRepo, folioService, dataSource, posShiftsService, productDiscountService, globalDiscountService, pdfService, documentsService, salesOrderService, orderInvoicing, advanceInvoices) {
         this.quotationRepo = quotationRepo;
         this.userRepo = userRepo;
         this.userBillingBranchRepo = userBillingBranchRepo;
@@ -84,6 +91,7 @@ let QuotationService = class QuotationService {
         this.pdfService = pdfService;
         this.documentsService = documentsService;
         this.salesOrderService = salesOrderService;
+        this.orderInvoicing = orderInvoicing;
         this.advanceInvoices = advanceInvoices;
     }
     async create(dto, tenantId, userId) {
@@ -97,6 +105,7 @@ let QuotationService = class QuotationService {
         const customerId = isPos
             ? dto.customer_id ?? (await this.posShiftsService.resolveWalkInCustomerId(tenantId))
             : dto.customer_id;
+        const advanceCase = this.resolveAdvanceCase(dto);
         const location = await this.resolveLocation(tenantId, dto, isPos);
         const sellerUserId = isPos ? dto.seller_user_id : (dto.seller_user_id ?? userId);
         const assignedSellerUserId = await this.resolveAssignedSellerUserId(tenantId, customerId, sellerUserId, dto.assigned_seller_user_id);
@@ -125,14 +134,24 @@ let QuotationService = class QuotationService {
                 terminal_user_id: isPos ? userId : null,
                 seller_user_id: sellerUserId,
                 assigned_seller_user_id: assignedSellerUserId,
+                advance_case: advanceCase,
             });
             const saved = await qr.manager.save(quotation_entity_1.Quotation, quotation);
-            await this.insertLineItems(qr, saved.id, dto.line_items, userId, tenantId, location.fiscalConfigurationId);
+            const lineItems = advanceCase === 'unknown'
+                ? [
+                    await this.buildAdvanceConceptLine(qr, tenantId, Number(dto.advance_amount), Number(dto.advance_iva_percentage)),
+                ]
+                : (dto.line_items ?? []);
+            if (advanceCase === 'products' && lineItems.length === 0) {
+                throw new common_1.BadRequestException('Agrega los productos de la cotización');
+            }
+            await this.insertLineItems(qr, saved.id, lineItems, userId, tenantId, location.fiscalConfigurationId);
             await this.recomputeTotals(qr, saved, tenantId, dto.global_discount_id);
             if (dto.advance_amount != null) {
                 await this.applyAdvanceRequest(qr, saved, tenantId, Number(dto.advance_amount), {
-                    usoCfdi: dto.advance_uso_cfdi,
-                    metodoPago: dto.advance_metodo_pago,
+                    usoCfdi: dto.advance_uso_cfdi || 'G01',
+                    metodoPago: dto.advance_metodo_pago || 'PUE',
+                    advanceCase: advanceCase ?? undefined,
                 });
             }
             await qr.commitTransaction();
@@ -416,6 +435,9 @@ let QuotationService = class QuotationService {
             amount_pending: amountPending,
             advance_invoicing_enabled: advance.enabled,
             can_stamp_advance: advance.canStamp,
+            can_close_advance: quotation.general_status === 'Creada' &&
+                !!advance.summary &&
+                !advance.summary.applied,
             advance_invoice: advance.summary,
             advance_payment: advance.payment,
             customer_email: quotation.customer?.email?.trim() ||
@@ -851,8 +873,11 @@ let QuotationService = class QuotationService {
             throw new common_1.BadRequestException(`No se puede dejar anticipo: al cliente le falta ${missing.join(', ')} para facturar`);
         }
         quotation.advance_requested_total = requested;
-        quotation.advance_uso_cfdi = usoCfdi;
-        quotation.advance_metodo_pago = cfdi.metodoPago ?? null;
+        quotation.advance_uso_cfdi = usoCfdi || 'G01';
+        quotation.advance_metodo_pago = cfdi.metodoPago ?? 'PUE';
+        if (cfdi.advanceCase) {
+            quotation.advance_case = cfdi.advanceCase;
+        }
         quotation.pos_stage = sales_order_pos_stage_enum_1.SalesOrderPosStage.Caja;
         await qr.manager.save(quotation_entity_1.Quotation, quotation);
     }
@@ -1070,6 +1095,212 @@ let QuotationService = class QuotationService {
                 : null,
         };
     }
+    async startAdvance(id, dto, tenantId, userId, access) {
+        const existing = await this.findOne(id, tenantId, access);
+        if (existing.general_status !== 'Creada') {
+            throw new common_1.BadRequestException('Solo se pide anticipo de una cotización creada');
+        }
+        if (existing.pos_stage === sales_order_pos_stage_enum_1.SalesOrderPosStage.Caja &&
+            Number(existing.advance_requested_total ?? 0) > 0) {
+            throw new common_1.BadRequestException('La cotización ya está en caja');
+        }
+        const advanceCase = dto.advance_case;
+        if (advanceCase === 'unknown' && dto.advance_iva_percentage == null) {
+            throw new common_1.BadRequestException('Indica el IVA del anticipo');
+        }
+        const realLines = (existing.line_items ?? []).filter((line) => line.product?.sku !== advance_cfdi_util_1.ADVANCE_IDENTIFICATION);
+        if (advanceCase === 'unknown' && realLines.length > 0) {
+            throw new common_1.BadRequestException('Esta cotización ya tiene productos. El anticipo se pide sobre ese total.');
+        }
+        if (advanceCase === 'products' && realLines.length === 0) {
+            throw new common_1.BadRequestException('Agrega los productos antes de pedir el anticipo');
+        }
+        if (advanceCase === 'products') {
+            await this.requestAdvanceFromPos(id, tenantId, Number(dto.advance_amount), {
+                usoCfdi: dto.advance_uso_cfdi || 'G01',
+                metodoPago: dto.advance_metodo_pago || 'PUE',
+                advanceCase,
+            });
+            return this.findOne(id, tenantId, access);
+        }
+        const qr = this.dataSource.createQueryRunner();
+        await qr.connect();
+        await qr.startTransaction();
+        try {
+            await qr.manager.delete(quotation_detail_entity_1.QuotationDetail, { quotation_id: id });
+            const quotation = await qr.manager.findOne(quotation_entity_1.Quotation, {
+                where: { id, tenant_id: tenantId },
+            });
+            if (!quotation) {
+                throw new common_1.NotFoundException(`Cotización no encontrada: ${id}`);
+            }
+            const line = await this.buildAdvanceConceptLine(qr, tenantId, Number(dto.advance_amount), Number(dto.advance_iva_percentage));
+            await this.insertLineItems(qr, id, [line], userId, tenantId, quotation.fiscal_configuration_id);
+            await this.recomputeTotals(qr, quotation, tenantId, quotation.global_discount_id ?? undefined);
+            await this.applyAdvanceRequest(qr, quotation, tenantId, Number(dto.advance_amount), {
+                usoCfdi: dto.advance_uso_cfdi || 'G01',
+                metodoPago: dto.advance_metodo_pago || 'PUE',
+                advanceCase,
+            });
+            await qr.commitTransaction();
+        }
+        catch (err) {
+            await qr.rollbackTransaction();
+            throw err;
+        }
+        finally {
+            await qr.release();
+        }
+        return this.findOne(id, tenantId, access);
+    }
+    async closeAdvance(id, dto, tenantId, userId, access) {
+        const quotation = await this.findOne(id, tenantId, access);
+        const advance = await this.advanceInvoices.requireCloseableAdvance(quotation);
+        const rates = new Set(dto.line_items.map((line) => Number(line.iva_percentage || 0)));
+        if (rates.size > 1) {
+            throw new common_1.BadRequestException('Todas las líneas tienen que llevar el mismo IVA');
+        }
+        const qr = this.dataSource.createQueryRunner();
+        await qr.connect();
+        await qr.startTransaction();
+        let saleTotal = 0;
+        try {
+            const productIds = [...new Set(dto.line_items.map((line) => line.product_id))];
+            const products = await qr.manager.find(product_entity_1.Product, {
+                where: { tenant_id: tenantId, id: (0, typeorm_2.In)(productIds) },
+            });
+            if (products.length !== productIds.length) {
+                throw new common_1.BadRequestException('Hay un producto que no existe');
+            }
+            if (products.some((product) => product.sku === advance_cfdi_util_1.ADVANCE_IDENTIFICATION)) {
+                throw new common_1.BadRequestException('La venta no lleva el concepto de anticipo. Agrega la mercancía que se va a llevar.');
+            }
+            await qr.manager.delete(quotation_detail_entity_1.QuotationDetail, { quotation_id: id });
+            const current = await qr.manager.findOne(quotation_entity_1.Quotation, {
+                where: { id, tenant_id: tenantId },
+            });
+            if (!current) {
+                throw new common_1.NotFoundException(`Cotización no encontrada: ${id}`);
+            }
+            await this.insertLineItems(qr, id, dto.line_items, userId, tenantId, current.fiscal_configuration_id);
+            await this.recomputeTotals(qr, current, tenantId, current.global_discount_id ?? undefined);
+            saleTotal = Number(current.total || 0);
+            const paid = Number(advance.total || 0);
+            if (saleTotal + 0.009 < paid) {
+                throw new common_1.BadRequestException(`La venta (${saleTotal.toFixed(2)}) es menor al anticipo (${paid.toFixed(2)}). Tiene que cubrirlo o ser mayor.`);
+            }
+            await qr.commitTransaction();
+        }
+        catch (err) {
+            await qr.rollbackTransaction();
+            throw err;
+        }
+        finally {
+            await qr.release();
+        }
+        const converted = await this.convert(id, { send_to_pos_caja: true }, tenantId, userId, access);
+        const order = converted.sales_order;
+        const paid = Number(advance.total || 0);
+        const difference = Number(Math.max(saleTotal - paid, 0).toFixed(2));
+        const regimen = (0, cfdi_regimen_person_util_1.inferReceptorRegimen)(quotation.customer?.fiscal_rfc, quotation.customer?.fiscal_person_type);
+        try {
+            await this.orderInvoicing.applyAdvance(order.id, tenantId, userId, {
+                uso_cfdi: difference <= 0.01 ? 'S01' : 'G01',
+                uso_cfdi_aplicacion: 'G02',
+                metodo_pago: 'PUE',
+                regimen_fiscal_receptor: regimen,
+                environment: dto.environment,
+            });
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : 'No se pudo timbrar la factura';
+            throw new common_1.BadRequestException(`La orden ${order.folio} ya quedó creada. Falta la factura de la mercancía: ${message}`);
+        }
+        return {
+            quotation_id: id,
+            difference,
+            sales_order: order,
+        };
+    }
+    resolveAdvanceCase(dto) {
+        if (dto.advance_case === 'unknown' || dto.advance_case === 'products') {
+            if (dto.advance_amount == null) {
+                throw new common_1.BadRequestException('Indica el monto del anticipo, con IVA');
+            }
+            return dto.advance_case;
+        }
+        if (dto.advance_amount == null)
+            return null;
+        return dto.line_items?.length ? 'products' : 'unknown';
+    }
+    async buildAdvanceConceptLine(qr, tenantId, amountWithIva, ivaPercentage) {
+        if (![0, 8, 16].includes(ivaPercentage)) {
+            throw new common_1.BadRequestException('El IVA del anticipo tiene que ser 0, 8 o 16');
+        }
+        const amount = Number(amountWithIva.toFixed(2));
+        if (!(amount > 0)) {
+            throw new common_1.BadRequestException('El anticipo tiene que ser mayor a 0');
+        }
+        let base = ivaPercentage > 0
+            ? Number((amount / (1 + ivaPercentage / 100)).toFixed(2))
+            : amount;
+        const withTax = Number((base * (1 + ivaPercentage / 100)).toFixed(2));
+        if (withTax + 0.009 < amount) {
+            base = Number((base + 0.01).toFixed(2));
+        }
+        let product = await qr.manager.findOne(product_entity_1.Product, {
+            where: { tenant_id: tenantId, sku: advance_cfdi_util_1.ADVANCE_IDENTIFICATION },
+        });
+        let productUom = product
+            ? await qr.manager.findOne(product_uom_entity_1.ProductUoM, {
+                where: { product_id: product.id, is_base: true },
+            })
+            : null;
+        if (!product || !productUom) {
+            const uom = await this.ensureAdvanceUom(qr, tenantId);
+            if (!product) {
+                product = await qr.manager.save(product_entity_1.Product, qr.manager.create(product_entity_1.Product, {
+                    tenant_id: tenantId,
+                    sku: advance_cfdi_util_1.ADVANCE_IDENTIFICATION,
+                    name: advance_cfdi_util_1.ADVANCE_DESCRIPTION,
+                    description: 'Concepto de la factura de anticipo. No es mercancía.',
+                    is_active: true,
+                    item_kind: product_item_kind_enum_1.ProductItemKind.Service,
+                    sat_clave: advance_cfdi_util_1.ADVANCE_SAT_CLAVE,
+                }));
+            }
+            productUom = await qr.manager.save(product_uom_entity_1.ProductUoM, qr.manager.create(product_uom_entity_1.ProductUoM, {
+                product_id: product.id,
+                uom_catalog_id: uom.id,
+                factor: 1,
+                is_base: true,
+            }));
+        }
+        return {
+            product_id: product.id,
+            product_uom_id: productUom.id,
+            quantity: 1,
+            unit_price: base,
+            iva_percentage: ivaPercentage,
+            ieps_percentage: 0,
+        };
+    }
+    async ensureAdvanceUom(qr, tenantId) {
+        const rows = await qr.manager.find(uom_catalog_entity_1.UoMCatalog, {
+            where: { tenant_id: tenantId },
+            order: { name: 'ASC' },
+        });
+        const preferred = rows.find((row) => ['actividad', 'act', 'servicio', 'pieza', 'pza'].includes(row.name.trim().toLowerCase()));
+        if (preferred)
+            return preferred;
+        if (rows[0])
+            return rows[0];
+        return qr.manager.save(uom_catalog_entity_1.UoMCatalog, qr.manager.create(uom_catalog_entity_1.UoMCatalog, {
+            tenant_id: tenantId,
+            name: 'Actividad',
+            description: 'Unidad del anticipo',
+        }));
+    }
     toDateString(value) {
         if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
             return value.slice(0, 10);
@@ -1092,6 +1323,7 @@ exports.QuotationService = QuotationService = QuotationService_1 = __decorate([
     __param(5, (0, typeorm_1.InjectRepository)(warehouse_entity_1.Warehouse)),
     __param(8, (0, common_1.Inject)((0, common_1.forwardRef)(() => pos_shifts_service_1.PosShiftsService))),
     __param(13, (0, common_1.Inject)((0, common_1.forwardRef)(() => sales_order_service_1.SalesOrderService))),
+    __param(14, (0, common_1.Inject)((0, common_1.forwardRef)(() => sales_order_invoicing_service_1.SalesOrderInvoicingService))),
     __metadata("design:paramtypes", [typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
@@ -1106,6 +1338,7 @@ exports.QuotationService = QuotationService = QuotationService_1 = __decorate([
         quotation_pdf_service_1.QuotationPdfService,
         quotation_documents_service_1.QuotationDocumentsService,
         sales_order_service_1.SalesOrderService,
+        sales_order_invoicing_service_1.SalesOrderInvoicingService,
         quotation_advance_invoice_service_1.QuotationAdvanceInvoiceService])
 ], QuotationService);
 //# sourceMappingURL=quotation.service.js.map

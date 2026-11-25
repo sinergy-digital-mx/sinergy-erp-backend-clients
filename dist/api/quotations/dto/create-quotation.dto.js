@@ -87,6 +87,8 @@ class CreateQuotationDto {
     advance_amount;
     advance_uso_cfdi;
     advance_metodo_pago;
+    advance_case;
+    advance_iva_percentage;
     line_items;
 }
 exports.CreateQuotationDto = CreateQuotationDto;
@@ -173,7 +175,7 @@ __decorate([
 __decorate([
     (0, swagger_1.ApiProperty)({
         required: false,
-        description: 'Uso CFDI del anticipo (catálogo SAT). Solo con advance_amount. Si se omite, caja timbra con G03.',
+        description: 'Uso CFDI del anticipo (catálogo SAT). Solo con advance_amount. Si se omite, caja timbra con G01.',
     }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
@@ -190,6 +192,27 @@ __decorate([
     (0, class_validator_1.IsIn)(['PUE', 'PPD']),
     __metadata("design:type", String)
 ], CreateQuotationDto.prototype, "advance_metodo_pago", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        enum: ['unknown', 'products'],
+        description: 'unknown: el cliente no sabe qué va a llevar. products: la cotización guarda los productos y la factura de anticipo sigue siendo el concepto SAT.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['unknown', 'products']),
+    __metadata("design:type", String)
+], CreateQuotationDto.prototype, "advance_case", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        description: 'IVA del anticipo cuando la cotización no trae productos (0, 8 o 16).',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.IsIn)([0, 8, 16]),
+    __metadata("design:type", Number)
+], CreateQuotationDto.prototype, "advance_iva_percentage", void 0);
 __decorate([
     (0, class_validator_1.IsArray)(),
     (0, class_validator_1.ValidateNested)({ each: true }),

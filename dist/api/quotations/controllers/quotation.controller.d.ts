@@ -4,7 +4,7 @@ import { QuotationDocumentsService } from '../services/quotation-documents.servi
 import { QuotationEmailService } from '../services/quotation-email.service';
 import { QuotationAdvanceInvoiceService } from '../services/quotation-advance-invoice.service';
 import { RegenerateDocumentDto } from '../../../common/dto/regenerate-document.dto';
-import { CreateQuotationDto, QueryQuotationDto, ConvertQuotationDto, UpdateQuotationNotesDto, QueryQuotationProductsSummaryDto, SendQuotationEmailDto, CreateQuotationLineItemDto, UpdateQuotationLineItemDto } from '../dto';
+import { CreateQuotationDto, QueryQuotationDto, ConvertQuotationDto, CloseAdvanceQuotationDto, StartAdvanceQuotationDto, UpdateQuotationNotesDto, QueryQuotationProductsSummaryDto, SendQuotationEmailDto, CreateQuotationLineItemDto, UpdateQuotationLineItemDto } from '../dto';
 import { StampAdvanceInvoiceDto } from '../../electronic-invoicing/dto/stamp-advance-invoice.dto';
 import { CancelElectronicInvoiceDto } from '../../electronic-invoicing/dto/cancel-electronic-invoice.dto';
 export declare class QuotationController {
@@ -105,6 +105,7 @@ export declare class QuotationController {
             amount_pending: number;
             advance_invoicing_enabled: boolean;
             can_stamp_advance: boolean;
+            can_close_advance: boolean;
             advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
             advance_payment: {
                 amount_mxn: number;
@@ -157,6 +158,7 @@ export declare class QuotationController {
             advance_requested_total: number | null;
             advance_uso_cfdi: string | null;
             advance_metodo_pago: "PUE" | "PPD" | null;
+            advance_case: "unknown" | "products" | null;
             pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
             pos_caja_opened_at: Date | null;
             pos_caja_opened_by: string | null;
@@ -342,6 +344,7 @@ export declare class QuotationController {
                 amount_pending: number;
                 advance_invoicing_enabled: boolean;
                 can_stamp_advance: boolean;
+                can_close_advance: boolean;
                 advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
                 advance_payment: {
                     amount_mxn: number;
@@ -394,6 +397,7 @@ export declare class QuotationController {
                 advance_requested_total: number | null;
                 advance_uso_cfdi: string | null;
                 advance_metodo_pago: "PUE" | "PPD" | null;
+                advance_case: "unknown" | "products" | null;
                 pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
                 pos_caja_opened_at: Date | null;
                 pos_caja_opened_by: string | null;
@@ -560,6 +564,7 @@ export declare class QuotationController {
                 amount_pending: number;
                 advance_invoicing_enabled: boolean;
                 can_stamp_advance: boolean;
+                can_close_advance: boolean;
                 advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
                 advance_payment: {
                     amount_mxn: number;
@@ -612,6 +617,7 @@ export declare class QuotationController {
                 advance_requested_total: number | null;
                 advance_uso_cfdi: string | null;
                 advance_metodo_pago: "PUE" | "PPD" | null;
+                advance_case: "unknown" | "products" | null;
                 pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
                 pos_caja_opened_at: Date | null;
                 pos_caja_opened_by: string | null;
@@ -778,6 +784,7 @@ export declare class QuotationController {
                 amount_pending: number;
                 advance_invoicing_enabled: boolean;
                 can_stamp_advance: boolean;
+                can_close_advance: boolean;
                 advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
                 advance_payment: {
                     amount_mxn: number;
@@ -830,6 +837,7 @@ export declare class QuotationController {
                 advance_requested_total: number | null;
                 advance_uso_cfdi: string | null;
                 advance_metodo_pago: "PUE" | "PPD" | null;
+                advance_case: "unknown" | "products" | null;
                 pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
                 pos_caja_opened_at: Date | null;
                 pos_caja_opened_by: string | null;
@@ -972,6 +980,7 @@ export declare class QuotationController {
             advance_requested_total: number | null;
             advance_uso_cfdi: string | null;
             advance_metodo_pago: "PUE" | "PPD" | null;
+            advance_case: "unknown" | "products" | null;
             pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
             pos_caja_opened_at: Date | null;
             pos_caja_opened_by: string | null;
@@ -1093,6 +1102,7 @@ export declare class QuotationController {
                 amount_pending: number;
                 advance_invoicing_enabled: boolean;
                 can_stamp_advance: boolean;
+                can_close_advance: boolean;
                 advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
                 advance_payment: {
                     amount_mxn: number;
@@ -1145,6 +1155,7 @@ export declare class QuotationController {
                 advance_requested_total: number | null;
                 advance_uso_cfdi: string | null;
                 advance_metodo_pago: "PUE" | "PPD" | null;
+                advance_case: "unknown" | "products" | null;
                 pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
                 pos_caja_opened_at: Date | null;
                 pos_caja_opened_by: string | null;
@@ -1219,6 +1230,22 @@ export declare class QuotationController {
                 discount_value: number;
                 discount_amount: number;
             } | null;
+        };
+    }>;
+    requestAdvance(id: string, dto: StartAdvanceQuotationDto, req: any): Promise<import("../../../entities/quotations").Quotation>;
+    closeAdvance(id: string, dto: CloseAdvanceQuotationDto, req: any): Promise<{
+        quotation_id: string;
+        difference: number;
+        sales_order: {
+            id: string;
+            folio: string;
+            general_status: string;
+            payment_status: string;
+            sales_order_type: string;
+            total: number;
+            converted_from_quotation_id: string;
+            sent_to_pos_caja: boolean;
+            pos_daily_shift_id: string | null;
         };
     }>;
     convert(id: string, dto: ConvertQuotationDto, req: any): Promise<{
@@ -1311,6 +1338,7 @@ export declare class QuotationController {
                 amount_pending: number;
                 advance_invoicing_enabled: boolean;
                 can_stamp_advance: boolean;
+                can_close_advance: boolean;
                 advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
                 advance_payment: {
                     amount_mxn: number;
@@ -1363,6 +1391,7 @@ export declare class QuotationController {
                 advance_requested_total: number | null;
                 advance_uso_cfdi: string | null;
                 advance_metodo_pago: "PUE" | "PPD" | null;
+                advance_case: "unknown" | "products" | null;
                 pos_stage: import("../../../entities/sales-orders").SalesOrderPosStage | null;
                 pos_caja_opened_at: Date | null;
                 pos_caja_opened_by: string | null;

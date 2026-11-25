@@ -27,6 +27,8 @@ import {
   CreateQuotationDto,
   QueryQuotationDto,
   ConvertQuotationDto,
+  CloseAdvanceQuotationDto,
+  StartAdvanceQuotationDto,
   UpdateQuotationNotesDto,
   QueryQuotationProductsSummaryDto,
   SendQuotationEmailDto,
@@ -238,6 +240,46 @@ export class QuotationController {
         applied_global_discount: detail.applied_global_discount,
       },
     };
+  }
+
+  @Post(':id/request-advance')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Pedir anticipo de una cotización y mandarlo a la caja de su sucursal',
+  })
+  requestAdvance(
+    @Param('id') id: string,
+    @Body() dto: StartAdvanceQuotationDto,
+    @Req() req: any,
+  ) {
+    return this.quotationService.startAdvance(
+      id,
+      dto,
+      req.user.tenant_id,
+      resolveRequestUserId(req.user),
+      this.sellerAccess(req),
+    );
+  }
+
+  @Post(':id/close-advance')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Generar la venta de un anticipo ya cobrado',
+    description:
+      'Sustituye las líneas por la mercancía, crea la orden y timbra la factura con el anticipo en descuento, UUID Rel y nota de crédito.',
+  })
+  closeAdvance(
+    @Param('id') id: string,
+    @Body() dto: CloseAdvanceQuotationDto,
+    @Req() req: any,
+  ) {
+    return this.quotationService.closeAdvance(
+      id,
+      dto,
+      req.user.tenant_id,
+      resolveRequestUserId(req.user),
+      this.sellerAccess(req),
+    );
   }
 
   @Post(':id/convert')

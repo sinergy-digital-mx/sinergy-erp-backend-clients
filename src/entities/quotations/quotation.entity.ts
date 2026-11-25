@@ -127,6 +127,10 @@ export class Quotation {
   @Column({ type: 'varchar', length: 3, nullable: true })
   advance_metodo_pago: 'PUE' | 'PPD' | null;
 
+  /** unknown: no sabe qué quiere. products: sí sabe, pero no hay inventario. */
+  @Column({ type: 'varchar', length: 16, nullable: true })
+  advance_case: 'unknown' | 'products' | null;
+
   @Column({
     type: 'enum',
     enum: SalesOrderPosStage,

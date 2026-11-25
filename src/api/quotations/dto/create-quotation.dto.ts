@@ -139,7 +139,7 @@ export class CreateQuotationDto {
   @ApiProperty({
     required: false,
     description:
-      'Uso CFDI del anticipo (catálogo SAT). Solo con advance_amount. Si se omite, caja timbra con G03.',
+      'Uso CFDI del anticipo (catálogo SAT). Solo con advance_amount. Si se omite, caja timbra con G01.',
   })
   @IsOptional()
   @IsString()
@@ -155,6 +155,26 @@ export class CreateQuotationDto {
   @IsOptional()
   @IsIn(['PUE', 'PPD'])
   advance_metodo_pago?: 'PUE' | 'PPD';
+
+  @ApiProperty({
+    required: false,
+    enum: ['unknown', 'products'],
+    description:
+      'unknown: el cliente no sabe qué va a llevar. products: la cotización guarda los productos y la factura de anticipo sigue siendo el concepto SAT.',
+  })
+  @IsOptional()
+  @IsIn(['unknown', 'products'])
+  advance_case?: 'unknown' | 'products';
+
+  @ApiProperty({
+    required: false,
+    description: 'IVA del anticipo cuando la cotización no trae productos (0, 8 o 16).',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @IsIn([0, 8, 16])
+  advance_iva_percentage?: number;
 
   @IsArray()
   @ValidateNested({ each: true })

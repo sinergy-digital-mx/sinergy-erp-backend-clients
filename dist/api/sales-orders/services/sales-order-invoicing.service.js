@@ -983,6 +983,7 @@ exports.SalesOrderInvoicingService = SalesOrderInvoicingService = SalesOrderInvo
     __param(0, (0, typeorm_1.InjectRepository)(sales_order_entity_1.SalesOrder)),
     __param(1, (0, typeorm_1.InjectRepository)(sales_order_payment_entity_1.SalesOrderPayment)),
     __param(2, (0, typeorm_1.InjectRepository)(customer_entity_1.Customer)),
+    __param(5, (0, common_1.Inject)((0, common_1.forwardRef)(() => pos_shifts_service_1.PosShiftsService))),
     __param(9, (0, typeorm_1.InjectRepository)(service_subscription_period_entity_1.ServiceSubscriptionPeriod)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
         typeorm_2.Repository,

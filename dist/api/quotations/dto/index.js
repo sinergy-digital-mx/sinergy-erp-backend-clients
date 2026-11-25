@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UpdateQuotationLineItemDto = exports.SendQuotationEmailDto = exports.QueryQuotationProductsSummaryDto = exports.UpdateQuotationNotesDto = exports.ConvertQuotationDto = exports.QueryQuotationDto = exports.CreateQuotationLineItemDto = exports.CreateQuotationDto = void 0;
+exports.StartAdvanceQuotationDto = exports.CloseAdvanceQuotationDto = exports.UpdateQuotationLineItemDto = exports.SendQuotationEmailDto = exports.QueryQuotationProductsSummaryDto = exports.UpdateQuotationNotesDto = exports.ConvertQuotationDto = exports.QueryQuotationDto = exports.CreateQuotationLineItemDto = exports.CreateQuotationDto = void 0;
 var create_quotation_dto_1 = require("./create-quotation.dto");
 Object.defineProperty(exports, "CreateQuotationDto", { enumerable: true, get: function () { return create_quotation_dto_1.CreateQuotationDto; } });
 Object.defineProperty(exports, "CreateQuotationLineItemDto", { enumerable: true, get: function () { return create_quotation_dto_1.CreateQuotationLineItemDto; } });
@@ -16,4 +16,8 @@ var send_quotation_email_dto_1 = require("./send-quotation-email.dto");
 Object.defineProperty(exports, "SendQuotationEmailDto", { enumerable: true, get: function () { return send_quotation_email_dto_1.SendQuotationEmailDto; } });
 var update_quotation_line_item_dto_1 = require("./update-quotation-line-item.dto");
 Object.defineProperty(exports, "UpdateQuotationLineItemDto", { enumerable: true, get: function () { return update_quotation_line_item_dto_1.UpdateQuotationLineItemDto; } });
+var close_advance_quotation_dto_1 = require("./close-advance-quotation.dto");
+Object.defineProperty(exports, "CloseAdvanceQuotationDto", { enumerable: true, get: function () { return close_advance_quotation_dto_1.CloseAdvanceQuotationDto; } });
+var start_advance_quotation_dto_1 = require("./start-advance-quotation.dto");
+Object.defineProperty(exports, "StartAdvanceQuotationDto", { enumerable: true, get: function () { return start_advance_quotation_dto_1.StartAdvanceQuotationDto; } });
 //# sourceMappingURL=index.js.map

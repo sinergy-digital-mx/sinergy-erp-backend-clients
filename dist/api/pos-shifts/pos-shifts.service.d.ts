@@ -1480,6 +1480,7 @@ export declare class PosShiftsService {
             advance_requested_total: number | null;
             advance_uso_cfdi: string | null;
             advance_metodo_pago: "PUE" | "PPD" | null;
+            advance_case: "unknown" | "products" | null;
             pos_stage: SalesOrderPosStage | null;
             pos_caja_opened_at: Date | null;
             pos_caja_opened_by: string | null;

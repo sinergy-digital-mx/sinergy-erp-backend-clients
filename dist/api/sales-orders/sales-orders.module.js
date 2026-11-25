@@ -106,6 +106,7 @@ exports.SalesOrdersModule = SalesOrdersModule = __decorate([
         ],
         exports: [
             sales_order_service_1.SalesOrderService,
+            sales_order_invoicing_service_1.SalesOrderInvoicingService,
             sales_order_pos_receipt_service_1.SalesOrderPosReceiptService,
             sales_order_fulfillment_service_1.SalesOrderFulfillmentService,
             sales_order_pdf_service_1.SalesOrderPdfService,

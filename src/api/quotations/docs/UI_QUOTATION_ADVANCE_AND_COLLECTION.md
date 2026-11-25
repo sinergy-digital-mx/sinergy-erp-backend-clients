@@ -1,5 +1,15 @@
 # UI — Anticipo, cobro al convertir y reversas
 
+## 2026-11-25 — Wizard en punto de venta y en el detalle
+
+El anticipo se pide desde POS Ventas, botón **Anticipo**, o desde el detalle de la cotización, **Pedir anticipo**. Los dos casos mandan el monto con IVA a la caja de la sucursal. La factura se timbra al cobrar, siempre con el concepto «Anticipo del bien o servicio».
+
+Caso 1: la cotización no lleva maderas. Caso 2: guarda los productos, y la factura de anticipo sigue siendo el mismo concepto.
+
+Cuando el anticipo ya está cobrado, **Generar venta** (Folios o el detalle) arma los productos, crea la orden y timbra la factura de mercancía con descuento, tipo de relación 07 y la nota de crédito. Si la venta es mayor, caja cobra la diferencia. Si es menor, no pasa.
+
+Notas para la junta: [junta-anticipo-dos-casos-2026-11-25.pdf](junta-anticipo-dos-casos-2026-11-25.pdf).
+
 Contrato para Pollux. La cotización sigue sin facturar la madera. Si la razón social tiene `advance_invoicing_enabled`, se puede timbrar un CFDI de anticipo. El cobro de la venta, cuando se convierte, entra al corte abierto de caja.
 
 Interruptor: Configuración fiscal de la razón social, **Permitir factura de anticipo**.

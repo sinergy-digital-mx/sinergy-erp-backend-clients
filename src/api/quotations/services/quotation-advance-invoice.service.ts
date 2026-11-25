@@ -219,7 +219,7 @@ export class QuotationAdvanceInvoiceService {
         base_amount: base,
         iva_percentage: iva,
         forma_pago: formaPago,
-        uso_cfdi: quotation.advance_uso_cfdi || 'G03',
+        uso_cfdi: quotation.advance_uso_cfdi || 'G01',
         metodo_pago: quotation.advance_metodo_pago || 'PUE',
         regimen_fiscal_receptor: regimen,
       },
@@ -390,6 +390,25 @@ export class QuotationAdvanceInvoiceService {
     );
     await this.advancePayments.voidByInvoice(tenantId, userId, invoiceId);
     return cancelled;
+  }
+
+  async requireCloseableAdvance(quotation: Quotation) {
+    if (quotation.general_status !== 'Creada') {
+      throw new BadRequestException('La cotización ya no está pendiente');
+    }
+    const advance = await this.advanceCfdi.findVigenteAdvance(
+      quotation.tenant_id,
+      'quotations',
+      quotation.id,
+    );
+    if (!advance?.uuid) {
+      throw new BadRequestException('Esta cotización no tiene anticipo cobrado');
+    }
+    const summary = await this.advanceCfdi.summarize(quotation.tenant_id, advance);
+    if (summary?.applied || summary?.merchandise_invoice_id) {
+      throw new BadRequestException('Ese anticipo ya se aplicó a una venta');
+    }
+    return advance;
   }
 
   async assertQuotationCancellable(quotation: Quotation): Promise<void> {

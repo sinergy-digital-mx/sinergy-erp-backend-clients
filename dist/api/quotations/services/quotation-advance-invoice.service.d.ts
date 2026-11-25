@@ -66,6 +66,7 @@ export declare class QuotationAdvanceInvoiceService {
         fileName: string;
     }>;
     cancel(id: string, invoiceId: string, tenantId: string, userId: string, dto: CancelElectronicInvoiceDto): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
+    requireCloseableAdvance(quotation: Quotation): Promise<import("../../../entities/electronic-invoicing").ElectronicInvoice>;
     assertQuotationCancellable(quotation: Quotation): Promise<void>;
     attachToSalesOrder(tenantId: string, userId: string, quotationId: string, salesOrderId: string): Promise<{
         payment_status: string;

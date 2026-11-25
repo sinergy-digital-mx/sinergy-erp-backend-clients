@@ -21,6 +21,12 @@ import { ProductDiscountService } from '../../products/product-discount.service'
 import { GlobalDiscountService } from '../../global-discounts/global-discount.service';
 import { DocumentLanguage } from '../../../common/enums/document-language.enum';
 import { SalesOrderService } from '../../sales-orders/services/sales-order.service';
+import { SalesOrderInvoicingService } from '../../sales-orders/services/sales-order-invoicing.service';
+import { Product } from '../../../entities/products/product.entity';
+import { ProductUoM } from '../../../entities/products/product-uom.entity';
+import { UoMCatalog } from '../../../entities/uom-catalog/uom-catalog.entity';
+import { CloseAdvanceQuotationDto } from '../dto/close-advance-quotation.dto';
+import { StartAdvanceQuotationDto } from '../dto/start-advance-quotation.dto';
 import { QuotationSellerAccess } from '../utils/quotation-seller-scope.util';
 export declare class QuotationService {
     private readonly quotationRepo;
@@ -37,10 +43,11 @@ export declare class QuotationService {
     private readonly pdfService;
     private readonly documentsService;
     private readonly salesOrderService;
+    private readonly orderInvoicing;
     private readonly advanceInvoices;
     private readonly logger;
     private static readonly DOC_TYPE_DOCUMENTO_ORIGINAL;
-    constructor(quotationRepo: Repository<Quotation>, userRepo: Repository<User>, userBillingBranchRepo: Repository<UserBillingBranch>, customerRepo: Repository<Customer>, billingBranchRepo: Repository<BillingBranch>, warehouseRepo: Repository<Warehouse>, folioService: QuotationFolioService, dataSource: DataSource, posShiftsService: PosShiftsService, productDiscountService: ProductDiscountService, globalDiscountService: GlobalDiscountService, pdfService: QuotationPdfService, documentsService: QuotationDocumentsService, salesOrderService: SalesOrderService, advanceInvoices: QuotationAdvanceInvoiceService);
+    constructor(quotationRepo: Repository<Quotation>, userRepo: Repository<User>, userBillingBranchRepo: Repository<UserBillingBranch>, customerRepo: Repository<Customer>, billingBranchRepo: Repository<BillingBranch>, warehouseRepo: Repository<Warehouse>, folioService: QuotationFolioService, dataSource: DataSource, posShiftsService: PosShiftsService, productDiscountService: ProductDiscountService, globalDiscountService: GlobalDiscountService, pdfService: QuotationPdfService, documentsService: QuotationDocumentsService, salesOrderService: SalesOrderService, orderInvoicing: SalesOrderInvoicingService, advanceInvoices: QuotationAdvanceInvoiceService);
     create(dto: CreateQuotationDto, tenantId: string, userId: string): Promise<Quotation>;
     replace(id: string, dto: CreateQuotationDto, tenantId: string, userId: string, access?: QuotationSellerAccess): Promise<Quotation>;
     findForPosBranch(tenantId: string, filters: {
@@ -115,6 +122,7 @@ export declare class QuotationService {
             advance_requested_total: number | null;
             advance_uso_cfdi: string | null;
             advance_metodo_pago: "PUE" | "PPD" | null;
+            advance_case: "unknown" | "products" | null;
             pos_stage: SalesOrderPosStage | null;
             pos_caja_opened_at: Date | null;
             pos_caja_opened_by: string | null;
@@ -199,6 +207,7 @@ export declare class QuotationService {
             advance_requested_total: number | null;
             advance_uso_cfdi: string | null;
             advance_metodo_pago: "PUE" | "PPD" | null;
+            advance_case: "unknown" | "products" | null;
             pos_stage: SalesOrderPosStage | null;
             pos_caja_opened_at: Date | null;
             pos_caja_opened_by: string | null;
@@ -319,6 +328,7 @@ export declare class QuotationService {
             amount_pending: number;
             advance_invoicing_enabled: boolean;
             can_stamp_advance: boolean;
+            can_close_advance: boolean;
             advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
             advance_payment: {
                 amount_mxn: number;
@@ -371,6 +381,7 @@ export declare class QuotationService {
             advance_requested_total: number | null;
             advance_uso_cfdi: string | null;
             advance_metodo_pago: "PUE" | "PPD" | null;
+            advance_case: "unknown" | "products" | null;
             pos_stage: SalesOrderPosStage | null;
             pos_caja_opened_at: Date | null;
             pos_caja_opened_by: string | null;
@@ -398,13 +409,13 @@ export declare class QuotationService {
             id: string;
             quotation: Quotation;
             quotation_id: string;
-            product: import("../../../entities/products").Product;
+            product: Product;
             product_id: string;
-            product_uom: import("../../../entities/products").ProductUoM;
+            product_uom: ProductUoM;
             product_uom_id: string;
             quantity: number;
             quantity_base_uom: number;
-            base_uom: import("../../../entities/uom-catalog/uom-catalog.entity").UoMCatalog;
+            base_uom: UoMCatalog;
             base_uom_id: string;
             unit_price: number;
             discount_percentage: number;
@@ -555,6 +566,7 @@ export declare class QuotationService {
             amount_pending: number;
             advance_invoicing_enabled: boolean;
             can_stamp_advance: boolean;
+            can_close_advance: boolean;
             advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
             advance_payment: {
                 amount_mxn: number;
@@ -607,6 +619,7 @@ export declare class QuotationService {
             advance_requested_total: number | null;
             advance_uso_cfdi: string | null;
             advance_metodo_pago: "PUE" | "PPD" | null;
+            advance_case: "unknown" | "products" | null;
             pos_stage: SalesOrderPosStage | null;
             pos_caja_opened_at: Date | null;
             pos_caja_opened_by: string | null;
@@ -634,13 +647,13 @@ export declare class QuotationService {
             id: string;
             quotation: Quotation;
             quotation_id: string;
-            product: import("../../../entities/products").Product;
+            product: Product;
             product_id: string;
-            product_uom: import("../../../entities/products").ProductUoM;
+            product_uom: ProductUoM;
             product_uom_id: string;
             quantity: number;
             quantity_base_uom: number;
-            base_uom: import("../../../entities/uom-catalog/uom-catalog.entity").UoMCatalog;
+            base_uom: UoMCatalog;
             base_uom_id: string;
             unit_price: number;
             discount_percentage: number;
@@ -797,6 +810,7 @@ export declare class QuotationService {
                 amount_pending: number;
                 advance_invoicing_enabled: boolean;
                 can_stamp_advance: boolean;
+                can_close_advance: boolean;
                 advance_invoice: import("../../electronic-invoicing/services/advance-cfdi.service").AdvanceInvoiceSummary | null;
                 advance_payment: {
                     amount_mxn: number;
@@ -849,6 +863,7 @@ export declare class QuotationService {
                 advance_requested_total: number | null;
                 advance_uso_cfdi: string | null;
                 advance_metodo_pago: "PUE" | "PPD" | null;
+                advance_case: "unknown" | "products" | null;
                 pos_stage: SalesOrderPosStage | null;
                 pos_caja_opened_at: Date | null;
                 pos_caja_opened_by: string | null;
@@ -876,13 +891,13 @@ export declare class QuotationService {
                 id: string;
                 quotation: Quotation;
                 quotation_id: string;
-                product: import("../../../entities/products").Product;
+                product: Product;
                 product_id: string;
-                product_uom: import("../../../entities/products").ProductUoM;
+                product_uom: ProductUoM;
                 product_uom_id: string;
                 quantity: number;
                 quantity_base_uom: number;
-                base_uom: import("../../../entities/uom-catalog/uom-catalog.entity").UoMCatalog;
+                base_uom: UoMCatalog;
                 base_uom_id: string;
                 unit_price: number;
                 discount_percentage: number;
@@ -977,6 +992,7 @@ export declare class QuotationService {
     requestAdvanceFromPos(id: string, tenantId: string, amount: number, cfdi?: {
         usoCfdi?: string;
         metodoPago?: 'PUE' | 'PPD';
+        advanceCase?: 'unknown' | 'products';
     }): Promise<Quotation>;
     private recomputeTotals;
     private resolveProductUom;
@@ -987,5 +1003,24 @@ export declare class QuotationService {
     private withAssignedBranches;
     private loadAssignedBranchIds;
     private mapLocation;
+    startAdvance(id: string, dto: StartAdvanceQuotationDto, tenantId: string, userId: string, access?: QuotationSellerAccess): Promise<Quotation>;
+    closeAdvance(id: string, dto: CloseAdvanceQuotationDto, tenantId: string, userId: string, access?: QuotationSellerAccess): Promise<{
+        quotation_id: string;
+        difference: number;
+        sales_order: {
+            id: string;
+            folio: string;
+            general_status: string;
+            payment_status: string;
+            sales_order_type: string;
+            total: number;
+            converted_from_quotation_id: string;
+            sent_to_pos_caja: boolean;
+            pos_daily_shift_id: string | null;
+        };
+    }>;
+    private resolveAdvanceCase;
+    private buildAdvanceConceptLine;
+    private ensureAdvanceUom;
     private toDateString;
 }

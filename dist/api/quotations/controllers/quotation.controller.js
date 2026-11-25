@@ -98,6 +98,12 @@ let QuotationController = class QuotationController {
             },
         };
     }
+    requestAdvance(id, dto, req) {
+        return this.quotationService.startAdvance(id, dto, req.user.tenant_id, (0, request_user_util_1.resolveRequestUserId)(req.user), this.sellerAccess(req));
+    }
+    closeAdvance(id, dto, req) {
+        return this.quotationService.closeAdvance(id, dto, req.user.tenant_id, (0, request_user_util_1.resolveRequestUserId)(req.user), this.sellerAccess(req));
+    }
     convert(id, dto, req) {
         return this.quotationService.convert(id, dto ?? {}, req.user.tenant_id, (0, request_user_util_1.resolveRequestUserId)(req.user), this.sellerAccess(req));
     }
@@ -263,6 +269,33 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], QuotationController.prototype, "findOne", null);
+__decorate([
+    (0, common_1.Post)(':id/request-advance'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Pedir anticipo de una cotización y mandarlo a la caja de su sucursal',
+    }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, dto_1.StartAdvanceQuotationDto, Object]),
+    __metadata("design:returntype", void 0)
+], QuotationController.prototype, "requestAdvance", null);
+__decorate([
+    (0, common_1.Post)(':id/close-advance'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Generar la venta de un anticipo ya cobrado',
+        description: 'Sustituye las líneas por la mercancía, crea la orden y timbra la factura con el anticipo en descuento, UUID Rel y nota de crédito.',
+    }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, dto_1.CloseAdvanceQuotationDto, Object]),
+    __metadata("design:returntype", void 0)
+], QuotationController.prototype, "closeAdvance", null);
 __decorate([
     (0, common_1.Post)(':id/convert'),
     (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),

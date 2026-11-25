@@ -104,6 +104,7 @@ import { CustomersModule } from '../customers/customers.module';
   ],
   exports: [
     SalesOrderService,
+    SalesOrderInvoicingService,
     SalesOrderPosReceiptService,
     SalesOrderFulfillmentService,
     SalesOrderPdfService,

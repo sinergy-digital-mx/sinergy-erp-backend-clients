@@ -2593,6 +2593,28 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-25T17:48:26.033Z"
+    },
+    {
+        "releaseKey": "full:0.0.181:0.0.181-1795633137458",
+        "version": "0.0.181",
+        "buildId": "0.0.181-1795633137458",
+        "channel": "full",
+        "title": "Versión 0.0.181",
+        "changes": [
+            {
+                "scope": "backend",
+                "message": "La facturación de órdenes resuelve la dependencia circular con turnos de punto de venta para que el API arranque.",
+                "module": "sales-orders",
+                "moduleLabel": "Órdenes de venta"
+            },
+            {
+                "scope": "frontend",
+                "message": "El anticipo se pide por wizard en punto de venta y en la cotización, y al regresar se genera la venta con la factura ligada.",
+                "module": "quotations",
+                "moduleLabel": "Cotizaciones"
+            }
+        ],
+        "releasedAt": "2026-11-25T18:58:57.458Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map
