@@ -1,8 +1,10 @@
 # UI — Anticipo, cobro al convertir y reversas
 
-## 2026-11-25 — Demo o producción al cotizar
+## 2026-11-25 — Tickets y ambiente
 
-En POS, Cotizar → Factura de anticipo tiene **Demo** y **Producción**. En localhost abre en Demo. Caja timbra el anticipo con el ambiente que se eligió ahí.
+Demo y Producción están en Anticipo y en Cotizar. Caja timbra con el que se eligió.
+
+Cuando el anticipo ya se cobró, el folio aparece en **Tickets** de POS Ventas. Se abre, se agregan los productos (si ya venían, salen cargados) y **Registrar venta** crea la orden, la factura de productos y la nota de crédito. Si el total es mayor, la diferencia pasa a caja.
 
 ## 2026-11-25 — Textos del wizard
 

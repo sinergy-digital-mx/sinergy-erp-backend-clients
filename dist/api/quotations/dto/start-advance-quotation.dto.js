@@ -19,6 +19,7 @@ class StartAdvanceQuotationDto {
     advance_iva_percentage;
     advance_uso_cfdi;
     advance_metodo_pago;
+    advance_stamp_environment;
 }
 exports.StartAdvanceQuotationDto = StartAdvanceQuotationDto;
 __decorate([
@@ -54,4 +55,10 @@ __decorate([
     (0, class_validator_1.IsIn)(['PUE', 'PPD']),
     __metadata("design:type", String)
 ], StartAdvanceQuotationDto.prototype, "advance_metodo_pago", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ enum: ['demo', 'production'] }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['demo', 'production'], { message: 'El ambiente del anticipo debe ser demo o producción' }),
+    __metadata("design:type", String)
+], StartAdvanceQuotationDto.prototype, "advance_stamp_environment", void 0);
 //# sourceMappingURL=start-advance-quotation.dto.js.map

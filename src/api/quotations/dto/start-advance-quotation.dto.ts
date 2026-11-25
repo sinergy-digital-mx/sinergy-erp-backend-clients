@@ -30,4 +30,9 @@ export class StartAdvanceQuotationDto {
   @IsOptional()
   @IsIn(['PUE', 'PPD'])
   advance_metodo_pago?: 'PUE' | 'PPD';
+
+  @ApiPropertyOptional({ enum: ['demo', 'production'] })
+  @IsOptional()
+  @IsIn(['demo', 'production'], { message: 'El ambiente del anticipo debe ser demo o producción' })
+  advance_stamp_environment?: 'demo' | 'production';
 }

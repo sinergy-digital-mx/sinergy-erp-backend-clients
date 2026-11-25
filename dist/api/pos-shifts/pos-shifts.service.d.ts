@@ -1624,6 +1624,7 @@ export declare class PosShiftsService {
             pos_user_code: number | null;
         } | null;
     })[]>;
+    private listCollectedAdvanceQuotations;
     private listQuotationTicketsInVentas;
     replaceSaleCart(tenantId: string, terminalUserId: string, salesOrderId: string, dto: ReplacePosSaleCartDto, actor?: JwtPermissionUser): Promise<{
         customer_id: number;

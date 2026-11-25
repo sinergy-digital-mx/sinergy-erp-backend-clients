@@ -12,6 +12,12 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.186 · 25 nov
+
+- Cotizaciones · El anticipo cobrado aparece en Tickets de ventas: se agregan los productos y al registrar se crea la orden. Demo o Producción se elige al pedirlo.
+- POS Ventas · En pantallas chicas la barra de Ventas usa textos más chicos y las cartas del catálogo se achican para que quepan más productos.
+- POS Ventas · En el catálogo, bodega y sin inventario quedan en el botón Filtros para que la búsqueda no se corte.
+
 #### Versión 0.0.184 · 25 nov
 
 - Cotizaciones · Al cotizar con factura de anticipo se elige Demo o Producción, y caja timbra con ese ambiente.

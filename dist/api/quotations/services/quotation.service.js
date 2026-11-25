@@ -1124,6 +1124,7 @@ let QuotationService = class QuotationService {
                 usoCfdi: dto.advance_uso_cfdi || 'G01',
                 metodoPago: dto.advance_metodo_pago || 'PUE',
                 advanceCase,
+                stampEnvironment: dto.advance_stamp_environment,
             });
             return this.findOne(id, tenantId, access);
         }
@@ -1145,6 +1146,7 @@ let QuotationService = class QuotationService {
                 usoCfdi: dto.advance_uso_cfdi || 'G01',
                 metodoPago: dto.advance_metodo_pago || 'PUE',
                 advanceCase,
+                stampEnvironment: dto.advance_stamp_environment,
             });
             await qr.commitTransaction();
         }

@@ -2663,6 +2663,34 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-25T20:00:02.623Z"
+    },
+    {
+        "releaseKey": "full:0.0.186:0.0.186-1795639356500",
+        "version": "0.0.186",
+        "buildId": "0.0.186-1795639356500",
+        "channel": "full",
+        "title": "Versión 0.0.186",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "El anticipo cobrado aparece en Tickets de ventas: se agregan los productos y al registrar se crea la orden. Demo o Producción se elige al pedirlo.",
+                "module": "quotations",
+                "moduleLabel": "Cotizaciones"
+            },
+            {
+                "scope": "frontend",
+                "message": "En pantallas chicas la barra de Ventas usa textos más chicos y las cartas del catálogo se achican para que quepan más productos.",
+                "module": "pos",
+                "moduleLabel": "POS Ventas"
+            },
+            {
+                "scope": "frontend",
+                "message": "En el catálogo, bodega y sin inventario quedan en el botón Filtros para que la búsqueda no se corte.",
+                "module": "pos",
+                "moduleLabel": "POS Ventas"
+            }
+        ],
+        "releasedAt": "2026-11-25T20:42:36.500Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map

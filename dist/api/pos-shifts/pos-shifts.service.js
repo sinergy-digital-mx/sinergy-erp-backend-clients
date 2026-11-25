@@ -1709,11 +1709,62 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             .addOrderBy('line_items.created_at', 'ASC')
             .getMany();
         const quotations = await this.listQuotationTicketsInVentas(tenantId, branchId);
+        const collected = await this.listCollectedAdvanceQuotations(tenantId, branchId);
         return [
             ...orders.map((order) => this.mapPosTicketForVentas(order)),
             ...quotations.map((quotation) => this.mapQuotationTicketForVentas(quotation)),
+            ...collected.map((quotation) => ({
+                ...this.mapQuotationTicketForVentas(quotation),
+                advance_collected: true,
+                advance_stamp_environment: quotation.advance_stamp_environment,
+                amount_pending: Number(quotation.advance_requested_total ?? 0),
+            })),
         ].sort((a, b) => new Date(b.updated_at ?? b.created_at ?? 0).getTime() -
             new Date(a.updated_at ?? a.created_at ?? 0).getTime());
+    }
+    async listCollectedAdvanceQuotations(tenantId, branchId) {
+        try {
+            return await this.quotationRepo
+                .createQueryBuilder('q')
+                .leftJoinAndSelect('q.seller_user', 'seller_user')
+                .leftJoinAndSelect('q.terminal_user', 'terminal_user')
+                .leftJoinAndSelect('q.customer', 'customer')
+                .leftJoinAndSelect('q.global_discount', 'global_discount')
+                .leftJoinAndSelect('q.line_items', 'line_items')
+                .leftJoinAndSelect('line_items.product', 'product')
+                .leftJoinAndSelect('line_items.product_uom', 'product_uom')
+                .leftJoinAndSelect('product_uom.uom', 'uom')
+                .leftJoinAndSelect('line_items.product_discount', 'product_discount')
+                .leftJoin('q.warehouse', 'warehouse')
+                .where('q.tenant_id = :tenantId', { tenantId })
+                .andWhere('q.quotation_type = :type', { type: 'POS' })
+                .andWhere('q.general_status = :status', { status: 'Creada' })
+                .andWhere('(q.pos_stage IS NULL OR q.pos_stage = :posStage)', {
+                posStage: sales_order_pos_stage_enum_1.SalesOrderPosStage.Caja,
+            })
+                .andWhere('(q.billing_branch_id = :branchId OR warehouse.billing_branch_id = :branchId)', {
+                branchId,
+            })
+                .andWhere(`EXISTS (
+          SELECT 1 FROM electronic_invoices inv
+          WHERE inv.tenant_id = q.tenant_id
+            AND inv.source_module = 'quotations'
+            AND inv.source_id = q.id
+            AND inv.invoice_role = 'advance'
+            AND (inv.sat_status IS NULL OR inv.sat_status <> 'Cancelado')
+            AND (
+              inv.sat_status = 'Vigente'
+              OR inv.stamp_status IN ('stamped', 'cancel_pending', 'cancel_error')
+            )
+        )`)
+                .orderBy('q.updated_at', 'DESC')
+                .addOrderBy('line_items.created_at', 'ASC')
+                .getMany();
+        }
+        catch (error) {
+            this.logger.error('No se pudieron listar anticipos cobrados.', error instanceof Error ? error.stack : error);
+            return [];
+        }
     }
     async listQuotationTicketsInVentas(tenantId, branchId) {
         try {

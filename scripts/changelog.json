@@ -2104,6 +2104,36 @@
       "version": "0.0.184",
       "shippedAt": "2026-11-25T12:01:01-08:00",
       "module": "quotations"
+    },
+    {
+      "id": "20261125-120839",
+      "at": "2026-11-25T12:08:39-08:00",
+      "scope": "both",
+      "message": "El anticipo cobrado aparece en Tickets de ventas: se agregan los productos y al registrar se crea la orden. Demo o Producción se elige al pedirlo.",
+      "status": "shipped",
+      "version": "0.0.186",
+      "shippedAt": "2026-11-25T12:43:36-08:00",
+      "module": "quotations"
+    },
+    {
+      "id": "20261125-121243",
+      "at": "2026-11-25T12:12:43-08:00",
+      "scope": "frontend",
+      "message": "En pantallas chicas la barra de Ventas usa textos más chicos y las cartas del catálogo se achican para que quepan más productos.",
+      "status": "shipped",
+      "version": "0.0.186",
+      "shippedAt": "2026-11-25T12:43:36-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261125-122237",
+      "at": "2026-11-25T12:22:37-08:00",
+      "scope": "frontend",
+      "message": "En el catálogo, bodega y sin inventario quedan en el botón Filtros para que la búsqueda no se corte.",
+      "status": "shipped",
+      "version": "0.0.186",
+      "shippedAt": "2026-11-25T12:43:36-08:00",
+      "module": "pos"
     }
   ]
 }

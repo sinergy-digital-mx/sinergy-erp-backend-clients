@@ -4,4 +4,5 @@ export declare class StartAdvanceQuotationDto {
     advance_iva_percentage?: number;
     advance_uso_cfdi?: string;
     advance_metodo_pago?: 'PUE' | 'PPD';
+    advance_stamp_environment?: 'demo' | 'production';
 }
