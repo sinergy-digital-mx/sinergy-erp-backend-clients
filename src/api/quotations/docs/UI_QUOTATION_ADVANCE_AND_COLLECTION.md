@@ -1,5 +1,9 @@
 # UI — Anticipo, cobro al convertir y reversas
 
+## 2026-11-25 — Ventana de Cotizar
+
+La ventana es más ancha y la cabecera ocupa la mitad. Cliente (o Público en General) y el resumen de productos van en una línea cada uno. El monto del anticipo es un solo campo, sin caja dentro de caja.
+
 ## 2026-11-25 — Cotizar, tickets y carrito
 
 El anticipo solo se activa en **Cotizar** (Factura de anticipo, forma de pago, Demo o Producción). Ahí se timbra el CFDI con el concepto Anticipo del bien o servicio.

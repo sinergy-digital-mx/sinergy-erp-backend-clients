@@ -1085,6 +1085,8 @@ export class SalesOrderService {
       search,
       general_status,
       payment_status,
+      exclude_paid,
+      has_advance,
       is_credit,
       sales_order_type,
       sale_scope,
@@ -1098,7 +1100,20 @@ export class SalesOrderService {
 
     if (search) {
       qb.leftJoin('so.customer', 'customer').andWhere(
-        '(so.folio LIKE :s OR customer.name LIKE :s OR customer.lastname LIKE :s OR CONCAT(customer.name, \' \', COALESCE(customer.lastname, \'\')) LIKE :s)',
+        `(so.folio LIKE :s
+          OR so.walk_in_name LIKE :s
+          OR so.walk_in_rfc LIKE :s
+          OR so.walk_in_phone LIKE :s
+          OR customer.name LIKE :s
+          OR customer.lastname LIKE :s
+          OR customer.company_name LIKE :s
+          OR customer.fiscal_razon_social LIKE :s
+          OR customer.fiscal_rfc LIKE :s
+          OR customer.email LIKE :s
+          OR customer.phone LIKE :s
+          OR customer.additional_name LIKE :s
+          OR customer.additional_phone LIKE :s
+          OR CONCAT(customer.name, ' ', COALESCE(customer.lastname, '')) LIKE :s)`,
         { s: `%${search}%` },
       );
     }
@@ -1114,6 +1129,17 @@ export class SalesOrderService {
       }
     }
     if (payment_status) qb.andWhere('so.payment_status = :payment_status', { payment_status });
+    if (exclude_paid) qb.andWhere("so.payment_status != 'Pagado'");
+    if (has_advance) {
+      qb.andWhere(
+        `(so.advance_invoice_id IS NOT NULL OR EXISTS (
+          SELECT 1 FROM inv_s_quotations adv_q
+          WHERE adv_q.id = so.converted_from_quotation_id
+            AND adv_q.tenant_id = so.tenant_id
+            AND COALESCE(adv_q.advance_requested_total, 0) > 0.009
+        ))`,
+      );
+    }
     if (typeof is_credit === 'boolean') {
       qb.andWhere('so.is_credit = :is_credit', { is_credit });
     }

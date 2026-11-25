@@ -17,6 +17,7 @@ class QueryPosFolioQuotationsDto {
     billing_branch_id;
     fiscal_configuration_id;
     search;
+    has_advance;
     page;
     limit;
 }
@@ -39,6 +40,13 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], QueryPosFolioQuotationsDto.prototype, "search", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Solo cotizaciones con anticipo' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => value === true || value === 'true' || value === '1'),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], QueryPosFolioQuotationsDto.prototype, "has_advance", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
     (0, class_validator_1.IsOptional)(),

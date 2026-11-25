@@ -692,9 +692,22 @@ let SalesOrderService = class SalesOrderService {
         return (0, sales_order_list_stats_util_1.buildSalesOrderListStats)(rows);
     }
     applyListFilters(qb, filters) {
-        const { search, general_status, payment_status, is_credit, sales_order_type, sale_scope, collection_channel, fiscal_configuration_id, billing_branch_id, customer_id, created_from, created_to, } = filters;
+        const { search, general_status, payment_status, exclude_paid, has_advance, is_credit, sales_order_type, sale_scope, collection_channel, fiscal_configuration_id, billing_branch_id, customer_id, created_from, created_to, } = filters;
         if (search) {
-            qb.leftJoin('so.customer', 'customer').andWhere('(so.folio LIKE :s OR customer.name LIKE :s OR customer.lastname LIKE :s OR CONCAT(customer.name, \' \', COALESCE(customer.lastname, \'\')) LIKE :s)', { s: `%${search}%` });
+            qb.leftJoin('so.customer', 'customer').andWhere(`(so.folio LIKE :s
+          OR so.walk_in_name LIKE :s
+          OR so.walk_in_rfc LIKE :s
+          OR so.walk_in_phone LIKE :s
+          OR customer.name LIKE :s
+          OR customer.lastname LIKE :s
+          OR customer.company_name LIKE :s
+          OR customer.fiscal_razon_social LIKE :s
+          OR customer.fiscal_rfc LIKE :s
+          OR customer.email LIKE :s
+          OR customer.phone LIKE :s
+          OR customer.additional_name LIKE :s
+          OR customer.additional_phone LIKE :s
+          OR CONCAT(customer.name, ' ', COALESCE(customer.lastname, '')) LIKE :s)`, { s: `%${search}%` });
         }
         if (general_status?.length) {
             if (general_status.length === 1) {
@@ -710,6 +723,16 @@ let SalesOrderService = class SalesOrderService {
         }
         if (payment_status)
             qb.andWhere('so.payment_status = :payment_status', { payment_status });
+        if (exclude_paid)
+            qb.andWhere("so.payment_status != 'Pagado'");
+        if (has_advance) {
+            qb.andWhere(`(so.advance_invoice_id IS NOT NULL OR EXISTS (
+          SELECT 1 FROM inv_s_quotations adv_q
+          WHERE adv_q.id = so.converted_from_quotation_id
+            AND adv_q.tenant_id = so.tenant_id
+            AND COALESCE(adv_q.advance_requested_total, 0) > 0.009
+        ))`);
+        }
         if (typeof is_credit === 'boolean') {
             qb.andWhere('so.is_credit = :is_credit', { is_credit });
         }

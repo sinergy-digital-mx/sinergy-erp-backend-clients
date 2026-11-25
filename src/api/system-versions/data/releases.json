@@ -2716,5 +2716,39 @@
       }
     ],
     "releasedAt": "2026-11-25T21:38:40.700Z"
+  },
+  {
+    "releaseKey": "full:0.0.188:0.0.188-1795644289413",
+    "version": "0.0.188",
+    "buildId": "0.0.188-1795644289413",
+    "channel": "full",
+    "title": "Versión 0.0.188",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "En POS Ventas Tickets ya no se abre solo. La hora de En caja usa el reloj de Tijuana.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "En Ventas, En caja abre con Información en la misma carta y ahí está Regresar a ventas.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "En Cotizar el monto del anticipo es un solo campo, el cliente y los productos van en una linea y la cabecera queda a la mitad.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "En Folios se busca por folio, cliente, empresa, RFC o telefono. Las pagadas quedan ocultas hasta Mostrar, y Con anticipo filtra ventas y cotizaciones.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      }
+    ],
+    "releasedAt": "2026-11-25T22:04:49.413Z"
   }
 ]

@@ -1,5 +1,13 @@
 # Flujo POS — Guía para UI
 
+**2026-11-25 — Folios, búsqueda y pagadas.** En Folios la búsqueda cubre folio, cliente, empresa, RFC, razón social y teléfono. Ventas y Cotizaciones, Con anticipo, y Pagadas (Ocultar o Mostrar) son controles aparte. Las ventas pagadas no salen hasta elegir Mostrar.
+
+**2026-11-25 — Cotizar más compacto.** El diálogo de Cotizar es más ancho. La cabecera queda a la mitad. Cliente y Público en General van en una línea, y los productos en otra. El monto del anticipo es un solo campo.
+
+**2026-11-25 — En caja, Información.** En POS Ventas cada carta de En caja abre con Información, en el mismo lugar, y ahí está Regresar a ventas. Ya no salta a lo ancho ni se queda trabada.
+
+**2026-11-25 — Tickets ya no se abre solo.** En POS Ventas el panel de Tickets no se abre al entrar. El número de la barra sigue siendo las ventas que ya están en ventas. Las que esperan cobro siguen en **En caja**; de ahí se regresan a ventas. La hora de esas cartas usa el reloj de Tijuana: un folio de la 1:41 p. m. ya no se ve como las 9:41 p. m.
+
 **2026-11-24 — folios, tres carritos y abono.** En Ventas y en Caja la barra tiene **Folios**, limitado a la sucursal y la razón social de la sesión. En Ventas la lista mezcla cotizaciones y ventas; **Llevar a carrito** copia las líneas a C1, C2 o C3. Esos carritos guardan solo cliente y productos (sin precio) y al activarlos cobran el precio vigente. En Caja, Folios lista órdenes con saldo y **Abonar** registra el pago en la orden y en el corte abierto. Sin corte abierto no se registra. Ctrl+Q abre ese diálogo. Los anticipos no entran.
 
 **2026-11-24 — carrito un poco más angosto.** En Ventas el panel del carrito baja de 42vw (tope 760px) a 38vw (tope 680px). El descuento global solo aparece en el desglose si hay uno aplicado; si no, queda un enlace para abrirlo. El descuento en precio del desglose usa un título chico y el porcentaje en una pastilla.

@@ -20,6 +20,12 @@ const GENERAL_STATUS_VALUES = [
   'En Camino',
 ] as const;
 
+function parseFlag(value: unknown): boolean | unknown {
+  if (value === true || value === 'true' || value === '1') return true;
+  if (value === false || value === 'false' || value === '0') return false;
+  return value;
+}
+
 /** Acepta un status, varios (`?general_status=A&general_status=B`) o CSV. Siempre normaliza a array. */
 function parseGeneralStatuses(value: unknown): string[] | undefined {
   if (value === undefined || value === null || value === '') return undefined;
@@ -42,6 +48,18 @@ export class QuerySalesOrderDto {
   @IsOptional()
   @IsEnum(['Pendiente', 'Pagado'])
   payment_status?: string;
+
+  /** Folios: oculta las órdenes con pago Pagado. El listado general no lo envía. */
+  @IsOptional()
+  @Transform(({ value }) => parseFlag(value))
+  @IsBoolean()
+  exclude_paid?: boolean;
+
+  /** Solo órdenes que salieron de una cotización con anticipo, o que ya tienen esa factura. */
+  @IsOptional()
+  @Transform(({ value }) => parseFlag(value))
+  @IsBoolean()
+  has_advance?: boolean;
 
   @IsOptional()
   @Transform(({ value }) => {

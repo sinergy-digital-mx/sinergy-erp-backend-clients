@@ -253,7 +253,18 @@ let SalesOrderExportService = class SalesOrderExportService {
     }
     applyOrderFilters(qb, filters) {
         if (filters.search) {
-            qb.andWhere('(so.folio LIKE :s OR customer.name LIKE :s OR customer.lastname LIKE :s OR customer.company_name LIKE :s)', { s: `%${filters.search}%` });
+            qb.andWhere(`(so.folio LIKE :s
+          OR so.walk_in_name LIKE :s
+          OR so.walk_in_rfc LIKE :s
+          OR so.walk_in_phone LIKE :s
+          OR customer.name LIKE :s
+          OR customer.lastname LIKE :s
+          OR customer.company_name LIKE :s
+          OR customer.fiscal_razon_social LIKE :s
+          OR customer.fiscal_rfc LIKE :s
+          OR customer.email LIKE :s
+          OR customer.phone LIKE :s
+          OR CONCAT(customer.name, ' ', COALESCE(customer.lastname, '')) LIKE :s)`, { s: `%${filters.search}%` });
         }
         if (filters.general_status) {
             const statuses = Array.isArray(filters.general_status)

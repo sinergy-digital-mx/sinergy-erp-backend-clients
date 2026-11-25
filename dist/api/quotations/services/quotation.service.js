@@ -264,7 +264,10 @@ let QuotationService = class QuotationService {
             });
         }
         if (filters.search?.trim()) {
-            qb.andWhere('(qt.folio LIKE :s OR customer.name LIKE :s OR customer.lastname LIKE :s OR customer.company_name LIKE :s OR CONCAT(customer.name, \' \', COALESCE(customer.lastname, \'\')) LIKE :s)', { s: `%${filters.search.trim()}%` });
+            qb.andWhere(QUOTATION_PARTY_SEARCH, { s: `%${filters.search.trim()}%` });
+        }
+        if (filters.has_advance) {
+            qb.andWhere('COALESCE(qt.advance_requested_total, 0) > 0.009');
         }
         const [rows, total] = await qb
             .orderBy('qt.created_at', 'DESC')
@@ -313,7 +316,7 @@ let QuotationService = class QuotationService {
             qb.andWhere('(qt.billing_branch_id IN (:...scopeBranchIds) OR (qt.billing_branch_id IS NULL AND warehouse.billing_branch_id IN (:...scopeBranchIds)))', { scopeBranchIds });
         }
         if (search) {
-            qb.andWhere('(qt.folio LIKE :s OR customer.name LIKE :s OR customer.lastname LIKE :s OR customer.company_name LIKE :s OR CONCAT(customer.name, \' \', COALESCE(customer.lastname, \'\')) LIKE :s)', { s: `%${search}%` });
+            qb.andWhere(QUOTATION_PARTY_SEARCH, { s: `%${search}%` });
         }
         if (general_status?.length) {
             if (general_status.length === 1) {
@@ -1444,4 +1447,15 @@ exports.QuotationService = QuotationService = QuotationService_1 = __decorate([
         sales_order_invoicing_service_1.SalesOrderInvoicingService,
         quotation_advance_invoice_service_1.QuotationAdvanceInvoiceService])
 ], QuotationService);
+const QUOTATION_PARTY_SEARCH = `(qt.folio LIKE :s
+  OR customer.name LIKE :s
+  OR customer.lastname LIKE :s
+  OR customer.company_name LIKE :s
+  OR customer.fiscal_razon_social LIKE :s
+  OR customer.fiscal_rfc LIKE :s
+  OR customer.email LIKE :s
+  OR customer.phone LIKE :s
+  OR customer.additional_name LIKE :s
+  OR customer.additional_phone LIKE :s
+  OR CONCAT(customer.name, ' ', COALESCE(customer.lastname, '')) LIKE :s)`;
 //# sourceMappingURL=quotation.service.js.map

@@ -21,6 +21,13 @@ const GENERAL_STATUS_VALUES = [
     'En cola',
     'En Camino',
 ];
+function parseFlag(value) {
+    if (value === true || value === 'true' || value === '1')
+        return true;
+    if (value === false || value === 'false' || value === '0')
+        return false;
+    return value;
+}
 function parseGeneralStatuses(value) {
     if (value === undefined || value === null || value === '')
         return undefined;
@@ -33,6 +40,8 @@ class QuerySalesOrderDto {
     search;
     general_status;
     payment_status;
+    exclude_paid;
+    has_advance;
     is_credit;
     sales_order_type;
     sale_scope;
@@ -65,6 +74,18 @@ __decorate([
     (0, class_validator_1.IsEnum)(['Pendiente', 'Pagado']),
     __metadata("design:type", String)
 ], QuerySalesOrderDto.prototype, "payment_status", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => parseFlag(value)),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], QuerySalesOrderDto.prototype, "exclude_paid", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(({ value }) => parseFlag(value)),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], QuerySalesOrderDto.prototype, "has_advance", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_transformer_1.Transform)(({ value }) => {

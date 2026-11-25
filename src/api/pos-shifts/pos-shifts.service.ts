@@ -2066,6 +2066,7 @@ export class PosShiftsService {
       billing_branch_id: branchId,
       fiscal_configuration_id: query.fiscal_configuration_id,
       search: query.search,
+      has_advance: query.has_advance,
       page: query.page ?? 1,
       limit: query.limit ?? 200,
     });

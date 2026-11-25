@@ -353,6 +353,7 @@ export class QuotationService {
       billing_branch_id: string;
       fiscal_configuration_id?: string;
       search?: string;
+      has_advance?: boolean;
       page?: number;
       limit?: number;
     },
@@ -380,10 +381,10 @@ export class QuotationService {
       });
     }
     if (filters.search?.trim()) {
-      qb.andWhere(
-        '(qt.folio LIKE :s OR customer.name LIKE :s OR customer.lastname LIKE :s OR customer.company_name LIKE :s OR CONCAT(customer.name, \' \', COALESCE(customer.lastname, \'\')) LIKE :s)',
-        { s: `%${filters.search.trim()}%` },
-      );
+      qb.andWhere(QUOTATION_PARTY_SEARCH, { s: `%${filters.search.trim()}%` });
+    }
+    if (filters.has_advance) {
+      qb.andWhere('COALESCE(qt.advance_requested_total, 0) > 0.009');
     }
 
     const [rows, total] = await qb
@@ -473,10 +474,7 @@ export class QuotationService {
     }
 
     if (search) {
-      qb.andWhere(
-        '(qt.folio LIKE :s OR customer.name LIKE :s OR customer.lastname LIKE :s OR customer.company_name LIKE :s OR CONCAT(customer.name, \' \', COALESCE(customer.lastname, \'\')) LIKE :s)',
-        { s: `%${search}%` },
-      );
+      qb.andWhere(QUOTATION_PARTY_SEARCH, { s: `%${search}%` });
     }
     if (general_status?.length) {
       if (general_status.length === 1) {
@@ -2094,3 +2092,15 @@ export class QuotationService {
     return `${y}-${m}-${d}`;
   }
 }
+
+const QUOTATION_PARTY_SEARCH = `(qt.folio LIKE :s
+  OR customer.name LIKE :s
+  OR customer.lastname LIKE :s
+  OR customer.company_name LIKE :s
+  OR customer.fiscal_razon_social LIKE :s
+  OR customer.fiscal_rfc LIKE :s
+  OR customer.email LIKE :s
+  OR customer.phone LIKE :s
+  OR customer.additional_name LIKE :s
+  OR customer.additional_phone LIKE :s
+  OR CONCAT(customer.name, ' ', COALESCE(customer.lastname, '')) LIKE :s)`;

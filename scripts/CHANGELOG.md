@@ -12,6 +12,13 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.188 · 25 nov
+
+- POS Ventas · En POS Ventas Tickets ya no se abre solo. La hora de En caja usa el reloj de Tijuana.
+- POS Ventas · En Ventas, En caja abre con Información en la misma carta y ahí está Regresar a ventas.
+- POS Ventas · En Cotizar el monto del anticipo es un solo campo, el cliente y los productos van en una linea y la cabecera queda a la mitad.
+- POS Ventas · En Folios se busca por folio, cliente, empresa, RFC o telefono. Las pagadas quedan ocultas hasta Mostrar, y Con anticipo filtra ventas y cotizaciones.
+
 #### Versión 0.0.187 · 25 nov
 
 - Cotizaciones · En Cotizar se timbra el anticipo: sin productos queda la cotizacion, con productos abre la venta y aparta lo que hay. En Tickets se elige el carrito, se agregan productos y caja cobra solo si falta.

@@ -2,6 +2,8 @@ export declare class QuerySalesOrderDto {
     search?: string;
     general_status?: string[];
     payment_status?: string;
+    exclude_paid?: boolean;
+    has_advance?: boolean;
     is_credit?: boolean;
     sales_order_type?: 'POS' | 'MANUAL';
     sale_scope?: 'inventory' | 'services' | 'combined';

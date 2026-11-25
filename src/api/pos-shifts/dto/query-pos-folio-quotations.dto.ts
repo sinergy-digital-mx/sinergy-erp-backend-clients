@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import { IsBoolean, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 
 export class QueryPosFolioQuotationsDto {
   @ApiPropertyOptional({ description: 'Sucursal de la sesión POS' })
@@ -17,6 +17,12 @@ export class QueryPosFolioQuotationsDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiPropertyOptional({ description: 'Solo cotizaciones con anticipo' })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true' || value === '1')
+  @IsBoolean()
+  has_advance?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()
