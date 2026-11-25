@@ -12,6 +12,12 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.193 · 25 nov
+
+- Órdenes de compra · En el PDF de la orden, el SKU sale chico debajo del producto y arriba de la unidad.
+- POS Ventas · En Folios se ve si el anticipo ya tiene venta. Al continuar, el carrito conserva el precio y la ficha queda en una línea con el PDF.
+- Cotizaciones · Folios de anticipo indica el folio de la venta cuando la cotización ya se convirtió.
+
 #### Versión 0.0.191 · 25 nov
 
 - POS Ventas · En POS Caja lo que llega o se regresa de Ventas aparece solo, lo nuevo queda arriba y el panel de cobro solo sale al elegir una orden.

@@ -30,6 +30,7 @@ exports.PURCHASE_ORDER_PDF_LABELS_EN = {
     lineAmount: 'Amount',
     total: 'Total',
     unitPrefix: 'Unit',
+    skuPrefix: 'SKU',
     modePrefix: 'Mode',
     noTag: 'No tag',
     measurePrefix: 'measure',

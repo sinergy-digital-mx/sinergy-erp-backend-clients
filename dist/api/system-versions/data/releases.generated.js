@@ -2809,6 +2809,34 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-25T23:03:40.913Z"
+    },
+    {
+        "releaseKey": "full:0.0.193:0.0.193-1795648636699",
+        "version": "0.0.193",
+        "buildId": "0.0.193-1795648636699",
+        "channel": "full",
+        "title": "Versión 0.0.193",
+        "changes": [
+            {
+                "scope": "backend",
+                "message": "En el PDF de la orden, el SKU sale chico debajo del producto y arriba de la unidad.",
+                "module": "purchase-orders",
+                "moduleLabel": "Órdenes de compra"
+            },
+            {
+                "scope": "frontend",
+                "message": "En Folios se ve si el anticipo ya tiene venta. Al continuar, el carrito conserva el precio y la ficha queda en una línea con el PDF.",
+                "module": "pos",
+                "moduleLabel": "POS Ventas"
+            },
+            {
+                "scope": "backend",
+                "message": "Folios de anticipo indica el folio de la venta cuando la cotización ya se convirtió.",
+                "module": "quotations",
+                "moduleLabel": "Cotizaciones"
+            }
+        ],
+        "releasedAt": "2026-11-25T23:17:16.699Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map

@@ -59,6 +59,7 @@ export declare class QuotationService {
         limit?: number;
     }): Promise<{
         data: {
+            converted_sales_order_folio: string | null;
             seller_user: {
                 id: string;
                 first_name: string;

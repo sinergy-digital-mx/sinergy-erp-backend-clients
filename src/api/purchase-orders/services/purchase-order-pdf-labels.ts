@@ -31,6 +31,7 @@ export interface PurchaseOrderPdfLabels {
   lineAmount: string;
   total: string;
   unitPrefix: string;
+  skuPrefix: string;
   modePrefix: string;
   noTag: string;
   measurePrefix: string;

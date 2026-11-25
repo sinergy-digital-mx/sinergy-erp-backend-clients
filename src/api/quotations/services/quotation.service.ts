@@ -78,6 +78,7 @@ import { paymentMethodFromFormaPago } from '../../pos-shifts/utils/advance-payme
 import { CloseAdvanceQuotationDto } from '../dto/close-advance-quotation.dto';
 import { StartAdvanceQuotationDto } from '../dto/start-advance-quotation.dto';
 import { CreateSalesOrderDto } from '../../sales-orders/dto/create-sales-order.dto';
+import { SalesOrder } from '../../../entities/sales-orders/sales-order.entity';
 import { quotedUnitPrice } from '../../sales-orders/utils/quoted-pricing.util';
 import {
   assertQuotationBranchAccess,
@@ -392,9 +393,31 @@ export class QuotationService {
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();
+    const saleIds = [
+      ...new Set(
+        rows
+          .map((qt) => qt.converted_to_sales_order_id)
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    const saleFolios = new Map<string, string>();
+    if (saleIds.length) {
+      const sales = await this.dataSource.getRepository(SalesOrder).find({
+        where: { tenant_id: tenantId, id: In(saleIds) },
+        select: ['id', 'folio'],
+      });
+      for (const sale of sales) {
+        saleFolios.set(sale.id, sale.folio);
+      }
+    }
 
     return {
-      data: rows.map((qt) => this.mapLocation(qt)),
+      data: rows.map((qt) => ({
+        ...this.mapLocation(qt),
+        converted_sales_order_folio: qt.converted_to_sales_order_id
+          ? (saleFolios.get(qt.converted_to_sales_order_id) ?? null)
+          : null,
+      })),
       total,
       page,
       limit,

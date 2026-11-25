@@ -1,5 +1,7 @@
 # Flujo POS — Guía para UI
 
+**2026-11-25 — Anticipo en Folios.** Cada cotización muestra Anticipo y si ya tiene venta (folio de la orden, o Sin venta). Al continuar, el carrito usa el precio de cada línea. Arriba del carrito queda una sola línea con el folio, el anticipo, lo que sobra o lo que caja cobra, y los accesos PDF Anticipo, Cotización y Orden. La cabecera del carrito queda a la misma altura que Folios y En caja.
+
 **2026-11-25 — Folios es el anticipo.** En POS Ventas ya no hay botón de Tickets. Folios abre en Anticipos: cotizaciones con anticipo. Al continuar se elige C1, C2 o C3 y arriba del carrito queda el folio, el anticipo cobrado y lo que caja cobra o lo que sobra. Copiar orden es aparte: busca un folio o un cliente y copia la venta. En caja, Información abre la orden a todo lo ancho, con la lista de productos scrolleable.
 
 **2026-11-25 — Caja en vivo.** POS Caja recibe por el canal `GET /pos/caja-recalls` un `arrived` cuando Ventas manda un folio y un `recalled` cuando lo regresa. La lista se actualiza sola, avisa con «Llegó» y pone lo más reciente arriba. Sin una orden elegida no hay panel de cobro: la cuadrícula usa toda la pantalla.

@@ -393,6 +393,7 @@ export class PurchaseOrderPdfService {
         {
           stack: [
             { text: item.product?.name || 'N/A', fontSize: 9, bold: true, color: COLORS.text },
+            ...this.productSkuLine(item.product?.sku, labels.skuPrefix),
             ...this.lineNoteBlock(item.notes),
             {
               text: `${labels.unitPrefix}: ${requestedUom}`,
@@ -487,6 +488,7 @@ export class PurchaseOrderPdfService {
         {
           stack: [
             { text: item.product?.name || 'N/A', fontSize: 9, bold: true, color: COLORS.text },
+            ...this.productSkuLine(item.product?.sku, labels.skuPrefix),
             ...this.lineNoteBlock(item.notes),
             {
               text: `${labels.modePrefix}: ${lotModeLabel}`,
@@ -710,6 +712,17 @@ export class PurchaseOrderPdfService {
       paddingTop: () => 0,
       paddingBottom: () => 0,
     };
+  }
+
+  private productSkuLine(sku: string | null | undefined, prefix: string): any[] {
+    const text = sku?.trim();
+    if (!text) return [];
+    return [{
+      text: `${prefix}: ${text}`,
+      fontSize: 7.5,
+      color: COLORS.muted,
+      margin: [0, 1, 0, 0],
+    }];
   }
 
   private lineNoteBlock(notes?: string | null): any[] {

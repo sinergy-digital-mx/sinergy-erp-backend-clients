@@ -350,6 +350,7 @@ let PurchaseOrderPdfService = class PurchaseOrderPdfService {
                 {
                     stack: [
                         { text: item.product?.name || 'N/A', fontSize: 9, bold: true, color: COLORS.text },
+                        ...this.productSkuLine(item.product?.sku, labels.skuPrefix),
                         ...this.lineNoteBlock(item.notes),
                         {
                             text: `${labels.unitPrefix}: ${requestedUom}`,
@@ -424,6 +425,7 @@ let PurchaseOrderPdfService = class PurchaseOrderPdfService {
                 {
                     stack: [
                         { text: item.product?.name || 'N/A', fontSize: 9, bold: true, color: COLORS.text },
+                        ...this.productSkuLine(item.product?.sku, labels.skuPrefix),
                         ...this.lineNoteBlock(item.notes),
                         {
                             text: `${labels.modePrefix}: ${lotModeLabel}`,
@@ -623,6 +625,17 @@ let PurchaseOrderPdfService = class PurchaseOrderPdfService {
             paddingTop: () => 0,
             paddingBottom: () => 0,
         };
+    }
+    productSkuLine(sku, prefix) {
+        const text = sku?.trim();
+        if (!text)
+            return [];
+        return [{
+                text: `${prefix}: ${text}`,
+                fontSize: 7.5,
+                color: COLORS.muted,
+                margin: [0, 1, 0, 0],
+            }];
     }
     lineNoteBlock(notes) {
         const text = notes?.trim();

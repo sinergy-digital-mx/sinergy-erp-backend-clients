@@ -1,5 +1,9 @@
 # UI — Notas en órdenes de compra
 
+## 2026-11-25 — SKU en el PDF
+
+En el PDF, bajo el nombre del producto y arriba de la unidad, el SKU sale chico y en gris, igual que la unidad (`SKU: 1x12`). También en lo recibido. Si no hay SKU, esa línea no se imprime. Hay que regenerar el documento para verlo en un PDF ya guardado.
+
 ## 2026-11-11 — Nota por línea
 
 Cada producto puede llevar su nota (`line_items[].notes`, máximo 500). Es distinta de la nota general de abajo.

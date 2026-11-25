@@ -26,6 +26,7 @@ export declare class PurchaseOrderPdfService {
     private partyCell;
     private gapCell;
     private equalHeightLayout;
+    private productSkuLine;
     private lineNoteBlock;
     private thCell;
     private getTotals;

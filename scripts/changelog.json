@@ -2234,6 +2234,36 @@
       "version": "0.0.191",
       "shippedAt": "2026-11-25T14:47:29-08:00",
       "module": "pos"
+    },
+    {
+      "id": "20261125-150623",
+      "at": "2026-11-25T15:06:23-08:00",
+      "scope": "backend",
+      "message": "En el PDF de la orden, el SKU sale chico debajo del producto y arriba de la unidad.",
+      "status": "shipped",
+      "version": "0.0.193",
+      "shippedAt": "2026-11-25T15:18:13-08:00",
+      "module": "purchase-orders"
+    },
+    {
+      "id": "20261125-151414",
+      "at": "2026-11-25T15:14:14-08:00",
+      "scope": "both",
+      "message": "En Folios se ve si el anticipo ya tiene venta. Al continuar, el carrito conserva el precio y la ficha queda en una línea con el PDF.",
+      "status": "shipped",
+      "version": "0.0.193",
+      "shippedAt": "2026-11-25T15:18:13-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261125-151453",
+      "at": "2026-11-25T15:14:53-08:00",
+      "scope": "backend",
+      "message": "Folios de anticipo indica el folio de la venta cuando la cotización ya se convirtió.",
+      "status": "shipped",
+      "version": "0.0.193",
+      "shippedAt": "2026-11-25T15:18:13-08:00",
+      "module": "quotations"
     }
   ]
 }

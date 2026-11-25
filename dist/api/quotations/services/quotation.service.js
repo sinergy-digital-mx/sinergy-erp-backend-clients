@@ -55,6 +55,7 @@ const uom_catalog_entity_1 = require("../../../entities/uom-catalog/uom-catalog.
 const advance_cfdi_util_1 = require("../../electronic-invoicing/utils/advance-cfdi.util");
 const cfdi_regimen_person_util_1 = require("../../electronic-invoicing/utils/cfdi-regimen-person.util");
 const advance_payment_method_util_1 = require("../../pos-shifts/utils/advance-payment-method.util");
+const sales_order_entity_1 = require("../../../entities/sales-orders/sales-order.entity");
 const quoted_pricing_util_1 = require("../../sales-orders/utils/quoted-pricing.util");
 const quotation_seller_scope_util_1 = require("../utils/quotation-seller-scope.util");
 let QuotationService = class QuotationService {
@@ -274,8 +275,28 @@ let QuotationService = class QuotationService {
             .skip((page - 1) * limit)
             .take(limit)
             .getManyAndCount();
+        const saleIds = [
+            ...new Set(rows
+                .map((qt) => qt.converted_to_sales_order_id)
+                .filter((id) => !!id)),
+        ];
+        const saleFolios = new Map();
+        if (saleIds.length) {
+            const sales = await this.dataSource.getRepository(sales_order_entity_1.SalesOrder).find({
+                where: { tenant_id: tenantId, id: (0, typeorm_2.In)(saleIds) },
+                select: ['id', 'folio'],
+            });
+            for (const sale of sales) {
+                saleFolios.set(sale.id, sale.folio);
+            }
+        }
         return {
-            data: rows.map((qt) => this.mapLocation(qt)),
+            data: rows.map((qt) => ({
+                ...this.mapLocation(qt),
+                converted_sales_order_folio: qt.converted_to_sales_order_id
+                    ? (saleFolios.get(qt.converted_to_sales_order_id) ?? null)
+                    : null,
+            })),
             total,
             page,
             limit,

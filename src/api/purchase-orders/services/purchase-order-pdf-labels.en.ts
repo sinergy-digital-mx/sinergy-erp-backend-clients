@@ -29,6 +29,7 @@ export const PURCHASE_ORDER_PDF_LABELS_EN: PurchaseOrderPdfLabels = {
   lineAmount: 'Amount',
   total: 'Total',
   unitPrefix: 'Unit',
+  skuPrefix: 'SKU',
   modePrefix: 'Mode',
   noTag: 'No tag',
   measurePrefix: 'measure',
