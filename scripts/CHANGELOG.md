@@ -12,6 +12,11 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.174 · 24 nov
+
+- POS Ventas · En el modal de imprimir, el campo de copias queda compacto y el ícono del botón queda alineado.
+- Clientes · El listado de clientes abre con la razón y sucursal del vendedor; se puede ver todas y configurarlo en Configuración.
+
 #### Versión 0.0.172 · 24 nov
 
 - POS Ventas · En la barra del POS el clic en el cuadrito de sucursal o vendedor abre el cambio, sin el texto Cambiar.

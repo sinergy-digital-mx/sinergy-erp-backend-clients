@@ -88,6 +88,7 @@ export interface CustomerDirectoryFilter {
   status_id?: number;
   group_id?: string;
   registered_fiscal_configuration_id?: string;
+  registered_billing_branch_id?: string;
   insight?: string;
 }
 
@@ -144,6 +145,15 @@ export function applyCustomerDirectoryFilters(
       {
         registered_fiscal_configuration_id:
           query.registered_fiscal_configuration_id,
+      },
+    );
+  }
+
+  if (query?.registered_billing_branch_id) {
+    qb.andWhere(
+      'customer.registered_billing_branch_id = :registered_billing_branch_id',
+      {
+        registered_billing_branch_id: query.registered_billing_branch_id,
       },
     );
   }

@@ -67,6 +67,14 @@ export class QueryCustomersDto {
     registered_fiscal_configuration_id?: string;
 
     @ApiPropertyOptional({
+        description: 'Sucursal de registro asignada al cliente',
+        example: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+    })
+    @IsOptional()
+    @IsUUID()
+    registered_billing_branch_id?: string;
+
+    @ApiPropertyOptional({
         description: 'Corte del resumen. Requiere el permiso ViewStats; si no, se ignora.',
         enum: CUSTOMER_LIST_INSIGHTS,
         example: 'fiscal_not_ready',

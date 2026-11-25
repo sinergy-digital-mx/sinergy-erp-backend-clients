@@ -34,6 +34,9 @@ const customer_price_list_service_1 = require("./services/customer-price-list.se
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const permission_guard_1 = require("../rbac/guards/permission.guard");
 const require_permissions_decorator_1 = require("../rbac/decorators/require-permissions.decorator");
+const customer_list_settings_service_1 = require("./services/customer-list-settings.service");
+const update_customer_list_settings_dto_1 = require("./dto/update-customer-list-settings.dto");
+const jwt_permission_util_1 = require("../rbac/utils/jwt-permission.util");
 let CustomersController = class CustomersController {
     customersService;
     exportService;
@@ -41,13 +44,15 @@ let CustomersController = class CustomersController {
     customerGroupsService;
     customerPriceListService;
     permissionService;
-    constructor(customersService, exportService, productInsightsService, customerGroupsService, customerPriceListService, permissionService) {
+    listSettings;
+    constructor(customersService, exportService, productInsightsService, customerGroupsService, customerPriceListService, permissionService, listSettings) {
         this.customersService = customersService;
         this.exportService = exportService;
         this.productInsightsService = productInsightsService;
         this.customerGroupsService = customerGroupsService;
         this.customerPriceListService = customerPriceListService;
         this.permissionService = permissionService;
+        this.listSettings = listSettings;
     }
     async stripInsightWithoutPermission(query, req) {
         if (!query?.insight) {
@@ -70,6 +75,12 @@ let CustomersController = class CustomersController {
     checkDuplicates(dto, req) {
         return this.customersService.findDuplicates(dto, req.user.tenantId);
     }
+    updateListSettings(dto, req) {
+        if (!(0, jwt_permission_util_1.userHasJwtPermission)(req.user, 'customers', 'Update')) {
+            throw new common_1.ForbiddenException('No puedes cambiar la configuración de clientes');
+        }
+        return this.listSettings.update(req.user.tenant_id ?? req.user.tenantId, req.user.id ?? req.user.user_id, dto);
+    }
     update(id, dto, req) {
         return this.customersService.update(Number(id), dto, req.user.tenantId, req.user.id ?? req.user.user_id);
     }
@@ -87,6 +98,9 @@ let CustomersController = class CustomersController {
     }
     getRegistrationOptions(req) {
         return this.customersService.getRegistrationOptions(req.user.tenant_id ?? req.user.tenantId);
+    }
+    getListSettings(req) {
+        return this.listSettings.get(req.user.tenant_id ?? req.user.tenantId);
     }
     async exportExcel(query, req, res) {
         await this.stripInsightWithoutPermission(query, req);
@@ -178,6 +192,18 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], CustomersController.prototype, "checkDuplicates", null);
 __decorate([
+    (0, common_1.Put)('list-settings'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'customers', action: 'Update' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Cambiar el prefiltro de razón y sucursal del listado de clientes',
+    }),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [update_customer_list_settings_dto_1.UpdateCustomerListSettingsDto, Object]),
+    __metadata("design:returntype", void 0)
+], CustomersController.prototype, "updateListSettings", null);
+__decorate([
     (0, common_1.Put)(':id'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'customers', action: 'Update' }),
     (0, swagger_1.ApiOperation)({ summary: 'Update an existing customer' }),
@@ -250,6 +276,18 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], CustomersController.prototype, "getRegistrationOptions", null);
+__decorate([
+    (0, common_1.Get)('list-settings'),
+    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'customers', action: 'Read' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Quién entra a Clientes con su razón y sucursal seleccionadas',
+    }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'prefilter: off | sellers | everyone' }),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], CustomersController.prototype, "getListSettings", null);
 __decorate([
     (0, common_1.Get)('export/excel'),
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'customers', action: 'Read' }),
@@ -509,6 +547,7 @@ exports.CustomersController = CustomersController = __decorate([
         customer_product_insights_service_1.CustomerProductInsightsService,
         customer_groups_service_1.CustomerGroupsService,
         customer_price_list_service_1.CustomerPriceListService,
-        permission_service_1.PermissionService])
+        permission_service_1.PermissionService,
+        customer_list_settings_service_1.CustomerListSettingsService])
 ], CustomersController);
 //# sourceMappingURL=customers.controller.js.map

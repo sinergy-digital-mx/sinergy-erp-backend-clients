@@ -146,6 +146,8 @@ let CustomersExportService = class CustomersExportService {
             parts.push('Grupo filtrado');
         if (filters.registered_fiscal_configuration_id)
             parts.push('Razón social asignada');
+        if (filters.registered_billing_branch_id)
+            parts.push('Sucursal asignada');
         if ((0, customer_list_insight_util_1.isCustomerListInsight)(filters.insight)) {
             parts.push((0, customer_list_insight_util_1.customerInsightLabel)(filters.insight));
         }

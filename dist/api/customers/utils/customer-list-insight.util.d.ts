@@ -16,6 +16,7 @@ export interface CustomerDirectoryFilter {
     status_id?: number;
     group_id?: string;
     registered_fiscal_configuration_id?: string;
+    registered_billing_branch_id?: string;
     insight?: string;
 }
 export declare function applyCustomerDirectoryFilters(qb: SelectQueryBuilder<Customer>, query?: CustomerDirectoryFilter, options?: {

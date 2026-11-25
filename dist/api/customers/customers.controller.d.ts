@@ -13,6 +13,8 @@ import { CheckCustomerDuplicatesDto } from './dto/check-customer-duplicates.dto'
 import { UpsertCustomerCreditsDto } from './dto/upsert-customer-credit.dto';
 import { UpsertCustomerPriceListsDto } from './dto/upsert-customer-price-lists.dto';
 import { CustomerPriceListService } from './services/customer-price-list.service';
+import { CustomerListSettingsService } from './services/customer-list-settings.service';
+import { UpdateCustomerListSettingsDto } from './dto/update-customer-list-settings.dto';
 export declare class CustomersController {
     private readonly customersService;
     private readonly exportService;
@@ -20,7 +22,8 @@ export declare class CustomersController {
     private readonly customerGroupsService;
     private readonly customerPriceListService;
     private readonly permissionService;
-    constructor(customersService: CustomersService, exportService: CustomersExportService, productInsightsService: CustomerProductInsightsService, customerGroupsService: CustomerGroupsService, customerPriceListService: CustomerPriceListService, permissionService: PermissionService);
+    private readonly listSettings;
+    constructor(customersService: CustomersService, exportService: CustomersExportService, productInsightsService: CustomerProductInsightsService, customerGroupsService: CustomerGroupsService, customerPriceListService: CustomerPriceListService, permissionService: PermissionService, listSettings: CustomerListSettingsService);
     private stripInsightWithoutPermission;
     create(dto: CreateCustomerDto, req: any): Promise<{
         credit_enabled?: boolean;
@@ -71,6 +74,7 @@ export declare class CustomersController {
         found: boolean;
         matches: import("./customers.service").CustomerDuplicateMatch[];
     }>;
+    updateListSettings(dto: UpdateCustomerListSettingsDto, req: any): Promise<import("./utils/customer-list-settings.util").CustomerListSettings>;
     update(id: string, dto: UpdateCustomerDto, req: any): Promise<{
         assignment_history: import("../../common/utils/assignment-change.util").AssignmentHistoryRow[];
         credits: import("./utils/customer-credit.util").CustomerCreditFiscalSnapshot[];
@@ -133,6 +137,7 @@ export declare class CustomersController {
             pos_user_code: number | null;
         }[];
     }>;
+    getListSettings(req: any): Promise<import("./utils/customer-list-settings.util").CustomerListSettings>;
     exportExcel(query: QueryCustomersExportDto, req: any, res: any): Promise<void>;
     getListStats(query: QueryCustomersDto, req: any): Promise<import("./customers.service").CustomerListStats>;
     findAll(query: QueryCustomersDto, req: any): Promise<any>;

@@ -2403,6 +2403,28 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-25T00:23:51.652Z"
+    },
+    {
+        "releaseKey": "full:0.0.174:0.0.174-1795575835214",
+        "version": "0.0.174",
+        "buildId": "0.0.174-1795575835214",
+        "channel": "full",
+        "title": "Versión 0.0.174",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "En el modal de imprimir, el campo de copias queda compacto y el ícono del botón queda alineado.",
+                "module": "pos",
+                "moduleLabel": "POS Ventas"
+            },
+            {
+                "scope": "frontend",
+                "message": "El listado de clientes abre con la razón y sucursal del vendedor; se puede ver todas y configurarlo en Configuración.",
+                "module": "customers",
+                "moduleLabel": "Clientes"
+            }
+        ],
+        "releasedAt": "2026-11-25T03:03:55.214Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map

@@ -166,6 +166,7 @@ export class CustomersExportService {
     if (filters.status_id) parts.push(`Estatus ID: ${filters.status_id}`);
     if (filters.group_id) parts.push('Grupo filtrado');
     if (filters.registered_fiscal_configuration_id) parts.push('Razón social asignada');
+    if (filters.registered_billing_branch_id) parts.push('Sucursal asignada');
     if (isCustomerListInsight(filters.insight)) {
       parts.push(customerInsightLabel(filters.insight));
     }

@@ -38,6 +38,8 @@ import { CustomerProductInsightsService } from './services/customer-product-insi
 import { CustomerCreditService } from './services/customer-credit.service';
 import { CustomerPriceListService } from './services/customer-price-list.service';
 import { CustomerAssignmentService } from './services/customer-assignment.service';
+import { CustomerListSettingsService } from './services/customer-list-settings.service';
+import { CustomerListSettings } from '../../entities/customers/customer-list-settings.entity';
 import { ExchangeRateModule } from '../exchange-rate/exchange-rate.module';
 
 @Module({
@@ -65,6 +67,7 @@ import { ExchangeRateModule } from '../exchange-rate/exchange-rate.module';
             Quotation,
             AdvanceShiftPayment,
             Product,
+            CustomerListSettings,
         ]),
         RBACModule,
         ExchangeRateModule,
@@ -79,6 +82,7 @@ import { ExchangeRateModule } from '../exchange-rate/exchange-rate.module';
         CustomerCreditService,
         CustomerPriceListService,
         CustomerAssignmentService,
+        CustomerListSettingsService,
         S3Service,
     ],
     controllers: [

@@ -21,6 +21,7 @@ class QueryCustomersDto {
     status_id;
     group_id;
     registered_fiscal_configuration_id;
+    registered_billing_branch_id;
     insight;
 }
 exports.QueryCustomersDto = QueryCustomersDto;
@@ -92,6 +93,15 @@ __decorate([
     (0, class_validator_1.IsUUID)(),
     __metadata("design:type", String)
 ], QueryCustomersDto.prototype, "registered_fiscal_configuration_id", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Sucursal de registro asignada al cliente',
+        example: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], QueryCustomersDto.prototype, "registered_billing_branch_id", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
         description: 'Corte del resumen. Requiere el permiso ViewStats; si no, se ignora.',

@@ -1,5 +1,9 @@
 # UI — Tab Registro (razón, sucursal, vendedor asignado e historial)
 
+## 2026-11-24 — Listado
+
+El vendedor entra con su razón y sucursal de registro ya seleccionadas. Puede elegir todas. La regla se cambia en Configuración → Clientes. Ver `UI_CUSTOMER_LIST_SCOPE.md`.
+
 ## 2026-10-09 — Listado
 
 En **Clientes**, el filtro **Razón social** usa la razón de registro (`registered_fiscal_configuration_id`). El mismo filtro entra en el resumen y en el Excel.

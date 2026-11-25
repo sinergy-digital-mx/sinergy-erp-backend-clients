@@ -1854,6 +1854,26 @@
       "version": "0.0.172",
       "shippedAt": "2026-11-24T14:40:19-08:00",
       "module": "pos"
+    },
+    {
+      "id": "20261124-163901",
+      "at": "2026-11-24T16:39:01-08:00",
+      "scope": "frontend",
+      "message": "En el modal de imprimir, el campo de copias queda compacto y el ícono del botón queda alineado.",
+      "status": "shipped",
+      "version": "0.0.174",
+      "shippedAt": "2026-11-24T19:05:05-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261124-164432",
+      "at": "2026-11-24T16:44:32-08:00",
+      "scope": "both",
+      "message": "El listado de clientes abre con la razón y sucursal del vendedor; se puede ver todas y configurarlo en Configuración.",
+      "status": "shipped",
+      "version": "0.0.174",
+      "shippedAt": "2026-11-24T19:05:05-08:00",
+      "module": "customers"
     }
   ]
 }

@@ -4,6 +4,7 @@ Tarjetas arriba de la tabla de **Clientes**, antes del conteo de resultados.
 
 ## Cambios
 
+- 2026-11-24: El resumen también respeta `registered_billing_branch_id` cuando el listado trae sucursal.
 - 2026-11-02: Sigue igual. Inventario, órdenes de compra y órdenes de venta usan el mismo permiso `ViewStats` en su módulo.
 - 2026-10-09: Resumen y filtro por órdenes, datos fiscales, estatus y correo. Permiso `customers:ViewStats`.
 - 2026-10-09: El resumen también respeta `registered_fiscal_configuration_id` (razón social asignada).

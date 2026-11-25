@@ -46,6 +46,8 @@ const customer_product_insights_service_1 = require("./services/customer-product
 const customer_credit_service_1 = require("./services/customer-credit.service");
 const customer_price_list_service_1 = require("./services/customer-price-list.service");
 const customer_assignment_service_1 = require("./services/customer-assignment.service");
+const customer_list_settings_service_1 = require("./services/customer-list-settings.service");
+const customer_list_settings_entity_1 = require("../../entities/customers/customer-list-settings.entity");
 const exchange_rate_module_1 = require("../exchange-rate/exchange-rate.module");
 let CustomersModule = class CustomersModule {
 };
@@ -76,6 +78,7 @@ exports.CustomersModule = CustomersModule = __decorate([
                 quotation_entity_1.Quotation,
                 advance_shift_payment_entity_1.AdvanceShiftPayment,
                 product_entity_1.Product,
+                customer_list_settings_entity_1.CustomerListSettings,
             ]),
             rbac_module_1.RBACModule,
             exchange_rate_module_1.ExchangeRateModule,
@@ -90,6 +93,7 @@ exports.CustomersModule = CustomersModule = __decorate([
             customer_credit_service_1.CustomerCreditService,
             customer_price_list_service_1.CustomerPriceListService,
             customer_assignment_service_1.CustomerAssignmentService,
+            customer_list_settings_service_1.CustomerListSettingsService,
             s3_service_1.S3Service,
         ],
         controllers: [

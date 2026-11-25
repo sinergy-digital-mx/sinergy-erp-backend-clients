@@ -12,6 +12,7 @@ import {
     Query,
     Res,
     BadRequestException,
+    ForbiddenException,
     UseInterceptors,
     UploadedFile,
 } from '@nestjs/common';
@@ -38,6 +39,9 @@ import { CustomerPriceListService } from './services/customer-price-list.service
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionGuard } from '../rbac/guards/permission.guard';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator';
+import { CustomerListSettingsService } from './services/customer-list-settings.service';
+import { UpdateCustomerListSettingsDto } from './dto/update-customer-list-settings.dto';
+import { userHasJwtPermission } from '../rbac/utils/jwt-permission.util';
 
 @UseGuards(JwtAuthGuard, PermissionGuard)
 @Controller('tenant/customers')
@@ -51,6 +55,7 @@ export class CustomersController {
         private readonly customerGroupsService: CustomerGroupsService,
         private readonly customerPriceListService: CustomerPriceListService,
         private readonly permissionService: PermissionService,
+        private readonly listSettings: CustomerListSettingsService,
     ) { }
 
     private async stripInsightWithoutPermission(
@@ -102,6 +107,22 @@ export class CustomersController {
     @ApiResponse({ status: 200, description: 'Coincidencias encontradas (puede estar vacío)' })
     checkDuplicates(@Body() dto: CheckCustomerDuplicatesDto, @Req() req) {
         return this.customersService.findDuplicates(dto, req.user.tenantId);
+    }
+
+    @Put('list-settings')
+    @RequirePermissions({ entityType: 'customers', action: 'Update' })
+    @ApiOperation({
+        summary: 'Cambiar el prefiltro de razón y sucursal del listado de clientes',
+    })
+    updateListSettings(@Body() dto: UpdateCustomerListSettingsDto, @Req() req) {
+        if (!userHasJwtPermission(req.user, 'customers', 'Update')) {
+            throw new ForbiddenException('No puedes cambiar la configuración de clientes');
+        }
+        return this.listSettings.update(
+            req.user.tenant_id ?? req.user.tenantId,
+            req.user.id ?? req.user.user_id,
+            dto,
+        );
     }
 
     @Put(':id')
@@ -184,6 +205,16 @@ export class CustomersController {
         return this.customersService.getRegistrationOptions(
             req.user.tenant_id ?? req.user.tenantId,
         );
+    }
+
+    @Get('list-settings')
+    @RequirePermissions({ entityType: 'customers', action: 'Read' })
+    @ApiOperation({
+        summary: 'Quién entra a Clientes con su razón y sucursal seleccionadas',
+    })
+    @ApiResponse({ status: 200, description: 'prefilter: off | sellers | everyone' })
+    getListSettings(@Req() req) {
+        return this.listSettings.get(req.user.tenant_id ?? req.user.tenantId);
     }
 
     @Get('export/excel')

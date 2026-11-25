@@ -113,6 +113,11 @@ function applyCustomerDirectoryFilters(qb, query, options) {
             registered_fiscal_configuration_id: query.registered_fiscal_configuration_id,
         });
     }
+    if (query?.registered_billing_branch_id) {
+        qb.andWhere('customer.registered_billing_branch_id = :registered_billing_branch_id', {
+            registered_billing_branch_id: query.registered_billing_branch_id,
+        });
+    }
     if (options?.applyInsight !== false && isCustomerListInsight(query?.insight)) {
         qb.andWhere(customerInsightWhere(query.insight));
     }
