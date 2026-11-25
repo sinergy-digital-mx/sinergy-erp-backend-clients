@@ -2389,6 +2389,20 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-24T22:39:13.882Z"
+    },
+    {
+        "releaseKey": "full:0.0.173:0.0.173-1795566231652",
+        "version": "0.0.173",
+        "buildId": "0.0.173-1795566231652",
+        "channel": "full",
+        "title": "Versión 0.0.173",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "Actualización de la plataforma."
+            }
+        ],
+        "releasedAt": "2026-11-25T00:23:51.652Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map
