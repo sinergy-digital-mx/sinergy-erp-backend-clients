@@ -123,6 +123,7 @@ export declare class QuotationService {
             advance_uso_cfdi: string | null;
             advance_metodo_pago: "PUE" | "PPD" | null;
             advance_case: "unknown" | "products" | null;
+            advance_stamp_environment: "demo" | "production" | null;
             pos_stage: SalesOrderPosStage | null;
             pos_caja_opened_at: Date | null;
             pos_caja_opened_by: string | null;
@@ -208,6 +209,7 @@ export declare class QuotationService {
             advance_uso_cfdi: string | null;
             advance_metodo_pago: "PUE" | "PPD" | null;
             advance_case: "unknown" | "products" | null;
+            advance_stamp_environment: "demo" | "production" | null;
             pos_stage: SalesOrderPosStage | null;
             pos_caja_opened_at: Date | null;
             pos_caja_opened_by: string | null;
@@ -382,6 +384,7 @@ export declare class QuotationService {
             advance_uso_cfdi: string | null;
             advance_metodo_pago: "PUE" | "PPD" | null;
             advance_case: "unknown" | "products" | null;
+            advance_stamp_environment: "demo" | "production" | null;
             pos_stage: SalesOrderPosStage | null;
             pos_caja_opened_at: Date | null;
             pos_caja_opened_by: string | null;
@@ -620,6 +623,7 @@ export declare class QuotationService {
             advance_uso_cfdi: string | null;
             advance_metodo_pago: "PUE" | "PPD" | null;
             advance_case: "unknown" | "products" | null;
+            advance_stamp_environment: "demo" | "production" | null;
             pos_stage: SalesOrderPosStage | null;
             pos_caja_opened_at: Date | null;
             pos_caja_opened_by: string | null;
@@ -864,6 +868,7 @@ export declare class QuotationService {
                 advance_uso_cfdi: string | null;
                 advance_metodo_pago: "PUE" | "PPD" | null;
                 advance_case: "unknown" | "products" | null;
+                advance_stamp_environment: "demo" | "production" | null;
                 pos_stage: SalesOrderPosStage | null;
                 pos_caja_opened_at: Date | null;
                 pos_caja_opened_by: string | null;
@@ -993,6 +998,7 @@ export declare class QuotationService {
         usoCfdi?: string;
         metodoPago?: 'PUE' | 'PPD';
         advanceCase?: 'unknown' | 'products';
+        stampEnvironment?: 'demo' | 'production';
     }): Promise<Quotation>;
     private recomputeTotals;
     private resolveProductUom;

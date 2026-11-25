@@ -2271,6 +2271,8 @@ export class PosShiftsService {
       await this.quotationService.requestAdvanceFromPos(quotation.id, tenantId, advanceAmount, {
         usoCfdi: dto.advance_uso_cfdi ?? quotation.advance_uso_cfdi ?? undefined,
         metodoPago: dto.advance_metodo_pago ?? quotation.advance_metodo_pago ?? undefined,
+        stampEnvironment:
+          dto.advance_stamp_environment ?? quotation.advance_stamp_environment ?? undefined,
       });
     }
     else {

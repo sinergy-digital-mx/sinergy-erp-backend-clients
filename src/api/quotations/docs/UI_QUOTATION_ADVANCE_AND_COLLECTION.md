@@ -1,5 +1,9 @@
 # UI — Anticipo, cobro al convertir y reversas
 
+## 2026-11-25 — Demo o producción al cotizar
+
+En POS, Cotizar → Factura de anticipo tiene **Demo** y **Producción**. En localhost abre en Demo. Caja timbra el anticipo con el ambiente que se eligió ahí.
+
 ## 2026-11-25 — Textos del wizard
 
 En punto de venta el diálogo pregunta **Sin productos** o **Con productos**. El monto va con IVA y se envía a caja. Al regresar, **Generar venta** pide los productos.

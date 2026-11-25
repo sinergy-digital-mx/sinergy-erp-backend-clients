@@ -8,4 +8,5 @@ export declare class SendQuotationToCajaDto {
     advance_amount?: number;
     advance_uso_cfdi?: string;
     advance_metodo_pago?: 'PUE' | 'PPD';
+    advance_stamp_environment?: 'demo' | 'production';
 }

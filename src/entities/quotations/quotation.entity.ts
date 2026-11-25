@@ -131,6 +131,10 @@ export class Quotation {
   @Column({ type: 'varchar', length: 16, nullable: true })
   advance_case: 'unknown' | 'products' | null;
 
+  /** Ambiente Finkok del CFDI de anticipo. Lo elige ventas al cotizar; caja lo usa al timbrar. */
+  @Column({ type: 'varchar', length: 16, nullable: true })
+  advance_stamp_environment: 'demo' | 'production' | null;
+
   @Column({
     type: 'enum',
     enum: SalesOrderPosStage,

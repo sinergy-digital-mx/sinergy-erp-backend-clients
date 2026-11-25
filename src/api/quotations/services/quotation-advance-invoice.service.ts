@@ -222,6 +222,11 @@ export class QuotationAdvanceInvoiceService {
         uso_cfdi: quotation.advance_uso_cfdi || 'G01',
         metodo_pago: quotation.advance_metodo_pago || 'PUE',
         regimen_fiscal_receptor: regimen,
+        environment:
+          quotation.advance_stamp_environment === 'demo' ||
+          quotation.advance_stamp_environment === 'production'
+            ? quotation.advance_stamp_environment
+            : undefined,
       },
       {
         paymentMethod: dto.payment_method,

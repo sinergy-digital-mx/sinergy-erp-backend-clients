@@ -24,6 +24,7 @@ export declare class CreateQuotationDto {
     advance_uso_cfdi?: string;
     advance_metodo_pago?: 'PUE' | 'PPD';
     advance_case?: 'unknown' | 'products';
+    advance_stamp_environment?: 'demo' | 'production';
     advance_iva_percentage?: number;
     line_items: CreateQuotationLineItemDto[];
 }

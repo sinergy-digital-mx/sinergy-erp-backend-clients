@@ -88,6 +88,7 @@ class CreateQuotationDto {
     advance_uso_cfdi;
     advance_metodo_pago;
     advance_case;
+    advance_stamp_environment;
     advance_iva_percentage;
     line_items;
 }
@@ -202,6 +203,16 @@ __decorate([
     (0, class_validator_1.IsIn)(['unknown', 'products']),
     __metadata("design:type", String)
 ], CreateQuotationDto.prototype, "advance_case", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        enum: ['demo', 'production'],
+        description: 'Ambiente Finkok del anticipo. Solo con advance_amount. Si se omite, caja usa el ambiente activo.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['demo', 'production'], { message: 'El ambiente del anticipo debe ser demo o producción' }),
+    __metadata("design:type", String)
+], CreateQuotationDto.prototype, "advance_stamp_environment", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
         required: false,

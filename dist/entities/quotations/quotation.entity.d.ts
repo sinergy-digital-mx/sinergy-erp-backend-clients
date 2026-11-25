@@ -37,6 +37,7 @@ export declare class Quotation {
     advance_uso_cfdi: string | null;
     advance_metodo_pago: 'PUE' | 'PPD' | null;
     advance_case: 'unknown' | 'products' | null;
+    advance_stamp_environment: 'demo' | 'production' | null;
     pos_stage: SalesOrderPosStage | null;
     pos_caja_opened_at: Date | null;
     pos_caja_opened_by: string | null;

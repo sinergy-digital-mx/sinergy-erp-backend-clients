@@ -2094,6 +2094,16 @@
       "version": "0.0.183",
       "shippedAt": "2026-11-25T11:27:24-08:00",
       "module": "quotations"
+    },
+    {
+      "id": "20261125-115930",
+      "at": "2026-11-25T11:59:30-08:00",
+      "scope": "both",
+      "message": "Al cotizar con factura de anticipo se elige Demo o Producción, y caja timbra con ese ambiente.",
+      "status": "shipped",
+      "version": "0.0.184",
+      "shippedAt": "2026-11-25T12:01:01-08:00",
+      "module": "quotations"
     }
   ]
 }

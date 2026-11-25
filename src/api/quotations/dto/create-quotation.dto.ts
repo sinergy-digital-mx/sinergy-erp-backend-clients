@@ -168,6 +168,16 @@ export class CreateQuotationDto {
 
   @ApiProperty({
     required: false,
+    enum: ['demo', 'production'],
+    description:
+      'Ambiente Finkok del anticipo. Solo con advance_amount. Si se omite, caja usa el ambiente activo.',
+  })
+  @IsOptional()
+  @IsIn(['demo', 'production'], { message: 'El ambiente del anticipo debe ser demo o producción' })
+  advance_stamp_environment?: 'demo' | 'production';
+
+  @ApiProperty({
+    required: false,
     description: 'IVA del anticipo cuando la cotización no trae productos (0, 8 o 16).',
   })
   @IsOptional()

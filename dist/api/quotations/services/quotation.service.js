@@ -152,6 +152,7 @@ let QuotationService = class QuotationService {
                     usoCfdi: dto.advance_uso_cfdi || 'G01',
                     metodoPago: dto.advance_metodo_pago || 'PUE',
                     advanceCase: advanceCase ?? undefined,
+                    stampEnvironment: dto.advance_stamp_environment,
                 });
             }
             await qr.commitTransaction();
@@ -877,6 +878,9 @@ let QuotationService = class QuotationService {
         quotation.advance_metodo_pago = cfdi.metodoPago ?? 'PUE';
         if (cfdi.advanceCase) {
             quotation.advance_case = cfdi.advanceCase;
+        }
+        if (cfdi.stampEnvironment === 'demo' || cfdi.stampEnvironment === 'production') {
+            quotation.advance_stamp_environment = cfdi.stampEnvironment;
         }
         quotation.pos_stage = sales_order_pos_stage_enum_1.SalesOrderPosStage.Caja;
         await qr.manager.save(quotation_entity_1.Quotation, quotation);

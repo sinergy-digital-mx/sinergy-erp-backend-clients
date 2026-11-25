@@ -50,6 +50,7 @@ let Quotation = class Quotation {
     advance_uso_cfdi;
     advance_metodo_pago;
     advance_case;
+    advance_stamp_environment;
     pos_stage;
     pos_caja_opened_at;
     pos_caja_opened_by;
@@ -198,6 +199,10 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 16, nullable: true }),
     __metadata("design:type", Object)
 ], Quotation.prototype, "advance_case", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 16, nullable: true }),
+    __metadata("design:type", Object)
+], Quotation.prototype, "advance_stamp_environment", void 0);
 __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',

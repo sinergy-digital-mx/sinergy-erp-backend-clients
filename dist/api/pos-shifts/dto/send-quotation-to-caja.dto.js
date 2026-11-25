@@ -23,6 +23,7 @@ class SendQuotationToCajaDto {
     advance_amount;
     advance_uso_cfdi;
     advance_metodo_pago;
+    advance_stamp_environment;
 }
 exports.SendQuotationToCajaDto = SendQuotationToCajaDto;
 __decorate([
@@ -81,4 +82,9 @@ __decorate([
     (0, class_validator_1.IsIn)(['PUE', 'PPD']),
     __metadata("design:type", String)
 ], SendQuotationToCajaDto.prototype, "advance_metodo_pago", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['demo', 'production'], { message: 'El ambiente del anticipo debe ser demo o producción' }),
+    __metadata("design:type", String)
+], SendQuotationToCajaDto.prototype, "advance_stamp_environment", void 0);
 //# sourceMappingURL=send-quotation-to-caja.dto.js.map

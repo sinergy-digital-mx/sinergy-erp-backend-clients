@@ -2653,5 +2653,21 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-11-25T19:26:30.231Z"
+  },
+  {
+    "releaseKey": "full:0.0.184:0.0.184-1795636802623",
+    "version": "0.0.184",
+    "buildId": "0.0.184-1795636802623",
+    "channel": "full",
+    "title": "Versión 0.0.184",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "Al cotizar con factura de anticipo se elige Demo o Producción, y caja timbra con ese ambiente.",
+        "module": "quotations",
+        "moduleLabel": "Cotizaciones"
+      }
+    ],
+    "releasedAt": "2026-11-25T20:00:02.623Z"
   }
 ];

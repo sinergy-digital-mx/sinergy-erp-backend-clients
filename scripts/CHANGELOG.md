@@ -12,6 +12,10 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.184 · 25 nov
+
+- Cotizaciones · Al cotizar con factura de anticipo se elige Demo o Producción, y caja timbra con ese ambiente.
+
 #### Versión 0.0.183 · 25 nov
 
 - Cotizaciones · El anticipo en punto de venta pregunta sin productos o con productos, con el mismo estilo de los otros diálogos.

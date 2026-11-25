@@ -210,6 +210,7 @@ export class QuotationService {
           usoCfdi: dto.advance_uso_cfdi || 'G01',
           metodoPago: dto.advance_metodo_pago || 'PUE',
           advanceCase: advanceCase ?? undefined,
+          stampEnvironment: dto.advance_stamp_environment,
         });
       }
       await qr.commitTransaction();
@@ -1274,6 +1275,7 @@ export class QuotationService {
       usoCfdi?: string;
       metodoPago?: 'PUE' | 'PPD';
       advanceCase?: 'unknown' | 'products';
+      stampEnvironment?: 'demo' | 'production';
     } = {},
   ): Promise<void> {
     const usoCfdi = cfdi.usoCfdi?.trim().toUpperCase() || null;
@@ -1318,6 +1320,9 @@ export class QuotationService {
     if (cfdi.advanceCase) {
       quotation.advance_case = cfdi.advanceCase;
     }
+    if (cfdi.stampEnvironment === 'demo' || cfdi.stampEnvironment === 'production') {
+      quotation.advance_stamp_environment = cfdi.stampEnvironment;
+    }
     quotation.pos_stage = SalesOrderPosStage.Caja;
     await qr.manager.save(Quotation, quotation);
   }
@@ -1330,6 +1335,7 @@ export class QuotationService {
       usoCfdi?: string;
       metodoPago?: 'PUE' | 'PPD';
       advanceCase?: 'unknown' | 'products';
+      stampEnvironment?: 'demo' | 'production';
     } = {},
   ): Promise<Quotation> {
     const qr = this.dataSource.createQueryRunner();
