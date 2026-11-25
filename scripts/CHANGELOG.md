@@ -12,6 +12,10 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.175 · 24 nov
+
+- POS Ventas · En POS, la barra muestra Corte abierto y el nombre de la terminal sale al pasar el cursor.
+
 #### Versión 0.0.174 · 24 nov
 
 - POS Ventas · En el modal de imprimir, el campo de copias queda compacto y el ícono del botón queda alineado.

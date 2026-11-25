@@ -8,11 +8,13 @@
 
 **2026-11-23 — sucursal en la barra.** En Ventas y Caja, **Sucursal** muestra solo el nombre (Buenos Aires), sin la ciudad. El modal de cambio sigue con nombre y ciudad. El filtro de existencia del catálogo, cerrado, muestra solo el nombre; al abrirlo la lista sigue con nombre y ciudad.
 
+**2026-11-24 — corte y terminal en la barra POS.** En Ventas y en Caja la barra muestra **Corte abierto** (o cerrado, atrasado, en cola). El nombre de la terminal sale al pasar el cursor. Ya no hay un bloque aparte de Terminal.
+
 **2026-11-23 — impresión al cobrar en POS Caja.** Al confirmar el cobro se abre un modal con el ticket (copias, default 2) y, si se timbró factura, un tab **PDF factura** (copias default 2, editables). Cerrar anima el contador de **Órdenes cobradas**. El anticipo responde `invoice_id` para imprimir ese PDF. La impresora del PDF es distinta de la térmica.
 
 **2026-11-23 — descuento de precio en POS Ventas.** En el carrito, el permiso `POS:ApplyPriceDiscount` muestra un ícono de porcentaje junto a la cantidad. Al pulsarlo salen 5%, 3% y un campo corto para otro porcentaje, del mismo alto que el stepper. Baja el precio de la línea y se guarda en `line_items[].discount_percentage`. No usa `product_discount_id` ni el descuento global. Sin permiso, crear o cambiar ese porcentaje responde 403. Reenviar el mismo porcentaje ya guardado sí se permite. El ticket imprime `DESC. PRECIO 5%` y el total `Desc. en precio`.
 
-**2026-11-23 — avisos de corte y tickets en POS Ventas.** En la pantalla de ventas no hay franjas bajo la barra. El estado del corte (Abierto, Atrasado, En cola) y el conteo de tickets regresados viven en la barra superior, en **Corte** y **Tickets**. El texto completo sale al pasar el cursor.
+**2026-11-23 — avisos de corte y tickets en POS Ventas.** En la pantalla de ventas no hay franjas bajo la barra. El corte y el conteo de tickets regresados viven en la barra superior. El texto del corte sale al pasar el cursor, junto con el nombre de la terminal.
 
 **2026-11-12 — prueba en verdulería.** Sucursal TIJ-1, rol Punto de Venta (mismos permisos que madería). Terminal ventas `ventas.prueba@verduleria.com`, terminal caja `caja.prueba@verduleria.com`, contraseña `123`. En ventas se teclea el código `1001` (Vendedor Prueba, no inicia sesión como terminal). Rodolfo Pruebas sigue como gerente `AMBOS` con código `1425`. Seed: `src/database/seeds/seed-verduleria-pos.ts`.
 

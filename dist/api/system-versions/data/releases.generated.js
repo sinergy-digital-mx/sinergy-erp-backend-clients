@@ -2425,6 +2425,22 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-25T03:03:55.214Z"
+    },
+    {
+        "releaseKey": "full:0.0.175:0.0.175-1795577124602",
+        "version": "0.0.175",
+        "buildId": "0.0.175-1795577124602",
+        "channel": "full",
+        "title": "Versión 0.0.175",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "En POS, la barra muestra Corte abierto y el nombre de la terminal sale al pasar el cursor.",
+                "module": "pos",
+                "moduleLabel": "POS Ventas"
+            }
+        ],
+        "releasedAt": "2026-11-25T03:25:24.602Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map

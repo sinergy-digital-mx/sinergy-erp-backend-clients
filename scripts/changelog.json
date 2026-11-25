@@ -1874,6 +1874,16 @@
       "version": "0.0.174",
       "shippedAt": "2026-11-24T19:05:05-08:00",
       "module": "customers"
+    },
+    {
+      "id": "20261124-190641",
+      "at": "2026-11-24T19:06:41-08:00",
+      "scope": "frontend",
+      "message": "En POS, la barra muestra Corte abierto y el nombre de la terminal sale al pasar el cursor.",
+      "status": "shipped",
+      "version": "0.0.175",
+      "shippedAt": "2026-11-24T19:26:32-08:00",
+      "module": "pos"
     }
   ]
 }
