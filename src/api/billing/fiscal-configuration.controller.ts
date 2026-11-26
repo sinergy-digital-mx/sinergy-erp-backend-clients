@@ -48,6 +48,10 @@ export const FISCAL_LOOKUP_PERMISSIONS: RequiredPermission[] = [
   { entityType: 'sales_orders', action: 'Read' },
   { entityType: 'DivinoReservationFormat', action: 'Read' },
   { entityType: 'DivinoReservationFormat', action: 'Create' },
+  { entityType: 'Truck', action: 'Read' },
+  { entityType: 'Truck', action: 'Create' },
+  { entityType: 'Truck', action: 'Update' },
+  { entityType: 'Transfer', action: 'Read' },
 ];
 
 @UseGuards(JwtAuthGuard, PermissionGuard)

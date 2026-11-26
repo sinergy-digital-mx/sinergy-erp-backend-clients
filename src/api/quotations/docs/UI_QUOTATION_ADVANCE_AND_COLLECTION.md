@@ -1,5 +1,9 @@
 # UI — Anticipo, cobro al convertir y reversas
 
+## 2026-11-25 — El anticipo se cobra en caja
+
+Al guardar la cotización con anticipo no se timbra. La cotización entra a POS Caja, también si ya se abrió la venta de los productos. Caja cobra ese anticipo y el dinero entra al corte abierto. La venta no se cobra en ese momento: la diferencia y la factura final salen después, sobre la venta.
+
 ## 2026-11-25 — Folios, no Tickets
 
 El vendedor sigue el anticipo en **Folios**. Abre en cotizaciones con anticipo. Busca el folio, pulsa Continuar y elige el carrito. Arriba del carrito queda la cotización, el anticipo cobrado y si caja cobra diferencia o hay que agregar producto. Copiar una orden es otra búsqueda, aparte. El botón Tickets ya no está.
@@ -10,7 +14,7 @@ La ventana es más ancha y la cabecera ocupa la mitad. Cliente (o Público en Ge
 
 ## 2026-11-25 — Cotizar, tickets y carrito
 
-El anticipo solo se activa en **Cotizar** (Factura de anticipo, forma de pago, Demo o Producción). Ahí se timbra el CFDI con el concepto Anticipo del bien o servicio.
+El anticipo solo se activa en **Cotizar** (Factura de anticipo, forma de pago, Demo o Producción). El CFDI se timbra al cobrar en caja, con el concepto Anticipo del bien o servicio.
 
 Sin productos: queda la cotización. Con productos: se timbra el mismo concepto y se abre la venta con esos productos. Si hay existencia se aparta por FIFO; si no, la línea queda pendiente.
 

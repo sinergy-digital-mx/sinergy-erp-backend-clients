@@ -74,7 +74,6 @@ import {
   ADVANCE_SAT_CLAVE,
 } from '../../electronic-invoicing/utils/advance-cfdi.util';
 import { inferReceptorRegimen } from '../../electronic-invoicing/utils/cfdi-regimen-person.util';
-import { paymentMethodFromFormaPago } from '../../pos-shifts/utils/advance-payment-method.util';
 import { CloseAdvanceQuotationDto } from '../dto/close-advance-quotation.dto';
 import { StartAdvanceQuotationDto } from '../dto/start-advance-quotation.dto';
 import { CreateSalesOrderDto } from '../../sales-orders/dto/create-sales-order.dto';
@@ -224,18 +223,20 @@ export class QuotationService {
       });
 
       if (dto.advance_amount != null) {
-        await this.stampCreatedAdvance(saved.id, tenantId, userId, dto);
+        const branchId = saved.billing_branch_id ?? location.billingBranchId ?? null;
+        this.posShiftsService.notifyCajaArrived({
+          tenantId,
+          branchId,
+          id: saved.id,
+          kind: 'advance',
+          folio: saved.folio,
+        });
         if (advanceCase === 'products') {
           await this.convert(
             saved.id,
             { send_to_pos_caja: true, hold_available: true },
             tenantId,
             userId,
-          );
-        } else {
-          await this.quotationRepo.update(
-            { id: saved.id, tenant_id: tenantId },
-            { pos_stage: SalesOrderPosStage.Ventas },
           );
         }
       }
@@ -1777,7 +1778,15 @@ export class QuotationService {
     } finally {
       await qr.release();
     }
-    return this.findOne(id, tenantId, access);
+    const created = await this.findOne(id, tenantId, access);
+    this.posShiftsService.notifyCajaArrived({
+      tenantId,
+      branchId: created.billing_branch_id,
+      id: created.id,
+      kind: 'advance',
+      folio: created.folio,
+    });
+    return created;
   }
 
   async completeReturn(
@@ -1792,52 +1801,6 @@ export class QuotationService {
       return this.completeConvertedAdvance(quotation, dto, tenantId, userId);
     }
     return this.closeAdvance(id, dto, tenantId, userId, access);
-  }
-
-  private async stampCreatedAdvance(
-    id: string,
-    tenantId: string,
-    userId: string,
-    dto: CreateQuotationDto,
-  ): Promise<void> {
-    const quotation = await this.findOne(id, tenantId);
-    const iva = [0, 8, 16].includes(Number(dto.advance_iva_percentage))
-      ? Number(dto.advance_iva_percentage)
-      : 8;
-    const gross = Number(dto.advance_amount || 0);
-    const base = iva > 0 ? Number((gross / (1 + iva / 100)).toFixed(2)) : gross;
-    const tax = Number((base * (iva / 100)).toFixed(2));
-    const total = Number((base + tax).toFixed(2));
-    const forma = dto.advance_forma_pago || '03';
-    const paymentMethod = paymentMethodFromFormaPago(forma);
-    if (!paymentMethod) {
-      throw new BadRequestException('La forma de pago del anticipo no es válida');
-    }
-    const regimen = inferReceptorRegimen(
-      quotation.customer?.fiscal_rfc,
-      quotation.customer?.fiscal_person_type,
-    );
-    await this.advanceInvoices.stamp(
-      id,
-      tenantId,
-      userId,
-      {
-        base_amount: base,
-        iva_percentage: iva,
-        forma_pago: forma,
-        uso_cfdi: dto.advance_uso_cfdi || 'G01',
-        metodo_pago: dto.advance_metodo_pago || 'PUE',
-        regimen_fiscal_receptor: regimen,
-        environment: dto.advance_stamp_environment,
-      },
-      {
-        paymentMethod,
-        amountCashMxn: forma === '01' ? total : 0,
-        amountCheckMxn: forma === '02' ? total : 0,
-        amountTransferMxn: forma === '03' ? total : 0,
-        amountCardMxn: forma === '04' || forma === '28' ? total : 0,
-      },
-    );
   }
 
   private async completeConvertedAdvance(

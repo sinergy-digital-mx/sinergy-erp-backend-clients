@@ -273,6 +273,15 @@ export class CollectPosSaleDto {
 
   @ApiProperty({
     required: false,
+    enum: ['demo', 'production'],
+    description: 'Ambiente Finkok al timbrar. Si se omite, el cobro de anticipo usa demo.',
+  })
+  @IsOptional()
+  @IsIn(['demo', 'production'])
+  stamp_environment?: 'demo' | 'production';
+
+  @ApiProperty({
+    required: false,
     enum: ['MXN', 'USD'],
     default: 'MXN',
     description:

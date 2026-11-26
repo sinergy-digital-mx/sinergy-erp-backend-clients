@@ -18,6 +18,7 @@ export declare class InventoryTransferPdfService {
     private buildNotes;
     private buildFooterNote;
     private metaCell;
+    private branchName;
     private warehouseTitle;
     private warehouseDetails;
     private isUuid;

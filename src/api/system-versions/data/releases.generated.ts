@@ -2843,5 +2843,45 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-11-25T23:17:16.699Z"
+  },
+  {
+    "releaseKey": "full:0.0.194:0.0.194-1795674345483",
+    "version": "0.0.194",
+    "buildId": "0.0.194-1795674345483",
+    "channel": "full",
+    "title": "Versión 0.0.194",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "En POS Caja el anticipo se cobra en el corte, con carta distinta a la venta, y el timbrado abre en demo. Quien ve POS puede regresarlo a ventas. El cliente sigue en el carrito y el buscador se mueve con las flechas.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "backend",
+        "message": "La cotización de anticipo entra a caja para cobrarse, aunque ya tenga la venta de los productos.",
+        "module": "quotations",
+        "moduleLabel": "Cotizaciones"
+      },
+      {
+        "scope": "frontend",
+        "message": "En caja el folio va en una barra con anticipo y saldo a favor, el cobro queda más compacto con fecha legible y los recibos se filtran por anticipo, venta y vendedor.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "Los camiones guardan sucursal por defecto y el listado prefiltra las del usuario sin bloquear otras. Los envíos de transferencia muestran sucursal origen y destino.",
+        "module": "logistics",
+        "moduleLabel": "Logística"
+      },
+      {
+        "scope": "frontend",
+        "message": "Transferencias quedó como módulo del menú principal, con listado compacto y PDF que encabeza sucursal origen hacia sucursal destino.",
+        "module": "inventory",
+        "moduleLabel": "Inventario"
+      }
+    ],
+    "releasedAt": "2026-11-26T06:25:45.483Z"
   }
 ];

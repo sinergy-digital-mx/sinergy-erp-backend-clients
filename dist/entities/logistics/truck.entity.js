@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Truck = void 0;
 const typeorm_1 = require("typeorm");
 const tenant_entity_1 = require("../rbac/tenant.entity");
+const billing_branch_entity_1 = require("../billing/billing-branch.entity");
 let Truck = class Truck {
     id;
     tenant;
@@ -33,6 +34,8 @@ let Truck = class Truck {
     gps_unit_uid;
     gps_unit_name;
     status;
+    default_billing_branch_id;
+    default_billing_branch;
     created_at;
     updated_at;
 };
@@ -123,6 +126,15 @@ __decorate([
     __metadata("design:type", String)
 ], Truck.prototype, "status", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 36, nullable: true }),
+    __metadata("design:type", Object)
+], Truck.prototype, "default_billing_branch_id", void 0);
+__decorate([
+    (0, typeorm_1.ManyToOne)(() => billing_branch_entity_1.BillingBranch, { nullable: true, onDelete: 'SET NULL' }),
+    (0, typeorm_1.JoinColumn)({ name: 'default_billing_branch_id' }),
+    __metadata("design:type", Object)
+], Truck.prototype, "default_billing_branch", void 0);
+__decorate([
     (0, typeorm_1.CreateDateColumn)({ type: 'timestamp' }),
     __metadata("design:type", Date)
 ], Truck.prototype, "created_at", void 0);
@@ -134,6 +146,7 @@ exports.Truck = Truck = __decorate([
     (0, typeorm_1.Entity)('trucks'),
     (0, typeorm_1.Index)('idx_trucks_tenant', ['tenant_id']),
     (0, typeorm_1.Index)('idx_trucks_status', ['status']),
+    (0, typeorm_1.Index)('idx_trucks_default_branch', ['default_billing_branch_id']),
     (0, typeorm_1.Index)('uq_trucks_tenant_placa', ['tenant_id', 'placa'], { unique: true }),
     (0, typeorm_1.Index)('uq_trucks_tenant_gps_unit', ['tenant_id', 'gps_unit_uid'], { unique: true })
 ], Truck);

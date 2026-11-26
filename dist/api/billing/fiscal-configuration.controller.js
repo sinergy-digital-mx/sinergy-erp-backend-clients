@@ -32,6 +32,10 @@ exports.FISCAL_LOOKUP_PERMISSIONS = [
     { entityType: 'sales_orders', action: 'Read' },
     { entityType: 'DivinoReservationFormat', action: 'Read' },
     { entityType: 'DivinoReservationFormat', action: 'Create' },
+    { entityType: 'Truck', action: 'Read' },
+    { entityType: 'Truck', action: 'Create' },
+    { entityType: 'Truck', action: 'Update' },
+    { entityType: 'Transfer', action: 'Read' },
 ];
 let FiscalConfigurationController = class FiscalConfigurationController {
     service;

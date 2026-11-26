@@ -1,5 +1,9 @@
 # Flujo POS — Guía para UI
 
+**2026-11-25 — Caja compacta.** En Ventas el folio del carrito es una barra: tipo, folio, anticipo y saldo a favor o por cobrar. En Caja el cobro abre con Volver, folio y fecha (3 nov 26). El cliente elegido se reduce a una barra con Editar. Falta y cambio van en una tabla MXN / USD. Los recibos filtran Todos, Solo anticipos y Solo ventas, y el vendedor sale de las cartas cargadas. Cada recibo puede regresarse a ventas.
+
+**2026-11-25 — Anticipo en caja.** La cotización con anticipo llega a POS Caja para cobrarse en el corte abierto. La carta de anticipo se distingue de la de venta. En el caso con productos se cobra el anticipo de la cotización; la diferencia y la factura final quedan en la venta. El timbrado abre en demo. Quien puede ver POS puede regresar el folio a ventas.
+
 **2026-11-25 — Anticipo en Folios.** Cada cotización muestra Anticipo y si ya tiene venta (folio de la orden, o Sin venta). Al continuar, el carrito usa el precio de cada línea. Arriba del carrito queda una sola línea con el folio, el anticipo, lo que sobra o lo que caja cobra, y los accesos PDF Anticipo, Cotización y Orden. La cabecera del carrito queda a la misma altura que Folios y En caja.
 
 **2026-11-25 — Folios es el anticipo.** En POS Ventas ya no hay botón de Tickets. Folios abre en Anticipos: cotizaciones con anticipo. Al continuar se elige C1, C2 o C3 y arriba del carrito queda el folio, el anticipo cobrado y lo que caja cobra o lo que sobra. Copiar orden es aparte: busca un folio o un cliente y copia la venta. En caja, Información abre la orden a todo lo ancho, con la lista de productos scrolleable.

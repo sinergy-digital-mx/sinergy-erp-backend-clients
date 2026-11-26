@@ -62,7 +62,7 @@ let InventoryTransferController = class InventoryTransferController {
 exports.InventoryTransferController = InventoryTransferController;
 __decorate([
     (0, common_1.Get)('context'),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Inventory', action: 'Transfer' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'Inventory', action: 'Transfer' }, { entityType: 'Transfer', action: 'Create' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Contexto para modal de transferencia',
         description: 'Lotes disponibles, origen (razón social + sucursal + almacén) y árbol destino en cascada. Requiere Inventory:Transfer.',
@@ -76,7 +76,7 @@ __decorate([
 ], InventoryTransferController.prototype, "getContext", null);
 __decorate([
     (0, common_1.Get)(),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Inventory', action: 'Read' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'Inventory', action: 'Read' }, { entityType: 'Transfer', action: 'Read' }),
     (0, swagger_1.ApiOperation)({ summary: 'Listar transferencias de inventario' }),
     (0, swagger_1.ApiResponse)({ status: 200, type: inventory_transfer_response_dto_1.InventoryTransferListResponseDto }),
     __param(0, (0, common_1.Query)()),
@@ -87,7 +87,7 @@ __decorate([
 ], InventoryTransferController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)(':id/pdf'),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Inventory', action: 'Read' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'Inventory', action: 'Read' }, { entityType: 'Transfer', action: 'Read' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Descargar PDF de transferencia',
         description: 'Comprobante PDF con folio, usuario, fecha, ruta origen→destino, producto y líneas de lotes',
@@ -104,7 +104,7 @@ __decorate([
 ], InventoryTransferController.prototype, "downloadPdf", null);
 __decorate([
     (0, common_1.Get)(':id'),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Inventory', action: 'Read' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'Inventory', action: 'Read' }, { entityType: 'Transfer', action: 'Read' }),
     (0, swagger_1.ApiOperation)({ summary: 'Detalle de una transferencia' }),
     (0, swagger_1.ApiParam)({ name: 'id', type: String }),
     (0, swagger_1.ApiResponse)({ status: 200, type: inventory_transfer_response_dto_1.InventoryTransferResponseDto }),
@@ -117,7 +117,7 @@ __decorate([
 __decorate([
     (0, common_1.Post)(),
     (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Inventory', action: 'Transfer' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'Inventory', action: 'Transfer' }, { entityType: 'Transfer', action: 'Create' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Crear transferencia de inventario',
         description: 'Aparta la cantidad en el almacén origen y deja la transferencia pendiente. El destino la recibe después del envío. Requiere Inventory:Transfer.',
@@ -131,7 +131,7 @@ __decorate([
 ], InventoryTransferController.prototype, "create", null);
 __decorate([
     (0, common_1.Post)(':id/receive'),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Inventory', action: 'Transfer' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'Inventory', action: 'Transfer' }, { entityType: 'Transfer', action: 'Update' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Recibir transferencia',
         description: 'El almacén destino cuenta cada línea. Si la cantidad difiere, la transferencia queda recibida con diferencia.',
@@ -145,7 +145,7 @@ __decorate([
 ], InventoryTransferController.prototype, "receive", null);
 __decorate([
     (0, common_1.Post)(':id/cancel'),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'Inventory', action: 'Transfer' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'Inventory', action: 'Transfer' }, { entityType: 'Transfer', action: 'Update' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Cancelar transferencia pendiente',
         description: 'Devuelve el stock al almacén origen. No aplica si ya tiene envío.',

@@ -12,6 +12,7 @@ export declare class CreateTruckDto {
     peso_bruto_vehicular?: number;
     subtipo_remolque1?: string;
     placa_remolque1?: string;
+    default_billing_branch_id?: string | null;
     status?: string;
     gps_unit_uid?: string | null;
     gps_unit_name?: string | null;

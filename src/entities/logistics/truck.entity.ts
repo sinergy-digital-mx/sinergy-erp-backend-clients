@@ -9,10 +9,12 @@ import {
   Index,
 } from 'typeorm';
 import { RBACTenant } from '../rbac/tenant.entity';
+import { BillingBranch } from '../billing/billing-branch.entity';
 
 @Entity('trucks')
 @Index('idx_trucks_tenant', ['tenant_id'])
 @Index('idx_trucks_status', ['status'])
+@Index('idx_trucks_default_branch', ['default_billing_branch_id'])
 @Index('uq_trucks_tenant_placa', ['tenant_id', 'placa'], { unique: true })
 @Index('uq_trucks_tenant_gps_unit', ['tenant_id', 'gps_unit_uid'], { unique: true })
 export class Truck {
@@ -82,6 +84,14 @@ export class Truck {
     default: 'active',
   })
   status: string;
+
+  /** Sucursal con la que se lista el camión. Otra sucursal puede usarlo. */
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  default_billing_branch_id: string | null;
+
+  @ManyToOne(() => BillingBranch, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'default_billing_branch_id' })
+  default_billing_branch?: BillingBranch | null;
 
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;

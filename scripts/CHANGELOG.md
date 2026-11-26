@@ -12,6 +12,14 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.194 · 25 nov
+
+- POS Ventas · En POS Caja el anticipo se cobra en el corte, con carta distinta a la venta, y el timbrado abre en demo. Quien ve POS puede regresarlo a ventas. El cliente sigue en el carrito y el buscador se mueve con las flechas.
+- Cotizaciones · La cotización de anticipo entra a caja para cobrarse, aunque ya tenga la venta de los productos.
+- POS Ventas · En caja el folio va en una barra con anticipo y saldo a favor, el cobro queda más compacto con fecha legible y los recibos se filtran por anticipo, venta y vendedor.
+- Logística · Los camiones guardan sucursal por defecto y el listado prefiltra las del usuario sin bloquear otras. Los envíos de transferencia muestran sucursal origen y destino.
+- Inventario · Transferencias quedó como módulo del menú principal, con listado compacto y PDF que encabeza sucursal origen hacia sucursal destino.
+
 #### Versión 0.0.193 · 25 nov
 
 - Órdenes de compra · En el PDF de la orden, el SKU sale chico debajo del producto y arriba de la unidad.

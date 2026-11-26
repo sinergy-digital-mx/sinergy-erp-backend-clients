@@ -572,9 +572,10 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 .leftJoinAndSelect('q_line.product', 'q_line_product')
                 .leftJoinAndSelect('q_line.product_uom', 'q_line_pu')
                 .leftJoinAndSelect('q_line_pu.uom', 'q_line_uom')
+                .leftJoin('q.warehouse', 'q_warehouse')
                 .where('q.tenant_id = :tenantId', { tenantId })
-                .andWhere('q.billing_branch_id = :billingBranchId', { billingBranchId })
-                .andWhere('q.general_status = :status', { status: 'Creada' })
+                .andWhere('(q.billing_branch_id = :billingBranchId OR q_warehouse.billing_branch_id = :billingBranchId)', { billingBranchId })
+                .andWhere('q.general_status IN (:...statuses)', { statuses: ['Creada', 'Convertida'] })
                 .andWhere('q.advance_requested_total > 0')
                 .andWhere('(q.pos_stage IS NULL OR q.pos_stage = :posStage)', {
                 posStage: sales_order_pos_stage_enum_1.SalesOrderPosStage.Caja,

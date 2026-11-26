@@ -147,7 +147,7 @@ export class QuotationAdvanceInvoiceService {
         'Esta cotización no tiene un anticipo por cobrar',
       );
     }
-    if (quotation.general_status !== 'Creada') {
+    if (!this.advanceIsStillPayable(quotation.general_status)) {
       throw new BadRequestException(
         'La cotización ya no está pendiente de anticipo',
       );
@@ -224,10 +224,9 @@ export class QuotationAdvanceInvoiceService {
         metodo_pago: quotation.advance_metodo_pago || 'PUE',
         regimen_fiscal_receptor: regimen,
         environment:
-          quotation.advance_stamp_environment === 'demo' ||
-          quotation.advance_stamp_environment === 'production'
-            ? quotation.advance_stamp_environment
-            : undefined,
+          dto.stamp_environment === 'demo' || dto.stamp_environment === 'production'
+            ? dto.stamp_environment
+            : 'demo',
       },
       {
         paymentMethod: dto.payment_method,
@@ -280,10 +279,18 @@ export class QuotationAdvanceInvoiceService {
         'Esta razón social no tiene activada la factura de anticipo',
       );
     }
-    if (quotation.general_status !== 'Creada') {
+    if (!this.advanceIsStillPayable(quotation.general_status)) {
       throw new BadRequestException(
-        'Solo se factura anticipo de una cotización en estado Creada',
+        'Solo se factura anticipo de una cotización pendiente de cobro',
       );
+    }
+    const alreadyStamped = await this.advanceCfdi.findVigenteAdvance(
+      tenantId,
+      'quotations',
+      quotation.id,
+    );
+    if (alreadyStamped) {
+      throw new BadRequestException('Ese anticipo ya fue cobrado y timbrado');
     }
     const branch =
       quotation.billing_branch ?? quotation.warehouse?.billing_branch ?? null;
@@ -533,5 +540,9 @@ export class QuotationAdvanceInvoiceService {
         postalCode: domicilio,
       },
     };
+  }
+
+  private advanceIsStillPayable(status: string | null | undefined): boolean {
+    return status === 'Creada' || status === 'Convertida';
   }
 }

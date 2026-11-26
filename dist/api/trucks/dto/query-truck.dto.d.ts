@@ -3,4 +3,5 @@ export declare class QueryTruckDto {
     limit?: number;
     search?: string;
     status?: string;
+    billing_branch_ids?: string;
 }

@@ -26,6 +26,7 @@ class CreateTruckDto {
     peso_bruto_vehicular;
     subtipo_remolque1;
     placa_remolque1;
+    default_billing_branch_id;
     status;
     gps_unit_uid;
     gps_unit_name;
@@ -110,6 +111,12 @@ __decorate([
     (0, class_validator_1.MaxLength)(50),
     __metadata("design:type", String)
 ], CreateTruckDto.prototype, "placa_remolque1", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(36),
+    __metadata("design:type", Object)
+], CreateTruckDto.prototype, "default_billing_branch_id", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(['active', 'inactive']),

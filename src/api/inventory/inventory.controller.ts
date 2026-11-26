@@ -4,7 +4,10 @@ import { InventoryService } from './inventory.service';
 import { InventoryBranchReportService } from './services/inventory-branch-report.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionGuard } from '../rbac/guards/permission.guard';
-import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator';
+import {
+  RequireAnyPermissions,
+  RequirePermissions,
+} from '../rbac/decorators/require-permissions.decorator';
 import { BatchFilterDto } from './dto/batch-filter.dto';
 import { BatchListResponseDto } from './dto/batch-list-response.dto';
 import { BatchResponseDto } from './dto/batch-response.dto';
@@ -144,7 +147,10 @@ export class InventoryController {
   }
 
   @Get('locations')
-  @RequirePermissions({ entityType: 'inventory', action: 'read' })
+  @RequireAnyPermissions(
+    { entityType: 'inventory', action: 'read' },
+    { entityType: 'Transfer', action: 'Read' },
+  )
   @ApiOperation({
     summary: 'Árbol razón social → sucursal → almacén',
     description:

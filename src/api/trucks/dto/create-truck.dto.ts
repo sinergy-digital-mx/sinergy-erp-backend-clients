@@ -77,6 +77,11 @@ export class CreateTruckDto {
   placa_remolque1?: string;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(36)
+  default_billing_branch_id?: string | null;
+
+  @IsOptional()
   @IsEnum(['active', 'inactive'])
   status?: string;
 

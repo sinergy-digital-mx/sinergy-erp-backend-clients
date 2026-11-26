@@ -1,5 +1,9 @@
 # UI — Logística (camiones + envíos)
 
+## 2026-11-25 — Origen y destino de transferencias
+
+Un viaje que solo lleva transferencias ya no queda como “Sin destino”. La tarjeta y el detalle usan la sucursal de la bodega origen y la sucursal de la bodega destino (`source_branch_name`, `destination_branch_name`). Si el viaje también tiene entregas, el destino sigue siendo el cliente de la última parada.
+
 ## 2026-11-12 — Choferes al crear un envío
 
 El combo de chofer ya no usa `GET /tenant/users`. Ese listado pide permiso de usuarios y el rol CEDIS no lo tiene, así que el combo salía vacío.

@@ -17,6 +17,7 @@ class QueryTruckDto {
     limit = 20;
     search;
     status;
+    billing_branch_ids;
 }
 exports.QueryTruckDto = QueryTruckDto;
 __decorate([
@@ -44,4 +45,9 @@ __decorate([
     (0, class_validator_1.IsEnum)(['active', 'inactive']),
     __metadata("design:type", String)
 ], QueryTruckDto.prototype, "status", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], QueryTruckDto.prototype, "billing_branch_ids", void 0);
 //# sourceMappingURL=query-truck.dto.js.map

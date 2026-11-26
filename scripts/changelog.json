@@ -2264,6 +2264,56 @@
       "version": "0.0.193",
       "shippedAt": "2026-11-25T15:18:13-08:00",
       "module": "quotations"
+    },
+    {
+      "id": "20261125-164629",
+      "at": "2026-11-25T16:46:29-08:00",
+      "scope": "both",
+      "message": "En POS Caja el anticipo se cobra en el corte, con carta distinta a la venta, y el timbrado abre en demo. Quien ve POS puede regresarlo a ventas. El cliente sigue en el carrito y el buscador se mueve con las flechas.",
+      "status": "shipped",
+      "version": "0.0.194",
+      "shippedAt": "2026-11-25T22:26:46-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261125-164629-2",
+      "at": "2026-11-25T16:46:29-08:00",
+      "scope": "backend",
+      "message": "La cotización de anticipo entra a caja para cobrarse, aunque ya tenga la venta de los productos.",
+      "status": "shipped",
+      "version": "0.0.194",
+      "shippedAt": "2026-11-25T22:26:46-08:00",
+      "module": "quotations"
+    },
+    {
+      "id": "20261125-203232",
+      "at": "2026-11-25T20:32:32-08:00",
+      "scope": "frontend",
+      "message": "En caja el folio va en una barra con anticipo y saldo a favor, el cobro queda más compacto con fecha legible y los recibos se filtran por anticipo, venta y vendedor.",
+      "status": "shipped",
+      "version": "0.0.194",
+      "shippedAt": "2026-11-25T22:26:46-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261125-203232-2",
+      "at": "2026-11-25T20:32:32-08:00",
+      "scope": "both",
+      "message": "Los camiones guardan sucursal por defecto y el listado prefiltra las del usuario sin bloquear otras. Los envíos de transferencia muestran sucursal origen y destino.",
+      "status": "shipped",
+      "version": "0.0.194",
+      "shippedAt": "2026-11-25T22:26:46-08:00",
+      "module": "logistics"
+    },
+    {
+      "id": "20261125-203232-3",
+      "at": "2026-11-25T20:32:32-08:00",
+      "scope": "both",
+      "message": "Transferencias quedó como módulo del menú principal, con listado compacto y PDF que encabeza sucursal origen hacia sucursal destino.",
+      "status": "shipped",
+      "version": "0.0.194",
+      "shippedAt": "2026-11-25T22:26:46-08:00",
+      "module": "inventory"
     }
   ]
 }

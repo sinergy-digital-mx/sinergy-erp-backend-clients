@@ -22,4 +22,9 @@ export class QueryTruckDto {
   @IsOptional()
   @IsEnum(['active', 'inactive'])
   status?: string;
+
+  /** Ids de sucursal separados por coma. Vacío lista toda la flota. */
+  @IsOptional()
+  @IsString()
+  billing_branch_ids?: string;
 }

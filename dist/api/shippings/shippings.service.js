@@ -206,7 +206,10 @@ let ShippingsService = class ShippingsService {
                     'stops.sales_order.customer',
                     'transfer_links',
                     'transfer_links.inventory_transfer',
+                    'transfer_links.inventory_transfer.source_warehouse',
+                    'transfer_links.inventory_transfer.source_warehouse.billing_branch',
                     'transfer_links.inventory_transfer.destination_warehouse',
+                    'transfer_links.inventory_transfer.destination_warehouse.billing_branch',
                 ],
                 order: { stops: { stop_sequence: 'ASC' } },
             });
@@ -335,7 +338,10 @@ let ShippingsService = class ShippingsService {
                 'stops.customer_address',
                 'transfer_links',
                 'transfer_links.inventory_transfer',
+                'transfer_links.inventory_transfer.source_warehouse',
+                'transfer_links.inventory_transfer.source_warehouse.billing_branch',
                 'transfer_links.inventory_transfer.destination_warehouse',
+                'transfer_links.inventory_transfer.destination_warehouse.billing_branch',
             ],
             order: { stops: { stop_sequence: 'ASC' } },
         });
@@ -755,16 +761,31 @@ let ShippingsService = class ShippingsService {
             },
         };
     }
+    branchLabel(warehouse) {
+        const code = warehouse?.billing_branch?.code?.trim();
+        if (code)
+            return code;
+        const name = warehouse?.name?.trim();
+        return name || null;
+    }
     attachTransferView(shipping) {
         const links = shipping.transfer_links ?? [];
         Object.assign(shipping, {
-            transfers: links.map((link) => ({
-                id: link.inventory_transfer_id,
-                folio: link.inventory_transfer?.folio ?? '',
-                status: link.inventory_transfer?.status ?? null,
-                total_quantity: link.inventory_transfer?.total_quantity ?? null,
-                destination_warehouse_name: link.inventory_transfer?.destination_warehouse?.name ?? null,
-            })),
+            transfers: links.map((link) => {
+                const transfer = link.inventory_transfer;
+                const source = transfer?.source_warehouse;
+                const destination = transfer?.destination_warehouse;
+                return {
+                    id: link.inventory_transfer_id,
+                    folio: transfer?.folio ?? '',
+                    status: transfer?.status ?? null,
+                    total_quantity: transfer?.total_quantity ?? null,
+                    source_warehouse_name: source?.name ?? null,
+                    destination_warehouse_name: destination?.name ?? null,
+                    source_branch_name: this.branchLabel(source),
+                    destination_branch_name: this.branchLabel(destination),
+                };
+            }),
         });
         return shipping;
     }

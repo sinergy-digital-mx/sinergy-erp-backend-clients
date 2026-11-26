@@ -54,7 +54,6 @@ export class InventoryTransferPdfService {
       defaultStyle: { font: 'Roboto', fontSize: 9, color: COLORS.text },
       content: [
         this.buildHeader(transfer),
-        this.buildTitleBar(transfer),
         this.buildMetaCards(transfer),
         this.buildRouteSection(transfer),
         this.buildProductSection(transfer),
@@ -93,36 +92,74 @@ export class InventoryTransferPdfService {
   }
 
   private buildHeader(transfer: InventoryTransferResponseDto): any {
+    const source = this.branchName(transfer.source_warehouse);
+    const dest = this.branchName(transfer.destination_warehouse);
     return {
-      columns: [
-        {
-          width: '*',
-          text: 'Inventario · Transferencias',
-          fontSize: 8,
-          color: COLORS.muted,
-          margin: [0, 4, 0, 0],
-        },
-        {
-          width: 'auto',
-          stack: [
+      table: {
+        widths: ['*'],
+        body: [
+          [
             {
-              text: this.formatDateTime(transfer.created_at),
-              fontSize: 8,
-              color: COLORS.muted,
-              alignment: 'right',
-            },
-            {
-              text: this.statusLabel(transfer.status),
-              fontSize: 8,
-              bold: true,
-              color: COLORS.success,
-              alignment: 'right',
-              margin: [0, 2, 0, 0],
+              stack: [
+                {
+                  text: 'TRANSFERENCIA DE INVENTARIO',
+                  fontSize: 8,
+                  color: '#DBEAFE',
+                  margin: [0, 0, 0, 8],
+                },
+                {
+                  columns: [
+                    {
+                      text: source,
+                      fontSize: 16,
+                      bold: true,
+                      color: COLORS.white,
+                      width: '*',
+                    },
+                    {
+                      text: '→',
+                      fontSize: 16,
+                      bold: true,
+                      color: '#93C5FD',
+                      width: 28,
+                      alignment: 'center',
+                    },
+                    {
+                      text: dest,
+                      fontSize: 16,
+                      bold: true,
+                      color: COLORS.white,
+                      width: '*',
+                      alignment: 'right',
+                    },
+                  ],
+                },
+                {
+                  columns: [
+                    {
+                      text: `${transfer.folio}  ·  ${this.statusLabel(transfer.status)}`,
+                      fontSize: 9,
+                      color: '#E2E8F0',
+                    },
+                    {
+                      text: this.formatDateTime(transfer.created_at),
+                      fontSize: 9,
+                      color: '#CBD5E1',
+                      alignment: 'right',
+                    },
+                  ],
+                  margin: [0, 10, 0, 0],
+                },
+              ],
+              fillColor: COLORS.primary,
+              margin: [16, 16, 16, 16],
+              border: [false, false, false, false],
             },
           ],
-        },
-      ],
-      margin: [0, 0, 0, 12],
+        ],
+      },
+      layout: { hLineWidth: () => 0, vLineWidth: () => 0 },
+      margin: [0, 0, 0, 16],
     };
   }
 
@@ -211,16 +248,22 @@ export class InventoryTransferPdfService {
                 {
                   stack: [
                     {
-                      text: 'ORIGEN',
+                      text: 'SUCURSAL ORIGEN',
                       fontSize: 7,
                       bold: true,
                       color: COLORS.accent,
                     },
                     {
-                      text: this.warehouseTitle(source),
-                      fontSize: 11,
+                      text: this.branchName(source),
+                      fontSize: 13,
                       bold: true,
                       margin: [0, 4, 0, 0],
+                    },
+                    {
+                      text: this.warehouseTitle(source),
+                      fontSize: 9,
+                      color: COLORS.text,
+                      margin: [0, 2, 0, 0],
                     },
                     {
                       text: this.warehouseDetails(source),
@@ -275,16 +318,22 @@ export class InventoryTransferPdfService {
                 {
                   stack: [
                     {
-                      text: 'DESTINO',
+                      text: 'SUCURSAL DESTINO',
                       fontSize: 7,
                       bold: true,
                       color: COLORS.accent,
                     },
                     {
-                      text: this.warehouseTitle(dest),
-                      fontSize: 11,
+                      text: this.branchName(dest),
+                      fontSize: 13,
                       bold: true,
                       margin: [0, 4, 0, 0],
+                    },
+                    {
+                      text: this.warehouseTitle(dest),
+                      fontSize: 9,
+                      color: COLORS.text,
+                      margin: [0, 2, 0, 0],
                     },
                     {
                       text: this.warehouseDetails(dest),
@@ -632,6 +681,14 @@ export class InventoryTransferPdfService {
       border: [false, false, false, false],
       fillColor: COLORS.light,
     };
+  }
+
+  private branchName(
+    warehouse?: InventoryTransferResponseDto['source_warehouse'] | null,
+  ): string {
+    const code = warehouse?.billing_branch_code?.trim();
+    if (code && !this.isUuid(code)) return code;
+    return this.warehouseTitle(warehouse);
   }
 
   private warehouseTitle(

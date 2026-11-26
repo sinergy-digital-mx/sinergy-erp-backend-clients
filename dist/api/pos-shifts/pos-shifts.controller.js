@@ -355,7 +355,7 @@ __decorate([
 ], PosShiftsController.prototype, "collectQuotationAdvance", null);
 __decorate([
     (0, common_1.Post)('sales/:salesOrderId/return-to-sales'),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'pos', action: 'ReturnToSales' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'pos', action: 'Read' }, { entityType: 'pos', action: 'Create' }, { entityType: 'pos', action: 'Update' }, { entityType: 'pos', action: 'CreateSale' }, { entityType: 'pos', action: 'ReturnToSales' }, { entityType: 'PosShift', action: 'Read' }, { entityType: 'PosShift', action: 'Update' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Regresar ticket de caja a ventas',
         description: 'Solo terminal de caja. El folio sale de pendientes para que Ventas edite productos.',
@@ -368,7 +368,7 @@ __decorate([
 ], PosShiftsController.prototype, "returnSaleToVentas", null);
 __decorate([
     (0, common_1.Post)('quotations/:quotationId/return-to-sales'),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'pos', action: 'ReturnToSales' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'pos', action: 'Read' }, { entityType: 'pos', action: 'Create' }, { entityType: 'pos', action: 'Update' }, { entityType: 'pos', action: 'CreateSale' }, { entityType: 'pos', action: 'ReturnToSales' }, { entityType: 'PosShift', action: 'Read' }, { entityType: 'PosShift', action: 'Update' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Regresar anticipo de caja a ventas',
         description: 'Solo terminal de caja. La cotización sale de por cobrar para que Ventas corrija y la reenvíe.',
@@ -394,7 +394,7 @@ __decorate([
 ], PosShiftsController.prototype, "getSalesAwaitingCaja", null);
 __decorate([
     (0, common_1.Post)('sales/:salesOrderId/recall-from-caja'),
-    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'pos', action: 'Create' }, { entityType: 'pos', action: 'Update' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'pos', action: 'Read' }, { entityType: 'pos', action: 'Create' }, { entityType: 'pos', action: 'Update' }, { entityType: 'pos', action: 'CreateSale' }, { entityType: 'pos', action: 'ReturnToSales' }, { entityType: 'PosShift', action: 'Read' }, { entityType: 'PosShift', action: 'Update' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Ventas regresa un folio que está en caja',
         description: 'Sale de POS Caja. Si caja lo tenía abierto, el siguiente latido se lo quita.',
@@ -408,7 +408,7 @@ __decorate([
 ], PosShiftsController.prototype, "recallSaleFromCaja", null);
 __decorate([
     (0, common_1.Post)('quotations/:quotationId/recall-from-caja'),
-    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'pos', action: 'Create' }, { entityType: 'pos', action: 'Update' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'pos', action: 'Read' }, { entityType: 'pos', action: 'Create' }, { entityType: 'pos', action: 'Update' }, { entityType: 'pos', action: 'CreateSale' }, { entityType: 'pos', action: 'ReturnToSales' }, { entityType: 'PosShift', action: 'Read' }, { entityType: 'PosShift', action: 'Update' }),
     (0, swagger_1.ApiOperation)({ summary: 'Ventas regresa un anticipo que está en caja' }),
     __param(0, (0, common_1.Param)('quotationId')),
     __param(1, (0, common_1.Body)()),

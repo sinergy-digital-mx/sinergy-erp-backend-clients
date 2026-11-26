@@ -54,7 +54,6 @@ const product_uom_entity_1 = require("../../../entities/products/product-uom.ent
 const uom_catalog_entity_1 = require("../../../entities/uom-catalog/uom-catalog.entity");
 const advance_cfdi_util_1 = require("../../electronic-invoicing/utils/advance-cfdi.util");
 const cfdi_regimen_person_util_1 = require("../../electronic-invoicing/utils/cfdi-regimen-person.util");
-const advance_payment_method_util_1 = require("../../pos-shifts/utils/advance-payment-method.util");
 const sales_order_entity_1 = require("../../../entities/sales-orders/sales-order.entity");
 const quoted_pricing_util_1 = require("../../sales-orders/utils/quoted-pricing.util");
 const quotation_seller_scope_util_1 = require("../utils/quotation-seller-scope.util");
@@ -164,12 +163,16 @@ let QuotationService = class QuotationService {
                 this.logger.error('[PDF] Error generando PDF de cotización:', err);
             });
             if (dto.advance_amount != null) {
-                await this.stampCreatedAdvance(saved.id, tenantId, userId, dto);
+                const branchId = saved.billing_branch_id ?? location.billingBranchId ?? null;
+                this.posShiftsService.notifyCajaArrived({
+                    tenantId,
+                    branchId,
+                    id: saved.id,
+                    kind: 'advance',
+                    folio: saved.folio,
+                });
                 if (advanceCase === 'products') {
                     await this.convert(saved.id, { send_to_pos_caja: true, hold_available: true }, tenantId, userId);
-                }
-                else {
-                    await this.quotationRepo.update({ id: saved.id, tenant_id: tenantId }, { pos_stage: sales_order_pos_stage_enum_1.SalesOrderPosStage.Ventas });
                 }
             }
             return this.findOne(saved.id, tenantId);
@@ -1203,7 +1206,15 @@ let QuotationService = class QuotationService {
         finally {
             await qr.release();
         }
-        return this.findOne(id, tenantId, access);
+        const created = await this.findOne(id, tenantId, access);
+        this.posShiftsService.notifyCajaArrived({
+            tenantId,
+            branchId: created.billing_branch_id,
+            id: created.id,
+            kind: 'advance',
+            folio: created.folio,
+        });
+        return created;
     }
     async completeReturn(id, dto, tenantId, userId, access) {
         const quotation = await this.findOne(id, tenantId, access);
@@ -1211,37 +1222,6 @@ let QuotationService = class QuotationService {
             return this.completeConvertedAdvance(quotation, dto, tenantId, userId);
         }
         return this.closeAdvance(id, dto, tenantId, userId, access);
-    }
-    async stampCreatedAdvance(id, tenantId, userId, dto) {
-        const quotation = await this.findOne(id, tenantId);
-        const iva = [0, 8, 16].includes(Number(dto.advance_iva_percentage))
-            ? Number(dto.advance_iva_percentage)
-            : 8;
-        const gross = Number(dto.advance_amount || 0);
-        const base = iva > 0 ? Number((gross / (1 + iva / 100)).toFixed(2)) : gross;
-        const tax = Number((base * (iva / 100)).toFixed(2));
-        const total = Number((base + tax).toFixed(2));
-        const forma = dto.advance_forma_pago || '03';
-        const paymentMethod = (0, advance_payment_method_util_1.paymentMethodFromFormaPago)(forma);
-        if (!paymentMethod) {
-            throw new common_1.BadRequestException('La forma de pago del anticipo no es válida');
-        }
-        const regimen = (0, cfdi_regimen_person_util_1.inferReceptorRegimen)(quotation.customer?.fiscal_rfc, quotation.customer?.fiscal_person_type);
-        await this.advanceInvoices.stamp(id, tenantId, userId, {
-            base_amount: base,
-            iva_percentage: iva,
-            forma_pago: forma,
-            uso_cfdi: dto.advance_uso_cfdi || 'G01',
-            metodo_pago: dto.advance_metodo_pago || 'PUE',
-            regimen_fiscal_receptor: regimen,
-            environment: dto.advance_stamp_environment,
-        }, {
-            paymentMethod,
-            amountCashMxn: forma === '01' ? total : 0,
-            amountCheckMxn: forma === '02' ? total : 0,
-            amountTransferMxn: forma === '03' ? total : 0,
-            amountCardMxn: forma === '04' || forma === '28' ? total : 0,
-        });
     }
     async completeConvertedAdvance(quotation, dto, tenantId, userId) {
         const orderId = quotation.converted_to_sales_order_id;

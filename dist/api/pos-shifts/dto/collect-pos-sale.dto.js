@@ -83,6 +83,7 @@ class CollectPosSaleDto {
     check_payer_phone;
     amount_credit_mxn;
     generate_invoice;
+    stamp_environment;
     order_currency;
     received_cash_mxn;
     received_cash_usd;
@@ -316,6 +317,16 @@ __decorate([
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], CollectPosSaleDto.prototype, "generate_invoice", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        enum: ['demo', 'production'],
+        description: 'Ambiente Finkok al timbrar. Si se omite, el cobro de anticipo usa demo.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['demo', 'production']),
+    __metadata("design:type", String)
+], CollectPosSaleDto.prototype, "stamp_environment", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
         required: false,

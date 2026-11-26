@@ -104,7 +104,7 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
         if (requested <= 0) {
             throw new common_1.BadRequestException('Esta cotización no tiene un anticipo por cobrar');
         }
-        if (quotation.general_status !== 'Creada') {
+        if (!this.advanceIsStillPayable(quotation.general_status)) {
             throw new common_1.BadRequestException('La cotización ya no está pendiente de anticipo');
         }
         if (!(0, sales_order_pos_stage_enum_1.isPosStageInCaja)(quotation.pos_stage)) {
@@ -144,10 +144,9 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
             uso_cfdi: quotation.advance_uso_cfdi || 'G01',
             metodo_pago: quotation.advance_metodo_pago || 'PUE',
             regimen_fiscal_receptor: regimen,
-            environment: quotation.advance_stamp_environment === 'demo' ||
-                quotation.advance_stamp_environment === 'production'
-                ? quotation.advance_stamp_environment
-                : undefined,
+            environment: dto.stamp_environment === 'demo' || dto.stamp_environment === 'production'
+                ? dto.stamp_environment
+                : 'demo',
         }, {
             paymentMethod: dto.payment_method,
             amountCashMxn: cashMxn,
@@ -177,8 +176,12 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
         if (!quotation.fiscal_configuration?.advance_invoicing_enabled) {
             throw new common_1.BadRequestException('Esta razón social no tiene activada la factura de anticipo');
         }
-        if (quotation.general_status !== 'Creada') {
-            throw new common_1.BadRequestException('Solo se factura anticipo de una cotización en estado Creada');
+        if (!this.advanceIsStillPayable(quotation.general_status)) {
+            throw new common_1.BadRequestException('Solo se factura anticipo de una cotización pendiente de cobro');
+        }
+        const alreadyStamped = await this.advanceCfdi.findVigenteAdvance(tenantId, 'quotations', quotation.id);
+        if (alreadyStamped) {
+            throw new common_1.BadRequestException('Ese anticipo ya fue cobrado y timbrado');
         }
         const branch = quotation.billing_branch ?? quotation.warehouse?.billing_branch ?? null;
         const branchId = quotation.billing_branch_id ?? branch?.id ?? null;
@@ -336,6 +339,9 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
                 postalCode: domicilio,
             },
         };
+    }
+    advanceIsStillPayable(status) {
+        return status === 'Creada' || status === 'Convertida';
     }
 };
 exports.QuotationAdvanceInvoiceService = QuotationAdvanceInvoiceService;

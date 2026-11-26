@@ -33,6 +33,7 @@ export declare class CollectPosSaleDto {
     check_payer_phone?: string;
     amount_credit_mxn?: number;
     generate_invoice?: boolean;
+    stamp_environment?: 'demo' | 'production';
     order_currency?: 'MXN' | 'USD';
     received_cash_mxn?: number;
     received_cash_usd?: number;

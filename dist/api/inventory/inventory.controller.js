@@ -192,7 +192,7 @@ __decorate([
 ], InventoryController.prototype, "exportSummaryExcel", null);
 __decorate([
     (0, common_1.Get)('locations'),
-    (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'inventory', action: 'read' }),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'inventory', action: 'read' }, { entityType: 'Transfer', action: 'Read' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Árbol razón social → sucursal → almacén',
         description: 'Catálogo para los tres filtros en cascada de inventario. Permiso inventory:read. Sucursal deshabilitada sin razón social; almacén deshabilitado sin sucursal.',

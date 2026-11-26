@@ -1,4 +1,5 @@
 import { RBACTenant } from '../rbac/tenant.entity';
+import { BillingBranch } from '../billing/billing-branch.entity';
 export declare class Truck {
     id: string;
     tenant: RBACTenant;
@@ -20,6 +21,8 @@ export declare class Truck {
     gps_unit_uid: string | null;
     gps_unit_name: string | null;
     status: string;
+    default_billing_branch_id: string | null;
+    default_billing_branch?: BillingBranch | null;
     created_at: Date;
     updated_at: Date;
 }

@@ -15,7 +15,7 @@ CRUD de flota por organización (`tenant_id` del JWT). Mensajes al cliente habla
 
 | Método | Path | Notas |
 |--------|------|-------|
-| `GET` | `/` | `page`, `limit`, `search` (name, placa, code, serial_number), `status` (`active`\|`inactive`) |
+| `GET` | `/` | `page`, `limit`, `search` (name, placa, code, serial_number), `status` (`active`\|`inactive`), `billing_branch_ids` (ids separados por coma; incluye camiones sin sucursal) |
 | `GET` | `/:id` | 404 genérico si no es de la organización |
 | `POST` | `/` | `name` requerido; `placa` única por organización |
 | `PUT` | `/:id` | Patch parcial (no incluye foto) |
@@ -33,7 +33,11 @@ CRUD de flota por organización (`tenant_id` del JWT). Mensajes al cliente habla
 }
 ```
 
-Campos opcionales: `code`, `serial_number` (número de serie / NIV, máx. 50), `anio`.
+Campos opcionales: `code`, `serial_number` (número de serie / NIV, máx. 50), `anio`, `default_billing_branch_id` (sucursal por defecto; no impide usarlo en otra).
+
+## 2026-11-25 — Sucursal por defecto
+
+Cada camión puede guardar `default_billing_branch_id`. La respuesta incluye `default_billing_branch_name` (código de la sucursal). El listado acepta `billing_branch_ids` para prefiltrar la flota del usuario y sigue devolviendo unidades sin sucursal asignada.
 
 Campos opcionales SCT / seguro: `permiso_sct`, `numero_permiso_sct`, `tipo_auto_transporte`, `aseguradora_rc`, `poliza_rc`, `subtipo_remolque1`, `placa_remolque1`.
 

@@ -350,7 +350,15 @@ export class PosShiftsController {
   }
 
   @Post('sales/:salesOrderId/return-to-sales')
-  @RequirePermissions({ entityType: 'pos', action: 'ReturnToSales' })
+  @RequireAnyPermissions(
+    { entityType: 'pos', action: 'Read' },
+    { entityType: 'pos', action: 'Create' },
+    { entityType: 'pos', action: 'Update' },
+    { entityType: 'pos', action: 'CreateSale' },
+    { entityType: 'pos', action: 'ReturnToSales' },
+    { entityType: 'PosShift', action: 'Read' },
+    { entityType: 'PosShift', action: 'Update' },
+  )
   @ApiOperation({
     summary: 'Regresar ticket de caja a ventas',
     description:
@@ -368,7 +376,15 @@ export class PosShiftsController {
   }
 
   @Post('quotations/:quotationId/return-to-sales')
-  @RequirePermissions({ entityType: 'pos', action: 'ReturnToSales' })
+  @RequireAnyPermissions(
+    { entityType: 'pos', action: 'Read' },
+    { entityType: 'pos', action: 'Create' },
+    { entityType: 'pos', action: 'Update' },
+    { entityType: 'pos', action: 'CreateSale' },
+    { entityType: 'pos', action: 'ReturnToSales' },
+    { entityType: 'PosShift', action: 'Read' },
+    { entityType: 'PosShift', action: 'Update' },
+  )
   @ApiOperation({
     summary: 'Regresar anticipo de caja a ventas',
     description:
@@ -407,8 +423,13 @@ export class PosShiftsController {
 
   @Post('sales/:salesOrderId/recall-from-caja')
   @RequireAnyPermissions(
+    { entityType: 'pos', action: 'Read' },
     { entityType: 'pos', action: 'Create' },
     { entityType: 'pos', action: 'Update' },
+    { entityType: 'pos', action: 'CreateSale' },
+    { entityType: 'pos', action: 'ReturnToSales' },
+    { entityType: 'PosShift', action: 'Read' },
+    { entityType: 'PosShift', action: 'Update' },
   )
   @ApiOperation({
     summary: 'Ventas regresa un folio que está en caja',
@@ -429,8 +450,13 @@ export class PosShiftsController {
 
   @Post('quotations/:quotationId/recall-from-caja')
   @RequireAnyPermissions(
+    { entityType: 'pos', action: 'Read' },
     { entityType: 'pos', action: 'Create' },
     { entityType: 'pos', action: 'Update' },
+    { entityType: 'pos', action: 'CreateSale' },
+    { entityType: 'pos', action: 'ReturnToSales' },
+    { entityType: 'PosShift', action: 'Read' },
+    { entityType: 'PosShift', action: 'Update' },
   )
   @ApiOperation({ summary: 'Ventas regresa un anticipo que está en caja' })
   async recallQuotationFromCaja(

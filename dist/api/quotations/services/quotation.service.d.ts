@@ -1022,7 +1022,6 @@ export declare class QuotationService {
             total: number;
         };
     }>;
-    private stampCreatedAdvance;
     private completeConvertedAdvance;
     closeAdvance(id: string, dto: CloseAdvanceQuotationDto, tenantId: string, userId: string, access?: QuotationSellerAccess): Promise<{
         quotation_id: string;

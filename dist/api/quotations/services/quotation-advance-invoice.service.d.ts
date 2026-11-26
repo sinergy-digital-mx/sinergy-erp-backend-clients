@@ -78,4 +78,5 @@ export declare class QuotationAdvanceInvoiceService {
     private assertOwnedInvoice;
     private requireQuotation;
     private parties;
+    private advanceIsStillPayable;
 }

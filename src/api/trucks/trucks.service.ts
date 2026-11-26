@@ -2,10 +2,12 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Truck } from '../../entities/logistics/truck.entity';
+import { BillingBranch } from '../../entities/billing/billing-branch.entity';
 import {
   ACTIVE_SHIPPING_STATUSES,
   Shipping,
@@ -39,6 +41,8 @@ export class TrucksService {
     private readonly repo: Repository<Truck>,
     @InjectRepository(Shipping)
     private readonly shippingRepo: Repository<Shipping>,
+    @InjectRepository(BillingBranch)
+    private readonly branchRepo: Repository<BillingBranch>,
     private readonly s3Service: S3Service,
   ) {}
 
@@ -47,6 +51,7 @@ export class TrucksService {
       await this.assertPlacaUnique(tenantId, dto.placa);
     }
     this.sanitizeGps(dto);
+    await this.sanitizeBranch(dto, tenantId);
     await this.assertGpsUnitUnique(tenantId, dto.gps_unit_uid);
 
     const truck = this.repo.create({
@@ -69,6 +74,7 @@ export class TrucksService {
 
     const qb = this.repo
       .createQueryBuilder('truck')
+      .leftJoinAndSelect('truck.default_billing_branch', 'default_branch')
       .where('truck.tenant_id = :tenantId', { tenantId });
 
     if (query?.search) {
@@ -80,6 +86,17 @@ export class TrucksService {
 
     if (query?.status) {
       qb.andWhere('truck.status = :status', { status: query.status });
+    }
+
+    const branchIds = (query?.billing_branch_ids ?? '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter((id) => id.length > 0);
+    if (branchIds.length) {
+      qb.andWhere(
+        '(truck.default_billing_branch_id IN (:...branchIds) OR truck.default_billing_branch_id IS NULL)',
+        { branchIds },
+      );
     }
 
     qb.orderBy('truck.created_at', 'DESC');
@@ -118,6 +135,7 @@ export class TrucksService {
       await this.assertPlacaUnique(tenantId, dto.placa, id);
     }
     this.sanitizeGps(dto);
+    await this.sanitizeBranch(dto, tenantId);
     if (dto.gps_unit_uid !== undefined) {
       await this.assertGpsUnitUnique(tenantId, dto.gps_unit_uid, id);
     }
@@ -157,6 +175,25 @@ export class TrucksService {
     truck.photo = s3Key;
     const saved = await this.repo.save(truck);
     return this.present(saved, tenantId);
+  }
+
+  private async sanitizeBranch(
+    dto: CreateTruckDto | UpdateTruckDto,
+    tenantId: string,
+  ): Promise<void> {
+    if (dto.default_billing_branch_id === undefined) return;
+    const branchId = dto.default_billing_branch_id?.trim() || null;
+    dto.default_billing_branch_id = branchId;
+    if (!branchId) return;
+    const found = await this.branchRepo
+      .createQueryBuilder('branch')
+      .innerJoin('branch.fiscal_configuration', 'fiscal')
+      .where('branch.id = :branchId', { branchId })
+      .andWhere('fiscal.tenant_id = :tenantId', { tenantId })
+      .getOne();
+    if (!found) {
+      throw new BadRequestException('Esa sucursal no pertenece a la organización');
+    }
   }
 
   private sanitizeGps(dto: CreateTruckDto | UpdateTruckDto): void {
@@ -227,6 +264,7 @@ export class TrucksService {
   private async getByIdOrFail(id: string, tenantId: string): Promise<Truck> {
     const truck = await this.repo.findOne({
       where: { id, tenant_id: tenantId },
+      relations: { default_billing_branch: true },
     });
     if (!truck) {
       throw new NotFoundException('Camión no encontrado');
@@ -243,6 +281,7 @@ export class TrucksService {
     return {
       ...truck,
       photo,
+      default_billing_branch_name: truck.default_billing_branch?.code?.trim() || null,
       carta_porte_ready: check.ready,
       carta_porte_missing: check.missing,
     } as Truck;

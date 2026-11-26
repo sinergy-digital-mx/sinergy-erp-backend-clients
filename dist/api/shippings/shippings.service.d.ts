@@ -184,6 +184,7 @@ export declare class ShippingsService {
             stops_count: number;
         };
     }>;
+    private branchLabel;
     private attachTransferView;
     private distanceWithTransfers;
     private buildStopDistances;

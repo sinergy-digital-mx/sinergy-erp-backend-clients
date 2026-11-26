@@ -1,5 +1,9 @@
 # Transferencias de Inventario — Guía para UI
 
+## 2026-11-25 — Módulo propio, listado y PDF
+
+Transferencias sale del menú de Inventario y queda en el menú principal (`/transfers`). El permiso es `Transfer:ViewMenu` / `Read` / `Create` / `Update`. Quien ya tenía inventario conserva el acceso. El listado cabe en el viewport: folio, producto, sucursal origen → sucursal destino, estado y fecha. El PDF abre con **sucursal origen → sucursal destino**; el almacén queda como dato secundario.
+
 ## 2026-11-03 — Envío desde el detalle
 
 El detalle de la transferencia muestra el envío y, si sigue pendiente, permite crear uno o agregarla a un envío ya creado. Un envío puede llevar varias transferencias. El flujo está en `UI_TRANSFER_SHIPMENT.md`.

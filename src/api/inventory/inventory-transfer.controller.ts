@@ -21,7 +21,7 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PermissionGuard } from '../rbac/guards/permission.guard';
-import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator';
+import { RequireAnyPermissions } from '../rbac/decorators/require-permissions.decorator';
 import { InventoryTransferService } from './services/inventory-transfer.service';
 import { InventoryTransferPdfService } from './services/inventory-transfer-pdf.service';
 import { CreateInventoryTransferDto } from './dto/create-inventory-transfer.dto';
@@ -45,7 +45,10 @@ export class InventoryTransferController {
   ) {}
 
   @Get('context')
-  @RequirePermissions({ entityType: 'Inventory', action: 'Transfer' })
+  @RequireAnyPermissions(
+    { entityType: 'Inventory', action: 'Transfer' },
+    { entityType: 'Transfer', action: 'Create' },
+  )
   @ApiOperation({
     summary: 'Contexto para modal de transferencia',
     description:
@@ -65,7 +68,10 @@ export class InventoryTransferController {
   }
 
   @Get()
-  @RequirePermissions({ entityType: 'Inventory', action: 'Read' })
+  @RequireAnyPermissions(
+    { entityType: 'Inventory', action: 'Read' },
+    { entityType: 'Transfer', action: 'Read' },
+  )
   @ApiOperation({ summary: 'Listar transferencias de inventario' })
   @ApiResponse({ status: 200, type: InventoryTransferListResponseDto })
   findAll(
@@ -76,7 +82,10 @@ export class InventoryTransferController {
   }
 
   @Get(':id/pdf')
-  @RequirePermissions({ entityType: 'Inventory', action: 'Read' })
+  @RequireAnyPermissions(
+    { entityType: 'Inventory', action: 'Read' },
+    { entityType: 'Transfer', action: 'Read' },
+  )
   @ApiOperation({
     summary: 'Descargar PDF de transferencia',
     description:
@@ -102,7 +111,10 @@ export class InventoryTransferController {
   }
 
   @Get(':id')
-  @RequirePermissions({ entityType: 'Inventory', action: 'Read' })
+  @RequireAnyPermissions(
+    { entityType: 'Inventory', action: 'Read' },
+    { entityType: 'Transfer', action: 'Read' },
+  )
   @ApiOperation({ summary: 'Detalle de una transferencia' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({ status: 200, type: InventoryTransferResponseDto })
@@ -115,7 +127,10 @@ export class InventoryTransferController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @RequirePermissions({ entityType: 'Inventory', action: 'Transfer' })
+  @RequireAnyPermissions(
+    { entityType: 'Inventory', action: 'Transfer' },
+    { entityType: 'Transfer', action: 'Create' },
+  )
   @ApiOperation({
     summary: 'Crear transferencia de inventario',
     description:
@@ -130,7 +145,10 @@ export class InventoryTransferController {
   }
 
   @Post(':id/receive')
-  @RequirePermissions({ entityType: 'Inventory', action: 'Transfer' })
+  @RequireAnyPermissions(
+    { entityType: 'Inventory', action: 'Transfer' },
+    { entityType: 'Transfer', action: 'Update' },
+  )
   @ApiOperation({
     summary: 'Recibir transferencia',
     description:
@@ -145,7 +163,10 @@ export class InventoryTransferController {
   }
 
   @Post(':id/cancel')
-  @RequirePermissions({ entityType: 'Inventory', action: 'Transfer' })
+  @RequireAnyPermissions(
+    { entityType: 'Inventory', action: 'Transfer' },
+    { entityType: 'Transfer', action: 'Update' },
+  )
   @ApiOperation({
     summary: 'Cancelar transferencia pendiente',
     description: 'Devuelve el stock al almacén origen. No aplica si ya tiene envío.',
