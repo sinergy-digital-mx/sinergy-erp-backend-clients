@@ -2564,6 +2564,16 @@
       "version": "0.0.199",
       "shippedAt": "2026-11-26T10:52:10-08:00",
       "module": "pos"
+    },
+    {
+      "id": "20261126-105355",
+      "at": "2026-11-26T10:53:55-08:00",
+      "scope": "frontend",
+      "message": "En efectivo, los billetes van en una barra segmentada del mismo ancho.",
+      "status": "shipped",
+      "version": "0.0.200",
+      "shippedAt": "2026-11-26T10:55:56-08:00",
+      "module": "pos"
     }
   ]
 }

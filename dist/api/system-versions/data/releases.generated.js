@@ -3081,6 +3081,22 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-26T18:51:00.605Z"
+    },
+    {
+        "releaseKey": "full:0.0.200:0.0.200-1795719293917",
+        "version": "0.0.200",
+        "buildId": "0.0.200-1795719293917",
+        "channel": "full",
+        "title": "Versión 0.0.200",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "En efectivo, los billetes van en una barra segmentada del mismo ancho.",
+                "module": "pos",
+                "moduleLabel": "POS Ventas"
+            }
+        ],
+        "releasedAt": "2026-11-26T18:54:53.917Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map

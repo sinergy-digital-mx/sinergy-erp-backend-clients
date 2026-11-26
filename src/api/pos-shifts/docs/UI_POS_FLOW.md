@@ -1,5 +1,7 @@
 # Flujo POS — Guía para UI
 
+**2026-11-26 — Billetes en barra.** En efectivo, los billetes van en una sola barra segmentada, del mismo ancho, con el conteo en la esquina.
+
 **2026-11-26 — Falta y cambio aparte.** En el cobro, falta y cambio van en su propia carta. Se quitó el título Método de pago.
 
 **2026-11-26 — Sin título de Por cobrar.** Se quitó la barra Ventas por cobrar. Actualizar quedó a la derecha de Vendedor.

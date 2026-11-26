@@ -12,6 +12,10 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.200 · 26 nov
+
+- POS Ventas · En efectivo, los billetes van en una barra segmentada del mismo ancho.
+
 #### Versión 0.0.199 · 26 nov
 
 - POS Ventas · En caja el listado y el cobro volvieron a verse dentro de su panel.
