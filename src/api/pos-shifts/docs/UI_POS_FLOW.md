@@ -1,6 +1,34 @@
 # Flujo POS — Guía para UI
 
-**2026-11-25 — Cartas sueltas en caja.** El buscador se queda en su caja. Las órdenes van directo sobre el fondo, y el cobro también: cada bloque es su propia carta.
+**2026-11-26 — Falta y cambio aparte.** En el cobro, falta y cambio van en su propia carta. Se quitó el título Método de pago.
+
+**2026-11-26 — Sin título de Por cobrar.** Se quitó la barra Ventas por cobrar. Actualizar quedó a la derecha de Vendedor.
+
+**2026-11-26 — Regresar solo en la carta.** En el panel de cobro ya no está Regresar a ventas. Sigue en el icono de la carta.
+
+**2026-11-26 — Sin scroll horizontal.** En Por cobrar el listado ya no muestra la barra de abajo.
+
+**2026-11-26 — Acciones de la carta.** En Por cobrar las acciones son tres iconos iguales: regresar (pide confirmación), ver detalle y marcar envío. El nombre sale al pasar el mouse.
+
+**2026-11-26 — Filtros de Por cobrar.** Todos, Solo anticipos, Solo ventas y Vendedor van a la derecha del buscador, del mismo alto (30 px) y en índigo. El select de vendedor no usa el alto de los campos del sistema.
+
+**2026-11-26 — Sin crédito en el cliente.** En el cobro ya no sale el texto de que el cliente no tiene crédito. Si no tiene, la fila muestra Sin crédito y al picarla abre Editar en la pestaña Crédito.
+
+**2026-11-26 — Sin avisos de timbrado.** Debajo de Generar factura ya no salen los textos de prueba, CFDI real ni datos fiscales faltantes.
+
+**2026-11-26 — Fila de cliente.** En el cobro la fila del cliente ya no dice «Cliente seleccionado». Queda más baja, y Editar y Cambiar también.
+
+**2026-11-26 — Aviso de factura.** En Generar factura ya no sale el texto que pedía elegir Demo o Producción.
+
+**2026-11-26 — Envío en el total.** En el cobro, Marcar para envío queda pegado al total, sin el margen de la caja.
+
+**2026-11-26 — Cliente y factura en el cobro.** La carta del cliente es solo la fila del seleccionado, con Editar y Cambiar a la derecha. Demo y Producción van dentro de la misma caja de Generar factura. El interruptor sigue apagado hasta elegir uno.
+
+**2026-11-26 — Vendedor en el encabezado.** En el panel de cobro el vendedor va chico, debajo del folio. Ya no sale en la tarjeta de totales.
+
+**2026-11-26 — Cobro en panel.** En Por cobrar, al elegir una venta el cobro abre en un panel lateral sobre la ventana. El listado queda detrás, difuminado. El encabezado muestra el folio y una X para cerrar.
+
+**2026-11-26 — Cartas del mismo alto.** En Por cobrar y en Órdenes cobradas el nombre y la empresa ocupan siempre dos líneas, y los botones quedan en un bloque del mismo alto. Una carta de anticipo ya no sale más chica que una de venta.
 
 **2026-11-25 — Reimprimir en cobradas.** En Órdenes cobradas cada carta tiene Ticket y Factura. Abren el mismo diálogo del cobro: el ticket siempre, y la factura al lado cuando existe. Cliente y empresa van a una línea, así todas las cartas miden igual.
 

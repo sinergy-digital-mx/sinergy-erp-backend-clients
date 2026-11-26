@@ -2354,6 +2354,216 @@
       "version": "0.0.198",
       "shippedAt": "2026-11-26T09:19:17-08:00",
       "module": "pos"
+    },
+    {
+      "id": "20261126-092423",
+      "at": "2026-11-26T09:24:23-08:00",
+      "scope": "frontend",
+      "message": "En caja el listado y el cobro volvieron a verse dentro de su panel.",
+      "status": "shipped",
+      "version": "0.0.199",
+      "shippedAt": "2026-11-26T10:52:10-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261126-094409",
+      "at": "2026-11-26T09:44:09-08:00",
+      "scope": "frontend",
+      "message": "En caja las cartas de Por cobrar y de Órdenes cobradas quedan del mismo alto.",
+      "status": "shipped",
+      "version": "0.0.199",
+      "shippedAt": "2026-11-26T10:52:10-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261126-100237",
+      "at": "2026-11-26T10:02:37-08:00",
+      "scope": "frontend",
+      "message": "En caja, al elegir una venta el cobro abre en un panel lateral y el listado queda difuminado detrás.",
+      "status": "shipped",
+      "version": "0.0.199",
+      "shippedAt": "2026-11-26T10:52:10-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261126-101037",
+      "at": "2026-11-26T10:10:37-08:00",
+      "scope": "frontend",
+      "message": "En el panel de cobro el vendedor queda chico, debajo del folio.",
+      "status": "shipped",
+      "version": "0.0.199",
+      "shippedAt": "2026-11-26T10:52:10-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261126-102023",
+      "at": "2026-11-26T10:20:23-08:00",
+      "scope": "frontend",
+      "message": "En el cobro el cliente queda en una fila con Editar y Cambiar, y Generar factura se prende hasta elegir Demo o Producción.",
+      "status": "shipped",
+      "version": "0.0.199",
+      "shippedAt": "2026-11-26T10:52:10-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261126-102350",
+      "at": "2026-11-26T10:23:50-08:00",
+      "scope": "frontend",
+      "message": "En el cobro, Demo y Producción quedan dentro de la caja de Generar factura.",
+      "status": "shipped",
+      "version": "0.0.199",
+      "shippedAt": "2026-11-26T10:52:10-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261126-102509",
+      "at": "2026-11-26T10:25:09-08:00",
+      "scope": "frontend",
+      "message": "En el cobro, Marcar para envío queda pegado al total, sin el margen de más.",
+      "status": "shipped",
+      "version": "0.0.199",
+      "shippedAt": "2026-11-26T10:52:10-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261126-102801",
+      "at": "2026-11-26T10:28:01-08:00",
+      "scope": "frontend",
+      "message": "En Generar factura ya no sale el texto que pedía elegir Demo o Producción.",
+      "status": "shipped",
+      "version": "0.0.199",
+      "shippedAt": "2026-11-26T10:52:10-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261126-102903",
+      "at": "2026-11-26T10:29:03-08:00",
+      "scope": "frontend",
+      "message": "En el cobro la fila del cliente queda más baja, sin el texto Cliente seleccionado, y Editar y Cambiar son más chicos.",
+      "status": "shipped",
+      "version": "0.0.199",
+      "shippedAt": "2026-11-26T10:52:10-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261126-103212",
+      "at": "2026-11-26T10:32:12-08:00",
+      "scope": "frontend",
+      "message": "En Generar factura ya no salen los textos de timbrado ni de factura de prueba.",
+      "status": "shipped",
+      "version": "0.0.199",
+      "shippedAt": "2026-11-26T10:52:10-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261126-103632",
+      "at": "2026-11-26T10:36:32-08:00",
+      "scope": "frontend",
+      "message": "En el cobro, si el cliente no tiene crédito, la fila muestra Sin crédito y abre Editar en esa pestaña.",
+      "status": "shipped",
+      "version": "0.0.199",
+      "shippedAt": "2026-11-26T10:52:10-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261126-103632-2",
+      "at": "2026-11-26T10:36:32-08:00",
+      "scope": "frontend",
+      "message": "Editar cliente tiene la pestaña Crédito para dar de alta el crédito por razón social.",
+      "status": "shipped",
+      "version": "0.0.199",
+      "shippedAt": "2026-11-26T10:52:10-08:00",
+      "module": "customers"
+    },
+    {
+      "id": "20261126-103738",
+      "at": "2026-11-26T10:37:38-08:00",
+      "scope": "frontend",
+      "message": "En Por cobrar los filtros quedan a la derecha del buscador, del mismo alto y en índigo.",
+      "status": "shipped",
+      "version": "0.0.199",
+      "shippedAt": "2026-11-26T10:52:10-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261126-103930",
+      "at": "2026-11-26T10:39:30-08:00",
+      "scope": "frontend",
+      "message": "En Por cobrar el select de vendedor mide lo mismo que Todos, Solo anticipos y Solo ventas.",
+      "status": "shipped",
+      "version": "0.0.199",
+      "shippedAt": "2026-11-26T10:52:10-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261126-104118",
+      "at": "2026-11-26T10:41:18-08:00",
+      "scope": "frontend",
+      "message": "En Por cobrar las acciones de la carta son iconos iguales: regresar, ver detalle y marcar envío.",
+      "status": "shipped",
+      "version": "0.0.199",
+      "shippedAt": "2026-11-26T10:52:10-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261126-104254",
+      "at": "2026-11-26T10:42:54-08:00",
+      "scope": "frontend",
+      "message": "En Por cobrar el nombre del icono sale pegado al botón, no en otra carta.",
+      "status": "shipped",
+      "version": "0.0.199",
+      "shippedAt": "2026-11-26T10:52:10-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261126-104600",
+      "at": "2026-11-26T10:46:00-08:00",
+      "scope": "frontend",
+      "message": "En el cobro, Sin crédito abre solo el alta de crédito y ya no abre también Editar o Cambiar.",
+      "status": "shipped",
+      "version": "0.0.199",
+      "shippedAt": "2026-11-26T10:52:10-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261126-104650",
+      "at": "2026-11-26T10:46:50-08:00",
+      "scope": "frontend",
+      "message": "En Por cobrar el listado ya no muestra la barra horizontal de abajo.",
+      "status": "shipped",
+      "version": "0.0.199",
+      "shippedAt": "2026-11-26T10:52:10-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261126-104711",
+      "at": "2026-11-26T10:47:11-08:00",
+      "scope": "frontend",
+      "message": "En el panel de cobro ya no está Regresar a ventas. Sigue en el icono de la carta.",
+      "status": "shipped",
+      "version": "0.0.199",
+      "shippedAt": "2026-11-26T10:52:10-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261126-104741",
+      "at": "2026-11-26T10:47:41-08:00",
+      "scope": "frontend",
+      "message": "En Por cobrar se quitó la barra del título y Actualizar quedó a la derecha de Vendedor.",
+      "status": "shipped",
+      "version": "0.0.199",
+      "shippedAt": "2026-11-26T10:52:10-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261126-104921",
+      "at": "2026-11-26T10:49:21-08:00",
+      "scope": "frontend",
+      "message": "En el cobro, falta y cambio van en su propia carta y se quitó el título Método de pago.",
+      "status": "shipped",
+      "version": "0.0.199",
+      "shippedAt": "2026-11-26T10:52:10-08:00",
+      "module": "pos"
     }
   ]
 }

@@ -2,6 +2,10 @@
 
 Contrato para Pollux. Backend ya guarda y valida todo esto.
 
+## 2026-11-26 — Crédito desde el cobro
+
+En Caja, si el cliente no tiene crédito con la razón social, la fila del cliente muestra la etiqueta **Sin crédito**. Al picarla se abre Editar cliente en la pestaña Crédito para darlo de alta.
+
 ## 2026-11-03 — Anticipo no usa crédito
 
 El anticipo no descuenta crédito. En Cobranza POS el total de esa fila es lo que falta por cobrar del documento. Solo una orden marcada a crédito suma al utilizado. Si esa orden además tiene anticipo, el tramo de anticipo no entra y el resto sí.

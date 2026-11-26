@@ -12,6 +12,30 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.199 · 26 nov
+
+- POS Ventas · En caja el listado y el cobro volvieron a verse dentro de su panel.
+- POS Ventas · En caja las cartas de Por cobrar y de Órdenes cobradas quedan del mismo alto.
+- POS Ventas · En caja, al elegir una venta el cobro abre en un panel lateral y el listado queda difuminado detrás.
+- POS Ventas · En el panel de cobro el vendedor queda chico, debajo del folio.
+- POS Ventas · En el cobro el cliente queda en una fila con Editar y Cambiar, y Generar factura se prende hasta elegir Demo o Producción.
+- POS Ventas · En el cobro, Demo y Producción quedan dentro de la caja de Generar factura.
+- POS Ventas · En el cobro, Marcar para envío queda pegado al total, sin el margen de más.
+- POS Ventas · En Generar factura ya no sale el texto que pedía elegir Demo o Producción.
+- POS Ventas · En el cobro la fila del cliente queda más baja, sin el texto Cliente seleccionado, y Editar y Cambiar son más chicos.
+- POS Ventas · En Generar factura ya no salen los textos de timbrado ni de factura de prueba.
+- POS Ventas · En el cobro, si el cliente no tiene crédito, la fila muestra Sin crédito y abre Editar en esa pestaña.
+- Clientes · Editar cliente tiene la pestaña Crédito para dar de alta el crédito por razón social.
+- POS Ventas · En Por cobrar los filtros quedan a la derecha del buscador, del mismo alto y en índigo.
+- POS Ventas · En Por cobrar el select de vendedor mide lo mismo que Todos, Solo anticipos y Solo ventas.
+- POS Ventas · En Por cobrar las acciones de la carta son iconos iguales: regresar, ver detalle y marcar envío.
+- POS Ventas · En Por cobrar el nombre del icono sale pegado al botón, no en otra carta.
+- POS Ventas · En el cobro, Sin crédito abre solo el alta de crédito y ya no abre también Editar o Cambiar.
+- POS Ventas · En Por cobrar el listado ya no muestra la barra horizontal de abajo.
+- POS Ventas · En el panel de cobro ya no está Regresar a ventas. Sigue en el icono de la carta.
+- POS Ventas · En Por cobrar se quitó la barra del título y Actualizar quedó a la derecha de Vendedor.
+- POS Ventas · En el cobro, falta y cambio van en su propia carta y se quitó el título Método de pago.
+
 #### Versión 0.0.198 · 26 nov
 
 - POS Ventas · En caja el buscador queda en su caja y las órdenes y el cobro van en cartas sueltas sobre el fondo.

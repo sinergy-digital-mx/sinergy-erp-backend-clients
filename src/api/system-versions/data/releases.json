@@ -2942,5 +2942,141 @@
       }
     ],
     "releasedAt": "2026-11-26T17:18:07.460Z"
+  },
+  {
+    "releaseKey": "full:0.0.199:0.0.199-1795719060605",
+    "version": "0.0.199",
+    "buildId": "0.0.199-1795719060605",
+    "channel": "full",
+    "title": "Versión 0.0.199",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "En caja el listado y el cobro volvieron a verse dentro de su panel.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "En caja las cartas de Por cobrar y de Órdenes cobradas quedan del mismo alto.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "En caja, al elegir una venta el cobro abre en un panel lateral y el listado queda difuminado detrás.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "En el panel de cobro el vendedor queda chico, debajo del folio.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "En el cobro el cliente queda en una fila con Editar y Cambiar, y Generar factura se prende hasta elegir Demo o Producción.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "En el cobro, Demo y Producción quedan dentro de la caja de Generar factura.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "En el cobro, Marcar para envío queda pegado al total, sin el margen de más.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "En Generar factura ya no sale el texto que pedía elegir Demo o Producción.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "En el cobro la fila del cliente queda más baja, sin el texto Cliente seleccionado, y Editar y Cambiar son más chicos.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "En Generar factura ya no salen los textos de timbrado ni de factura de prueba.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "En el cobro, si el cliente no tiene crédito, la fila muestra Sin crédito y abre Editar en esa pestaña.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "Editar cliente tiene la pestaña Crédito para dar de alta el crédito por razón social.",
+        "module": "customers",
+        "moduleLabel": "Clientes"
+      },
+      {
+        "scope": "frontend",
+        "message": "En Por cobrar los filtros quedan a la derecha del buscador, del mismo alto y en índigo.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "En Por cobrar el select de vendedor mide lo mismo que Todos, Solo anticipos y Solo ventas.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "En Por cobrar las acciones de la carta son iconos iguales: regresar, ver detalle y marcar envío.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "En Por cobrar el nombre del icono sale pegado al botón, no en otra carta.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "En el cobro, Sin crédito abre solo el alta de crédito y ya no abre también Editar o Cambiar.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "En Por cobrar el listado ya no muestra la barra horizontal de abajo.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "En el panel de cobro ya no está Regresar a ventas. Sigue en el icono de la carta.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "En Por cobrar se quitó la barra del título y Actualizar quedó a la derecha de Vendedor.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "En el cobro, falta y cambio van en su propia carta y se quitó el título Método de pago.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      }
+    ],
+    "releasedAt": "2026-11-26T18:51:00.605Z"
   }
 ]
