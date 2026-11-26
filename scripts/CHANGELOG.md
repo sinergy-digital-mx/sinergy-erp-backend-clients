@@ -12,6 +12,12 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.204 · 26 nov
+
+- CRM · En el listado del CRM el nombre del cliente se corta al final si no cabe, sin partirse en dos líneas.
+- Plataforma · El botón principal quedó en índigo sobrio, con un degradado muy leve y el mismo alto que el secundario.
+- Inventario · En inventario los accesos de Existencia, Transferencias y Auditorías quedaron al mismo alto y estilo que Descargar Excel.
+
 #### Versión 0.0.203 · 26 nov
 
 - Plataforma · Los botones de acción quedaron en 32 px de alto, con texto de 12 px.

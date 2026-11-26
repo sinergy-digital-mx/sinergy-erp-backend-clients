@@ -3199,5 +3199,27 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-11-26T21:11:09.267Z"
+  },
+  {
+    "releaseKey": "full:0.0.204:0.0.204-1795728586700",
+    "version": "0.0.204",
+    "buildId": "0.0.204-1795728586700",
+    "channel": "full",
+    "title": "Versión 0.0.204",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "En el listado del CRM el nombre del cliente se corta al final si no cabe, sin partirse en dos líneas.",
+        "module": "crm",
+        "moduleLabel": "CRM"
+      },
+      {
+        "scope": "frontend",
+        "message": "El botón principal quedó en índigo sobrio, con un degradado muy leve y el mismo alto que el secundario.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
+      }
+    ],
+    "releasedAt": "2026-11-26T21:29:46.700Z"
   }
 ];
