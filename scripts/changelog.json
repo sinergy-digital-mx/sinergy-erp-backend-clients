@@ -2664,6 +2664,26 @@
       "version": "0.0.202",
       "shippedAt": "2026-11-26T12:34:02-08:00",
       "module": "pos"
+    },
+    {
+      "id": "20261126-123956",
+      "at": "2026-11-26T12:39:56-08:00",
+      "scope": "frontend",
+      "message": "Los botones de acción quedaron en 32 px de alto, con texto de 12 px.",
+      "status": "shipped",
+      "version": "0.0.203",
+      "shippedAt": "2026-11-26T13:12:27-08:00",
+      "module": "platform"
+    },
+    {
+      "id": "20261126-124142",
+      "at": "2026-11-26T12:41:42-08:00",
+      "scope": "frontend",
+      "message": "En el CRM se quitó el subtítulo de seguimiento de todos los usuarios.",
+      "status": "shipped",
+      "version": "0.0.203",
+      "shippedAt": "2026-11-26T13:12:27-08:00",
+      "module": "crm"
     }
   ]
 }

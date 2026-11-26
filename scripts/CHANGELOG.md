@@ -12,6 +12,11 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.203 · 26 nov
+
+- Plataforma · Los botones de acción quedaron en 32 px de alto, con texto de 12 px.
+- CRM · En el CRM se quitó el subtítulo de seguimiento de todos los usuarios.
+
 #### Versión 0.0.202 · 26 nov
 
 - POS Ventas · En Caja, el panel de cobro entra deslizándose desde la derecha.
