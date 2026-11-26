@@ -2904,5 +2904,27 @@
       }
     ],
     "releasedAt": "2026-11-26T06:44:16.246Z"
+  },
+  {
+    "releaseKey": "full:0.0.197:0.0.197-1795675884380",
+    "version": "0.0.197",
+    "buildId": "0.0.197-1795675884380",
+    "channel": "full",
+    "title": "Versión 0.0.197",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "En Órdenes cobradas cada carta tiene Ticket y Factura, abre el mismo diálogo de impresión y todas quedan del mismo tamaño.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "En caja el icono de búsqueda queda dentro del campo, separado del borde.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      }
+    ],
+    "releasedAt": "2026-11-26T06:51:24.380Z"
   }
 ]

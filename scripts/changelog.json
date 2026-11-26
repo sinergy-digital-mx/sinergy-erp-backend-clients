@@ -2324,6 +2324,26 @@
       "version": "0.0.196",
       "shippedAt": "2026-11-25T22:45:14-08:00",
       "module": "pos"
+    },
+    {
+      "id": "20261125-224807",
+      "at": "2026-11-25T22:48:07-08:00",
+      "scope": "frontend",
+      "message": "En Órdenes cobradas cada carta tiene Ticket y Factura, abre el mismo diálogo de impresión y todas quedan del mismo tamaño.",
+      "status": "shipped",
+      "version": "0.0.197",
+      "shippedAt": "2026-11-25T22:52:24-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261125-225103",
+      "at": "2026-11-25T22:51:03-08:00",
+      "scope": "frontend",
+      "message": "En caja el icono de búsqueda queda dentro del campo, separado del borde.",
+      "status": "shipped",
+      "version": "0.0.197",
+      "shippedAt": "2026-11-25T22:52:24-08:00",
+      "module": "pos"
     }
   ]
 }

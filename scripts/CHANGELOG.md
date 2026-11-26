@@ -12,6 +12,11 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.197 · 25 nov
+
+- POS Ventas · En Órdenes cobradas cada carta tiene Ticket y Factura, abre el mismo diálogo de impresión y todas quedan del mismo tamaño.
+- POS Ventas · En caja el icono de búsqueda queda dentro del campo, separado del borde.
+
 #### Versión 0.0.196 · 25 nov
 
 - POS Ventas · En caja el efectivo en ambas monedas queda lado a lado. Al cobrar el ticket siempre está, y si hay factura se ve junto al PDF a casi toda la pantalla.

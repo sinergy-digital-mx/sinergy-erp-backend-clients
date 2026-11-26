@@ -1,5 +1,7 @@
 # Flujo POS — Guía para UI
 
+**2026-11-25 — Reimprimir en cobradas.** En Órdenes cobradas cada carta tiene Ticket y Factura. Abren el mismo diálogo del cobro: el ticket siempre, y la factura al lado cuando existe. Cliente y empresa van a una línea, así todas las cartas miden igual.
+
 **2026-11-25 — Cobro e impresión.** En caja, efectivo y dólares van lado a lado cuando se elige Ambas, y los métodos de pago quedan en una sola fila. Al cobrar siempre está el ticket. Si hay factura, el ticket y el PDF se ven juntos y el PDF usa casi toda la pantalla.
 
 **2026-11-25 — Caja compacta.** En Ventas el folio del carrito es una barra: tipo, folio, anticipo y saldo a favor o por cobrar. En Caja el cobro abre con Volver, folio y fecha (3 nov 26). El cliente elegido se reduce a una barra con Editar. Falta y cambio van en una tabla MXN / USD. Los recibos filtran Todos, Solo anticipos y Solo ventas, y el vendedor sale de las cartas cargadas. Cada recibo puede regresarse a ventas.
