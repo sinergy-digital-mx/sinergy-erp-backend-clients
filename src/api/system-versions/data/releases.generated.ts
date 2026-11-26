@@ -2935,5 +2935,21 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-11-26T06:51:24.380Z"
+  },
+  {
+    "releaseKey": "full:0.0.198:0.0.198-1795713487460",
+    "version": "0.0.198",
+    "buildId": "0.0.198-1795713487460",
+    "channel": "full",
+    "title": "Versión 0.0.198",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "En caja el buscador queda en su caja y las órdenes y el cobro van en cartas sueltas sobre el fondo.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      }
+    ],
+    "releasedAt": "2026-11-26T17:18:07.460Z"
   }
 ];

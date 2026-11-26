@@ -12,6 +12,10 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.198 · 26 nov
+
+- POS Ventas · En caja el buscador queda en su caja y las órdenes y el cobro van en cartas sueltas sobre el fondo.
+
 #### Versión 0.0.197 · 25 nov
 
 - POS Ventas · En Órdenes cobradas cada carta tiene Ticket y Factura, abre el mismo diálogo de impresión y todas quedan del mismo tamaño.

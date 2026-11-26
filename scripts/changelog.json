@@ -2344,6 +2344,16 @@
       "version": "0.0.197",
       "shippedAt": "2026-11-25T22:52:24-08:00",
       "module": "pos"
+    },
+    {
+      "id": "20261125-230859",
+      "at": "2026-11-25T23:08:59-08:00",
+      "scope": "frontend",
+      "message": "En caja el buscador queda en su caja y las órdenes y el cobro van en cartas sueltas sobre el fondo.",
+      "status": "shipped",
+      "version": "0.0.198",
+      "shippedAt": "2026-11-26T09:19:17-08:00",
+      "module": "pos"
     }
   ]
 }

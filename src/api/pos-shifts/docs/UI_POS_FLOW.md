@@ -1,5 +1,7 @@
 # Flujo POS — Guía para UI
 
+**2026-11-25 — Cartas sueltas en caja.** El buscador se queda en su caja. Las órdenes van directo sobre el fondo, y el cobro también: cada bloque es su propia carta.
+
 **2026-11-25 — Reimprimir en cobradas.** En Órdenes cobradas cada carta tiene Ticket y Factura. Abren el mismo diálogo del cobro: el ticket siempre, y la factura al lado cuando existe. Cliente y empresa van a una línea, así todas las cartas miden igual.
 
 **2026-11-25 — Cobro e impresión.** En caja, efectivo y dólares van lado a lado cuando se elige Ambas, y los métodos de pago quedan en una sola fila. Al cobrar siempre está el ticket. Si hay factura, el ticket y el PDF se ven juntos y el PDF usa casi toda la pantalla.
