@@ -1,5 +1,9 @@
 # Flujo POS — Guía para UI
 
+**2026-11-26 — Menú al abrir POS.** Al entrar a Ventas o Caja el menú de la izquierda se cierra. Se puede volver a abrir. Al salir queda como estaba.
+
+**2026-11-26 — Panel de cobro.** Al abrir una venta, el panel entra deslizándose desde la derecha.
+
 **2026-11-26 — Carrito en Ventas.** C1, C2 y C3 van en la misma pastilla. El icono del carrito va en un círculo. En el cliente ya no sale «toca para el ticket».
 
 **2026-11-26 — Sin crédito en la fila.** El botón Sin crédito va dentro de la caja del cliente, antes de la flecha. El modal de edición abre encima del panel de cobro.

@@ -2634,6 +2634,36 @@
       "version": "0.0.201",
       "shippedAt": "2026-11-26T11:28:27-08:00",
       "module": "pos"
+    },
+    {
+      "id": "20261126-122511",
+      "at": "2026-11-26T12:25:11-08:00",
+      "scope": "frontend",
+      "message": "En Caja, el panel de cobro entra deslizándose desde la derecha.",
+      "status": "shipped",
+      "version": "0.0.202",
+      "shippedAt": "2026-11-26T12:34:02-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261126-122841",
+      "at": "2026-11-26T12:28:41-08:00",
+      "scope": "frontend",
+      "message": "Al abrir Ventas o Caja el menú de la izquierda se cierra solo y se puede volver a abrir.",
+      "status": "shipped",
+      "version": "0.0.202",
+      "shippedAt": "2026-11-26T12:34:02-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261126-123125",
+      "at": "2026-11-26T12:31:25-08:00",
+      "scope": "frontend",
+      "message": "Se quitó estilo sin uso del cobro para que el build no pase de 60 kB.",
+      "status": "shipped",
+      "version": "0.0.202",
+      "shippedAt": "2026-11-26T12:34:02-08:00",
+      "module": "pos"
     }
   ]
 }

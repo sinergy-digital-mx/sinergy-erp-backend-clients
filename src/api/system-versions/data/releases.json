@@ -3140,5 +3140,33 @@
       }
     ],
     "releasedAt": "2026-11-26T19:27:19.466Z"
+  },
+  {
+    "releaseKey": "full:0.0.202:0.0.202-1795725148718",
+    "version": "0.0.202",
+    "buildId": "0.0.202-1795725148718",
+    "channel": "full",
+    "title": "Versión 0.0.202",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "En Caja, el panel de cobro entra deslizándose desde la derecha.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "Al abrir Ventas o Caja el menú de la izquierda se cierra solo y se puede volver a abrir.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "Se quitó estilo sin uso del cobro para que el build no pase de 60 kB.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      }
+    ],
+    "releasedAt": "2026-11-26T20:32:28.718Z"
   }
 ]

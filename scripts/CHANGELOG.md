@@ -12,6 +12,12 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.202 · 26 nov
+
+- POS Ventas · En Caja, el panel de cobro entra deslizándose desde la derecha.
+- POS Ventas · Al abrir Ventas o Caja el menú de la izquierda se cierra solo y se puede volver a abrir.
+- POS Ventas · Se quitó estilo sin uso del cobro para que el build no pase de 60 kB.
+
 #### Versión 0.0.201 · 26 nov
 
 - POS Ventas · En Falta y Cambio cada monto lleva un badge chico de MXN o USD.
