@@ -2574,6 +2574,66 @@
       "version": "0.0.200",
       "shippedAt": "2026-11-26T10:55:56-08:00",
       "module": "pos"
+    },
+    {
+      "id": "20261126-105632",
+      "at": "2026-11-26T10:56:32-08:00",
+      "scope": "frontend",
+      "message": "En Falta y Cambio cada monto lleva un badge chico de MXN o USD.",
+      "status": "shipped",
+      "version": "0.0.201",
+      "shippedAt": "2026-11-26T11:28:27-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261126-105721",
+      "at": "2026-11-26T10:57:21-08:00",
+      "scope": "frontend",
+      "message": "En el cobro, Para envío quedó chico en el encabezado, junto a cerrar.",
+      "status": "shipped",
+      "version": "0.0.201",
+      "shippedAt": "2026-11-26T11:28:27-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261126-110829",
+      "at": "2026-11-26T11:08:29-08:00",
+      "scope": "frontend",
+      "message": "En efectivo, las cartas de pesos y dólares quedan del mismo alto y el título más chico.",
+      "status": "shipped",
+      "version": "0.0.201",
+      "shippedAt": "2026-11-26T11:28:27-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261126-111053",
+      "at": "2026-11-26T11:10:53-08:00",
+      "scope": "frontend",
+      "message": "Sin crédito quedó como botón dentro de la fila del cliente, y el modal abre encima del panel de cobro.",
+      "status": "shipped",
+      "version": "0.0.201",
+      "shippedAt": "2026-11-26T11:28:27-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261126-111106",
+      "at": "2026-11-26T11:11:06-08:00",
+      "scope": "frontend",
+      "message": "Desde Caja, Sin crédito abre el crédito del cliente encima del panel de cobro.",
+      "status": "shipped",
+      "version": "0.0.201",
+      "shippedAt": "2026-11-26T11:28:27-08:00",
+      "module": "customers"
+    },
+    {
+      "id": "20261126-111216",
+      "at": "2026-11-26T11:12:16-08:00",
+      "scope": "frontend",
+      "message": "En Ventas, C1 C2 y C3 quedaron en la misma pastilla, el icono del carrito en un círculo, y se quitó toca para el ticket.",
+      "status": "shipped",
+      "version": "0.0.201",
+      "shippedAt": "2026-11-26T11:28:27-08:00",
+      "module": "pos"
     }
   ]
 }

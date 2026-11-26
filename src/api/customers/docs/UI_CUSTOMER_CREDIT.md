@@ -2,6 +2,10 @@
 
 Contrato para Pollux. Backend ya guarda y valida todo esto.
 
+## 2026-11-26 — Sin crédito dentro del cliente
+
+En Caja, **Sin crédito** es un botón dentro de la caja del cliente, antes de la flecha. Al picarlo, el modal de crédito abre encima del panel de cobro.
+
 ## 2026-11-26 — Crédito desde el cobro
 
 En Caja, si el cliente no tiene crédito con la razón social, la fila del cliente muestra la etiqueta **Sin crédito**. Al picarla se abre Editar cliente en la pestaña Crédito para darlo de alta.

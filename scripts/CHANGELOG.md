@@ -12,6 +12,15 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.201 · 26 nov
+
+- POS Ventas · En Falta y Cambio cada monto lleva un badge chico de MXN o USD.
+- POS Ventas · En el cobro, Para envío quedó chico en el encabezado, junto a cerrar.
+- POS Ventas · En efectivo, las cartas de pesos y dólares quedan del mismo alto y el título más chico.
+- POS Ventas · Sin crédito quedó como botón dentro de la fila del cliente, y el modal abre encima del panel de cobro.
+- Clientes · Desde Caja, Sin crédito abre el crédito del cliente encima del panel de cobro.
+- POS Ventas · En Ventas, C1 C2 y C3 quedaron en la misma pastilla, el icono del carrito en un círculo, y se quitó toca para el ticket.
+
 #### Versión 0.0.200 · 26 nov
 
 - POS Ventas · En efectivo, los billetes van en una barra segmentada del mismo ancho.

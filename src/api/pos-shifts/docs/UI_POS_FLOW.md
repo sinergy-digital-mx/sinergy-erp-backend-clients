@@ -1,5 +1,15 @@
 # Flujo POS — Guía para UI
 
+**2026-11-26 — Carrito en Ventas.** C1, C2 y C3 van en la misma pastilla. El icono del carrito va en un círculo. En el cliente ya no sale «toca para el ticket».
+
+**2026-11-26 — Sin crédito en la fila.** El botón Sin crédito va dentro de la caja del cliente, antes de la flecha. El modal de edición abre encima del panel de cobro.
+
+**2026-11-26 — Cartas de efectivo iguales.** Pesos y dólares usan el mismo alto. El título quedó más chico y el tipo de cambio ya no empuja la carta de dólares.
+
+**2026-11-26 — Envío en el encabezado.** En el cobro, Para envío quedó chico junto a la X. Al pasar el mouse dice Marcar para envío o Ya marcada para envío.
+
+**2026-11-26 — Moneda en falta y cambio.** Cada monto de Falta y Cambio lleva un badge chico: MXN o USD.
+
 **2026-11-26 — Billetes en barra.** En efectivo, los billetes van en una sola barra segmentada, del mismo ancho, con el conteo en la esquina.
 
 **2026-11-26 — Falta y cambio aparte.** En el cobro, falta y cambio van en su propia carta. Se quitó el título Método de pago.
