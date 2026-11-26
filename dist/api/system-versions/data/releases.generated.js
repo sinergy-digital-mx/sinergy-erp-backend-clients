@@ -3357,6 +3357,22 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-26T22:42:31.979Z"
+    },
+    {
+        "releaseKey": "full:0.0.206:0.0.206-1795735664867",
+        "version": "0.0.206",
+        "buildId": "0.0.206-1795735664867",
+        "channel": "full",
+        "title": "Versión 0.0.206",
+        "changes": [
+            {
+                "scope": "backend",
+                "message": "El detalle de la orden respondía 500 porque a los camiones les faltaba la sucursal por defecto. Esa columna ya está en la base.",
+                "module": "sales-orders",
+                "moduleLabel": "Órdenes de venta"
+            }
+        ],
+        "releasedAt": "2026-11-26T23:27:44.867Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map

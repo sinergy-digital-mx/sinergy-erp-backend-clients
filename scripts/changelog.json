@@ -2934,6 +2934,16 @@
       "version": "0.0.205",
       "shippedAt": "2026-11-26T14:44:22-08:00",
       "module": "sales-orders"
+    },
+    {
+      "id": "20261126-151650",
+      "at": "2026-11-26T15:16:50-08:00",
+      "scope": "backend",
+      "message": "El detalle de la orden respondía 500 porque a los camiones les faltaba la sucursal por defecto. Esa columna ya está en la base.",
+      "status": "shipped",
+      "version": "0.0.206",
+      "shippedAt": "2026-11-26T15:29:05-08:00",
+      "module": "sales-orders"
     }
   ]
 }

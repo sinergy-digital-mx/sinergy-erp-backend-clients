@@ -1,8 +1,10 @@
 # UI — Listado de órdenes de venta (razón social + sucursal)
 
-## 2026-11-26 — Detalle que no cargaba
+## 2026-11-26 — El detalle respondía 500
 
-Si el detalle de la orden no llega, el modal ya no se queda en blanco: muestra el motivo, Reintentar y la X para cerrar.
+`GET` del detalle arma también el envío y ese query pide `trucks.default_billing_branch_id`. La columna no estaba en la base, así que cualquier orden respondía 500 con `Internal server error`. Ya quedó aplicada la migración `AddTruckDefaultBranch1797400000000`: columna nullable e índice `idx_trucks_default_branch`. Sin envío, la orden abre igual.
+
+Si el detalle no llega, el modal ya no se queda en blanco: muestra el motivo, Reintentar y la X para cerrar. Un 500 del servidor sigue viéndose como «Error del servidor…»; el cuerpo `Internal server error` no se muestra tal cual.
 
 ## 2026-11-24 — Columna de sucursal y mes de la gráfica
 

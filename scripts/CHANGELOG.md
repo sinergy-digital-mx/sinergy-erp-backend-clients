@@ -12,6 +12,10 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.206 · 26 nov
+
+- Órdenes de venta · El detalle de la orden respondía 500 porque a los camiones les faltaba la sucursal por defecto. Esa columna ya está en la base.
+
 #### Versión 0.0.205 · 26 nov
 
 - Contabilidad · En Caja del día cada orden tiene el ojo del ticket de compra y el botón PDF de la factura, con tooltip de lo que abre cada uno.
