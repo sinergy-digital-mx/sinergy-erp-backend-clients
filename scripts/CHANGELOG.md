@@ -12,6 +12,10 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.196 · 25 nov
+
+- POS Ventas · En caja el efectivo en ambas monedas queda lado a lado. Al cobrar el ticket siempre está, y si hay factura se ve junto al PDF a casi toda la pantalla.
+
 #### Versión 0.0.194 · 25 nov
 
 - POS Ventas · En POS Caja el anticipo se cobra en el corte, con carta distinta a la venta, y el timbrado abre en demo. Quien ve POS puede regresarlo a ventas. El cliente sigue en el carrito y el buscador se mueve con las flechas.

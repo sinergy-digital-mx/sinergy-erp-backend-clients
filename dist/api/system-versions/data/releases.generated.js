@@ -2891,6 +2891,22 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-26T06:32:39.494Z"
+    },
+    {
+        "releaseKey": "full:0.0.196:0.0.196-1795675456246",
+        "version": "0.0.196",
+        "buildId": "0.0.196-1795675456246",
+        "channel": "full",
+        "title": "Versión 0.0.196",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "En caja el efectivo en ambas monedas queda lado a lado. Al cobrar el ticket siempre está, y si hay factura se ve junto al PDF a casi toda la pantalla.",
+                "module": "pos",
+                "moduleLabel": "POS Ventas"
+            }
+        ],
+        "releasedAt": "2026-11-26T06:44:16.246Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map
