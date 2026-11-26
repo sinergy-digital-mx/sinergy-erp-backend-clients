@@ -3212,5 +3212,147 @@
       }
     ],
     "releasedAt": "2026-11-26T21:29:46.700Z"
+  },
+  {
+    "releaseKey": "full:0.0.205:0.0.205-1795732951979",
+    "version": "0.0.205",
+    "buildId": "0.0.205-1795732951979",
+    "channel": "full",
+    "title": "Versión 0.0.205",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "En Caja del día cada orden tiene el ojo del ticket de compra y el botón PDF de la factura, con tooltip de lo que abre cada uno.",
+        "module": "accounting",
+        "moduleLabel": "Contabilidad"
+      },
+      {
+        "scope": "frontend",
+        "message": "Los títulos de los listados bajan a 18 px para quedar a la altura de los botones.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
+      },
+      {
+        "scope": "frontend",
+        "message": "En Clientes el título queda a 18 px, a la altura de Descargar Excel y Crear.",
+        "module": "customers",
+        "moduleLabel": "Clientes"
+      },
+      {
+        "scope": "frontend",
+        "message": "En inventario, transferencias y existencia el título queda a 18 px, a la altura de los botones.",
+        "module": "inventory",
+        "moduleLabel": "Inventario"
+      },
+      {
+        "scope": "frontend",
+        "message": "En Productos el título queda a 18 px, a la altura de los botones.",
+        "module": "products",
+        "moduleLabel": "Productos"
+      },
+      {
+        "scope": "frontend",
+        "message": "En CRM el título queda a 18 px, a la altura de los botones.",
+        "module": "crm",
+        "moduleLabel": "CRM"
+      },
+      {
+        "scope": "frontend",
+        "message": "En Caja y cuentas y Flujo de deuda el título queda a 18 px.",
+        "module": "accounting",
+        "moduleLabel": "Contabilidad"
+      },
+      {
+        "scope": "frontend",
+        "message": "En Proveedores el título queda a 18 px, a la altura de los botones.",
+        "module": "vendors",
+        "moduleLabel": "Proveedores"
+      },
+      {
+        "scope": "frontend",
+        "message": "En logística el título queda a 18 px, a la altura de los botones.",
+        "module": "logistics",
+        "moduleLabel": "Logística"
+      },
+      {
+        "scope": "frontend",
+        "message": "En Empleados el título queda a 18 px, a la altura de los botones.",
+        "module": "employees",
+        "moduleLabel": "Empleados"
+      },
+      {
+        "scope": "frontend",
+        "message": "En crear o editar una orden de venta el título queda a 18 px.",
+        "module": "sales-orders",
+        "moduleLabel": "Órdenes de venta"
+      },
+      {
+        "scope": "frontend",
+        "message": "En el formulario y el detalle de compra el título queda a 18 px.",
+        "module": "purchase-orders",
+        "moduleLabel": "Órdenes de compra"
+      },
+      {
+        "scope": "frontend",
+        "message": "En las pantallas de configuración el título queda a 18 px, a la altura de los botones.",
+        "module": "settings",
+        "moduleLabel": "Configuración"
+      },
+      {
+        "scope": "frontend",
+        "message": "En WhatsApp el título queda a 18 px, a la altura de los botones.",
+        "module": "whatsapp",
+        "moduleLabel": "WhatsApp"
+      },
+      {
+        "scope": "frontend",
+        "message": "El botón de crear deja el borde oscuro y queda del mismo alto que Descargar Excel.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
+      },
+      {
+        "scope": "frontend",
+        "message": "En órdenes de venta, Crear usa el mismo icono y alto que Descargar Excel.",
+        "module": "sales-orders",
+        "moduleLabel": "Órdenes de venta"
+      },
+      {
+        "scope": "frontend",
+        "message": "En órdenes de compra, Crear usa el mismo icono y alto que Descargar Excel.",
+        "module": "purchase-orders",
+        "moduleLabel": "Órdenes de compra"
+      },
+      {
+        "scope": "frontend",
+        "message": "En cotizaciones, Crear usa el mismo icono y alto que el resto de acciones.",
+        "module": "quotations",
+        "moduleLabel": "Cotizaciones"
+      },
+      {
+        "scope": "frontend",
+        "message": "En clientes, Crear Cliente usa el mismo icono y alto que Descargar Excel.",
+        "module": "customers",
+        "moduleLabel": "Clientes"
+      },
+      {
+        "scope": "frontend",
+        "message": "En productos, el botón de alta usa el mismo icono y alto que Descargar catálogo.",
+        "module": "products",
+        "moduleLabel": "Productos"
+      },
+      {
+        "scope": "frontend",
+        "message": "En Caja del día, Ventas cobradas y Cuentas por cobrar cada orden abre el ticket y el PDF de la factura con el mismo tooltip. Las cartas de Cuentas por cobrar, Cuentas por pagar y Caja del día usan el resumen de órdenes de venta.",
+        "module": "accounting",
+        "moduleLabel": "Contabilidad"
+      },
+      {
+        "scope": "frontend",
+        "message": "Si el detalle de la orden no carga, el modal muestra el motivo, Reintentar y la X para cerrar.",
+        "module": "sales-orders",
+        "moduleLabel": "Órdenes de venta"
+      }
+    ],
+    "releasedAt": "2026-11-26T22:42:31.979Z"
   }
 ]

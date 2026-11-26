@@ -109,6 +109,7 @@ export declare class AccountingService {
             terminal_name: string | null;
             customer_display_name: string | null;
             amount_collected: number;
+            invoice_id: string | null;
         }[];
         sales_terminals: {
             terminal_user_id: string;
@@ -449,6 +450,7 @@ export declare class AccountingService {
     private walkInCustomerSql;
     private stampedInvoiceExistsSql;
     private loadSalesOrderPaymentDates;
+    private loadLatestSaleInvoiceIds;
     private getStampedInvoiceOrderIds;
     private payablePeriodRange;
     private collectAccountsPayableVendors;

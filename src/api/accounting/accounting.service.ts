@@ -1864,10 +1864,9 @@ export class AccountingService {
         amount_collected: string | number | null;
       }>();
 
-    const advanceByOrder = await this.loadOrderAdvanceDisplay(
-      tenantId,
-      rows.map((row) => row.id),
-    );
+    const orderIds = rows.map((row) => row.id);
+    const advanceByOrder = await this.loadOrderAdvanceDisplay(tenantId, orderIds);
+    const invoiceByOrder = await this.loadLatestSaleInvoiceIds(tenantId, orderIds);
 
     return rows.map((row) => {
       const customerFields = this.buildCustomerFields({
@@ -1899,6 +1898,7 @@ export class AccountingService {
             : 'Sucursal',
         customer_display_name: customerFields.customer_display_name,
         amount_collected: Number(row.amount_collected || 0),
+        invoice_id: invoiceByOrder.get(row.id) ?? null,
       };
     });
   }
@@ -1959,6 +1959,62 @@ export class AccountingService {
       }
     }
     return dates;
+  }
+
+  /** Factura de ingreso vigente por orden: mercancía o estándar, si no el anticipo. */
+  private async loadLatestSaleInvoiceIds(
+    tenantId: string,
+    orderIds: string[],
+  ): Promise<Map<string, string>> {
+    const chosen = new Map<string, { id: string; rank: number; stampedAt: number }>();
+    if (!orderIds.length) {
+      return new Map();
+    }
+
+    const rankOf = (role: string | null): number => {
+      if (role === 'merchandise' || role === 'standard') return 0;
+      if (role === 'advance') return 1;
+      return 9;
+    };
+
+    for (const ids of chunkIds(orderIds, 500)) {
+      const invoices = await this.electronicInvoiceRepo
+        .createQueryBuilder('ei')
+        .select('ei.source_id', 'source_id')
+        .addSelect('ei.id', 'id')
+        .addSelect('ei.invoice_role', 'invoice_role')
+        .addSelect('ei.stamped_at', 'stamped_at')
+        .where('ei.tenant_id = :tenantId', { tenantId })
+        .andWhere('ei.source_module = :module', { module: 'sales_orders' })
+        .andWhere('ei.source_id IN (:...ids)', { ids })
+        .andWhere('ei.stamp_status IN (:...statuses)', {
+          statuses: ['stamped', 'cancel_pending'],
+        })
+        .andWhere('ei.uuid IS NOT NULL')
+        .andWhere("ei.tipo_comprobante = 'I'")
+        .getRawMany<{
+          source_id: string;
+          id: string;
+          invoice_role: string | null;
+          stamped_at: Date | string | null;
+        }>();
+
+      for (const invoice of invoices) {
+        const rank = rankOf(invoice.invoice_role);
+        if (rank > 1) continue;
+        const stampedAt = invoice.stamped_at ? new Date(invoice.stamped_at).getTime() : 0;
+        const current = chosen.get(invoice.source_id);
+        if (
+          !current ||
+          rank < current.rank ||
+          (rank === current.rank && stampedAt > current.stampedAt)
+        ) {
+          chosen.set(invoice.source_id, { id: invoice.id, rank, stampedAt });
+        }
+      }
+    }
+
+    return new Map([...chosen.entries()].map(([orderId, value]) => [orderId, value.id]));
   }
 
   private async getStampedInvoiceOrderIds(

@@ -6,6 +6,12 @@ Guía para Pollux: módulo **Caja y cuentas** (menú Contabilidad). Los filtros 
 
 ## Historial
 
+### 2026-11-26
+Cuentas por cobrar, Cuentas por pagar y Caja del día usan las mismas cartas de resumen que órdenes de venta. Ventas cobradas no cambia sus cartas. En Caja del día, Ventas cobradas y en cada orden de Cuentas por cobrar están el ojo del ticket y el PDF de la factura, con el mismo tooltip. En Cuentas por pagar el ojo abre la orden de compra.
+
+### 2026-11-26
+Caja del día, en Órdenes que entraron: el ojo abre el ticket de compra y el botón PDF abre la factura. Cada uno, y el folio, tiene tooltip. `entered_orders[].invoice_id` trae la factura de ingreso vigente (mercancía o estándar; si no, el anticipo).
+
 ### 2026-11-25
 El menú y el título de la vista pasan de **Cobranza** a **Caja y cuentas**. La pestaña del periodo pasa de **Cobros** a **Ventas cobradas** (las ventas ya cobradas, por fecha de cobro). **Caja del día** no cambia.
 
@@ -265,6 +271,7 @@ GET /api/tenant/accounting/pos-summary?billing_branch_id={uuid}&period=month
 | Es para envío | `entered_orders[i].for_shipping` |
 | Origen | `entered_orders[i].channel` → `caja` \| `branch` |
 | Folio | `entered_orders[i].folio` |
+| Factura vigente | `entered_orders[i].invoice_id` (null si no hay) |
 | Cliente | `entered_orders[i].customer_display_name` |
 | Terminal | `entered_orders[i].terminal_name` |
 | Total de la orden | `entered_orders[i].total` |

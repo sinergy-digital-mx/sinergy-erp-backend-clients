@@ -1,5 +1,9 @@
 # UI — Listado de órdenes de venta (razón social + sucursal)
 
+## 2026-11-26 — Detalle que no cargaba
+
+Si el detalle de la orden no llega, el modal ya no se queda en blanco: muestra el motivo, Reintentar y la X para cerrar.
+
 ## 2026-11-24 — Columna de sucursal y mes de la gráfica
 
 Si el filtro de arriba ya tiene una sucursal, la columna **Sucursal** no sale en la tabla ni en el celular. Con todas las sucursales, la columna sigue. En la gráfica de 12 meses la etiqueta lleva la inicial en mayúscula: `Nov 26`.

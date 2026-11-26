@@ -2714,6 +2714,226 @@
       "version": "0.0.204",
       "shippedAt": "2026-11-26T13:31:03-08:00",
       "module": "inventory"
+    },
+    {
+      "id": "20261126-133512",
+      "at": "2026-11-26T13:35:12-08:00",
+      "scope": "both",
+      "message": "En Caja del día cada orden tiene el ojo del ticket de compra y el botón PDF de la factura, con tooltip de lo que abre cada uno.",
+      "status": "shipped",
+      "version": "0.0.205",
+      "shippedAt": "2026-11-26T14:44:22-08:00",
+      "module": "accounting"
+    },
+    {
+      "id": "20261126-134317",
+      "at": "2026-11-26T13:43:17-08:00",
+      "scope": "frontend",
+      "message": "Los títulos de los listados bajan a 18 px para quedar a la altura de los botones.",
+      "status": "shipped",
+      "version": "0.0.205",
+      "shippedAt": "2026-11-26T14:44:22-08:00",
+      "module": "platform"
+    },
+    {
+      "id": "20261126-134317-2",
+      "at": "2026-11-26T13:43:17-08:00",
+      "scope": "frontend",
+      "message": "En Clientes el título queda a 18 px, a la altura de Descargar Excel y Crear.",
+      "status": "shipped",
+      "version": "0.0.205",
+      "shippedAt": "2026-11-26T14:44:22-08:00",
+      "module": "customers"
+    },
+    {
+      "id": "20261126-134317-3",
+      "at": "2026-11-26T13:43:17-08:00",
+      "scope": "frontend",
+      "message": "En inventario, transferencias y existencia el título queda a 18 px, a la altura de los botones.",
+      "status": "shipped",
+      "version": "0.0.205",
+      "shippedAt": "2026-11-26T14:44:22-08:00",
+      "module": "inventory"
+    },
+    {
+      "id": "20261126-134317-4",
+      "at": "2026-11-26T13:43:17-08:00",
+      "scope": "frontend",
+      "message": "En Productos el título queda a 18 px, a la altura de los botones.",
+      "status": "shipped",
+      "version": "0.0.205",
+      "shippedAt": "2026-11-26T14:44:22-08:00",
+      "module": "products"
+    },
+    {
+      "id": "20261126-134318",
+      "at": "2026-11-26T13:43:18-08:00",
+      "scope": "frontend",
+      "message": "En CRM el título queda a 18 px, a la altura de los botones.",
+      "status": "shipped",
+      "version": "0.0.205",
+      "shippedAt": "2026-11-26T14:44:22-08:00",
+      "module": "crm"
+    },
+    {
+      "id": "20261126-134318-2",
+      "at": "2026-11-26T13:43:18-08:00",
+      "scope": "frontend",
+      "message": "En Caja y cuentas y Flujo de deuda el título queda a 18 px.",
+      "status": "shipped",
+      "version": "0.0.205",
+      "shippedAt": "2026-11-26T14:44:22-08:00",
+      "module": "accounting"
+    },
+    {
+      "id": "20261126-134318-3",
+      "at": "2026-11-26T13:43:18-08:00",
+      "scope": "frontend",
+      "message": "En Proveedores el título queda a 18 px, a la altura de los botones.",
+      "status": "shipped",
+      "version": "0.0.205",
+      "shippedAt": "2026-11-26T14:44:22-08:00",
+      "module": "vendors"
+    },
+    {
+      "id": "20261126-134318-4",
+      "at": "2026-11-26T13:43:18-08:00",
+      "scope": "frontend",
+      "message": "En logística el título queda a 18 px, a la altura de los botones.",
+      "status": "shipped",
+      "version": "0.0.205",
+      "shippedAt": "2026-11-26T14:44:22-08:00",
+      "module": "logistics"
+    },
+    {
+      "id": "20261126-134318-5",
+      "at": "2026-11-26T13:43:18-08:00",
+      "scope": "frontend",
+      "message": "En Empleados el título queda a 18 px, a la altura de los botones.",
+      "status": "shipped",
+      "version": "0.0.205",
+      "shippedAt": "2026-11-26T14:44:22-08:00",
+      "module": "employees"
+    },
+    {
+      "id": "20261126-134319",
+      "at": "2026-11-26T13:43:19-08:00",
+      "scope": "frontend",
+      "message": "En crear o editar una orden de venta el título queda a 18 px.",
+      "status": "shipped",
+      "version": "0.0.205",
+      "shippedAt": "2026-11-26T14:44:22-08:00",
+      "module": "sales-orders"
+    },
+    {
+      "id": "20261126-134319-2",
+      "at": "2026-11-26T13:43:19-08:00",
+      "scope": "frontend",
+      "message": "En el formulario y el detalle de compra el título queda a 18 px.",
+      "status": "shipped",
+      "version": "0.0.205",
+      "shippedAt": "2026-11-26T14:44:22-08:00",
+      "module": "purchase-orders"
+    },
+    {
+      "id": "20261126-134319-3",
+      "at": "2026-11-26T13:43:19-08:00",
+      "scope": "frontend",
+      "message": "En las pantallas de configuración el título queda a 18 px, a la altura de los botones.",
+      "status": "shipped",
+      "version": "0.0.205",
+      "shippedAt": "2026-11-26T14:44:22-08:00",
+      "module": "settings"
+    },
+    {
+      "id": "20261126-134319-4",
+      "at": "2026-11-26T13:43:19-08:00",
+      "scope": "frontend",
+      "message": "En WhatsApp el título queda a 18 px, a la altura de los botones.",
+      "status": "shipped",
+      "version": "0.0.205",
+      "shippedAt": "2026-11-26T14:44:22-08:00",
+      "module": "whatsapp"
+    },
+    {
+      "id": "20261126-135719",
+      "at": "2026-11-26T13:57:19-08:00",
+      "scope": "frontend",
+      "message": "El botón de crear deja el borde oscuro y queda del mismo alto que Descargar Excel.",
+      "status": "shipped",
+      "version": "0.0.205",
+      "shippedAt": "2026-11-26T14:44:22-08:00",
+      "module": "platform"
+    },
+    {
+      "id": "20261126-135719-2",
+      "at": "2026-11-26T13:57:19-08:00",
+      "scope": "frontend",
+      "message": "En órdenes de venta, Crear usa el mismo icono y alto que Descargar Excel.",
+      "status": "shipped",
+      "version": "0.0.205",
+      "shippedAt": "2026-11-26T14:44:22-08:00",
+      "module": "sales-orders"
+    },
+    {
+      "id": "20261126-135719-3",
+      "at": "2026-11-26T13:57:19-08:00",
+      "scope": "frontend",
+      "message": "En órdenes de compra, Crear usa el mismo icono y alto que Descargar Excel.",
+      "status": "shipped",
+      "version": "0.0.205",
+      "shippedAt": "2026-11-26T14:44:22-08:00",
+      "module": "purchase-orders"
+    },
+    {
+      "id": "20261126-135719-4",
+      "at": "2026-11-26T13:57:19-08:00",
+      "scope": "frontend",
+      "message": "En cotizaciones, Crear usa el mismo icono y alto que el resto de acciones.",
+      "status": "shipped",
+      "version": "0.0.205",
+      "shippedAt": "2026-11-26T14:44:22-08:00",
+      "module": "quotations"
+    },
+    {
+      "id": "20261126-135719-5",
+      "at": "2026-11-26T13:57:19-08:00",
+      "scope": "frontend",
+      "message": "En clientes, Crear Cliente usa el mismo icono y alto que Descargar Excel.",
+      "status": "shipped",
+      "version": "0.0.205",
+      "shippedAt": "2026-11-26T14:44:22-08:00",
+      "module": "customers"
+    },
+    {
+      "id": "20261126-135720",
+      "at": "2026-11-26T13:57:20-08:00",
+      "scope": "frontend",
+      "message": "En productos, el botón de alta usa el mismo icono y alto que Descargar catálogo.",
+      "status": "shipped",
+      "version": "0.0.205",
+      "shippedAt": "2026-11-26T14:44:22-08:00",
+      "module": "products"
+    },
+    {
+      "id": "20261126-140336",
+      "at": "2026-11-26T14:03:36-08:00",
+      "scope": "frontend",
+      "message": "En Caja del día, Ventas cobradas y Cuentas por cobrar cada orden abre el ticket y el PDF de la factura con el mismo tooltip. Las cartas de Cuentas por cobrar, Cuentas por pagar y Caja del día usan el resumen de órdenes de venta.",
+      "status": "shipped",
+      "version": "0.0.205",
+      "shippedAt": "2026-11-26T14:44:22-08:00",
+      "module": "accounting"
+    },
+    {
+      "id": "20261126-142009",
+      "at": "2026-11-26T14:20:09-08:00",
+      "scope": "frontend",
+      "message": "Si el detalle de la orden no carga, el modal muestra el motivo, Reintentar y la X para cerrar.",
+      "status": "shipped",
+      "version": "0.0.205",
+      "shippedAt": "2026-11-26T14:44:22-08:00",
+      "module": "sales-orders"
     }
   ]
 }

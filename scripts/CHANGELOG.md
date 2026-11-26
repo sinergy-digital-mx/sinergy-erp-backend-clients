@@ -12,6 +12,31 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.205 · 26 nov
+
+- Contabilidad · En Caja del día cada orden tiene el ojo del ticket de compra y el botón PDF de la factura, con tooltip de lo que abre cada uno.
+- Plataforma · Los títulos de los listados bajan a 18 px para quedar a la altura de los botones.
+- Clientes · En Clientes el título queda a 18 px, a la altura de Descargar Excel y Crear.
+- Inventario · En inventario, transferencias y existencia el título queda a 18 px, a la altura de los botones.
+- Productos · En Productos el título queda a 18 px, a la altura de los botones.
+- CRM · En CRM el título queda a 18 px, a la altura de los botones.
+- Contabilidad · En Caja y cuentas y Flujo de deuda el título queda a 18 px.
+- Proveedores · En Proveedores el título queda a 18 px, a la altura de los botones.
+- Logística · En logística el título queda a 18 px, a la altura de los botones.
+- Empleados · En Empleados el título queda a 18 px, a la altura de los botones.
+- Órdenes de venta · En crear o editar una orden de venta el título queda a 18 px.
+- Órdenes de compra · En el formulario y el detalle de compra el título queda a 18 px.
+- Configuración · En las pantallas de configuración el título queda a 18 px, a la altura de los botones.
+- WhatsApp · En WhatsApp el título queda a 18 px, a la altura de los botones.
+- Plataforma · El botón de crear deja el borde oscuro y queda del mismo alto que Descargar Excel.
+- Órdenes de venta · En órdenes de venta, Crear usa el mismo icono y alto que Descargar Excel.
+- Órdenes de compra · En órdenes de compra, Crear usa el mismo icono y alto que Descargar Excel.
+- Cotizaciones · En cotizaciones, Crear usa el mismo icono y alto que el resto de acciones.
+- Clientes · En clientes, Crear Cliente usa el mismo icono y alto que Descargar Excel.
+- Productos · En productos, el botón de alta usa el mismo icono y alto que Descargar catálogo.
+- Contabilidad · En Caja del día, Ventas cobradas y Cuentas por cobrar cada orden abre el ticket y el PDF de la factura con el mismo tooltip. Las cartas de Cuentas por cobrar, Cuentas por pagar y Caja del día usan el resumen de órdenes de venta.
+- Órdenes de venta · Si el detalle de la orden no carga, el modal muestra el motivo, Reintentar y la X para cerrar.
+
 #### Versión 0.0.204 · 26 nov
 
 - CRM · En el listado del CRM el nombre del cliente se corta al final si no cabe, sin partirse en dos líneas.
