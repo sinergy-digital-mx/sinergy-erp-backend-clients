@@ -3519,6 +3519,22 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-27T23:29:59.149Z"
+    },
+    {
+        "releaseKey": "full:0.0.212:0.0.212-1795822815840",
+        "version": "0.0.212",
+        "buildId": "0.0.212-1795822815840",
+        "channel": "full",
+        "title": "Versión 0.0.212",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "En el detalle, razón social, sucursal, folio y envío quedan en dos líneas, más bajas y sin título. Cliente conserva el título y el nombre.",
+                "module": "sales-orders",
+                "moduleLabel": "Órdenes de venta"
+            }
+        ],
+        "releasedAt": "2026-11-27T23:40:15.840Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map

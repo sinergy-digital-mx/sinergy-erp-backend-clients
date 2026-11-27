@@ -12,6 +12,10 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.212 · 27 nov
+
+- Órdenes de venta · En el detalle, razón social, sucursal, folio y envío quedan en dos líneas, más bajas y sin título. Cliente conserva el título y el nombre.
+
 #### Versión 0.0.211 · 27 nov
 
 - Configuración · En roles, el editor muestra cuántos módulos tiene el rol y permite ver solo asignados o sin asignar, y contraer o mostrar todo.

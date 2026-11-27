@@ -3104,6 +3104,16 @@
       "version": "0.0.211",
       "shippedAt": "2026-11-27T15:31:16-08:00",
       "module": "settings"
+    },
+    {
+      "id": "20261127-153606",
+      "at": "2026-11-27T15:36:06-08:00",
+      "scope": "frontend",
+      "message": "En el detalle, razón social, sucursal, folio y envío quedan en dos líneas, más bajas y sin título. Cliente conserva el título y el nombre.",
+      "status": "shipped",
+      "version": "0.0.212",
+      "shippedAt": "2026-11-27T15:41:25-08:00",
+      "module": "sales-orders"
     }
   ]
 }
