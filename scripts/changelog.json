@@ -3094,6 +3094,16 @@
       "version": "0.0.210",
       "shippedAt": "2026-11-27T15:10:36-08:00",
       "module": "settings"
+    },
+    {
+      "id": "20261127-151200",
+      "at": "2026-11-27T15:12:00-08:00",
+      "scope": "frontend",
+      "message": "En roles, el editor muestra cuántos módulos tiene el rol y permite ver solo asignados o sin asignar, y contraer o mostrar todo.",
+      "status": "shipped",
+      "version": "0.0.211",
+      "shippedAt": "2026-11-27T15:31:16-08:00",
+      "module": "settings"
     }
   ]
 }

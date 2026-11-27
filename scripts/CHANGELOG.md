@@ -12,6 +12,10 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.211 · 27 nov
+
+- Configuración · En roles, el editor muestra cuántos módulos tiene el rol y permite ver solo asignados o sin asignar, y contraer o mostrar todo.
+
 #### Versión 0.0.210 · 27 nov
 
 - Órdenes de venta · En el detalle los estados del encabezado van en una sola franja y se quitó Mostrador. La ventana ocupa casi toda la pantalla y el encabezado de productos queda como el de mostrador.

@@ -3503,6 +3503,22 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-27T23:09:12.740Z"
+    },
+    {
+        "releaseKey": "full:0.0.211:0.0.211-1795822199149",
+        "version": "0.0.211",
+        "buildId": "0.0.211-1795822199149",
+        "channel": "full",
+        "title": "Versión 0.0.211",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "En roles, el editor muestra cuántos módulos tiene el rol y permite ver solo asignados o sin asignar, y contraer o mostrar todo.",
+                "module": "settings",
+                "moduleLabel": "Configuración"
+            }
+        ],
+        "releasedAt": "2026-11-27T23:29:59.149Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map
