@@ -28,6 +28,7 @@ const pos_sale_payment_method_enum_1 = require("../../entities/pos/pos-sale-paym
 const user_entity_1 = require("../../entities/users/user.entity");
 const user_billing_branch_entity_1 = require("../../entities/users/user-billing-branch.entity");
 const pos_user_type_enum_1 = require("../../entities/users/pos-user-type.enum");
+const user_status_constants_1 = require("../users/user-status.constants");
 const sales_order_entity_1 = require("../../entities/sales-orders/sales-order.entity");
 const quotation_entity_1 = require("../../entities/quotations/quotation.entity");
 const sales_order_pos_stage_enum_1 = require("../../entities/sales-orders/sales-order-pos-stage.enum");
@@ -133,6 +134,21 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             requires_daily_shift: !dailyShift,
             pos_user_type: terminalUser.pos_user_type,
         };
+    }
+    async validateCashierCode(tenantId, terminalUserId, code, billingBranchId) {
+        const terminalUser = await this.requireCobranzaTerminal(tenantId, terminalUserId);
+        const branchId = await this.resolveAccessibleBranchId(terminalUser, billingBranchId);
+        const dailyShift = await this.getBranchOpenDailyShift(tenantId, branchId);
+        const cashier = await this.findActiveCajaOperatorByCode(tenantId, code);
+        return {
+            cashier: this.mapSeller(cashier),
+            terminal_user: this.mapTerminalUser(terminalUser),
+            daily_shift: dailyShift ? this.mapDailyShiftSummary(dailyShift) : null,
+        };
+    }
+    async resolveCollectingUser(tenantId, terminalUserId, operatorUserId) {
+        const terminalUser = await this.requireCobranzaTerminal(tenantId, terminalUserId);
+        return this.resolveCajaOperator(tenantId, terminalUser, operatorUserId);
     }
     async getCurrentDailyShift(tenantId, terminalUserId, billingBranchId) {
         const terminalUser = await this.requirePosTerminal(tenantId, terminalUserId);
@@ -277,6 +293,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         }
         const { removedTotalMxn, removedTotalUsd, denominationRows } = this.computeDenominations(dto.denominations);
         const salesStats = await this.getShiftSalesStats(shift.id);
+        const performer = await this.resolveCollectingUser(tenantId, terminalUserId, dto.performed_by_user_id);
         const lastPartial = await this.partialShiftRepo.findOne({
             where: { daily_shift_id: shift.id },
             order: { partial_number: 'DESC' },
@@ -289,7 +306,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             removed_total_usd: removedTotalUsd,
             sales_total_mxn: salesStats.total,
             sales_count: salesStats.count,
-            performed_by_user_id: dto.performed_by_user_id ?? terminalUserId,
+            performed_by_user_id: performer.id,
             notes: dto.notes ?? null,
         });
         const saved = await this.partialShiftRepo.save(partial);
@@ -692,6 +709,8 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
     }
     async collectSale(tenantId, cobranzaUserId, salesOrderId, dto) {
         const cobranzaUser = await this.requireCobranzaTerminal(tenantId, cobranzaUserId);
+        const collector = await this.resolveCajaOperator(tenantId, cobranzaUser, dto.collected_by_user_id);
+        const collectorId = collector.id;
         const order = await this.salesOrderRepo.findOne({
             where: { id: salesOrderId, tenant_id: tenantId },
             relations: ['warehouse', 'seller_user', 'terminal_user', 'customer'],
@@ -827,7 +846,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             received_cash_usd: payment.receivedCashUsd,
             change_cash_mxn: payment.changeCashMxn,
             change_cash_usd: payment.changeCashUsd,
-            collected_by_user_id: cobranzaUserId,
+            collected_by_user_id: collectorId,
             notes: dto.notes ?? null,
         });
         const stageNow = await this.salesOrderRepo.findOne({
@@ -839,7 +858,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         }
         await this.collectionRepo.save(collection);
         if (!isCredit && tenderLines && tenderLines.length >= 2) {
-            await this.salesOrderService.createPosTenderPayments(order.id, (0, pos_collection_payment_lines_util_1.assignPosTenderCashierNotes)(tenderLines, dto.notes), (0, unclosed_shift_alert_1.getTodayDateString)(), tenantId, cobranzaUserId);
+            await this.salesOrderService.createPosTenderPayments(order.id, (0, pos_collection_payment_lines_util_1.assignPosTenderCashierNotes)(tenderLines, dto.notes), (0, unclosed_shift_alert_1.getTodayDateString)(), tenantId, collectorId);
         }
         else if (!isCredit) {
             const referenceNumber = payment.transferReference ||
@@ -853,7 +872,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 currency: 'MXN',
                 reference_number: referenceNumber ?? undefined,
                 notes: dto.notes,
-            }, tenantId, cobranzaUserId, 'pos_cobranza');
+            }, tenantId, collectorId, 'pos_cobranza');
         }
         const paymentStatus = isCredit ? 'Pendiente' : 'Pagado';
         const creditInUsd = isCredit && documentCurrency.currency === 'USD';
@@ -869,7 +888,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             currency: storedCurrency,
             exchange_rate: storedExchangeRate,
             invoice_requested: Boolean(dto.generate_invoice),
-            collected_by_user_id: cobranzaUserId,
+            collected_by_user_id: collectorId,
             customer_id: customerId,
             pos_daily_shift_id: shift.id,
             walk_in_name: (0, pos_sale_collection_mapper_1.isWalkInCustomer)(customer)
@@ -889,17 +908,17 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 : null,
         });
         if (isCredit) {
-            await this.salesOrderService.captureCreditCharge(order.id, tenantId, cobranzaUserId);
+            await this.salesOrderService.captureCreditCharge(order.id, tenantId, collectorId);
             if (creditWaiverUsed && order.fiscal_configuration_id) {
                 await this.customerCreditService.consumeExceedWaiver(tenantId, customer.id, order.fiscal_configuration_id);
             }
         }
         collection.customer = customer;
-        collection.collected_by_user = cobranzaUser;
+        collection.collected_by_user = collector;
         let receipt = null;
         let receipt_error = null;
         try {
-            receipt = await this.posReceiptService.generateAndSavePosTicket(tenantId, order.id, cobranzaUserId);
+            receipt = await this.posReceiptService.generateAndSavePosTicket(tenantId, order.id, collectorId);
         }
         catch (error) {
             receipt_error =
@@ -927,7 +946,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
                 payment_status: paymentStatus,
                 is_credit: isCredit,
                 invoice_requested: Boolean(dto.generate_invoice),
-                collected_by_user_id: cobranzaUserId,
+                collected_by_user_id: collectorId,
                 customer_id: customerId,
                 customer: (0, pos_sale_collection_mapper_1.mapPosCustomer)(customer),
                 pos_daily_shift_id: shift.id,
@@ -2347,6 +2366,40 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
         }
         return this.resolveWalkInCustomerId(tenantId);
     }
+    async findActiveCajaOperatorByCode(tenantId, code) {
+        const cashier = await this.userRepo.findOne({
+            where: { tenant_id: tenantId, pos_user_code: code },
+            relations: ['status'],
+        });
+        if (!cashier) {
+            throw new common_1.NotFoundException('Código de caja no válido');
+        }
+        this.assertCanCoverCaja(cashier);
+        return cashier;
+    }
+    assertCanCoverCaja(user) {
+        if (user.status?.code && !(0, user_status_constants_1.isActiveUserStatus)(user.status.code)) {
+            throw new common_1.ForbiddenException('Ese usuario no está activo');
+        }
+        if (!(0, pos_user_type_enum_1.canCoverPosCaja)(user)) {
+            throw new common_1.ForbiddenException('Ese código no puede cobrar. Necesita permiso de ventas o de caja.');
+        }
+    }
+    async resolveCajaOperator(tenantId, terminalUser, operatorUserId) {
+        const requested = operatorUserId?.trim();
+        if (!requested || requested === terminalUser.id) {
+            return terminalUser;
+        }
+        const operator = await this.userRepo.findOne({
+            where: { id: requested, tenant_id: tenantId },
+            relations: ['status'],
+        });
+        if (!operator) {
+            throw new common_1.BadRequestException('La persona de caja no es válida');
+        }
+        this.assertCanCoverCaja(operator);
+        return operator;
+    }
     async requireCobranzaTerminal(tenantId, userId) {
         const user = await this.requirePosTerminal(tenantId, userId);
         if (!(0, pos_user_type_enum_1.canPosCollect)(user.pos_user_type)) {
@@ -2435,6 +2488,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
     }
     async registerAbono(tenantId, cobranzaUserId, salesOrderId, dto) {
         const cobranzaUser = await this.requireCobranzaTerminal(tenantId, cobranzaUserId);
+        const collector = await this.resolveCajaOperator(tenantId, cobranzaUser, dto.collected_by_user_id);
         const branchId = await this.resolveAccessibleBranchId(cobranzaUser, dto.billing_branch_id);
         const shift = await this.getBranchOpenDailyShift(tenantId, branchId);
         if (!shift) {
@@ -2465,7 +2519,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             payment_method: dto.payment_method,
             currency: 'MXN',
             reference_number: dto.reference_number,
-        }, tenantId, cobranzaUserId, 'pos_cobranza');
+        }, tenantId, collector.id, 'pos_cobranza');
         const paymentId = result.payment?.id;
         if (!paymentId) {
             throw new common_1.BadRequestException('No se pudo registrar el pago de la orden');
@@ -2483,7 +2537,7 @@ let PosShiftsService = PosShiftsService_1 = class PosShiftsService {
             amount_card_mxn: dto.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CARD ? amount : 0,
             amount_check_mxn: dto.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CHECK ? amount : 0,
             reference_number: dto.reference_number?.trim() || null,
-            created_by: cobranzaUserId,
+            created_by: collector.id,
         });
         await this.abonoRepo.save(abono);
         return {

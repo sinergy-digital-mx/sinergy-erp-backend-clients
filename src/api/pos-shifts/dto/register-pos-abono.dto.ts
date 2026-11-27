@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsIn, IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsDateString, IsIn, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min } from 'class-validator';
 import { PosSalePaymentMethod } from '../../../entities/pos/pos-sale-payment-method.enum';
 
 const ABONO_METHODS = [
@@ -33,4 +33,12 @@ export class RegisterPosAbonoDto {
   @IsOptional()
   @IsString()
   billing_branch_id?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Persona que cobra el abono, ya validada con su código. Si no se envía, queda la terminal de caja.',
+  })
+  @IsOptional()
+  @IsUUID()
+  collected_by_user_id?: string;
 }

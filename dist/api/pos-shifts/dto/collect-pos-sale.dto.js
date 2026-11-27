@@ -60,6 +60,7 @@ __decorate([
 ], CollectCardPaymentDto.prototype, "card_kind", void 0);
 class CollectPosSaleDto {
     billing_branch_id;
+    collected_by_user_id;
     customer_id;
     payment_method;
     amount_cash_mxn;
@@ -102,6 +103,15 @@ __decorate([
     (0, class_validator_1.IsUUID)(),
     __metadata("design:type", String)
 ], CollectPosSaleDto.prototype, "billing_branch_id", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        required: false,
+        description: 'Persona que cobra, ya validada con su código. Si no se envía, queda la terminal de caja.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], CollectPosSaleDto.prototype, "collected_by_user_id", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
         required: false,

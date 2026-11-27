@@ -3379,5 +3379,21 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-11-26T23:27:44.867Z"
+  },
+  {
+    "releaseKey": "full:0.0.207:0.0.207-1795745317693",
+    "version": "0.0.207",
+    "buildId": "0.0.207-1795745317693",
+    "channel": "full",
+    "title": "Versión 0.0.207",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "En POS Caja se cambia quién cobra con su código, de caja o de ventas. El cobro, el anticipo, el abono y el corte parcial quedan a nombre de esa persona.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      }
+    ],
+    "releasedAt": "2026-11-27T02:08:37.693Z"
   }
 ];

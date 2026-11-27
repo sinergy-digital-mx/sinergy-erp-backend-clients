@@ -1,5 +1,14 @@
 # Flujo POS — Guía para UI
 
+**2026-11-26 — Quién cobra en caja.** En POS Caja, **Cajero** pide un código. Lo puede meter la persona de caja o un compañero de ventas, si está activo y tiene permiso de ventas o de caja (vendedor con código, terminal de ventas, terminal de caja o ambas). La terminal sigue siendo la sesión. El cobro, el anticipo, el abono y el corte parcial quedan a nombre de esa persona (`collected_by_user_id` / `performed_by_user_id`). El ticket imprime ese cajero.
+
+```
+POST /api/tenant/pos/validate-cashier-code
+{ "code": 33456 }
+```
+
+Respuesta: `cashier` (`id`, nombre, `pos_user_code`). Al cobrar, abonar o cobrar anticipo se manda `collected_by_user_id`. En el corte parcial, `performed_by_user_id`. Si no se manda, queda la terminal de caja.
+
 **2026-11-26 — Menú al abrir POS.** Al entrar a Ventas o Caja el menú de la izquierda se cierra. Se puede volver a abrir. Al salir queda como estaba.
 
 **2026-11-26 — Panel de cobro.** Al abrir una venta, el panel entra deslizándose desde la derecha.

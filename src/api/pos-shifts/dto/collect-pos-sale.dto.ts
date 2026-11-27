@@ -64,6 +64,15 @@ export class CollectPosSaleDto {
   @ApiProperty({
     required: false,
     description:
+      'Persona que cobra, ya validada con su código. Si no se envía, queda la terminal de caja.',
+  })
+  @IsOptional()
+  @IsUUID()
+  collected_by_user_id?: string;
+
+  @ApiProperty({
+    required: false,
+    description:
       'Cliente al cobrar. Si no se envía, se mantiene el de la orden (p. ej. mostrador).',
   })
   @IsOptional()

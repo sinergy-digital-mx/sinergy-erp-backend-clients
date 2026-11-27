@@ -25,6 +25,7 @@ class RegisterPosAbonoDto {
     payment_method;
     reference_number;
     billing_branch_id;
+    collected_by_user_id;
 }
 exports.RegisterPosAbonoDto = RegisterPosAbonoDto;
 __decorate([
@@ -56,4 +57,12 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], RegisterPosAbonoDto.prototype, "billing_branch_id", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Persona que cobra el abono, ya validada con su código. Si no se envía, queda la terminal de caja.',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], RegisterPosAbonoDto.prototype, "collected_by_user_id", void 0);
 //# sourceMappingURL=register-pos-abono.dto.js.map

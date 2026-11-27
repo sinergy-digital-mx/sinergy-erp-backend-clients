@@ -82,6 +82,27 @@ export class PosShiftsController {
     );
   }
 
+  @Post('validate-cashier-code')
+  @RequireAnyPermissions(
+    { entityType: 'PosShift', action: 'Read' },
+    { entityType: 'pos', action: 'Read' },
+    { entityType: 'pos', action: 'Update' },
+  )
+  @ApiOperation({
+    summary: 'Validar código de quien cobra',
+    description:
+      'En la terminal de caja, el código de una persona de caja o de ventas. El cobro queda a su nombre.',
+  })
+  @ApiBody({ type: ValidateSellerCodeDto })
+  async validateCashierCode(@Body() dto: ValidateSellerCodeDto, @Req() req: any) {
+    return this.posShiftsService.validateCashierCode(
+      req.user.tenant_id,
+      req.user.id,
+      dto.code,
+      dto.billing_branch_id,
+    );
+  }
+
   @Get('daily-shift/current')
   @RequireAnyPermissions(
     { entityType: 'PosShift', action: 'Read' },

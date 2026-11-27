@@ -57,6 +57,39 @@ export declare class PosShiftsController {
         requires_daily_shift: boolean;
         pos_user_type: import("../../entities/users/pos-user-type.enum").PosUserType | null;
     }>;
+    validateCashierCode(dto: ValidateSellerCodeDto, req: any): Promise<{
+        cashier: {
+            id: string;
+            first_name: string;
+            last_name: string;
+            email: string | null;
+            pos_user_code: number | null;
+        };
+        terminal_user: {
+            id: string;
+            first_name: string;
+            last_name: string;
+            email: string | null;
+            billing_branch_id: string | null;
+            pos_user_type: import("../../entities/users/pos-user-type.enum").PosUserType | null;
+            billing_branch: {
+                id: string;
+                code: string;
+                fiscal_configuration: {
+                    id: string;
+                    razon_social: string;
+                    rfc: string;
+                } | null;
+            } | null;
+        };
+        daily_shift: {
+            id: string;
+            shift_date: string;
+            status: import("../../entities/pos/pos-daily-shift-status.enum").PosDailyShiftStatus;
+            opening_cash_mxn: number;
+            opening_cash_usd: number;
+        } | null;
+    }>;
     getCurrentDailyShift(query: QueryPosBranchDto, req: any): Promise<{
         daily_shift: {
             id: string;

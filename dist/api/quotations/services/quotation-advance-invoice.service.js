@@ -95,6 +95,8 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
         if (dto.payment_method === pos_sale_payment_method_enum_1.PosSalePaymentMethod.CREDIT) {
             throw new common_1.BadRequestException('El anticipo no se cobra a crédito');
         }
+        const collector = await this.posShiftsService.resolveCollectingUser(tenantId, userId, dto.collected_by_user_id);
+        const collectorId = collector.id;
         let quotation = await this.requireQuotation(id, tenantId);
         if (dto.customer_id && Number(dto.customer_id) !== Number(quotation.customer_id)) {
             await this.quotationRepo.update({ id: quotation.id, tenant_id: tenantId }, { customer_id: dto.customer_id });
@@ -137,7 +139,7 @@ let QuotationAdvanceInvoiceService = class QuotationAdvanceInvoiceService {
         const iva = (0, advance_cfdi_util_2.inferIvaPercentage)(Number(quotation.iva_total), taxable);
         const base = iva > 0 ? Number((requested / (1 + iva / 100)).toFixed(2)) : requested;
         const regimen = (0, cfdi_regimen_person_util_1.inferReceptorRegimen)(quotation.customer?.fiscal_rfc, quotation.customer?.fiscal_person_type);
-        const saved = await this.stamp(id, tenantId, userId, {
+        const saved = await this.stamp(id, tenantId, collectorId, {
             base_amount: base,
             iva_percentage: iva,
             forma_pago: formaPago,

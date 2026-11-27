@@ -12,6 +12,10 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.207 · 26 nov
+
+- POS Ventas · En POS Caja se cambia quién cobra con su código, de caja o de ventas. El cobro, el anticipo, el abono y el corte parcial quedan a nombre de esa persona.
+
 #### Versión 0.0.206 · 26 nov
 
 - Órdenes de venta · El detalle de la orden respondía 500 porque a los camiones les faltaba la sucursal por defecto. Esa columna ya está en la base.

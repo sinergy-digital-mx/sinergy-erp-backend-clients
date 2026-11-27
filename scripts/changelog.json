@@ -2944,6 +2944,16 @@
       "version": "0.0.206",
       "shippedAt": "2026-11-26T15:29:05-08:00",
       "module": "sales-orders"
+    },
+    {
+      "id": "20261126-173819",
+      "at": "2026-11-26T17:38:19-08:00",
+      "scope": "both",
+      "message": "En POS Caja se cambia quién cobra con su código, de caja o de ventas. El cobro, el anticipo, el abono y el corte parcial quedan a nombre de esa persona.",
+      "status": "shipped",
+      "version": "0.0.207",
+      "shippedAt": "2026-11-26T18:09:41-08:00",
+      "module": "pos"
     }
   ]
 }

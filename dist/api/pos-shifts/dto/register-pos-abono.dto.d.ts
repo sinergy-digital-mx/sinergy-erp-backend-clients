@@ -6,5 +6,6 @@ export declare class RegisterPosAbonoDto {
     payment_method: (typeof ABONO_METHODS)[number];
     reference_number?: string;
     billing_branch_id?: string;
+    collected_by_user_id?: string;
 }
 export {};

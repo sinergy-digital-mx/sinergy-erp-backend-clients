@@ -10,6 +10,7 @@ export declare class CollectCardPaymentDto {
 }
 export declare class CollectPosSaleDto {
     billing_branch_id?: string;
+    collected_by_user_id?: string;
     customer_id?: number;
     payment_method: PosSalePaymentMethod;
     amount_cash_mxn?: number;

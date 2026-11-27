@@ -97,6 +97,40 @@ export declare class PosShiftsService {
         requires_daily_shift: boolean;
         pos_user_type: import("../../entities/users/pos-user-type.enum").PosUserType | null;
     }>;
+    validateCashierCode(tenantId: string, terminalUserId: string, code: number, billingBranchId?: string): Promise<{
+        cashier: {
+            id: string;
+            first_name: string;
+            last_name: string;
+            email: string | null;
+            pos_user_code: number | null;
+        };
+        terminal_user: {
+            id: string;
+            first_name: string;
+            last_name: string;
+            email: string | null;
+            billing_branch_id: string | null;
+            pos_user_type: import("../../entities/users/pos-user-type.enum").PosUserType | null;
+            billing_branch: {
+                id: string;
+                code: string;
+                fiscal_configuration: {
+                    id: string;
+                    razon_social: string;
+                    rfc: string;
+                } | null;
+            } | null;
+        };
+        daily_shift: {
+            id: string;
+            shift_date: string;
+            status: PosDailyShiftStatus;
+            opening_cash_mxn: number;
+            opening_cash_usd: number;
+        } | null;
+    }>;
+    resolveCollectingUser(tenantId: string, terminalUserId: string, operatorUserId?: string | null): Promise<User>;
     getCurrentDailyShift(tenantId: string, terminalUserId: string, billingBranchId?: string): Promise<PosDailyShift | null>;
     getCurrentDailyShiftResponse(tenantId: string, terminalUserId: string, billingBranchId?: string): Promise<{
         daily_shift: {
@@ -1795,6 +1829,9 @@ export declare class PosShiftsService {
     private markCajaPresence;
     private assertCanEditPosCustomer;
     private resolvePosCustomerUpdateId;
+    private findActiveCajaOperatorByCode;
+    private assertCanCoverCaja;
+    private resolveCajaOperator;
     private requireCobranzaTerminal;
     private requireVentasTerminal;
     private requirePosTerminal;

@@ -49,6 +49,9 @@ let PosShiftsController = class PosShiftsController {
     async validateSellerCode(dto, req) {
         return this.posShiftsService.validateSellerCode(req.user.tenant_id, req.user.id, dto.code, dto.billing_branch_id);
     }
+    async validateCashierCode(dto, req) {
+        return this.posShiftsService.validateCashierCode(req.user.tenant_id, req.user.id, dto.code, dto.billing_branch_id);
+    }
     async getCurrentDailyShift(query, req) {
         return this.posShiftsService.getCurrentDailyShiftResponse(req.user.tenant_id, req.user.id, query.billing_branch_id);
     }
@@ -188,6 +191,20 @@ __decorate([
     __metadata("design:paramtypes", [validate_seller_code_dto_1.ValidateSellerCodeDto, Object]),
     __metadata("design:returntype", Promise)
 ], PosShiftsController.prototype, "validateSellerCode", null);
+__decorate([
+    (0, common_1.Post)('validate-cashier-code'),
+    (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Read' }, { entityType: 'pos', action: 'Read' }, { entityType: 'pos', action: 'Update' }),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Validar código de quien cobra',
+        description: 'En la terminal de caja, el código de una persona de caja o de ventas. El cobro queda a su nombre.',
+    }),
+    (0, swagger_1.ApiBody)({ type: validate_seller_code_dto_1.ValidateSellerCodeDto }),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [validate_seller_code_dto_1.ValidateSellerCodeDto, Object]),
+    __metadata("design:returntype", Promise)
+], PosShiftsController.prototype, "validateCashierCode", null);
 __decorate([
     (0, common_1.Get)('daily-shift/current'),
     (0, require_permissions_decorator_1.RequireAnyPermissions)({ entityType: 'PosShift', action: 'Read' }, { entityType: 'pos', action: 'Read' }, { entityType: 'pos', action: 'Create' }, { entityType: 'pos', action: 'Update' }),
