@@ -12,6 +12,12 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.213 · 27 nov
+
+- Órdenes de compra · En el detalle, moneda y estado van en una sola franja y la ventana ocupa casi toda la pantalla. Razón social y sucursal quedan en dos líneas sin título; creado por, proveedor y almacén conservan el suyo.
+- Cotizaciones · En el detalle, moneda y estado van en una sola franja y la ventana ocupa casi toda la pantalla. Razón social y sucursal quedan en dos líneas sin título; cliente conserva el suyo.
+- Configuración · En roles, cada permiso muestra la descripción en negrita y el código abajo.
+
 #### Versión 0.0.212 · 27 nov
 
 - Órdenes de venta · En el detalle, razón social, sucursal, folio y envío quedan en dos líneas, más bajas y sin título. Cliente conserva el título y el nombre.

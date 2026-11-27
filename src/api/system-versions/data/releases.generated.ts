@@ -3541,5 +3541,33 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-11-27T23:40:15.840Z"
+  },
+  {
+    "releaseKey": "full:0.0.213:0.0.213-1795823095329",
+    "version": "0.0.213",
+    "buildId": "0.0.213-1795823095329",
+    "channel": "full",
+    "title": "Versión 0.0.213",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "En el detalle, moneda y estado van en una sola franja y la ventana ocupa casi toda la pantalla. Razón social y sucursal quedan en dos líneas sin título; creado por, proveedor y almacén conservan el suyo.",
+        "module": "purchase-orders",
+        "moduleLabel": "Órdenes de compra"
+      },
+      {
+        "scope": "frontend",
+        "message": "En el detalle, moneda y estado van en una sola franja y la ventana ocupa casi toda la pantalla. Razón social y sucursal quedan en dos líneas sin título; cliente conserva el suyo.",
+        "module": "quotations",
+        "moduleLabel": "Cotizaciones"
+      },
+      {
+        "scope": "frontend",
+        "message": "En roles, cada permiso muestra la descripción en negrita y el código abajo.",
+        "module": "settings",
+        "moduleLabel": "Configuración"
+      }
+    ],
+    "releasedAt": "2026-11-27T23:44:55.329Z"
   }
 ];
