@@ -3074,6 +3074,26 @@
       "version": "0.0.209",
       "shippedAt": "2026-11-27T14:25:18-08:00",
       "module": "logistics"
+    },
+    {
+      "id": "20261127-150220",
+      "at": "2026-11-27T15:02:20-08:00",
+      "scope": "frontend",
+      "message": "En el detalle los estados del encabezado van en una sola franja y se quitó Mostrador. La ventana ocupa casi toda la pantalla y el encabezado de productos queda como el de mostrador.",
+      "status": "shipped",
+      "version": "0.0.210",
+      "shippedAt": "2026-11-27T15:10:36-08:00",
+      "module": "sales-orders"
+    },
+    {
+      "id": "20261127-150404",
+      "at": "2026-11-27T15:04:04-08:00",
+      "scope": "both",
+      "message": "En usuarios, el rol muestra cuántos módulos tiene y su lista, con acceso a editar el rol si hay permiso, y la búsqueda queda en la URL.",
+      "status": "shipped",
+      "version": "0.0.210",
+      "shippedAt": "2026-11-27T15:10:36-08:00",
+      "module": "settings"
     }
   ]
 }

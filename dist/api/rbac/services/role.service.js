@@ -226,6 +226,33 @@ let RoleService = class RoleService {
             .getMany();
         return permissions;
     }
+    async getRoleModules(roleId) {
+        const permissions = await this.permissionRepository
+            .createQueryBuilder('p')
+            .innerJoin('p.role_permissions', 'rp')
+            .leftJoinAndSelect('p.module', 'mod')
+            .where('rp.role_id = :roleId', { roleId })
+            .getMany();
+        const grouped = new Map();
+        for (const permission of permissions) {
+            const module = permission.module;
+            if (!module?.id) {
+                continue;
+            }
+            const current = grouped.get(module.id);
+            if (current) {
+                current.permission_count += 1;
+                continue;
+            }
+            grouped.set(module.id, {
+                id: module.id,
+                name: module.name,
+                code: module.code,
+                permission_count: 1,
+            });
+        }
+        return Array.from(grouped.values()).sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
+    }
     async removeRoleFromUser(userId, roleId, tenantId) {
         const userRole = await this.userRoleRepository.findOne({
             where: { user_id: userId, role_id: roleId, tenant_id: tenantId },

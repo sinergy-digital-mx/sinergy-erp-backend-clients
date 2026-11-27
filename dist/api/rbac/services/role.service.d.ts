@@ -29,6 +29,12 @@ export declare class RoleService {
     getTenantRoles(tenantId: string): Promise<Role[]>;
     getRoleById(roleId: string, tenantId: string): Promise<Role>;
     getRolePermissions(roleId: string): Promise<Permission[]>;
+    getRoleModules(roleId: string): Promise<Array<{
+        id: string;
+        name: string;
+        code: string;
+        permission_count: number;
+    }>>;
     removeRoleFromUser(userId: string, roleId: string, tenantId: string): Promise<void>;
     removePermissionFromRole(roleId: string, permissionId: string): Promise<void>;
     updateRole(roleId: string, tenantId: string, updates: {

@@ -23,6 +23,7 @@ describe('UsersRolesController', () => {
           useValue: {
             getUserRoles: jest.fn(),
             getRolePermissions: jest.fn(),
+            getRoleModules: jest.fn().mockResolvedValue([]),
             assignRoleToUser: jest.fn(),
             removeRoleFromUser: jest.fn(),
           },

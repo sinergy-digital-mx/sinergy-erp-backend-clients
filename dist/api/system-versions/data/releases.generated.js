@@ -3481,6 +3481,28 @@ exports.SYSTEM_VERSION_RELEASES = [
             }
         ],
         "releasedAt": "2026-11-27T22:23:53.341Z"
+    },
+    {
+        "releaseKey": "full:0.0.210:0.0.210-1795820952740",
+        "version": "0.0.210",
+        "buildId": "0.0.210-1795820952740",
+        "channel": "full",
+        "title": "Versión 0.0.210",
+        "changes": [
+            {
+                "scope": "frontend",
+                "message": "En el detalle los estados del encabezado van en una sola franja y se quitó Mostrador. La ventana ocupa casi toda la pantalla y el encabezado de productos queda como el de mostrador.",
+                "module": "sales-orders",
+                "moduleLabel": "Órdenes de venta"
+            },
+            {
+                "scope": "frontend",
+                "message": "En usuarios, el rol muestra cuántos módulos tiene y su lista, con acceso a editar el rol si hay permiso, y la búsqueda queda en la URL.",
+                "module": "settings",
+                "moduleLabel": "Configuración"
+            }
+        ],
+        "releasedAt": "2026-11-27T23:09:12.740Z"
     }
 ];
 //# sourceMappingURL=releases.generated.js.map

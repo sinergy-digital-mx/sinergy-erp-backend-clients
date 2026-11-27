@@ -540,12 +540,12 @@ export class UsersRolesController {
   @RequirePermissions({ entityType: 'User', action: 'Read' })
   @ApiOperation({
     summary: 'Get user roles',
-    description: 'Returns all roles assigned to a user in the current tenant',
+    description: 'Returns all roles assigned to a user in the current tenant, with permissions and the modules those permissions belong to',
   })
   @ApiParam({ name: 'userId', description: 'User ID' })
   @ApiResponse({
     status: 200,
-    description: 'List of user roles with permissions',
+    description: 'List of user roles with permissions and modules',
   })
   async getUserRoles(@Param('userId') userId: string) {
     const tenantId = this.tenantContextService.getCurrentTenantId();
@@ -556,7 +556,10 @@ export class UsersRolesController {
 
     const rolesWithPermissions = await Promise.all(
       roles.map(async (role) => {
-        const permissions = await this.roleService.getRolePermissions(role.id);
+        const [permissions, modules] = await Promise.all([
+          this.roleService.getRolePermissions(role.id),
+          this.roleService.getRoleModules(role.id),
+        ]);
         return {
           id: role.id,
           name: role.name,
@@ -567,6 +570,7 @@ export class UsersRolesController {
             action: p.action,
             description: p.description,
           })),
+          modules,
         };
       }),
     );

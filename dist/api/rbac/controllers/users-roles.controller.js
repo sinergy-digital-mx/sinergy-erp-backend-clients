@@ -227,7 +227,10 @@ let UsersRolesController = class UsersRolesController {
         }
         const roles = await this.roleService.getUserRoles(userId, tenantId);
         const rolesWithPermissions = await Promise.all(roles.map(async (role) => {
-            const permissions = await this.roleService.getRolePermissions(role.id);
+            const [permissions, modules] = await Promise.all([
+                this.roleService.getRolePermissions(role.id),
+                this.roleService.getRoleModules(role.id),
+            ]);
             return {
                 id: role.id,
                 name: role.name,
@@ -238,6 +241,7 @@ let UsersRolesController = class UsersRolesController {
                     action: p.action,
                     description: p.description,
                 })),
+                modules,
             };
         }));
         return {
@@ -613,12 +617,12 @@ __decorate([
     (0, require_permissions_decorator_1.RequirePermissions)({ entityType: 'User', action: 'Read' }),
     (0, swagger_1.ApiOperation)({
         summary: 'Get user roles',
-        description: 'Returns all roles assigned to a user in the current tenant',
+        description: 'Returns all roles assigned to a user in the current tenant, with permissions and the modules those permissions belong to',
     }),
     (0, swagger_1.ApiParam)({ name: 'userId', description: 'User ID' }),
     (0, swagger_1.ApiResponse)({
         status: 200,
-        description: 'List of user roles with permissions',
+        description: 'List of user roles with permissions and modules',
     }),
     __param(0, (0, common_1.Param)('userId')),
     __metadata("design:type", Function),

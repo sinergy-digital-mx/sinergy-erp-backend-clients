@@ -535,6 +535,12 @@ export declare class UsersRolesController {
                 action: string;
                 description: string;
             }[];
+            modules: {
+                id: string;
+                name: string;
+                code: string;
+                permission_count: number;
+            }[];
         }[];
     }>;
     assignRoleToUser(userId: string, roleId: string): Promise<{

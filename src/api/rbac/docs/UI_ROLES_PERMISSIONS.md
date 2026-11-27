@@ -236,7 +236,28 @@ No bloquear con `electronic_invoicing` ni `fiscal_configurations`.
 
 ---
 
-## 8. Doc relacionada
+## 8. Módulos del rol en el detalle de usuario
+
+### 2026-11-27
+
+`GET /api/tenant/users/:userId/roles` incluye, por rol, `modules`: módulos distintos de sus permisos, ordenados por nombre.
+
+```json
+{
+  "id": "uuid",
+  "name": "Dirección",
+  "permissions": [{ "id": "uuid", "action": "Read", "description": "..." }],
+  "modules": [
+    { "id": "uuid", "name": "Ventas", "code": "sales", "permission_count": 12 }
+  ]
+}
+```
+
+`permissions.length` sigue siendo el total. `modules.length` es cuántos módulos tiene. `permission_count` de cada módulo es cuántos permisos de ese rol caen ahí.
+
+La ficha de usuario usa esa lista. **Editar rol** navega a `/settings/roles?role=<id>` y esa pantalla deja seleccionado el rol.
+
+## 9. Doc relacionada
 
 - Credenciales Finkok: `src/api/electronic-invoicing/docs/UI_FINKOK_CONFIGURATION.md`
 - Tab Facturación OV: `src/api/sales-orders/docs/UI_SALES_ORDER_INVOICING.md`

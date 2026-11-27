@@ -12,6 +12,11 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.210 · 27 nov
+
+- Órdenes de venta · En el detalle los estados del encabezado van en una sola franja y se quitó Mostrador. La ventana ocupa casi toda la pantalla y el encabezado de productos queda como el de mostrador.
+- Configuración · En usuarios, el rol muestra cuántos módulos tiene y su lista, con acceso a editar el rol si hay permiso, y la búsqueda queda en la URL.
+
 #### Versión 0.0.209 · 27 nov
 
 - Órdenes de venta · En el detalle, la factura, el complemento, el ticket y los documentos se abren en el visor. En Documentos quedó el ojo para ver y el botón para descargar.
