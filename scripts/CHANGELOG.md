@@ -12,6 +12,19 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.209 · 27 nov
+
+- Órdenes de venta · En el detalle, la factura, el complemento, el ticket y los documentos se abren en el visor. En Documentos quedó el ojo para ver y el botón para descargar.
+- Cotizaciones · El PDF de la cotización, el del anticipo y los documentos se abren en el visor. En documentos quedó el ojo y la descarga.
+- Órdenes de compra · En documentos de la orden de compra el ojo abre el PDF en el visor y se conserva la descarga.
+- POS Ventas · La cotización, la orden, el anticipo, la factura y el ticket se abren en el visor del sistema.
+- Clientes · La factura y el ticket, desde el cliente, se abren en el visor.
+- Contratos · El estado de cuenta y los recibos se abren en el visor.
+- Logística · El PDF de la carta porte se abre en el visor.
+- Inventario · El PDF de la transferencia se abre en el visor.
+- Plataforma · El formato de reservación y el resumen de la suscripción se abren en el visor.
+- Logística · En el viaje, la transferencia muestra sucursal, almacén y dirección, y se puede ubicar en el mapa.
+
 #### Versión 0.0.208 · 27 nov
 
 - Contabilidad · En Caja y cuentas el PDF de la factura se abre en un modal grande, sin salir de la página.

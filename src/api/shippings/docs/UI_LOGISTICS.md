@@ -1,5 +1,9 @@
 # UI — Logística (camiones + envíos)
 
+## 2026-11-27 — Dirección de la transferencia en el mapa
+
+En el detalle del viaje, la tarjeta de cada transferencia muestra sucursal, almacén y dirección del destino. El mapa pinta ese punto con el GPS del almacén o, si no tiene, el de la sucursal. Si tampoco hay coordenadas, ubica la dirección. Cada tarjeta de la ruta (origen, orden y transferencia) tiene un botón con icono de mira: al pasar el cursor dice **Ubicar en el mapa** y centra el mapa en ese punto.
+
 ## 2026-11-25 — Origen y destino de transferencias
 
 Un viaje que solo lleva transferencias ya no queda como “Sin destino”. La tarjeta y el detalle usan la sucursal de la bodega origen y la sucursal de la bodega destino (`source_branch_name`, `destination_branch_name`). Si el viaje también tiene entregas, el destino sigue siendo el cliente de la última parada.

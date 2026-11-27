@@ -1,5 +1,8 @@
 # UI — Cotizaciones
 
+## 2026-11-27
+El PDF de la cotización, el del anticipo y los documentos se abren en el visor del sistema. En documentos quedó el ojo para ver y el botón para descargar.
+
 ## 2026-11-25
 En POS, Folios pide `GET /tenant/pos/folio-quotations`: todas las cotizaciones de la sucursal y la razón social, de cualquier vendedor. El listado del módulo sigue limitado a las del usuario si no tiene ver todas. La búsqueda también coincide con `company_name`.
 

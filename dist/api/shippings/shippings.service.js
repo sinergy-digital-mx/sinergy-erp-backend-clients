@@ -761,29 +761,68 @@ let ShippingsService = class ShippingsService {
             },
         };
     }
-    branchLabel(warehouse) {
-        const code = warehouse?.billing_branch?.code?.trim();
-        if (code)
-            return code;
-        const name = warehouse?.name?.trim();
-        return name || null;
+    warehousePlace(warehouse) {
+        const branch = warehouse?.billing_branch ?? null;
+        const warehouseAddress = this.joinPlace([
+            warehouse?.street,
+            warehouse?.city,
+            warehouse?.state,
+            warehouse?.zip_code,
+            warehouse?.country,
+        ]);
+        const branchAddress = this.joinPlace([
+            branch?.address,
+            branch?.city,
+            branch?.state,
+            branch?.postal_code,
+            branch?.country,
+        ]);
+        const warehouseHasStreet = !!warehouse?.street?.trim();
+        return {
+            branch_name: branch?.code?.trim() || null,
+            warehouse_name: warehouse?.name?.trim() || null,
+            address: warehouseHasStreet
+                ? warehouseAddress
+                : branchAddress || warehouseAddress || null,
+            latitude: this.coord(warehouse?.latitude) ?? this.coord(branch?.latitude),
+            longitude: this.coord(warehouse?.longitude) ?? this.coord(branch?.longitude),
+        };
+    }
+    joinPlace(parts) {
+        const text = parts
+            .map((part) => part?.trim())
+            .filter((part) => !!part)
+            .join(', ');
+        return text || null;
+    }
+    coord(value) {
+        if (value == null || value === '')
+            return null;
+        const num = Number(value);
+        return Number.isFinite(num) ? num : null;
     }
     attachTransferView(shipping) {
         const links = shipping.transfer_links ?? [];
         Object.assign(shipping, {
             transfers: links.map((link) => {
                 const transfer = link.inventory_transfer;
-                const source = transfer?.source_warehouse;
-                const destination = transfer?.destination_warehouse;
+                const source = this.warehousePlace(transfer?.source_warehouse);
+                const destination = this.warehousePlace(transfer?.destination_warehouse);
                 return {
                     id: link.inventory_transfer_id,
                     folio: transfer?.folio ?? '',
                     status: transfer?.status ?? null,
                     total_quantity: transfer?.total_quantity ?? null,
-                    source_warehouse_name: source?.name ?? null,
-                    destination_warehouse_name: destination?.name ?? null,
-                    source_branch_name: this.branchLabel(source),
-                    destination_branch_name: this.branchLabel(destination),
+                    source_warehouse_name: source.warehouse_name,
+                    destination_warehouse_name: destination.warehouse_name,
+                    source_branch_name: source.branch_name,
+                    destination_branch_name: destination.branch_name,
+                    source_address: source.address,
+                    destination_address: destination.address,
+                    source_latitude: source.latitude,
+                    source_longitude: source.longitude,
+                    destination_latitude: destination.latitude,
+                    destination_longitude: destination.longitude,
                 };
             }),
         });
@@ -792,14 +831,8 @@ let ShippingsService = class ShippingsService {
     distanceWithTransfers(origin, stops, transfers, orderKm) {
         const transferPoints = transfers
             .map((transfer) => {
-            const warehouse = transfer.destination_warehouse;
-            const branch = warehouse?.billing_branch;
-            const latitude = warehouse?.latitude ?? branch?.latitude ?? null;
-            const longitude = warehouse?.longitude ?? branch?.longitude ?? null;
-            return {
-                latitude: latitude == null ? null : Number(latitude),
-                longitude: longitude == null ? null : Number(longitude),
-            };
+            const place = this.warehousePlace(transfer.destination_warehouse);
+            return { latitude: place.latitude, longitude: place.longitude };
         })
             .filter((point) => (0, geo_helper_1.hasValidGps)(point));
         if (!transferPoints.length)

@@ -2,6 +2,8 @@
 
 Guía de implementación para Pollux. Una OV puede tener **varias facturas** timbradas.
 
+**2026-11-27 — visor.** El botón PDF abre el visor dentro del sistema, encima del detalle. En Documentos, el ojo abre el mismo visor y Descargar guarda el archivo. El ticket, el complemento de pago y el comprobante PDF de un pago también abren ahí. Ver en SAT y el XML siguen afuera.
+
 **Prerequisito:** módulo `electronic_invoicing` habilitado para el cliente y permisos asignados al rol.
 
 **Config Finkok por cliente:** ver `src/api/electronic-invoicing/docs/UI_FINKOK_CONFIGURATION.md` (sección global en Configuración Fiscal, no por razón emisora).

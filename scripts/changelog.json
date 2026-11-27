@@ -2974,6 +2974,106 @@
       "version": "0.0.208",
       "shippedAt": "2026-11-27T13:53:10-08:00",
       "module": "accounting"
+    },
+    {
+      "id": "20261127-140720",
+      "at": "2026-11-27T14:07:20-08:00",
+      "scope": "frontend",
+      "message": "En el detalle, la factura, el complemento, el ticket y los documentos se abren en el visor. En Documentos quedó el ojo para ver y el botón para descargar.",
+      "status": "shipped",
+      "version": "0.0.209",
+      "shippedAt": "2026-11-27T14:25:18-08:00",
+      "module": "sales-orders"
+    },
+    {
+      "id": "20261127-140720-2",
+      "at": "2026-11-27T14:07:20-08:00",
+      "scope": "frontend",
+      "message": "El PDF de la cotización, el del anticipo y los documentos se abren en el visor. En documentos quedó el ojo y la descarga.",
+      "status": "shipped",
+      "version": "0.0.209",
+      "shippedAt": "2026-11-27T14:25:18-08:00",
+      "module": "quotations"
+    },
+    {
+      "id": "20261127-140720-3",
+      "at": "2026-11-27T14:07:20-08:00",
+      "scope": "frontend",
+      "message": "En documentos de la orden de compra el ojo abre el PDF en el visor y se conserva la descarga.",
+      "status": "shipped",
+      "version": "0.0.209",
+      "shippedAt": "2026-11-27T14:25:18-08:00",
+      "module": "purchase-orders"
+    },
+    {
+      "id": "20261127-140721",
+      "at": "2026-11-27T14:07:21-08:00",
+      "scope": "frontend",
+      "message": "La cotización, la orden, el anticipo, la factura y el ticket se abren en el visor del sistema.",
+      "status": "shipped",
+      "version": "0.0.209",
+      "shippedAt": "2026-11-27T14:25:18-08:00",
+      "module": "pos"
+    },
+    {
+      "id": "20261127-140721-2",
+      "at": "2026-11-27T14:07:21-08:00",
+      "scope": "frontend",
+      "message": "La factura y el ticket, desde el cliente, se abren en el visor.",
+      "status": "shipped",
+      "version": "0.0.209",
+      "shippedAt": "2026-11-27T14:25:18-08:00",
+      "module": "customers"
+    },
+    {
+      "id": "20261127-140721-3",
+      "at": "2026-11-27T14:07:21-08:00",
+      "scope": "frontend",
+      "message": "El estado de cuenta y los recibos se abren en el visor.",
+      "status": "shipped",
+      "version": "0.0.209",
+      "shippedAt": "2026-11-27T14:25:18-08:00",
+      "module": "contracts"
+    },
+    {
+      "id": "20261127-140721-4",
+      "at": "2026-11-27T14:07:21-08:00",
+      "scope": "frontend",
+      "message": "El PDF de la carta porte se abre en el visor.",
+      "status": "shipped",
+      "version": "0.0.209",
+      "shippedAt": "2026-11-27T14:25:18-08:00",
+      "module": "logistics"
+    },
+    {
+      "id": "20261127-140722",
+      "at": "2026-11-27T14:07:22-08:00",
+      "scope": "frontend",
+      "message": "El PDF de la transferencia se abre en el visor.",
+      "status": "shipped",
+      "version": "0.0.209",
+      "shippedAt": "2026-11-27T14:25:18-08:00",
+      "module": "inventory"
+    },
+    {
+      "id": "20261127-140722-2",
+      "at": "2026-11-27T14:07:22-08:00",
+      "scope": "frontend",
+      "message": "El formato de reservación y el resumen de la suscripción se abren en el visor.",
+      "status": "shipped",
+      "version": "0.0.209",
+      "shippedAt": "2026-11-27T14:25:18-08:00",
+      "module": "platform"
+    },
+    {
+      "id": "20261127-141347",
+      "at": "2026-11-27T14:13:47-08:00",
+      "scope": "both",
+      "message": "En el viaje, la transferencia muestra sucursal, almacén y dirección, y se puede ubicar en el mapa.",
+      "status": "shipped",
+      "version": "0.0.209",
+      "shippedAt": "2026-11-27T14:25:18-08:00",
+      "module": "logistics"
     }
   ]
 }

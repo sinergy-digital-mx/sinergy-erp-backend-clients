@@ -6,6 +6,7 @@ Scoped por organización vía JWT. No enviar `organization_id` en el body.
 
 ## Historial
 
+- 2026-11-27: Cada transferencia del envío trae sucursal, almacén, dirección y GPS del destino (si el almacén no tiene dirección o coordenadas, se usan las de su sucursal).
 - 2026-10-09: Al crear un envío, la unidad no puede estar en otro envío `Creado` o `En Ruta`. Se libera al completarlo o cancelarlo.
 
 ## Permisos

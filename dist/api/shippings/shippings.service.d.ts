@@ -184,7 +184,9 @@ export declare class ShippingsService {
             stops_count: number;
         };
     }>;
-    private branchLabel;
+    private warehousePlace;
+    private joinPlace;
+    private coord;
     private attachTransferView;
     private distanceWithTransfers;
     private buildStopDistances;

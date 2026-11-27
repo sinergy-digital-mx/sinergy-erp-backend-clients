@@ -3417,5 +3417,75 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-11-27T21:51:53.155Z"
+  },
+  {
+    "releaseKey": "full:0.0.209:0.0.209-1795818233341",
+    "version": "0.0.209",
+    "buildId": "0.0.209-1795818233341",
+    "channel": "full",
+    "title": "Versión 0.0.209",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "En el detalle, la factura, el complemento, el ticket y los documentos se abren en el visor. En Documentos quedó el ojo para ver y el botón para descargar.",
+        "module": "sales-orders",
+        "moduleLabel": "Órdenes de venta"
+      },
+      {
+        "scope": "frontend",
+        "message": "El PDF de la cotización, el del anticipo y los documentos se abren en el visor. En documentos quedó el ojo y la descarga.",
+        "module": "quotations",
+        "moduleLabel": "Cotizaciones"
+      },
+      {
+        "scope": "frontend",
+        "message": "En documentos de la orden de compra el ojo abre el PDF en el visor y se conserva la descarga.",
+        "module": "purchase-orders",
+        "moduleLabel": "Órdenes de compra"
+      },
+      {
+        "scope": "frontend",
+        "message": "La cotización, la orden, el anticipo, la factura y el ticket se abren en el visor del sistema.",
+        "module": "pos",
+        "moduleLabel": "POS Ventas"
+      },
+      {
+        "scope": "frontend",
+        "message": "La factura y el ticket, desde el cliente, se abren en el visor.",
+        "module": "customers",
+        "moduleLabel": "Clientes"
+      },
+      {
+        "scope": "frontend",
+        "message": "El estado de cuenta y los recibos se abren en el visor.",
+        "module": "contracts",
+        "moduleLabel": "Contratos"
+      },
+      {
+        "scope": "frontend",
+        "message": "El PDF de la carta porte se abre en el visor.",
+        "module": "logistics",
+        "moduleLabel": "Logística"
+      },
+      {
+        "scope": "frontend",
+        "message": "El PDF de la transferencia se abre en el visor.",
+        "module": "inventory",
+        "moduleLabel": "Inventario"
+      },
+      {
+        "scope": "frontend",
+        "message": "El formato de reservación y el resumen de la suscripción se abren en el visor.",
+        "module": "platform",
+        "moduleLabel": "Plataforma"
+      },
+      {
+        "scope": "frontend",
+        "message": "En el viaje, la transferencia muestra sucursal, almacén y dirección, y se puede ubicar en el mapa.",
+        "module": "logistics",
+        "moduleLabel": "Logística"
+      }
+    ],
+    "releasedAt": "2026-11-27T22:23:53.341Z"
   }
 ];
