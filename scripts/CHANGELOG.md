@@ -12,6 +12,11 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.208 · 27 nov
+
+- Contabilidad · En Caja y cuentas el PDF de la factura se abre en un modal grande, sin salir de la página.
+- Contabilidad · En Ventas cobradas la columna Total se llama Cobrado, ya no está Pendiente, y bajo el folio sale el COT si la orden vino de una cotización.
+
 #### Versión 0.0.207 · 26 nov
 
 - POS Ventas · En POS Caja se cambia quién cobra con su código, de caja o de ventas. El cobro, el anticipo, el abono y el corte parcial quedan a nombre de esa persona.

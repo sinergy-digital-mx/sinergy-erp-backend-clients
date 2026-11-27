@@ -62,6 +62,7 @@ type PosCollectionListRow = PosCustomerFields & {
     is_walk_in: boolean;
     seller_user: PosCollectionUserRef | null;
     collected_by_user: PosCollectionUserRef | null;
+    source_quotation_folio: string | null;
 };
 export declare class AccountingService {
     private readonly salesOrderRepo;
@@ -470,6 +471,8 @@ export declare class AccountingService {
     private calendarDateInRange;
     private calendarDay;
     private advanceRowMatchesSearch;
+    private loadSourceQuotationFolios;
+    private sourceQuotationFolio;
     private mapPosCollectionRow;
     private mapCollectionBranch;
     private excelSaleKindLabel;

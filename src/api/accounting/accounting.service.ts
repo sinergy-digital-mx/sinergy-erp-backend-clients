@@ -165,6 +165,8 @@ type PosCollectionListRow = PosCustomerFields & {
   is_walk_in: boolean;
   seller_user: PosCollectionUserRef | null;
   collected_by_user: PosCollectionUserRef | null;
+  /** Folio COT si la orden se convirtió desde una cotización. */
+  source_quotation_folio: string | null;
 };
 
 type PaidCreditListItem = {
@@ -564,14 +566,25 @@ export class AccountingService {
     const orderIds = collections
       .map((collection) => collection.sales_order_id)
       .filter((id): id is string => Boolean(id));
-    const [stampedOrderIds, paymentDates, advanceByOrder] = await Promise.all([
+    const [stampedOrderIds, paymentDates, advanceByOrder, quotationFolios] = await Promise.all([
       this.getStampedInvoiceOrderIds(tenantId, orderIds),
       this.loadSalesOrderPaymentDates(tenantId, orderIds),
       this.loadOrderAdvanceDisplay(tenantId, orderIds),
+      this.loadSourceQuotationFolios(
+        tenantId,
+        collections.map((collection) => collection.sales_order?.converted_from_quotation_id),
+        collections.map((collection) => collection.sales_order?.id),
+      ),
     ]);
 
     let data = collections.map((collection) =>
-      this.mapPosCollectionRow(collection, stampedOrderIds, paymentDates, advanceByOrder),
+      this.mapPosCollectionRow(
+        collection,
+        stampedOrderIds,
+        paymentDates,
+        advanceByOrder,
+        quotationFolios,
+      ),
     );
     let listTotal = total;
     let listAmount = filtered.amount_collected;
@@ -680,14 +693,25 @@ export class AccountingService {
     const orderIds = collections
       .map((collection) => collection.sales_order_id)
       .filter((id): id is string => Boolean(id));
-    const [stampedOrderIds, paymentDates, advanceByOrder] = await Promise.all([
+    const [stampedOrderIds, paymentDates, advanceByOrder, quotationFolios] = await Promise.all([
       this.getStampedInvoiceOrderIds(tenantId, orderIds),
       this.loadSalesOrderPaymentDates(tenantId, orderIds),
       this.loadOrderAdvanceDisplay(tenantId, orderIds),
+      this.loadSourceQuotationFolios(
+        tenantId,
+        collections.map((collection) => collection.sales_order?.converted_from_quotation_id),
+        collections.map((collection) => collection.sales_order?.id),
+      ),
     ]);
 
     let mappedRows = collections.map((collection) =>
-      this.mapPosCollectionRow(collection, stampedOrderIds, paymentDates, advanceByOrder),
+      this.mapPosCollectionRow(
+        collection,
+        stampedOrderIds,
+        paymentDates,
+        advanceByOrder,
+        quotationFolios,
+      ),
     );
     if (filters.credit_only) {
       let extras = await this.loadAdvanceCreditRows(
@@ -726,6 +750,7 @@ export class AccountingService {
         'Público en General';
       return {
         folio: mapped.folio ?? '',
+        source_quotation_folio: mapped.source_quotation_folio ?? '',
         sale_kind: this.excelSaleKindLabel(mapped.sale_kind),
         branch: mapped.billing_branch?.label ?? '',
         created_at: formatExportDateTime(mapped.created_at),
@@ -744,7 +769,6 @@ export class AccountingService {
         payment_method: this.excelPaymentMethodLabel(mapped),
         total: num(mapped.total),
         advance_given: mapped.has_advance ? num(mapped.advance_given) : null,
-        amount_pending: num(mapped.amount_pending),
         payment_status: mapped.payment_status ?? '',
         for_shipping: mapped.for_shipping ? 'Sí' : 'No',
       };
@@ -778,6 +802,7 @@ export class AccountingService {
       ]),
       columns: [
         { header: 'Folio', key: 'folio', width: 16 },
+        { header: 'Cotización', key: 'source_quotation_folio', width: 16 },
         { header: 'Venta', key: 'sale_kind', width: 12 },
         { header: 'Sucursal', key: 'branch', width: 28 },
         { header: 'Fecha venta', key: 'created_at', width: 18, type: 'date' },
@@ -790,9 +815,8 @@ export class AccountingService {
         { header: 'Vendedor', key: 'seller', width: 22 },
         { header: 'Cajero', key: 'cashier', width: 22 },
         { header: 'Método de pago', key: 'payment_method', width: 28 },
-        { header: 'Total', key: 'total', width: 14, type: 'currency' },
+        { header: 'Cobrado', key: 'total', width: 14, type: 'currency' },
         { header: 'Anticipo', key: 'advance_given', width: 14, type: 'currency' },
-        { header: 'Pendiente', key: 'amount_pending', width: 14, type: 'currency' },
         { header: 'Estatus pago', key: 'payment_status', width: 14 },
         { header: 'Para envío', key: 'for_shipping', width: 14 },
       ],
@@ -907,10 +931,21 @@ export class AccountingService {
       ...collections.map((collection) => collection.sales_order_id),
       ...payments.map((payment) => payment.sales_order_id),
     ].filter((id): id is string => Boolean(id));
-    const [stampedOrderIds, paymentDates, advanceByOrder] = await Promise.all([
+    const [stampedOrderIds, paymentDates, advanceByOrder, quotationFolios] = await Promise.all([
       this.getStampedInvoiceOrderIds(tenantId, orderIds),
       this.loadSalesOrderPaymentDates(tenantId, orderIds),
       this.loadOrderAdvanceDisplay(tenantId, orderIds),
+      this.loadSourceQuotationFolios(
+        tenantId,
+        [
+          ...collections.map((collection) => collection.sales_order?.converted_from_quotation_id),
+          ...payments.map((payment) => payment.sales_order?.converted_from_quotation_id),
+        ],
+        [
+          ...collections.map((collection) => collection.sales_order?.id),
+          ...payments.map((payment) => payment.sales_order?.id),
+        ],
+      ),
     ]);
 
     const listed: PaidCreditListItem[] = [];
@@ -925,7 +960,13 @@ export class AccountingService {
       ) {
         continue;
       }
-      const row = this.mapPosCollectionRow(collection, stampedOrderIds, paymentDates, advanceByOrder);
+      const row = this.mapPosCollectionRow(
+        collection,
+        stampedOrderIds,
+        paymentDates,
+        advanceByOrder,
+        quotationFolios,
+      );
       const amounts = collectionTenderAmounts(collection);
       listed.push({
         row,
@@ -1010,6 +1051,7 @@ export class AccountingService {
                 pos_user_code: payment.creator.pos_user_code ?? null,
               }
             : null,
+          source_quotation_folio: this.sourceQuotationFolio(order, quotationFolios),
         },
         meta: {
           total: amountMxn,
@@ -2814,10 +2856,17 @@ export class AccountingService {
       )
       .getMany();
 
-    const advanceByOrder = await this.loadOrderAdvanceDisplay(
-      tenantId,
-      orders.map((order) => order.id),
-    );
+    const [advanceByOrder, quotationFolios] = await Promise.all([
+      this.loadOrderAdvanceDisplay(
+        tenantId,
+        orders.map((order) => order.id),
+      ),
+      this.loadSourceQuotationFolios(
+        tenantId,
+        orders.map((order) => order.converted_from_quotation_id),
+        orders.map((order) => order.id),
+      ),
+    ]);
     const term = search.trim().toLowerCase();
     const rows: PosCollectionListRow[] = [];
 
@@ -2875,6 +2924,7 @@ export class AccountingService {
           : null,
         collected_by_user: null,
         document_kind: 'quotation',
+        source_quotation_folio: null,
       });
     }
 
@@ -2927,6 +2977,7 @@ export class AccountingService {
           : null,
         collected_by_user: null,
         document_kind: 'sales_order',
+        source_quotation_folio: this.sourceQuotationFolio(order, quotationFolios),
       });
     }
 
@@ -2968,11 +3019,65 @@ export class AccountingService {
     return haystack.includes(term);
   }
 
+  private async loadSourceQuotationFolios(
+    tenantId: string,
+    quotationIds: Array<string | null | undefined>,
+    salesOrderIds: Array<string | null | undefined> = [],
+  ): Promise<{ byQuotationId: Map<string, string>; bySalesOrderId: Map<string, string> }> {
+    const quoteIds = [...new Set(quotationIds.filter((id): id is string => Boolean(id)))];
+    const orderIds = [...new Set(salesOrderIds.filter((id): id is string => Boolean(id)))];
+    const byQuotationId = new Map<string, string>();
+    const bySalesOrderId = new Map<string, string>();
+    if (!quoteIds.length && !orderIds.length) return { byQuotationId, bySalesOrderId };
+
+    const qb = this.salesOrderRepo.manager
+      .getRepository(Quotation)
+      .createQueryBuilder('qt')
+      .select(['qt.id', 'qt.folio', 'qt.converted_to_sales_order_id'])
+      .where('qt.tenant_id = :tenantId', { tenantId });
+    if (quoteIds.length && orderIds.length) {
+      qb.andWhere(
+        '(qt.id IN (:...quoteIds) OR qt.converted_to_sales_order_id IN (:...orderIds))',
+        { quoteIds, orderIds },
+      );
+    } else if (quoteIds.length) {
+      qb.andWhere('qt.id IN (:...quoteIds)', { quoteIds });
+    } else {
+      qb.andWhere('qt.converted_to_sales_order_id IN (:...orderIds)', { orderIds });
+    }
+
+    const rows = await qb.getMany();
+    for (const row of rows) {
+      if (!row.folio) continue;
+      byQuotationId.set(row.id, row.folio);
+      if (row.converted_to_sales_order_id) {
+        bySalesOrderId.set(row.converted_to_sales_order_id, row.folio);
+      }
+    }
+    return { byQuotationId, bySalesOrderId };
+  }
+
+  private sourceQuotationFolio(
+    order: { id?: string | null; converted_from_quotation_id?: string | null } | null | undefined,
+    folios: { byQuotationId: Map<string, string>; bySalesOrderId: Map<string, string> },
+  ): string | null {
+    const fromQuote = order?.converted_from_quotation_id
+      ? folios.byQuotationId.get(order.converted_from_quotation_id)
+      : null;
+    if (fromQuote) return fromQuote;
+    if (!order?.id) return null;
+    return folios.bySalesOrderId.get(order.id) ?? null;
+  }
+
   private mapPosCollectionRow(
     collection: PosSaleCollection,
     stampedOrderIds: Set<string>,
     paymentDates: Map<string, string>,
     advanceByOrder: Map<string, OrderAdvanceDisplay> = new Map(),
+    quotationFolios: { byQuotationId: Map<string, string>; bySalesOrderId: Map<string, string> } = {
+      byQuotationId: new Map(),
+      bySalesOrderId: new Map(),
+    },
   ): PosCollectionListRow {
     const order = collection.sales_order;
     const customer = collection.customer;
@@ -3014,6 +3119,7 @@ export class AccountingService {
       document_kind: 'sales_order',
       collection_id: collection.id,
       folio: order?.folio ?? null,
+      source_quotation_folio: this.sourceQuotationFolio(order, quotationFolios),
       total: Number(collection.order_total_mxn),
       has_advance: advance?.hasAdvance ?? false,
       advance_given: advance?.advanceGiven ?? 0,

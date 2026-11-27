@@ -6,6 +6,11 @@ Guía para Pollux: módulo **Caja y cuentas** (menú Contabilidad). Los filtros 
 
 ## Historial
 
+### 2026-11-27
+En Ventas cobradas la columna **Total** se llama **Cobrado** y ya no está **Pendiente**. Si la orden salió de una cotización, bajo el folio sale chico `de COT-000385` (`source_quotation_folio`). El Excel usa Cobrado y Cotización, sin Pendiente.
+
+El PDF de la factura, en Caja del día, Ventas cobradas, Cuentas por cobrar y Factura público en general, se abre en un modal grande dentro de la página.
+
 ### 2026-11-26
 Cuentas por cobrar, Cuentas por pagar y Caja del día usan las mismas cartas de resumen que órdenes de venta. Ventas cobradas no cambia sus cartas. En Caja del día, Ventas cobradas y en cada orden de Cuentas por cobrar están el ojo del ticket y el PDF de la factura, con el mismo tooltip. En Cuentas por pagar el ojo abre la orden de compra.
 
@@ -942,7 +947,7 @@ GET /api/tenant/accounting/pos-collections/export/excel
   ?billing_branch_id={uuid}&period=month&customer_type=all
 ```
 
-Respuesta: `.xlsx` (`cobranza-pos-YYYY-MM-DD.xlsx`). Columnas: Folio, Venta (Anticipo, Crédito o Contado), Sucursal, Fecha venta, Fecha pago, Fecha cobro, Fecha corte, Cliente, RFC ticket, Tipo, Vendedor, Cajero, Método de pago, Total, Anticipo, Pendiente, Estatus pago, Para envío. En un abono, Método de pago lleva `Abono ·` más la forma (`Abono · Efectivo`) y Total es el importe de ese pago. Un mixto usa el desglose (`Efectivo + Tarjeta`). La pestaña manda `credit_scope=paid`.
+Respuesta: `.xlsx` (`cobranza-pos-YYYY-MM-DD.xlsx`). Columnas: Folio, Cotización, Venta (Anticipo, Crédito o Contado), Sucursal, Fecha venta, Fecha pago, Fecha cobro, Fecha corte, Cliente, RFC ticket, Tipo, Vendedor, Cajero, Método de pago, Cobrado, Anticipo, Estatus pago, Para envío. Cotización trae el folio COT si la orden se convirtió desde una cotización. En un abono, Método de pago lleva `Abono ·` más la forma (`Abono · Efectivo`) y Cobrado es el importe de ese pago. Un mixto usa el desglose (`Efectivo + Tarjeta`). La pestaña manda `credit_scope=paid`.
 
 ---
 

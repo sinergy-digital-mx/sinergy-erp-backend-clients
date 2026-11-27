@@ -321,12 +321,13 @@ let AccountingService = class AccountingService {
         const orderIds = collections
             .map((collection) => collection.sales_order_id)
             .filter((id) => Boolean(id));
-        const [stampedOrderIds, paymentDates, advanceByOrder] = await Promise.all([
+        const [stampedOrderIds, paymentDates, advanceByOrder, quotationFolios] = await Promise.all([
             this.getStampedInvoiceOrderIds(tenantId, orderIds),
             this.loadSalesOrderPaymentDates(tenantId, orderIds),
             this.loadOrderAdvanceDisplay(tenantId, orderIds),
+            this.loadSourceQuotationFolios(tenantId, collections.map((collection) => collection.sales_order?.converted_from_quotation_id), collections.map((collection) => collection.sales_order?.id)),
         ]);
-        let data = collections.map((collection) => this.mapPosCollectionRow(collection, stampedOrderIds, paymentDates, advanceByOrder));
+        let data = collections.map((collection) => this.mapPosCollectionRow(collection, stampedOrderIds, paymentDates, advanceByOrder, quotationFolios));
         let listTotal = total;
         let listAmount = filtered.amount_collected;
         let listSummary = {
@@ -403,12 +404,13 @@ let AccountingService = class AccountingService {
         const orderIds = collections
             .map((collection) => collection.sales_order_id)
             .filter((id) => Boolean(id));
-        const [stampedOrderIds, paymentDates, advanceByOrder] = await Promise.all([
+        const [stampedOrderIds, paymentDates, advanceByOrder, quotationFolios] = await Promise.all([
             this.getStampedInvoiceOrderIds(tenantId, orderIds),
             this.loadSalesOrderPaymentDates(tenantId, orderIds),
             this.loadOrderAdvanceDisplay(tenantId, orderIds),
+            this.loadSourceQuotationFolios(tenantId, collections.map((collection) => collection.sales_order?.converted_from_quotation_id), collections.map((collection) => collection.sales_order?.id)),
         ]);
-        let mappedRows = collections.map((collection) => this.mapPosCollectionRow(collection, stampedOrderIds, paymentDates, advanceByOrder));
+        let mappedRows = collections.map((collection) => this.mapPosCollectionRow(collection, stampedOrderIds, paymentDates, advanceByOrder, quotationFolios));
         if (filters.credit_only) {
             let extras = await this.loadAdvanceCreditRows(tenantId, filters, shiftFrom, shiftTo, filters.search?.trim() || '');
             if (customerType === query_accounting_base_dto_1.PosCollectionCustomerType.INVOICED) {
@@ -431,6 +433,7 @@ let AccountingService = class AccountingService {
                 'Público en General';
             return {
                 folio: mapped.folio ?? '',
+                source_quotation_folio: mapped.source_quotation_folio ?? '',
                 sale_kind: this.excelSaleKindLabel(mapped.sale_kind),
                 branch: mapped.billing_branch?.label ?? '',
                 created_at: (0, excel_export_util_1.formatExportDateTime)(mapped.created_at),
@@ -449,7 +452,6 @@ let AccountingService = class AccountingService {
                 payment_method: this.excelPaymentMethodLabel(mapped),
                 total: (0, excel_export_util_1.num)(mapped.total),
                 advance_given: mapped.has_advance ? (0, excel_export_util_1.num)(mapped.advance_given) : null,
-                amount_pending: (0, excel_export_util_1.num)(mapped.amount_pending),
                 payment_status: mapped.payment_status ?? '',
                 for_shipping: mapped.for_shipping ? 'Sí' : 'No',
             };
@@ -480,6 +482,7 @@ let AccountingService = class AccountingService {
             ]),
             columns: [
                 { header: 'Folio', key: 'folio', width: 16 },
+                { header: 'Cotización', key: 'source_quotation_folio', width: 16 },
                 { header: 'Venta', key: 'sale_kind', width: 12 },
                 { header: 'Sucursal', key: 'branch', width: 28 },
                 { header: 'Fecha venta', key: 'created_at', width: 18, type: 'date' },
@@ -492,9 +495,8 @@ let AccountingService = class AccountingService {
                 { header: 'Vendedor', key: 'seller', width: 22 },
                 { header: 'Cajero', key: 'cashier', width: 22 },
                 { header: 'Método de pago', key: 'payment_method', width: 28 },
-                { header: 'Total', key: 'total', width: 14, type: 'currency' },
+                { header: 'Cobrado', key: 'total', width: 14, type: 'currency' },
                 { header: 'Anticipo', key: 'advance_given', width: 14, type: 'currency' },
-                { header: 'Pendiente', key: 'amount_pending', width: 14, type: 'currency' },
                 { header: 'Estatus pago', key: 'payment_status', width: 14 },
                 { header: 'Para envío', key: 'for_shipping', width: 14 },
             ],
@@ -580,10 +582,17 @@ let AccountingService = class AccountingService {
             ...collections.map((collection) => collection.sales_order_id),
             ...payments.map((payment) => payment.sales_order_id),
         ].filter((id) => Boolean(id));
-        const [stampedOrderIds, paymentDates, advanceByOrder] = await Promise.all([
+        const [stampedOrderIds, paymentDates, advanceByOrder, quotationFolios] = await Promise.all([
             this.getStampedInvoiceOrderIds(tenantId, orderIds),
             this.loadSalesOrderPaymentDates(tenantId, orderIds),
             this.loadOrderAdvanceDisplay(tenantId, orderIds),
+            this.loadSourceQuotationFolios(tenantId, [
+                ...collections.map((collection) => collection.sales_order?.converted_from_quotation_id),
+                ...payments.map((payment) => payment.sales_order?.converted_from_quotation_id),
+            ], [
+                ...collections.map((collection) => collection.sales_order?.id),
+                ...payments.map((payment) => payment.sales_order?.id),
+            ]),
         ]);
         const listed = [];
         for (const collection of collections) {
@@ -594,7 +603,7 @@ let AccountingService = class AccountingService {
             })) {
                 continue;
             }
-            const row = this.mapPosCollectionRow(collection, stampedOrderIds, paymentDates, advanceByOrder);
+            const row = this.mapPosCollectionRow(collection, stampedOrderIds, paymentDates, advanceByOrder, quotationFolios);
             const amounts = (0, pos_collection_payment_totals_util_1.collectionTenderAmounts)(collection);
             listed.push({
                 row,
@@ -675,6 +684,7 @@ let AccountingService = class AccountingService {
                             pos_user_code: payment.creator.pos_user_code ?? null,
                         }
                         : null,
+                    source_quotation_folio: this.sourceQuotationFolio(order, quotationFolios),
                 },
                 meta: {
                     total: amountMxn,
@@ -2018,7 +2028,10 @@ let AccountingService = class AccountingService {
             AND cc.credit_enabled = 1
         )`)
             .getMany();
-        const advanceByOrder = await this.loadOrderAdvanceDisplay(tenantId, orders.map((order) => order.id));
+        const [advanceByOrder, quotationFolios] = await Promise.all([
+            this.loadOrderAdvanceDisplay(tenantId, orders.map((order) => order.id)),
+            this.loadSourceQuotationFolios(tenantId, orders.map((order) => order.converted_from_quotation_id), orders.map((order) => order.id)),
+        ]);
         const term = search.trim().toLowerCase();
         const rows = [];
         for (const quote of quotationRows) {
@@ -2073,6 +2086,7 @@ let AccountingService = class AccountingService {
                     : null,
                 collected_by_user: null,
                 document_kind: 'quotation',
+                source_quotation_folio: null,
             });
         }
         for (const order of orders) {
@@ -2126,6 +2140,7 @@ let AccountingService = class AccountingService {
                     : null,
                 collected_by_user: null,
                 document_kind: 'sales_order',
+                source_quotation_folio: this.sourceQuotationFolio(order, quotationFolios),
             });
         }
         return rows;
@@ -2156,7 +2171,52 @@ let AccountingService = class AccountingService {
             .toLowerCase();
         return haystack.includes(term);
     }
-    mapPosCollectionRow(collection, stampedOrderIds, paymentDates, advanceByOrder = new Map()) {
+    async loadSourceQuotationFolios(tenantId, quotationIds, salesOrderIds = []) {
+        const quoteIds = [...new Set(quotationIds.filter((id) => Boolean(id)))];
+        const orderIds = [...new Set(salesOrderIds.filter((id) => Boolean(id)))];
+        const byQuotationId = new Map();
+        const bySalesOrderId = new Map();
+        if (!quoteIds.length && !orderIds.length)
+            return { byQuotationId, bySalesOrderId };
+        const qb = this.salesOrderRepo.manager
+            .getRepository(quotation_entity_1.Quotation)
+            .createQueryBuilder('qt')
+            .select(['qt.id', 'qt.folio', 'qt.converted_to_sales_order_id'])
+            .where('qt.tenant_id = :tenantId', { tenantId });
+        if (quoteIds.length && orderIds.length) {
+            qb.andWhere('(qt.id IN (:...quoteIds) OR qt.converted_to_sales_order_id IN (:...orderIds))', { quoteIds, orderIds });
+        }
+        else if (quoteIds.length) {
+            qb.andWhere('qt.id IN (:...quoteIds)', { quoteIds });
+        }
+        else {
+            qb.andWhere('qt.converted_to_sales_order_id IN (:...orderIds)', { orderIds });
+        }
+        const rows = await qb.getMany();
+        for (const row of rows) {
+            if (!row.folio)
+                continue;
+            byQuotationId.set(row.id, row.folio);
+            if (row.converted_to_sales_order_id) {
+                bySalesOrderId.set(row.converted_to_sales_order_id, row.folio);
+            }
+        }
+        return { byQuotationId, bySalesOrderId };
+    }
+    sourceQuotationFolio(order, folios) {
+        const fromQuote = order?.converted_from_quotation_id
+            ? folios.byQuotationId.get(order.converted_from_quotation_id)
+            : null;
+        if (fromQuote)
+            return fromQuote;
+        if (!order?.id)
+            return null;
+        return folios.bySalesOrderId.get(order.id) ?? null;
+    }
+    mapPosCollectionRow(collection, stampedOrderIds, paymentDates, advanceByOrder = new Map(), quotationFolios = {
+        byQuotationId: new Map(),
+        bySalesOrderId: new Map(),
+    }) {
         const order = collection.sales_order;
         const customer = collection.customer;
         const customerFields = this.buildCustomerFields(customer);
@@ -2193,6 +2253,7 @@ let AccountingService = class AccountingService {
             document_kind: 'sales_order',
             collection_id: collection.id,
             folio: order?.folio ?? null,
+            source_quotation_folio: this.sourceQuotationFolio(order, quotationFolios),
             total: Number(collection.order_total_mxn),
             has_advance: advance?.hasAdvance ?? false,
             advance_given: advance?.advanceGiven ?? 0,

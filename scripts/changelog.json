@@ -2954,6 +2954,26 @@
       "version": "0.0.207",
       "shippedAt": "2026-11-26T18:09:41-08:00",
       "module": "pos"
+    },
+    {
+      "id": "20261127-131248",
+      "at": "2026-11-27T13:12:48-08:00",
+      "scope": "both",
+      "message": "En Caja y cuentas el PDF de la factura se abre en un modal grande, sin salir de la página.",
+      "status": "shipped",
+      "version": "0.0.208",
+      "shippedAt": "2026-11-27T13:53:10-08:00",
+      "module": "accounting"
+    },
+    {
+      "id": "20261127-132042",
+      "at": "2026-11-27T13:20:42-08:00",
+      "scope": "both",
+      "message": "En Ventas cobradas la columna Total se llama Cobrado, ya no está Pendiente, y bajo el folio sale el COT si la orden vino de una cotización.",
+      "status": "shipped",
+      "version": "0.0.208",
+      "shippedAt": "2026-11-27T13:53:10-08:00",
+      "module": "accounting"
     }
   ]
 }

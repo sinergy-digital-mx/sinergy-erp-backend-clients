@@ -174,6 +174,7 @@ export declare class AccountingController {
                 last_name: string;
                 pos_user_code: number | null;
             } | null;
+            source_quotation_folio: string | null;
         })[];
         total: number;
         page: number;

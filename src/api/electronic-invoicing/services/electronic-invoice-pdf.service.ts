@@ -81,7 +81,7 @@ export class ElectronicInvoicePdfService {
     }
 
     const fileName = this.buildFileName(invoice);
-    const signedUrl = await this.s3Service.getSignedUrl(invoice.pdf_stamped_s3_key, 3600);
+    const signedUrl = await this.s3Service.getSignedUrl(invoice.pdf_stamped_s3_key, 3600, fileName);
     return {
       s3Key: invoice.pdf_stamped_s3_key,
       signedUrl,
