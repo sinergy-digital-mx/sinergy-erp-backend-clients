@@ -12,6 +12,10 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.214 · 27 nov
+
+- Órdenes de venta · En el detalle, vendedor y comisionado muestran solo el nombre y el cambio es un icono de lápiz junto al nombre.
+
 #### Versión 0.0.213 · 27 nov
 
 - Órdenes de compra · En el detalle, moneda y estado van en una sola franja y la ventana ocupa casi toda la pantalla. Razón social y sucursal quedan en dos líneas sin título; creado por, proveedor y almacén conservan el suyo.

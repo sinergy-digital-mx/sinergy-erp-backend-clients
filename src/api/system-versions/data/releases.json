@@ -3560,5 +3560,21 @@
       }
     ],
     "releasedAt": "2026-11-27T23:44:55.329Z"
+  },
+  {
+    "releaseKey": "full:0.0.214:0.0.214-1795823698721",
+    "version": "0.0.214",
+    "buildId": "0.0.214-1795823698721",
+    "channel": "full",
+    "title": "Versión 0.0.214",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "En el detalle, vendedor y comisionado muestran solo el nombre y el cambio es un icono de lápiz junto al nombre.",
+        "module": "sales-orders",
+        "moduleLabel": "Órdenes de venta"
+      }
+    ],
+    "releasedAt": "2026-11-27T23:54:58.721Z"
   }
 ]
