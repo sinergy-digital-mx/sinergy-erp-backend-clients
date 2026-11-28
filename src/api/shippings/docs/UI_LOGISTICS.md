@@ -1,5 +1,17 @@
 # UI — Logística (camiones + envíos)
 
+## 2026-11-27 — Uso del chofer
+
+En **Choferes** el correo se queda. La columna **Uso** muestra **Disponible** o **En uso** con el folio, igual que en flota. Naranja si el viaje está en ruta, azul si está creado. El folio abre el viaje.
+
+## 2026-11-27 — Filtro por sucursal
+
+Choferes, flota y remolques, calendario y lista de viajes traen un selector de sucursal. Al entrar queda la principal. Quien tiene sucursales asignadas solo ve esas. El administrador ve todas; si no es administrador y no tiene ninguna asignada, también ve todas.
+
+- **Viajes** (calendario y lista): la sucursal es origen o destino (parada, orden o bodega de la transferencia).
+- **Choferes**: usuarios asignados a esa sucursal.
+- **Flota y remolques**: unidades con esa sucursal. Ya no entra la que no tiene sucursal cuando el filtro está puesto.
+
 ## 2026-11-27 — Dirección de la transferencia en el mapa
 
 En el detalle del viaje, la tarjeta de cada transferencia muestra sucursal, almacén y dirección del destino. El mapa pinta ese punto con el GPS del almacén o, si no tiene, el de la sucursal. Si tampoco hay coordenadas, ubica la dirección. Cada tarjeta de la ruta (origen, orden y transferencia) tiene un botón con icono de mira: al pasar el cursor dice **Ubicar en el mapa** y centra el mapa en ese punto.

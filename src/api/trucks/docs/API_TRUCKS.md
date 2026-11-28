@@ -2,6 +2,10 @@
 
 CRUD de flota por organización (`tenant_id` del JWT). Mensajes al cliente hablan de **organización**, nunca de tenant.
 
+## Historial
+
+- 2026-11-27: `assigned_only=1` con `billing_branch_ids` lista solo unidades de esas sucursales. Sin el flag se sigue incluyendo la unidad sin sucursal. Si el usuario tiene sucursales asignadas, el filtro se cruza con las suyas.
+
 ## Permisos
 
 | Acción | Permiso |
@@ -15,7 +19,7 @@ CRUD de flota por organización (`tenant_id` del JWT). Mensajes al cliente habla
 
 | Método | Path | Notas |
 |--------|------|-------|
-| `GET` | `/` | `page`, `limit`, `search` (name, placa, code, serial_number), `status` (`active`\|`inactive`), `billing_branch_ids` (ids separados por coma; incluye camiones sin sucursal) |
+| `GET` | `/` | `page`, `limit`, `search` (name, placa, code, serial_number), `status` (`active`\|`inactive`), `billing_branch_ids` (ids separados por coma; incluye camiones sin sucursal), `assigned_only=1` (solo las de esas sucursales) |
 | `GET` | `/:id` | 404 genérico si no es de la organización |
 | `POST` | `/` | `name` requerido; `placa` única por organización |
 | `PUT` | `/:id` | Patch parcial (no incluye foto) |

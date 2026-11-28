@@ -18,6 +18,7 @@ class QueryTruckDto {
     search;
     status;
     billing_branch_ids;
+    assigned_only;
 }
 exports.QueryTruckDto = QueryTruckDto;
 __decorate([
@@ -50,4 +51,9 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], QueryTruckDto.prototype, "billing_branch_ids", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], QueryTruckDto.prototype, "assigned_only", void 0);
 //# sourceMappingURL=query-truck.dto.js.map

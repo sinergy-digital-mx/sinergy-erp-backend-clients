@@ -30,6 +30,7 @@ const inventory_transfer_service_1 = require("../inventory/services/inventory-tr
 const inventory_transfer_entity_1 = require("../../entities/inventory/inventory-transfer.entity");
 const shipping_inventory_transfer_entity_1 = require("../../entities/logistics/shipping-inventory-transfer.entity");
 const geo_helper_1 = require("../../common/utils/geo.helper");
+const user_branch_scope_util_1 = require("../../common/user-branch-scope.util");
 const ELIGIBLE_SHIPPING_STATUSES = ['Surtida', 'Lista para entrega'];
 const ALLOWED_TRANSITIONS = {
     Creado: ['En Ruta', 'Cancelado'],
@@ -137,7 +138,7 @@ let ShippingsService = class ShippingsService {
             await qr.release();
         }
     }
-    async findAll(tenantId, query) {
+    async findAll(tenantId, query, userId, unrestricted = false) {
         let page = Number(query?.page) || 1;
         let limit = Number(query?.limit) || 20;
         if (page < 1)
@@ -169,6 +170,9 @@ let ShippingsService = class ShippingsService {
             qb.andWhere('shipping.origin_billing_branch_id = :billing_branch_id', {
                 billing_branch_id: query.billing_branch_id,
             });
+        }
+        if (query?.involved_billing_branch_id) {
+            await this.applyInvolvedBranch(qb, tenantId, userId, query.involved_billing_branch_id, unrestricted);
         }
         if (query?.origin_warehouse_id) {
             qb.andWhere('shipping.origin_warehouse_id = :origin_warehouse_id', {
@@ -1295,19 +1299,44 @@ let ShippingsService = class ShippingsService {
         }
         return truck;
     }
-    async listDrivers(tenantId) {
-        const users = await this.userRepo
+    async listDrivers(tenantId, userId, billingBranchId, unrestricted = false) {
+        const qb = this.userRepo
             .createQueryBuilder('user')
             .leftJoinAndSelect('user.status', 'status')
             .where('user.tenant_id = :tenantId', { tenantId })
             .andWhere('user.is_driver = 1')
-            .andWhere('(status.code IS NULL OR LOWER(status.code) NOT IN (:...hidden))', { hidden: ['inactive', 'deleted'] })
+            .andWhere('(status.code IS NULL OR LOWER(status.code) NOT IN (:...hidden))', { hidden: ['inactive', 'deleted'] });
+        if (billingBranchId) {
+            let branchIds = [billingBranchId];
+            if (userId && !unrestricted) {
+                const allowed = await (0, user_branch_scope_util_1.callerBranchIds)(this.userRepo, tenantId, userId);
+                branchIds = (0, user_branch_scope_util_1.narrowBranchIds)(allowed, branchIds) ?? [];
+            }
+            if (!branchIds.length) {
+                qb.andWhere('1 = 0');
+            }
+            else {
+                qb.andWhere(`(user.billing_branch_id IN (:...driverBranchIds)
+            OR EXISTS (
+              SELECT 1 FROM user_billing_branches ubb
+              WHERE ubb.user_id = user.id
+                AND ubb.tenant_id = :tenantId
+                AND ubb.billing_branch_id IN (:...driverBranchIds)
+            ))`, { driverBranchIds: branchIds });
+            }
+        }
+        const users = await qb
             .orderBy('user.first_name', 'ASC')
             .addOrderBy('user.last_name', 'ASC')
             .getMany();
+        const busy = await this.activeShippingByDriver(tenantId, users.map((user) => user.id));
         return {
             data: users.map((user) => {
                 const check = (0, carta_porte_util_1.assessDriver)(user);
+                const shipping = busy.get(user.id);
+                const truckLabel = shipping
+                    ? [shipping.truck?.name, shipping.truck?.placa].filter(Boolean).join(' · ')
+                    : '';
                 return {
                     id: user.id,
                     email: user.email,
@@ -1327,9 +1356,84 @@ let ShippingsService = class ShippingsService {
                     driver_rfc: user.driver_rfc,
                     carta_porte_ready: check.ready,
                     carta_porte_missing: check.missing,
+                    active_shipping_id: shipping?.id ?? null,
+                    active_shipping_status: shipping?.status ?? null,
+                    active_shipping_date: shipping
+                        ? this.shippingDay(shipping.shipping_date)
+                        : null,
+                    active_shipping_truck_name: truckLabel || null,
                 };
             }),
         };
+    }
+    async activeShippingByDriver(tenantId, driverIds) {
+        const busy = new Map();
+        if (!driverIds.length)
+            return busy;
+        const rows = await this.shippingRepo.find({
+            where: {
+                tenant_id: tenantId,
+                driver_id: (0, typeorm_2.In)(driverIds),
+                status: (0, typeorm_2.In)([...shipping_entity_1.ACTIVE_SHIPPING_STATUSES]),
+            },
+            relations: { truck: true },
+        });
+        for (const row of rows) {
+            const current = busy.get(row.driver_id);
+            const rowDay = this.shippingDay(row.shipping_date);
+            const currentDay = current ? this.shippingDay(current.shipping_date) : null;
+            if (!current || (rowDay && currentDay && rowDay > currentDay)) {
+                busy.set(row.driver_id, row);
+            }
+        }
+        return busy;
+    }
+    shippingDay(value) {
+        if (!value)
+            return null;
+        if (typeof value === 'string')
+            return value.slice(0, 10);
+        const year = value.getFullYear();
+        const month = String(value.getMonth() + 1).padStart(2, '0');
+        const day = String(value.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+    async applyInvolvedBranch(qb, tenantId, userId, billingBranchId, unrestricted = false) {
+        let branchIds = [billingBranchId];
+        if (userId && !unrestricted) {
+            const allowed = await (0, user_branch_scope_util_1.callerBranchIds)(this.userRepo, tenantId, userId);
+            branchIds = (0, user_branch_scope_util_1.narrowBranchIds)(allowed, branchIds) ?? [];
+        }
+        if (!branchIds.length) {
+            qb.andWhere('1 = 0');
+            return;
+        }
+        qb.andWhere(`(shipping.origin_billing_branch_id IN (:...involvedBranchIds)
+        OR warehouse.billing_branch_id IN (:...involvedBranchIds)
+        OR EXISTS (
+          SELECT 1 FROM shipping_stops stop
+          INNER JOIN inv_s_sales_orders so
+            ON so.id = stop.sales_order_id AND so.tenant_id = stop.tenant_id
+          LEFT JOIN warehouses wh ON wh.id = so.warehouse_id
+          WHERE stop.shipping_id = shipping.id
+            AND stop.tenant_id = :tenantId
+            AND (
+              so.billing_branch_id IN (:...involvedBranchIds)
+              OR wh.billing_branch_id IN (:...involvedBranchIds)
+            )
+        )
+        OR EXISTS (
+          SELECT 1 FROM shipping_inventory_transfers link
+          INNER JOIN inv_s_inventory_transfers tr ON tr.id = link.inventory_transfer_id
+          LEFT JOIN warehouses src ON src.id = tr.source_warehouse_id
+          LEFT JOIN warehouses dst ON dst.id = tr.destination_warehouse_id
+          WHERE link.shipping_id = shipping.id
+            AND link.tenant_id = :tenantId
+            AND (
+              src.billing_branch_id IN (:...involvedBranchIds)
+              OR dst.billing_branch_id IN (:...involvedBranchIds)
+            )
+        ))`, { involvedBranchIds: branchIds });
     }
     async getDriver(id, tenantId) {
         const driver = await this.userRepo.findOne({

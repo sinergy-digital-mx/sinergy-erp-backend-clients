@@ -13,6 +13,10 @@ import {
   Shipping,
 } from '../../entities/logistics/shipping.entity';
 import { User } from '../../entities/users/user.entity';
+import {
+  callerBranchIds,
+  narrowBranchIds,
+} from '../../common/user-branch-scope.util';
 import { S3Service } from '../../common/services/s3.service';
 import { CreateTruckDto } from './dto/create-truck.dto';
 import { UpdateTruckDto } from './dto/update-truck.dto';
@@ -62,6 +66,8 @@ export class TrucksService {
     private readonly shippingRepo: Repository<Shipping>,
     @InjectRepository(BillingBranch)
     private readonly branchRepo: Repository<BillingBranch>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
     private readonly s3Service: S3Service,
   ) {}
 
@@ -84,7 +90,12 @@ export class TrucksService {
     return this.present(saved, tenantId);
   }
 
-  async findAll(tenantId: string, query?: QueryTruckDto) {
+  async findAll(
+    tenantId: string,
+    query?: QueryTruckDto,
+    userId?: string,
+    unrestricted = false,
+  ) {
     let page = Number(query?.page) || 1;
     let limit = Number(query?.limit) || 20;
     if (page < 1) page = 1;
@@ -107,11 +118,24 @@ export class TrucksService {
       qb.andWhere('truck.status = :status', { status: query.status });
     }
 
-    const branchIds = (query?.billing_branch_ids ?? '')
+    const requestedIds = (query?.billing_branch_ids ?? '')
       .split(',')
       .map((id) => id.trim())
       .filter((id) => id.length > 0);
-    if (branchIds.length) {
+    let branchIds = requestedIds;
+    if (userId && !unrestricted && requestedIds.length) {
+      const allowed = await callerBranchIds(this.userRepo, tenantId, userId);
+      branchIds = narrowBranchIds(allowed, requestedIds) ?? [];
+    }
+    const assignedOnly =
+      query?.assigned_only === '1' || query?.assigned_only === 'true';
+    if (requestedIds.length && !branchIds.length) {
+      qb.andWhere('1 = 0');
+    } else if (branchIds.length && assignedOnly) {
+      qb.andWhere('truck.default_billing_branch_id IN (:...branchIds)', {
+        branchIds,
+      });
+    } else if (branchIds.length) {
       qb.andWhere(
         '(truck.default_billing_branch_id IN (:...branchIds) OR truck.default_billing_branch_id IS NULL)',
         { branchIds },

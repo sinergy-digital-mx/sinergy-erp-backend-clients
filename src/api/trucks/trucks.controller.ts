@@ -46,7 +46,12 @@ export class TrucksController {
   @RequirePermissions({ entityType: 'Truck', action: 'Read' })
   @ApiOperation({ summary: 'Listar camiones' })
   findAll(@Query() query: QueryTruckDto, @Req() req: any) {
-    return this.service.findAll(req.user.tenant_id, query);
+    return this.service.findAll(
+      req.user.tenant_id,
+      query,
+      req.user.id,
+      req.user.hasAdminRole === true,
+    );
   }
 
   @Get(':id')

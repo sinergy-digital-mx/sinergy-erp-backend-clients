@@ -12,6 +12,11 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.217 · 27 nov
+
+- Logística · Choferes, flota, calendario y viajes filtran por sucursal: entra la principal y el viaje se ve si esa sucursal es origen o destino.
+- Logística · En choferes se ve si están en una ruta o disponibles, con el folio del viaje.
+
 #### Versión 0.0.216 · 27 nov
 
 - Cotizaciones · En el detalle, el anticipo muestra el monto y los pasos en una línea vertical, no en cuatro cuadros.

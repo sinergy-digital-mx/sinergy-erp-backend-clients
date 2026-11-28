@@ -27,4 +27,9 @@ export class QueryTruckDto {
   @IsOptional()
   @IsString()
   billing_branch_ids?: string;
+
+  /** `1` = solo unidades con esa sucursal. Sin esto, también entran las que no tienen sucursal. */
+  @IsOptional()
+  @IsString()
+  assigned_only?: string;
 }

@@ -101,6 +101,12 @@ export class ResolveOrdersDto {
   sales_order_ids: string[];
 }
 
+export class QueryDriversDto {
+  @IsOptional()
+  @IsUUID()
+  billing_branch_id?: string;
+}
+
 export class QueryShippingDto {
   @IsOptional()
   @Type(() => Number)
@@ -129,6 +135,11 @@ export class QueryShippingDto {
   @IsOptional()
   @IsUUID()
   billing_branch_id?: string;
+
+  /** Viajes donde la sucursal es origen o destino. */
+  @IsOptional()
+  @IsUUID()
+  involved_billing_branch_id?: string;
 
   @IsOptional()
   @IsUUID()

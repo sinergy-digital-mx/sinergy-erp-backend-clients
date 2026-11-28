@@ -31,6 +31,9 @@ export declare class SetShippingStopAddressDto {
 export declare class ResolveOrdersDto {
     sales_order_ids: string[];
 }
+export declare class QueryDriversDto {
+    billing_branch_id?: string;
+}
 export declare class QueryShippingDto {
     page?: number;
     limit?: number;
@@ -38,6 +41,7 @@ export declare class QueryShippingDto {
     driver_id?: string;
     truck_id?: string;
     billing_branch_id?: string;
+    involved_billing_branch_id?: string;
     origin_warehouse_id?: string;
     date_from?: string;
     date_to?: string;

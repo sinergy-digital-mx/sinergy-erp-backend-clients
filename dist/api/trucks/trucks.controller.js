@@ -32,7 +32,7 @@ let TrucksController = class TrucksController {
         return this.service.create(dto, req.user.tenant_id);
     }
     findAll(query, req) {
-        return this.service.findAll(req.user.tenant_id, query);
+        return this.service.findAll(req.user.tenant_id, query, req.user.id, req.user.hasAdminRole === true);
     }
     findOne(id, req) {
         return this.service.findOne(id, req.user.tenant_id);

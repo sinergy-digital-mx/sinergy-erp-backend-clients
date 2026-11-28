@@ -100,7 +100,7 @@ export declare class ShippingsService {
         origin_missing_location: boolean;
     }>;
     create(dto: CreateShippingDto, tenantId: string, userId: string): Promise<Shipping>;
-    findAll(tenantId: string, query?: QueryShippingDto): Promise<{
+    findAll(tenantId: string, query?: QueryShippingDto, userId?: string, unrestricted?: boolean): Promise<{
         data: Shipping[];
         total: number;
         page: number;
@@ -208,7 +208,7 @@ export declare class ShippingsService {
     private getRouteOriginFromShipping;
     private assertTruckAvailable;
     private getActiveTruck;
-    listDrivers(tenantId: string): Promise<{
+    listDrivers(tenantId: string, userId?: string, billingBranchId?: string, unrestricted?: boolean): Promise<{
         data: {
             id: string;
             email: string | null;
@@ -226,7 +226,14 @@ export declare class ShippingsService {
             driver_rfc: string | null;
             carta_porte_ready: boolean;
             carta_porte_missing: string[];
+            active_shipping_id: string | null;
+            active_shipping_status: "Cancelado" | "Creado" | "En Ruta" | "Completado" | null;
+            active_shipping_date: string | null;
+            active_shipping_truck_name: string | null;
         }[];
     }>;
+    private activeShippingByDriver;
+    private shippingDay;
+    private applyInvolvedBranch;
     private getDriver;
 }

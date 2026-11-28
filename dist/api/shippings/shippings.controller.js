@@ -41,13 +41,13 @@ let ShippingsController = class ShippingsController {
         return this.service.create(dto, req.user.tenant_id, req.user.id);
     }
     findAll(query, req) {
-        return this.service.findAll(req.user.tenant_id, query);
+        return this.service.findAll(req.user.tenant_id, query, req.user.id, req.user.hasAdminRole === true);
     }
     findAvailableOrders(query, req) {
         return this.service.findAvailableOrders(req.user.tenant_id, query);
     }
-    listDrivers(req) {
-        return this.service.listDrivers(req.user.tenant_id);
+    listDrivers(query, req) {
+        return this.service.listDrivers(req.user.tenant_id, req.user.id, query.billing_branch_id, req.user.hasAdminRole === true);
     }
     findOne(id, req) {
         return this.service.findOne(id, req.user.tenant_id);
@@ -141,9 +141,10 @@ __decorate([
         summary: 'Choferes activos para crear o editar un envío',
         description: 'No pide permiso de usuarios. Devuelve solo usuarios marcados como chofer y que no están inactivos ni eliminados.',
     }),
-    __param(0, (0, common_1.Req)()),
+    __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [shipping_dto_1.QueryDriversDto, Object]),
     __metadata("design:returntype", void 0)
 ], ShippingsController.prototype, "listDrivers", null);
 __decorate([

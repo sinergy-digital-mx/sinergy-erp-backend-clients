@@ -4,4 +4,5 @@ export declare class QueryTruckDto {
     search?: string;
     status?: string;
     billing_branch_ids?: string;
+    assigned_only?: string;
 }

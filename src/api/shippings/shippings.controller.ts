@@ -23,6 +23,7 @@ import {
   CreateShippingDto,
   PreviewShippingDto,
   QueryAvailableShippingOrdersDto,
+  QueryDriversDto,
   QueryShippingDto,
   ResolveOrdersDto,
   SetShippingStopAddressDto,
@@ -67,7 +68,12 @@ export class ShippingsController {
   @RequirePermissions({ entityType: 'Shipping', action: 'Read' })
   @ApiOperation({ summary: 'Listar envíos' })
   findAll(@Query() query: QueryShippingDto, @Req() req: any) {
-    return this.service.findAll(req.user.tenant_id, query);
+    return this.service.findAll(
+      req.user.tenant_id,
+      query,
+      req.user.id,
+      req.user.hasAdminRole === true,
+    );
   }
 
   @Get('available-orders')
@@ -90,8 +96,13 @@ export class ShippingsController {
     description:
       'No pide permiso de usuarios. Devuelve solo usuarios marcados como chofer y que no están inactivos ni eliminados.',
   })
-  listDrivers(@Req() req: any) {
-    return this.service.listDrivers(req.user.tenant_id);
+  listDrivers(@Query() query: QueryDriversDto, @Req() req: any) {
+    return this.service.listDrivers(
+      req.user.tenant_id,
+      req.user.id,
+      query.billing_branch_id,
+      req.user.hasAdminRole === true,
+    );
   }
 
   @Get(':id')

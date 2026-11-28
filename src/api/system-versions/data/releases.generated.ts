@@ -3647,5 +3647,27 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-11-28T01:01:59.619Z"
+  },
+  {
+    "releaseKey": "full:0.0.217:0.0.217-1795837458042",
+    "version": "0.0.217",
+    "buildId": "0.0.217-1795837458042",
+    "channel": "full",
+    "title": "Versión 0.0.217",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "Choferes, flota, calendario y viajes filtran por sucursal: entra la principal y el viaje se ve si esa sucursal es origen o destino.",
+        "module": "logistics",
+        "moduleLabel": "Logística"
+      },
+      {
+        "scope": "frontend",
+        "message": "En choferes se ve si están en una ruta o disponibles, con el folio del viaje.",
+        "module": "logistics",
+        "moduleLabel": "Logística"
+      }
+    ],
+    "releasedAt": "2026-11-28T03:44:18.042Z"
   }
 ];

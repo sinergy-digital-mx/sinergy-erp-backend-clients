@@ -1,7 +1,7 @@
 import { ShippingsService } from './shippings.service';
 import { CartaPorteService } from './services/carta-porte.service';
 import { CartaPortePdfService } from './services/carta-porte-pdf.service';
-import { AddShippingStopsDto, AddShippingTransfersDto, CreateShippingDto, PreviewShippingDto, QueryAvailableShippingOrdersDto, QueryShippingDto, ResolveOrdersDto, SetShippingStopAddressDto, StampCartaPorteDto, UpdateShippingCrewDto, UpdateShippingStatusDto } from './dto/shipping.dto';
+import { AddShippingStopsDto, AddShippingTransfersDto, CreateShippingDto, PreviewShippingDto, QueryAvailableShippingOrdersDto, QueryDriversDto, QueryShippingDto, ResolveOrdersDto, SetShippingStopAddressDto, StampCartaPorteDto, UpdateShippingCrewDto, UpdateShippingStatusDto } from './dto/shipping.dto';
 export declare class ShippingsController {
     private readonly service;
     private readonly cartaPorte;
@@ -133,7 +133,7 @@ export declare class ShippingsController {
         hasNext: boolean;
         hasPrev: boolean;
     }>;
-    listDrivers(req: any): Promise<{
+    listDrivers(query: QueryDriversDto, req: any): Promise<{
         data: {
             id: string;
             email: string | null;
@@ -151,6 +151,10 @@ export declare class ShippingsController {
             driver_rfc: string | null;
             carta_porte_ready: boolean;
             carta_porte_missing: string[];
+            active_shipping_id: string | null;
+            active_shipping_status: "Cancelado" | "Creado" | "En Ruta" | "Completado" | null;
+            active_shipping_date: string | null;
+            active_shipping_truck_name: string | null;
         }[];
     }>;
     findOne(id: string, req: any): Promise<import("../../entities/logistics/shipping.entity").Shipping>;

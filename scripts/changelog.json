@@ -3224,6 +3224,26 @@
       "version": "0.0.216",
       "shippedAt": "2026-11-27T17:03:27-08:00",
       "module": "quotations"
+    },
+    {
+      "id": "20261127-171508",
+      "at": "2026-11-27T17:15:08-08:00",
+      "scope": "both",
+      "message": "Choferes, flota, calendario y viajes filtran por sucursal: entra la principal y el viaje se ve si esa sucursal es origen o destino.",
+      "status": "shipped",
+      "version": "0.0.217",
+      "shippedAt": "2026-11-27T19:45:27-08:00",
+      "module": "logistics"
+    },
+    {
+      "id": "20261127-171835",
+      "at": "2026-11-27T17:18:35-08:00",
+      "scope": "both",
+      "message": "En choferes se ve si están en una ruta o disponibles, con el folio del viaje.",
+      "status": "shipped",
+      "version": "0.0.217",
+      "shippedAt": "2026-11-27T19:45:27-08:00",
+      "module": "logistics"
     }
   ]
 }

@@ -6,6 +6,8 @@ Scoped por organización vía JWT. No enviar `organization_id` en el body.
 
 ## Historial
 
+- 2026-11-27: `GET /drivers` incluye `active_shipping_id`, `active_shipping_status`, `active_shipping_date` y `active_shipping_truck_name` si el chofer está en un viaje Creado o En Ruta. Si hay varios, se devuelve el de fecha más reciente.
+- 2026-11-27: `GET /` acepta `involved_billing_branch_id`. El viaje entra si esa sucursal es origen o destino (orden, almacén o bodega de la transferencia). `GET /drivers?billing_branch_id=` devuelve choferes asignados a esa sucursal. Si el usuario tiene sucursales asignadas, no puede pedir otra.
 - 2026-11-27: Cada transferencia del envío trae sucursal, almacén, dirección y GPS del destino (si el almacén no tiene dirección o coordenadas, se usan las de su sucursal).
 - 2026-10-09: Al crear un envío, la unidad no puede estar en otro envío `Creado` o `En Ruta`. Se libera al completarlo o cancelarlo.
 
@@ -47,7 +49,8 @@ Al cancelar, las OV vuelven a `Lista para entrega` (si tuvieron corroboración /
 | `POST` | `/preview` | Estima km sin guardar |
 | `POST` | `/resolve-orders` | `{ sales_order_ids }` → GPS |
 | `POST` | `/` | Crear |
-| `GET` | `/` | Filtros: status, driver_id, truck_id, billing_branch_id, date_from/to |
+| `GET` | `/` | Filtros: status, driver_id, truck_id, billing_branch_id (solo origen), involved_billing_branch_id (origen o destino), date_from/to |
+| `GET` | `/drivers` | Choferes activos. `billing_branch_id` opcional: asignados a esa sucursal |
 | `GET` | `/available-orders` | OV `Surtida` \| `Lista para entrega` de la sucursal (sin envío activo) |
 | `GET` | `/:id` | Detalle + stops |
 | `POST` | `/:id/stops` | Agregar OV (solo `Creado`) |

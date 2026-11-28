@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.StampCartaPorteDto = exports.UpdateShippingCrewDto = exports.QueryAvailableShippingOrdersDto = exports.QueryShippingDto = exports.ResolveOrdersDto = exports.SetShippingStopAddressDto = exports.UpdateShippingStatusDto = exports.AddShippingTransfersDto = exports.AddShippingStopsDto = exports.PreviewShippingDto = exports.CreateShippingDto = exports.ShippingOrderItemDto = void 0;
+exports.StampCartaPorteDto = exports.UpdateShippingCrewDto = exports.QueryAvailableShippingOrdersDto = exports.QueryShippingDto = exports.QueryDriversDto = exports.ResolveOrdersDto = exports.SetShippingStopAddressDto = exports.UpdateShippingStatusDto = exports.AddShippingTransfersDto = exports.AddShippingStopsDto = exports.PreviewShippingDto = exports.CreateShippingDto = exports.ShippingOrderItemDto = void 0;
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
 class ShippingOrderItemDto {
@@ -141,6 +141,15 @@ __decorate([
     (0, class_validator_1.IsUUID)('4', { each: true }),
     __metadata("design:type", Array)
 ], ResolveOrdersDto.prototype, "sales_order_ids", void 0);
+class QueryDriversDto {
+    billing_branch_id;
+}
+exports.QueryDriversDto = QueryDriversDto;
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], QueryDriversDto.prototype, "billing_branch_id", void 0);
 class QueryShippingDto {
     page = 1;
     limit = 20;
@@ -148,6 +157,7 @@ class QueryShippingDto {
     driver_id;
     truck_id;
     billing_branch_id;
+    involved_billing_branch_id;
     origin_warehouse_id;
     date_from;
     date_to;
@@ -187,6 +197,11 @@ __decorate([
     (0, class_validator_1.IsUUID)(),
     __metadata("design:type", String)
 ], QueryShippingDto.prototype, "billing_branch_id", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], QueryShippingDto.prototype, "involved_billing_branch_id", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsUUID)(),

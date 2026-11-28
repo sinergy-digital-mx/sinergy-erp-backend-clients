@@ -19,6 +19,8 @@ const typeorm_2 = require("typeorm");
 const truck_entity_1 = require("../../entities/logistics/truck.entity");
 const billing_branch_entity_1 = require("../../entities/billing/billing-branch.entity");
 const shipping_entity_1 = require("../../entities/logistics/shipping.entity");
+const user_entity_1 = require("../../entities/users/user.entity");
+const user_branch_scope_util_1 = require("../../common/user-branch-scope.util");
 const s3_service_1 = require("../../common/services/s3.service");
 const carta_porte_util_1 = require("../shippings/utils/carta-porte.util");
 function driverName(driver) {
@@ -56,11 +58,13 @@ let TrucksService = class TrucksService {
     repo;
     shippingRepo;
     branchRepo;
+    userRepo;
     s3Service;
-    constructor(repo, shippingRepo, branchRepo, s3Service) {
+    constructor(repo, shippingRepo, branchRepo, userRepo, s3Service) {
         this.repo = repo;
         this.shippingRepo = shippingRepo;
         this.branchRepo = branchRepo;
+        this.userRepo = userRepo;
         this.s3Service = s3Service;
     }
     async create(dto, tenantId) {
@@ -80,7 +84,7 @@ let TrucksService = class TrucksService {
         const saved = await this.repo.save(truck);
         return this.present(saved, tenantId);
     }
-    async findAll(tenantId, query) {
+    async findAll(tenantId, query, userId, unrestricted = false) {
         let page = Number(query?.page) || 1;
         let limit = Number(query?.limit) || 20;
         if (page < 1)
@@ -99,11 +103,25 @@ let TrucksService = class TrucksService {
         if (query?.status) {
             qb.andWhere('truck.status = :status', { status: query.status });
         }
-        const branchIds = (query?.billing_branch_ids ?? '')
+        const requestedIds = (query?.billing_branch_ids ?? '')
             .split(',')
             .map((id) => id.trim())
             .filter((id) => id.length > 0);
-        if (branchIds.length) {
+        let branchIds = requestedIds;
+        if (userId && !unrestricted && requestedIds.length) {
+            const allowed = await (0, user_branch_scope_util_1.callerBranchIds)(this.userRepo, tenantId, userId);
+            branchIds = (0, user_branch_scope_util_1.narrowBranchIds)(allowed, requestedIds) ?? [];
+        }
+        const assignedOnly = query?.assigned_only === '1' || query?.assigned_only === 'true';
+        if (requestedIds.length && !branchIds.length) {
+            qb.andWhere('1 = 0');
+        }
+        else if (branchIds.length && assignedOnly) {
+            qb.andWhere('truck.default_billing_branch_id IN (:...branchIds)', {
+                branchIds,
+            });
+        }
+        else if (branchIds.length) {
             qb.andWhere('(truck.default_billing_branch_id IN (:...branchIds) OR truck.default_billing_branch_id IS NULL)', { branchIds });
         }
         qb.orderBy('truck.created_at', 'DESC');
@@ -308,7 +326,9 @@ exports.TrucksService = TrucksService = __decorate([
     __param(0, (0, typeorm_1.InjectRepository)(truck_entity_1.Truck)),
     __param(1, (0, typeorm_1.InjectRepository)(shipping_entity_1.Shipping)),
     __param(2, (0, typeorm_1.InjectRepository)(billing_branch_entity_1.BillingBranch)),
+    __param(3, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository,
         s3_service_1.S3Service])
