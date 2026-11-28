@@ -3619,5 +3619,33 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-11-28T00:13:55.855Z"
+  },
+  {
+    "releaseKey": "full:0.0.216:0.0.216-1795827719619",
+    "version": "0.0.216",
+    "buildId": "0.0.216-1795827719619",
+    "channel": "full",
+    "title": "Versión 0.0.216",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "En el detalle, el anticipo muestra el monto y los pasos en una línea vertical, no en cuatro cuadros.",
+        "module": "quotations",
+        "moduleLabel": "Cotizaciones"
+      },
+      {
+        "scope": "frontend",
+        "message": "En el detalle, los botones del lateral quedan pegados al fondo y el conteo de la pestaña activa va en azul.",
+        "module": "quotations",
+        "moduleLabel": "Cotizaciones"
+      },
+      {
+        "scope": "frontend",
+        "message": "En cotizaciones el vendedor se muestra sin el código.",
+        "module": "quotations",
+        "moduleLabel": "Cotizaciones"
+      }
+    ],
+    "releasedAt": "2026-11-28T01:01:59.619Z"
   }
 ];

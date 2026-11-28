@@ -12,6 +12,12 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.216 · 27 nov
+
+- Cotizaciones · En el detalle, el anticipo muestra el monto y los pasos en una línea vertical, no en cuatro cuadros.
+- Cotizaciones · En el detalle, los botones del lateral quedan pegados al fondo y el conteo de la pestaña activa va en azul.
+- Cotizaciones · En cotizaciones el vendedor se muestra sin el código.
+
 #### Versión 0.0.215 · 27 nov
 
 - Órdenes de venta · En el detalle de la orden, el bloque de totales ya no muestra el texto de la moneda.

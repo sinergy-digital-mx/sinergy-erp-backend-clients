@@ -3194,6 +3194,36 @@
       "version": "0.0.215",
       "shippedAt": "2026-11-27T16:15:20-08:00",
       "module": "sales-orders"
+    },
+    {
+      "id": "20261127-161622",
+      "at": "2026-11-27T16:16:22-08:00",
+      "scope": "frontend",
+      "message": "En el detalle, el anticipo muestra el monto y los pasos en una línea vertical, no en cuatro cuadros.",
+      "status": "shipped",
+      "version": "0.0.216",
+      "shippedAt": "2026-11-27T17:03:27-08:00",
+      "module": "quotations"
+    },
+    {
+      "id": "20261127-161914",
+      "at": "2026-11-27T16:19:14-08:00",
+      "scope": "frontend",
+      "message": "En el detalle, los botones del lateral quedan pegados al fondo y el conteo de la pestaña activa va en azul.",
+      "status": "shipped",
+      "version": "0.0.216",
+      "shippedAt": "2026-11-27T17:03:27-08:00",
+      "module": "quotations"
+    },
+    {
+      "id": "20261127-162144",
+      "at": "2026-11-27T16:21:44-08:00",
+      "scope": "frontend",
+      "message": "En cotizaciones el vendedor se muestra sin el código.",
+      "status": "shipped",
+      "version": "0.0.216",
+      "shippedAt": "2026-11-27T17:03:27-08:00",
+      "module": "quotations"
     }
   ]
 }
