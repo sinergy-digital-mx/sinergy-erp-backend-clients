@@ -1,5 +1,13 @@
 # UI — Listado de órdenes de venta (razón social + sucursal)
 
+## 2026-11-27 — Texto de moneda en totales
+
+En el detalle, el bloque TOTALES ya no muestra «Esta orden es en MXN» ni «Esta orden es en USD». La moneda sigue en la barra del encabezado.
+
+El bloque de fechas ya no lleva el título FECHAS y las filas quedan un poco más compactas.
+
+Desde 1800px de ancho el detalle de la orden se queda en 1560px y la tabla de productos en 1080px, para que las filas no se estiren en un monitor grande.
+
 ## 2026-11-26 — El detalle respondía 500
 
 `GET` del detalle arma también el envío y ese query pide `trucks.default_billing_branch_id`. La columna no estaba en la base, así que cualquier orden respondía 500 con `Internal server error`. Ya quedó aplicada la migración `AddTruckDefaultBranch1797400000000`: columna nullable e índice `idx_trucks_default_branch`. Sin envío, la orden abre igual.

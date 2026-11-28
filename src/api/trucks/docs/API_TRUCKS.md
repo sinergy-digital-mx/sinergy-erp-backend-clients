@@ -35,6 +35,10 @@ CRUD de flota por organización (`tenant_id` del JWT). Mensajes al cliente habla
 
 Campos opcionales: `code`, `serial_number` (número de serie / NIV, máx. 50), `anio`, `default_billing_branch_id` (sucursal por defecto; no impide usarlo en otra).
 
+## 2026-11-27 — Sucursal en el listado
+
+La respuesta de listado y detalle agrega `default_billing_branch_prefix` (prefijo de la sucursal), `default_billing_fiscal_prefix` (prefijo de la razón social) y `default_billing_razon_social`. El listado de flota muestra el nombre de la sucursal y, debajo, el prefijo `RAZÓN-SUCURSAL`. No se envían sellos ni llaves de la razón social.
+
 ## 2026-11-25 — Sucursal por defecto
 
 Cada camión puede guardar `default_billing_branch_id`. La respuesta incluye `default_billing_branch_name` (código de la sucursal). El listado acepta `billing_branch_ids` para prefiltrar la flota del usuario y sigue devolviendo unidades sin sucursal asignada.

@@ -25,6 +25,25 @@ function driverName(driver: User | null | undefined): string | null {
   return name || driver.email?.trim() || null;
 }
 
+interface BranchFiscalLabel {
+  prefix: string | null;
+  razonSocial: string | null;
+}
+
+function rawText(row: Record<string, unknown>, ...keys: string[]): string | null {
+  const index = new Map<string, unknown>();
+  for (const [key, value] of Object.entries(row)) {
+    index.set(key.toLowerCase(), value);
+  }
+  for (const key of keys) {
+    const value = index.get(key.toLowerCase());
+    if (value == null) continue;
+    const text = String(value).trim();
+    if (text) return text;
+  }
+  return null;
+}
+
 function shippingDay(value: Date | string | null | undefined): string | null {
   if (!value) return null;
   if (typeof value === 'string') return value.slice(0, 10);
@@ -250,15 +269,57 @@ export class TrucksService {
       }
     }
 
+    const fiscalByBranch = await this.loadFiscalLabels(
+      withPhoto
+        .map((truck) => truck.default_billing_branch_id)
+        .filter((id): id is string => !!id),
+      tenantId,
+    );
+
     return withPhoto.map((truck) => {
       const shipping = busy.get(truck.id);
+      const fiscal = truck.default_billing_branch_id
+        ? fiscalByBranch.get(truck.default_billing_branch_id)
+        : undefined;
       return Object.assign(truck, {
         active_shipping_id: shipping?.id ?? null,
         active_shipping_status: shipping?.status ?? null,
         active_shipping_date: shipping ? shippingDay(shipping.shipping_date) : null,
         active_shipping_driver_name: shipping ? driverName(shipping.driver) : null,
+        default_billing_fiscal_prefix: fiscal?.prefix ?? null,
+        default_billing_razon_social: fiscal?.razonSocial ?? null,
       });
     });
+  }
+
+  /** Solo prefijo y razón social. No carga sellos ni llaves. */
+  private async loadFiscalLabels(
+    branchIds: string[],
+    tenantId: string,
+  ): Promise<Map<string, BranchFiscalLabel>> {
+    const ids = [...new Set(branchIds)];
+    const labels = new Map<string, BranchFiscalLabel>();
+    if (!ids.length) return labels;
+
+    const rows: Record<string, unknown>[] = await this.branchRepo
+      .createQueryBuilder('branch')
+      .innerJoin('branch.fiscal_configuration', 'fiscal')
+      .select('branch.id', 'id')
+      .addSelect('fiscal.prefix', 'prefix')
+      .addSelect('fiscal.razon_social', 'razon_social')
+      .where('branch.id IN (:...ids)', { ids })
+      .andWhere('fiscal.tenant_id = :tenantId', { tenantId })
+      .getRawMany();
+
+    for (const row of rows) {
+      const id = rawText(row, 'id', 'branch_id');
+      if (!id) continue;
+      labels.set(id, {
+        prefix: rawText(row, 'prefix', 'fiscal_prefix'),
+        razonSocial: rawText(row, 'razon_social', 'fiscal_razon_social'),
+      });
+    }
+    return labels;
   }
 
   private async getByIdOrFail(id: string, tenantId: string): Promise<Truck> {
@@ -282,6 +343,7 @@ export class TrucksService {
       ...truck,
       photo,
       default_billing_branch_name: truck.default_billing_branch?.code?.trim() || null,
+      default_billing_branch_prefix: truck.default_billing_branch?.prefix?.trim() || null,
       carta_porte_ready: check.ready,
       carta_porte_missing: check.missing,
     } as Truck;

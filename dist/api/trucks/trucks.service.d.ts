@@ -31,6 +31,7 @@ export declare class TrucksService {
     private assertGpsUnitUnique;
     private present;
     private presentMany;
+    private loadFiscalLabels;
     private getByIdOrFail;
     private toResponseWithPhotoUrl;
     private assertPlacaUnique;

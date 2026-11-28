@@ -3585,5 +3585,39 @@ export const SYSTEM_VERSION_RELEASES: Array<{
       }
     ],
     "releasedAt": "2026-11-27T23:54:58.721Z"
+  },
+  {
+    "releaseKey": "full:0.0.215:0.0.215-1795824835855",
+    "version": "0.0.215",
+    "buildId": "0.0.215-1795824835855",
+    "channel": "full",
+    "title": "Versión 0.0.215",
+    "changes": [
+      {
+        "scope": "frontend",
+        "message": "En el detalle de la orden, el bloque de totales ya no muestra el texto de la moneda.",
+        "module": "sales-orders",
+        "moduleLabel": "Órdenes de venta"
+      },
+      {
+        "scope": "frontend",
+        "message": "En flota se quitaron remolque, número de serie y año; carta porte se ve como CP y la sucursal muestra su nombre con el prefijo de la razón social.",
+        "module": "logistics",
+        "moduleLabel": "Logística"
+      },
+      {
+        "scope": "frontend",
+        "message": "En el detalle de la orden, el bloque de fechas ya no lleva título y las filas quedan más compactas.",
+        "module": "sales-orders",
+        "moduleLabel": "Órdenes de venta"
+      },
+      {
+        "scope": "frontend",
+        "message": "En pantallas anchas el detalle de la orden deja de crecer y la tabla de productos se queda en un ancho fijo para seguir las filas.",
+        "module": "sales-orders",
+        "moduleLabel": "Órdenes de venta"
+      }
+    ],
+    "releasedAt": "2026-11-28T00:13:55.855Z"
   }
 ];

@@ -27,6 +27,21 @@ function driverName(driver) {
     const name = [driver.first_name, driver.last_name].filter(Boolean).join(' ').trim();
     return name || driver.email?.trim() || null;
 }
+function rawText(row, ...keys) {
+    const index = new Map();
+    for (const [key, value] of Object.entries(row)) {
+        index.set(key.toLowerCase(), value);
+    }
+    for (const key of keys) {
+        const value = index.get(key.toLowerCase());
+        if (value == null)
+            continue;
+        const text = String(value).trim();
+        if (text)
+            return text;
+    }
+    return null;
+}
 function shippingDay(value) {
     if (!value)
         return null;
@@ -206,15 +221,48 @@ let TrucksService = class TrucksService {
                 busy.set(row.truck_id, row);
             }
         }
+        const fiscalByBranch = await this.loadFiscalLabels(withPhoto
+            .map((truck) => truck.default_billing_branch_id)
+            .filter((id) => !!id), tenantId);
         return withPhoto.map((truck) => {
             const shipping = busy.get(truck.id);
+            const fiscal = truck.default_billing_branch_id
+                ? fiscalByBranch.get(truck.default_billing_branch_id)
+                : undefined;
             return Object.assign(truck, {
                 active_shipping_id: shipping?.id ?? null,
                 active_shipping_status: shipping?.status ?? null,
                 active_shipping_date: shipping ? shippingDay(shipping.shipping_date) : null,
                 active_shipping_driver_name: shipping ? driverName(shipping.driver) : null,
+                default_billing_fiscal_prefix: fiscal?.prefix ?? null,
+                default_billing_razon_social: fiscal?.razonSocial ?? null,
             });
         });
+    }
+    async loadFiscalLabels(branchIds, tenantId) {
+        const ids = [...new Set(branchIds)];
+        const labels = new Map();
+        if (!ids.length)
+            return labels;
+        const rows = await this.branchRepo
+            .createQueryBuilder('branch')
+            .innerJoin('branch.fiscal_configuration', 'fiscal')
+            .select('branch.id', 'id')
+            .addSelect('fiscal.prefix', 'prefix')
+            .addSelect('fiscal.razon_social', 'razon_social')
+            .where('branch.id IN (:...ids)', { ids })
+            .andWhere('fiscal.tenant_id = :tenantId', { tenantId })
+            .getRawMany();
+        for (const row of rows) {
+            const id = rawText(row, 'id', 'branch_id');
+            if (!id)
+                continue;
+            labels.set(id, {
+                prefix: rawText(row, 'prefix', 'fiscal_prefix'),
+                razonSocial: rawText(row, 'razon_social', 'fiscal_razon_social'),
+            });
+        }
+        return labels;
     }
     async getByIdOrFail(id, tenantId) {
         const truck = await this.repo.findOne({
@@ -235,6 +283,7 @@ let TrucksService = class TrucksService {
             ...truck,
             photo,
             default_billing_branch_name: truck.default_billing_branch?.code?.trim() || null,
+            default_billing_branch_prefix: truck.default_billing_branch?.prefix?.trim() || null,
             carta_porte_ready: check.ready,
             carta_porte_missing: check.missing,
         };

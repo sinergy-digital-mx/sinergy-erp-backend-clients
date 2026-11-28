@@ -12,6 +12,13 @@ No hay solicitudes pendientes de deploy.
 
 ### Noviembre 2026
 
+#### Versión 0.0.215 · 27 nov
+
+- Órdenes de venta · En el detalle de la orden, el bloque de totales ya no muestra el texto de la moneda.
+- Logística · En flota se quitaron remolque, número de serie y año; carta porte se ve como CP y la sucursal muestra su nombre con el prefijo de la razón social.
+- Órdenes de venta · En el detalle de la orden, el bloque de fechas ya no lleva título y las filas quedan más compactas.
+- Órdenes de venta · En pantallas anchas el detalle de la orden deja de crecer y la tabla de productos se queda en un ancho fijo para seguir las filas.
+
 #### Versión 0.0.214 · 27 nov
 
 - Órdenes de venta · En el detalle, vendedor y comisionado muestran solo el nombre y el cambio es un icono de lápiz junto al nombre.
